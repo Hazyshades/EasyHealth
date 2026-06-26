@@ -1,0 +1,9 @@
+{
+  "biomarkers": [
+  { "key": "hba1c", "name": "HbA1c", "value": 5.9, "unit": "%", "ref_low": 4.0, "ref_high": 5.6 },
+  { "key": "tsh", "name": "TSH", "value": 2.1, "unit": "mIU/L", "ref_low": 0.4, "ref_high": 4.0 },
+  { "key": "ldl", "name": "LDL Cholesterol", "value": 118, "unit": "mg/dL", "ref_low": null, "ref_high": 100 }
+  ],
+  "lab_name": "Demo Laboratory",
+  "observed_at": "2026-03-15"
+}
