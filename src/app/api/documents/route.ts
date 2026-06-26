@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isDocumentType } from "@/lib/health-systems";
+import { getEligibleDocumentIds } from "@/lib/reports";
 
 export async function GET(req: NextRequest) {
   const profileId = await getSessionProfileId();
@@ -10,6 +11,7 @@ export async function GET(req: NextRequest) {
   }
 
   const typeParam = req.nextUrl.searchParams.get("type");
+  const eligibleOnly = req.nextUrl.searchParams.get("eligible_for_report") === "1";
   const supabase = createAdminClient();
 
   let query = supabase
@@ -25,6 +27,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Invalid document type" }, { status: 400 });
     }
     query = query.eq("document_type", typeParam);
+  }
+
+  if (eligibleOnly) {
+    const eligibleIds = await getEligibleDocumentIds(profileId);
+    if (eligibleIds.length === 0) {
+      return NextResponse.json({ documents: [] });
+    }
+    query = query.in("id", eligibleIds);
   }
 
   const { data: documents, error } = await query;

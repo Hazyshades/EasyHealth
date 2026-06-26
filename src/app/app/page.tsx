@@ -66,7 +66,7 @@ export default function DashboardPage() {
           <div className="rounded-xl border bg-white p-6 shadow-sm">
             <p className="text-sm text-muted-foreground">Reports</p>
             <Button asChild variant="secondary" className="mt-3 w-full">
-              <Link href="/app/summary">Doctor summary - $0.05</Link>
+              <Link href="/app/reports">Health reports - $0.05</Link>
             </Button>
           </div>
         </div>

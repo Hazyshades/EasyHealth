@@ -78,7 +78,7 @@ export default function LandingPage() {
             <Link href="/app/biomarkers">Biomarkers</Link>
           </Button>
           <Button asChild size="lg" variant="outline">
-            <Link href="/app/summary">Doctor summary - $0.05</Link>
+            <Link href="/app/reports">Health reports - $0.05</Link>
           </Button>
         </div>
 

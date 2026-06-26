@@ -21,7 +21,7 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   },
   {
     title: "REPORTS",
-    items: [{ href: "/app/summary", label: "Doctor summary" }],
+    items: [{ href: "/app/reports", label: "Health reports" }],
   },
 ];
 
