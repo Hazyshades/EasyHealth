@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { withGateway } from "@/lib/x402";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ensureLabDocumentsBucket, LAB_DOCUMENTS_BUCKET } from "@/lib/supabase/storage";
 import { extractBiomarkersFromFile } from "@/lib/extract-biomarkers";
 import { upsertObservations } from "@/lib/upsert-observations";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
+import { isDocumentType } from "@/lib/health-systems";
 
 const ALLOWED_TYPES = new Set([
   "application/pdf",
@@ -21,6 +23,15 @@ async function handler(req: NextRequest, _payment: import("@/lib/x402").SettledP
 
   const formData = await req.formData();
   const file = formData.get("file");
+  const documentTypeRaw = formData.get("document_type");
+  const documentType =
+    typeof documentTypeRaw === "string" && isDocumentType(documentTypeRaw)
+      ? documentTypeRaw
+      : "lab";
+
+  if (documentType === "dicom") {
+    return NextResponse.json({ error: "DICOM upload is not available yet" }, { status: 400 });
+  }
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "Missing file" }, { status: 400 });
@@ -36,11 +47,18 @@ async function handler(req: NextRequest, _payment: import("@/lib/x402").SettledP
   }
 
   const supabase = createAdminClient();
+  try {
+    await ensureLabDocumentsBucket(supabase);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Storage setup failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+
   const buffer = Buffer.from(await file.arrayBuffer());
   const storagePath = `${profileId}/${crypto.randomUUID()}-${file.name}`;
 
   const { error: uploadError } = await supabase.storage
-    .from("lab-documents")
+    .from(LAB_DOCUMENTS_BUCKET)
     .upload(storagePath, buffer, { contentType: mimeType, upsert: false });
 
   if (uploadError) {
@@ -53,6 +71,7 @@ async function handler(req: NextRequest, _payment: import("@/lib/x402").SettledP
       profile_id: profileId,
       storage_path: storagePath,
       original_filename: file.name,
+      document_type: documentType,
       status: "processing",
     })
     .select("id")

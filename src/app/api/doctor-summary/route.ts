@@ -50,7 +50,7 @@ async function handler(_req: NextRequest, _payment: import("@/lib/x402").Settled
   }));
 
   const { object } = await generateObject({
-    model: openai("gpt-4o-mini"),
+    model: openai("gpt-4o-mini"), //gpt-4.1-nano
     schema: doctorSummarySchema,
     system: SAFETY_PROMPT,
     prompt: `Create a doctor visit summary from this patient's biomarker history:\n${JSON.stringify(context, null, 2)}`,

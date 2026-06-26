@@ -30,22 +30,11 @@ export function AppHeader() {
 
   return (
     <header className="border-b bg-card">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+      <div className="flex items-center justify-between gap-4 px-4 py-3">
         <Link href="/" className="text-lg font-semibold text-teal-700">
           EasyHealth
         </Link>
-        <nav className="flex items-center gap-4 text-sm">
-          <Link href="/app" className="hover:underline">
-            Health card
-          </Link>
-          <Link href="/app/upload" className="hover:underline">
-            Upload
-          </Link>
-          <Link href="/app/summary" className="hover:underline">
-            Doctor summary
-          </Link>
-        </nav>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-end gap-3 text-xs text-muted-foreground">
           {walletAddress && (
             <>
               <span title={walletAddress}>Wallet: {short}</span>

@@ -20,7 +20,7 @@ export default function LandingPage() {
         <span className="text-xl font-bold text-teal-800">EasyHealth</span>
         {profileId ? (
           <Button asChild>
-            <Link href="/app">Open health card</Link>
+            <Link href="/app">Open dashboard</Link>
           </Button>
         ) : (
           <Button
@@ -53,7 +53,7 @@ export default function LandingPage() {
         <div className="mt-10 flex flex-wrap justify-center gap-4">
           {profileId ? (
             <Button asChild size="lg">
-              <Link href="/app/upload">Upload a lab - $0.01</Link>
+              <Link href="/app/upload?type=lab">Upload a lab - $0.01</Link>
             </Button>
           ) : (
             <Button
@@ -71,6 +71,12 @@ export default function LandingPage() {
               Sign in with Google
             </Button>
           )}
+          <Button asChild size="lg" variant="outline">
+            <Link href="/app/profile">Health Profile</Link>
+          </Button>
+          <Button asChild size="lg" variant="outline">
+            <Link href="/app/biomarkers">Biomarkers</Link>
+          </Button>
           <Button asChild size="lg" variant="outline">
             <Link href="/app/summary">Doctor summary - $0.05</Link>
           </Button>
@@ -91,7 +97,7 @@ export default function LandingPage() {
             {
               step: "3",
               title: "Insights on demand",
-              text: "View your health card and buy a $0.05 doctor summary when you need it.",
+              text: "View your health profile, biomarker trends, and buy a $0.05 doctor summary when you need it.",
             },
           ].map((item) => (
             <div key={item.step} className="rounded-xl border bg-white p-6 shadow-sm">

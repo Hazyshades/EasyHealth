@@ -108,6 +108,48 @@ export async function POST(request: Request) {
         return NextResponse.json(data.data);
       }
 
+      case "createTransfer": {
+        const { userToken, walletId, destinationAddress, amount } = params;
+        if (!userToken || !walletId || !destinationAddress || !amount) {
+          return NextResponse.json(
+            { error: "Missing userToken, walletId, destinationAddress, or amount" },
+            { status: 400 }
+          );
+        }
+        const balancesData = await circleFetch(`/v1/w3s/wallets/${walletId}/balances`, {
+          method: "GET",
+          userToken,
+        });
+        const tokenBalances =
+          (balancesData.data?.tokenBalances as Array<{
+            token?: { id?: string; symbol?: string; name?: string };
+          }>) ?? [];
+        const usdcToken = tokenBalances.find((entry) => {
+          const symbol = entry.token?.symbol ?? "";
+          const name = entry.token?.name ?? "";
+          return symbol.includes("USDC") || name.includes("USDC");
+        });
+        const tokenId = usdcToken?.token?.id;
+        if (!tokenId) {
+          return NextResponse.json(
+            { error: "No USDC balance in Circle wallet. Get testnet USDC from https://faucet.circle.com" },
+            { status: 400 }
+          );
+        }
+        const data = await circleFetch("/v1/w3s/user/transactions/transfer", {
+          userToken,
+          body: {
+            idempotencyKey: crypto.randomUUID(),
+            walletId,
+            tokenId,
+            destinationAddress,
+            amounts: [String(amount)],
+            feeLevel: "MEDIUM",
+          },
+        });
+        return NextResponse.json(data.data);
+      }
+
       default:
         return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
     }

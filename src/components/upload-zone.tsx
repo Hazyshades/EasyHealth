@@ -3,11 +3,22 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { depositToGateway, payForResource } from "@/lib/payments/gateway-client";
+import { useWallet } from "@/components/wallet-provider";
+import { ensureGatewayFunded, payForResource } from "@/lib/payments/gateway-client";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
+import type { DocumentType } from "@/lib/health-systems";
 
-export function UploadZone() {
+type UploadZoneProps = {
+  documentType?: DocumentType;
+  redirectTo?: string;
+};
+
+export function UploadZone({
+  documentType = "lab",
+  redirectTo = "/app/documents",
+}: UploadZoneProps) {
   const router = useRouter();
+  const { fundGatewayWallet } = useWallet();
   const [dragging, setDragging] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -18,13 +29,13 @@ export function UploadZone() {
       setStatus("Preparing Arc Gateway payment ($0.01 USDC)…");
 
       try {
-        await depositToGateway("0.05").catch(() => {
-          /* may already have balance */
-        });
+        setStatus("Checking Gateway balance…");
+        await ensureGatewayFunded("0.02", fundGatewayWallet);
 
         setStatus("Paying and uploading…");
         const formData = new FormData();
         formData.append("file", file);
+        formData.append("document_type", documentType);
 
         const result = await payForResource(`${window.location.origin}/api/upload`, {
           method: "POST",
@@ -32,13 +43,13 @@ export function UploadZone() {
         });
 
         setStatus(`Paid ${result.formattedAmount} USDC - processing complete`);
-        setTimeout(() => router.push("/app"), 1500);
+        setTimeout(() => router.push(redirectTo), 1500);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Upload failed");
         setStatus(null);
       }
     },
-    [router]
+    [router, documentType, redirectTo, fundGatewayWallet]
   );
 
   const onDrop = useCallback(

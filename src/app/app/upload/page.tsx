@@ -1,6 +1,14 @@
+import Link from "next/link";
 import { UploadZone } from "@/components/upload-zone";
 
-export default function UploadPage() {
+type UploadPageProps = {
+  searchParams: Promise<{ type?: string }>;
+};
+
+export default async function UploadPage({ searchParams }: UploadPageProps) {
+  const params = await searchParams;
+  const documentType = params.type === "lab" ? "lab" : "lab";
+
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <div>
@@ -8,8 +16,13 @@ export default function UploadPage() {
         <p className="text-muted-foreground">
           PDF or image · $0.01 USDC per parse on Arc Network
         </p>
+        <p className="mt-2 text-sm">
+          <Link href="/app/documents" className="text-teal-700 hover:underline">
+            Back to Documents
+          </Link>
+        </p>
       </div>
-      <UploadZone />
+      <UploadZone documentType={documentType} redirectTo="/app/documents" />
     </div>
   );
 }

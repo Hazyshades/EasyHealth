@@ -26,7 +26,7 @@ function buildPaymentRequirements(price: string) {
     asset: ARC_TESTNET_USDC,
     amount: amount.toString(),
     payTo: sellerAddress,
-    maxTimeoutSeconds: 345600,
+    maxTimeoutSeconds: 604900,
     extra: {
       name: "GatewayWalletBatched",
       version: "1",
@@ -78,7 +78,11 @@ export function withGateway(
         Buffer.from(paymentSignature, "base64").toString("utf-8")
       );
 
-      const verifyResult = await facilitator.verify(paymentPayload, requirements);
+      const verifyRequirements = paymentPayload.accepted
+        ? { ...requirements, ...paymentPayload.accepted }
+        : requirements;
+
+      const verifyResult = await facilitator.verify(paymentPayload, verifyRequirements);
       if (!verifyResult.isValid) {
         return NextResponse.json(
           { error: "Payment verification failed", reason: verifyResult.invalidReason },
@@ -86,7 +90,7 @@ export function withGateway(
         );
       }
 
-      const settleResult = await facilitator.settle(paymentPayload, requirements);
+      const settleResult = await facilitator.settle(paymentPayload, verifyRequirements);
       if (!settleResult.success) {
         return NextResponse.json(
           { error: "Payment settlement failed", reason: settleResult.errorReason },

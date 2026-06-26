@@ -1,53 +1,72 @@
 import { openai } from "@ai-sdk/openai";
-import { generateObject } from "ai";
-import { extractionSchema, normalizeBiomarkerKey } from "@/lib/schemas/biomarkers";
+import { generateText } from "ai";
+import { parseJsonFromModelText, sanitizeExtraction } from "@/lib/schemas/biomarkers";
+
+const EXTRACTION_INSTRUCTIONS = `You extract laboratory biomarkers from medical lab reports.
+Respond with a single JSON object only. No markdown fences, no commentary.
+Shape:
+{
+  "lab_name": string | null,
+  "observed_at": "YYYY-MM-DD" | null,
+  "biomarkers": [
+    {
+      "key": "snake_case",
+      "name": "Human readable test name",
+      "value": number,
+      "unit": "string",
+      "ref_low": number | null,
+      "ref_high": number | null
+    }
+  ]
+}
+Rules:
+- Normalize biomarker keys to snake_case (e.g. hba1c, total_protein, wbc).
+- Use ISO date YYYY-MM-DD for observed_at when visible.
+- Include only quantitative numeric tests.
+- Skip qualitative results such as Negative/Positive.
+- For values like "< 0.20", use the numeric part as value (0.2).
+- ref_low and ref_high must be numbers when a numeric reference range is shown.
+- Do not diagnose or interpret clinically. Only extract values from the document.`;
+
+function buildUserContent(buffer: Buffer, mimeType: string, filename: string) {
+  const isPdf = mimeType === "application/pdf" || filename.toLowerCase().endsWith(".pdf");
+
+  return [
+    {
+      type: "text" as const,
+      text: `Extract all biomarkers from this lab document: ${filename}`,
+    },
+    isPdf
+      ? {
+          type: "file" as const,
+          data: buffer,
+          mediaType: "application/pdf" as const,
+        }
+      : {
+          type: "image" as const,
+          image: buffer,
+          mediaType: mimeType,
+        },
+  ];
+}
 
 export async function extractBiomarkersFromFile(
   buffer: Buffer,
   mimeType: string,
   filename: string
 ) {
-  const isPdf = mimeType === "application/pdf" || filename.toLowerCase().endsWith(".pdf");
-
-  const { object } = await generateObject({
+  const { text } = await generateText({
     model: openai("gpt-4o-mini"),
-    schema: extractionSchema,
+    maxRetries: 2,
     messages: [
-      {
-        role: "system",
-        content: `You extract laboratory biomarkers from medical lab reports.
-Return structured JSON only. Normalize biomarker keys to snake_case (e.g. hba1c, tsh, ldl).
-Use ISO date YYYY-MM-DD for observed_at when visible. If unknown, use null.
-Do not diagnose or interpret clinically - only extract values from the document.`,
-      },
+      { role: "system", content: EXTRACTION_INSTRUCTIONS },
       {
         role: "user",
-        content: [
-          {
-            type: "text",
-            text: `Extract all biomarkers from this lab document: ${filename}`,
-          },
-          isPdf
-            ? {
-                type: "file",
-                data: buffer,
-                mediaType: "application/pdf",
-              }
-            : {
-                type: "image",
-                image: buffer,
-                mediaType: mimeType,
-              },
-        ],
+        content: buildUserContent(buffer, mimeType, filename),
       },
     ],
   });
 
-  return {
-    ...object,
-    biomarkers: object.biomarkers.map((b) => ({
-      ...b,
-      key: normalizeBiomarkerKey(b.key, b.name),
-    })),
-  };
+  const raw = parseJsonFromModelText(text);
+  return sanitizeExtraction(raw);
 }

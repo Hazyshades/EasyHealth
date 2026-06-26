@@ -13,6 +13,11 @@ import { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import { SocialLoginProvider } from "@circle-fin/w3s-pw-web-sdk/dist/src/types";
 import type { LoginCompleteCallback } from "@circle-fin/w3s-pw-web-sdk/dist/src/types";
 import { env } from "@/lib/env-client";
+import { getGatewayWalletAddress } from "@/lib/payments/gateway-client";
+
+const CIRCLE_USER_TOKEN_KEY = "eh_circle_user_token";
+const CIRCLE_ENCRYPTION_KEY = "eh_circle_encryption_key";
+const CIRCLE_WALLET_ID_KEY = "eh_circle_wallet_id";
 
 type LoginResult = {
   userToken: string;
@@ -28,6 +33,7 @@ type WalletState = {
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshBalance: () => Promise<void>;
+  fundGatewayWallet: (amount: string) => Promise<void>;
 };
 
 function formatCircleLoginError(error: { code?: number; message?: string }): string {
@@ -137,6 +143,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           encryptionKey: loginResult.encryptionKey,
         });
         setUserToken(loginResult.userToken);
+        window.sessionStorage.setItem(CIRCLE_USER_TOKEN_KEY, loginResult.userToken);
+        window.sessionStorage.setItem(CIRCLE_ENCRYPTION_KEY, loginResult.encryptionKey);
 
         const initRes = await fetch("/api/circle", {
           method: "POST",
@@ -180,6 +188,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         if (!wallet?.address) throw new Error("No wallet found");
 
         setWalletId(wallet.id);
+        window.sessionStorage.setItem(CIRCLE_WALLET_ID_KEY, wallet.id);
         await establishSession(wallet.address, wallet.id);
         await loadUsdcBalance();
       } finally {
@@ -188,6 +197,46 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       }
     },
     [establishSession, loadUsdcBalance]
+  );
+
+  const fundGatewayWallet = useCallback(
+    async (amount: string) => {
+      const sdk = sdkRef.current;
+      if (!sdk || !userToken || !walletId) {
+        throw new Error("Sign in again to fund your Gateway payment wallet.");
+      }
+
+      const destinationAddress = getGatewayWalletAddress();
+      const res = await fetch("/api/circle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "createTransfer",
+          userToken,
+          walletId,
+          destinationAddress,
+          amount,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error ?? "Failed to start USDC transfer");
+      }
+      if (!data.challengeId) {
+        throw new Error("Circle transfer challenge missing");
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        sdk.execute(data.challengeId, (error) => {
+          if (error) {
+            reject(new Error(error.message ?? "Transfer rejected"));
+          } else {
+            resolve();
+          }
+        });
+      });
+    },
+    [userToken, walletId]
   );
 
   useEffect(() => {
@@ -225,6 +274,20 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       },
       onLoginComplete
     );
+
+    const storedUserToken = window.sessionStorage.getItem(CIRCLE_USER_TOKEN_KEY);
+    const storedEncryptionKey = window.sessionStorage.getItem(CIRCLE_ENCRYPTION_KEY);
+    const storedWalletId = window.sessionStorage.getItem(CIRCLE_WALLET_ID_KEY);
+    if (storedUserToken && storedEncryptionKey) {
+      sdkRef.current.setAuthentication({
+        userToken: storedUserToken,
+        encryptionKey: storedEncryptionKey,
+      });
+      setUserToken(storedUserToken);
+      if (storedWalletId) {
+        setWalletId(storedWalletId);
+      }
+    }
 
     fetch("/api/biomarkers")
       .then((r) => (r.ok ? r.json() : null))
@@ -282,6 +345,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     await fetch("/api/auth/session", { method: "DELETE" });
+    window.sessionStorage.removeItem(CIRCLE_USER_TOKEN_KEY);
+    window.sessionStorage.removeItem(CIRCLE_ENCRYPTION_KEY);
+    window.sessionStorage.removeItem(CIRCLE_WALLET_ID_KEY);
     setWalletAddress(null);
     setProfileId(null);
     setUsdcBalance(null);
@@ -301,6 +367,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         signInWithGoogle,
         signOut,
         refreshBalance,
+        fundGatewayWallet,
       }}
     >
       {children}

@@ -1,88 +1,76 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { BiomarkerTable } from "@/components/biomarker-table";
-import { BiomarkerChart } from "@/components/biomarker-chart";
-import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 
-type Observation = {
+type Document = {
   id: string;
-  name: string;
-  biomarker_key: string;
-  value: number;
-  unit: string;
-  ref_low: number | null;
-  ref_high: number | null;
-  observed_at: string;
-  documents?: { original_filename: string } | null;
+  status: string;
 };
 
-export default function HealthCardPage() {
-  const [observations, setObservations] = useState<Observation[]>([]);
-  const [selectedKey, setSelectedKey] = useState<string>("");
+export default function DashboardPage() {
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/biomarkers")
+    fetch("/api/documents")
       .then((r) => r.json())
-      .then((data) => {
-        const obs = data.observations ?? [];
-        setObservations(obs);
-        const hba1c = obs.find((o: Observation) => o.biomarker_key === "hba1c");
-        setSelectedKey(hba1c?.biomarker_key ?? obs[0]?.biomarker_key ?? "");
-      });
+      .then((data) => setDocuments(data.documents ?? []))
+      .finally(() => setLoading(false));
   }, []);
 
-  const keys = useMemo(
-    () => [...new Set(observations.map((o) => o.biomarker_key))],
-    [observations]
-  );
-
-  const selectedName =
-    observations.find((o) => o.biomarker_key === selectedKey)?.name ?? selectedKey;
-
-  const chartData = observations
-    .filter((o) => o.biomarker_key === selectedKey)
-    .map((o) => ({ observed_at: o.observed_at, value: Number(o.value) }));
+  const completed = documents.filter((d) => d.status === "completed").length;
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold">Your health card</h1>
-        <p className="text-muted-foreground">Biomarkers extracted from your uploaded labs</p>
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <p className="text-muted-foreground">
+          Your personal health record at a glance
+        </p>
       </div>
 
-      <BiomarkerTable observations={observations} />
-
-      <div className="space-y-4">
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-medium">Trend chart</span>
-          <Select value={selectedKey} onValueChange={setSelectedKey}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Select biomarker" />
-            </SelectTrigger>
-            <SelectContent>
-              {keys.map((key) => {
-                const name = observations.find((o) => o.biomarker_key === key)?.name ?? key;
-                return (
-                  <SelectItem key={key} value={key}>
-                    {name}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : completed === 0 ? (
+        <div className="rounded-xl border bg-white p-8 text-center shadow-sm">
+          <h2 className="text-lg font-semibold">No lab records yet</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Upload your first lab to extract biomarkers and build your health profile.
+          </p>
+          <Button asChild className="mt-4">
+            <Link href="/app/upload">Upload your lab - $0.01</Link>
+          </Button>
         </div>
-        <BiomarkerChart data={chartData} biomarkerName={selectedName} />
-      </div>
-
-      <p className="text-xs text-muted-foreground">{MEDICAL_DISCLAIMER}</p>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border bg-white p-6 shadow-sm">
+            <p className="text-sm text-muted-foreground">Completed records</p>
+            <p className="mt-1 text-3xl font-bold">{completed}</p>
+          </div>
+          <div className="rounded-xl border bg-white p-6 shadow-sm">
+            <p className="text-sm text-muted-foreground">Quick links</p>
+            <div className="mt-3 flex flex-col gap-2 text-sm">
+              <Link href="/app/profile" className="text-teal-700 hover:underline">
+                View Health Profile
+              </Link>
+              <Link href="/app/biomarkers" className="text-teal-700 hover:underline">
+                View Biomarkers
+              </Link>
+              <Link href="/app/documents" className="text-teal-700 hover:underline">
+                Browse Documents
+              </Link>
+            </div>
+          </div>
+          <div className="rounded-xl border bg-white p-6 shadow-sm">
+            <p className="text-sm text-muted-foreground">Reports</p>
+            <Button asChild variant="secondary" className="mt-3 w-full">
+              <Link href="/app/summary">Doctor summary - $0.05</Link>
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

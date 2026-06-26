@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { depositToGateway, payForResource } from "@/lib/payments/gateway-client";
+import { ensureGatewayFunded, payForResource } from "@/lib/payments/gateway-client";
+import { useWallet } from "@/components/wallet-provider";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 
 type Summary = {
@@ -15,6 +16,7 @@ type Summary = {
 };
 
 export default function SummaryPage() {
+  const { fundGatewayWallet } = useWallet();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -24,7 +26,7 @@ export default function SummaryPage() {
     setLoading(true);
     setError(null);
     try {
-      await depositToGateway("0.1").catch(() => undefined);
+      await ensureGatewayFunded("0.06", fundGatewayWallet);
       const result = await payForResource(`${window.location.origin}/api/doctor-summary`, {
         method: "POST",
       });
