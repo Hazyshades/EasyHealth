@@ -138,16 +138,26 @@ export function normalizeBiomarkerKey(key: string, name: string): string {
     .replace(/_+/g, "_");
 }
 
+export const MEDICAL_DISCLAIMER =
+  "This is not medical advice. Consult a healthcare professional.";
+
+/** Permissive schema for LLM structured output; disclaimer is injected server-side. */
+export const doctorSummaryGenerationSchema = z.object({
+  overview: z.string().min(1),
+  key_findings: z.array(z.string()).default([]),
+  changes: z.array(z.string()).default([]),
+  questions_for_clinician: z.array(z.string()).default([]),
+  when_to_seek_care: z.string().min(1),
+  disclaimer: z.string().optional(),
+});
+
 export const doctorSummarySchema = z.object({
   overview: z.string(),
   key_findings: z.array(z.string()),
   changes: z.array(z.string()),
   questions_for_clinician: z.array(z.string()),
   when_to_seek_care: z.string(),
-  disclaimer: z.literal("This is not medical advice. Consult a healthcare professional."),
+  disclaimer: z.literal(MEDICAL_DISCLAIMER),
 });
 
 export type DoctorSummary = z.infer<typeof doctorSummarySchema>;
-
-export const MEDICAL_DISCLAIMER =
-  "This is not medical advice. Consult a healthcare professional.";

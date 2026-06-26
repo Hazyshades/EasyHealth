@@ -1,5 +1,5 @@
-/** Framed viewBox for silhouette + side badges (raw path coordinates, no extra transform). */
-export const BODY_MAP_VIEWBOX = "142 52 178 252";
+/** Framed viewBox for silhouette + evenly spaced side badges. */
+export const BODY_MAP_VIEWBOX = "118 48 224 268";
 
 export function BodySilhouette() {
   return (

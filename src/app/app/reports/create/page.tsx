@@ -52,6 +52,8 @@ export default function CreateReportPage() {
   const [loadingDocs, setLoadingDocs] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[] | null>(null);
+  const [abnormalOnly, setAbnormalOnly] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paidAmount, setPaidAmount] = useState<string | null>(null);
@@ -89,6 +91,7 @@ export default function CreateReportPage() {
         report_type: reportType,
         detail_level: detailLevel,
         document_ids: selectedIds,
+        abnormal_only: abnormalOnly,
       };
 
       const result = await payForResource(`${window.location.origin}/api/reports`, {
@@ -285,6 +288,27 @@ export default function CreateReportPage() {
                 );
               })}
             </ul>
+            <div className="border-t p-4">
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 text-sm font-medium text-slate-800"
+                onClick={() => setSettingsOpen((o) => !o)}
+              >
+                <span className={settingsOpen ? "rotate-90" : ""}>›</span>
+                Additional settings
+              </button>
+              {settingsOpen && (
+                <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={abnormalOnly}
+                    onChange={(e) => setAbnormalOnly(e.target.checked)}
+                  />
+                  <span>Include only out-of-range indicators</span>
+                </label>
+              )}
+            </div>
             <div className="flex justify-end gap-2 border-t p-4">
               <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>
                 Cancel

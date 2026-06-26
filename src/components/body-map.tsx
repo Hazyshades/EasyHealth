@@ -2,15 +2,26 @@
 
 import { useState } from "react";
 import {
-  BODY_MAP_LAYOUT,
+  resolveBodyMapLayout,
   type BodySystemId,
   type SystemInsight,
 } from "@/lib/health-systems";
 import { BodySilhouette, BODY_MAP_VIEWBOX } from "@/components/body-silhouette";
 import { cn } from "@/lib/utils";
 
-const MAP_CENTER = { x: 231, y: 178 };
-const MAP_SCALE = 0.9;
+const MAP_CENTER = { x: 231, y: 182 };
+const MAP_SCALE = 0.88;
+
+function connectorPath(
+  badgeX: number,
+  badgeY: number,
+  anchorX: number,
+  anchorY: number,
+  side: "left" | "right"
+): string {
+  const bendX = side === "left" ? badgeX + (anchorX - badgeX) * 0.65 : badgeX - (badgeX - anchorX) * 0.65;
+  return `M ${badgeX} ${badgeY} Q ${bendX} ${badgeY} ${anchorX} ${anchorY}`;
+}
 
 function coverageColor(coverage: number): string {
   if (coverage >= 70) return "fill-emerald-500 stroke-emerald-600";
@@ -32,6 +43,7 @@ type BodyMapProps = {
 export function BodyMap({ systems, overallCoverage }: BodyMapProps) {
   const [selectedId, setSelectedId] = useState<BodySystemId | null>(null);
   const selected = systems.find((s) => s.id === selectedId) ?? null;
+  const layouts = resolveBodyMapLayout(systems.map((s) => s.id));
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
@@ -48,16 +60,14 @@ export function BodyMap({ systems, overallCoverage }: BodyMapProps) {
             <BodySilhouette />
 
             {systems.map((system) => {
-            const layout = BODY_MAP_LAYOUT[system.id];
+            const layout = layouts.get(system.id);
             if (!layout) return null;
             const active = selectedId === system.id;
             return (
               <g key={system.id}>
-                <line
-                  x1={layout.x}
-                  y1={layout.y}
-                  x2={layout.anchorX}
-                  y2={layout.anchorY}
+                <path
+                  d={connectorPath(layout.x, layout.y, layout.anchorX, layout.anchorY, layout.side)}
+                  fill="none"
                   className="stroke-slate-300"
                   strokeWidth="0.8"
                   strokeDasharray="3 3"
@@ -150,7 +160,7 @@ export function BodyMap({ systems, overallCoverage }: BodyMapProps) {
         {!selected && systems.length > 0 && (
           <ul className="mt-4 space-y-1 text-sm">
             {systems.map((system) => {
-              const layout = BODY_MAP_LAYOUT[system.id];
+              const layout = layouts.get(system.id);
               return (
                 <li key={system.id}>
                   <button

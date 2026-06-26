@@ -201,16 +201,82 @@ export function buildHealthProfile(
   };
 }
 
-export const BODY_MAP_LAYOUT: Record<
-  BodySystemId,
-  { x: number; y: number; anchorX: number; anchorY: number; label: string } | null
-> = {
-  cardiovascular: { x: 168, y: 132, anchorX: 205, anchorY: 152, label: "Heart" },
-  blood: { x: 168, y: 172, anchorX: 225, anchorY: 152, label: "Blood" },
-  thyroid: { x: 231, y: 68, anchorX: 225, anchorY: 88, label: "Thyroid" },
-  liver: { x: 292, y: 152, anchorX: 248, anchorY: 168, label: "Liver" },
-  metabolic: { x: 292, y: 192, anchorX: 248, anchorY: 198, label: "Metabolic" },
-  kidney: { x: 168, y: 212, anchorX: 210, anchorY: 205, label: "Kidney" },
-  vitamins: { x: 168, y: 252, anchorX: 215, anchorY: 230, label: "Nutrients" },
-  general: { x: 292, y: 252, anchorX: 225, anchorY: 255, label: "General" },
+export type BodyMapAnchor = {
+  anchorX: number;
+  anchorY: number;
+  label: string;
+  side: "left" | "right";
 };
+
+/** Anatomical anchor on the silhouette; badge x/y are computed for even column spacing. */
+export const BODY_MAP_ANCHORS: Record<BodySystemId, BodyMapAnchor> = {
+  cardiovascular: { anchorX: 205, anchorY: 148, label: "Heart", side: "left" },
+  blood: { anchorX: 218, anchorY: 158, label: "Blood", side: "left" },
+  thyroid: { anchorX: 225, anchorY: 92, label: "Thyroid", side: "left" },
+  kidney: { anchorX: 212, anchorY: 208, label: "Kidney", side: "left" },
+  vitamins: { anchorX: 215, anchorY: 232, label: "Nutrients", side: "left" },
+  liver: { anchorX: 248, anchorY: 168, label: "Liver", side: "right" },
+  metabolic: { anchorX: 248, anchorY: 198, label: "Metabolic", side: "right" },
+  general: { anchorX: 238, anchorY: 252, label: "General", side: "right" },
+};
+
+const BODY_MAP_LEFT_X = 158;
+const BODY_MAP_RIGHT_X = 304;
+const BODY_MAP_COLUMN_TOP = 118;
+const BODY_MAP_COLUMN_BOTTOM = 248;
+
+function columnYPositions(count: number): number[] {
+  if (count === 0) return [];
+  if (count === 1) return [(BODY_MAP_COLUMN_TOP + BODY_MAP_COLUMN_BOTTOM) / 2];
+  const step = (BODY_MAP_COLUMN_BOTTOM - BODY_MAP_COLUMN_TOP) / (count - 1);
+  return Array.from({ length: count }, (_, i) => BODY_MAP_COLUMN_TOP + i * step);
+}
+
+function sortByAnchorY(ids: BodySystemId[]): BodySystemId[] {
+  return [...ids].sort(
+    (a, b) => BODY_MAP_ANCHORS[a].anchorY - BODY_MAP_ANCHORS[b].anchorY
+  );
+}
+
+function splitIntoColumns(systemIds: BodySystemId[]): {
+  left: BodySystemId[];
+  right: BodySystemId[];
+} {
+  const left: BodySystemId[] = [];
+  const right: BodySystemId[] = [];
+
+  for (const id of systemIds) {
+    const preferred = BODY_MAP_ANCHORS[id].side;
+    if (preferred === "left") {
+      if (left.length <= right.length) left.push(id);
+      else right.push(id);
+    } else if (right.length <= left.length) {
+      right.push(id);
+    } else {
+      left.push(id);
+    }
+  }
+
+  return { left: sortByAnchorY(left), right: sortByAnchorY(right) };
+}
+
+export type BodyMapLayout = BodyMapAnchor & { x: number; y: number };
+
+/** Even left/right columns with shared vertical rhythm (reference body-map infographic). */
+export function resolveBodyMapLayout(systemIds: BodySystemId[]): Map<BodySystemId, BodyMapLayout> {
+  const { left: leftIds, right: rightIds } = splitIntoColumns(systemIds);
+  const leftYs = columnYPositions(leftIds.length);
+  const rightYs = columnYPositions(rightIds.length);
+  const layouts = new Map<BodySystemId, BodyMapLayout>();
+
+  leftIds.forEach((id, index) => {
+    const anchor = BODY_MAP_ANCHORS[id];
+    layouts.set(id, { ...anchor, side: "left", x: BODY_MAP_LEFT_X, y: leftYs[index]! });
+  });
+  rightIds.forEach((id, index) => {
+    const anchor = BODY_MAP_ANCHORS[id];
+    layouts.set(id, { ...anchor, side: "right", x: BODY_MAP_RIGHT_X, y: rightYs[index]! });
+  });
+
+  return layouts;
+}

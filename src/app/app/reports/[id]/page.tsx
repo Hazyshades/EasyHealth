@@ -18,6 +18,7 @@ type ReportDetail = {
   title: string;
   report_type: ReportType;
   detail_level: DetailLevel;
+  abnormal_only: boolean;
   content: ReportContent;
   created_at: string;
 };
@@ -74,6 +75,11 @@ export default function ReportDetailPage() {
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Badge variant="secondary">{REPORT_TYPE_LABELS[report.report_type]}</Badge>
             <Badge variant="outline">{DETAIL_LEVEL_LABELS[report.detail_level]}</Badge>
+            {report.abnormal_only && (
+              <Badge variant="outline" className="border-amber-300 text-amber-800">
+                Out-of-range only
+              </Badge>
+            )}
             <span className="text-sm text-muted-foreground">{formatDate(report.created_at)}</span>
           </div>
         </div>

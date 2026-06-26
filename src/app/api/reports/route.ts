@@ -4,29 +4,89 @@ import { generateObject } from "ai";
 import { withGateway } from "@/lib/x402";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { doctorSummarySchema } from "@/lib/schemas/biomarkers";
-import { createReportBodySchema, buildReportSystemPrompt } from "@/lib/report-prompts";
+import { doctorSummaryGenerationSchema } from "@/lib/schemas/biomarkers";
+import {
+  buildReportSystemPrompt,
+  createReportBodySchema,
+  isReportRange,
+  isReportType,
+  type ReportRange,
+} from "@/lib/report-prompts";
 import {
   buildReportContext,
   buildSummaryPreview,
+  filterAbnormalObservations,
   getEligibleDocumentIds,
   withDisclaimer,
 } from "@/lib/reports";
 
-export async function GET() {
+function sanitizeSearchTerm(value: string): string {
+  return value.replace(/[%_,]/g, "").trim();
+}
+
+function rangeStartDate(range: ReportRange): string | null {
+  const now = new Date();
+  if (range === "all") return null;
+  if (range === "30d") {
+    const d = new Date(now);
+    d.setDate(d.getDate() - 30);
+    return d.toISOString();
+  }
+  if (range === "90d") {
+    const d = new Date(now);
+    d.setDate(d.getDate() - 90);
+    return d.toISOString();
+  }
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+  return startOfYear.toISOString();
+}
+
+export async function GET(req: NextRequest) {
   const profileId = await getSessionProfileId();
   if (!profileId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
+  const rangeParam = req.nextUrl.searchParams.get("range") ?? "all";
+  const typeParam = req.nextUrl.searchParams.get("type");
+
+  if (!isReportRange(rangeParam)) {
+    return NextResponse.json({ error: "Invalid range parameter" }, { status: 400 });
+  }
+
+  if (typeParam && !isReportType(typeParam)) {
+    return NextResponse.json({ error: "Invalid type parameter" }, { status: 400 });
+  }
+
   const supabase = createAdminClient();
-  const { data: reports, error } = await supabase
+  let query = supabase
     .from("reports")
     .select(
-      "id, title, report_type, detail_level, summary_preview, created_at"
+      "id, title, report_type, detail_level, summary_preview, abnormal_only, created_at"
     )
     .eq("profile_id", profileId)
     .order("created_at", { ascending: false });
+
+  if (q) {
+    const sanitized = sanitizeSearchTerm(q);
+    if (sanitized) {
+      query = query.or(
+        `title.ilike.%${sanitized}%,summary_preview.ilike.%${sanitized}%`
+      );
+    }
+  }
+
+  const rangeStart = rangeStartDate(rangeParam);
+  if (rangeStart) {
+    query = query.gte("created_at", rangeStart);
+  }
+
+  if (typeParam) {
+    query = query.eq("report_type", typeParam);
+  }
+
+  const { data: reports, error } = await query;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -56,7 +116,7 @@ async function postHandler(req: NextRequest, _payment: import("@/lib/x402").Sett
     );
   }
 
-  const { title, report_type, detail_level, document_ids } = parsed.data;
+  const { title, report_type, detail_level, document_ids, abnormal_only } = parsed.data;
   const eligibleIds = await getEligibleDocumentIds(profileId);
 
   if (eligibleIds.length === 0) {
@@ -108,14 +168,37 @@ async function postHandler(req: NextRequest, _payment: import("@/lib/x402").Sett
     );
   }
 
-  const context = buildReportContext(observations);
+  const scopedObservations = abnormal_only
+    ? filterAbnormalObservations(observations)
+    : observations;
 
-  const { object } = await generateObject({
-    model: openai("gpt-4o-mini"),
-    schema: doctorSummarySchema,
-    system: buildReportSystemPrompt(report_type, detail_level),
-    prompt: `Create a health report from this patient's biomarker history:\n${JSON.stringify(context, null, 2)}`,
-  });
+  if (abnormal_only && scopedObservations.length === 0) {
+    return NextResponse.json(
+      { error: "No out-of-range indicators found for the selected documents" },
+      { status: 400 }
+    );
+  }
+
+  const context = buildReportContext(scopedObservations);
+
+  let object;
+  try {
+    const result = await generateObject({
+      model: openai("gpt-4o-mini"),
+      schema: doctorSummaryGenerationSchema,
+      maxRetries: 2,
+      system: buildReportSystemPrompt(report_type, detail_level),
+      prompt: `Create a health report from this patient's biomarker history:\n${JSON.stringify(context, null, 2)}`,
+    });
+    object = result.object;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[reports] generateObject failed:", message);
+    return NextResponse.json(
+      { error: "Report generation failed", message },
+      { status: 500 }
+    );
+  }
 
   const content = withDisclaimer(object);
   const summary_preview = buildSummaryPreview(content.overview);
@@ -128,11 +211,12 @@ async function postHandler(req: NextRequest, _payment: import("@/lib/x402").Sett
       report_type,
       detail_level,
       document_ids: storedDocumentIds,
+      abnormal_only,
       content,
       summary_preview,
     })
     .select(
-      "id, title, report_type, detail_level, document_ids, content, summary_preview, created_at"
+      "id, title, report_type, detail_level, document_ids, abnormal_only, content, summary_preview, created_at"
     )
     .single();
 

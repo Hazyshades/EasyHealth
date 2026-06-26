@@ -56,6 +56,16 @@ export async function getEligibleDocumentIds(profileId: string): Promise<string[
   return (documents ?? []).map((d) => d.id);
 }
 
+export function isAbnormalObservation(o: Pick<ObservationRow, "value" | "ref_low" | "ref_high">): boolean {
+  if (o.ref_low != null && o.value < o.ref_low) return true;
+  if (o.ref_high != null && o.value > o.ref_high) return true;
+  return false;
+}
+
+export function filterAbnormalObservations<T extends ObservationRow>(observations: T[]): T[] {
+  return observations.filter(isAbnormalObservation);
+}
+
 export function buildReportContext(observations: ObservationRow[]): ReportContextItem[] {
   return observations.map((o) => ({
     biomarker: o.name,

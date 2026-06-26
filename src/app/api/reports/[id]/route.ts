@@ -16,7 +16,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
   const { data: report, error } = await supabase
     .from("reports")
     .select(
-      "id, title, report_type, detail_level, document_ids, content, summary_preview, created_at"
+      "id, title, report_type, detail_level, document_ids, abnormal_only, content, summary_preview, created_at"
     )
     .eq("id", id)
     .eq("profile_id", profileId)
