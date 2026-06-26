@@ -1,0 +1,58 @@
+---
+description: EasyHealth API route conventions for x402 and Supabase
+globs: src/app/api/**/*.ts
+alwaysApply: false
+---
+
+# EasyHealth API Routes
+
+## x402 paywall pattern
+
+```typescript
+// 1. x402 middleware validates payment OR returns 402
+// 2. Resolve profile from session/wallet
+// 3. Execute business logic
+// 4. Record payment_receipts row
+```
+
+- Use existing x402 middleware from starter; configure Arc Network seller wallet
+- Return 402 before any expensive LLM or storage work on unpaid requests
+
+## Extraction schema (Zod)
+
+```typescript
+{
+  lab_name: string | null,
+  observed_at: string | null, // ISO date
+  biomarkers: Array<{
+    key: string,      // snake_case e.g. "hba1c"
+    name: string,
+    value: number,
+    unit: string,
+    ref_low: number | null,
+    ref_high: number | null,
+  }>
+}
+```
+
+Single `generateObject` / structured output call per document - no multi-step pipeline.
+
+## Doctor summary response shape
+
+```typescript
+{
+  overview: string,
+  key_findings: string[],
+  changes: string[],
+  questions_for_clinician: string[],
+  when_to_seek_care: string,
+  disclaimer: "This is not medical advice. Consult a healthcare professional."
+}
+```
+
+## Error handling
+
+- 400: no biomarkers / no observations for summary
+- 402: missing x402 payment
+- 401: unauthenticated
+- 500: extraction failure - set document status `failed`, log error server-side only
