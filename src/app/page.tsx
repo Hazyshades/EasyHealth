@@ -6,10 +6,16 @@ import { Button } from "@/components/ui/button";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 
 export default function LandingPage() {
-  const { signInWithGoogle, loading, profileId } = useWallet();
+  const { signInWithGoogle, loading, profileId, authError } = useWallet();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-teal-50 to-white">
+      {authError ? (
+        <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <p className="font-medium">Circle sign-in error</p>
+          <pre className="mt-2 whitespace-pre-wrap font-sans text-xs">{authError}</pre>
+        </div>
+      ) : null}
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-6">
         <span className="text-xl font-bold text-teal-800">EasyHealth</span>
         {profileId ? (
@@ -17,7 +23,17 @@ export default function LandingPage() {
             <Link href="/app">Open health card</Link>
           </Button>
         ) : (
-          <Button onClick={() => signInWithGoogle()} disabled={loading}>
+          <Button
+            onClick={async () => {
+              try {
+                await signInWithGoogle();
+              } catch (e) {
+                console.error(e);
+                alert(e instanceof Error ? e.message : "Sign-in failed");
+              }
+            }}
+            disabled={loading}
+          >
             {loading ? "Loading…" : "Get started"}
           </Button>
         )}
@@ -40,7 +56,18 @@ export default function LandingPage() {
               <Link href="/app/upload">Upload a lab - $0.01</Link>
             </Button>
           ) : (
-            <Button size="lg" onClick={() => signInWithGoogle()} disabled={loading}>
+            <Button
+              size="lg"
+              onClick={async () => {
+                try {
+                  await signInWithGoogle();
+                } catch (e) {
+                  console.error(e);
+                  alert(e instanceof Error ? e.message : "Sign-in failed");
+                }
+              }}
+              disabled={loading}
+            >
               Sign in with Google
             </Button>
           )}

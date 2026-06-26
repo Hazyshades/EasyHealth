@@ -4,21 +4,29 @@ import Link from "next/link";
 import { useWallet } from "@/components/wallet-provider";
 import { Button } from "@/components/ui/button";
 import { getGatewayBalance, getGatewayWalletAddress } from "@/lib/payments/gateway-client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export function AppHeader() {
-  const { walletAddress, usdcBalance, signOut } = useWallet();
+  const { walletAddress, usdcBalance, refreshBalance, signOut } = useWallet();
   const [gatewayBalance, setGatewayBalance] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadGatewayBalance = useCallback(() => {
     getGatewayBalance()
       .then(setGatewayBalance)
       .catch(() => setGatewayBalance("0"));
   }, []);
 
+  useEffect(() => {
+    if (!walletAddress) return;
+    void refreshBalance();
+    loadGatewayBalance();
+  }, [walletAddress, refreshBalance, loadGatewayBalance]);
+
   const short = walletAddress
     ? `${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}`
     : "";
+  const gatewayAddress = getGatewayWalletAddress();
+  const gatewayShort = `${gatewayAddress.slice(0, 6)}…${gatewayAddress.slice(-4)}`;
 
   return (
     <header className="border-b bg-card">
@@ -41,9 +49,13 @@ export function AppHeader() {
           {walletAddress && (
             <>
               <span title={walletAddress}>Wallet: {short}</span>
-              <span>USDC: {usdcBalance ?? "-"}</span>
-              <span title={getGatewayWalletAddress()}>
-                Gateway: {gatewayBalance ?? "-"} USDC
+              <span title="USDC on Arc Testnet (Circle wallet)">
+                USDC: {usdcBalance ?? "…"}
+              </span>
+              <span
+                title={`Separate wallet for x402 payments: ${gatewayAddress}. Fund it on your first payment or via faucet to this address.`}
+              >
+                Gateway ({gatewayShort}): {gatewayBalance ?? "…"} USDC
               </span>
             </>
           )}

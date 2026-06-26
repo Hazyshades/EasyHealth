@@ -1,0 +1,11 @@
+---
+description: English-only language for agent replies and user-facing copy
+alwaysApply: true
+---
+
+# English only
+
+- Write all agent replies, commit messages, PR descriptions, and code comments in **English**.
+- All user-facing UI strings (labels, errors, tooltips, alerts, disclaimers) must be in **English**.
+- Do not add Russian or other localization unless the user explicitly requests it.
+- Product positioning remains EN-first for EU/US (see `easyhealth.mdc`).

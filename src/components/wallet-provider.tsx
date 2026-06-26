@@ -8,18 +8,44 @@ import {
   useRef,
   useState,
 } from "react";
+import { setCookie, getCookie } from "cookies-next";
 import { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
+import { SocialLoginProvider } from "@circle-fin/w3s-pw-web-sdk/dist/src/types";
+import type { LoginCompleteCallback } from "@circle-fin/w3s-pw-web-sdk/dist/src/types";
 import { env } from "@/lib/env-client";
+
+type LoginResult = {
+  userToken: string;
+  encryptionKey: string;
+};
 
 type WalletState = {
   loading: boolean;
   walletAddress: string | null;
   usdcBalance: string | null;
   profileId: string | null;
+  authError: string | null;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshBalance: () => Promise<void>;
 };
+
+function formatCircleLoginError(error: { code?: number; message?: string }): string {
+  if (error.code === 155140) {
+    return [
+      "Google Client ID does not match your Circle Console settings.",
+      "",
+      "1. Open console.circle.com → Wallets → User Controlled → Configurator",
+      "2. Authentication Methods → Social Logins → Google",
+      `3. In Client ID (Web), paste exactly: ${env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}`,
+      `4. App ID in .env must match Configurator: ${env.NEXT_PUBLIC_CIRCLE_APP_ID}`,
+      "5. CIRCLE_API_KEY must be from the same Circle account",
+      "",
+      `Redirect URI in Google Console: ${typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"}`,
+    ].join("\n");
+  }
+  return error.message ?? "Circle social login failed";
+}
 
 const WalletContext = createContext<WalletState | null>(null);
 
@@ -29,43 +55,53 @@ export function useWallet() {
   return ctx;
 }
 
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        oauth2: {
-          initTokenClient: (config: {
-            client_id: string;
-            scope: string;
-            callback: (response: { access_token?: string; error?: string }) => void;
-          }) => { requestAccessToken: () => void };
-        };
-      };
-    };
-  }
-}
-
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const sdkRef = useRef<W3SSdk | null>(null);
+  const completingLoginRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [usdcBalance, setUsdcBalance] = useState<string | null>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [userToken, setUserToken] = useState<string | null>(null);
   const [walletId, setWalletId] = useState<string | null>(null);
 
-  const refreshBalance = useCallback(async () => {
-    if (!userToken || !walletId) return;
-    const res = await fetch("/api/circle", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "getTokenBalance", userToken, walletId }),
-    });
+  const fetchWalletBalance = useCallback(async () => {
+    const res = await fetch("/api/wallet/balance");
+    if (!res.ok) {
+      setUsdcBalance("0");
+      return;
+    }
     const data = await res.json();
-    const balances = (data.tokenBalances as Array<{ token?: { symbol?: string }; amount?: string }>) ?? [];
-    const usdc = balances.find((t) => t.token?.symbol?.includes("USDC"));
-    setUsdcBalance(usdc?.amount ?? "0");
-  }, [userToken, walletId]);
+    setUsdcBalance(data.balance ?? "0");
+  }, []);
+
+  const refreshBalance = useCallback(async () => {
+    if (userToken && walletId) {
+      const res = await fetch("/api/circle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "getTokenBalance", userToken, walletId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const balances =
+          (data.tokenBalances as Array<{ token?: { symbol?: string; name?: string }; amount?: string }>) ??
+          [];
+        const usdc =
+          balances.find((t) => {
+            const symbol = t.token?.symbol ?? "";
+            const name = t.token?.name ?? "";
+            return symbol.includes("USDC") || name.includes("USDC");
+          }) ?? null;
+        if (usdc?.amount != null) {
+          setUsdcBalance(usdc.amount);
+          return;
+        }
+      }
+    }
+    await fetchWalletBalance();
+  }, [userToken, walletId, fetchWalletBalance]);
 
   const establishSession = useCallback(
     async (address: string, circleWalletId?: string) => {
@@ -82,10 +118,113 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const loadUsdcBalance = useCallback(async () => {
+    await fetchWalletBalance();
+  }, [fetchWalletBalance]);
+
+  const completeLoginFlow = useCallback(
+    async (loginResult: LoginResult) => {
+      if (completingLoginRef.current) return;
+      completingLoginRef.current = true;
+      setLoading(true);
+
+      try {
+        const sdk = sdkRef.current;
+        if (!sdk) throw new Error("Wallet SDK not ready");
+
+        sdk.setAuthentication({
+          userToken: loginResult.userToken,
+          encryptionKey: loginResult.encryptionKey,
+        });
+        setUserToken(loginResult.userToken);
+
+        const initRes = await fetch("/api/circle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "initializeUser",
+            userToken: loginResult.userToken,
+          }),
+        });
+        const initData = await initRes.json();
+
+        if (initRes.ok && initData.challengeId) {
+          await new Promise<void>((resolve, reject) => {
+            sdk.execute(initData.challengeId, (error) => {
+              if (error) {
+                reject(new Error(error.message ?? "Wallet creation failed"));
+              } else {
+                resolve();
+              }
+            });
+          });
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        } else if (!initRes.ok && initRes.status !== 409) {
+          throw new Error(initData.error ?? "Failed to initialize Circle user");
+        }
+
+        const walletsRes = await fetch("/api/circle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "getWallets",
+            userToken: loginResult.userToken,
+          }),
+        });
+        const walletsData = await walletsRes.json();
+        if (!walletsRes.ok) {
+          throw new Error(walletsData.error ?? "Failed to load wallets");
+        }
+
+        const wallet = walletsData.wallets?.[0];
+        if (!wallet?.address) throw new Error("No wallet found");
+
+        setWalletId(wallet.id);
+        await establishSession(wallet.address, wallet.id);
+        await loadUsdcBalance();
+      } finally {
+        completingLoginRef.current = false;
+        setLoading(false);
+      }
+    },
+    [establishSession, loadUsdcBalance]
+  );
+
   useEffect(() => {
-    sdkRef.current = new W3SSdk({
-      appSettings: { appId: env.NEXT_PUBLIC_CIRCLE_APP_ID },
-    });
+    const onLoginComplete: LoginCompleteCallback = (error, result) => {
+      if (error) {
+        console.error("Circle social login failed:", error);
+        setAuthError(formatCircleLoginError(error));
+        setLoading(false);
+        return;
+      }
+      setAuthError(null);
+      if (result?.userToken && result?.encryptionKey) {
+        void completeLoginFlow({
+          userToken: result.userToken,
+          encryptionKey: result.encryptionKey,
+        });
+      }
+    };
+
+    const restoredDeviceToken = (getCookie("deviceToken") as string) || "";
+    const restoredDeviceEncryptionKey = (getCookie("deviceEncryptionKey") as string) || "";
+
+    sdkRef.current = new W3SSdk(
+      {
+        appSettings: { appId: env.NEXT_PUBLIC_CIRCLE_APP_ID },
+        loginConfigs: {
+          deviceToken: restoredDeviceToken,
+          deviceEncryptionKey: restoredDeviceEncryptionKey,
+          google: {
+            clientId: env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+            redirectUri: typeof window !== "undefined" ? window.location.origin : "",
+            selectAccountPrompt: true,
+          },
+        },
+      },
+      onLoginComplete
+    );
 
     fetch("/api/biomarkers")
       .then((r) => (r.ok ? r.json() : null))
@@ -93,17 +232,21 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         if (data?.profile?.wallet_address) {
           setWalletAddress(data.profile.wallet_address);
           setProfileId(data.profile.id);
+          void fetchWalletBalance();
         }
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [completeLoginFlow, fetchWalletBalance]);
 
   const signInWithGoogle = useCallback(async () => {
-    if (!sdkRef.current) return;
+    const sdk = sdkRef.current;
+    if (!sdk) return;
+
     setLoading(true);
+    setAuthError(null);
 
     try {
-      const deviceId = await sdkRef.current.getDeviceId();
+      const deviceId = await sdk.getDeviceId();
 
       const deviceRes = await fetch("/api/circle", {
         method: "POST",
@@ -113,73 +256,29 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       const deviceData = await deviceRes.json();
       if (!deviceRes.ok) throw new Error(deviceData.error ?? "Device token failed");
 
-      const oauthToken = await new Promise<string>((resolve, reject) => {
-        if (!window.google?.accounts?.oauth2) {
-          reject(new Error("Google OAuth not loaded"));
-          return;
-        }
-        const client = window.google.accounts.oauth2.initTokenClient({
-          client_id: env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-          scope: "openid email profile",
-          callback: (response) => {
-            if (response.error || !response.access_token) {
-              reject(new Error(response.error ?? "Google sign-in failed"));
-            } else {
-              resolve(response.access_token);
-            }
-          },
-        });
-        client.requestAccessToken();
-      });
+      setCookie("deviceToken", deviceData.deviceToken);
+      setCookie("deviceEncryptionKey", deviceData.deviceEncryptionKey);
 
-      const loginRes = await fetch("/api/circle", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "socialLogin",
+      sdk.updateConfigs({
+        appSettings: { appId: env.NEXT_PUBLIC_CIRCLE_APP_ID },
+        loginConfigs: {
           deviceToken: deviceData.deviceToken,
-          deviceId,
-          oauthToken,
-        }),
+          deviceEncryptionKey: deviceData.deviceEncryptionKey,
+          google: {
+            clientId: env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+            redirectUri: window.location.origin,
+            selectAccountPrompt: true,
+          },
+        },
       });
-      const loginData = await loginRes.json();
-      if (!loginRes.ok) throw new Error(loginData.error ?? "Circle login failed");
 
-      setUserToken(loginData.userToken);
-
-      const walletsRes = await fetch("/api/circle", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "getWallets", userToken: loginData.userToken }),
-      });
-      const walletsData = await walletsRes.json();
-      const wallet = walletsData.wallets?.[0];
-      if (!wallet?.address) throw new Error("No wallet found");
-
-      setWalletId(wallet.id);
-      sdkRef.current?.setAuthentication({
-        userToken: loginData.userToken,
-        encryptionKey: loginData.encryptionKey,
-      });
-      await establishSession(wallet.address, wallet.id);
-
-      const balRes = await fetch("/api/circle", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "getTokenBalance",
-          userToken: loginData.userToken,
-          walletId: wallet.id,
-        }),
-      });
-      const balData = await balRes.json();
-      const balances = (balData.tokenBalances as Array<{ token?: { symbol?: string }; amount?: string }>) ?? [];
-      const usdc = balances.find((t) => t.token?.symbol?.includes("USDC"));
-      setUsdcBalance(usdc?.amount ?? "0");
-    } finally {
+      // Redirects to Google and back; onLoginComplete finishes wallet setup.
+      await sdk.performLogin(SocialLoginProvider.GOOGLE);
+    } catch (error) {
       setLoading(false);
+      throw error;
     }
-  }, [establishSession, refreshBalance]);
+  }, []);
 
   const signOut = useCallback(async () => {
     await fetch("/api/auth/session", { method: "DELETE" });
@@ -188,6 +287,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setUsdcBalance(null);
     setUserToken(null);
     setWalletId(null);
+    setAuthError(null);
   }, []);
 
   return (
@@ -197,12 +297,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         walletAddress,
         usdcBalance,
         profileId,
+        authError,
         signInWithGoogle,
         signOut,
         refreshBalance,
       }}
     >
-      <script src="https://accounts.google.com/gsi/client" async defer />
       {children}
     </WalletContext.Provider>
   );
