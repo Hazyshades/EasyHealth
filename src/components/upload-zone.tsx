@@ -4,7 +4,12 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/components/wallet-provider";
-import { ensureGatewayFunded, payForResource } from "@/lib/payments/gateway-client";
+import {
+  ensureGatewayFunded,
+  isPaidRequestFailedError,
+  payForResource,
+  retryWithEntitlement,
+} from "@/lib/payments/gateway-client";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 import type { DocumentType } from "@/lib/health-systems";
 
@@ -12,6 +17,13 @@ type UploadZoneProps = {
   documentType?: DocumentType;
   redirectTo?: string;
 };
+
+function buildFormData(file: File, documentType: DocumentType) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("document_type", documentType);
+  return formData;
+}
 
 export function UploadZone({
   documentType = "lab",
@@ -22,34 +34,75 @@ export function UploadZone({
   const [dragging, setDragging] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [entitlementId, setEntitlementId] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
+
+  const completeUpload = useCallback(
+    (formattedAmount: string) => {
+      setStatus(`Paid ${formattedAmount} USDC - processing complete`);
+      setEntitlementId(null);
+      setPendingFile(null);
+      setTimeout(() => router.push(redirectTo), 1500);
+    },
+    [router, redirectTo]
+  );
 
   const uploadFile = useCallback(
-    async (file: File) => {
+    async (file: File, options?: { entitlementId?: string; autoRetry?: boolean }) => {
       setError(null);
-      setStatus("Preparing Arc Gateway payment ($0.01 USDC)…");
+      setPendingFile(file);
+      setRetrying(!!options?.entitlementId);
 
       try {
+        const formData = buildFormData(file, documentType);
+
+        if (options?.entitlementId) {
+          setStatus("Retrying upload without additional charge…");
+          const result = await retryWithEntitlement(
+            `${window.location.origin}/api/upload`,
+            options.entitlementId,
+            { method: "POST", body: formData }
+          );
+          completeUpload(result.formattedAmount);
+          return;
+        }
+
+        setStatus("Preparing Arc Gateway payment ($0.01 USDC)…");
         setStatus("Checking Gateway balance…");
         await ensureGatewayFunded("0.02", fundGatewayWallet);
 
         setStatus("Paying and uploading…");
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("document_type", documentType);
-
         const result = await payForResource(`${window.location.origin}/api/upload`, {
           method: "POST",
           body: formData,
         });
 
-        setStatus(`Paid ${result.formattedAmount} USDC - processing complete`);
-        setTimeout(() => router.push(redirectTo), 1500);
+        completeUpload(result.formattedAmount);
       } catch (e) {
+        if (
+          options?.autoRetry !== false &&
+          isPaidRequestFailedError(e) &&
+          e.entitlementId &&
+          e.retryWithoutPayment
+        ) {
+          await uploadFile(file, { entitlementId: e.entitlementId, autoRetry: false });
+          return;
+        }
+
+        if (isPaidRequestFailedError(e) && e.entitlementId && e.retryWithoutPayment) {
+          setEntitlementId(e.entitlementId);
+        } else {
+          setEntitlementId(null);
+        }
+
         setError(e instanceof Error ? e.message : "Upload failed");
         setStatus(null);
+      } finally {
+        setRetrying(false);
       }
     },
-    [router, documentType, redirectTo, fundGatewayWallet]
+    [documentType, fundGatewayWallet, completeUpload]
   );
 
   const onDrop = useCallback(
@@ -95,7 +148,21 @@ export function UploadZone({
       </div>
 
       {status && <p className="text-sm text-teal-700">{status}</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <div className="space-y-2">
+          <p className="text-sm text-red-600">{error}</p>
+          {entitlementId && pendingFile && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={retrying}
+              onClick={() => uploadFile(pendingFile, { entitlementId })}
+            >
+              {retrying ? "Retrying…" : "Retry upload (no extra charge)"}
+            </Button>
+          )}
+        </div>
+      )}
       <p className="text-xs text-muted-foreground">{MEDICAL_DISCLAIMER}</p>
     </div>
   );

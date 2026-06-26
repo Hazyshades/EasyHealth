@@ -62,7 +62,10 @@ async function handler(req: NextRequest, _payment: import("@/lib/x402").SettledP
     .upload(storagePath, buffer, { contentType: mimeType, upsert: false });
 
   if (uploadError) {
-    return NextResponse.json({ error: uploadError.message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Upload processing failed", message: uploadError.message },
+      { status: 500 }
+    );
   }
 
   const { data: document, error: docError } = await supabase
@@ -78,7 +81,10 @@ async function handler(req: NextRequest, _payment: import("@/lib/x402").SettledP
     .single();
 
   if (docError) {
-    return NextResponse.json({ error: docError.message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Upload processing failed", message: docError.message },
+      { status: 500 }
+    );
   }
 
   try {
@@ -115,7 +121,7 @@ async function handler(req: NextRequest, _payment: import("@/lib/x402").SettledP
       .from("documents")
       .update({ status: "failed", error_message: message })
       .eq("id", document.id);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Upload processing failed", message }, { status: 500 });
   }
 }
 

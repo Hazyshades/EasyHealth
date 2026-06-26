@@ -221,7 +221,10 @@ async function postHandler(req: NextRequest, _payment: import("@/lib/x402").Sett
     .single();
 
   if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Report generation failed", message: insertError.message },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ ...report, paid: true });

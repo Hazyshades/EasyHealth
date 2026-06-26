@@ -3,6 +3,11 @@
 import { BatchEvmScheme, GatewayClient } from "@circle-fin/x402-batching/client";
 import { formatUnits } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { ENTITLEMENT_HEADER } from "@/lib/payment-entitlement-contract";
+import {
+  PaidRequestFailedError,
+  parseEntitlementRetryResponse,
+} from "@/lib/payments/paid-request-error";
 
 const GATEWAY_KEY_STORAGE = "eh_gateway_private_key";
 
@@ -99,10 +104,15 @@ async function payWithX402(
       };
     }
     const errorBody = await initialResponse.json().catch(() => ({}));
-    throw new Error(
-      (errorBody as { error?: string }).error ??
-        `Request failed with status ${initialResponse.status}`
-    );
+    const parsed = parseEntitlementRetryResponse(errorBody);
+    if (parsed.entitlementId && parsed.retryWithoutPayment) {
+      throw new PaidRequestFailedError(parsed.message ?? parsed.error, {
+        entitlementId: parsed.entitlementId,
+        retryWithoutPayment: true,
+        errorCode: parsed.error,
+      });
+    }
+    throw new Error(parsed.message ?? parsed.error ?? `Request failed with status ${initialResponse.status}`);
   }
 
   const paymentRequiredHeader = initialResponse.headers.get("PAYMENT-REQUIRED");
@@ -171,10 +181,18 @@ async function payWithX402(
   });
 
   if (!paidResponse.ok) {
-    const error = await paidResponse.json().catch(() => ({}));
-    const reason = (error as { reason?: string; error?: string }).reason;
-    const message = (error as { error?: string }).error ?? paidResponse.statusText;
-    throw new Error(reason ? `${message}: ${reason}` : message);
+    const errorBody = await paidResponse.json().catch(() => ({}));
+    const parsed = parseEntitlementRetryResponse(errorBody);
+    if (parsed.entitlementId && parsed.retryWithoutPayment) {
+      throw new PaidRequestFailedError(parsed.message ?? parsed.error, {
+        entitlementId: parsed.entitlementId,
+        retryWithoutPayment: true,
+        errorCode: parsed.error,
+      });
+    }
+    const reason = (errorBody as { reason?: string }).reason;
+    const message = parsed.error ?? paidResponse.statusText;
+    throw new Error(reason ? `${message}: ${reason}` : (parsed.message ?? message));
   }
 
   const data = await paidResponse.json();
@@ -242,6 +260,54 @@ export async function payForResource(
     body: options?.body,
   });
 }
+
+export async function retryWithEntitlement<T = unknown>(
+  url: string,
+  entitlementId: string,
+  options?: { method?: "GET" | "POST"; body?: unknown }
+): Promise<PayResult<T>> {
+  const method = options?.method ?? "POST";
+  const { headers: bodyHeaders, body: fetchBody } = buildFetchBody(options?.body);
+
+  const response = await fetch(url, {
+    method,
+    headers: {
+      ...bodyHeaders,
+      [ENTITLEMENT_HEADER]: entitlementId,
+    },
+    body: fetchBody,
+    credentials: "include",
+  });
+
+  if (response.status === 402) {
+    throw new Error("Retry entitlement expired or invalid. Payment required again.");
+  }
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    const parsed = parseEntitlementRetryResponse(errorBody);
+    if (parsed.entitlementId && parsed.retryWithoutPayment) {
+      throw new PaidRequestFailedError(parsed.message ?? parsed.error, {
+        entitlementId: parsed.entitlementId,
+        retryWithoutPayment: true,
+        errorCode: parsed.error,
+      });
+    }
+    throw new Error(parsed.message ?? parsed.error ?? `Request failed with status ${response.status}`);
+  }
+
+  const data = (await response.json()) as T;
+  return {
+    data,
+    amount: BigInt(0),
+    formattedAmount: "0",
+    transaction: "",
+    status: response.status,
+  };
+}
+
+export { PaidRequestFailedError, isPaidRequestFailedError } from "@/lib/payments/paid-request-error";
+export { parseEntitlementRetryResponse } from "@/lib/payment-entitlement-contract";
 
 export async function getGatewayBalance() {
   const gateway = getGatewayClient();

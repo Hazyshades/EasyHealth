@@ -12,7 +12,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ensureGatewayFunded, payForResource } from "@/lib/payments/gateway-client";
+import {
+  ensureGatewayFunded,
+  isPaidRequestFailedError,
+  payForResource,
+  retryWithEntitlement,
+} from "@/lib/payments/gateway-client";
 import { useWallet } from "@/components/wallet-provider";
 import {
   buildDefaultReportTitle,
@@ -57,6 +62,7 @@ export default function CreateReportPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paidAmount, setPaidAmount] = useState<string | null>(null);
+  const [entitlementId, setEntitlementId] = useState<string | null>(null);
 
   const loadEligibleDocs = useCallback(() => {
     setLoadingDocs(true);
@@ -75,37 +81,81 @@ export default function CreateReportPage() {
   const selectedCount =
     selectedIds === null ? eligibleDocs.length : selectedIds.length;
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function buildRequestBody() {
+    return {
+      title: title.trim(),
+      report_type: reportType,
+      detail_level: detailLevel,
+      document_ids: selectedIds,
+      abnormal_only: abnormalOnly,
+    };
+  }
+
+  async function submitReport(options?: { entitlementId?: string; autoRetry?: boolean }) {
     if (!hasEligibleDocs) return;
 
     setSubmitting(true);
     setError(null);
-    setPaidAmount(null);
+    if (!options?.entitlementId) {
+      setPaidAmount(null);
+    }
+
+    const body = buildRequestBody();
+    const url = `${window.location.origin}/api/reports`;
 
     try {
+      if (options?.entitlementId) {
+        const result = await retryWithEntitlement(url, options.entitlementId, {
+          method: "POST",
+          body,
+        });
+        setEntitlementId(null);
+        const data = result.data as { id: string };
+        router.push(`/app/reports/${data.id}`);
+        return;
+      }
+
       await ensureGatewayFunded("0.06", fundGatewayWallet);
 
-      const body = {
-        title: title.trim(),
-        report_type: reportType,
-        detail_level: detailLevel,
-        document_ids: selectedIds,
-        abnormal_only: abnormalOnly,
-      };
-
-      const result = await payForResource(`${window.location.origin}/api/reports`, {
+      const result = await payForResource(url, {
         method: "POST",
         body,
       });
 
       setPaidAmount(result.formattedAmount);
+      setEntitlementId(null);
       const data = result.data as { id: string };
       router.push(`/app/reports/${data.id}`);
     } catch (e) {
+      if (
+        options?.autoRetry !== false &&
+        isPaidRequestFailedError(e) &&
+        e.entitlementId &&
+        e.retryWithoutPayment
+      ) {
+        await submitReport({ entitlementId: e.entitlementId, autoRetry: false });
+        return;
+      }
+
+      if (isPaidRequestFailedError(e) && e.entitlementId && e.retryWithoutPayment) {
+        setEntitlementId(e.entitlementId);
+      } else {
+        setEntitlementId(null);
+      }
+
       setError(e instanceof Error ? e.message : "Failed to create report");
       setSubmitting(false);
     }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    await submitReport();
+  }
+
+  async function handleEntitlementRetry() {
+    if (!entitlementId) return;
+    await submitReport({ entitlementId });
   }
 
   function toggleDoc(id: string) {
@@ -236,7 +286,16 @@ export default function CreateReportPage() {
         {paidAmount && (
           <p className="text-sm text-teal-700">Paid {paidAmount} USDC via Arc Gateway</p>
         )}
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && (
+          <div className="space-y-2">
+            <p className="text-sm text-red-600">{error}</p>
+            {entitlementId && (
+              <Button type="button" variant="outline" disabled={submitting} onClick={handleEntitlementRetry}>
+                {submitting ? "Retrying…" : "Retry without additional charge"}
+              </Button>
+            )}
+          </div>
+        )}
       </form>
 
       {modalOpen && (
