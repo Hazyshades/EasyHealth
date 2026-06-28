@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { AppNavItem } from "@/lib/navigation";
+import { useAnimatedIconHover } from "@/components/icons/use-animated-icon-hover";
 
 type NavItemProps = {
   item: AppNavItem;
@@ -11,6 +14,7 @@ type NavItemProps = {
 
 export function NavItem({ item, active, compact = false }: NavItemProps) {
   const Icon = item.icon;
+  const { iconRef, hoverProps } = useAnimatedIconHover();
 
   if (compact) {
     return (
@@ -19,6 +23,7 @@ export function NavItem({ item, active, compact = false }: NavItemProps) {
         aria-current={active ? "page" : undefined}
         aria-label={item.label}
         title={item.label}
+        {...hoverProps}
         className={cn(
           "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-2 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2",
           active
@@ -26,7 +31,7 @@ export function NavItem({ item, active, compact = false }: NavItemProps) {
             : "text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
         )}
       >
-        <Icon className={cn("size-5 shrink-0", active ? "text-white" : "text-current")} aria-hidden />
+        <Icon ref={iconRef} size={20} className={cn("shrink-0", active ? "text-white" : "text-current")} aria-hidden />
         <span className="sr-only">{item.label}</span>
       </Link>
     );
@@ -37,6 +42,7 @@ export function NavItem({ item, active, compact = false }: NavItemProps) {
       href={item.href}
       aria-current={active ? "page" : undefined}
       title={item.label}
+      {...hoverProps}
       className={cn(
         "flex h-11 items-center gap-2.5 rounded-[14px] px-3 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2",
         "max-[1099px]:justify-center max-[1099px]:px-0",
@@ -47,7 +53,9 @@ export function NavItem({ item, active, compact = false }: NavItemProps) {
       )}
     >
       <Icon
-        className={cn("size-5 shrink-0", active ? "text-white" : "text-[#64748B]")}
+        ref={iconRef}
+        size={20}
+        className={cn("shrink-0", active ? "text-white" : "text-[#64748B]")}
         aria-hidden
       />
       <span

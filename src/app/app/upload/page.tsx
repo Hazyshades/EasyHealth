@@ -14,7 +14,7 @@ export default async function UploadPage({ searchParams }: UploadPageProps) {
       <div>
         <h1 className="text-2xl font-bold">Upload lab results</h1>
         <p className="text-muted-foreground">
-          PDF or image · $0.01 USDC per parse on Arc Network
+          PDF or image · $0.01 USDC per parse 
         </p>
         <p className="mt-2 text-sm">
           <Link href="/app/documents" className="text-teal-700 hover:underline">

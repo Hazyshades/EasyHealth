@@ -119,7 +119,6 @@ export default function DocumentsPage() {
   return (
     <div>
       <PageHeader
-        title="Documents"
         subtitle="Upload and browse your medical records"
         actions={
           activeTab === "lab" ? (

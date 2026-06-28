@@ -190,7 +190,7 @@ export default function CreateReportPage() {
         </p>
         <h1 className="mt-1 text-2xl font-bold">New health report</h1>
         <p className="text-muted-foreground">
-          Educational clinician-ready summary · $0.05 USDC on Arc Network
+          Educational clinician-ready summary · $0.05 USDC 
         </p>
       </div>
 

@@ -36,7 +36,7 @@ export function DataTableHeaderCell({
   return (
     <th
       className={cn(
-        "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--eh-text-muted)]",
+        "px-4 py-3 text-xs font-medium uppercase tracking-[0.06em] text-[var(--eh-text-muted)]",
         className
       )}
     >

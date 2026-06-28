@@ -2,41 +2,89 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowRight, ClipboardList, FileText, FlaskConical, Upload } from "lucide-react";
+import { BookIcon, HandHeartIcon, LibraryIcon } from "@/components/icons";
+import { DashboardCardIcon, useAnimatedIconHover } from "@/components/icons/use-animated-icon-hover";
+import { Upload } from "lucide-react";
+import { OverallAssessmentCard } from "@/components/overall-assessment-card";
 import { PageHeader } from "@/components/layout/page-header";
 import { MetricCard } from "@/components/ui/metric-card";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import type { HealthProfileResult } from "@/lib/health-systems";
 
 type Document = {
   id: string;
   status: string;
 };
 
-const quickLinks = [
-  { href: "/app/profile", label: "View Health Profile", icon: ArrowRight },
-  { href: "/app/biomarkers", label: "View Biomarkers", icon: FlaskConical },
-  { href: "/app/documents", label: "Browse Documents", icon: FileText },
-];
+function ReportsDashboardCard() {
+  const { iconRef, hoverProps } = useAnimatedIconHover();
+
+  return (
+    <SurfaceCard padding="lg" className="flex h-full flex-col" {...hoverProps}>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-medium text-[var(--eh-text-secondary)]">Reports</p>
+        <DashboardCardIcon icon={BookIcon} iconRef={iconRef} />
+      </div>
+      <p className="mt-3 text-sm text-[var(--eh-text-secondary)]">
+        Generate educational health reports from your uploaded lab records.
+      </p>
+      <div className="mt-auto flex flex-col gap-2 pt-6">
+        <Button asChild className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
+          <Link href="/app/reports/create">Generate report — $0.05</Link>
+        </Button>
+        <Button asChild variant="outline" className="rounded-xl border-[var(--eh-border)] bg-white">
+          <Link href="/app/reports">View report history</Link>
+        </Button>
+      </div>
+    </SurfaceCard>
+  );
+}
+
+function EmptyAssessmentCard() {
+  const { iconRef, hoverProps } = useAnimatedIconHover();
+
+  return (
+    <SurfaceCard padding="lg" className="flex h-full flex-col" {...hoverProps}>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-medium text-[var(--eh-text-secondary)]">Overall assessment</p>
+        <DashboardCardIcon icon={HandHeartIcon} iconRef={iconRef} />
+      </div>
+      <p className="mt-3 text-sm text-[var(--eh-text-secondary)]">
+        Upload lab records to see your health profile score.
+      </p>
+      <div className="mt-auto pt-6">
+        <Button asChild className="w-full rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
+          <Link href="/app/upload">Upload your lab</Link>
+        </Button>
+      </div>
+    </SurfaceCard>
+  );
+}
 
 export default function DashboardPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [profile, setProfile] = useState<HealthProfileResult | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/documents")
-      .then((r) => r.json())
-      .then((data) => setDocuments(data.documents ?? []))
+    Promise.all([
+      fetch("/api/documents").then((r) => r.json()),
+      fetch("/api/health-profile").then((r) => r.json()),
+    ])
+      .then(([documentsData, profileData]) => {
+        setDocuments(documentsData.documents ?? []);
+        setProfile(profileData?.records_used_count > 0 ? profileData : null);
+      })
       .finally(() => setLoading(false));
   }, []);
 
   const completed = documents.filter((d) => d.status === "completed").length;
+  const lastUpdated = profile?.sources[0]?.observed_at ?? null;
 
   return (
     <div>
       <PageHeader
-        title="Dashboard"
         subtitle="Your personal health record at a glance"
         compact
         actions={
@@ -74,48 +122,20 @@ export default function DashboardPage() {
         </SurfaceCard>
       ) : (
         <div className="grid gap-5 md:grid-cols-3">
-          <MetricCard label="Completed records" value={completed} icon={FileText} />
-          <MetricCard label="Quick links" icon={ArrowRight}>
-            <ul className="space-y-2">
-              {quickLinks.map((link) => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    className={cn(
-                      "inline-flex items-center gap-2 text-sm font-medium text-[var(--eh-health)]",
-                      "transition-colors duration-150 hover:text-[var(--eh-brand)]"
-                    )}
-                  >
-                    <link.icon className="size-3.5 opacity-70" aria-hidden />
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </MetricCard>
-          <SurfaceCard padding="lg" className="flex h-full flex-col">
-            <div className="flex items-start justify-between gap-3">
-              <p className="text-sm font-medium text-[var(--eh-text-secondary)]">Reports</p>
-              <span className="flex size-9 items-center justify-center rounded-xl bg-[var(--eh-brand-soft)] text-[var(--eh-brand)]">
-                <ClipboardList className="size-4" aria-hidden />
-              </span>
-            </div>
-            <p className="mt-3 text-sm text-[var(--eh-text-secondary)]">
-              Generate educational health reports from your uploaded lab records.
-            </p>
-            <div className="mt-auto flex flex-col gap-2 pt-6">
-              <Button asChild className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
-                <Link href="/app/reports/create">Generate report — $0.05</Link>
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                className="rounded-xl border-[var(--eh-border)] bg-white"
-              >
-                <Link href="/app/reports">View report history</Link>
-              </Button>
-            </div>
-          </SurfaceCard>
+          <MetricCard label="Completed records" value={completed} icon={LibraryIcon} />
+          {profile ? (
+            <OverallAssessmentCard
+              overallStateScore={profile.overall_state_score}
+              overallDataConfidence={profile.overall_data_confidence}
+              recordsUsedCount={profile.records_used_count}
+              lastUpdated={lastUpdated}
+              variant="compact"
+              showProfileLink
+            />
+          ) : (
+            <EmptyAssessmentCard />
+          )}
+          <ReportsDashboardCard />
         </div>
       )}
     </div>

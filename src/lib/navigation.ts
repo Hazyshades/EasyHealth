@@ -1,27 +1,12 @@
-import type { LucideIcon } from "lucide-react";
-import {
-  Activity,
-  ClipboardList,
-  FileText,
-  FlaskConical,
-  LayoutDashboard,
-} from "lucide-react";
+import type { AppIcon } from "@/lib/icon-types";
 
 export type AppNavItem = {
   href: string;
   label: string;
-  icon: LucideIcon;
+  icon: AppIcon;
   /** Match only exact path (e.g. Dashboard at /app) */
   exact?: boolean;
 };
-
-export const APP_NAV_ITEMS: AppNavItem[] = [
-  { href: "/app", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/app/profile", label: "Health Profile", icon: Activity },
-  { href: "/app/biomarkers", label: "Biomarkers", icon: FlaskConical },
-  { href: "/app/documents", label: "Documents", icon: FileText },
-  { href: "/app/reports", label: "Reports", icon: ClipboardList },
-];
 
 export const PAGE_TITLES: Record<string, { title: string; subtitle?: string }> = {
   "/app": {
@@ -30,7 +15,7 @@ export const PAGE_TITLES: Record<string, { title: string; subtitle?: string }> =
   },
   "/app/profile": {
     title: "Health Profile",
-    subtitle: "Current state assessments from your uploaded records",
+    subtitle: "Current state assessments and factual insights from your records",
   },
   "/app/biomarkers": {
     title: "Biomarkers",
@@ -46,7 +31,7 @@ export const PAGE_TITLES: Record<string, { title: string; subtitle?: string }> =
   },
   "/app/reports": {
     title: "Health reports",
-    subtitle: "Educational reports for clinicians and specialists",
+    subtitle: "Customizable educational reports for clinicians and specialists",
   },
   "/app/reports/create": {
     title: "Create report",

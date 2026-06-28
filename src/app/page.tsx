@@ -48,7 +48,7 @@ export default function LandingPage() {
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-600">
           Upload lab results, extract biomarkers automatically, track changes over time,
-          and generate a clinician-ready summary - micropayments in USDC on Arc Network.
+          and generate a clinician-ready summary - micropayments in USDC .
         </p>
         <div className="mt-10 flex flex-wrap justify-center gap-4">
           {profileId ? (

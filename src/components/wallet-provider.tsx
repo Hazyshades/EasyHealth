@@ -30,6 +30,7 @@ type WalletState = {
   usdcBalance: string | null;
   profileId: string | null;
   authError: string | null;
+  canSignTransactions: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshBalance: () => Promise<void>;
@@ -202,8 +203,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const fundGatewayWallet = useCallback(
     async (amount: string) => {
       const sdk = sdkRef.current;
-      if (!sdk || !userToken || !walletId) {
-        throw new Error("Sign in again to fund your Gateway payment wallet.");
+      const token =
+        userToken ?? window.sessionStorage.getItem(CIRCLE_USER_TOKEN_KEY);
+      const wId = walletId ?? window.sessionStorage.getItem(CIRCLE_WALLET_ID_KEY);
+      if (!sdk || !token || !wId) {
+        throw new Error("Sign in again with Google to fund your Gateway wallet.");
       }
 
       const destinationAddress = getGatewayWalletAddress();
@@ -212,8 +216,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "createTransfer",
-          userToken,
-          walletId,
+          userToken: token,
+          walletId: wId,
           destinationAddress,
           amount,
         }),
@@ -286,6 +290,20 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setUserToken(storedUserToken);
       if (storedWalletId) {
         setWalletId(storedWalletId);
+      } else {
+        void fetch("/api/circle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "getWallets", userToken: storedUserToken }),
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            const id = data?.wallets?.[0]?.id as string | undefined;
+            if (!id) return;
+            setWalletId(id);
+            window.sessionStorage.setItem(CIRCLE_WALLET_ID_KEY, id);
+          })
+          .catch(() => undefined);
       }
     }
 
@@ -356,6 +374,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setAuthError(null);
   }, []);
 
+  const canSignTransactions = Boolean(userToken && walletId);
+
   return (
     <WalletContext.Provider
       value={{
@@ -364,6 +384,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         usdcBalance,
         profileId,
         authError,
+        canSignTransactions,
         signInWithGoogle,
         signOut,
         refreshBalance,

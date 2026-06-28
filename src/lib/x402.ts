@@ -56,7 +56,7 @@ function buildPaymentRequiredResponse(endpoint: string, price: string, requireme
     x402Version: 2,
     resource: {
       url: endpoint,
-      description: `EasyHealth paid resource (${price} USDC on Arc Network)`,
+      description: `EasyHealth paid resource (${price} USDC )`,
       mimeType: "application/json",
     },
     accepts: [requirements],

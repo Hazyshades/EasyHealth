@@ -97,7 +97,6 @@ export default function BiomarkersPage() {
   return (
     <div>
       <PageHeader
-        title="Biomarkers"
         subtitle="Values extracted from your uploaded lab documents"
       />
 

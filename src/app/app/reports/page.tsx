@@ -178,7 +178,6 @@ export default function ReportsPage() {
   return (
     <div>
       <PageHeader
-        title="Health reports"
         subtitle="Customizable educational reports for clinicians and specialists"
         actions={
           <Button asChild className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">

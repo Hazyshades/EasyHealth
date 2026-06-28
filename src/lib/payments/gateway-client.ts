@@ -219,35 +219,7 @@ export async function ensureGatewayFunded(
   minAmount = "0.02",
   fundFromCircle?: (amount: string) => Promise<void>
 ) {
-  const gateway = getGatewayClient();
-  let balances = await gateway.getBalances();
-  const needed = parseFloat(minAmount);
-  const available = parseFloat(balances.gateway.formattedAvailable);
-
-  if (available >= needed) {
-    return balances;
-  }
-
-  const depositAmount = Math.max(needed - available, 0.01).toFixed(2);
-  let walletBal = parseFloat(balances.wallet.formatted);
-
-  if (walletBal < parseFloat(depositAmount) && fundFromCircle) {
-    const topUp = Math.max(parseFloat(depositAmount) + 0.02, 0.1).toFixed(2);
-    await fundFromCircle(topUp);
-    await new Promise((resolve) => setTimeout(resolve, 4000));
-    balances = await gateway.getBalances();
-    walletBal = parseFloat(balances.wallet.formatted);
-  }
-
-  if (walletBal >= parseFloat(depositAmount)) {
-    await gateway.deposit(depositAmount);
-    return gateway.getBalances();
-  }
-
-  const address = gateway.address;
-  throw new Error(
-    `Gateway payment wallet needs USDC on Arc Testnet. Send at least ${depositAmount} USDC to ${address}, or fund your Circle wallet and sign in again. Faucet: https://faucet.circle.com`
-  );
+  return topUpGateway(minAmount, fundFromCircle);
 }
 
 export async function payForResource(
@@ -313,4 +285,55 @@ export async function getGatewayBalance() {
   const gateway = getGatewayClient();
   const balances = await gateway.getBalances();
   return balances.gateway.formattedAvailable;
+}
+
+export async function getGatewayBalances() {
+  const gateway = getGatewayClient();
+  return gateway.getBalances();
+}
+
+export async function topUpGateway(
+  minAmount = "0.05",
+  fundFromCircle?: (amount: string) => Promise<void>,
+  onStatus?: (message: string) => void
+) {
+  const status = onStatus ?? (() => undefined);
+  const gateway = getGatewayClient();
+  status("Checking Gateway balance…");
+  let balances = await gateway.getBalances();
+  const needed = parseFloat(minAmount);
+  const available = parseFloat(balances.gateway.formattedAvailable);
+
+  if (available >= needed) {
+    return balances;
+  }
+
+  const depositAmount = Math.max(needed - available, 0.01).toFixed(2);
+  let walletBal = parseFloat(balances.wallet.formatted);
+
+  if (walletBal < parseFloat(depositAmount)) {
+    if (!fundFromCircle) {
+      throw new Error(
+        "Sign in again with Google to transfer USDC from your Circle wallet."
+      );
+    }
+    const topUp = Math.max(parseFloat(depositAmount) + 0.02, 0.1).toFixed(2);
+    status(`Transferring ${topUp} USDC from Circle wallet…`);
+    await fundFromCircle(topUp);
+    status("Waiting for transfer confirmation…");
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+    balances = await gateway.getBalances();
+    walletBal = parseFloat(balances.wallet.formatted);
+  }
+
+  if (walletBal >= parseFloat(depositAmount)) {
+    status(`Depositing ${depositAmount} USDC into Gateway…`);
+    await gateway.deposit(depositAmount);
+    return gateway.getBalances();
+  }
+
+  const address = gateway.address;
+  throw new Error(
+    `Gateway wallet needs USDC on Arc Testnet. Send at least ${depositAmount} USDC to ${address}, or fund your Circle wallet and sign in again. Faucet: https://faucet.circle.com`
+  );
 }

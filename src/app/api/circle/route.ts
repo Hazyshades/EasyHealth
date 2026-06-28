@@ -1,7 +1,21 @@
 import { NextResponse } from "next/server";
+import { ARC_USDC_ADDRESS } from "@/lib/arc-usdc";
 import { env } from "@/lib/env";
 
 const CIRCLE_BASE_URL = "https://api.circle.com";
+
+function formatFetchError(error: unknown): string {
+  if (!(error instanceof Error)) return "Circle API unreachable";
+  const cause =
+    error.cause instanceof Error
+      ? error.cause.message
+      : typeof error.cause === "string"
+        ? error.cause
+        : null;
+  if (cause) return `Circle API unreachable: ${cause}`;
+  if (error.message && error.message !== "fetch failed") return error.message;
+  return "Circle API unreachable. Check CIRCLE_API_KEY and your network connection.";
+}
 
 async function circleFetch(
   path: string,
@@ -16,12 +30,24 @@ async function circleFetch(
     headers["X-User-Token"] = userToken;
   }
 
-  const response = await fetch(`${CIRCLE_BASE_URL}${path}`, {
-    method,
-    headers,
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-  });
-  const data = await response.json();
+  let response: Response;
+  try {
+    response = await fetch(`${CIRCLE_BASE_URL}${path}`, {
+      method,
+      headers,
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    });
+  } catch (error) {
+    throw new Error(formatFetchError(error));
+  }
+
+  let data: { message?: string; error?: string; code?: number; errors?: Array<{ message?: string }>; data?: unknown };
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(`Circle API returned an invalid response (HTTP ${response.status})`);
+  }
+
   if (!response.ok) {
     const message =
       data.message ?? data.error ?? data.errors?.[0]?.message ?? "Circle API error";
@@ -109,30 +135,10 @@ export async function POST(request: Request) {
       }
 
       case "createTransfer": {
-        const { userToken, walletId, destinationAddress, amount } = params;
+        const { userToken, walletId, destinationAddress, amount, tokenId } = params;
         if (!userToken || !walletId || !destinationAddress || !amount) {
           return NextResponse.json(
             { error: "Missing userToken, walletId, destinationAddress, or amount" },
-            { status: 400 }
-          );
-        }
-        const balancesData = await circleFetch(`/v1/w3s/wallets/${walletId}/balances`, {
-          method: "GET",
-          userToken,
-        });
-        const tokenBalances =
-          (balancesData.data?.tokenBalances as Array<{
-            token?: { id?: string; symbol?: string; name?: string };
-          }>) ?? [];
-        const usdcToken = tokenBalances.find((entry) => {
-          const symbol = entry.token?.symbol ?? "";
-          const name = entry.token?.name ?? "";
-          return symbol.includes("USDC") || name.includes("USDC");
-        });
-        const tokenId = usdcToken?.token?.id;
-        if (!tokenId) {
-          return NextResponse.json(
-            { error: "No USDC balance in Circle wallet. Get testnet USDC from https://faucet.circle.com" },
             { status: 400 }
           );
         }
@@ -141,10 +147,12 @@ export async function POST(request: Request) {
           body: {
             idempotencyKey: crypto.randomUUID(),
             walletId,
-            tokenId,
             destinationAddress,
             amounts: [String(amount)],
             feeLevel: "MEDIUM",
+            ...(tokenId
+              ? { tokenId }
+              : { tokenAddress: ARC_USDC_ADDRESS, blockchain: "ARC-TESTNET" }),
           },
         });
         return NextResponse.json(data.data);

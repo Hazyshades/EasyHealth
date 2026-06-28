@@ -130,7 +130,7 @@ export function UploadZone({
       >
         <p className="mb-2 text-center font-medium">Drop a lab PDF or image here</p>
         <p className="mb-4 text-center text-sm text-muted-foreground">
-          Pay $0.01 USDC on Arc Network per upload · OCR + biomarker extraction
+          Pay $0.01 USDC  per upload · OCR + biomarker extraction
         </p>
         <input
           id="lab-upload"

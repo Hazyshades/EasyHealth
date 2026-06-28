@@ -18,7 +18,8 @@ import { HealthProfileDrawer } from "@/components/health-profile-drawer";
 import { cn } from "@/lib/utils";
 
 const MAP_CENTER = { x: 231, y: 182 };
-const MAP_SCALE = 0.88;
+const DEFAULT_MAP_SCALE = 0.88;
+const EMBEDDED_MAP_SCALE = 0.898;
 
 type BodyMapProps = {
   systems: SystemInsight[];
@@ -26,6 +27,8 @@ type BodyMapProps = {
   overallDataConfidence: number;
   /** Hide floating summary — shown in page sidebar instead */
   embedded?: boolean;
+  /** Scale silhouette + badges inside the SVG (profile uses a larger value) */
+  mapScale?: number;
   externalSelectedId?: BodySystemId | null;
   onExternalSelect?: (id: BodySystemId | null) => void;
 };
@@ -35,6 +38,7 @@ export function BodyMap({
   overallStateScore,
   overallDataConfidence,
   embedded = false,
+  mapScale,
   externalSelectedId,
   onExternalSelect,
 }: BodyMapProps) {
@@ -62,6 +66,9 @@ export function BodyMap({
     return [{ system, layout }];
   });
 
+  const resolvedMapScale =
+    mapScale ?? (embedded ? EMBEDDED_MAP_SCALE : DEFAULT_MAP_SCALE);
+
   return (
     <>
       <div
@@ -77,12 +84,12 @@ export function BodyMap({
           aria-label="Health profile body map"
           className={cn(
             embedded
-              ? "h-full w-auto max-w-full max-h-full"
+              ? "h-full w-full max-h-full"
               : "block h-auto w-full max-h-[520px]"
           )}
         >
           <g
-            transform={`translate(${MAP_CENTER.x} ${MAP_CENTER.y}) scale(${MAP_SCALE}) translate(${-MAP_CENTER.x} ${-MAP_CENTER.y})`}
+            transform={`translate(${MAP_CENTER.x} ${MAP_CENTER.y}) scale(${resolvedMapScale}) translate(${-MAP_CENTER.x} ${-MAP_CENTER.y})`}
           >
             <BodySilhouette />
 
