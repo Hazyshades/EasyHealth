@@ -1,8 +1,8 @@
 import type { CSSProperties, KeyboardEvent } from "react";
 import { cn } from "@/lib/utils";
 
-/** Framed viewBox for silhouette + evenly spaced side badges. */
-export const BODY_MAP_VIEWBOX = "118 48 224 385";
+/** Framed viewBox for silhouette + side badges (bounds from path + badges, pad 16). */
+export const BODY_MAP_VIEWBOX = "126 49 210 407";
 
 const bodySilhouetteStyle = {
   "--body-fill": "#f0f9ff",
@@ -68,7 +68,14 @@ export function BodySilhouette() {
 
 type Point = [number, number];
 
-export function BodyMapConnector({ from, to }: { from: Point; to: Point }) {
+type BodyMapConnectorProps = {
+  from: Point;
+  to: Point;
+  active?: boolean;
+  dimmed?: boolean;
+};
+
+export function BodyMapConnector({ from, to, active, dimmed }: BodyMapConnectorProps) {
   const [fx, fy] = from;
   const [tx, ty] = to;
 
@@ -76,8 +83,12 @@ export function BodyMapConnector({ from, to }: { from: Point; to: Point }) {
     <path
       d={`M ${fx} ${fy} C ${fx} ${ty}, ${tx} ${fy}, ${tx} ${ty}`}
       fill="none"
-      className="stroke-slate-300"
-      strokeWidth="0.8"
+      className={cn(
+        "body-map-connector stroke-slate-300",
+        active && "is-active stroke-slate-400",
+        dimmed && "is-dimmed"
+      )}
+      strokeWidth={active ? 1 : 0.8}
       strokeDasharray="3 3"
       vectorEffect="non-scaling-stroke"
     />
@@ -88,18 +99,24 @@ type BodyMapMarkerProps = {
   x: number;
   y: number;
   active?: boolean;
+  dimmed?: boolean;
   className?: string;
 };
 
-export function BodyMapMarker({ x, y, active, className }: BodyMapMarkerProps) {
+export function BodyMapMarker({ x, y, active, dimmed, className }: BodyMapMarkerProps) {
   return (
-    <circle
-      cx={x}
-      cy={y}
-      r={active ? 3.5 : 2.8}
-      className={cn(className, active && "stroke-[1.5]")}
-      vectorEffect="non-scaling-stroke"
-    />
+    <g
+      className={cn("body-map-marker", active && "is-active", dimmed && "is-dimmed")}
+      transform={`translate(${x} ${y})`}
+    >
+      <circle
+        cx={0}
+        cy={0}
+        r={2.8}
+        className={cn("body-map-marker-dot", className, active && "stroke-[1.5]")}
+        vectorEffect="non-scaling-stroke"
+      />
+    </g>
   );
 }
 
@@ -109,6 +126,8 @@ type HealthSystemBadgeProps = {
   score: number;
   label: string;
   active?: boolean;
+  dimmed?: boolean;
+  index?: number;
   scoreClassName: string;
   onSelect?: () => void;
 };
@@ -126,42 +145,47 @@ export function HealthSystemBadge({
   score,
   label,
   active,
+  dimmed,
+  index = 0,
   scoreClassName,
   onSelect,
 }: HealthSystemBadgeProps) {
   return (
     <g
-      className="group cursor-pointer"
+      className={cn("body-map-badge", active && "is-active", dimmed && "is-dimmed")}
+      transform={`translate(${x} ${y})`}
       onClick={onSelect}
       role="button"
       tabIndex={0}
       onKeyDown={(event) => handleBadgeKeyDown(event, onSelect)}
       aria-label={`${label}: ${score} current state assessment`}
+      aria-pressed={active}
     >
-      <circle cx={x} cy={y} r={16} fill="transparent" />
-      <circle
-        cx={x}
-        cy={y}
-        r={active ? 13 : 11}
-        className={cn(
-          scoreClassName,
-          "transition-all group-hover:opacity-90",
-          active && "stroke-[2]"
-        )}
-        vectorEffect="non-scaling-stroke"
-      />
-      <text
-        x={x}
-        y={y + 1}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        className="pointer-events-none fill-white text-[9px] font-semibold"
+      <circle cx={0} cy={0} r={16} fill="transparent" className="cursor-pointer" />
+      <g
+        className="body-map-badge-inner"
+        style={{ animationDelay: `${index * 50}ms` }}
       >
-        {score}
-      </text>
+        <circle
+          cx={0}
+          cy={0}
+          r={11}
+          className={cn("body-map-badge-ring", scoreClassName, active && "stroke-[2]")}
+          vectorEffect="non-scaling-stroke"
+        />
+        <text
+          x={0}
+          y={1}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          className="pointer-events-none fill-white text-[9px] font-semibold"
+        >
+          {score}
+        </text>
+      </g>
       <text
-        x={x}
-        y={y + 20}
+        x={0}
+        y={20}
         textAnchor="middle"
         className="pointer-events-none fill-slate-600 text-[7px] font-medium"
       >

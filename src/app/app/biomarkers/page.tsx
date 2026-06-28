@@ -10,6 +10,10 @@ import {
 } from "@/components/ui/select";
 import { BiomarkerTable } from "@/components/biomarker-table";
 import { BiomarkerChart } from "@/components/biomarker-chart";
+import { PageHeader } from "@/components/layout/page-header";
+import { SurfaceCard } from "@/components/ui/surface-card";
+import { FilterChip } from "@/components/ui/filter-chip";
+import { SearchInput } from "@/components/ui/search-input";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 
 type Observation = {
@@ -24,9 +28,35 @@ type Observation = {
   documents?: { original_filename: string } | null;
 };
 
+type StatusFilter = "all" | "normal" | "attention" | "low" | "high";
+
+const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "normal", label: "Normal" },
+  { id: "attention", label: "Attention" },
+  { id: "low", label: "Low" },
+  { id: "high", label: "High" },
+];
+
+function observationStatus(o: Observation): StatusFilter {
+  if (o.ref_low == null || o.ref_high == null) return "normal";
+  if (o.value < o.ref_low) return "low";
+  if (o.value > o.ref_high) return "high";
+  return "normal";
+}
+
+function matchesStatusFilter(o: Observation, filter: StatusFilter): boolean {
+  if (filter === "all") return true;
+  const status = observationStatus(o);
+  if (filter === "attention") return status === "low" || status === "high";
+  return status === filter;
+}
+
 export default function BiomarkersPage() {
   const [observations, setObservations] = useState<Observation[]>([]);
   const [selectedKey, setSelectedKey] = useState<string>("");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   useEffect(() => {
     fetch("/api/biomarkers")
@@ -38,6 +68,19 @@ export default function BiomarkersPage() {
         setSelectedKey(hba1c?.biomarker_key ?? obs[0]?.biomarker_key ?? "");
       });
   }, []);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return observations.filter((o) => {
+      if (!matchesStatusFilter(o, statusFilter)) return false;
+      if (!q) return true;
+      return (
+        o.name.toLowerCase().includes(q) ||
+        o.biomarker_key.toLowerCase().includes(q) ||
+        (o.documents?.original_filename ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [observations, search, statusFilter]);
 
   const keys = useMemo(
     () => [...new Set(observations.map((o) => o.biomarker_key))],
@@ -52,21 +95,40 @@ export default function BiomarkersPage() {
     .map((o) => ({ observed_at: o.observed_at, value: Number(o.value) }));
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold">Biomarkers</h1>
-        <p className="text-muted-foreground">
-          Values extracted from your uploaded lab documents
-        </p>
+    <div>
+      <PageHeader
+        title="Biomarkers"
+        subtitle="Values extracted from your uploaded lab documents"
+      />
+
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <SearchInput
+          placeholder="Search biomarker…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          aria-label="Search biomarkers"
+        />
       </div>
 
-      <BiomarkerTable observations={observations} />
+      <div className="mb-5 flex flex-wrap gap-2">
+        {STATUS_FILTERS.map((filter) => (
+          <FilterChip
+            key={filter.id}
+            active={statusFilter === filter.id}
+            onClick={() => setStatusFilter(filter.id)}
+          >
+            {filter.label}
+          </FilterChip>
+        ))}
+      </div>
 
-      <div className="space-y-4">
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-medium">Trend chart</span>
+      <BiomarkerTable observations={filtered} />
+
+      <SurfaceCard padding="lg" className="mt-8">
+        <div className="mb-4 flex flex-wrap items-center gap-4">
+          <span className="text-sm font-semibold text-[var(--eh-text-primary)]">Trend chart</span>
           <Select value={selectedKey} onValueChange={setSelectedKey}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-52 rounded-xl border-[var(--eh-border)]">
               <SelectValue placeholder="Select biomarker" />
             </SelectTrigger>
             <SelectContent>
@@ -82,9 +144,9 @@ export default function BiomarkersPage() {
           </Select>
         </div>
         <BiomarkerChart data={chartData} biomarkerName={selectedName} />
-      </div>
+      </SurfaceCard>
 
-      <p className="text-xs text-muted-foreground">{MEDICAL_DISCLAIMER}</p>
+      <p className="mt-6 text-xs text-[var(--eh-text-muted)]">{MEDICAL_DISCLAIMER}</p>
     </div>
   );
 }

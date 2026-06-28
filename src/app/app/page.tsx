@@ -2,12 +2,23 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ArrowRight, ClipboardList, FileText, FlaskConical, Upload } from "lucide-react";
+import { PageHeader } from "@/components/layout/page-header";
+import { MetricCard } from "@/components/ui/metric-card";
+import { SurfaceCard } from "@/components/ui/surface-card";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 type Document = {
   id: string;
   status: string;
 };
+
+const quickLinks = [
+  { href: "/app/profile", label: "View Health Profile", icon: ArrowRight },
+  { href: "/app/biomarkers", label: "View Biomarkers", icon: FlaskConical },
+  { href: "/app/documents", label: "Browse Documents", icon: FileText },
+];
 
 export default function DashboardPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -23,52 +34,88 @@ export default function DashboardPage() {
   const completed = documents.filter((d) => d.status === "completed").length;
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Your personal health record at a glance
-        </p>
-      </div>
+    <div>
+      <PageHeader
+        title="Dashboard"
+        subtitle="Your personal health record at a glance"
+        compact
+        actions={
+          <>
+            <Button
+              asChild
+              variant="outline"
+              className="rounded-xl border-[var(--eh-border)] bg-white"
+            >
+              <Link href="/app/upload">Add document</Link>
+            </Button>
+            <Button asChild className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
+              <Link href="/app/reports/create">Generate report</Link>
+            </Button>
+          </>
+        }
+      />
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <p className="text-sm text-[var(--eh-text-secondary)]">Loading…</p>
       ) : completed === 0 ? (
-        <div className="rounded-xl border bg-white p-8 text-center shadow-sm">
-          <h2 className="text-lg font-semibold">No lab records yet</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
+        <SurfaceCard padding="lg" className="text-center">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-[var(--eh-brand-soft)] text-[var(--eh-brand)]">
+            <Upload className="size-6" aria-hidden />
+          </div>
+          <h2 className="mt-4 text-lg font-semibold text-[var(--eh-text-primary)]">
+            No lab records yet
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-[var(--eh-text-secondary)]">
             Upload your first lab to extract biomarkers and build your health profile.
           </p>
-          <Button asChild className="mt-4">
-            <Link href="/app/upload">Upload your lab - $0.01</Link>
+          <Button asChild className="mt-6 rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
+            <Link href="/app/upload">Upload your lab — $0.01</Link>
           </Button>
-        </div>
+        </SurfaceCard>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border bg-white p-6 shadow-sm">
-            <p className="text-sm text-muted-foreground">Completed records</p>
-            <p className="mt-1 text-3xl font-bold">{completed}</p>
-          </div>
-          <div className="rounded-xl border bg-white p-6 shadow-sm">
-            <p className="text-sm text-muted-foreground">Quick links</p>
-            <div className="mt-3 flex flex-col gap-2 text-sm">
-              <Link href="/app/profile" className="text-teal-700 hover:underline">
-                View Health Profile
-              </Link>
-              <Link href="/app/biomarkers" className="text-teal-700 hover:underline">
-                View Biomarkers
-              </Link>
-              <Link href="/app/documents" className="text-teal-700 hover:underline">
-                Browse Documents
-              </Link>
+        <div className="grid gap-5 md:grid-cols-3">
+          <MetricCard label="Completed records" value={completed} icon={FileText} />
+          <MetricCard label="Quick links" icon={ArrowRight}>
+            <ul className="space-y-2">
+              {quickLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className={cn(
+                      "inline-flex items-center gap-2 text-sm font-medium text-[var(--eh-health)]",
+                      "transition-colors duration-150 hover:text-[var(--eh-brand)]"
+                    )}
+                  >
+                    <link.icon className="size-3.5 opacity-70" aria-hidden />
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </MetricCard>
+          <SurfaceCard padding="lg" className="flex h-full flex-col">
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-sm font-medium text-[var(--eh-text-secondary)]">Reports</p>
+              <span className="flex size-9 items-center justify-center rounded-xl bg-[var(--eh-brand-soft)] text-[var(--eh-brand)]">
+                <ClipboardList className="size-4" aria-hidden />
+              </span>
             </div>
-          </div>
-          <div className="rounded-xl border bg-white p-6 shadow-sm">
-            <p className="text-sm text-muted-foreground">Reports</p>
-            <Button asChild variant="secondary" className="mt-3 w-full">
-              <Link href="/app/reports">Health reports - $0.05</Link>
-            </Button>
-          </div>
+            <p className="mt-3 text-sm text-[var(--eh-text-secondary)]">
+              Generate educational health reports from your uploaded lab records.
+            </p>
+            <div className="mt-auto flex flex-col gap-2 pt-6">
+              <Button asChild className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
+                <Link href="/app/reports/create">Generate report — $0.05</Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                className="rounded-xl border-[var(--eh-border)] bg-white"
+              >
+                <Link href="/app/reports">View report history</Link>
+              </Button>
+            </div>
+          </SurfaceCard>
         </div>
       )}
     </div>

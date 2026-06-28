@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronDown, ClipboardList, RefreshCw, Sparkles } from "lucide-react";
+import { PageHeader } from "@/components/layout/page-header";
+import { SurfaceCard } from "@/components/ui/surface-card";
+import { StatusChip } from "@/components/ui/status-chip";
+import { SearchInput } from "@/components/ui/search-input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -23,7 +26,6 @@ import {
   type ReportType,
 } from "@/lib/report-prompts";
 import { cn } from "@/lib/utils";
-import { ChevronDown, RefreshCw } from "lucide-react";
 
 type ReportSummary = {
   id: string;
@@ -138,32 +140,30 @@ export default function ReportsPage() {
 
   function renderReportCard(report: ReportSummary) {
     return (
-      <li key={report.id} className="rounded-xl border bg-white p-4 shadow-sm">
+      <SurfaceCard key={report.id} padding="md" hoverable>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <h2 className="font-semibold">{report.title}</h2>
-            <p className="mt-2 rounded-md bg-teal-50 px-3 py-2 text-sm text-teal-900">
+            <h2 className="font-semibold text-[var(--eh-text-primary)]">{report.title}</h2>
+            <p className="mt-2 rounded-xl bg-[var(--eh-chip-green-bg)] px-3 py-2 text-sm text-[var(--eh-chip-green-text)]">
               {report.summary_preview}
             </p>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <Badge variant="secondary">{REPORT_TYPE_LABELS[report.report_type]}</Badge>
-              <Badge variant="outline">{DETAIL_LEVEL_LABELS[report.detail_level]}</Badge>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+              <StatusChip variant="neutral">{REPORT_TYPE_LABELS[report.report_type]}</StatusChip>
+              <StatusChip variant="info">{DETAIL_LEVEL_LABELS[report.detail_level]}</StatusChip>
               {report.abnormal_only && (
-                <Badge variant="outline" className="border-amber-300 text-amber-800">
-                  Out-of-range only
-                </Badge>
+                <StatusChip variant="warning">Out-of-range only</StatusChip>
               )}
-              <span>{formatDate(report.created_at)}</span>
+              <span className="text-[var(--eh-text-muted)]">{formatDate(report.created_at)}</span>
             </div>
           </div>
           <div className="flex shrink-0 gap-2">
-            <Button asChild variant="secondary" size="sm">
+            <Button asChild variant="outline" size="sm" className="rounded-xl">
               <Link href={`/app/reports/${report.id}`}>View</Link>
             </Button>
             <Button
               variant="outline"
               size="sm"
-              className="text-red-600 hover:text-red-700"
+              className="rounded-xl text-red-600 hover:text-red-700"
               disabled={deletingId === report.id}
               onClick={() => handleDelete(report.id, report.title)}
             >
@@ -171,33 +171,57 @@ export default function ReportsPage() {
             </Button>
           </div>
         </div>
-      </li>
+      </SurfaceCard>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Health reports</h1>
-          <p className="text-muted-foreground">
-            Customizable educational reports for clinicians and specialists
-          </p>
-        </div>
-        <Button asChild>
-          <Link href="/app/reports/create">+ Create report</Link>
-        </Button>
-      </div>
+    <div>
+      <PageHeader
+        title="Health reports"
+        subtitle="Customizable educational reports for clinicians and specialists"
+        actions={
+          <Button asChild className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
+            <Link href="/app/reports/create">
+              <Sparkles className="size-4" aria-hidden />
+              Create report
+            </Link>
+          </Button>
+        }
+      />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Input
-          placeholder="Search"
+      <SurfaceCard padding="lg" className="mb-8">
+        <div className="flex flex-wrap items-start gap-6">
+          <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-[var(--eh-brand-soft)] text-[var(--eh-brand)]">
+            <ClipboardList className="size-7" aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold text-[var(--eh-text-primary)]">
+                Generate a health report
+              </h2>
+              <StatusChip variant="info">$0.05 USDC</StatusChip>
+            </div>
+            <p className="mt-2 max-w-xl text-sm text-[var(--eh-text-secondary)]">
+              Create an educational summary from your uploaded lab records. Paid via x402 on Arc
+              Network — wallet balance shown in the top bar.
+            </p>
+            <Button asChild className="mt-4 rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
+              <Link href="/app/reports/create">Generate report</Link>
+            </Button>
+          </div>
+        </div>
+      </SurfaceCard>
+
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <SearchInput
+          placeholder="Search reports…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="max-w-xs"
+          aria-label="Search reports"
         />
         <Select value={range} onValueChange={(v) => setRange(v as ReportRange)}>
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-full rounded-xl sm:w-[160px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -209,7 +233,7 @@ export default function ReportsPage() {
           </SelectContent>
         </Select>
         <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-full rounded-xl sm:w-[200px]">
             <SelectValue placeholder="All types" />
           </SelectTrigger>
           <SelectContent>
@@ -225,6 +249,7 @@ export default function ReportsPage() {
           type="button"
           variant="outline"
           size="icon"
+          className="rounded-xl"
           onClick={loadReports}
           disabled={loading}
           aria-label="Refresh reports"
@@ -234,27 +259,27 @@ export default function ReportsPage() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading reports…</p>
+        <p className="text-sm text-[var(--eh-text-secondary)]">Loading reports…</p>
       ) : reports.length === 0 && !hasActiveFilters ? (
-        <div className="rounded-xl border bg-white p-8 text-center shadow-sm">
-          <h2 className="font-semibold">No reports yet</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
+        <SurfaceCard padding="lg" className="text-center">
+          <h2 className="font-semibold text-[var(--eh-text-primary)]">No reports yet</h2>
+          <p className="mt-2 text-sm text-[var(--eh-text-secondary)]">
             Create your first health report from uploaded lab results.
           </p>
-          <Button asChild className="mt-4">
+          <Button asChild className="mt-4 rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
             <Link href="/app/reports/create">Create report</Link>
           </Button>
-        </div>
+        </SurfaceCard>
       ) : reports.length === 0 ? (
-        <div className="rounded-xl border bg-white p-8 text-center shadow-sm">
-          <h2 className="font-semibold">No matching reports</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
+        <SurfaceCard padding="lg" className="text-center">
+          <h2 className="font-semibold text-[var(--eh-text-primary)]">No matching reports</h2>
+          <p className="mt-2 text-sm text-[var(--eh-text-secondary)]">
             Try adjusting your search or filters.
           </p>
-          <Button variant="secondary" className="mt-4" onClick={clearFilters}>
+          <Button variant="outline" className="mt-4 rounded-xl" onClick={clearFilters}>
             Clear filters
           </Button>
-        </div>
+        </SurfaceCard>
       ) : (
         <div className="space-y-6">
           {monthGroups.map(([month, items]) => {
@@ -264,18 +289,16 @@ export default function ReportsPage() {
                 <button
                   type="button"
                   onClick={() => toggleMonth(month)}
-                  className="mb-3 flex w-full items-center gap-2 text-left text-sm font-semibold text-slate-800"
+                  className="mb-3 flex w-full items-center gap-2 text-left text-sm font-semibold text-[var(--eh-text-primary)]"
                 >
                   <ChevronDown
-                    className={cn("size-4 transition-transform", collapsed && "-rotate-90")}
+                    className={cn("size-4 transition-transform duration-200", collapsed && "-rotate-90")}
                   />
                   <span>
                     {month} ({items.length})
                   </span>
                 </button>
-                {!collapsed && (
-                  <ul className="space-y-3">{items.map(renderReportCard)}</ul>
-                )}
+                {!collapsed && <ul className="space-y-3">{items.map(renderReportCard)}</ul>}
               </section>
             );
           })}
