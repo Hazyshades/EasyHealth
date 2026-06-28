@@ -29,23 +29,6 @@ export type ObservationInput = {
   document_id: string | null;
 };
 
-export type SystemMarker = {
-  key: string;
-  name: string;
-  value: number;
-  unit: string;
-  status: MarkerStatus;
-  observed_at: string;
-  document_id: string | null;
-};
-
-export type SystemInsight = {
-  id: BodySystemId;
-  name: string;
-  coverage: number;
-  markers: SystemMarker[];
-};
-
 export type HealthProfileSource = {
   id: string;
   original_filename: string;
@@ -53,9 +36,35 @@ export type HealthProfileSource = {
   lab_name: string | null;
 };
 
+export type MarkerSource = HealthProfileSource;
+
+export type SystemMarker = {
+  key: string;
+  name: string;
+  value: number;
+  unit: string;
+  ref_low: number | null;
+  ref_high: number | null;
+  status: MarkerStatus;
+  observed_at: string;
+  document_id: string | null;
+  source: MarkerSource | null;
+};
+
+export type SystemInsight = {
+  id: BodySystemId;
+  name: string;
+  state_score: number;
+  data_confidence: number;
+  primary_source: MarkerSource | null;
+  why_highlighted: string[];
+  markers: SystemMarker[];
+};
+
 export type HealthProfileResult = {
   records_used_count: number;
-  overall_coverage: number;
+  overall_state_score: number;
+  overall_data_confidence: number;
   systems: SystemInsight[];
   sources: HealthProfileSource[];
 };
@@ -101,6 +110,11 @@ for (const [systemId, system] of Object.entries(BODY_SYSTEMS)) {
   }
 }
 
+const IN_RANGE_SCORE = 95;
+const UNKNOWN_REF_SCORE = 70;
+const OUT_OF_RANGE_BASE = 55;
+const OUT_OF_RANGE_MIN = 20;
+
 export function getSystemForMarker(key: string): BodySystemId {
   return MARKER_TO_SYSTEM.get(key) ?? "general";
 }
@@ -116,6 +130,25 @@ export function getMarkerStatus(
   return "in_range";
 }
 
+export function markerStateScore(
+  status: MarkerStatus,
+  value: number,
+  refLow: number | null,
+  refHigh: number | null
+): number {
+  if (status === "in_range") return IN_RANGE_SCORE;
+  if (status === "unknown") return UNKNOWN_REF_SCORE;
+
+  let deviation = 0;
+  if (refLow != null && value < refLow) {
+    deviation = Math.min(1, (refLow - value) / Math.max(refLow, 1));
+  } else if (refHigh != null && value > refHigh) {
+    deviation = Math.min(1, (value - refHigh) / Math.max(refHigh, 1));
+  }
+
+  return Math.max(OUT_OF_RANGE_MIN, Math.round(OUT_OF_RANGE_BASE - deviation * 35));
+}
+
 function latestByKey(observations: ObservationInput[]): Map<string, ObservationInput> {
   const map = new Map<string, ObservationInput>();
   for (const obs of observations) {
@@ -127,16 +160,85 @@ function latestByKey(observations: ObservationInput[]): Map<string, ObservationI
   return map;
 }
 
-function systemCoverage(expectedMarkers: string[], presentKeys: Set<string>): number {
-  if (expectedMarkers.length === 0) return presentKeys.size > 0 ? 100 : 0;
-  const present = expectedMarkers.filter((k) => presentKeys.has(k)).length;
-  return Math.round((present / expectedMarkers.length) * 100);
+function average(values: number[]): number {
+  if (values.length === 0) return 0;
+  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+}
+
+export function computeSystemStateScore(markers: SystemMarker[]): number {
+  if (markers.length === 0) return 0;
+  return average(
+    markers.map((marker) =>
+      markerStateScore(marker.status, marker.value, marker.ref_low, marker.ref_high)
+    )
+  );
+}
+
+export function computeSystemDataConfidence(
+  systemId: BodySystemId,
+  markers: SystemMarker[]
+): number {
+  if (markers.length === 0) return 0;
+
+  if (systemId === "general") {
+    const withRef = markers.filter((marker) => marker.status !== "unknown").length;
+    return Math.round((withRef / markers.length) * 100);
+  }
+
+  const config = BODY_SYSTEMS[systemId];
+  const presentKeys = new Set(markers.map((marker) => marker.key));
+  const coveragePart = (config.markers.filter((key) => presentKeys.has(key)).length / config.markers.length) * 100;
+  const withRef = markers.filter((marker) => marker.status !== "unknown").length;
+  const refPart = (withRef / markers.length) * 100;
+
+  return Math.round(coveragePart * 0.6 + refPart * 0.4);
+}
+
+export function selectPrimarySource(markers: SystemMarker[]): MarkerSource | null {
+  const weights = new Map<string, { source: MarkerSource; weight: number }>();
+
+  for (const marker of markers) {
+    if (!marker.document_id || !marker.source) continue;
+    const existing = weights.get(marker.document_id);
+    const weight = marker.status === "out_of_range" ? 2 : 1;
+    if (existing) {
+      existing.weight += weight;
+    } else {
+      weights.set(marker.document_id, { source: marker.source, weight });
+    }
+  }
+
+  let best: { source: MarkerSource; weight: number } | null = null;
+  for (const entry of weights.values()) {
+    if (!best || entry.weight > best.weight) {
+      best = entry;
+    }
+  }
+
+  return best?.source ?? null;
+}
+
+export function buildWhyHighlighted(markers: SystemMarker[]): string[] {
+  const outOfRange = markers.filter((marker) => marker.status === "out_of_range");
+  if (outOfRange.length > 0) {
+    return outOfRange.map(
+      (marker) =>
+        `${marker.name}: ${marker.value} ${marker.unit} (outside lab reference range, observed ${marker.observed_at})`
+    );
+  }
+
+  if (markers.length > 0) {
+    return [`Based on ${markers.length} marker${markers.length === 1 ? "" : "s"} from your uploaded records.`];
+  }
+
+  return [];
 }
 
 export function buildHealthProfile(
   observations: ObservationInput[],
   sources: HealthProfileSource[]
 ): HealthProfileResult {
+  const sourceById = new Map(sources.map((source) => [source.id, source]));
   const latest = latestByKey(observations);
   const bySystem = new Map<BodySystemId, SystemMarker[]>();
 
@@ -148,9 +250,12 @@ export function buildHealthProfile(
       name: obs.name,
       value: Number(obs.value),
       unit: obs.unit,
+      ref_low: obs.ref_low,
+      ref_high: obs.ref_high,
       status: getMarkerStatus(Number(obs.value), obs.ref_low, obs.ref_high),
       observed_at: obs.observed_at,
       document_id: obs.document_id,
+      source: obs.document_id ? sourceById.get(obs.document_id) ?? null : null,
     });
     bySystem.set(systemId, markers);
   }
@@ -171,31 +276,26 @@ export function buildHealthProfile(
     const markers = bySystem.get(systemId) ?? [];
     if (markers.length === 0) continue;
 
-    const presentKeys = new Set(markers.map((m) => m.key));
-    let coverage: number;
-    let name: string;
+    const name = systemId === "general" ? "General" : BODY_SYSTEMS[systemId].name;
 
-    if (systemId === "general") {
-      coverage = 100;
-      name = "General";
-    } else {
-      const config = BODY_SYSTEMS[systemId];
-      name = config.name;
-      coverage = systemCoverage(config.markers, presentKeys);
-    }
-
-    systems.push({ id: systemId, name, coverage, markers });
+    systems.push({
+      id: systemId,
+      name,
+      state_score: computeSystemStateScore(markers),
+      data_confidence: computeSystemDataConfidence(systemId, markers),
+      primary_source: selectPrimarySource(markers),
+      why_highlighted: buildWhyHighlighted(markers),
+      markers,
+    });
   }
 
-  const coverageValues = systems.map((s) => s.coverage);
-  const overall_coverage =
-    coverageValues.length > 0
-      ? Math.round(coverageValues.reduce((a, b) => a + b, 0) / coverageValues.length)
-      : 0;
+  const stateScores = systems.map((system) => system.state_score);
+  const confidenceScores = systems.map((system) => system.data_confidence);
 
   return {
     records_used_count: sources.length,
-    overall_coverage,
+    overall_state_score: average(stateScores),
+    overall_data_confidence: average(confidenceScores),
     systems,
     sources,
   };
@@ -279,4 +379,16 @@ export function resolveBodyMapLayout(systemIds: BodySystemId[]): Map<BodySystemI
   });
 
   return layouts;
+}
+
+export function stateScoreColor(score: number): string {
+  if (score >= 70) return "fill-emerald-500 stroke-emerald-600";
+  if (score >= 40) return "fill-amber-500 stroke-amber-600";
+  return "fill-slate-400 stroke-slate-500";
+}
+
+export function assessmentStatusLabel(stateScore: number, dataConfidence: number): string {
+  if (dataConfidence < 40) return "Limited data";
+  if (stateScore >= 70) return "Stable";
+  return "Needs attention";
 }

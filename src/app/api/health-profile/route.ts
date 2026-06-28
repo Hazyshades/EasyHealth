@@ -41,8 +41,14 @@ export async function GET() {
     lab_name: doc.lab_name,
   }));
 
+  const completedDocumentIds = new Set(sources.map((source) => source.id));
+  const scopedObservations = (observations ?? []).filter(
+    (observation) =>
+      observation.document_id == null || completedDocumentIds.has(observation.document_id)
+  );
+
   const profile = buildHealthProfile(
-    (observations ?? []).map((o) => ({
+    scopedObservations.map((o) => ({
       biomarker_key: o.biomarker_key,
       name: o.name,
       value: Number(o.value),

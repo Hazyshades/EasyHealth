@@ -19,6 +19,12 @@
       "skillPath": "plugins/circle/skills/bridge-stablecoin/SKILL.md",
       "computedHash": "89f281209be02492992ed3fe03b3c7383b8ab10058c98719c899cab9540c6b0c"
     },
+    "emil-design-eng": {
+      "source": "emilkowalski/skills",
+      "sourceType": "github",
+      "skillPath": "skills/emil-design-eng/SKILL.md",
+      "computedHash": "ac3fc5b4e206488ffc408a2806f829bb2e5eaf518fded09be34790685c2b3a0d"
+    },
     "fund-agent-wallet": {
       "source": "circlefin/skills",
       "sourceType": "github",
@@ -30,6 +36,12 @@
       "sourceType": "github",
       "skillPath": "plugins/circle/skills/pay-via-agent-wallet/SKILL.md",
       "computedHash": "d4ef790eb46e4fb7c7eb9f1716328ba1277c6e2f9bde47fe1865468b2810c687"
+    },
+    "review-animations": {
+      "source": "emilkowalski/skills",
+      "sourceType": "github",
+      "skillPath": "skills/review-animations/SKILL.md",
+      "computedHash": "57c681344448379fbec8c11b45e355b70799998427240662318d017f292571bd"
     },
     "swap-tokens": {
       "source": "circlefin/skills",

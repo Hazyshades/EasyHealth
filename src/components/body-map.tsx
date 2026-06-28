@@ -3,187 +3,141 @@
 import { useState } from "react";
 import {
   resolveBodyMapLayout,
+  stateScoreColor,
   type BodySystemId,
   type SystemInsight,
 } from "@/lib/health-systems";
-import { BodySilhouette, BODY_MAP_VIEWBOX } from "@/components/body-silhouette";
-import { cn } from "@/lib/utils";
+import {
+  BodySilhouette,
+  BodyMapConnector,
+  BodyMapMarker,
+  HealthSystemBadge,
+  BODY_MAP_VIEWBOX,
+} from "@/components/body-silhouette";
+import { HealthProfileDrawer } from "@/components/health-profile-drawer";
 
 const MAP_CENTER = { x: 231, y: 182 };
 const MAP_SCALE = 0.88;
 
-function connectorPath(
-  badgeX: number,
-  badgeY: number,
-  anchorX: number,
-  anchorY: number,
-  side: "left" | "right"
-): string {
-  const bendX = side === "left" ? badgeX + (anchorX - badgeX) * 0.65 : badgeX - (badgeX - anchorX) * 0.65;
-  return `M ${badgeX} ${badgeY} Q ${bendX} ${badgeY} ${anchorX} ${anchorY}`;
-}
-
-function coverageColor(coverage: number): string {
-  if (coverage >= 70) return "fill-emerald-500 stroke-emerald-600";
-  if (coverage >= 40) return "fill-amber-500 stroke-amber-600";
-  return "fill-slate-400 stroke-slate-500";
-}
-
-function statusLabel(status: string): string {
-  if (status === "out_of_range") return "Outside lab reference range";
-  if (status === "in_range") return "Within lab reference range";
-  return "No reference range on document";
-}
-
 type BodyMapProps = {
   systems: SystemInsight[];
-  overallCoverage: number;
+  overallStateScore: number;
+  overallDataConfidence: number;
 };
 
-export function BodyMap({ systems, overallCoverage }: BodyMapProps) {
+export function BodyMap({ systems, overallStateScore, overallDataConfidence }: BodyMapProps) {
   const [selectedId, setSelectedId] = useState<BodySystemId | null>(null);
-  const selected = systems.find((s) => s.id === selectedId) ?? null;
-  const layouts = resolveBodyMapLayout(systems.map((s) => s.id));
+  const selected = systems.find((system) => system.id === selectedId) ?? null;
+  const layouts = resolveBodyMapLayout(systems.map((system) => system.id));
+  const selectedLayout = selected ? layouts.get(selected.id) : null;
+
+  const mapItems = systems.flatMap((system) => {
+    const layout = layouts.get(system.id);
+    if (!layout) return [];
+    return [{ system, layout }];
+  });
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
+    <>
       <div className="relative mx-auto flex w-full max-w-md justify-center">
         <svg
           viewBox={BODY_MAP_VIEWBOX}
           preserveAspectRatio="xMidYMid meet"
+          role="img"
+          aria-label="Health profile body map"
           className="block h-auto w-full max-h-[520px]"
-          aria-label="Body map"
         >
           <g
             transform={`translate(${MAP_CENTER.x} ${MAP_CENTER.y}) scale(${MAP_SCALE}) translate(${-MAP_CENTER.x} ${-MAP_CENTER.y})`}
           >
             <BodySilhouette />
 
-            {systems.map((system) => {
-            const layout = layouts.get(system.id);
-            if (!layout) return null;
-            const active = selectedId === system.id;
-            return (
-              <g key={system.id}>
-                <path
-                  d={connectorPath(layout.x, layout.y, layout.anchorX, layout.anchorY, layout.side)}
-                  fill="none"
-                  className="stroke-slate-300"
-                  strokeWidth="0.8"
-                  strokeDasharray="3 3"
+            <g aria-hidden="true">
+              {mapItems.map(({ system, layout }) => (
+                <BodyMapConnector
+                  key={`${system.id}-connector`}
+                  from={[layout.x, layout.y]}
+                  to={[layout.anchorX, layout.anchorY]}
                 />
-                <circle
-                  cx={layout.anchorX}
-                  cy={layout.anchorY}
-                  r={active ? 3.5 : 2.8}
-                  className={cn(coverageColor(system.coverage), active && "stroke-[1.5]")}
+              ))}
+            </g>
+
+            <g>
+              {mapItems.map(({ system, layout }) => (
+                <BodyMapMarker
+                  key={`${system.id}-marker`}
+                  x={layout.anchorX}
+                  y={layout.anchorY}
+                  active={selectedId === system.id}
+                  className={stateScoreColor(system.state_score)}
                 />
-                <g
-                  className="cursor-pointer"
-                  onClick={() => setSelectedId(system.id)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      setSelectedId(system.id);
-                    }
-                  }}
-                >
-                  <circle
-                    cx={layout.x}
-                    cy={layout.y}
-                    r={active ? 13 : 11}
-                    className={cn(
-                      coverageColor(system.coverage),
-                      "transition-all",
-                      active && "stroke-[2]"
-                    )}
-                  />
-                  <text
-                    x={layout.x}
-                    y={layout.y + 1}
-                    textAnchor="middle"
-                    className="pointer-events-none fill-white text-[9px] font-semibold"
-                  >
-                    {system.coverage}
-                  </text>
-                  <text
-                    x={layout.x}
-                    y={layout.y + 20}
-                    textAnchor="middle"
-                    className="pointer-events-none fill-slate-600 text-[7px] font-medium"
-                  >
-                    {layout.label}
-                  </text>
-                </g>
-              </g>
-            );
-          })}
+              ))}
+            </g>
+
+            <g>
+              {mapItems.map(({ system, layout }) => (
+                <HealthSystemBadge
+                  key={system.id}
+                  x={layout.x}
+                  y={layout.y}
+                  score={system.state_score}
+                  label={layout.label}
+                  active={selectedId === system.id}
+                  scoreClassName={stateScoreColor(system.state_score)}
+                  onSelect={() => setSelectedId(system.id)}
+                />
+              ))}
+            </g>
           </g>
         </svg>
 
         <div className="absolute right-0 top-0 rounded-lg border bg-white p-3 shadow-sm">
-          <p className="text-xs text-muted-foreground">Overall data coverage</p>
-          <p className="text-3xl font-bold text-slate-900">{overallCoverage}%</p>
+          <p className="text-xs text-muted-foreground">Overall current state assessment</p>
+          <p className="text-3xl font-bold text-slate-900">{overallStateScore}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Data confidence {overallDataConfidence}%
+          </p>
         </div>
       </div>
 
-      <div className="rounded-xl border bg-white p-4">
-        {selected ? (
-          <div className="space-y-3">
-            <div>
-              <h3 className="font-semibold">{selected.name}</h3>
-              <p className="text-sm text-muted-foreground">
-                Data coverage: {selected.coverage}%
-              </p>
-            </div>
-            <ul className="max-h-64 space-y-2 overflow-y-auto text-sm">
-              {selected.markers.map((marker) => (
-                <li key={marker.key} className="rounded-md border p-2">
-                  <p className="font-medium">{marker.name}</p>
-                  <p>
-                    {marker.value} {marker.unit}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{statusLabel(marker.status)}</p>
-                  <p className="text-xs text-muted-foreground">Observed {marker.observed_at}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Select a point on the map to view marker details with source dates.
-          </p>
-        )}
+      {systems.length > 0 && (
+        <ul className="mt-4 space-y-1 text-sm">
+          {systems.map((system) => {
+            const layout = layouts.get(system.id);
+            return (
+              <li key={system.id}>
+                <button
+                  type="button"
+                  className="text-left text-teal-700 hover:underline"
+                  onClick={() => setSelectedId(system.id)}
+                >
+                  {layout?.label ?? system.name}: {system.state_score}/100 current state assessment
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
-        {!selected && systems.length > 0 && (
-          <ul className="mt-4 space-y-1 text-sm">
-            {systems.map((system) => {
-              const layout = layouts.get(system.id);
-              return (
-                <li key={system.id}>
-                  <button
-                    type="button"
-                    className="text-left text-teal-700 hover:underline"
-                    onClick={() => setSelectedId(system.id)}
-                  >
-                    {layout?.label ?? system.name}: {system.coverage}% coverage
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-    </div>
+      <p className="mt-4 text-sm text-muted-foreground">
+        Select a point on the map to view factual marker details and source documents.
+      </p>
+
+      <HealthProfileDrawer
+        system={selected}
+        layoutLabel={selectedLayout?.label ?? selected?.name ?? ""}
+        open={selectedId != null}
+        onClose={() => setSelectedId(null)}
+      />
+    </>
   );
 }
 
 export function BodyMapLegend() {
   return (
     <p className="text-xs text-muted-foreground">
-      Percentages show data coverage from your uploaded records, not a clinical health score.
+      Scores show a current state assessment from your uploaded lab records. Data confidence
+      reflects how complete the evidence is. This is not a diagnosis or disease-risk score.
     </p>
   );
 }

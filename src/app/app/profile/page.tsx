@@ -34,7 +34,7 @@ export default function HealthProfilePage() {
         <div className="rounded-xl border bg-white p-8 text-center">
           <h2 className="text-lg font-semibold">No data yet</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Upload lab results to see data coverage across body systems.
+            Upload lab results to see current state assessments across body systems.
           </p>
           <Button asChild className="mt-4">
             <Link href="/app/upload?type=lab">Upload your lab</Link>
@@ -50,11 +50,15 @@ export default function HealthProfilePage() {
       <div>
         <h1 className="text-2xl font-bold">Health Profile</h1>
         <p className="text-muted-foreground">
-          Data coverage and educational insights from your records
+          Current state assessments and factual insights from your records
         </p>
       </div>
 
-      <BodyMap systems={profile.systems} overallCoverage={profile.overall_coverage} />
+      <BodyMap
+        systems={profile.systems}
+        overallStateScore={profile.overall_state_score}
+        overallDataConfidence={profile.overall_data_confidence}
+      />
       <BodyMapLegend />
 
       <section className="rounded-xl border bg-white p-6">
