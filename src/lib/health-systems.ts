@@ -387,6 +387,12 @@ export function stateScoreColor(score: number): string {
   return "fill-slate-400 stroke-slate-500";
 }
 
+export function stateScoreStroke(score: number): string {
+  if (score >= 70) return "#059669";
+  if (score >= 40) return "#d97706";
+  return "#64748b";
+}
+
 export function assessmentStatusLabel(stateScore: number, dataConfidence: number): string {
   if (dataConfidence < 40) return "Limited data";
   if (stateScore >= 70) return "Stable";

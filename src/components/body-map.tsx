@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   resolveBodyMapLayout,
   stateScoreColor,
+  stateScoreStroke,
   type BodySystemId,
   type SystemInsight,
 } from "@/lib/health-systems";
@@ -11,6 +12,7 @@ import {
   BodySilhouette,
   BodyMapConnector,
   BodyMapMarker,
+  BodyMapDefs,
   HealthSystemBadge,
   BODY_MAP_VIEWBOX,
 } from "@/components/body-silhouette";
@@ -88,45 +90,48 @@ export function BodyMap({
               : "block h-auto w-full max-h-[520px]"
           )}
         >
-          <g
-            transform={`translate(${MAP_CENTER.x} ${MAP_CENTER.y}) scale(${resolvedMapScale}) translate(${-MAP_CENTER.x} ${-MAP_CENTER.y})`}
-          >
-            <BodySilhouette />
+          <BodyMapDefs />
+          <g className="body-group">
+            <g
+              transform={`translate(${MAP_CENTER.x} ${MAP_CENTER.y}) scale(${resolvedMapScale}) translate(${-MAP_CENTER.x} ${-MAP_CENTER.y})`}
+            >
+              <BodySilhouette />
 
-            <g aria-hidden="true">
-              {mapItems.map(({ system, layout }) => {
-                const active = selectedId === system.id;
-                const dimmed = hasSelection && !active;
-                return (
-                  <BodyMapConnector
-                    key={`${system.id}-connector`}
-                    from={[layout.x, layout.y]}
-                    to={[layout.anchorX, layout.anchorY]}
-                    active={active}
-                    dimmed={dimmed}
-                  />
-                );
-              })}
-            </g>
+              <g aria-hidden="true">
+                {mapItems.map(({ system, layout }) => {
+                  const active = selectedId === system.id;
+                  const dimmed = hasSelection && !active;
+                  return (
+                    <BodyMapConnector
+                      key={`${system.id}-connector`}
+                      from={[layout.x, layout.y]}
+                      to={[layout.anchorX, layout.anchorY]}
+                      active={active}
+                      dimmed={dimmed}
+                      strokeColor={stateScoreStroke(system.state_score)}
+                    />
+                  );
+                })}
+              </g>
 
-            <g>
-              {mapItems.map(({ system, layout }) => {
-                const active = selectedId === system.id;
-                const dimmed = hasSelection && !active;
-                return (
-                  <BodyMapMarker
-                    key={`${system.id}-marker`}
-                    x={layout.anchorX}
-                    y={layout.anchorY}
-                    active={active}
-                    dimmed={dimmed}
-                    className={stateScoreColor(system.state_score)}
-                  />
-                );
-              })}
-            </g>
+              <g aria-hidden="true">
+                {mapItems.map(({ system, layout }) => {
+                  const active = selectedId === system.id;
+                  const dimmed = hasSelection && !active;
+                  return (
+                    <BodyMapMarker
+                      key={`${system.id}-marker`}
+                      x={layout.anchorX}
+                      y={layout.anchorY}
+                      active={active}
+                      dimmed={dimmed}
+                      className={stateScoreColor(system.state_score)}
+                    />
+                  );
+                })}
+              </g>
 
-            <g>
+              <g>
               {mapItems.map(({ system, layout }, index) => {
                 const active = selectedId === system.id;
                 const dimmed = hasSelection && !active;
@@ -145,6 +150,7 @@ export function BodyMap({
                   />
                 );
               })}
+              </g>
             </g>
           </g>
         </svg>

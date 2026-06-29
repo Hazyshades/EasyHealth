@@ -160,6 +160,51 @@
   }
 }
 
+/* Body map — silhouette tokens (health-tinted, aligned with .eh-app) */
+.body-group {
+  --body-fill: #f0faf9;
+  --body-fill-strong: #dff5f2;
+  --body-fill-soft: #e8f6f4;
+  --body-detail: #a8ddd6;
+  --body-stroke: #5eb8b0;
+  --body-shadow: #008c84;
+  --body-connector: #cbd5e1;
+  --body-connector-active: #94a3b8;
+  --body-badge-label: #475569;
+}
+
+.body-ground-shadow {
+  fill: var(--body-shadow);
+  opacity: 0.1;
+}
+
+.body-map-connector {
+  stroke-dasharray: 4 4;
+  transition: opacity 180ms ease-out, stroke 180ms ease-out;
+}
+
+.body-map-connector.is-active {
+  stroke-dasharray: none;
+}
+
+.body-map-badge-label {
+  fill: var(--body-badge-label);
+  font-size: 8px;
+  font-weight: 500;
+}
+
+.body-map-badge-score {
+  fill: #ffffff;
+  font-size: 9px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.body-map-badge:focus-visible .body-map-badge-ring {
+  stroke: var(--eh-brand, #4f46e5);
+  stroke-width: 2.5;
+}
+
 /* Body map — motion tokens (Emil design-eng: strong ease-out, transform + opacity only) */
 :root {
   --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
@@ -218,11 +263,6 @@
   transform: scale(1.06);
 }
 
-.body-map-badge:focus-visible .body-map-badge-ring {
-  stroke: oklch(0.55 0.12 200);
-  stroke-width: 2.5;
-}
-
 .body-map-marker-dot {
   transform-box: fill-box;
   transform-origin: center;
@@ -235,10 +275,6 @@
 
 .body-map-marker.is-dimmed .body-map-marker-dot {
   opacity: 0.35;
-}
-
-.body-map-connector {
-  transition: opacity 180ms ease-out;
 }
 
 .body-map-connector.is-dimmed {
