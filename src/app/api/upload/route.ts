@@ -88,7 +88,9 @@ async function handler(req: NextRequest, _payment: import("@/lib/x402").SettledP
   }
 
   try {
-    const extraction = await extractBiomarkersFromFile(buffer, mimeType, file.name);
+    const extraction = await extractBiomarkersFromFile(buffer, mimeType, file.name, {
+      profileId,
+    });
 
     if (extraction.biomarkers.length === 0) {
       await supabase

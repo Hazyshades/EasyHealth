@@ -119,6 +119,18 @@ export async function POST(request: Request) {
         return NextResponse.json(data.data);
       }
 
+      case "getUser": {
+        const { userToken } = params;
+        if (!userToken) {
+          return NextResponse.json({ error: "Missing userToken" }, { status: 400 });
+        }
+        const data = await circleFetch("/v1/w3s/user", {
+          method: "GET",
+          userToken,
+        });
+        return NextResponse.json(data.data);
+      }
+
       case "getTokenBalance": {
         const { userToken, walletId } = params;
         if (!userToken || !walletId) {

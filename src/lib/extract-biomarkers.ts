@@ -1,6 +1,6 @@
-import { openai } from "@ai-sdk/openai";
-import { generateText } from "ai";
+import { generateText, type LanguageModel } from "ai";
 import { parseJsonFromModelText, sanitizeExtraction } from "@/lib/schemas/biomarkers";
+import { resolveModelForProfile } from "@/lib/ai-provider";
 
 const EXTRACTION_INSTRUCTIONS = `You extract laboratory biomarkers from medical lab reports.
 Respond with a single JSON object only. No markdown fences, no commentary.
@@ -53,10 +53,19 @@ function buildUserContent(buffer: Buffer, mimeType: string, filename: string) {
 export async function extractBiomarkersFromFile(
   buffer: Buffer,
   mimeType: string,
-  filename: string
+  filename: string,
+  options?: { profileId?: string; model?: LanguageModel }
 ) {
+  const model =
+    options?.model ??
+    (options?.profileId ? await resolveModelForProfile(options.profileId) : undefined);
+
+  if (!model) {
+    throw new Error("Profile id or model is required for extraction");
+  }
+
   const { text } = await generateText({
-    model: openai("gpt-4o-mini"),
+    model,
     maxRetries: 2,
     messages: [
       { role: "system", content: EXTRACTION_INSTRUCTIONS },

@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
+import { sanitizeReportStrings } from "@/lib/report-text";
 
 type ObservationRow = {
   name: string;
@@ -86,5 +87,5 @@ export function buildSummaryPreview(overview: string): string {
 }
 
 export function withDisclaimer<T extends { disclaimer?: string }>(content: T) {
-  return { ...content, disclaimer: MEDICAL_DISCLAIMER };
+  return { ...sanitizeReportStrings(content), disclaimer: MEDICAL_DISCLAIMER };
 }

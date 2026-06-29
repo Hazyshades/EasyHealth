@@ -37,6 +37,18 @@ export const PAGE_TITLES: Record<string, { title: string; subtitle?: string }> =
     title: "Create report",
     subtitle: "Generate a new health report from your records",
   },
+  "/app/account": {
+    title: "Account",
+    subtitle: "Wallet and sign-in details for your EasyHealth account",
+  },
+  "/app/settings": {
+    title: "Settings",
+    subtitle: "Manage your EasyHealth preferences",
+  },
+  "/app/settings/ai": {
+    title: "AI Settings",
+    subtitle: "Choose which model EasyHealth uses for extraction and reports",
+  },
 };
 
 export function resolvePageMeta(pathname: string): { title: string; subtitle?: string } {

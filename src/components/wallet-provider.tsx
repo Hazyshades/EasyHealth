@@ -14,6 +14,7 @@ import { SocialLoginProvider } from "@circle-fin/w3s-pw-web-sdk/dist/src/types";
 import type { LoginCompleteCallback } from "@circle-fin/w3s-pw-web-sdk/dist/src/types";
 import { env } from "@/lib/env-client";
 import { getGatewayWalletAddress } from "@/lib/payments/gateway-client";
+import { resolveProfileIdentity } from "@/lib/display-name";
 
 const CIRCLE_USER_TOKEN_KEY = "eh_circle_user_token";
 const CIRCLE_ENCRYPTION_KEY = "eh_circle_encryption_key";
@@ -22,6 +23,16 @@ const CIRCLE_WALLET_ID_KEY = "eh_circle_wallet_id";
 type LoginResult = {
   userToken: string;
   encryptionKey: string;
+  oauthResult?: CircleOAuthResult;
+};
+
+type CircleOAuthResult = {
+  oAuthInfo?: {
+    socialUserInfo?: {
+      name?: string;
+      email?: string;
+    };
+  };
 };
 
 type WalletState = {
@@ -29,11 +40,14 @@ type WalletState = {
   walletAddress: string | null;
   usdcBalance: string | null;
   profileId: string | null;
+  displayName: string | null;
+  accountEmail: string | null;
   authError: string | null;
   canSignTransactions: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshBalance: () => Promise<void>;
+  refreshAccountIdentity: () => Promise<void>;
   fundGatewayWallet: (amount: string) => Promise<void>;
 };
 
@@ -54,6 +68,35 @@ function formatCircleLoginError(error: { code?: number; message?: string }): str
   return error.message ?? "Circle social login failed";
 }
 
+async function resolveIdentityFromCircle(
+  oauthResult?: CircleOAuthResult
+): Promise<{ firstName: string | null; email: string | null }> {
+  return resolveProfileIdentity(
+    oauthResult?.oAuthInfo?.socialUserInfo?.name,
+    oauthResult?.oAuthInfo?.socialUserInfo?.email
+  );
+}
+
+async function loadProfileIdentity(): Promise<{
+  firstName: string | null;
+  email: string | null;
+}> {
+  try {
+    const res = await fetch("/api/profile");
+    if (!res.ok) return { firstName: null, email: null };
+    const data = (await res.json()) as {
+      display_name?: string | null;
+      email?: string | null;
+    };
+    return {
+      firstName: data.display_name?.trim() || null,
+      email: data.email?.trim() || null,
+    };
+  } catch {
+    return { firstName: null, email: null };
+  }
+}
+
 const WalletContext = createContext<WalletState | null>(null);
 
 export function useWallet() {
@@ -69,6 +112,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [usdcBalance, setUsdcBalance] = useState<string | null>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [userToken, setUserToken] = useState<string | null>(null);
   const [walletId, setWalletId] = useState<string | null>(null);
@@ -111,16 +156,40 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   }, [userToken, walletId, fetchWalletBalance]);
 
   const establishSession = useCallback(
-    async (address: string, circleWalletId?: string) => {
+    async (address: string, options?: {
+      circleWalletId?: string;
+      displayName?: string | null;
+      email?: string | null;
+    }) => {
       const res = await fetch("/api/auth/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress: address, circleWalletId }),
+        body: JSON.stringify({
+          walletAddress: address,
+          circleWalletId: options?.circleWalletId,
+          displayName: options?.displayName ?? null,
+          email: options?.email ?? null,
+        }),
       });
       if (!res.ok) throw new Error("Failed to create session");
       const data = await res.json();
       setProfileId(data.profileId);
       setWalletAddress(address);
+      if (options?.displayName !== undefined) {
+        setDisplayName(options.displayName);
+      }
+      if (options?.email) {
+        setAccountEmail(options.email);
+      }
+      if (options?.displayName === undefined || !options?.email) {
+        const identity = await loadProfileIdentity();
+        if (options?.displayName === undefined) {
+          setDisplayName(identity.firstName);
+        }
+        if (!options?.email && identity.email) {
+          setAccountEmail(identity.email);
+        }
+      }
     },
     []
   );
@@ -190,7 +259,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
         setWalletId(wallet.id);
         window.sessionStorage.setItem(CIRCLE_WALLET_ID_KEY, wallet.id);
-        await establishSession(wallet.address, wallet.id);
+        const identity = await resolveIdentityFromCircle(loginResult.oauthResult);
+        await establishSession(wallet.address, {
+          circleWalletId: wallet.id,
+          displayName: identity.firstName,
+          email: identity.email,
+        });
         await loadUsdcBalance();
       } finally {
         completingLoginRef.current = false;
@@ -256,6 +330,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         void completeLoginFlow({
           userToken: result.userToken,
           encryptionKey: result.encryptionKey,
+          oauthResult: result as CircleOAuthResult,
         });
       }
     };
@@ -313,6 +388,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         if (data?.profile?.wallet_address) {
           setWalletAddress(data.profile.wallet_address);
           setProfileId(data.profile.id);
+          setDisplayName(data.profile.display_name?.trim() || null);
+          setAccountEmail(data.profile.email?.trim() || null);
           void fetchWalletBalance();
         }
       })
@@ -368,6 +445,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     window.sessionStorage.removeItem(CIRCLE_WALLET_ID_KEY);
     setWalletAddress(null);
     setProfileId(null);
+    setDisplayName(null);
+    setAccountEmail(null);
     setUsdcBalance(null);
     setUserToken(null);
     setWalletId(null);
@@ -376,6 +455,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   const canSignTransactions = Boolean(userToken && walletId);
 
+  const refreshAccountIdentity = useCallback(async () => {
+    const identity = await loadProfileIdentity();
+    setDisplayName(identity.firstName);
+    if (identity.email) setAccountEmail(identity.email);
+  }, []);
+
   return (
     <WalletContext.Provider
       value={{
@@ -383,11 +468,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         walletAddress,
         usdcBalance,
         profileId,
+        displayName,
+        accountEmail,
         authError,
         canSignTransactions,
         signInWithGoogle,
         signOut,
         refreshBalance,
+        refreshAccountIdentity,
         fundGatewayWallet,
       }}
     >

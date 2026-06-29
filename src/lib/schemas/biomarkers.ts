@@ -143,11 +143,20 @@ export const MEDICAL_DISCLAIMER =
 
 /** Permissive schema for LLM structured output; disclaimer is injected server-side. */
 export const doctorSummaryGenerationSchema = z.object({
-  overview: z.string().min(1),
-  key_findings: z.array(z.string()).default([]),
-  changes: z.array(z.string()).default([]),
-  questions_for_clinician: z.array(z.string()).default([]),
-  when_to_seek_care: z.string().min(1),
+  overview: z.string().min(1).describe("Plain-text overview paragraph, no markdown"),
+  key_findings: z
+    .array(z.string().min(1))
+    .min(1)
+    .describe("At least one key finding with values and dates"),
+  changes: z
+    .array(z.string().min(1))
+    .min(1)
+    .describe("At least two change-over-time notes or a note that only one date is available"),
+  questions_for_clinician: z
+    .array(z.string().min(1))
+    .min(3)
+    .describe("At least three clinician questions referencing specific results"),
+  when_to_seek_care: z.string().min(1).describe("Plain-text urgent care guidance"),
   disclaimer: z.string().optional(),
 });
 

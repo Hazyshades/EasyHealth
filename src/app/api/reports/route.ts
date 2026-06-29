@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { openai } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { withGateway } from "@/lib/x402";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveModelForProfile } from "@/lib/ai-provider";
 import { doctorSummaryGenerationSchema } from "@/lib/schemas/biomarkers";
 import {
   buildReportSystemPrompt,
@@ -183,8 +183,9 @@ async function postHandler(req: NextRequest, _payment: import("@/lib/x402").Sett
 
   let object;
   try {
+    const model = await resolveModelForProfile(profileId);
     const result = await generateObject({
-      model: openai("gpt-4o-mini"),
+      model,
       schema: doctorSummaryGenerationSchema,
       maxRetries: 2,
       system: buildReportSystemPrompt(report_type, detail_level),

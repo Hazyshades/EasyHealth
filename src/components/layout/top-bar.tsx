@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { LogOut } from "lucide-react";
 import { useWallet } from "@/components/wallet-provider";
+import { UserMenu } from "@/components/user-menu";
 import { WalletAccountTrigger } from "@/components/wallet-account-trigger";
 import { WalletDashboardDrawer } from "@/components/wallet-dashboard-drawer";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import { cn } from "@/lib/utils";
 
 export function TopBar() {
   const pathname = usePathname();
-  const { walletAddress, usdcBalance, refreshBalance, fundGatewayWallet, canSignTransactions, signOut } = useWallet();
+  const { walletAddress, usdcBalance, displayName, accountEmail, refreshBalance, fundGatewayWallet, canSignTransactions, signOut } = useWallet();
   const [gatewayBalance, setGatewayBalance] = useState<string | null>(null);
   const [walletOpen, setWalletOpen] = useState(false);
 
@@ -51,6 +52,8 @@ export function TopBar() {
               onClick={() => setWalletOpen(true)}
             />
           )}
+
+          {walletAddress && <UserMenu displayName={displayName} email={accountEmail} />}
 
           <Button
             variant="outline"

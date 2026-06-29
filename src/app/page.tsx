@@ -114,7 +114,7 @@ export default function LandingPage() {
       <footer className="border-t bg-white px-4 py-8 text-center text-xs text-muted-foreground">
         <p className="font-medium">{MEDICAL_DISCLAIMER} For educational purposes only.</p>
         <p className="mt-2">
-          Health data stays in Supabase (encrypted). Only payment receipts settle on Arc - never PHI on-chain.
+          Health data encrypted.
         </p>
         <p className="mt-2">GDPR-aware: you control your data. EU/US wellness positioning.</p>
       </footer>
