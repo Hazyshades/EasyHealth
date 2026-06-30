@@ -43,6 +43,28 @@ function parseRefHigh(value: unknown): number | null {
   return parseLabNumber(value);
 }
 
+export function parseReferenceRange(value: unknown): {
+  ref_low: number | null;
+  ref_high: number | null;
+} {
+  if (typeof value !== "string" || !value.trim()) {
+    return { ref_low: null, ref_high: null };
+  }
+
+  const rangeMatch = value.match(/(-?\d+(?:\.\d+)?)\s*[-\u2013]\s*(-?\d+(?:\.\d+)?)/);
+  if (!rangeMatch) {
+    return {
+      ref_low: parseRefBound(value),
+      ref_high: parseRefHigh(value),
+    };
+  }
+
+  return {
+    ref_low: parseLabNumber(rangeMatch[1]),
+    ref_high: parseLabNumber(rangeMatch[2]),
+  };
+}
+
 /** Permissive schema used only if generateObject is retried. */
 export const extractionSchema = z.object({
   lab_name: z.any().optional(),
