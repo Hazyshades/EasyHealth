@@ -160,6 +160,60 @@ export const doctorSummaryGenerationSchema = z.object({
   disclaimer: z.string().optional(),
 });
 
+export type DoctorSummaryGeneration = z.infer<typeof doctorSummaryGenerationSchema>;
+
+function toReportStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter(Boolean);
+}
+
+/** Coerce permissive LLM JSON into the report shape (used after generateText). */
+export function parseDoctorSummary(raw: unknown): DoctorSummaryGeneration {
+  const data =
+    raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
+
+  const overview =
+    typeof data.overview === "string" && data.overview.trim()
+      ? data.overview.trim()
+      : "Summary based on the provided biomarker history.";
+
+  let key_findings = toReportStringArray(data.key_findings);
+  let changes = toReportStringArray(data.changes);
+  let questions_for_clinician = toReportStringArray(data.questions_for_clinician);
+
+  if (key_findings.length === 0) {
+    key_findings = ["Review the listed biomarker values and dates with your clinician."];
+  }
+  if (changes.length === 0) {
+    changes = ["Only one lab date is available; longitudinal comparison is limited."];
+  }
+  if (changes.length === 1) {
+    changes.push("Additional lab dates would help track trends over time.");
+  }
+  while (questions_for_clinician.length < 3) {
+    questions_for_clinician.push(
+      "What follow-up tests or monitoring would you recommend based on these results?"
+    );
+  }
+
+  const when_to_seek_care =
+    typeof data.when_to_seek_care === "string" && data.when_to_seek_care.trim()
+      ? data.when_to_seek_care.trim()
+      : "Seek urgent care for chest pain, difficulty breathing, severe weakness, or other acute symptoms.";
+
+  return {
+    overview,
+    key_findings,
+    changes,
+    questions_for_clinician,
+    when_to_seek_care,
+  };
+}
+
 export const doctorSummarySchema = z.object({
   overview: z.string(),
   key_findings: z.array(z.string()),

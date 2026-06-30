@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 
 type UserMenuProps = {
   displayName?: string | null;
+  lastName?: string | null;
   email?: string | null;
 };
 
@@ -22,9 +23,9 @@ const MENU_ITEMS = [
   { href: "/app/settings/ai", label: "AI Settings" },
 ] as const;
 
-export function UserMenu({ displayName, email }: UserMenuProps) {
-  const label = menuDisplayLabel(displayName, email);
-  const initial = menuDisplayInitial(displayName, email);
+export function UserMenu({ displayName, lastName, email }: UserMenuProps) {
+  const label = menuDisplayLabel(displayName, lastName, email);
+  const initial = menuDisplayInitial(displayName, lastName, email);
   const isEmailLabel = !displayName?.trim() && Boolean(email?.trim());
 
   return (

@@ -127,7 +127,7 @@
   }
 }
 
-/* EasyHealth typography — one family (Figtree), hierarchy via weight + size + color */
+/* EasyHealth typography -one family (Figtree), hierarchy via weight + size + color */
 .eh-page-title {
   font-family: var(--font-sans);
   font-size: 1.25rem;
@@ -160,7 +160,7 @@
   }
 }
 
-/* Body map — silhouette tokens (health-tinted, aligned with .eh-app) */
+/* Body map -silhouette tokens (health-tinted, aligned with .eh-app) */
 .body-group {
   --body-fill: #f0faf9;
   --body-fill-strong: #dff5f2;
@@ -205,7 +205,7 @@
   stroke-width: 2.5;
 }
 
-/* Body map — motion tokens (Emil design-eng: strong ease-out, transform + opacity only) */
+/* Body map -motion tokens (Emil design-eng: strong ease-out, transform + opacity only) */
 :root {
   --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
 }

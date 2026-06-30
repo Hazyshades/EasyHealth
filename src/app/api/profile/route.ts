@@ -3,32 +3,67 @@ import { z } from "zod";
 import { getSessionProfileId } from "@/lib/auth/session";
 import {
   getProfileById,
+  markWizardStepVisited,
+  recordProfileConsents,
+  updateOnboardingWizardState,
   updateProfileAiProvider,
   updateProfileDisplayName,
+  updateProfileName,
+  type ProfileRow,
 } from "@/lib/auth/profile";
+import { WIZARD_STEP_IDS } from "@/lib/onboarding/wizard-steps";
 import {
   isProviderConfigured,
   providerAvailability,
   type AiProviderId,
 } from "@/lib/ai-provider";
 
+const consentsSchema = z.object({
+  terms: z.literal(true),
+  privacy: z.literal(true),
+  health_data: z.literal(true),
+  ai_processing: z.literal(true),
+  analytics: z.boolean().optional(),
+  personalization: z.boolean().optional(),
+  marketing_email: z.boolean().optional(),
+  marketing_cookies: z.boolean().optional(),
+});
+
 const patchSchema = z
   .object({
     ai_provider: z.enum(["openai", "deepseek", "owl_alpha"]).optional(),
     display_name: z.string().trim().min(1).max(120).optional(),
+    first_name: z.string().trim().min(1).max(60).optional(),
+    last_name: z.string().trim().max(60).nullable().optional(),
+    consents: consentsSchema.optional(),
+    onboarding_action: z
+      .enum(["dismiss_wizard", "complete_wizard", "dismiss_banner"])
+      .optional(),
+    wizard_step_visited: z.enum(WIZARD_STEP_IDS).optional(),
     api_key: z.unknown().optional(),
     base_url: z.unknown().optional(),
   })
   .strict();
 
-function profileResponse(profile: Awaited<ReturnType<typeof getProfileById>>) {
+function profileResponse(profile: ProfileRow) {
   return {
     id: profile.id,
     wallet_address: profile.wallet_address,
     display_name: profile.display_name,
+    first_name: profile.first_name,
+    last_name: profile.last_name,
     email: profile.email,
     ai_provider: profile.ai_provider,
     created_at: profile.created_at,
+    terms_accepted_at: profile.terms_accepted_at,
+    terms_version: profile.terms_version,
+    health_data_consent_at: profile.health_data_consent_at,
+    ai_consent_at: profile.ai_consent_at,
+    consent_preferences: profile.consent_preferences,
+    onboarding_dismissed_at: profile.onboarding_dismissed_at,
+    onboarding_completed_at: profile.onboarding_completed_at,
+    dashboard_preferences: profile.dashboard_preferences,
+    wizard_steps_visited: profile.dashboard_preferences?.wizard_steps_visited ?? [],
     ...providerAvailability(),
   };
 }
@@ -86,7 +121,15 @@ export async function PATCH(request: Request) {
     );
   }
 
-  if (!parsed.data.ai_provider && !parsed.data.display_name) {
+  const hasUpdate =
+    parsed.data.ai_provider ||
+    parsed.data.display_name ||
+    parsed.data.first_name ||
+    parsed.data.consents ||
+    parsed.data.onboarding_action ||
+    parsed.data.wizard_step_visited;
+
+  if (!hasUpdate) {
     return NextResponse.json({ error: "No supported fields to update" }, { status: 400 });
   }
 
@@ -100,8 +143,26 @@ export async function PATCH(request: Request) {
   try {
     let profile = await getProfileById(profileId);
 
-    if (parsed.data.display_name) {
+    if (parsed.data.first_name) {
+      profile = await updateProfileName(
+        profileId,
+        parsed.data.first_name,
+        parsed.data.last_name ?? null
+      );
+    } else if (parsed.data.display_name) {
       profile = await updateProfileDisplayName(profileId, parsed.data.display_name);
+    }
+
+    if (parsed.data.consents) {
+      profile = await recordProfileConsents(profileId, parsed.data.consents);
+    }
+
+    if (parsed.data.onboarding_action) {
+      profile = await updateOnboardingWizardState(profileId, parsed.data.onboarding_action);
+    }
+
+    if (parsed.data.wizard_step_visited) {
+      profile = await markWizardStepVisited(profileId, parsed.data.wizard_step_visited);
     }
 
     if (parsed.data.ai_provider) {
@@ -111,6 +172,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json(profileResponse(profile));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Profile update failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = message.includes("consents") ? 400 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

@@ -27,7 +27,7 @@ type BodyMapProps = {
   systems: SystemInsight[];
   overallStateScore: number;
   overallDataConfidence: number;
-  /** Hide floating summary — shown in page sidebar instead */
+  /** Hide floating summary -shown in page sidebar instead */
   embedded?: boolean;
   /** Scale silhouette + badges inside the SVG (profile uses a larger value) */
   mapScale?: number;

@@ -19,6 +19,7 @@ import { resolveProfileIdentity } from "@/lib/display-name";
 const CIRCLE_USER_TOKEN_KEY = "eh_circle_user_token";
 const CIRCLE_ENCRYPTION_KEY = "eh_circle_encryption_key";
 const CIRCLE_WALLET_ID_KEY = "eh_circle_wallet_id";
+const OAUTH_PREFILL_KEY = "eh_oauth_prefill_name";
 
 type LoginResult = {
   userToken: string;
@@ -41,6 +42,7 @@ type WalletState = {
   usdcBalance: string | null;
   profileId: string | null;
   displayName: string | null;
+  lastName: string | null;
   accountEmail: string | null;
   authError: string | null;
   canSignTransactions: boolean;
@@ -79,21 +81,25 @@ async function resolveIdentityFromCircle(
 
 async function loadProfileIdentity(): Promise<{
   firstName: string | null;
+  lastName: string | null;
   email: string | null;
 }> {
   try {
     const res = await fetch("/api/profile");
-    if (!res.ok) return { firstName: null, email: null };
+    if (!res.ok) return { firstName: null, lastName: null, email: null };
     const data = (await res.json()) as {
+      first_name?: string | null;
+      last_name?: string | null;
       display_name?: string | null;
       email?: string | null;
     };
     return {
-      firstName: data.display_name?.trim() || null,
+      firstName: data.first_name?.trim() || data.display_name?.trim() || null,
+      lastName: data.last_name?.trim() || null,
       email: data.email?.trim() || null,
     };
   } catch {
-    return { firstName: null, email: null };
+    return { firstName: null, lastName: null, email: null };
   }
 }
 
@@ -113,6 +119,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [usdcBalance, setUsdcBalance] = useState<string | null>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [lastName, setLastName] = useState<string | null>(null);
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [userToken, setUserToken] = useState<string | null>(null);
@@ -185,6 +192,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         const identity = await loadProfileIdentity();
         if (options?.displayName === undefined) {
           setDisplayName(identity.firstName);
+          setLastName(identity.lastName);
         }
         if (!options?.email && identity.email) {
           setAccountEmail(identity.email);
@@ -260,12 +268,16 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         setWalletId(wallet.id);
         window.sessionStorage.setItem(CIRCLE_WALLET_ID_KEY, wallet.id);
         const identity = await resolveIdentityFromCircle(loginResult.oauthResult);
+        const oauthName = loginResult.oauthResult?.oAuthInfo?.socialUserInfo?.name?.trim();
+        if (oauthName) {
+          window.sessionStorage.setItem(OAUTH_PREFILL_KEY, oauthName);
+        }
         await establishSession(wallet.address, {
           circleWalletId: wallet.id,
-          displayName: identity.firstName,
           email: identity.email,
         });
         await loadUsdcBalance();
+        window.location.href = "/app";
       } finally {
         completingLoginRef.current = false;
         setLoading(false);
@@ -388,7 +400,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         if (data?.profile?.wallet_address) {
           setWalletAddress(data.profile.wallet_address);
           setProfileId(data.profile.id);
-          setDisplayName(data.profile.display_name?.trim() || null);
+          setDisplayName(data.profile.first_name?.trim() || data.profile.display_name?.trim() || null);
+          setLastName(data.profile.last_name?.trim() || null);
           setAccountEmail(data.profile.email?.trim() || null);
           void fetchWalletBalance();
         }
@@ -443,14 +456,17 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     window.sessionStorage.removeItem(CIRCLE_USER_TOKEN_KEY);
     window.sessionStorage.removeItem(CIRCLE_ENCRYPTION_KEY);
     window.sessionStorage.removeItem(CIRCLE_WALLET_ID_KEY);
+    window.sessionStorage.removeItem(OAUTH_PREFILL_KEY);
     setWalletAddress(null);
     setProfileId(null);
     setDisplayName(null);
+    setLastName(null);
     setAccountEmail(null);
     setUsdcBalance(null);
     setUserToken(null);
     setWalletId(null);
     setAuthError(null);
+    window.location.href = "/";
   }, []);
 
   const canSignTransactions = Boolean(userToken && walletId);
@@ -458,6 +474,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const refreshAccountIdentity = useCallback(async () => {
     const identity = await loadProfileIdentity();
     setDisplayName(identity.firstName);
+    setLastName(identity.lastName);
     if (identity.email) setAccountEmail(identity.email);
   }, []);
 
@@ -469,6 +486,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         usdcBalance,
         profileId,
         displayName,
+        lastName,
         accountEmail,
         authError,
         canSignTransactions,

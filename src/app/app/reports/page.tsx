@@ -203,7 +203,7 @@ export default function ReportsPage() {
             </div>
             <p className="mt-2 max-w-xl text-sm text-[var(--eh-text-secondary)]">
               Create an educational summary from your uploaded lab records. Paid via x402 on Arc
-              Network — wallet balance shown in the top bar.
+              Network -wallet balance shown in the top bar.
             </p>
             <Button asChild className="mt-4 rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
               <Link href="/app/reports/create">Generate report</Link>

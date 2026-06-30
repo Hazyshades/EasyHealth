@@ -1,13 +1,14 @@
 import { cn } from "@/lib/utils";
 
 type PageHeaderProps = {
+  title?: string;
   subtitle?: string;
   actions?: React.ReactNode;
   compact?: boolean;
 };
 
-export function PageHeader({ subtitle, actions, compact = false }: PageHeaderProps) {
-  if (!subtitle && !actions) return null;
+export function PageHeader({ title, subtitle, actions, compact = false }: PageHeaderProps) {
+  if (!title && !subtitle && !actions) return null;
 
   return (
     <div
@@ -16,11 +17,18 @@ export function PageHeader({ subtitle, actions, compact = false }: PageHeaderPro
         compact ? "mb-3" : "mb-6"
       )}
     >
-      {subtitle ? (
+      {title || subtitle ? (
         <div className="min-w-0">
-          <p className="eh-page-subtitle">
-            {subtitle}
-          </p>
+          {title ? (
+            <h2 className="text-2xl font-bold tracking-tight text-[var(--eh-text-primary)]">
+              {title}
+            </h2>
+          ) : null}
+          {subtitle ? (
+            <p className={cn("eh-page-subtitle", title && "mt-1")}>
+              {subtitle}
+            </p>
+          ) : null}
         </div>
       ) : (
         <div />

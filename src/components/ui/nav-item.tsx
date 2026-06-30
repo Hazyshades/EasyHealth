@@ -8,7 +8,7 @@ import { useAnimatedIconHover } from "@/components/icons/use-animated-icon-hover
 type NavItemProps = {
   item: AppNavItem;
   active: boolean;
-  /** Mobile bottom nav — icon only */
+  /** Mobile bottom nav -icon only */
   compact?: boolean;
 };
 

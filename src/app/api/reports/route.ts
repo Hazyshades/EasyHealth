@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateObject } from "ai";
 import { withGateway } from "@/lib/x402";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveModelForProfile } from "@/lib/ai-provider";
-import { doctorSummaryGenerationSchema } from "@/lib/schemas/biomarkers";
+import { generateDoctorSummary } from "@/lib/generate-doctor-summary";
 import {
   buildReportSystemPrompt,
   createReportBodySchema,
@@ -184,17 +183,14 @@ async function postHandler(req: NextRequest, _payment: import("@/lib/x402").Sett
   let object;
   try {
     const model = await resolveModelForProfile(profileId);
-    const result = await generateObject({
+    object = await generateDoctorSummary({
       model,
-      schema: doctorSummaryGenerationSchema,
-      maxRetries: 2,
       system: buildReportSystemPrompt(report_type, detail_level),
       prompt: `Create a health report from this patient's biomarker history:\n${JSON.stringify(context, null, 2)}`,
     });
-    object = result.object;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("[reports] generateObject failed:", message);
+    console.error("[reports] generateDoctorSummary failed:", message);
     return NextResponse.json(
       { error: "Report generation failed", message },
       { status: 500 }

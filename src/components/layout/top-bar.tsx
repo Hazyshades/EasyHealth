@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 
 export function TopBar() {
   const pathname = usePathname();
-  const { walletAddress, usdcBalance, displayName, accountEmail, refreshBalance, fundGatewayWallet, canSignTransactions, signOut } = useWallet();
+  const { walletAddress, usdcBalance, displayName, lastName, accountEmail, refreshBalance, fundGatewayWallet, canSignTransactions, signOut } = useWallet();
   const [gatewayBalance, setGatewayBalance] = useState<string | null>(null);
   const [walletOpen, setWalletOpen] = useState(false);
 
@@ -53,7 +53,7 @@ export function TopBar() {
             />
           )}
 
-          {walletAddress && <UserMenu displayName={displayName} email={accountEmail} />}
+          {walletAddress && <UserMenu displayName={displayName} lastName={lastName} email={accountEmail} />}
 
           <Button
             variant="outline"
