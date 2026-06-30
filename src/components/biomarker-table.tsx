@@ -22,7 +22,8 @@ type Observation = {
   ref_low: number | null;
   ref_high: number | null;
   observed_at: string;
-  documents?: { original_filename: string } | null;
+  document_id: string | null;
+  documents?: { id: string; original_filename: string } | null;
 };
 
 type StatusInfo = {
@@ -86,7 +87,16 @@ export function BiomarkerTable({ observations }: { observations: Observation[] }
                     {o.observed_at}
                   </DataTableCell>
                   <DataTableCell className="text-[var(--eh-text-secondary)]">
-                    {o.documents?.original_filename ?? "—"}
+                    {o.documents?.id ? (
+                      <Link
+                        href={`/app/documents/${o.documents.id}`}
+                        className="text-[var(--eh-brand)] hover:underline"
+                      >
+                        {o.documents.original_filename}
+                      </Link>
+                    ) : (
+                      o.documents?.original_filename ?? "—"
+                    )}
                   </DataTableCell>
                 </DataTableRow>
               );
@@ -108,7 +118,20 @@ export function BiomarkerTable({ observations }: { observations: Observation[] }
                       {o.value} {o.unit}
                     </p>
                     <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
-                      {o.observed_at} · {o.documents?.original_filename ?? "—"}
+                      {o.observed_at}
+                      {o.documents?.id ? (
+                        <>
+                          {" · "}
+                          <Link
+                            href={`/app/documents/${o.documents.id}`}
+                            className="text-[var(--eh-brand)] hover:underline"
+                          >
+                            {o.documents.original_filename}
+                          </Link>
+                        </>
+                      ) : o.documents?.original_filename ? (
+                        ` · ${o.documents.original_filename}`
+                      ) : null}
                     </p>
                   </div>
                   <StatusChip variant={status.variant}>{status.label}</StatusChip>

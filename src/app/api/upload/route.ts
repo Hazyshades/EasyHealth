@@ -3,10 +3,10 @@ import { withGateway } from "@/lib/x402";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureLabDocumentsBucket, LAB_DOCUMENTS_BUCKET } from "@/lib/supabase/storage";
-import { extractBiomarkersFromFile } from "@/lib/extract-biomarkers";
-import { upsertObservations } from "@/lib/upsert-observations";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 import { isDocumentType } from "@/lib/health-systems";
+import { originalObjectPath } from "@/lib/documents/paths";
+import { enqueueFullPipelineJob } from "@/lib/documents/jobs";
 
 const ALLOWED_TYPES = new Set([
   "application/pdf",
@@ -54,8 +54,9 @@ async function handler(req: NextRequest, _payment: import("@/lib/x402").SettledP
     return NextResponse.json({ error: message }, { status: 500 });
   }
 
+  const documentId = crypto.randomUUID();
+  const storagePath = originalObjectPath(profileId, documentId, file.name);
   const buffer = Buffer.from(await file.arrayBuffer());
-  const storagePath = `${profileId}/${crypto.randomUUID()}-${file.name}`;
 
   const { error: uploadError } = await supabase.storage
     .from(LAB_DOCUMENTS_BUCKET)
@@ -71,11 +72,16 @@ async function handler(req: NextRequest, _payment: import("@/lib/x402").SettledP
   const { data: document, error: docError } = await supabase
     .from("documents")
     .insert({
+      id: documentId,
       profile_id: profileId,
       storage_path: storagePath,
+      original_storage_path: storagePath,
       original_filename: file.name,
       document_type: documentType,
       status: "processing",
+      processing_status: "processing",
+      mime_type: mimeType,
+      file_size_bytes: file.size,
     })
     .select("id")
     .single();
@@ -88,43 +94,21 @@ async function handler(req: NextRequest, _payment: import("@/lib/x402").SettledP
   }
 
   try {
-    const extraction = await extractBiomarkersFromFile(buffer, mimeType, file.name, {
-      profileId,
-    });
-
-    if (extraction.biomarkers.length === 0) {
-      await supabase
-        .from("documents")
-        .update({ status: "failed", error_message: "No biomarkers found" })
-        .eq("id", document.id);
-      return NextResponse.json({ error: "No biomarkers found in document" }, { status: 422 });
-    }
-
-    const observedAt = await upsertObservations(profileId, document.id, extraction);
-
-    await supabase
-      .from("documents")
-      .update({
-        status: "completed",
-        lab_name: extraction.lab_name,
-        observed_at: observedAt,
-      })
-      .eq("id", document.id);
-
-    return NextResponse.json({
-      documentId: document.id,
-      biomarkers: extraction.biomarkers,
-      observedAt,
-      disclaimer: MEDICAL_DISCLAIMER,
-    });
+    await enqueueFullPipelineJob(profileId, document.id);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Extraction failed";
+    const message = error instanceof Error ? error.message : "Failed to enqueue processing";
     await supabase
       .from("documents")
-      .update({ status: "failed", error_message: message })
+      .update({ status: "failed", processing_status: "failed", processing_error: message })
       .eq("id", document.id);
     return NextResponse.json({ error: "Upload processing failed", message }, { status: 500 });
   }
+
+  return NextResponse.json({
+    documentId: document.id,
+    processingStatus: "processing",
+    disclaimer: MEDICAL_DISCLAIMER,
+  });
 }
 
 export const POST = withGateway(handler, "$0.01", "/api/upload", {

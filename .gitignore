@@ -56,3 +56,5 @@ hachakton.md
 .next/
 
 .cursor/
+/worker/.env
+/worker/node_modules    

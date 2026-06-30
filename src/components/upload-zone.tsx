@@ -39,11 +39,12 @@ export function UploadZone({
   const [retrying, setRetrying] = useState(false);
 
   const completeUpload = useCallback(
-    (formattedAmount: string) => {
-      setStatus(`Paid ${formattedAmount} USDC - processing complete`);
+    (formattedAmount: string, documentId?: string) => {
+      setStatus(`Paid ${formattedAmount} USDC — document queued for processing`);
       setEntitlementId(null);
       setPendingFile(null);
-      setTimeout(() => router.push(redirectTo), 1500);
+      const target = documentId ? `/app/documents/${documentId}` : redirectTo;
+      setTimeout(() => router.push(target), 1500);
     },
     [router, redirectTo]
   );
@@ -59,12 +60,12 @@ export function UploadZone({
 
         if (options?.entitlementId) {
           setStatus("Retrying upload without additional charge…");
-          const result = await retryWithEntitlement(
+          const result = await retryWithEntitlement<{ documentId?: string }>(
             `${window.location.origin}/api/upload`,
             options.entitlementId,
             { method: "POST", body: formData }
           );
-          completeUpload(result.formattedAmount);
+          completeUpload(result.formattedAmount, result.data.documentId);
           return;
         }
 
@@ -78,7 +79,8 @@ export function UploadZone({
           body: formData,
         });
 
-        completeUpload(result.formattedAmount);
+        const payload = result.data as { documentId?: string };
+        completeUpload(result.formattedAmount, payload.documentId);
       } catch (e) {
         if (
           options?.autoRetry !== false &&

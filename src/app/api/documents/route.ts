@@ -3,6 +3,10 @@ import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isDocumentType } from "@/lib/health-systems";
 import { getEligibleDocumentIds } from "@/lib/reports";
+import {
+  isLegacyDocument,
+  resolveDisplayProcessingStatus,
+} from "@/lib/documents/access";
 
 export async function GET(req: NextRequest) {
   const profileId = await getSessionProfileId();
@@ -17,7 +21,7 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from("documents")
     .select(
-      "id, original_filename, status, document_type, lab_name, observed_at, created_at, error_message"
+      "id, original_filename, status, document_type, lab_name, observed_at, created_at, error_message, mime_type, thumbnail_storage_path, page_count, processing_status, processing_version, processing_error"
     )
     .eq("profile_id", profileId)
     .order("created_at", { ascending: false });
@@ -43,5 +47,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ documents: documents ?? [] });
+  const enriched = (documents ?? []).map((doc) => ({
+    ...doc,
+    processing_status: resolveDisplayProcessingStatus(doc as Parameters<typeof resolveDisplayProcessingStatus>[0]),
+    is_legacy: isLegacyDocument(doc as Parameters<typeof isLegacyDocument>[0]),
+    has_thumbnail: Boolean(doc.thumbnail_storage_path),
+  }));
+
+  return NextResponse.json({ documents: enriched });
 }

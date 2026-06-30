@@ -25,7 +25,8 @@ type Observation = {
   ref_low: number | null;
   ref_high: number | null;
   observed_at: string;
-  documents?: { original_filename: string } | null;
+  document_id: string | null;
+  documents?: { id: string; original_filename: string } | null;
 };
 
 type StatusFilter = "all" | "normal" | "attention" | "low" | "high";

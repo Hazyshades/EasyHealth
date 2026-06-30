@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-function parseLabNumber(value: unknown): number | null {
+export function parseLabNumber(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value !== "string") return null;

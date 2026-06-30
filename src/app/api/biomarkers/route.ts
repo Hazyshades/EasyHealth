@@ -14,7 +14,7 @@ export async function GET() {
     const supabase = createAdminClient();
     const { data: observations } = await supabase
       .from("observations")
-      .select("*, documents(original_filename)")
+      .select("*, documents(id, original_filename)")
       .eq("profile_id", profileId)
       .order("observed_at", { ascending: false });
 

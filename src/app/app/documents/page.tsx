@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Upload } from "lucide-react";
+import { FileText, Upload } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { FilterChip } from "@/components/ui/filter-chip";
@@ -28,11 +28,14 @@ type Document = {
   id: string;
   original_filename: string;
   status: "processing" | "completed" | "failed";
+  processing_status: string;
   document_type: DocumentType;
   lab_name: string | null;
   observed_at: string | null;
   created_at: string;
   error_message: string | null;
+  has_thumbnail: boolean;
+  is_legacy: boolean;
 };
 
 const TABS: { id: DocumentType | "dicom"; label: string }[] = [
@@ -42,10 +45,40 @@ const TABS: { id: DocumentType | "dicom"; label: string }[] = [
   { id: "dicom", label: "DICOM" },
 ];
 
-function statusVariant(status: Document["status"]): "success" | "warning" | "error" {
-  if (status === "completed") return "success";
+function displayStatus(doc: Document): string {
+  return doc.processing_status || doc.status;
+}
+
+function statusVariant(status: string): "success" | "warning" | "error" | "neutral" {
+  if (status === "completed" || status === "ready") return "success";
   if (status === "failed") return "error";
+  if (status === "needs_review") return "warning";
   return "warning";
+}
+
+function DocumentThumb({ documentId, hasThumbnail }: { documentId: string; hasThumbnail: boolean }) {
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!hasThumbnail) return;
+    fetch(`/api/documents/${documentId}/thumbnail`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setUrl(data?.url ?? null))
+      .catch(() => undefined);
+  }, [documentId, hasThumbnail]);
+
+  if (url) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={url} alt="" className="size-10 rounded-lg object-cover" />
+    );
+  }
+
+  return (
+    <div className="flex size-10 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
+      <FileText className="size-5" aria-hidden />
+    </div>
+  );
 }
 
 function countActiveFilters(filters: FloatingFilterValues, search: string): number {
@@ -63,7 +96,10 @@ function countActiveFilters(filters: FloatingFilterValues, search: string): numb
 function applyClientFilters(docs: Document[], search: string, filters: FloatingFilterValues) {
   const q = (search || filters.keyword).trim().toLowerCase();
   return docs.filter((doc) => {
-    if (filters.status !== "all" && doc.status !== filters.status) return false;
+    const status = displayStatus(doc);
+    if (filters.status !== "all" && status !== filters.status && doc.status !== filters.status) {
+      return false;
+    }
     if (filters.documentType !== "all" && doc.document_type !== filters.documentType) return false;
     if (filters.date && doc.observed_at && !doc.observed_at.startsWith(filters.date)) return false;
     if (filters.provider.trim()) {
@@ -103,6 +139,13 @@ export default function DocumentsPage() {
     }
     loadDocuments();
   }, [activeTab, loadDocuments]);
+
+  useEffect(() => {
+    const hasProcessing = documents.some((d) => displayStatus(d) === "processing");
+    if (!hasProcessing) return;
+    const timer = setInterval(loadDocuments, 10000);
+    return () => clearInterval(timer);
+  }, [documents, loadDocuments]);
 
   const filteredDocuments = useMemo(
     () => applyClientFilters(documents, search, filters),
@@ -193,6 +236,9 @@ export default function DocumentsPage() {
             <DataTable>
               <DataTableHead>
                 <tr>
+                  <DataTableHeaderCell className="w-14">
+                    <span className="sr-only">Preview</span>
+                  </DataTableHeaderCell>
                   <DataTableHeaderCell>Document</DataTableHeaderCell>
                   <DataTableHeaderCell>Type</DataTableHeaderCell>
                   <DataTableHeaderCell>Date</DataTableHeaderCell>
@@ -202,8 +248,17 @@ export default function DocumentsPage() {
               </DataTableHead>
               <DataTableBody>
                 {filteredDocuments.map((doc) => (
-                  <DataTableRow key={doc.id}>
-                    <DataTableCell className="font-medium">{doc.original_filename}</DataTableCell>
+                  <DataTableRow key={doc.id} className="cursor-pointer hover:bg-slate-50">
+                    <DataTableCell>
+                      <Link href={`/app/documents/${doc.id}`} className="block">
+                        <DocumentThumb documentId={doc.id} hasThumbnail={doc.has_thumbnail} />
+                      </Link>
+                    </DataTableCell>
+                    <DataTableCell className="font-medium">
+                      <Link href={`/app/documents/${doc.id}`} className="hover:text-[var(--eh-brand)]">
+                        {doc.original_filename}
+                      </Link>
+                    </DataTableCell>
                     <DataTableCell>
                       <StatusChip variant="neutral">{doc.document_type}</StatusChip>
                     </DataTableCell>
@@ -211,7 +266,9 @@ export default function DocumentsPage() {
                       {doc.observed_at ?? "—"}
                     </DataTableCell>
                     <DataTableCell>
-                      <StatusChip variant={statusVariant(doc.status)}>{doc.status}</StatusChip>
+                      <StatusChip variant={statusVariant(displayStatus(doc))}>
+                        {displayStatus(doc)}
+                      </StatusChip>
                     </DataTableCell>
                     <DataTableCell className="text-[var(--eh-text-secondary)]">
                       {doc.lab_name ?? "Unknown lab"}
@@ -225,23 +282,29 @@ export default function DocumentsPage() {
           <ul className="space-y-3 md:hidden">
             {filteredDocuments.map((doc) => (
               <li key={doc.id}>
-                <SurfaceCard padding="sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-medium text-[var(--eh-text-primary)]">
-                        {doc.original_filename}
-                      </p>
-                      <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
-                        {doc.lab_name ?? "Unknown lab"}
-                        {doc.observed_at ? ` · ${doc.observed_at}` : ""}
-                      </p>
-                      {doc.status === "failed" && doc.error_message && (
-                        <p className="mt-2 text-xs text-red-600">{doc.error_message}</p>
-                      )}
+                <Link href={`/app/documents/${doc.id}`}>
+                  <SurfaceCard padding="sm" className="transition hover:border-[var(--eh-brand)]">
+                    <div className="flex items-start gap-3">
+                      <DocumentThumb documentId={doc.id} hasThumbnail={doc.has_thumbnail} />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-[var(--eh-text-primary)]">
+                          {doc.original_filename}
+                        </p>
+                        <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
+                          {doc.lab_name ?? "Unknown lab"}
+                          {doc.observed_at ? ` · ${doc.observed_at}` : ""}
+                        </p>
+                        {(doc.status === "failed" || displayStatus(doc) === "failed") &&
+                          doc.error_message && (
+                            <p className="mt-2 text-xs text-red-600">{doc.error_message}</p>
+                          )}
+                      </div>
+                      <StatusChip variant={statusVariant(displayStatus(doc))}>
+                        {displayStatus(doc)}
+                      </StatusChip>
                     </div>
-                    <StatusChip variant={statusVariant(doc.status)}>{doc.status}</StatusChip>
-                  </div>
-                </SurfaceCard>
+                  </SurfaceCard>
+                </Link>
               </li>
             ))}
           </ul>
