@@ -25,10 +25,13 @@ export type DocumentRow = {
   processing_version: string | null;
   extraction_model: string | null;
   processed_at: string | null;
+  file_kind: string | null;
+  document_summary: string | null;
+  modality: string | null;
 };
 
 const DOCUMENT_SELECT =
-  "id, profile_id, storage_path, original_storage_path, original_filename, status, document_type, lab_name, observed_at, created_at, error_message, mime_type, file_size_bytes, thumbnail_storage_path, page_count, processing_status, processing_error, processing_version, extraction_model, processed_at";
+  "id, profile_id, storage_path, original_storage_path, original_filename, status, document_type, lab_name, observed_at, created_at, error_message, mime_type, file_size_bytes, thumbnail_storage_path, page_count, processing_status, processing_error, processing_version, extraction_model, processed_at, file_kind, document_summary, modality";
 
 export function isLegacyDocument(doc: DocumentRow): boolean {
   return doc.processing_version == null;

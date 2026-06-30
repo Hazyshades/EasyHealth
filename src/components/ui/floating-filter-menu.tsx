@@ -139,9 +139,9 @@ export function FloatingFilterMenu({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All types</SelectItem>
-                  <SelectItem value="lab">Lab results</SelectItem>
-                  <SelectItem value="imaging">Imaging</SelectItem>
-                  <SelectItem value="consultation">Consultations</SelectItem>
+                  <SelectItem value="lab_result">Lab results</SelectItem>
+                  <SelectItem value="instrumental_report">Imaging studies</SelectItem>
+                  <SelectItem value="consultation_note">Consultations</SelectItem>
                 </SelectContent>
               </Select>
             </FilterField>

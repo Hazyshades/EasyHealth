@@ -53,7 +53,7 @@ export default function LandingPage() {
         <div className="mt-10 flex flex-wrap justify-center gap-4">
           {profileId ? (
             <Button asChild size="lg">
-              <Link href="/app/upload?type=lab">Upload a lab - $0.01</Link>
+              <Link href="/app/upload?type=lab_result">Upload a lab - $0.01</Link>
             </Button>
           ) : (
             <Button

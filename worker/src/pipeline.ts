@@ -2,16 +2,26 @@ import {
   DOCUMENT_PROCESSING_VERSION,
 } from "../../src/lib/documents/constants.js";
 import {
+  extractConsultationFromImage,
+  extractConsultationFromText,
+} from "../../src/lib/documents/consultation-extraction.js";
+import { generateDocumentSummary } from "../../src/lib/documents/document-summary.js";
+import {
   extractPipelineBiomarkersFromImage,
   extractPipelineBiomarkersFromText,
   formatReferenceRange,
 } from "../../src/lib/documents/extraction.js";
+import {
+  extractInstrumentalFromImage,
+  extractInstrumentalFromText,
+} from "../../src/lib/documents/instrumental-extraction.js";
 import {
   ocrFulltextPath,
   pagePreviewObjectPath,
   resolveOriginalStoragePath,
   thumbnailObjectPath,
 } from "../../src/lib/documents/paths.js";
+import { normalizeDocumentType, type DocumentType } from "../../src/lib/health-systems.js";
 import { modelIdForProvider, resolveLanguageModel, type AiProviderId } from "./ai.js";
 import { extractPdfText, generatePagePreviews, generateThumbnail } from "./previews.js";
 import { LAB_DOCUMENTS_BUCKET, supabase } from "./supabase.js";
@@ -31,6 +41,7 @@ type DocumentRow = {
   original_storage_path: string | null;
   original_filename: string;
   mime_type: string | null;
+  document_type: string;
 };
 
 async function failJob(job: JobRow, documentId: string, message: string) {
@@ -53,10 +64,24 @@ async function failJob(job: JobRow, documentId: string, message: string) {
     .eq("id", documentId);
 }
 
+async function runTextOrImageExtraction<T>(
+  ocrText: string,
+  pageBuffer: Buffer,
+  fromText: (text: string) => Promise<T>,
+  fromImage: (buffer: Buffer) => Promise<T>
+): Promise<T> {
+  if (ocrText.trim().length > 80) {
+    return fromText(ocrText);
+  }
+  return fromImage(pageBuffer);
+}
+
 export async function runPipeline(job: JobRow) {
   const { data: document, error: docError } = await supabase
     .from("documents")
-    .select("id, profile_id, storage_path, original_storage_path, original_filename, mime_type")
+    .select(
+      "id, profile_id, storage_path, original_storage_path, original_filename, mime_type, document_type"
+    )
     .eq("id", job.document_id)
     .single();
 
@@ -66,6 +91,7 @@ export async function runPipeline(job: JobRow) {
   }
 
   const doc = document as DocumentRow;
+  const documentType = normalizeDocumentType(doc.document_type) ?? "lab_result";
   const storagePath = resolveOriginalStoragePath(doc);
   const mimeType =
     doc.mime_type ??
@@ -79,6 +105,8 @@ export async function runPipeline(job: JobRow) {
     .eq("id", doc.id);
 
   await supabase.from("document_extracted_biomarkers").delete().eq("document_id", doc.id);
+  await supabase.from("document_extracted_findings").delete().eq("document_id", doc.id);
+  await supabase.from("document_extracted_clinical_notes").delete().eq("document_id", doc.id);
   await supabase.from("document_pages").delete().eq("document_id", doc.id);
 
   const { data: fileData, error: downloadError } = await supabase.storage
@@ -147,19 +175,145 @@ export async function runPipeline(job: JobRow) {
   const model = resolveLanguageModel(provider);
   const extractionModel = modelIdForProvider(provider);
 
-  let extraction;
+  let processingStatus = "ready";
+  let observedAt: string | null = null;
+  let labName: string | null = null;
+  let modality: string | null = null;
+  let documentSummary: string | null = null;
+  let structuredPayload: unknown = null;
+
   try {
-    if (ocrText.trim().length > 80) {
-      extraction = await extractPipelineBiomarkersFromText(
+    if (documentType === "lab_result") {
+      const extraction = await runTextOrImageExtraction(
         ocrText,
+        pages[0].buffer,
+        (text) => extractPipelineBiomarkersFromText(text, model, doc.original_filename),
+        (image) =>
+          extractPipelineBiomarkersFromImage(image, "image/webp", model, doc.original_filename)
+      );
+
+      structuredPayload = extraction;
+      observedAt = extraction.observed_at;
+      labName = extraction.lab_name;
+
+      if (extraction.biomarkers.length > 0) {
+        await supabase.from("document_extracted_biomarkers").insert(
+          extraction.biomarkers.map((b) => ({
+            document_id: documentId,
+            profile_id: profileId,
+            biomarker_key: b.key,
+            biomarker_name: b.name,
+            raw_name: b.name,
+            value_numeric: b.value,
+            unit: b.unit,
+            reference_range: formatReferenceRange(b.ref_low ?? null, b.ref_high ?? null),
+            source_page: b.source_page ?? 1,
+            source_text: b.source_text,
+            confidence: b.confidence,
+            extraction_method: "llm",
+            processing_version: DOCUMENT_PROCESSING_VERSION,
+            extraction_model: extractionModel,
+            status: "needs_review",
+          }))
+        );
+        processingStatus = "needs_review";
+      }
+
+      documentSummary = await generateDocumentSummary(
         model,
+        documentType as DocumentType,
+        extraction,
         doc.original_filename
       );
-    } else {
-      extraction = await extractPipelineBiomarkersFromImage(
+    } else if (documentType === "instrumental_report") {
+      const extraction = await runTextOrImageExtraction(
+        ocrText,
         pages[0].buffer,
-        "image/webp",
+        (text) => extractInstrumentalFromText(text, model, doc.original_filename),
+        (image) =>
+          extractInstrumentalFromImage(image, "image/webp", model, doc.original_filename)
+      );
+
+      structuredPayload = extraction;
+      observedAt = extraction.study_date;
+      labName = extraction.facility_name;
+      modality = extraction.modality;
+
+      if (extraction.findings.length > 0) {
+        await supabase.from("document_extracted_findings").insert(
+          extraction.findings.map((finding, index) => ({
+            document_id: documentId,
+            profile_id: profileId,
+            modality: extraction.modality,
+            body_region: extraction.body_region,
+            finding_text: finding.finding_text,
+            impression: index === 0 ? extraction.impression : null,
+            source_page: finding.source_page ?? 1,
+            source_text: finding.source_text,
+            confidence: finding.confidence,
+            extraction_method: "llm",
+            processing_version: DOCUMENT_PROCESSING_VERSION,
+            extraction_model: extractionModel,
+            status: "accepted",
+          }))
+        );
+      } else if (extraction.impression) {
+        await supabase.from("document_extracted_findings").insert({
+          document_id: documentId,
+          profile_id: profileId,
+          modality: extraction.modality,
+          body_region: extraction.body_region,
+          finding_text: extraction.impression,
+          impression: extraction.impression,
+          source_page: 1,
+          confidence: 0.8,
+          extraction_method: "llm",
+          processing_version: DOCUMENT_PROCESSING_VERSION,
+          extraction_model: extractionModel,
+          status: "accepted",
+        });
+      }
+
+      documentSummary = await generateDocumentSummary(
         model,
+        documentType as DocumentType,
+        extraction,
+        doc.original_filename
+      );
+    } else if (documentType === "consultation_note") {
+      const extraction = await runTextOrImageExtraction(
+        ocrText,
+        pages[0].buffer,
+        (text) => extractConsultationFromText(text, model, doc.original_filename),
+        (image) =>
+          extractConsultationFromImage(image, "image/webp", model, doc.original_filename)
+      );
+
+      structuredPayload = extraction;
+      observedAt = extraction.visit_date;
+      labName = extraction.provider_name;
+
+      await supabase.from("document_extracted_clinical_notes").insert({
+        document_id: documentId,
+        profile_id: profileId,
+        provider_name: extraction.provider_name,
+        visit_date: extraction.visit_date,
+        chief_complaint: extraction.chief_complaint,
+        history_summary: extraction.history_summary,
+        exam_findings: extraction.exam_findings,
+        documented_diagnoses: extraction.documented_diagnoses,
+        recommendations: extraction.recommendations,
+        follow_up_plan: extraction.follow_up_plan,
+        extraction_method: "llm",
+        processing_version: DOCUMENT_PROCESSING_VERSION,
+        extraction_model: extractionModel,
+        status: "accepted",
+      });
+
+      documentSummary = await generateDocumentSummary(
+        model,
+        documentType as DocumentType,
+        extraction,
         doc.original_filename
       );
     }
@@ -168,31 +322,6 @@ export async function runPipeline(job: JobRow) {
     await failJob(job, doc.id, message);
     return;
   }
-
-  if (extraction.biomarkers.length > 0) {
-    await supabase.from("document_extracted_biomarkers").insert(
-      extraction.biomarkers.map((b) => ({
-        document_id: documentId,
-        profile_id: profileId,
-        biomarker_key: b.key,
-        biomarker_name: b.name,
-        raw_name: b.name,
-        value_numeric: b.value,
-        unit: b.unit,
-        reference_range: formatReferenceRange(b.ref_low ?? null, b.ref_high ?? null),
-        source_page: b.source_page ?? 1,
-        source_text: b.source_text,
-        confidence: b.confidence,
-        extraction_method: "llm",
-        processing_version: DOCUMENT_PROCESSING_VERSION,
-        extraction_model: extractionModel,
-        status: "needs_review",
-      }))
-    );
-  }
-
-  const processingStatus =
-    extraction.biomarkers.length > 0 ? "needs_review" : "ready";
 
   await supabase
     .from("documents")
@@ -204,12 +333,18 @@ export async function runPipeline(job: JobRow) {
       processing_version: DOCUMENT_PROCESSING_VERSION,
       extraction_model: extractionModel,
       processed_at: new Date().toISOString(),
-      lab_name: extraction.lab_name,
-      observed_at: extraction.observed_at,
+      lab_name: labName,
+      observed_at: observedAt,
+      modality,
+      document_summary: documentSummary,
       ocr_status: ocrText ? "completed" : "skipped",
       extraction_status: "completed",
     })
     .eq("id", documentId);
+
+  await supabase.from("profile_health_synthesis").delete().eq("profile_id", profileId);
+
+  void structuredPayload;
 
   await supabase
     .from("document_processing_jobs")

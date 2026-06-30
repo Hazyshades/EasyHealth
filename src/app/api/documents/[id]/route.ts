@@ -7,6 +7,7 @@ import {
   noStoreJson,
   resolveDisplayProcessingStatus,
 } from "@/lib/documents/access";
+import { normalizeDocumentType } from "@/lib/health-systems";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -21,38 +22,61 @@ export async function GET(_req: Request, context: RouteContext) {
   if (error) return error;
 
   const supabase = createAdminClient();
-  const [{ data: pages }, { count: extractedCount }] = await Promise.all([
-    supabase
-      .from("document_pages")
-      .select("page_number, width, height")
-      .eq("document_id", id)
-      .order("page_number", { ascending: true }),
-    supabase
-      .from("document_extracted_biomarkers")
-      .select("id", { count: "exact", head: true })
-      .eq("document_id", id),
-  ]);
+  const documentType = normalizeDocumentType(doc!.document_type) ?? "lab_result";
+
+  const [{ data: pages }, { count: extractedCount }, { data: findings }, { data: clinicalNote }] =
+    await Promise.all([
+      supabase
+        .from("document_pages")
+        .select("page_number, width, height")
+        .eq("document_id", id)
+        .order("page_number", { ascending: true }),
+      supabase
+        .from("document_extracted_biomarkers")
+        .select("id", { count: "exact", head: true })
+        .eq("document_id", id),
+      documentType === "instrumental_report"
+        ? supabase
+            .from("document_extracted_findings")
+            .select("*")
+            .eq("document_id", id)
+            .eq("status", "accepted")
+        : Promise.resolve({ data: [] }),
+      documentType === "consultation_note"
+        ? supabase
+            .from("document_extracted_clinical_notes")
+            .select("*")
+            .eq("document_id", id)
+            .eq("status", "accepted")
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
 
   return noStoreJson({
     document: {
       id: doc!.id,
       original_filename: doc!.original_filename,
-      document_type: doc!.document_type,
+      document_type: documentType,
       lab_name: doc!.lab_name,
       observed_at: doc!.observed_at,
       created_at: doc!.created_at,
       mime_type: doc!.mime_type,
+      file_kind: doc!.file_kind,
       page_count: doc!.page_count,
       processing_status: resolveDisplayProcessingStatus(doc!),
       processing_error: doc!.processing_error ?? doc!.error_message,
       processing_version: doc!.processing_version,
       extraction_model: doc!.extraction_model,
       processed_at: doc!.processed_at,
+      document_summary: doc!.document_summary,
+      modality: doc!.modality,
       is_legacy: isLegacyDocument(doc!),
       has_thumbnail: Boolean(doc!.thumbnail_storage_path),
       extracted_biomarker_count: extractedCount ?? 0,
     },
     pages: pages ?? [],
+    instrumental_findings: findings ?? [],
+    clinical_note: clinicalNote ?? null,
   });
 }
 

@@ -20,6 +20,11 @@ import {
 } from "@/lib/payments/gateway-client";
 import { useWallet } from "@/components/wallet-provider";
 import {
+  DOCUMENT_TYPE_LABELS,
+  normalizeDocumentType,
+  type DocumentType,
+} from "@/lib/health-systems";
+import {
   buildDefaultReportTitle,
   DETAIL_LEVEL_HINTS,
   DETAIL_LEVEL_LABELS,
@@ -35,6 +40,7 @@ type EligibleDocument = {
   original_filename: string;
   observed_at: string | null;
   lab_name: string | null;
+  document_type: string;
 };
 
 function formatDocDate(iso: string | null) {
@@ -190,7 +196,7 @@ export default function CreateReportPage() {
         </p>
         <h1 className="mt-1 text-2xl font-bold">New health report</h1>
         <p className="text-muted-foreground">
-          Educational clinician-ready summary · $0.05 USDC 
+          Educational clinician-ready summary across labs, imaging, and consultations · $0.05 USDC
         </p>
       </div>
 
@@ -262,9 +268,9 @@ export default function CreateReportPage() {
           </Button>
           {!hasEligibleDocs && !loadingDocs && (
             <p className="text-xs text-muted-foreground">
-              Upload and process lab results first.{" "}
-              <Link href="/app/upload?type=lab" className="text-teal-700 hover:underline">
-                Upload your lab
+              Upload and process documents first.{" "}
+              <Link href="/app/upload?type=lab_result" className="text-teal-700 hover:underline">
+                Upload records
               </Link>
             </p>
           )}
@@ -304,7 +310,7 @@ export default function CreateReportPage() {
             <div className="border-b p-4">
               <h2 className="font-semibold">Select documents for report</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Choose lab records to include in this health report.
+                Choose lab results, imaging studies, and consultation notes to include.
               </p>
               <div className="mt-3 flex justify-end gap-3 text-sm">
                 <button
@@ -338,7 +344,12 @@ export default function CreateReportPage() {
                       <div>
                         <p className="text-sm font-medium">{doc.original_filename}</p>
                         <p className="text-xs text-muted-foreground">
-                          {doc.lab_name ?? "Unknown lab"}
+                          {DOCUMENT_TYPE_LABELS[
+                            (normalizeDocumentType(doc.document_type) ??
+                              "lab_result") as DocumentType
+                          ] ?? doc.document_type}
+                          {" · "}
+                          {doc.lab_name ?? "Unknown provider"}
                           {doc.observed_at ? ` · ${formatDocDate(doc.observed_at)}` : ""}
                         </p>
                       </div>
@@ -364,7 +375,10 @@ export default function CreateReportPage() {
                     checked={abnormalOnly}
                     onChange={(e) => setAbnormalOnly(e.target.checked)}
                   />
-                  <span>Include only out-of-range indicators</span>
+                  <span>
+                    Include only out-of-range biomarkers (imaging and consultation content is still
+                    included)
+                  </span>
                 </label>
               )}
             </div>

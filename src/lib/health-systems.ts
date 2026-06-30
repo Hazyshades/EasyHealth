@@ -1,9 +1,65 @@
-export type DocumentType = "lab" | "imaging" | "consultation" | "dicom";
+export type DocumentType =
+  | "lab_result"
+  | "instrumental_report"
+  | "consultation_note"
+  | "dicom";
 
-export const DOCUMENT_TYPES: DocumentType[] = ["lab", "imaging", "consultation", "dicom"];
+export type FileKind = "pdf" | "image" | "unknown";
+
+export const DOCUMENT_TYPES: DocumentType[] = [
+  "lab_result",
+  "instrumental_report",
+  "consultation_note",
+  "dicom",
+];
+
+export const UPLOADABLE_DOCUMENT_TYPES: DocumentType[] = [
+  "lab_result",
+  "instrumental_report",
+  "consultation_note",
+];
+
+export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+  lab_result: "Lab results",
+  instrumental_report: "Imaging study",
+  consultation_note: "Consultation",
+  dicom: "Medical images (DICOM)",
+};
+
+const LEGACY_DOCUMENT_TYPE_MAP: Record<string, DocumentType> = {
+  lab: "lab_result",
+  imaging: "instrumental_report",
+  consultation: "consultation_note",
+};
+
+export function normalizeDocumentType(value: string): DocumentType | null {
+  if (DOCUMENT_TYPES.includes(value as DocumentType)) {
+    return value as DocumentType;
+  }
+  return LEGACY_DOCUMENT_TYPE_MAP[value] ?? null;
+}
 
 export function isDocumentType(value: string): value is DocumentType {
-  return DOCUMENT_TYPES.includes(value as DocumentType);
+  return normalizeDocumentType(value) !== null;
+}
+
+export function isUploadableDocumentType(value: string): value is DocumentType {
+  const normalized = normalizeDocumentType(value);
+  return normalized !== null && UPLOADABLE_DOCUMENT_TYPES.includes(normalized);
+}
+
+export function resolveFileKind(mimeType: string, filename: string): FileKind {
+  const mime = mimeType.toLowerCase();
+  if (mime === "application/pdf" || filename.toLowerCase().endsWith(".pdf")) {
+    return "pdf";
+  }
+  if (
+    mime.startsWith("image/") ||
+    /\.(jpe?g|png|webp|gif)$/i.test(filename)
+  ) {
+    return "image";
+  }
+  return "unknown";
 }
 
 export type BodySystemId =
@@ -34,6 +90,7 @@ export type HealthProfileSource = {
   original_filename: string;
   observed_at: string | null;
   lab_name: string | null;
+  document_type?: string | null;
 };
 
 export type MarkerSource = HealthProfileSource;
@@ -61,12 +118,20 @@ export type SystemInsight = {
   markers: SystemMarker[];
 };
 
+export type HolisticSynthesis = {
+  text: string;
+  generated_at: string;
+  source_document_ids: string[];
+  disclaimer: string;
+};
+
 export type HealthProfileResult = {
   records_used_count: number;
   overall_state_score: number;
   overall_data_confidence: number;
   systems: SystemInsight[];
   sources: HealthProfileSource[];
+  holistic_synthesis: HolisticSynthesis | null;
 };
 
 const BODY_SYSTEMS: Record<
@@ -237,7 +302,7 @@ export function buildWhyHighlighted(markers: SystemMarker[]): string[] {
 export function buildHealthProfile(
   observations: ObservationInput[],
   sources: HealthProfileSource[]
-): HealthProfileResult {
+): Omit<HealthProfileResult, "holistic_synthesis"> {
   const sourceById = new Map(sources.map((source) => [source.id, source]));
   const latest = latestByKey(observations);
   const bySystem = new Map<BodySystemId, SystemMarker[]>();

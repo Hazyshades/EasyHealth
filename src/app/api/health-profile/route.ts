@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildHealthProfile, type HealthProfileSource } from "@/lib/health-systems";
+import { getOrCreateHolisticSynthesis } from "@/lib/holistic-synthesis";
 
 export async function GET() {
   const profileId = await getSessionProfileId();
@@ -21,9 +22,8 @@ export async function GET() {
         .eq("profile_id", profileId),
       supabase
         .from("documents")
-        .select("id, original_filename, observed_at, lab_name")
+        .select("id, original_filename, observed_at, lab_name, document_type, document_summary, processing_status, status")
         .eq("profile_id", profileId)
-        .eq("status", "completed")
         .order("observed_at", { ascending: false }),
     ]);
 
@@ -34,11 +34,19 @@ export async function GET() {
     return NextResponse.json({ error: docError.message }, { status: 500 });
   }
 
-  const sources: HealthProfileSource[] = (documents ?? []).map((doc) => ({
+  const processedDocs = (documents ?? []).filter(
+    (doc) =>
+      doc.status === "completed" ||
+      doc.processing_status === "ready" ||
+      doc.processing_status === "needs_review"
+  );
+
+  const sources: HealthProfileSource[] = processedDocs.map((doc) => ({
     id: doc.id,
     original_filename: doc.original_filename,
     observed_at: doc.observed_at,
     lab_name: doc.lab_name,
+    document_type: doc.document_type,
   }));
 
   const completedDocumentIds = new Set(sources.map((source) => source.id));
@@ -61,5 +69,18 @@ export async function GET() {
     sources
   );
 
-  return NextResponse.json(profile);
+  let holistic_synthesis = null;
+  try {
+    holistic_synthesis = await getOrCreateHolisticSynthesis(profileId);
+  } catch (error) {
+    console.error("[health-profile] synthesis failed:", error);
+  }
+
+  const recordsUsedCount = Math.max(profile.records_used_count, holistic_synthesis?.source_document_ids.length ?? 0);
+
+  return NextResponse.json({
+    ...profile,
+    records_used_count: recordsUsedCount,
+    holistic_synthesis,
+  });
 }

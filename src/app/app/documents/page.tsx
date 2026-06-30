@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/floating-filter-menu";
 import { Button } from "@/components/ui/button";
 import type { DocumentType } from "@/lib/health-systems";
+import { DOCUMENT_TYPE_LABELS } from "@/lib/health-systems";
 
 type Document = {
   id: string;
@@ -39,11 +40,17 @@ type Document = {
 };
 
 const TABS: { id: DocumentType | "dicom"; label: string }[] = [
-  { id: "lab", label: "Lab results" },
-  { id: "imaging", label: "Imaging" },
-  { id: "consultation", label: "Consultations" },
-  { id: "dicom", label: "DICOM" },
+  { id: "lab_result", label: "Lab results" },
+  { id: "instrumental_report", label: "Imaging studies" },
+  { id: "consultation_note", label: "Consultations" },
+  { id: "dicom", label: "Medical images (DICOM)" },
 ];
+
+const UPLOAD_LINKS: Partial<Record<DocumentType, string>> = {
+  lab_result: "/app/upload?type=lab_result",
+  instrumental_report: "/app/upload?type=instrumental_report",
+  consultation_note: "/app/upload?type=consultation_note",
+};
 
 function displayStatus(doc: Document): string {
   return doc.processing_status || doc.status;
@@ -117,7 +124,7 @@ function applyClientFilters(docs: Document[], search: string, filters: FloatingF
 }
 
 export default function DocumentsPage() {
-  const [activeTab, setActiveTab] = useState<DocumentType | "dicom">("lab");
+  const [activeTab, setActiveTab] = useState<DocumentType | "dicom">("lab_result");
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -164,9 +171,9 @@ export default function DocumentsPage() {
       <PageHeader
         subtitle="Upload and browse your medical records"
         actions={
-          activeTab === "lab" ? (
+          activeTab !== "dicom" && UPLOAD_LINKS[activeTab] ? (
             <Button asChild className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
-              <Link href="/app/upload?type=lab">
+              <Link href={UPLOAD_LINKS[activeTab]!}>
                 <Upload className="size-4" aria-hidden />
                 Upload document
               </Link>
@@ -208,7 +215,7 @@ export default function DocumentsPage() {
         <SurfaceCard padding="lg" className="border-dashed text-center">
           <h2 className="font-semibold text-[var(--eh-text-primary)]">DICOM viewer coming soon</h2>
           <p className="mt-2 text-sm text-[var(--eh-text-secondary)]">
-            DICOM upload and imaging viewer are not available in this MVP.
+            Medical images (DICOM) upload and viewer are not available in this release.
           </p>
         </SurfaceCard>
       ) : loading ? (
@@ -220,9 +227,9 @@ export default function DocumentsPage() {
               ? `No ${TABS.find((t) => t.id === activeTab)?.label.toLowerCase()} yet.`
               : "No documents match your filters."}
           </p>
-          {documents.length === 0 && activeTab === "lab" ? (
+          {documents.length === 0 && UPLOAD_LINKS[activeTab as DocumentType] ? (
             <Button asChild className="mt-4 rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
-              <Link href="/app/upload?type=lab">Upload your lab</Link>
+              <Link href={UPLOAD_LINKS[activeTab as DocumentType]!}>Upload document</Link>
             </Button>
           ) : (
             <Button variant="outline" className="mt-4 rounded-xl" onClick={clearFilters}>
@@ -260,7 +267,9 @@ export default function DocumentsPage() {
                       </Link>
                     </DataTableCell>
                     <DataTableCell>
-                      <StatusChip variant="neutral">{doc.document_type}</StatusChip>
+                      <StatusChip variant="neutral">
+                        {DOCUMENT_TYPE_LABELS[doc.document_type as DocumentType] ?? doc.document_type}
+                      </StatusChip>
                     </DataTableCell>
                     <DataTableCell className="text-[var(--eh-text-secondary)]">
                       {doc.observed_at ?? "—"}

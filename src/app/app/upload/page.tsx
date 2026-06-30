@@ -1,20 +1,50 @@
 import Link from "next/link";
 import { UploadZone } from "@/components/upload-zone";
+import {
+  DOCUMENT_TYPE_LABELS,
+  isUploadableDocumentType,
+  normalizeDocumentType,
+  type DocumentType,
+} from "@/lib/health-systems";
 
 type UploadPageProps = {
   searchParams: Promise<{ type?: string }>;
 };
 
+const UPLOAD_COPY: Record<
+  Extract<DocumentType, "lab_result" | "instrumental_report" | "consultation_note">,
+  { title: string; subtitle: string }
+> = {
+  lab_result: {
+    title: "Upload lab results",
+    subtitle: "Blood tests, urinalysis, pathology, and other lab reports · $0.01 USDC per parse",
+  },
+  instrumental_report: {
+    title: "Upload imaging study",
+    subtitle: "Ultrasound, X-ray, CT, MRI, ECG, EEG, and other instrumental reports · $0.01 USDC",
+  },
+  consultation_note: {
+    title: "Upload consultation",
+    subtitle: "Specialist visit notes, exam records, and clinical consultations · $0.01 USDC",
+  },
+};
+
 export default async function UploadPage({ searchParams }: UploadPageProps) {
   const params = await searchParams;
-  const documentType = params.type === "lab" ? "lab" : "lab";
+  const rawType = params.type ?? "lab_result";
+  const normalized = normalizeDocumentType(rawType);
+  const documentType = (
+    normalized && isUploadableDocumentType(normalized) ? normalized : "lab_result"
+  ) as Extract<DocumentType, "lab_result" | "instrumental_report" | "consultation_note">;
+  const copy = UPLOAD_COPY[documentType];
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Upload lab results</h1>
-        <p className="text-muted-foreground">
-          PDF or image · $0.01 USDC per parse 
+        <h1 className="text-2xl font-bold">{copy.title}</h1>
+        <p className="text-muted-foreground">{copy.subtitle}</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Document type: {DOCUMENT_TYPE_LABELS[documentType]}
         </p>
         <p className="mt-2 text-sm">
           <Link href="/app/documents" className="text-teal-700 hover:underline">

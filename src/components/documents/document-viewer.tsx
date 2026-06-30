@@ -8,7 +8,13 @@ import { PageHeader } from "@/components/layout/page-header";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/status-chip";
-import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
+import {
+  ConsultationInsightsPanel,
+  DocumentSummaryCard,
+  InstrumentalInsightsPanel,
+  PanelDisclaimer,
+} from "@/components/documents/document-insight-panels";
+import { normalizeDocumentType } from "@/lib/health-systems";
 
 type DocumentMeta = {
   id: string;
@@ -23,7 +29,29 @@ type DocumentMeta = {
   processing_error: string | null;
   is_legacy: boolean;
   has_thumbnail: boolean;
+  document_summary: string | null;
+  modality: string | null;
   extracted_biomarker_count: number;
+};
+
+type InstrumentalFinding = {
+  id: string;
+  modality: string | null;
+  body_region: string | null;
+  finding_text: string;
+  impression: string | null;
+  source_page: number | null;
+};
+
+type ClinicalNote = {
+  provider_name: string | null;
+  visit_date: string | null;
+  chief_complaint: string | null;
+  history_summary: string | null;
+  exam_findings: string | null;
+  documented_diagnoses: string[] | null;
+  recommendations: string[] | null;
+  follow_up_plan: string | null;
 };
 
 type PageMeta = { page_number: number; width: number | null; height: number | null };
@@ -75,6 +103,8 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const [zoom, setZoom] = useState(1);
   const [observations, setObservations] = useState<Observation[]>([]);
   const [extracted, setExtracted] = useState<ExtractedBiomarker[]>([]);
+  const [instrumentalFindings, setInstrumentalFindings] = useState<InstrumentalFinding[]>([]);
+  const [clinicalNote, setClinicalNote] = useState<ClinicalNote | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeSourceText, setActiveSourceText] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,6 +118,8 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     const data = await res.json();
     setDoc(data.document);
     setPages(data.pages ?? []);
+    setInstrumentalFindings(data.instrumental_findings ?? []);
+    setClinicalNote(data.clinical_note ?? null);
     return data.document as DocumentMeta;
   }, [documentId]);
 
@@ -257,9 +289,20 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const showPagePreviews = pageCount > 0 && pageUrl;
   const isImage = originalMime?.startsWith("image/");
   const isPdf = originalMime === "application/pdf";
+  const documentType = normalizeDocumentType(doc.document_type) ?? "lab_result";
   const pipelineMode =
     !doc.is_legacy &&
+    documentType === "lab_result" &&
     (extracted.length > 0 || doc.processing_status === "needs_review");
+
+  const panelTitle =
+    documentType === "lab_result"
+      ? pipelineMode
+        ? "Extracted biomarkers"
+        : "Biomarkers"
+      : documentType === "instrumental_report"
+        ? "Study findings"
+        : "Consultation details";
 
   return (
     <div className="space-y-4">
@@ -302,8 +345,12 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
         <p className="text-sm text-red-600">{doc.processing_error}</p>
       )}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_360px]">
-        <SurfaceCard padding="sm" className="min-h-[480px]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_360px] lg:items-stretch">
+        <div className="flex min-h-[480px] flex-col lg:min-h-0 lg:h-full">
+        <SurfaceCard
+          padding="sm"
+          className={`grid h-full min-h-0 flex-1 ${activeSourceText ? "grid-rows-[auto_1fr_auto]" : "grid-rows-[auto_1fr]"}`}
+        >
           <div className="mb-3 flex items-center justify-between gap-2">
             <div className="flex items-center gap-1">
               {showPagePreviews && (
@@ -359,24 +406,24 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
             </div>
           </div>
 
-          <div className="overflow-auto rounded-xl border border-slate-200 bg-slate-50 p-2">
+          <div className="h-full min-h-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-2">
             {showPagePreviews ? (
-              <div className="flex min-h-[400px] justify-center">
+              <div className="h-full overflow-auto">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={pageUrl!}
                   alt={`Page ${currentPage}`}
-                  className="max-w-full object-contain transition-transform"
+                  className="mx-auto block max-w-full object-contain transition-transform"
                   style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}
                 />
               </div>
             ) : isImage && originalUrl ? (
-              <div className="flex min-h-[400px] justify-center">
+              <div className="h-full overflow-auto">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={originalUrl}
                   alt={doc.original_filename}
-                  className="max-w-full object-contain"
+                  className="mx-auto block max-w-full object-contain"
                   style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}
                 />
               </div>
@@ -384,32 +431,51 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
               <iframe
                 src={originalUrl}
                 title={doc.original_filename}
-                className="h-[min(70vh,640px)] w-full rounded-lg bg-white"
+                className="h-full w-full rounded-lg border-0 bg-white"
               />
             ) : doc.processing_status === "processing" ? (
-              <p className="p-8 text-center text-sm text-[var(--eh-text-secondary)]">
+              <p className="flex h-full items-center justify-center p-8 text-center text-sm text-[var(--eh-text-secondary)]">
                 Generating preview…
               </p>
             ) : (
-              <p className="p-8 text-center text-sm text-[var(--eh-text-secondary)]">
+              <p className="flex h-full items-center justify-center p-8 text-center text-sm text-[var(--eh-text-secondary)]">
                 Preview not available. Use Download original.
               </p>
             )}
           </div>
 
           {activeSourceText && (
-            <p className="mt-3 rounded-lg bg-slate-100 px-3 py-2 text-xs text-[var(--eh-text-secondary)]">
+            <p className="mt-3 shrink-0 rounded-lg bg-slate-100 px-3 py-2 text-xs text-[var(--eh-text-secondary)]">
               Source: {activeSourceText}
             </p>
           )}
         </SurfaceCard>
+        </div>
 
         <SurfaceCard padding="sm">
-          <h2 className="mb-3 font-semibold text-[var(--eh-text-primary)]">
-            {pipelineMode ? "Extracted biomarkers" : "Biomarkers"}
-          </h2>
+          <h2 className="mb-3 font-semibold text-[var(--eh-text-primary)]">{panelTitle}</h2>
 
-          {pipelineMode ? (
+          {documentType === "instrumental_report" ? (
+            <InstrumentalInsightsPanel
+              findings={instrumentalFindings}
+              summary={doc.document_summary}
+              modality={doc.modality}
+              processingStatus={doc.processing_status}
+              onSelectSource={(page, text) => {
+                if (page) setCurrentPage(page);
+                setActiveSourceText(text);
+              }}
+            />
+          ) : documentType === "consultation_note" ? (
+            <ConsultationInsightsPanel
+              note={clinicalNote}
+              summary={doc.document_summary}
+              processingStatus={doc.processing_status}
+            />
+          ) : (
+            <>
+              <DocumentSummaryCard summary={doc.document_summary} />
+              {pipelineMode ? (
             <ul className="max-h-[520px] space-y-2 overflow-y-auto">
               {extracted.map((b) => {
                 const reviewable = b.status === "needs_review" || b.status === "pending_review";
@@ -500,8 +566,10 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
               {accepting ? "Accepting…" : `Accept selected (${selectedIds.size})`}
             </Button>
           )}
+            </>
+          )}
 
-          <p className="mt-4 text-xs text-[var(--eh-text-muted)]">{MEDICAL_DISCLAIMER}</p>
+          <PanelDisclaimer />
         </SurfaceCard>
       </div>
     </div>

@@ -12,12 +12,13 @@ import {
   type ReportRange,
 } from "@/lib/report-prompts";
 import {
-  buildReportContext,
+  buildMultiSourceReportContext,
   buildSummaryPreview,
-  filterAbnormalObservations,
   getEligibleDocumentIds,
+  hasReportContextContent,
   withDisclaimer,
 } from "@/lib/reports";
+import { buildDocumentStructuredContext } from "@/lib/documents/structured-context";
 
 function sanitizeSearchTerm(value: string): string {
   return value.replace(/[%_,]/g, "").trim();
@@ -120,7 +121,7 @@ async function postHandler(req: NextRequest, _payment: import("@/lib/x402").Sett
 
   if (eligibleIds.length === 0) {
     return NextResponse.json(
-      { error: "Upload and process lab results before creating a report" },
+      { error: "Upload and process documents before creating a report" },
       { status: 400 }
     );
   }
@@ -149,6 +150,8 @@ async function postHandler(req: NextRequest, _payment: import("@/lib/x402").Sett
   }
 
   const supabase = createAdminClient();
+  const structured = await buildDocumentStructuredContext(profileId, scopeIds);
+
   const { data: observations, error: obsError } = await supabase
     .from("observations")
     .select("*, documents(original_filename, observed_at)")
@@ -160,25 +163,27 @@ async function postHandler(req: NextRequest, _payment: import("@/lib/x402").Sett
     return NextResponse.json({ error: obsError.message }, { status: 500 });
   }
 
-  if (!observations?.length) {
+  const context = buildMultiSourceReportContext(
+    structured,
+    (observations ?? []).map((o) => ({
+      name: o.name,
+      biomarker_key: o.biomarker_key,
+      value: Number(o.value),
+      unit: o.unit,
+      ref_low: o.ref_low != null ? Number(o.ref_low) : null,
+      ref_high: o.ref_high != null ? Number(o.ref_high) : null,
+      observed_at: o.observed_at,
+      documents: o.documents as { original_filename: string; observed_at: string | null } | null,
+    })),
+    abnormal_only
+  );
+
+  if (!hasReportContextContent(context)) {
     return NextResponse.json(
-      { error: "No biomarker data found for the selected documents" },
+      { error: "No structured data found for the selected documents" },
       { status: 400 }
     );
   }
-
-  const scopedObservations = abnormal_only
-    ? filterAbnormalObservations(observations)
-    : observations;
-
-  if (abnormal_only && scopedObservations.length === 0) {
-    return NextResponse.json(
-      { error: "No out-of-range indicators found for the selected documents" },
-      { status: 400 }
-    );
-  }
-
-  const context = buildReportContext(scopedObservations);
 
   let object;
   try {
@@ -186,7 +191,7 @@ async function postHandler(req: NextRequest, _payment: import("@/lib/x402").Sett
     object = await generateDoctorSummary({
       model,
       system: buildReportSystemPrompt(report_type, detail_level),
-      prompt: `Create a health report from this patient's biomarker history:\n${JSON.stringify(context, null, 2)}`,
+      prompt: `Create a health report from this patient's records (labs, imaging, consultations):\n${JSON.stringify(context, null, 2)}`,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

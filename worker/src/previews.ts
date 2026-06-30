@@ -1,11 +1,29 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import sharp from "sharp";
 
 const execFileAsync = promisify(execFile);
+
+function popplerExecutable(name: "pdftoppm" | "pdftotext"): string {
+  const binDir = process.env.POPPLER_BIN_DIR?.trim();
+  if (binDir) {
+    const exe = process.platform === "win32" ? `${name}.exe` : name;
+    return join(binDir, exe);
+  }
+  return name;
+}
+
+function popplerMissingMessage(tool: string): string {
+  return (
+    `${tool} not found. Install poppler-utils (Linux/Docker) or on Windows run ` +
+    "winget install oschwartz10612.Poppler and add its Library/bin folder to PATH, " +
+    "or set POPPLER_BIN_DIR in worker .env. " +
+    "Note: choco install poppler ships source only — it does not include pdftoppm.exe."
+  );
+}
 
 export type GeneratedPage = {
   pageNumber: number;
@@ -21,11 +39,17 @@ async function renderPdfPages(pdfPath: string): Promise<GeneratedPage[]> {
   const dir = await mkdtemp(join(tmpdir(), "eh-pages-"));
   try {
     const outPrefix = join(dir, "page");
-    await execFileAsync("pdftoppm", ["-png", "-r", "150", pdfPath, outPrefix]);
-    const { stdout } = await execFileAsync("ls", [dir]);
-    const files = stdout
-      .trim()
-      .split("\n")
+    const pdftoppm = popplerExecutable("pdftoppm");
+    try {
+      await execFileAsync(pdftoppm, ["-png", "-r", "150", pdfPath, outPrefix]);
+    } catch (error) {
+      const err = error as NodeJS.ErrnoException;
+      if (err.code === "ENOENT") {
+        throw new Error(popplerMissingMessage("pdftoppm"));
+      }
+      throw error;
+    }
+    const files = (await readdir(dir))
       .filter((f) => f.endsWith(".png"))
       .sort();
 
@@ -98,7 +122,8 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
     const pdfPath = join(dir, "input.pdf");
     const txtPath = join(dir, "output.txt");
     await writeFile(pdfPath, buffer);
-    await execFileAsync("pdftotext", [pdfPath, txtPath]);
+    const pdftotext = popplerExecutable("pdftotext");
+    await execFileAsync(pdftotext, [pdfPath, txtPath]);
     return await readFile(txtPath, "utf-8");
   } catch {
     return "";

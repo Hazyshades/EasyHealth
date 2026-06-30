@@ -4,7 +4,11 @@ import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureLabDocumentsBucket, LAB_DOCUMENTS_BUCKET } from "@/lib/supabase/storage";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
-import { isDocumentType } from "@/lib/health-systems";
+import {
+  isUploadableDocumentType,
+  normalizeDocumentType,
+  resolveFileKind,
+} from "@/lib/health-systems";
 import { originalObjectPath } from "@/lib/documents/paths";
 import { enqueueFullPipelineJob } from "@/lib/documents/jobs";
 
@@ -24,14 +28,15 @@ async function handler(req: NextRequest, _payment: import("@/lib/x402").SettledP
   const formData = await req.formData();
   const file = formData.get("file");
   const documentTypeRaw = formData.get("document_type");
-  const documentType =
-    typeof documentTypeRaw === "string" && isDocumentType(documentTypeRaw)
-      ? documentTypeRaw
-      : "lab";
+  const normalizedType =
+    typeof documentTypeRaw === "string" ? normalizeDocumentType(documentTypeRaw) : null;
 
-  if (documentType === "dicom") {
+  if (normalizedType === "dicom") {
     return NextResponse.json({ error: "DICOM upload is not available yet" }, { status: 400 });
   }
+
+  const documentType =
+    normalizedType && isUploadableDocumentType(normalizedType) ? normalizedType : "lab_result";
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "Missing file" }, { status: 400 });
@@ -78,6 +83,7 @@ async function handler(req: NextRequest, _payment: import("@/lib/x402").SettledP
       original_storage_path: storagePath,
       original_filename: file.name,
       document_type: documentType,
+      file_kind: resolveFileKind(mimeType, file.name),
       status: "processing",
       processing_status: "processing",
       mime_type: mimeType,
