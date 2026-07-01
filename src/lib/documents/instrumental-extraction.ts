@@ -1,11 +1,18 @@
 import { generateText, type LanguageModel } from "ai";
-import { parseJsonFromModelText } from "@/lib/schemas/biomarkers";
+import { normalizeBiomarkerKey, parseJsonFromModelText, parseLabNumber } from "@/lib/schemas/biomarkers";
 
 export type InstrumentalFinding = {
   finding_text: string;
   source_page: number | null;
   source_text: string | null;
   confidence: number | null;
+};
+
+export type InstrumentalNumericMeasure = {
+  key: string;
+  name: string;
+  value: number;
+  unit: string;
 };
 
 export type InstrumentalExtractionResult = {
@@ -15,6 +22,7 @@ export type InstrumentalExtractionResult = {
   body_region: string | null;
   impression: string | null;
   findings: InstrumentalFinding[];
+  numeric_measures: InstrumentalNumericMeasure[];
 };
 
 const INSTRUMENTAL_INSTRUCTIONS = `You extract structured data from instrumental medical reports (imaging, ECG, EEG, spirometry, endoscopy, etc.).
@@ -33,6 +41,14 @@ Shape:
       "source_text": string | null,
       "confidence": number
     }
+  ],
+  "numeric_measures": [
+    {
+      "key": "snake_case",
+      "name": "Human readable measure name",
+      "value": number,
+      "unit": "string"
+    }
   ]
 }
 Rules:
@@ -40,7 +56,33 @@ Rules:
 - modality examples: US, CT, MRI, XRAY, ECG, EEG, ENDOSCOPY, OTHER
 - impression is the report conclusion/impression as stated in the document.
 - confidence is 0.0-1.0 per finding.
+- numeric_measures: explicitly stated numeric values (e.g. ejection fraction %, chamber dimensions, FEV1).
 - Do not diagnose or interpret clinically beyond the document text.`;
+
+function parseNumericMeasures(value: unknown): InstrumentalNumericMeasure[] {
+  if (!Array.isArray(value)) return [];
+  const measures: InstrumentalNumericMeasure[] = [];
+
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const row = item as Record<string, unknown>;
+    const numericValue = parseLabNumber(row.value);
+    if (numericValue === null) continue;
+
+    const name =
+      typeof row.name === "string" && row.name.trim() ? row.name.trim() : "Unknown measure";
+    const keySource = typeof row.key === "string" && row.key.trim() ? row.key : name;
+
+    measures.push({
+      key: normalizeBiomarkerKey(keySource, name),
+      name,
+      value: numericValue,
+      unit: typeof row.unit === "string" ? row.unit.trim() : "",
+    });
+  }
+
+  return measures;
+}
 
 function parseInstrumentalExtraction(raw: unknown): InstrumentalExtractionResult {
   const data =
@@ -86,6 +128,7 @@ function parseInstrumentalExtraction(raw: unknown): InstrumentalExtractionResult
     impression:
       typeof data.impression === "string" && data.impression.trim() ? data.impression.trim() : null,
     findings,
+    numeric_measures: parseNumericMeasures(data.numeric_measures),
   };
 }
 

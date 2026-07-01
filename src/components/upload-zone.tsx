@@ -39,37 +39,41 @@ type UploadZoneProps = {
 
 
 const UPLOAD_HINTS: Record<
-
-  Extract<DocumentType, "lab_result" | "instrumental_report" | "consultation_note">,
-
+  Extract<
+    DocumentType,
+    | "lab_result"
+    | "instrumental_report"
+    | "consultation_note"
+    | "discharge_summary"
+    | "prescription"
+    | "referral"
+  >,
   { dropLabel: string; helper: string }
-
 > = {
-
   lab_result: {
-
     dropLabel: "Drop a lab PDF or image here",
-
     helper: "Pay $0.01 USDC per upload · OCR + biomarker extraction",
-
   },
-
   instrumental_report: {
-
     dropLabel: "Drop an imaging or instrumental report here",
-
     helper: "Pay $0.01 USDC per upload · Structured findings extraction",
-
   },
-
   consultation_note: {
-
     dropLabel: "Drop a consultation note or visit record here",
-
     helper: "Pay $0.01 USDC per upload · Clinical note extraction",
-
   },
-
+  discharge_summary: {
+    dropLabel: "Drop a hospital discharge summary here",
+    helper: "Pay $0.01 USDC per upload · Discharge summary extraction",
+  },
+  prescription: {
+    dropLabel: "Drop a prescription or medication list here",
+    helper: "Pay $0.01 USDC per upload · Prescription extraction",
+  },
+  referral: {
+    dropLabel: "Drop a referral letter here",
+    helper: "Pay $0.01 USDC per upload · Referral extraction",
+  },
 };
 
 

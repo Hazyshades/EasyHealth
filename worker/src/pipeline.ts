@@ -5,6 +5,10 @@ import {
   extractConsultationFromImage,
   extractConsultationFromText,
 } from "../../src/lib/documents/consultation-extraction.js";
+import {
+  extractDischargeFromImage,
+  extractDischargeFromText,
+} from "../../src/lib/documents/discharge-extraction.js";
 import { generateDocumentSummary } from "../../src/lib/documents/document-summary.js";
 import {
   extractPipelineBiomarkersFromImage,
@@ -16,11 +20,24 @@ import {
   extractInstrumentalFromText,
 } from "../../src/lib/documents/instrumental-extraction.js";
 import {
+  extractPrescriptionFromImage,
+  extractPrescriptionFromText,
+} from "../../src/lib/documents/prescription-extraction.js";
+import {
+  extractReferralFromImage,
+  extractReferralFromText,
+} from "../../src/lib/documents/referral-extraction.js";
+import {
   ocrFulltextPath,
   pagePreviewObjectPath,
   resolveOriginalStoragePath,
   thumbnailObjectPath,
 } from "../../src/lib/documents/paths.js";
+import {
+  classifyDocumentFromImage,
+  classifyDocumentFromText,
+  computeTypeMismatch,
+} from "../../src/lib/documents/type-classification.js";
 import { normalizeDocumentType, type DocumentType } from "../../src/lib/health-systems.js";
 import { modelIdForProvider, resolveLanguageModel, type AiProviderId } from "./ai.js";
 import { extractPdfText, generatePagePreviews, generateThumbnail } from "./previews.js";
@@ -76,6 +93,42 @@ async function runTextOrImageExtraction<T>(
   return fromImage(pageBuffer);
 }
 
+async function clearPriorExtractions(documentId: string) {
+  await supabase.from("document_extracted_biomarkers").delete().eq("document_id", documentId);
+  await supabase.from("document_extracted_findings").delete().eq("document_id", documentId);
+  await supabase.from("document_extracted_clinical_notes").delete().eq("document_id", documentId);
+  await supabase.from("document_extracted_prescriptions").delete().eq("document_id", documentId);
+  await supabase.from("document_extracted_referrals").delete().eq("document_id", documentId);
+  await supabase.from("observations").delete().eq("document_id", documentId);
+  await supabase.from("document_pages").delete().eq("document_id", documentId);
+}
+
+async function insertInstrumentalObservations(
+  profileId: string,
+  documentId: string,
+  studyDate: string | null,
+  measures: Array<{ key: string; name: string; value: number; unit: string }>
+) {
+  if (measures.length === 0) return;
+
+  const observedAt = studyDate ?? new Date().toISOString().slice(0, 10);
+
+  await supabase.from("observations").insert(
+    measures.map((measure) => ({
+      profile_id: profileId,
+      document_id: documentId,
+      biomarker_key: measure.key,
+      name: measure.name,
+      value: measure.value,
+      unit: measure.unit,
+      ref_low: null,
+      ref_high: null,
+      observed_at: observedAt,
+      observation_kind: "instrumental",
+    }))
+  );
+}
+
 export async function runPipeline(job: JobRow) {
   const { data: document, error: docError } = await supabase
     .from("documents")
@@ -101,13 +154,16 @@ export async function runPipeline(job: JobRow) {
 
   await supabase
     .from("documents")
-    .update({ processing_status: "processing", status: "processing" })
+    .update({
+      processing_status: "processing",
+      status: "processing",
+      type_mismatch_warning: false,
+      type_mismatch_reason: null,
+      detected_document_type: null,
+    })
     .eq("id", doc.id);
 
-  await supabase.from("document_extracted_biomarkers").delete().eq("document_id", doc.id);
-  await supabase.from("document_extracted_findings").delete().eq("document_id", doc.id);
-  await supabase.from("document_extracted_clinical_notes").delete().eq("document_id", doc.id);
-  await supabase.from("document_pages").delete().eq("document_id", doc.id);
+  await clearPriorExtractions(doc.id);
 
   const { data: fileData, error: downloadError } = await supabase.storage
     .from(LAB_DOCUMENTS_BUCKET)
@@ -174,6 +230,27 @@ export async function runPipeline(job: JobRow) {
   const provider = (profile?.ai_provider as AiProviderId | null) ?? "openai";
   const model = resolveLanguageModel(provider);
   const extractionModel = modelIdForProvider(provider);
+
+  let detectedDocumentType: string | null = null;
+  let typeMismatchWarning = false;
+  let typeMismatchReason: string | null = null;
+
+  try {
+    const classification = await runTextOrImageExtraction(
+      ocrText,
+      pages[0].buffer,
+      (text) => classifyDocumentFromText(text, model, doc.original_filename),
+      (image) =>
+        classifyDocumentFromImage(image, "image/webp", model, doc.original_filename)
+    );
+
+    const mismatch = computeTypeMismatch(documentType, classification);
+    detectedDocumentType = mismatch.detectedType;
+    typeMismatchWarning = mismatch.warning;
+    typeMismatchReason = mismatch.warning ? mismatch.reason : null;
+  } catch (error) {
+    console.error("[pipeline] classification failed:", error);
+  }
 
   let processingStatus = "ready";
   let observedAt: string | null = null;
@@ -274,6 +351,13 @@ export async function runPipeline(job: JobRow) {
         });
       }
 
+      await insertInstrumentalObservations(
+        profileId,
+        documentId,
+        extraction.study_date,
+        extraction.numeric_measures
+      );
+
       documentSummary = await generateDocumentSummary(
         model,
         documentType as DocumentType,
@@ -296,14 +380,124 @@ export async function runPipeline(job: JobRow) {
       await supabase.from("document_extracted_clinical_notes").insert({
         document_id: documentId,
         profile_id: profileId,
+        note_kind: "consultation",
         provider_name: extraction.provider_name,
         visit_date: extraction.visit_date,
         chief_complaint: extraction.chief_complaint,
         history_summary: extraction.history_summary,
         exam_findings: extraction.exam_findings,
-        documented_diagnoses: extraction.documented_diagnoses,
+        documented_problems: extraction.documented_problems,
         recommendations: extraction.recommendations,
         follow_up_plan: extraction.follow_up_plan,
+        extraction_method: "llm",
+        processing_version: DOCUMENT_PROCESSING_VERSION,
+        extraction_model: extractionModel,
+        status: "accepted",
+      });
+
+      documentSummary = await generateDocumentSummary(
+        model,
+        documentType as DocumentType,
+        extraction,
+        doc.original_filename
+      );
+    } else if (documentType === "discharge_summary") {
+      const extraction = await runTextOrImageExtraction(
+        ocrText,
+        pages[0].buffer,
+        (text) => extractDischargeFromText(text, model, doc.original_filename),
+        (image) =>
+          extractDischargeFromImage(image, "image/webp", model, doc.original_filename)
+      );
+
+      structuredPayload = extraction;
+      observedAt = extraction.discharge_date ?? extraction.admission_date;
+      labName = extraction.provider_name;
+
+      await supabase.from("document_extracted_clinical_notes").insert({
+        document_id: documentId,
+        profile_id: profileId,
+        note_kind: "discharge",
+        provider_name: extraction.provider_name,
+        visit_date: extraction.discharge_date,
+        admission_date: extraction.admission_date,
+        discharge_date: extraction.discharge_date,
+        hospital_course: extraction.hospital_course,
+        discharge_diagnoses: extraction.discharge_diagnoses,
+        discharge_medications: extraction.discharge_medications,
+        follow_up_instructions: extraction.follow_up_instructions,
+        chief_complaint: null,
+        history_summary: extraction.history_summary,
+        exam_findings: extraction.exam_findings,
+        documented_problems: extraction.documented_problems,
+        recommendations: extraction.recommendations,
+        follow_up_plan: extraction.follow_up_plan,
+        extraction_method: "llm",
+        processing_version: DOCUMENT_PROCESSING_VERSION,
+        extraction_model: extractionModel,
+        status: "accepted",
+      });
+
+      documentSummary = await generateDocumentSummary(
+        model,
+        documentType as DocumentType,
+        extraction,
+        doc.original_filename
+      );
+    } else if (documentType === "prescription") {
+      const extraction = await runTextOrImageExtraction(
+        ocrText,
+        pages[0].buffer,
+        (text) => extractPrescriptionFromText(text, model, doc.original_filename),
+        (image) =>
+          extractPrescriptionFromImage(image, "image/webp", model, doc.original_filename)
+      );
+
+      structuredPayload = extraction;
+      observedAt = extraction.prescribed_at;
+      labName = extraction.prescriber_name;
+
+      await supabase.from("document_extracted_prescriptions").insert({
+        document_id: documentId,
+        profile_id: profileId,
+        prescriber_name: extraction.prescriber_name,
+        prescribed_at: extraction.prescribed_at,
+        medications: extraction.medications,
+        extraction_method: "llm",
+        processing_version: DOCUMENT_PROCESSING_VERSION,
+        extraction_model: extractionModel,
+        status: "accepted",
+      });
+
+      documentSummary = await generateDocumentSummary(
+        model,
+        documentType as DocumentType,
+        extraction,
+        doc.original_filename
+      );
+    } else if (documentType === "referral") {
+      const extraction = await runTextOrImageExtraction(
+        ocrText,
+        pages[0].buffer,
+        (text) => extractReferralFromText(text, model, doc.original_filename),
+        (image) =>
+          extractReferralFromImage(image, "image/webp", model, doc.original_filename)
+      );
+
+      structuredPayload = extraction;
+      observedAt = extraction.referral_date;
+      labName = extraction.referring_provider;
+
+      await supabase.from("document_extracted_referrals").insert({
+        document_id: documentId,
+        profile_id: profileId,
+        referring_provider: extraction.referring_provider,
+        referred_to_specialty: extraction.referred_to_specialty,
+        referred_to_provider: extraction.referred_to_provider,
+        referral_date: extraction.referral_date,
+        reason_for_referral: extraction.reason_for_referral,
+        clinical_summary: extraction.clinical_summary,
+        urgency: extraction.urgency,
         extraction_method: "llm",
         processing_version: DOCUMENT_PROCESSING_VERSION,
         extraction_model: extractionModel,
@@ -339,6 +533,9 @@ export async function runPipeline(job: JobRow) {
       document_summary: documentSummary,
       ocr_status: ocrText ? "completed" : "skipped",
       extraction_status: "completed",
+      detected_document_type: detectedDocumentType,
+      type_mismatch_warning: typeMismatchWarning,
+      type_mismatch_reason: typeMismatchReason,
     })
     .eq("id", documentId);
 

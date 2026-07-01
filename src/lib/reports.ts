@@ -6,7 +6,7 @@ import { sanitizeReportStrings } from "@/lib/report-text";
 export async function getEligibleDocumentIds(profileId: string): Promise<string[]> {
   const supabase = createAdminClient();
 
-  const [{ data: observations }, { data: findings }, { data: clinicalNotes }] = await Promise.all([
+  const [{ data: observations }, { data: findings }, { data: clinicalNotes }, { data: prescriptions }, { data: referrals }] = await Promise.all([
     supabase
       .from("observations")
       .select("document_id")
@@ -22,6 +22,16 @@ export async function getEligibleDocumentIds(profileId: string): Promise<string[
       .select("document_id")
       .eq("profile_id", profileId)
       .eq("status", "accepted"),
+    supabase
+      .from("document_extracted_prescriptions")
+      .select("document_id")
+      .eq("profile_id", profileId)
+      .eq("status", "accepted"),
+    supabase
+      .from("document_extracted_referrals")
+      .select("document_id")
+      .eq("profile_id", profileId)
+      .eq("status", "accepted"),
   ]);
 
   const candidateIds = [
@@ -30,6 +40,8 @@ export async function getEligibleDocumentIds(profileId: string): Promise<string[
         ...(observations ?? []).map((o) => o.document_id),
         ...(findings ?? []).map((f) => f.document_id),
         ...(clinicalNotes ?? []).map((c) => c.document_id),
+        ...(prescriptions ?? []).map((p) => p.document_id),
+        ...(referrals ?? []).map((r) => r.document_id),
       ].filter((id): id is string => typeof id === "string")
     ),
   ];
@@ -91,9 +103,41 @@ export type MultiSourceReportContext = {
     provider_name: string | null;
     visit_date: string | null;
     chief_complaint: string | null;
-    documented_diagnoses: string[];
+    documented_problems: string[];
     recommendations: string[];
     follow_up_plan: string | null;
+  }>;
+  discharge_summaries: Array<{
+    filename: string;
+    provider_name: string | null;
+    admission_date: string | null;
+    discharge_date: string | null;
+    hospital_course: string | null;
+    discharge_diagnoses: string[];
+    discharge_medications: string[];
+    follow_up_instructions: string | null;
+  }>;
+  prescriptions: Array<{
+    filename: string;
+    prescriber_name: string | null;
+    prescribed_at: string | null;
+    medications: Array<{
+      name: string;
+      dose: string | null;
+      frequency: string | null;
+      duration: string | null;
+      instructions: string | null;
+    }>;
+  }>;
+  referrals: Array<{
+    filename: string;
+    referring_provider: string | null;
+    referred_to_specialty: string | null;
+    referred_to_provider: string | null;
+    referral_date: string | null;
+    reason_for_referral: string | null;
+    clinical_summary: string | null;
+    urgency: string | null;
   }>;
   document_summaries: Array<{
     filename: string;
@@ -147,9 +191,35 @@ export function buildMultiSourceReportContext(
       provider_name: c.provider_name,
       visit_date: c.visit_date,
       chief_complaint: c.chief_complaint,
-      documented_diagnoses: c.documented_diagnoses,
+      documented_problems: c.documented_problems,
       recommendations: c.recommendations,
       follow_up_plan: c.follow_up_plan,
+    })),
+    discharge_summaries: structured.discharge_summaries.map((d) => ({
+      filename: d.filename,
+      provider_name: d.provider_name,
+      admission_date: d.admission_date ?? null,
+      discharge_date: d.discharge_date ?? null,
+      hospital_course: d.hospital_course ?? null,
+      discharge_diagnoses: d.discharge_diagnoses ?? [],
+      discharge_medications: d.discharge_medications ?? [],
+      follow_up_instructions: d.follow_up_instructions ?? null,
+    })),
+    prescriptions: structured.prescriptions.map((p) => ({
+      filename: p.filename,
+      prescriber_name: p.prescriber_name,
+      prescribed_at: p.prescribed_at,
+      medications: p.medications,
+    })),
+    referrals: structured.referrals.map((r) => ({
+      filename: r.filename,
+      referring_provider: r.referring_provider,
+      referred_to_specialty: r.referred_to_specialty,
+      referred_to_provider: r.referred_to_provider,
+      referral_date: r.referral_date,
+      reason_for_referral: r.reason_for_referral,
+      clinical_summary: r.clinical_summary,
+      urgency: r.urgency,
     })),
     document_summaries: structured.document_summaries.map((s) => ({
       filename: s.filename,
@@ -164,6 +234,9 @@ export function hasReportContextContent(context: MultiSourceReportContext): bool
     context.biomarkers.length > 0 ||
     context.instrumental_findings.length > 0 ||
     context.consultation_notes.length > 0 ||
+    context.discharge_summaries.length > 0 ||
+    context.prescriptions.length > 0 ||
+    context.referrals.length > 0 ||
     context.document_summaries.length > 0
   );
 }

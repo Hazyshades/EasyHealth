@@ -83,9 +83,40 @@ type ClinicalNote = {
   chief_complaint: string | null;
   history_summary: string | null;
   exam_findings: string | null;
-  documented_diagnoses: string[] | null;
+  documented_problems: string[] | null;
   recommendations: string[] | null;
   follow_up_plan: string | null;
+};
+
+type DischargeNote = ClinicalNote & {
+  admission_date?: string | null;
+  discharge_date?: string | null;
+  hospital_course?: string | null;
+  discharge_diagnoses?: string[] | null;
+  discharge_medications?: string[] | null;
+  follow_up_instructions?: string | null;
+};
+
+type PrescriptionRow = {
+  prescriber_name: string | null;
+  prescribed_at: string | null;
+  medications: Array<{
+    name: string;
+    dose?: string | null;
+    frequency?: string | null;
+    duration?: string | null;
+    instructions?: string | null;
+  }> | null;
+};
+
+type ReferralRow = {
+  referring_provider: string | null;
+  referred_to_specialty: string | null;
+  referred_to_provider: string | null;
+  referral_date: string | null;
+  reason_for_referral: string | null;
+  clinical_summary: string | null;
+  urgency: string | null;
 };
 
 function Section({ label, value }: { label: string; value: string | null | undefined }) {
@@ -141,7 +172,7 @@ export function ConsultationInsightsPanel({
         <Section label="Chief complaint" value={note.chief_complaint} />
         <Section label="History" value={note.history_summary} />
         <Section label="Exam findings" value={note.exam_findings} />
-        <ListSection label="Documented diagnoses (from record)" items={note.documented_diagnoses} />
+        <ListSection label="Problems noted in record (as written)" items={note.documented_problems} />
         <ListSection label="Recommendations" items={note.recommendations} />
         <Section label="Follow-up plan" value={note.follow_up_plan} />
       </div>
@@ -151,4 +182,126 @@ export function ConsultationInsightsPanel({
 
 export function PanelDisclaimer() {
   return <p className="mt-4 text-xs text-[var(--eh-text-muted)]">{MEDICAL_DISCLAIMER}</p>;
+}
+
+export function DischargeInsightsPanel({
+  note,
+  summary,
+  processingStatus,
+}: {
+  note: DischargeNote | null;
+  summary: string | null;
+  processingStatus: string;
+}) {
+  if (!note) {
+    return (
+      <p className="text-sm text-[var(--eh-text-secondary)]">
+        {processingStatus === "processing"
+          ? "Extraction in progress…"
+          : "No structured discharge data detected."}
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <DocumentSummaryCard summary={summary} />
+      <div className="max-h-[480px] space-y-2 overflow-y-auto">
+        <Section label="Provider" value={note.provider_name} />
+        <Section label="Admission date" value={note.admission_date} />
+        <Section label="Discharge date" value={note.discharge_date} />
+        <Section label="Hospital course" value={note.hospital_course} />
+        <ListSection label="Discharge diagnoses" items={note.discharge_diagnoses} />
+        <ListSection label="Discharge medications" items={note.discharge_medications} />
+        <Section label="Follow-up instructions" value={note.follow_up_instructions} />
+        <Section label="History" value={note.history_summary} />
+        <Section label="Exam findings" value={note.exam_findings} />
+        <ListSection label="Problems noted in record (as written)" items={note.documented_problems} />
+        <ListSection label="Recommendations" items={note.recommendations} />
+        <Section label="Follow-up plan" value={note.follow_up_plan} />
+      </div>
+    </>
+  );
+}
+
+export function PrescriptionInsightsPanel({
+  prescription,
+  summary,
+  processingStatus,
+}: {
+  prescription: PrescriptionRow | null;
+  summary: string | null;
+  processingStatus: string;
+}) {
+  if (!prescription) {
+    return (
+      <p className="text-sm text-[var(--eh-text-secondary)]">
+        {processingStatus === "processing"
+          ? "Extraction in progress…"
+          : "No structured prescription data detected."}
+      </p>
+    );
+  }
+
+  const meds = prescription.medications ?? [];
+
+  return (
+    <>
+      <DocumentSummaryCard summary={summary} />
+      <Section label="Prescriber" value={prescription.prescriber_name} />
+      <Section label="Prescribed date" value={prescription.prescribed_at} />
+      {meds.length > 0 ? (
+        <ul className="mt-3 max-h-[420px] space-y-2 overflow-y-auto">
+          {meds.map((med) => (
+            <li key={med.name} className="rounded-xl border border-slate-200 bg-white p-3">
+              <p className="font-medium text-[var(--eh-text-primary)]">{med.name}</p>
+              <p className="mt-1 text-sm text-[var(--eh-text-secondary)]">
+                {[med.dose, med.frequency, med.duration].filter(Boolean).join(" · ") || "—"}
+              </p>
+              {med.instructions ? (
+                <p className="mt-1 text-xs text-[var(--eh-text-muted)]">{med.instructions}</p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-[var(--eh-text-secondary)]">No medications listed.</p>
+      )}
+    </>
+  );
+}
+
+export function ReferralInsightsPanel({
+  referral,
+  summary,
+  processingStatus,
+}: {
+  referral: ReferralRow | null;
+  summary: string | null;
+  processingStatus: string;
+}) {
+  if (!referral) {
+    return (
+      <p className="text-sm text-[var(--eh-text-secondary)]">
+        {processingStatus === "processing"
+          ? "Extraction in progress…"
+          : "No structured referral data detected."}
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <DocumentSummaryCard summary={summary} />
+      <div className="max-h-[480px] space-y-2 overflow-y-auto">
+        <Section label="Referring provider" value={referral.referring_provider} />
+        <Section label="Referred to specialty" value={referral.referred_to_specialty} />
+        <Section label="Referred to provider" value={referral.referred_to_provider} />
+        <Section label="Referral date" value={referral.referral_date} />
+        <Section label="Urgency" value={referral.urgency} />
+        <Section label="Reason for referral" value={referral.reason_for_referral} />
+        <Section label="Clinical summary" value={referral.clinical_summary} />
+      </div>
+    </>
+  );
 }

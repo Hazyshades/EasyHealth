@@ -10,11 +10,15 @@ import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/status-chip";
 import {
   ConsultationInsightsPanel,
+  DischargeInsightsPanel,
   DocumentSummaryCard,
   InstrumentalInsightsPanel,
   PanelDisclaimer,
+  PrescriptionInsightsPanel,
+  ReferralInsightsPanel,
 } from "@/components/documents/document-insight-panels";
-import { normalizeDocumentType } from "@/lib/health-systems";
+import { TypeMismatchBanner } from "@/components/documents/type-mismatch-banner";
+import { normalizeDocumentType, type DocumentType } from "@/lib/health-systems";
 
 type DocumentMeta = {
   id: string;
@@ -32,6 +36,10 @@ type DocumentMeta = {
   document_summary: string | null;
   modality: string | null;
   extracted_biomarker_count: number;
+  type_mismatch_warning?: boolean;
+  type_mismatch_reason?: string | null;
+  suggested_document_type?: string | null;
+  detected_document_type?: string | null;
 };
 
 type InstrumentalFinding = {
@@ -49,7 +57,7 @@ type ClinicalNote = {
   chief_complaint: string | null;
   history_summary: string | null;
   exam_findings: string | null;
-  documented_diagnoses: string[] | null;
+  documented_problems: string[] | null;
   recommendations: string[] | null;
   follow_up_plan: string | null;
 };
@@ -105,6 +113,8 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const [extracted, setExtracted] = useState<ExtractedBiomarker[]>([]);
   const [instrumentalFindings, setInstrumentalFindings] = useState<InstrumentalFinding[]>([]);
   const [clinicalNote, setClinicalNote] = useState<ClinicalNote | null>(null);
+  const [prescription, setPrescription] = useState<Record<string, unknown> | null>(null);
+  const [referral, setReferral] = useState<Record<string, unknown> | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeSourceText, setActiveSourceText] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -120,6 +130,8 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     setPages(data.pages ?? []);
     setInstrumentalFindings(data.instrumental_findings ?? []);
     setClinicalNote(data.clinical_note ?? null);
+    setPrescription(data.prescription ?? null);
+    setReferral(data.referral ?? null);
     return data.document as DocumentMeta;
   }, [documentId]);
 
@@ -256,10 +268,16 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     }
   }
 
-  async function handleReprocess() {
+  async function handleReprocess(documentTypeOverride?: DocumentType) {
     setReprocessing(true);
     try {
-      const res = await fetch(`/api/documents/${documentId}/reprocess`, { method: "POST" });
+      const res = await fetch(`/api/documents/${documentId}/reprocess`, {
+        method: "POST",
+        headers: documentTypeOverride ? { "Content-Type": "application/json" } : undefined,
+        body: documentTypeOverride
+          ? JSON.stringify({ document_type: documentTypeOverride })
+          : undefined,
+      });
       if (!res.ok) throw new Error("Reprocess failed");
       const meta = await loadDocument();
       await loadBiomarkers(meta);
@@ -267,6 +285,17 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
       setError(e instanceof Error ? e.message : "Reprocess failed");
     } finally {
       setReprocessing(false);
+    }
+  }
+
+  async function handleDismissMismatch() {
+    const res = await fetch(`/api/documents/${documentId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type_mismatch_warning: false }),
+    });
+    if (res.ok) {
+      setDoc((prev) => (prev ? { ...prev, type_mismatch_warning: false } : prev));
     }
   }
 
@@ -302,7 +331,21 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
         : "Biomarkers"
       : documentType === "instrumental_report"
         ? "Study findings"
-        : "Consultation details";
+        : documentType === "consultation_note"
+          ? "Consultation details"
+          : documentType === "discharge_summary"
+            ? "Discharge summary"
+            : documentType === "prescription"
+              ? "Prescription"
+              : documentType === "referral"
+                ? "Referral details"
+                : "Document details";
+
+  const suggestedType = normalizeDocumentType(
+    doc.suggested_document_type ?? doc.detected_document_type ?? ""
+  );
+  const showMismatchBanner =
+    doc.type_mismatch_warning && suggestedType && suggestedType !== documentType;
 
   return (
     <div className="space-y-4">
@@ -333,7 +376,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
             variant="outline"
             className="rounded-xl"
             disabled={reprocessing || doc.processing_status === "processing"}
-            onClick={handleReprocess}
+            onClick={() => handleReprocess()}
           >
             <RotateCcw className="size-4" aria-hidden />
             {reprocessing ? "Reprocessing…" : "Reprocess"}
@@ -345,68 +388,82 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
         <p className="text-sm text-red-600">{doc.processing_error}</p>
       )}
 
+      {showMismatchBanner && suggestedType ? (
+        <TypeMismatchBanner
+          selectedType={documentType}
+          suggestedType={suggestedType}
+          reason={doc.type_mismatch_reason ?? null}
+          reprocessing={reprocessing}
+          onReprocessAsSuggested={() => handleReprocess(suggestedType)}
+          onDismiss={handleDismissMismatch}
+        />
+      ) : null}
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_360px] lg:items-stretch">
-        <div className="flex min-h-[480px] flex-col lg:min-h-0 lg:h-full">
         <SurfaceCard
           padding="sm"
-          className={`grid h-full min-h-0 flex-1 ${activeSourceText ? "grid-rows-[auto_1fr_auto]" : "grid-rows-[auto_1fr]"}`}
+          className={`flex flex-col lg:h-full ${isPdf ? "min-h-[874px]" : "min-h-[480px]"}`}
         >
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1">
-              {showPagePreviews && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="size-8 rounded-lg"
-                    disabled={currentPage <= 1}
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    aria-label="Previous page"
-                  >
-                    <ChevronLeft className="size-4" />
-                  </Button>
-                  <span className="px-2 text-sm text-[var(--eh-text-secondary)]">
-                    Page {currentPage} / {pageCount}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="size-8 rounded-lg"
-                    disabled={currentPage >= pageCount}
-                    onClick={() => setCurrentPage((p) => Math.min(pageCount, p + 1))}
-                    aria-label="Next page"
-                  >
-                    <ChevronRight className="size-4" />
-                  </Button>
-                </>
-              )}
+          {!isPdf && (
+            <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
+              <div className="flex items-center gap-1">
+                {showPagePreviews && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="size-8 rounded-lg"
+                      disabled={currentPage <= 1}
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      aria-label="Previous page"
+                    >
+                      <ChevronLeft className="size-4" />
+                    </Button>
+                    <span className="px-2 text-sm text-[var(--eh-text-secondary)]">
+                      Page {currentPage} / {pageCount}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="size-8 rounded-lg"
+                      disabled={currentPage >= pageCount}
+                      onClick={() => setCurrentPage((p) => Math.min(pageCount, p + 1))}
+                      aria-label="Next page"
+                    >
+                      <ChevronRight className="size-4" />
+                    </Button>
+                  </>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="size-8 rounded-lg"
+                  onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
+                  aria-label="Zoom out"
+                >
+                  <Minus className="size-4" />
+                </Button>
+                <span className="w-12 text-center text-xs text-[var(--eh-text-muted)]">
+                  {Math.round(zoom * 100)}%
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="size-8 rounded-lg"
+                  onClick={() => setZoom((z) => Math.min(3, z + 0.25))}
+                  aria-label="Zoom in"
+                >
+                  <Plus className="size-4" />
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="icon"
-                className="size-8 rounded-lg"
-                onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
-                aria-label="Zoom out"
-              >
-                <Minus className="size-4" />
-              </Button>
-              <span className="w-12 text-center text-xs text-[var(--eh-text-muted)]">
-                {Math.round(zoom * 100)}%
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                className="size-8 rounded-lg"
-                onClick={() => setZoom((z) => Math.min(3, z + 0.25))}
-                aria-label="Zoom in"
-              >
-                <Plus className="size-4" />
-              </Button>
-            </div>
-          </div>
+          )}
 
-          <div className="h-full min-h-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-2">
+          <div
+            className={`flex-1 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-2 ${isPdf ? "min-h-[842px]" : "min-h-[400px]"}`}
+          >
             {showPagePreviews ? (
               <div className="h-full overflow-auto">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -450,7 +507,6 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
             </p>
           )}
         </SurfaceCard>
-        </div>
 
         <SurfaceCard padding="sm">
           <h2 className="mb-3 font-semibold text-[var(--eh-text-primary)]">{panelTitle}</h2>
@@ -469,6 +525,24 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
           ) : documentType === "consultation_note" ? (
             <ConsultationInsightsPanel
               note={clinicalNote}
+              summary={doc.document_summary}
+              processingStatus={doc.processing_status}
+            />
+          ) : documentType === "discharge_summary" ? (
+            <DischargeInsightsPanel
+              note={clinicalNote}
+              summary={doc.document_summary}
+              processingStatus={doc.processing_status}
+            />
+          ) : documentType === "prescription" ? (
+            <PrescriptionInsightsPanel
+              prescription={prescription as Parameters<typeof PrescriptionInsightsPanel>[0]["prescription"]}
+              summary={doc.document_summary}
+              processingStatus={doc.processing_status}
+            />
+          ) : documentType === "referral" ? (
+            <ReferralInsightsPanel
+              referral={referral as Parameters<typeof ReferralInsightsPanel>[0]["referral"]}
               summary={doc.document_summary}
               processingStatus={doc.processing_status}
             />

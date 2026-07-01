@@ -28,10 +28,13 @@ export type DocumentRow = {
   file_kind: string | null;
   document_summary: string | null;
   modality: string | null;
+  detected_document_type: string | null;
+  type_mismatch_warning: boolean | null;
+  type_mismatch_reason: string | null;
 };
 
 const DOCUMENT_SELECT =
-  "id, profile_id, storage_path, original_storage_path, original_filename, status, document_type, lab_name, observed_at, created_at, error_message, mime_type, file_size_bytes, thumbnail_storage_path, page_count, processing_status, processing_error, processing_version, extraction_model, processed_at, file_kind, document_summary, modality";
+  "id, profile_id, storage_path, original_storage_path, original_filename, status, document_type, lab_name, observed_at, created_at, error_message, mime_type, file_size_bytes, thumbnail_storage_path, page_count, processing_status, processing_error, processing_version, extraction_model, processed_at, file_kind, document_summary, modality, detected_document_type, type_mismatch_warning, type_mismatch_reason";
 
 export function isLegacyDocument(doc: DocumentRow): boolean {
   return doc.processing_version == null;

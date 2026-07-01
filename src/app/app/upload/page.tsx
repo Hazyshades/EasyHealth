@@ -12,7 +12,15 @@ type UploadPageProps = {
 };
 
 const UPLOAD_COPY: Record<
-  Extract<DocumentType, "lab_result" | "instrumental_report" | "consultation_note">,
+  Extract<
+    DocumentType,
+    | "lab_result"
+    | "instrumental_report"
+    | "consultation_note"
+    | "discharge_summary"
+    | "prescription"
+    | "referral"
+  >,
   { title: string; subtitle: string }
 > = {
   lab_result: {
@@ -27,6 +35,18 @@ const UPLOAD_COPY: Record<
     title: "Upload consultation",
     subtitle: "Specialist visit notes, exam records, and clinical consultations · $0.01 USDC",
   },
+  discharge_summary: {
+    title: "Upload discharge summary",
+    subtitle: "Hospital discharge summaries with course of care and medications · $0.01 USDC",
+  },
+  prescription: {
+    title: "Upload prescription",
+    subtitle: "Medication prescriptions and prescription lists · $0.01 USDC",
+  },
+  referral: {
+    title: "Upload referral",
+    subtitle: "Referral letters to specialists · $0.01 USDC",
+  },
 };
 
 export default async function UploadPage({ searchParams }: UploadPageProps) {
@@ -35,7 +55,7 @@ export default async function UploadPage({ searchParams }: UploadPageProps) {
   const normalized = normalizeDocumentType(rawType);
   const documentType = (
     normalized && isUploadableDocumentType(normalized) ? normalized : "lab_result"
-  ) as Extract<DocumentType, "lab_result" | "instrumental_report" | "consultation_note">;
+  ) as keyof typeof UPLOAD_COPY;
   const copy = UPLOAD_COPY[documentType];
 
   return (

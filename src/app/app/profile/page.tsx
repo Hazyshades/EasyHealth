@@ -1,50 +1,66 @@
 "use client";
 
-
-
 import Link from "next/link";
-
-import { useEffect, useState } from "react";
-
+import { useCallback, useEffect, useState } from "react";
 import { BodyMap, BodyMapLegend } from "@/components/body-map";
-
 import { PageHeader } from "@/components/layout/page-header";
-
 import { FilterChip } from "@/components/ui/filter-chip";
-
 import { Button } from "@/components/ui/button";
-
 import { OverallAssessmentCard } from "@/components/overall-assessment-card";
-
+import { useWallet } from "@/components/wallet-provider";
+import {
+  ensureGatewayFunded,
+  isPaidRequestFailedError,
+  payForResource,
+  retryWithEntitlement,
+} from "@/lib/payments/gateway-client";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
-
 import { resolveBodyMapLayout } from "@/lib/health-systems";
-
 import type { BodySystemId, HealthProfileResult } from "@/lib/health-systems";
 
-
-
 export default function HealthProfilePage() {
-
+  const { fundGatewayWallet } = useWallet();
   const [profile, setProfile] = useState<HealthProfileResult | null>(null);
-
   const [loading, setLoading] = useState(true);
-
   const [activeChip, setActiveChip] = useState<BodySystemId | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
 
-
+  const loadProfile = useCallback(() => {
+    return fetch("/api/health-profile")
+      .then((r) => r.json())
+      .then(setProfile);
+  }, []);
 
   useEffect(() => {
+    loadProfile().finally(() => setLoading(false));
+  }, [loadProfile]);
 
-    fetch("/api/health-profile")
+  async function handleRefreshSynthesis(options?: { entitlementId?: string }) {
+    setRefreshError(null);
+    setRefreshing(true);
+    try {
+      const endpoint = `${window.location.origin}/api/health-profile/synthesis`;
 
-      .then((r) => r.json())
+      if (options?.entitlementId) {
+        await retryWithEntitlement(endpoint, options.entitlementId, { method: "POST" });
+        await loadProfile();
+        return;
+      }
 
-      .then(setProfile)
-
-      .finally(() => setLoading(false));
-
-  }, []);
+      await ensureGatewayFunded("0.02", fundGatewayWallet);
+      await payForResource(endpoint, { method: "POST" });
+      await loadProfile();
+    } catch (e) {
+      if (isPaidRequestFailedError(e) && e.entitlementId && e.retryWithoutPayment) {
+        await handleRefreshSynthesis({ entitlementId: e.entitlementId });
+        return;
+      }
+      setRefreshError(e instanceof Error ? e.message : "Refresh failed");
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
 
 
@@ -145,25 +161,40 @@ export default function HealthProfilePage() {
 
 
       {profile!.holistic_synthesis?.text ? (
-
         <div className="rounded-2xl border border-teal-100 bg-teal-50/50 p-5 shadow-sm">
-
-          <p className="text-sm font-semibold text-[var(--eh-text-primary)]">Holistic synthesis</p>
-
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <p className="text-sm font-semibold text-[var(--eh-text-primary)]">Holistic synthesis</p>
+            {profile!.synthesis_stale ? (
+              <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+                Update available
+              </span>
+            ) : null}
+          </div>
           <p className="mt-2 text-sm text-[var(--eh-text-secondary)]">
-
             {profile!.holistic_synthesis.text}
-
           </p>
-
           <p className="mt-3 text-xs text-[var(--eh-text-muted)]">
-
             {profile!.holistic_synthesis.disclaimer}
-
           </p>
-
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-4 rounded-xl"
+            disabled={refreshing}
+            onClick={() => handleRefreshSynthesis()}
+          >
+            {refreshing ? "Refreshing…" : "Refresh synthesis ($0.02)"}
+          </Button>
+          {refreshError ? (
+            <p className="mt-2 text-sm text-red-600">{refreshError}</p>
+          ) : null}
         </div>
-
+      ) : profile!.records_used_count > 0 ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-sm text-[var(--eh-text-secondary)]">
+            Holistic synthesis will appear after your documents finish processing.
+          </p>
+        </div>
       ) : null}
 
 

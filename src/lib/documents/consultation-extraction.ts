@@ -7,7 +7,7 @@ export type ConsultationExtractionResult = {
   chief_complaint: string | null;
   history_summary: string | null;
   exam_findings: string | null;
-  documented_diagnoses: string[];
+  documented_problems: string[];
   recommendations: string[];
   follow_up_plan: string | null;
 };
@@ -21,12 +21,15 @@ Shape:
   "chief_complaint": string | null,
   "history_summary": string | null,
   "exam_findings": string | null,
-  "documented_diagnoses": ["string"],
+  "documented_problems": ["string"],
   "recommendations": ["string"],
   "follow_up_plan": string | null
 }
 Rules:
-- documented_diagnoses must only include diagnoses explicitly stated in the document.
+- documented_problems: problem-list and assessment-style items as written (e.g. "Chest pain with features of angina").
+- EXCLUDE from documented_problems: past medical history, surgical history, allergies, family history, and physical examination findings.
+- history_summary: past medical/surgical history, allergies, family history, and relevant narrative history.
+- exam_findings: MUST include all vital signs when present (blood pressure, pulse, respirations, temperature, SpO2) plus pertinent physical exam narrative.
 - Do not add new diagnoses, treatments, or clinical conclusions.
 - Use educational extraction only; quote document wording where possible.
 - visit_date as ISO YYYY-MM-DD when visible.`;
@@ -63,7 +66,9 @@ function parseConsultationExtraction(raw: unknown): ConsultationExtractionResult
       typeof data.exam_findings === "string" && data.exam_findings.trim()
         ? data.exam_findings.trim()
         : null,
-    documented_diagnoses: parseStringList(data.documented_diagnoses),
+    documented_problems: parseStringList(
+      data.documented_problems ?? data.documented_diagnoses
+    ),
     recommendations: parseStringList(data.recommendations),
     follow_up_plan:
       typeof data.follow_up_plan === "string" && data.follow_up_plan.trim()

@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildHealthProfile, type HealthProfileSource } from "@/lib/health-systems";
+import {
+  buildDocumentStructuredContext,
+  hashStructuredContext,
+} from "@/lib/documents/structured-context";
 import { getOrCreateHolisticSynthesis } from "@/lib/holistic-synthesis";
 
 export async function GET() {
@@ -17,7 +21,7 @@ export async function GET() {
       supabase
         .from("observations")
         .select(
-          "biomarker_key, name, value, unit, ref_low, ref_high, observed_at, document_id"
+          "biomarker_key, name, value, unit, ref_low, ref_high, observed_at, document_id, observation_kind"
         )
         .eq("profile_id", profileId),
       supabase
@@ -65,12 +69,26 @@ export async function GET() {
       ref_high: o.ref_high != null ? Number(o.ref_high) : null,
       observed_at: o.observed_at,
       document_id: o.document_id,
+      observation_kind:
+        o.observation_kind === "instrumental" ? "instrumental" : "lab",
     })),
     sources
   );
 
   let holistic_synthesis = null;
+  let synthesis_stale = false;
+
   try {
+    const context = await buildDocumentStructuredContext(profileId);
+    const currentHash = hashStructuredContext(context);
+
+    const { data: cached } = await supabase
+      .from("profile_health_synthesis")
+      .select("input_hash")
+      .eq("profile_id", profileId)
+      .maybeSingle();
+
+    synthesis_stale = Boolean(cached?.input_hash && cached.input_hash !== currentHash);
     holistic_synthesis = await getOrCreateHolisticSynthesis(profileId);
   } catch (error) {
     console.error("[health-profile] synthesis failed:", error);
@@ -82,5 +100,6 @@ export async function GET() {
     ...profile,
     records_used_count: recordsUsedCount,
     holistic_synthesis,
+    synthesis_stale,
   });
 }

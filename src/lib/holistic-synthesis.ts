@@ -35,6 +35,9 @@ export async function generateHolisticSynthesisText(
             biomarkers: context.biomarkers,
             instrumental_findings: context.instrumental_findings,
             consultation_notes: context.consultation_notes,
+            discharge_summaries: context.discharge_summaries,
+            prescriptions: context.prescriptions,
+            referrals: context.referrals,
             document_summaries: context.document_summaries,
           },
           null,
@@ -45,6 +48,35 @@ export async function generateHolisticSynthesisText(
   });
 
   return text.trim();
+}
+
+export async function forceRegenerateHolisticSynthesis(
+  profileId: string
+): Promise<HolisticSynthesis | null> {
+  const context = await buildDocumentStructuredContext(profileId);
+  if (!hasStructuredContent(context)) return null;
+
+  const inputHash = hashStructuredContext(context);
+  const supabase = createAdminClient();
+  const model = await resolveModelForProfile(profileId);
+  const synthesisText = await generateHolisticSynthesisText(model, context);
+  const generatedAt = new Date().toISOString();
+
+  await supabase.from("profile_health_synthesis").upsert({
+    profile_id: profileId,
+    synthesis_text: synthesisText,
+    source_document_ids: context.source_document_ids,
+    input_hash: inputHash,
+    model: "gpt-4o-mini",
+    generated_at: generatedAt,
+  });
+
+  return {
+    text: synthesisText,
+    generated_at: generatedAt,
+    source_document_ids: context.source_document_ids,
+    disclaimer: MEDICAL_DISCLAIMER,
+  };
 }
 
 export async function getOrCreateHolisticSynthesis(

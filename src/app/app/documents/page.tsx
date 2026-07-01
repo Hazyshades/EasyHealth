@@ -43,6 +43,9 @@ const TABS: { id: DocumentType | "dicom"; label: string }[] = [
   { id: "lab_result", label: "Lab results" },
   { id: "instrumental_report", label: "Imaging studies" },
   { id: "consultation_note", label: "Consultations" },
+  { id: "discharge_summary", label: "Discharge summaries" },
+  { id: "prescription", label: "Prescriptions" },
+  { id: "referral", label: "Referrals" },
   { id: "dicom", label: "Medical images (DICOM)" },
 ];
 
@@ -50,6 +53,9 @@ const UPLOAD_LINKS: Partial<Record<DocumentType, string>> = {
   lab_result: "/app/upload?type=lab_result",
   instrumental_report: "/app/upload?type=instrumental_report",
   consultation_note: "/app/upload?type=consultation_note",
+  discharge_summary: "/app/upload?type=discharge_summary",
+  prescription: "/app/upload?type=prescription",
+  referral: "/app/upload?type=referral",
 };
 
 function displayStatus(doc: Document): string {

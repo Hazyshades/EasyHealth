@@ -41,7 +41,10 @@ Shape:
 Rules:
 - Normalize biomarker keys to snake_case.
 - Use ISO date YYYY-MM-DD for observed_at when visible.
-- Include only quantitative numeric tests.
+- Include only quantitative laboratory test results from lab panels.
+- EXCLUDE vital signs (blood pressure, pulse, respirations, temperature, SpO2).
+- EXCLUDE physical examination measurements and narrative clinical notes.
+- If the document is clearly not a laboratory report, return an empty biomarkers array.
 - source_page is 1-based page number where the value appears.
 - source_text is a short verbatim snippet from the document containing the value.
 - confidence is 0.0-1.0 for extraction certainty.

@@ -24,33 +24,55 @@ export async function GET(_req: Request, context: RouteContext) {
   const supabase = createAdminClient();
   const documentType = normalizeDocumentType(doc!.document_type) ?? "lab_result";
 
-  const [{ data: pages }, { count: extractedCount }, { data: findings }, { data: clinicalNote }] =
-    await Promise.all([
-      supabase
-        .from("document_pages")
-        .select("page_number, width, height")
-        .eq("document_id", id)
-        .order("page_number", { ascending: true }),
-      supabase
-        .from("document_extracted_biomarkers")
-        .select("id", { count: "exact", head: true })
-        .eq("document_id", id),
-      documentType === "instrumental_report"
-        ? supabase
-            .from("document_extracted_findings")
-            .select("*")
-            .eq("document_id", id)
-            .eq("status", "accepted")
-        : Promise.resolve({ data: [] }),
-      documentType === "consultation_note"
-        ? supabase
-            .from("document_extracted_clinical_notes")
-            .select("*")
-            .eq("document_id", id)
-            .eq("status", "accepted")
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-    ]);
+  const [
+    { data: pages },
+    { count: extractedCount },
+    { data: findings },
+    { data: clinicalNote },
+    { data: prescription },
+    { data: referral },
+  ] = await Promise.all([
+    supabase
+      .from("document_pages")
+      .select("page_number, width, height")
+      .eq("document_id", id)
+      .order("page_number", { ascending: true }),
+    supabase
+      .from("document_extracted_biomarkers")
+      .select("id", { count: "exact", head: true })
+      .eq("document_id", id),
+    documentType === "instrumental_report"
+      ? supabase
+          .from("document_extracted_findings")
+          .select("*")
+          .eq("document_id", id)
+          .eq("status", "accepted")
+      : Promise.resolve({ data: [] }),
+    documentType === "consultation_note" || documentType === "discharge_summary"
+      ? supabase
+          .from("document_extracted_clinical_notes")
+          .select("*")
+          .eq("document_id", id)
+          .eq("status", "accepted")
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    documentType === "prescription"
+      ? supabase
+          .from("document_extracted_prescriptions")
+          .select("*")
+          .eq("document_id", id)
+          .eq("status", "accepted")
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    documentType === "referral"
+      ? supabase
+          .from("document_extracted_referrals")
+          .select("*")
+          .eq("document_id", id)
+          .eq("status", "accepted")
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
 
   return noStoreJson({
     document: {
@@ -73,11 +95,40 @@ export async function GET(_req: Request, context: RouteContext) {
       is_legacy: isLegacyDocument(doc!),
       has_thumbnail: Boolean(doc!.thumbnail_storage_path),
       extracted_biomarker_count: extractedCount ?? 0,
+      detected_document_type: doc!.detected_document_type ?? null,
+      type_mismatch_warning: Boolean(doc!.type_mismatch_warning),
+      type_mismatch_reason: doc!.type_mismatch_reason ?? null,
+      suggested_document_type: doc!.detected_document_type ?? null,
     },
     pages: pages ?? [],
     instrumental_findings: findings ?? [],
     clinical_note: clinicalNote ?? null,
+    prescription: prescription ?? null,
+    referral: referral ?? null,
   });
+}
+
+export async function PATCH(req: Request, context: RouteContext) {
+  const profileId = await getSessionProfileId();
+  if (!profileId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await context.params;
+  const { error } = await assertDocumentOwner(profileId, id);
+  if (error) return error;
+
+  const body = await req.json().catch(() => ({}));
+  if (body?.type_mismatch_warning === false) {
+    const supabase = createAdminClient();
+    await supabase
+      .from("documents")
+      .update({ type_mismatch_warning: false })
+      .eq("id", id);
+    return NextResponse.json({ ok: true });
+  }
+
+  return NextResponse.json({ error: "Unsupported update" }, { status: 400 });
 }
 
 export async function DELETE(_req: Request, context: RouteContext) {

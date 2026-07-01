@@ -149,6 +149,11 @@ export function HealthProfileDrawer({
                   <p className="text-xs text-muted-foreground">
                     Observed {marker.observed_at}
                   </p>
+                  {marker.observation_kind === "instrumental" ? (
+                    <p className="text-xs font-medium text-teal-700">
+                      From imaging/functional study
+                    </p>
+                  ) : null}
                   {marker.source && (
                     <p className="mt-1 text-xs text-muted-foreground">
                       Source: {marker.source.original_filename}

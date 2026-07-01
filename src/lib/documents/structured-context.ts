@@ -29,14 +29,51 @@ export type StructuredClinicalNoteContext = {
   document_id: string;
   filename: string;
   document_type: DocumentType;
+  note_kind?: string | null;
   provider_name: string | null;
   visit_date: string | null;
   chief_complaint: string | null;
   history_summary: string | null;
   exam_findings: string | null;
-  documented_diagnoses: string[];
+  documented_problems: string[];
   recommendations: string[];
   follow_up_plan: string | null;
+  admission_date?: string | null;
+  discharge_date?: string | null;
+  hospital_course?: string | null;
+  discharge_diagnoses?: string[];
+  discharge_medications?: string[];
+  follow_up_instructions?: string | null;
+  summary: string | null;
+};
+
+export type StructuredPrescriptionContext = {
+  document_id: string;
+  filename: string;
+  document_type: DocumentType;
+  prescriber_name: string | null;
+  prescribed_at: string | null;
+  medications: Array<{
+    name: string;
+    dose: string | null;
+    frequency: string | null;
+    duration: string | null;
+    instructions: string | null;
+  }>;
+  summary: string | null;
+};
+
+export type StructuredReferralContext = {
+  document_id: string;
+  filename: string;
+  document_type: DocumentType;
+  referring_provider: string | null;
+  referred_to_specialty: string | null;
+  referred_to_provider: string | null;
+  referral_date: string | null;
+  reason_for_referral: string | null;
+  clinical_summary: string | null;
+  urgency: string | null;
   summary: string | null;
 };
 
@@ -44,6 +81,9 @@ export type DocumentStructuredContext = {
   biomarkers: StructuredBiomarkerContext[];
   instrumental_findings: StructuredFindingContext[];
   consultation_notes: StructuredClinicalNoteContext[];
+  discharge_summaries: StructuredClinicalNoteContext[];
+  prescriptions: StructuredPrescriptionContext[];
+  referrals: StructuredReferralContext[];
   document_summaries: Array<{
     document_id: string;
     filename: string;
@@ -56,6 +96,40 @@ export type DocumentStructuredContext = {
 function isProcessedDocument(processingStatus: string | null, status: string): boolean {
   if (processingStatus === "ready" || processingStatus === "needs_review") return true;
   return status === "completed";
+}
+
+function parseStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function mapClinicalNoteRow(
+  row: Record<string, unknown>,
+  doc: { id: string; original_filename: string; document_type: string; observed_at: string | null; document_summary: string | null }
+): StructuredClinicalNoteContext {
+  return {
+    document_id: row.document_id as string,
+    filename: doc.original_filename,
+    document_type: doc.document_type as DocumentType,
+    note_kind: typeof row.note_kind === "string" ? row.note_kind : null,
+    provider_name: (row.provider_name as string | null) ?? null,
+    visit_date: (row.visit_date as string | null) ?? null,
+    chief_complaint: (row.chief_complaint as string | null) ?? null,
+    history_summary: (row.history_summary as string | null) ?? null,
+    exam_findings: (row.exam_findings as string | null) ?? null,
+    documented_problems: parseStringList(
+      row.documented_problems ?? row.documented_diagnoses
+    ),
+    recommendations: parseStringList(row.recommendations),
+    follow_up_plan: (row.follow_up_plan as string | null) ?? null,
+    admission_date: (row.admission_date as string | null) ?? null,
+    discharge_date: (row.discharge_date as string | null) ?? null,
+    hospital_course: (row.hospital_course as string | null) ?? null,
+    discharge_diagnoses: parseStringList(row.discharge_diagnoses),
+    discharge_medications: parseStringList(row.discharge_medications),
+    follow_up_instructions: (row.follow_up_instructions as string | null) ?? null,
+    summary: doc.document_summary,
+  };
 }
 
 export async function buildDocumentStructuredContext(
@@ -86,6 +160,9 @@ export async function buildDocumentStructuredContext(
   const biomarkers: StructuredBiomarkerContext[] = [];
   const instrumental_findings: StructuredFindingContext[] = [];
   const consultation_notes: StructuredClinicalNoteContext[] = [];
+  const discharge_summaries: StructuredClinicalNoteContext[] = [];
+  const prescriptions: StructuredPrescriptionContext[] = [];
+  const referrals: StructuredReferralContext[] = [];
   const document_summaries: DocumentStructuredContext["document_summaries"] = [];
 
   if (eligibleIds.length === 0) {
@@ -93,12 +170,21 @@ export async function buildDocumentStructuredContext(
       biomarkers,
       instrumental_findings,
       consultation_notes,
+      discharge_summaries,
+      prescriptions,
+      referrals,
       document_summaries,
       source_document_ids: [],
     };
   }
 
-  const [{ data: observations }, { data: findings }, { data: clinicalNotes }] = await Promise.all([
+  const [
+    { data: observations },
+    { data: findings },
+    { data: clinicalNotes },
+    { data: prescriptionRows },
+    { data: referralRows },
+  ] = await Promise.all([
     supabase
       .from("observations")
       .select("*, documents(original_filename)")
@@ -113,6 +199,18 @@ export async function buildDocumentStructuredContext(
       .eq("status", "accepted"),
     supabase
       .from("document_extracted_clinical_notes")
+      .select("*")
+      .eq("profile_id", profileId)
+      .in("document_id", eligibleIds)
+      .eq("status", "accepted"),
+    supabase
+      .from("document_extracted_prescriptions")
+      .select("*")
+      .eq("profile_id", profileId)
+      .in("document_id", eligibleIds)
+      .eq("status", "accepted"),
+    supabase
+      .from("document_extracted_referrals")
       .select("*")
       .eq("profile_id", profileId)
       .in("document_id", eligibleIds)
@@ -154,22 +252,43 @@ export async function buildDocumentStructuredContext(
   for (const row of clinicalNotes ?? []) {
     const doc = docById.get(row.document_id);
     if (!doc) continue;
-    consultation_notes.push({
+    const mapped = mapClinicalNoteRow(row, doc);
+    if (row.note_kind === "discharge") {
+      discharge_summaries.push(mapped);
+    } else {
+      consultation_notes.push(mapped);
+    }
+  }
+
+  for (const row of prescriptionRows ?? []) {
+    const doc = docById.get(row.document_id);
+    if (!doc) continue;
+    const meds = Array.isArray(row.medications) ? row.medications : [];
+    prescriptions.push({
       document_id: row.document_id,
       filename: doc.original_filename,
       document_type: doc.document_type as DocumentType,
-      provider_name: row.provider_name,
-      visit_date: row.visit_date,
-      chief_complaint: row.chief_complaint,
-      history_summary: row.history_summary,
-      exam_findings: row.exam_findings,
-      documented_diagnoses: Array.isArray(row.documented_diagnoses)
-        ? (row.documented_diagnoses as string[])
-        : [],
-      recommendations: Array.isArray(row.recommendations)
-        ? (row.recommendations as string[])
-        : [],
-      follow_up_plan: row.follow_up_plan,
+      prescriber_name: row.prescriber_name,
+      prescribed_at: row.prescribed_at,
+      medications: meds as StructuredPrescriptionContext["medications"],
+      summary: doc.document_summary,
+    });
+  }
+
+  for (const row of referralRows ?? []) {
+    const doc = docById.get(row.document_id);
+    if (!doc) continue;
+    referrals.push({
+      document_id: row.document_id,
+      filename: doc.original_filename,
+      document_type: doc.document_type as DocumentType,
+      referring_provider: row.referring_provider,
+      referred_to_specialty: row.referred_to_specialty,
+      referred_to_provider: row.referred_to_provider,
+      referral_date: row.referral_date,
+      reason_for_referral: row.reason_for_referral,
+      clinical_summary: row.clinical_summary,
+      urgency: row.urgency,
       summary: doc.document_summary,
     });
   }
@@ -192,6 +311,9 @@ export async function buildDocumentStructuredContext(
         .filter((id): id is string => typeof id === "string"),
       ...instrumental_findings.map((f) => f.document_id),
       ...consultation_notes.map((c) => c.document_id),
+      ...discharge_summaries.map((d) => d.document_id),
+      ...prescriptions.map((p) => p.document_id),
+      ...referrals.map((r) => r.document_id),
       ...document_summaries.map((s) => s.document_id),
     ]),
   ];
@@ -200,6 +322,9 @@ export async function buildDocumentStructuredContext(
     biomarkers,
     instrumental_findings,
     consultation_notes,
+    discharge_summaries,
+    prescriptions,
+    referrals,
     document_summaries,
     source_document_ids,
   };
@@ -214,6 +339,9 @@ export function hasStructuredContent(context: DocumentStructuredContext): boolea
     context.biomarkers.length > 0 ||
     context.instrumental_findings.length > 0 ||
     context.consultation_notes.length > 0 ||
+    context.discharge_summaries.length > 0 ||
+    context.prescriptions.length > 0 ||
+    context.referrals.length > 0 ||
     context.document_summaries.length > 0
   );
 }

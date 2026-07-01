@@ -2,6 +2,9 @@ export type DocumentType =
   | "lab_result"
   | "instrumental_report"
   | "consultation_note"
+  | "discharge_summary"
+  | "prescription"
+  | "referral"
   | "dicom";
 
 export type FileKind = "pdf" | "image" | "unknown";
@@ -10,6 +13,9 @@ export const DOCUMENT_TYPES: DocumentType[] = [
   "lab_result",
   "instrumental_report",
   "consultation_note",
+  "discharge_summary",
+  "prescription",
+  "referral",
   "dicom",
 ];
 
@@ -17,12 +23,18 @@ export const UPLOADABLE_DOCUMENT_TYPES: DocumentType[] = [
   "lab_result",
   "instrumental_report",
   "consultation_note",
+  "discharge_summary",
+  "prescription",
+  "referral",
 ];
 
 export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   lab_result: "Lab results",
   instrumental_report: "Imaging study",
   consultation_note: "Consultation",
+  discharge_summary: "Discharge summary",
+  prescription: "Prescription",
+  referral: "Referral",
   dicom: "Medical images (DICOM)",
 };
 
@@ -83,6 +95,7 @@ export type ObservationInput = {
   ref_high: number | null;
   observed_at: string;
   document_id: string | null;
+  observation_kind?: "lab" | "instrumental";
 };
 
 export type HealthProfileSource = {
@@ -105,6 +118,7 @@ export type SystemMarker = {
   status: MarkerStatus;
   observed_at: string;
   document_id: string | null;
+  observation_kind?: "lab" | "instrumental";
   source: MarkerSource | null;
 };
 
@@ -132,6 +146,7 @@ export type HealthProfileResult = {
   systems: SystemInsight[];
   sources: HealthProfileSource[];
   holistic_synthesis: HolisticSynthesis | null;
+  synthesis_stale?: boolean;
 };
 
 const BODY_SYSTEMS: Record<
@@ -320,6 +335,7 @@ export function buildHealthProfile(
       status: getMarkerStatus(Number(obs.value), obs.ref_low, obs.ref_high),
       observed_at: obs.observed_at,
       document_id: obs.document_id,
+      observation_kind: obs.observation_kind,
       source: obs.document_id ? sourceById.get(obs.document_id) ?? null : null,
     });
     bySystem.set(systemId, markers);
