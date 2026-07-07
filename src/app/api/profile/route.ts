@@ -73,7 +73,7 @@ function providerUnavailableMessage(provider: AiProviderId): string {
     return "DeepSeek is temporarily unavailable. Try ChatGPT or contact support.";
   }
   if (provider === "owl_alpha") {
-    return "Owl Alpha is temporarily unavailable. Try ChatGPT or contact support.";
+    return "Tencent Hy3 is temporarily unavailable. Try ChatGPT or contact support.";
   }
   return "This AI provider is not available.";
 }

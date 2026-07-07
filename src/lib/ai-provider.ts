@@ -10,7 +10,7 @@ export const AI_PROVIDER_IDS: AiProviderId[] = ["openai", "deepseek", "owl_alpha
 export const AI_PROVIDER_LABELS: Record<AiProviderId, string> = {
   openai: "ChatGPT",
   deepseek: "DeepSeek",
-  owl_alpha: "Owl Alpha",
+  owl_alpha: "Tencent Hy3 (free)",
 };
 
 export const AI_PROVIDER_HINTS: Partial<Record<AiProviderId, string>> = {
@@ -52,7 +52,7 @@ export function resolveLanguageModel(provider: AiProviderId): LanguageModel {
 
   if (provider === "owl_alpha") {
     if (!isOwlAlphaConfigured()) {
-      throw new Error("Owl Alpha is not configured on the server");
+      throw new Error("Tencent Hy3 (OpenRouter) is not configured on the server");
     }
     const openrouter = createOpenAI({
       apiKey: env.OWL_ALPHA_API_KEY!,
@@ -62,7 +62,7 @@ export function resolveLanguageModel(provider: AiProviderId): LanguageModel {
         "X-Title": "EasyHealth",
       },
     });
-    return openrouter(env.OWL_ALPHA_MODEL ?? "openrouter/owl-alpha");
+    return openrouter(env.OWL_ALPHA_MODEL ?? "tencent/hy3:free");
   }
 
   return openai("gpt-4o-mini");

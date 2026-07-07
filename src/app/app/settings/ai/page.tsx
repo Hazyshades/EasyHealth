@@ -33,7 +33,7 @@ function isProviderAvailable(
 
 function providerUnavailableHint(provider: AiProviderId): string {
   if (provider === "deepseek") return "DeepSeek is not configured on this server.";
-  if (provider === "owl_alpha") return "Owl Alpha is not configured on this server.";
+  if (provider === "owl_alpha") return "Tencent Hy3 (OpenRouter) is not configured on this server.";
   return "This provider is not available.";
 }
 

@@ -15,7 +15,7 @@ export function resolveLanguageModel(provider: AiProviderId): LanguageModel {
   }
 
   if (provider === "owl_alpha") {
-    if (!workerEnv.owlAlphaApiKey) throw new Error("Owl Alpha is not configured");
+    if (!workerEnv.owlAlphaApiKey) throw new Error("Tencent Hy3 (OpenRouter) is not configured");
     const openrouter = createOpenAI({
       apiKey: workerEnv.owlAlphaApiKey,
       baseURL: workerEnv.openrouterBaseUrl,

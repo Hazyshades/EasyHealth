@@ -12,7 +12,7 @@ export default function SettingsPage() {
         <div>
           <p className="text-sm font-semibold text-[var(--eh-text-primary)]">AI Settings</p>
           <p className="mt-1 text-sm text-[var(--eh-text-secondary)]">
-            Choose whether EasyHealth uses ChatGPT, DeepSeek, or Owl Alpha for
+            Choose whether EasyHealth uses ChatGPT, DeepSeek, or Tencent Hy3 for
           document extraction and reports.
           </p>
         </div>

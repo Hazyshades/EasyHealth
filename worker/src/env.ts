@@ -19,6 +19,6 @@ export const workerEnv = {
   deepseekModel: process.env.DEEPSEEK_MODEL ?? "deepseek-chat",
   owlAlphaApiKey: process.env.OWL_ALPHA_API_KEY,
   openrouterBaseUrl: process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1",
-  owlAlphaModel: process.env.OWL_ALPHA_MODEL ?? "openrouter/owl-alpha",
+  owlAlphaModel: process.env.OWL_ALPHA_MODEL ?? "tencent/hy3:free",
   pollIntervalMs: Number(process.env.WORKER_POLL_INTERVAL_MS ?? "5000"),
 };
