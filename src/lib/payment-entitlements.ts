@@ -6,7 +6,8 @@ export type { EntitlementRetryResponse } from "@/lib/payment-entitlement-contrac
 
 export type PaymentEntitlementRow = {
   id: string;
-  profile_id: string;
+  profile_id: string | null;
+  payer: string | null;
   endpoint: string;
   receipt_id: string;
   status: string;
@@ -46,6 +47,30 @@ export async function createEntitlement(
   return { id: data.id };
 }
 
+export async function createEntitlementForPayer(
+  payer: string,
+  endpoint: string,
+  receiptId: string
+): Promise<{ id: string }> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("payment_entitlements")
+    .insert({
+      profile_id: null,
+      payer: payer.toLowerCase(),
+      endpoint,
+      receipt_id: receiptId,
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Failed to create payment entitlement");
+  }
+
+  return { id: data.id };
+}
+
 export async function validateEntitlement(
   entitlementId: string,
   profileId: string,
@@ -54,12 +79,33 @@ export async function validateEntitlement(
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("payment_entitlements")
-    .select("id, profile_id, endpoint, receipt_id, status, expires_at")
+    .select("id, profile_id, payer, endpoint, receipt_id, status, expires_at")
     .eq("id", entitlementId)
     .maybeSingle();
 
   if (error || !data) return { valid: false };
   if (data.profile_id !== profileId) return { valid: false };
+  if (data.endpoint !== endpoint) return { valid: false };
+  if (data.status !== "available") return { valid: false };
+  if (new Date(data.expires_at) <= new Date()) return { valid: false };
+
+  return { valid: true, entitlement: data };
+}
+
+export async function validateEntitlementForPayer(
+  entitlementId: string,
+  payer: string,
+  endpoint: string
+): Promise<{ valid: true; entitlement: PaymentEntitlementRow } | { valid: false }> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("payment_entitlements")
+    .select("id, profile_id, payer, endpoint, receipt_id, status, expires_at")
+    .eq("id", entitlementId)
+    .maybeSingle();
+
+  if (error || !data) return { valid: false };
+  if ((data.payer ?? "").toLowerCase() !== payer.toLowerCase()) return { valid: false };
   if (data.endpoint !== endpoint) return { valid: false };
   if (data.status !== "available") return { valid: false };
   if (new Date(data.expires_at) <= new Date()) return { valid: false };

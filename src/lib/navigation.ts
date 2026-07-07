@@ -49,6 +49,14 @@ export const PAGE_TITLES: Record<string, { title: string; subtitle?: string }> =
     title: "AI Settings",
     subtitle: "Choose which model EasyHealth uses for extraction and reports",
   },
+  "/app/agent-demo": {
+    title: "Agent API demo",
+    subtitle: "Buy a health insight per-call via x402 on Arc",
+  },
+  "/app/agent-traction": {
+    title: "Agent traction",
+    subtitle: "A2A payment volume from agent-facing insight API",
+  },
 };
 
 export function resolvePageMeta(pathname: string): { title: string; subtitle?: string } {

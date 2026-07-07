@@ -73,3 +73,8 @@ export async function resolveModelForProfile(profileId: string): Promise<Languag
   const provider = (profile.ai_provider as AiProviderId | null) ?? "openai";
   return resolveLanguageModel(provider);
 }
+
+/** Default model for stateless agent-facing insight endpoints (no profile). */
+export function resolveAgentModel(): LanguageModel {
+  return resolveLanguageModel("openai");
+}
