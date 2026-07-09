@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withGateway } from "@/lib/x402";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getProfileById } from "@/lib/auth/profile";
@@ -96,7 +95,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ reports: reports ?? [] });
 }
 
-async function postHandler(req: NextRequest, _payment: import("@/lib/x402").SettledPayment) {
+export async function POST(req: NextRequest) {
   const profileId = await getSessionProfileId();
   if (!profileId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -239,11 +238,7 @@ async function postHandler(req: NextRequest, _payment: import("@/lib/x402").Sett
     );
   }
 
-  return NextResponse.json({ ...report, paid: true });
+  return NextResponse.json({ ...report });
 }
-
-export const POST = withGateway(postHandler, "$0.05", "/api/reports", {
-  getProfileId: getSessionProfileId,
-});
 
 export const maxDuration = 60;

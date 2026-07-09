@@ -24,7 +24,7 @@ async function circleFetch(
   const { method = "POST", body, userToken } = options;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${env.CIRCLE_API_KEY}`,
+    Authorization: `Bearer ${env.CIRCLE_API_KEY ?? ""}`,
   };
   if (userToken) {
     headers["X-User-Token"] = userToken;
@@ -61,6 +61,13 @@ async function circleFetch(
 
 export async function POST(request: Request) {
   try {
+    if (!env.CIRCLE_API_KEY) {
+      return NextResponse.json(
+        { error: "Circle API is frozen for the human app. CIRCLE_API_KEY is not configured." },
+        { status: 503 }
+      );
+    }
+
     const body = await request.json();
     const { action, ...params } = body ?? {};
 

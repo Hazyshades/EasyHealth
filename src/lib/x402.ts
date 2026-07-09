@@ -15,8 +15,18 @@ export const ARC_TESTNET_NETWORK = "eip155:5042002";
 const ARC_TESTNET_USDC = "0x3600000000000000000000000000000000000000";
 const ARC_TESTNET_GATEWAY_WALLET = "0x0077777d7EBA4688BDeF3E311b846F25870A19B9";
 
-export const sellerAddress = env.SELLER_ADDRESS as `0x${string}`;
+/** Frozen human-payments path; only set when x402 seller is configured. */
+export const sellerAddress = (env.SELLER_ADDRESS ??
+  "0x0000000000000000000000000000000000000000") as `0x${string}`;
 const facilitator = new BatchFacilitatorClient();
+
+function assertSellerConfigured() {
+  if (!env.SELLER_ADDRESS) {
+    throw new Error(
+      "x402 payments are frozen for the human app. SELLER_ADDRESS is not configured."
+    );
+  }
+}
 
 interface PaymentPayload {
   x402Version: number;
@@ -153,9 +163,15 @@ export function withGateway(
   endpoint: string,
   options?: { getProfileId?: () => Promise<string | null> }
 ) {
-  const requirements = buildPaymentRequirements(price);
-
   return async (req: NextRequest) => {
+    try {
+      assertSellerConfigured();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Payments unavailable";
+      return NextResponse.json({ error: message }, { status: 503 });
+    }
+
+    const requirements = buildPaymentRequirements(price);
     const profileId = options?.getProfileId ? await options.getProfileId() : null;
     const entitlementHeader = req.headers.get(ENTITLEMENT_HEADER);
 

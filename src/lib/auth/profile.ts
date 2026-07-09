@@ -1,3 +1,4 @@
+import type { User } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AiProviderId } from "@/lib/ai-provider";
 import {
@@ -7,6 +8,7 @@ import {
   validateRequiredConsents,
 } from "@/lib/consent";
 import { WIZARD_STEP_IDS, type WizardStepId } from "@/lib/onboarding/wizard-steps";
+import { resolveProfileIdentity } from "@/lib/display-name";
 
 export type DashboardPreferences = {
   banner_dismissed_at?: string;
@@ -17,8 +19,6 @@ export type DashboardPreferences = {
 
 export type ProfileRow = {
   id: string;
-  wallet_address: string;
-  circle_wallet_id: string | null;
   display_name: string | null;
   first_name: string | null;
   last_name: string | null;
@@ -36,19 +36,11 @@ export type ProfileRow = {
 };
 
 const PROFILE_SELECT =
-  "id, wallet_address, circle_wallet_id, display_name, first_name, last_name, email, ai_provider, created_at, terms_accepted_at, terms_version, health_data_consent_at, ai_consent_at, consent_preferences, onboarding_dismissed_at, onboarding_completed_at, dashboard_preferences";
-
-type UpsertProfileOptions = {
-  circleWalletId?: string;
-  displayName?: string | null;
-  email?: string | null;
-};
+  "id, display_name, first_name, last_name, email, ai_provider, created_at, terms_accepted_at, terms_version, health_data_consent_at, ai_consent_at, consent_preferences, onboarding_dismissed_at, onboarding_completed_at, dashboard_preferences";
 
 function mapProfileRow(data: Record<string, unknown>): ProfileRow {
   return {
     id: data.id as string,
-    wallet_address: data.wallet_address as string,
-    circle_wallet_id: (data.circle_wallet_id as string | null) ?? null,
     display_name: (data.display_name as string | null) ?? null,
     first_name: (data.first_name as string | null) ?? null,
     last_name: (data.last_name as string | null) ?? null,
@@ -72,35 +64,28 @@ export function buildDisplayName(firstName: string, lastName?: string | null): s
   return last ? `${first} ${last}` : first;
 }
 
-export async function upsertProfileByWallet(
-  walletAddress: string,
-  options?: UpsertProfileOptions
-) {
+/**
+ * Ensure a public.profiles row exists for the Supabase Auth user.
+ * profiles.id = auth.users.id. Idempotent.
+ */
+export async function ensureProfile(user: User): Promise<string> {
   const supabase = createAdminClient();
-  const normalized = walletAddress.toLowerCase();
-  const displayName =
-    options && "displayName" in options ? options.displayName?.trim() || null : undefined;
-  const email = options?.email?.trim() || null;
+  const email = user.email?.trim() || null;
+  const metaName =
+    (typeof user.user_metadata?.full_name === "string" && user.user_metadata.full_name) ||
+    (typeof user.user_metadata?.name === "string" && user.user_metadata.name) ||
+    null;
+  const identity = resolveProfileIdentity(metaName, email);
 
   const { data: existing } = await supabase
     .from("profiles")
-    .select("id, display_name, email")
-    .eq("wallet_address", normalized)
+    .select("id, email")
+    .eq("id", user.id)
     .maybeSingle();
 
   if (existing) {
-    const updates: Record<string, string | null> = {};
-    if (displayName !== undefined && displayName !== existing.display_name) {
-      updates.display_name = displayName;
-    }
     if (email && email !== existing.email) {
-      updates.email = email;
-    }
-    if (options?.circleWalletId) {
-      updates.circle_wallet_id = options.circleWalletId;
-    }
-    if (Object.keys(updates).length > 0) {
-      await supabase.from("profiles").update(updates).eq("id", existing.id);
+      await supabase.from("profiles").update({ email }).eq("id", existing.id);
     }
     return existing.id as string;
   }
@@ -108,15 +93,25 @@ export async function upsertProfileByWallet(
   const { data, error } = await supabase
     .from("profiles")
     .insert({
-      wallet_address: normalized,
-      circle_wallet_id: options?.circleWalletId ?? null,
-      display_name: displayName ?? null,
+      id: user.id,
       email,
+      display_name: identity.firstName,
+      // first_name left null so onboarding profile gate still runs unless set later
     })
     .select("id")
     .single();
 
-  if (error) throw error;
+  if (error) {
+    // Race: concurrent ensure may hit unique id
+    const { data: raced } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (raced?.id) return raced.id as string;
+    throw error;
+  }
+
   return data.id as string;
 }
 

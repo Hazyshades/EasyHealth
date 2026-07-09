@@ -48,7 +48,6 @@ const patchSchema = z
 function profileResponse(profile: ProfileRow) {
   return {
     id: profile.id,
-    wallet_address: profile.wallet_address,
     display_name: profile.display_name,
     first_name: profile.first_name,
     last_name: profile.last_name,

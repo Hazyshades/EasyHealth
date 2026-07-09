@@ -13,13 +13,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  ensureGatewayFunded,
-  isPaidRequestFailedError,
-  payForResource,
-  retryWithEntitlement,
-} from "@/lib/payments/gateway-client";
-import { useWallet } from "@/components/wallet-provider";
-import {
   DOCUMENT_TYPE_LABELS,
   normalizeDocumentType,
   type DocumentType,
@@ -54,7 +47,6 @@ function formatDocDate(iso: string | null) {
 
 export default function CreateReportPage() {
   const router = useRouter();
-  const { fundGatewayWallet } = useWallet();
 
   const [title, setTitle] = useState(buildDefaultReportTitle);
   const [reportType, setReportType] = useState<ReportType>("general_practice");
@@ -67,8 +59,6 @@ export default function CreateReportPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [paidAmount, setPaidAmount] = useState<string | null>(null);
-  const [entitlementId, setEntitlementId] = useState<string | null>(null);
 
   const loadEligibleDocs = useCallback(() => {
     setLoadingDocs(true);
@@ -97,58 +87,33 @@ export default function CreateReportPage() {
     };
   }
 
-  async function submitReport(options?: { entitlementId?: string; autoRetry?: boolean }) {
+  async function submitReport() {
     if (!hasEligibleDocs) return;
 
     setSubmitting(true);
     setError(null);
-    if (!options?.entitlementId) {
-      setPaidAmount(null);
-    }
 
     const body = buildRequestBody();
-    const url = `${window.location.origin}/api/reports`;
 
     try {
-      if (options?.entitlementId) {
-        const result = await retryWithEntitlement(url, options.entitlementId, {
-          method: "POST",
-          body,
-        });
-        setEntitlementId(null);
-        const data = result.data as { id: string };
-        router.push(`/app/reports/${data.id}`);
-        return;
-      }
-
-      await ensureGatewayFunded("0.06", fundGatewayWallet);
-
-      const result = await payForResource(url, {
+      const res = await fetch("/api/reports", {
         method: "POST",
-        body,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       });
-
-      setPaidAmount(result.formattedAmount);
-      setEntitlementId(null);
-      const data = result.data as { id: string };
+      const data = (await res.json().catch(() => ({}))) as {
+        id?: string;
+        error?: string;
+        message?: string;
+      };
+      if (!res.ok) {
+        throw new Error(data.message ?? data.error ?? "Failed to create report");
+      }
+      if (!data.id) {
+        throw new Error("Report created but no id returned");
+      }
       router.push(`/app/reports/${data.id}`);
     } catch (e) {
-      if (
-        options?.autoRetry !== false &&
-        isPaidRequestFailedError(e) &&
-        e.entitlementId &&
-        e.retryWithoutPayment
-      ) {
-        await submitReport({ entitlementId: e.entitlementId, autoRetry: false });
-        return;
-      }
-
-      if (isPaidRequestFailedError(e) && e.entitlementId && e.retryWithoutPayment) {
-        setEntitlementId(e.entitlementId);
-      } else {
-        setEntitlementId(null);
-      }
-
       setError(e instanceof Error ? e.message : "Failed to create report");
       setSubmitting(false);
     }
@@ -157,11 +122,6 @@ export default function CreateReportPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     await submitReport();
-  }
-
-  async function handleEntitlementRetry() {
-    if (!entitlementId) return;
-    await submitReport({ entitlementId });
   }
 
   function toggleDoc(id: string) {
@@ -196,7 +156,7 @@ export default function CreateReportPage() {
         </p>
         <h1 className="mt-1 text-2xl font-bold">New health report</h1>
         <p className="text-muted-foreground">
-          Educational clinician-ready summary across labs, imaging, and consultations · $0.05 USDC
+          Educational clinician-ready summary across labs, imaging, and consultations — free
         </p>
       </div>
 
@@ -286,22 +246,10 @@ export default function CreateReportPage() {
           }
           className="w-full"
         >
-          {submitting ? "Paying & generating…" : "Create report - $0.05"}
+          {submitting ? "Generating…" : "Create report"}
         </Button>
 
-        {paidAmount && (
-          <p className="text-sm text-teal-700">Paid {paidAmount} USDC via Arc Gateway</p>
-        )}
-        {error && (
-          <div className="space-y-2">
-            <p className="text-sm text-red-600">{error}</p>
-            {entitlementId && (
-              <Button type="button" variant="outline" disabled={submitting} onClick={handleEntitlementRetry}>
-                {submitting ? "Retrying…" : "Retry without additional charge"}
-              </Button>
-            )}
-          </div>
-        )}
+        {error && <p className="text-sm text-red-600">{error}</p>}
       </form>
 
       {modalOpen && (

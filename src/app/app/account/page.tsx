@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useWallet } from "@/components/wallet-provider";
+import { useAuth } from "@/components/auth-provider";
 import { PageHeader } from "@/components/layout/page-header";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 
 type ProfileResponse = {
   id: string;
-  wallet_address: string;
   display_name: string | null;
   email: string | null;
   created_at: string;
@@ -24,7 +23,7 @@ function formatDate(value: string) {
 }
 
 export default function AccountPage() {
-  const { refreshAccountIdentity } = useWallet();
+  const { refreshAccountIdentity } = useAuth();
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [firstNameInput, setFirstNameInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -91,12 +90,11 @@ export default function AccountPage() {
     return <p className="text-sm text-red-600">Unable to load account information.</p>;
   }
 
-  const shortWallet = `${profile.wallet_address.slice(0, 6)}…${profile.wallet_address.slice(-4)}`;
   const hasFirstName = Boolean(profile.display_name?.trim());
 
   return (
     <div className="space-y-6 pb-8">
-      <PageHeader subtitle="Wallet and sign-in details for your EasyHealth account" compact />
+      <PageHeader subtitle="Sign-in details for your EasyHealth account" compact />
 
       <SurfaceCard className="space-y-4 p-5">
         <div>
@@ -138,13 +136,8 @@ export default function AccountPage() {
           <p className="mt-1 text-sm text-[var(--eh-text-primary)]">
             {profile.email?.trim() || "Not set"}
           </p>
-        </div>
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-[var(--eh-text-muted)]">
-            Wallet address
-          </p>
-          <p className="mt-1 break-all font-mono text-xs text-[var(--eh-text-muted)]">
-            {profile.wallet_address}
+          <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
+            Email comes from your sign-in provider and is not editable here.
           </p>
         </div>
         <div>

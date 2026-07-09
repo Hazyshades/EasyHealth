@@ -3,9 +3,13 @@ import { z } from "zod";
 
 export const env = createEnv({
   server: {
-    SELLER_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+    // Frozen Circle / x402 stack — optional so human app boots without payments
+    SELLER_ADDRESS: z
+      .string()
+      .regex(/^0x[a-fA-F0-9]{40}$/)
+      .optional(),
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
-    CIRCLE_API_KEY: z.string().min(1),
+    CIRCLE_API_KEY: z.string().min(1).optional(),
     OPENAI_API_KEY: z.string().min(1),
     DEEPSEEK_API_KEY: z.string().min(1).optional(),
     DEEPSEEK_BASE_URL: z.string().url().optional(),
@@ -49,7 +53,7 @@ export const env = createEnv({
     NEBIUS_QUALITY_EXTRACT_TEXT_MODEL: z
       .string()
       .min(1)
-      .default("Qwen/Qwen3-235B-A22B-Instruct-2507"),
+      .default("meta-llama/Llama-3.3-70B-Instruct"),
     NEBIUS_QUALITY_EXTRACT_VISION_MODEL: z
       .string()
       .min(1)
@@ -65,8 +69,9 @@ export const env = createEnv({
   client: {
     NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
-    NEXT_PUBLIC_CIRCLE_APP_ID: z.string().min(1),
-    NEXT_PUBLIC_GOOGLE_CLIENT_ID: z.string().min(1),
+    // Frozen Circle human auth — optional
+    NEXT_PUBLIC_CIRCLE_APP_ID: z.string().min(1).optional(),
+    NEXT_PUBLIC_GOOGLE_CLIENT_ID: z.string().min(1).optional(),
   },
   runtimeEnv: {
     SELLER_ADDRESS: process.env.SELLER_ADDRESS,

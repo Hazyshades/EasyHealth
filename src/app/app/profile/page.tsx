@@ -7,19 +7,11 @@ import { PageHeader } from "@/components/layout/page-header";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { Button } from "@/components/ui/button";
 import { OverallAssessmentCard } from "@/components/overall-assessment-card";
-import { useWallet } from "@/components/wallet-provider";
-import {
-  ensureGatewayFunded,
-  isPaidRequestFailedError,
-  payForResource,
-  retryWithEntitlement,
-} from "@/lib/payments/gateway-client";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 import { resolveBodyMapLayout } from "@/lib/health-systems";
 import type { BodySystemId, HealthProfileResult } from "@/lib/health-systems";
 
 export default function HealthProfilePage() {
-  const { fundGatewayWallet } = useWallet();
   const [profile, setProfile] = useState<HealthProfileResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeChip, setActiveChip] = useState<BodySystemId | null>(null);
@@ -36,26 +28,19 @@ export default function HealthProfilePage() {
     loadProfile().finally(() => setLoading(false));
   }, [loadProfile]);
 
-  async function handleRefreshSynthesis(options?: { entitlementId?: string }) {
+  async function handleRefreshSynthesis() {
     setRefreshError(null);
     setRefreshing(true);
     try {
-      const endpoint = `${window.location.origin}/api/health-profile/synthesis`;
-
-      if (options?.entitlementId) {
-        await retryWithEntitlement(endpoint, options.entitlementId, { method: "POST" });
-        await loadProfile();
-        return;
+      const res = await fetch("/api/health-profile/synthesis", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          (data as { error?: string }).error ?? "Refresh failed"
+        );
       }
-
-      await ensureGatewayFunded("0.02", fundGatewayWallet);
-      await payForResource(endpoint, { method: "POST" });
       await loadProfile();
     } catch (e) {
-      if (isPaidRequestFailedError(e) && e.entitlementId && e.retryWithoutPayment) {
-        await handleRefreshSynthesis({ entitlementId: e.entitlementId });
-        return;
-      }
       setRefreshError(e instanceof Error ? e.message : "Refresh failed");
     } finally {
       setRefreshing(false);
@@ -183,7 +168,7 @@ export default function HealthProfilePage() {
             disabled={refreshing}
             onClick={() => handleRefreshSynthesis()}
           >
-            {refreshing ? "Refreshing…" : "Refresh synthesis ($0.02)"}
+            {refreshing ? "Refreshing…" : "Refresh synthesis"}
           </Button>
           {refreshError ? (
             <p className="mt-2 text-sm text-red-600">{refreshError}</p>

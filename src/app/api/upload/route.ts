@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withGateway } from "@/lib/x402";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureLabDocumentsBucket, LAB_DOCUMENTS_BUCKET } from "@/lib/supabase/storage";
@@ -19,7 +18,7 @@ const ALLOWED_TYPES = new Set([
   "image/jpg",
 ]);
 
-async function handler(req: NextRequest, _payment: import("@/lib/x402").SettledPayment) {
+export async function POST(req: NextRequest) {
   const profileId = await getSessionProfileId();
   if (!profileId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -116,9 +115,5 @@ async function handler(req: NextRequest, _payment: import("@/lib/x402").SettledP
     disclaimer: MEDICAL_DISCLAIMER,
   });
 }
-
-export const POST = withGateway(handler, "$0.01", "/api/upload", {
-  getProfileId: getSessionProfileId,
-});
 
 export const maxDuration = 60;

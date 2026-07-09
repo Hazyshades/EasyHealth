@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Figtree, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { WalletProvider } from "@/components/wallet-provider";
+import { AuthProvider } from "@/components/auth-provider";
 
 const figtree = Figtree({
   variable: "--font-figtree",
@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "EasyHealth - AI-powered personal health record",
   description:
-    "Upload labs, track biomarkers, and get pay-per-insight doctor summaries .",
+    "Upload labs, track biomarkers, and generate educational health insights.",
 };
 
 export default function RootLayout({
@@ -32,7 +32,7 @@ export default function RootLayout({
       <body
         className={`${figtree.variable} ${geistMono.variable} font-sans antialiased min-h-full bg-background text-foreground`}
       >
-        <WalletProvider>{children}</WalletProvider>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

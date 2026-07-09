@@ -1,24 +1,30 @@
-import { cookies } from "next/headers";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { ensureProfile } from "@/lib/auth/profile";
 
+/** @deprecated Legacy cookie name; no longer used for authentication. */
 export const SESSION_COOKIE = "eh_profile_id";
 
+/**
+ * Resolve the signed-in profile id from the Supabase Auth session.
+ * Profile id equals auth.users.id. Ensures a profiles row exists.
+ */
 export async function getSessionProfileId(): Promise<string | null> {
-  const store = await cookies();
-  return store.get(SESSION_COOKIE)?.value ?? null;
-}
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-export async function setSessionProfileId(profileId: string) {
-  const store = await cookies();
-  store.set(SESSION_COOKIE, profileId, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30,
-  });
+  if (!user) return null;
+
+  try {
+    return await ensureProfile(user);
+  } catch (error) {
+    console.error("[auth] ensureProfile failed:", error);
+    return user.id;
+  }
 }
 
 export async function clearSession() {
-  const store = await cookies();
-  store.delete(SESSION_COOKIE);
+  const supabase = await createServerSupabaseClient();
+  await supabase.auth.signOut();
 }
