@@ -1,3 +1,13 @@
+import {
+  BODY_SYSTEM_LABELS,
+  buildMarkerToSystemMap,
+  getBiomarkerDefinition,
+  getScoreRole,
+  listCoverageKeysForSystem,
+  resolveCanonicalKey,
+  type BodySystemId,
+} from "@/lib/biomarkers";
+
 export type DocumentType =
   | "lab_result"
   | "instrumental_report"
@@ -74,15 +84,10 @@ export function resolveFileKind(mimeType: string, filename: string): FileKind {
   return "unknown";
 }
 
-export type BodySystemId =
-  | "cardiovascular"
-  | "metabolic"
-  | "thyroid"
-  | "liver"
-  | "kidney"
-  | "blood"
-  | "vitamins"
-  | "general";
+export type { BodySystemId };
+
+/** @deprecated Use `nutrients`. Kept for client compat. */
+export type LegacyBodySystemId = "vitamins";
 
 export type MarkerStatus = "in_range" | "out_of_range" | "unknown";
 
@@ -96,6 +101,11 @@ export type ObservationInput = {
   observed_at: string;
   document_id: string | null;
   observation_kind?: "lab" | "instrumental";
+  /** Present when unit conversion was applied for display. */
+  converted?: boolean;
+  conversion_note?: string | null;
+  original_value?: number;
+  original_unit?: string;
 };
 
 export type HealthProfileSource = {
@@ -120,6 +130,11 @@ export type SystemMarker = {
   document_id: string | null;
   observation_kind?: "lab" | "instrumental";
   source: MarkerSource | null;
+  score_role?: "core" | "extended" | "display";
+  converted?: boolean;
+  conversion_note?: string | null;
+  original_value?: number;
+  original_unit?: string;
 };
 
 export type SystemInsight = {
@@ -149,54 +164,48 @@ export type HealthProfileResult = {
   synthesis_stale?: boolean;
 };
 
+const MARKER_TO_SYSTEM = buildMarkerToSystemMap();
+
 const BODY_SYSTEMS: Record<
   Exclude<BodySystemId, "general">,
-  { name: string; markers: string[] }
+  { name: string }
 > = {
-  cardiovascular: {
-    name: "Cardiovascular",
-    markers: ["ldl", "hdl", "total_cholesterol", "triglycerides", "apob", "non_hdl_cholesterol"],
-  },
-  metabolic: {
-    name: "Metabolic",
-    markers: ["glucose", "hba1c", "insulin", "fasting_glucose"],
-  },
-  thyroid: {
-    name: "Thyroid",
-    markers: ["tsh", "t3", "t4", "free_t4", "free_t3"],
-  },
-  liver: {
-    name: "Liver",
-    markers: ["alt", "ast", "ggt", "bilirubin", "alp"],
-  },
-  kidney: {
-    name: "Kidney",
-    markers: ["creatinine", "egfr", "bun", "urea"],
-  },
-  blood: {
-    name: "Blood",
-    markers: ["hemoglobin", "hematocrit", "wbc", "rbc", "platelets"],
-  },
-  vitamins: {
-    name: "Vitamins & minerals",
-    markers: ["vitamin_d", "ferritin", "iron", "b12", "folate"],
-  },
+  cardiovascular: { name: BODY_SYSTEM_LABELS.cardiovascular },
+  metabolic: { name: BODY_SYSTEM_LABELS.metabolic },
+  thyroid: { name: BODY_SYSTEM_LABELS.thyroid },
+  liver: { name: BODY_SYSTEM_LABELS.liver },
+  kidney: { name: BODY_SYSTEM_LABELS.kidney },
+  blood: { name: BODY_SYSTEM_LABELS.blood },
+  nutrients: { name: BODY_SYSTEM_LABELS.nutrients },
+  inflammation: { name: BODY_SYSTEM_LABELS.inflammation },
 };
-
-const MARKER_TO_SYSTEM = new Map<string, Exclude<BodySystemId, "general">>();
-for (const [systemId, system] of Object.entries(BODY_SYSTEMS)) {
-  for (const marker of system.markers) {
-    MARKER_TO_SYSTEM.set(marker, systemId as Exclude<BodySystemId, "general">);
-  }
-}
 
 const IN_RANGE_SCORE = 95;
 const UNKNOWN_REF_SCORE = 70;
 const OUT_OF_RANGE_BASE = 55;
 const OUT_OF_RANGE_MIN = 20;
 
+export function normalizeBodySystemId(id: string): BodySystemId {
+  if (id === "vitamins") return "nutrients";
+  const known: BodySystemId[] = [
+    "cardiovascular",
+    "metabolic",
+    "thyroid",
+    "liver",
+    "kidney",
+    "blood",
+    "nutrients",
+    "inflammation",
+    "general",
+  ];
+  return known.includes(id as BodySystemId) ? (id as BodySystemId) : "general";
+}
+
 export function getSystemForMarker(key: string): BodySystemId {
-  return MARKER_TO_SYSTEM.get(key) ?? "general";
+  const canonical = resolveCanonicalKey(key, key);
+  const fromCatalog = getBiomarkerDefinition(canonical)?.system;
+  if (fromCatalog) return fromCatalog;
+  return MARKER_TO_SYSTEM.get(canonical) ?? MARKER_TO_SYSTEM.get(key) ?? "general";
 }
 
 export function getMarkerStatus(
@@ -232,9 +241,10 @@ export function markerStateScore(
 function latestByKey(observations: ObservationInput[]): Map<string, ObservationInput> {
   const map = new Map<string, ObservationInput>();
   for (const obs of observations) {
-    const existing = map.get(obs.biomarker_key);
+    const key = resolveCanonicalKey(obs.biomarker_key, obs.name);
+    const existing = map.get(key);
     if (!existing || obs.observed_at > existing.observed_at) {
-      map.set(obs.biomarker_key, obs);
+      map.set(key, { ...obs, biomarker_key: key });
     }
   }
   return map;
@@ -245,10 +255,25 @@ function average(values: number[]): number {
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
 }
 
+function isScoreEligible(marker: SystemMarker): boolean {
+  const role = marker.score_role ?? getScoreRole(marker.key);
+  return role === "core" && marker.status !== "unknown";
+}
+
 export function computeSystemStateScore(markers: SystemMarker[]): number {
-  if (markers.length === 0) return 0;
+  const eligible = markers.filter(isScoreEligible);
+  if (eligible.length === 0) {
+    // Fall back: if only unknown-ref core markers exist, use mild unknown score average of core
+    const core = markers.filter((m) => (m.score_role ?? getScoreRole(m.key)) === "core");
+    if (core.length === 0) return 0;
+    return average(
+      core.map((marker) =>
+        markerStateScore(marker.status, marker.value, marker.ref_low, marker.ref_high)
+      )
+    );
+  }
   return average(
-    markers.map((marker) =>
+    eligible.map((marker) =>
       markerStateScore(marker.status, marker.value, marker.ref_low, marker.ref_high)
     )
   );
@@ -265,11 +290,17 @@ export function computeSystemDataConfidence(
     return Math.round((withRef / markers.length) * 100);
   }
 
-  const config = BODY_SYSTEMS[systemId];
+  const coverageKeys = listCoverageKeysForSystem(systemId);
   const presentKeys = new Set(markers.map((marker) => marker.key));
-  const coveragePart = (config.markers.filter((key) => presentKeys.has(key)).length / config.markers.length) * 100;
-  const withRef = markers.filter((marker) => marker.status !== "unknown").length;
-  const refPart = (withRef / markers.length) * 100;
+  const coverageDenom = Math.max(coverageKeys.length, 1);
+  const coveragePart =
+    (coverageKeys.filter((key) => presentKeys.has(key)).length / coverageDenom) * 100;
+
+  // Ref quality among present markers that are not display-only
+  const scorable = markers.filter((m) => (m.score_role ?? getScoreRole(m.key)) !== "display");
+  const pool = scorable.length > 0 ? scorable : markers;
+  const withRef = pool.filter((marker) => marker.status !== "unknown").length;
+  const refPart = (withRef / pool.length) * 100;
 
   return Math.round(coveragePart * 0.6 + refPart * 0.4);
 }
@@ -299,7 +330,11 @@ export function selectPrimarySource(markers: SystemMarker[]): MarkerSource | nul
 }
 
 export function buildWhyHighlighted(markers: SystemMarker[]): string[] {
-  const outOfRange = markers.filter((marker) => marker.status === "out_of_range");
+  const outOfRange = markers.filter(
+    (marker) =>
+      marker.status === "out_of_range" &&
+      (marker.score_role ?? getScoreRole(marker.key)) === "core"
+  );
   if (outOfRange.length > 0) {
     return outOfRange.map(
       (marker) =>
@@ -323,10 +358,11 @@ export function buildHealthProfile(
   const bySystem = new Map<BodySystemId, SystemMarker[]>();
 
   for (const obs of latest.values()) {
-    const systemId = getSystemForMarker(obs.biomarker_key);
+    const key = resolveCanonicalKey(obs.biomarker_key, obs.name);
+    const systemId = getSystemForMarker(key);
     const markers = bySystem.get(systemId) ?? [];
     markers.push({
-      key: obs.biomarker_key,
+      key,
       name: obs.name,
       value: Number(obs.value),
       unit: obs.unit,
@@ -337,6 +373,11 @@ export function buildHealthProfile(
       document_id: obs.document_id,
       observation_kind: obs.observation_kind,
       source: obs.document_id ? sourceById.get(obs.document_id) ?? null : null,
+      score_role: getScoreRole(key),
+      converted: obs.converted,
+      conversion_note: obs.conversion_note,
+      original_value: obs.original_value,
+      original_unit: obs.original_unit,
     });
     bySystem.set(systemId, markers);
   }
@@ -349,7 +390,8 @@ export function buildHealthProfile(
     "liver",
     "kidney",
     "blood",
-    "vitamins",
+    "nutrients",
+    "inflammation",
     "general",
   ];
 
@@ -395,7 +437,8 @@ export const BODY_MAP_ANCHORS: Record<BodySystemId, BodyMapAnchor> = {
   blood: { anchorX: 218, anchorY: 158, label: "Blood", side: "left" },
   thyroid: { anchorX: 225, anchorY: 92, label: "Thyroid", side: "left" },
   kidney: { anchorX: 212, anchorY: 208, label: "Kidney", side: "left" },
-  vitamins: { anchorX: 215, anchorY: 232, label: "Nutrients", side: "left" },
+  nutrients: { anchorX: 215, anchorY: 232, label: "Nutrients", side: "left" },
+  inflammation: { anchorX: 200, anchorY: 180, label: "Inflammation", side: "left" },
   liver: { anchorX: 248, anchorY: 168, label: "Liver", side: "right" },
   metabolic: { anchorX: 248, anchorY: 198, label: "Metabolic", side: "right" },
   general: { anchorX: 238, anchorY: 252, label: "General", side: "right" },

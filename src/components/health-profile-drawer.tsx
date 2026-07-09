@@ -145,6 +145,11 @@ export function HealthProfileDrawer({
                   <p>
                     {marker.value} {marker.unit}
                   </p>
+                  {marker.converted && marker.original_unit != null && (
+                    <p className="text-xs text-muted-foreground" title={marker.conversion_note ?? undefined}>
+                      Converted for display · Original: {marker.original_value} {marker.original_unit}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground">{statusLabel(marker.status)}</p>
                   <p className="text-xs text-muted-foreground">
                     Observed {marker.observed_at}

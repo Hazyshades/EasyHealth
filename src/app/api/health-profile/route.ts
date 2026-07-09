@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
+import { getProfileById } from "@/lib/auth/profile";
+import { presentObservation, resolveCanonicalKey } from "@/lib/biomarkers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildHealthProfile, type HealthProfileSource } from "@/lib/health-systems";
 import {
@@ -15,6 +17,13 @@ export async function GET() {
   }
 
   const supabase = createAdminClient();
+  let labUnitSystem: "us" | "si" = "si";
+  try {
+    const userProfile = await getProfileById(profileId);
+    labUnitSystem = userProfile.lab_unit_system ?? "si";
+  } catch {
+    // fall back to SI if profile column not yet migrated
+  }
 
   const [{ data: observations, error: obsError }, { data: documents, error: docError }] =
     await Promise.all([
@@ -60,18 +69,35 @@ export async function GET() {
   );
 
   const profile = buildHealthProfile(
-    scopedObservations.map((o) => ({
-      biomarker_key: o.biomarker_key,
-      name: o.name,
-      value: Number(o.value),
-      unit: o.unit,
-      ref_low: o.ref_low != null ? Number(o.ref_low) : null,
-      ref_high: o.ref_high != null ? Number(o.ref_high) : null,
-      observed_at: o.observed_at,
-      document_id: o.document_id,
-      observation_kind:
-        o.observation_kind === "instrumental" ? "instrumental" : "lab",
-    })),
+    scopedObservations.map((o) => {
+      const key = resolveCanonicalKey(o.biomarker_key, o.name ?? "");
+      const display = presentObservation(
+        {
+          biomarker_key: key,
+          value: Number(o.value),
+          unit: o.unit ?? "",
+          ref_low: o.ref_low != null ? Number(o.ref_low) : null,
+          ref_high: o.ref_high != null ? Number(o.ref_high) : null,
+        },
+        labUnitSystem
+      );
+      return {
+        biomarker_key: key,
+        name: o.name,
+        value: display.value,
+        unit: display.unit,
+        ref_low: display.ref_low,
+        ref_high: display.ref_high,
+        observed_at: o.observed_at,
+        document_id: o.document_id,
+        observation_kind:
+          o.observation_kind === "instrumental" ? "instrumental" : "lab",
+        converted: display.converted,
+        conversion_note: display.conversion_note,
+        original_value: display.original_value,
+        original_unit: display.original_unit,
+      };
+    }),
     sources
   );
 
@@ -101,5 +127,6 @@ export async function GET() {
     records_used_count: recordsUsedCount,
     holistic_synthesis,
     synthesis_stale,
+    lab_unit_system: labUnitSystem,
   });
 }

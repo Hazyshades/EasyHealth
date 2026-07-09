@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -14,7 +14,10 @@ import { PageHeader } from "@/components/layout/page-header";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { SearchInput } from "@/components/ui/search-input";
+import { Button } from "@/components/ui/button";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
+
+type LabUnitSystem = "us" | "si";
 
 type Observation = {
   id: string;
@@ -27,6 +30,10 @@ type Observation = {
   observed_at: string;
   document_id: string | null;
   documents?: { id: string; original_filename: string } | null;
+  converted?: boolean;
+  conversion_note?: string | null;
+  original_value?: number;
+  original_unit?: string;
 };
 
 type StatusFilter = "all" | "normal" | "attention" | "low" | "high";
@@ -58,17 +65,51 @@ export default function BiomarkersPage() {
   const [selectedKey, setSelectedKey] = useState<string>("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [labUnitSystem, setLabUnitSystem] = useState<LabUnitSystem>("si");
+  const [savingUnits, setSavingUnits] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/biomarkers")
+  const loadObservations = useCallback(() => {
+    return fetch("/api/biomarkers")
       .then((r) => r.json())
       .then((data) => {
         const obs = data.observations ?? [];
         setObservations(obs);
-        const hba1c = obs.find((o: Observation) => o.biomarker_key === "hba1c");
-        setSelectedKey(hba1c?.biomarker_key ?? obs[0]?.biomarker_key ?? "");
+        if (data.lab_unit_system === "us" || data.lab_unit_system === "si") {
+          setLabUnitSystem(data.lab_unit_system);
+        }
+        setSelectedKey((prev) => {
+          if (prev && obs.some((o: Observation) => o.biomarker_key === prev)) return prev;
+          const hba1c = obs.find((o: Observation) => o.biomarker_key === "hba1c");
+          return hba1c?.biomarker_key ?? obs[0]?.biomarker_key ?? "";
+        });
       });
   }, []);
+
+  useEffect(() => {
+    void loadObservations();
+  }, [loadObservations]);
+
+  async function setUnitSystem(next: LabUnitSystem) {
+    if (next === labUnitSystem) return;
+    setSavingUnits(true);
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lab_unit_system: next }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to update units");
+      }
+      setLabUnitSystem(next);
+      await loadObservations();
+    } catch {
+      /* keep previous */
+    } finally {
+      setSavingUnits(false);
+    }
+  }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -97,17 +138,38 @@ export default function BiomarkersPage() {
 
   return (
     <div>
-      <PageHeader
-        subtitle="Values extracted from your uploaded lab documents"
-      />
+      <PageHeader subtitle="Values extracted from your uploaded lab documents" />
 
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <SearchInput
           placeholder="Search biomarker…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           aria-label="Search biomarkers"
         />
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-[var(--eh-text-secondary)]">Units</span>
+          <Button
+            type="button"
+            size="sm"
+            disabled={savingUnits}
+            variant={labUnitSystem === "si" ? "default" : "outline"}
+            className="rounded-lg"
+            onClick={() => void setUnitSystem("si")}
+          >
+            SI
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={savingUnits}
+            variant={labUnitSystem === "us" ? "default" : "outline"}
+            className="rounded-lg"
+            onClick={() => void setUnitSystem("us")}
+          >
+            US
+          </Button>
+        </div>
       </div>
 
       <div className="mb-5 flex flex-wrap gap-2">

@@ -17,6 +17,8 @@ export type DashboardPreferences = {
   wizard_steps_visited?: string[];
 };
 
+export type LabUnitSystem = "us" | "si";
+
 export type ProfileRow = {
   id: string;
   display_name: string | null;
@@ -33,12 +35,14 @@ export type ProfileRow = {
   onboarding_dismissed_at: string | null;
   onboarding_completed_at: string | null;
   dashboard_preferences: DashboardPreferences;
+  lab_unit_system: LabUnitSystem;
 };
 
 const PROFILE_SELECT =
-  "id, display_name, first_name, last_name, email, ai_provider, created_at, terms_accepted_at, terms_version, health_data_consent_at, ai_consent_at, consent_preferences, onboarding_dismissed_at, onboarding_completed_at, dashboard_preferences";
+  "id, display_name, first_name, last_name, email, ai_provider, created_at, terms_accepted_at, terms_version, health_data_consent_at, ai_consent_at, consent_preferences, onboarding_dismissed_at, onboarding_completed_at, dashboard_preferences, lab_unit_system";
 
 function mapProfileRow(data: Record<string, unknown>): ProfileRow {
+  const unit = data.lab_unit_system;
   return {
     id: data.id as string,
     display_name: (data.display_name as string | null) ?? null,
@@ -55,6 +59,7 @@ function mapProfileRow(data: Record<string, unknown>): ProfileRow {
     onboarding_dismissed_at: (data.onboarding_dismissed_at as string | null) ?? null,
     onboarding_completed_at: (data.onboarding_completed_at as string | null) ?? null,
     dashboard_preferences: (data.dashboard_preferences as DashboardPreferences) ?? {},
+    lab_unit_system: unit === "us" || unit === "si" ? unit : "si",
   };
 }
 
@@ -256,6 +261,21 @@ export async function markWizardStepVisited(profileId: string, stepId: WizardSte
   const { data, error } = await supabase
     .from("profiles")
     .update({ dashboard_preferences: preferences })
+    .eq("id", profileId)
+    .select(PROFILE_SELECT)
+    .single();
+  if (error) throw error;
+  return mapProfileRow(data as Record<string, unknown>);
+}
+
+export async function updateProfileLabUnitSystem(
+  profileId: string,
+  labUnitSystem: LabUnitSystem
+) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ lab_unit_system: labUnitSystem })
     .eq("id", profileId)
     .select(PROFILE_SELECT)
     .single();

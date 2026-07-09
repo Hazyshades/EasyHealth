@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { normalizeBiomarkerKey, resolveCanonicalKey } from "@/lib/biomarkers/normalize";
+
+export { normalizeBiomarkerKey, resolveCanonicalKey };
 
 export function parseLabNumber(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
@@ -236,14 +239,6 @@ export function parseJsonFromModelText(text: string): unknown {
       `(debug:fence=${hasFence},thinkClose=${thinkClose},brace=${braceStart}-${braceEnd},array=${arrayStart}-${arrayEnd})`,
     ].join(" ")
   );
-}
-
-export function normalizeBiomarkerKey(key: string, name: string): string {
-  const raw = (key || name).trim().toLowerCase();
-  return raw
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .replace(/_+/g, "_");
 }
 
 export const MEDICAL_DISCLAIMER =

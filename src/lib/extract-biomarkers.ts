@@ -20,7 +20,8 @@ Shape:
   ]
 }
 Rules:
-- Normalize biomarker keys to snake_case (e.g. hba1c, total_protein, wbc).
+- Normalize biomarker keys to snake_case using common lab keys (e.g. hba1c, total_protein, wbc, sodium, potassium, crp, hs_crp, uacr, ferritin, ldl, free_t4).
+- Prefer canonical names: sodium not na, bicarbonate not co2, lpa for Lp(a), transferrin_saturation for TSAT, vitamin_d for 25-OH D.
 - Use ISO date YYYY-MM-DD for observed_at when visible.
 - Include only quantitative numeric tests.
 - Skip qualitative results such as Negative/Positive.

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { getProfileById } from "@/lib/auth/profile";
+import { presentObservation, resolveCanonicalKey } from "@/lib/biomarkers";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
@@ -11,6 +12,7 @@ export async function GET() {
 
   try {
     const profile = await getProfileById(profileId);
+    const unitSystem = profile.lab_unit_system ?? "si";
     const supabase = createAdminClient();
     const { data: observations } = await supabase
       .from("observations")
@@ -18,10 +20,42 @@ export async function GET() {
       .eq("profile_id", profileId)
       .order("observed_at", { ascending: false });
 
+    const presented = (observations ?? []).map((row) => {
+      const key = resolveCanonicalKey(row.biomarker_key, row.name ?? "");
+      const display = presentObservation(
+        {
+          biomarker_key: key,
+          value: Number(row.value),
+          unit: row.unit ?? "",
+          ref_low: row.ref_low != null ? Number(row.ref_low) : null,
+          ref_high: row.ref_high != null ? Number(row.ref_high) : null,
+        },
+        unitSystem
+      );
+      return {
+        ...row,
+        biomarker_key: key,
+        value: display.value,
+        unit: display.unit,
+        ref_low: display.ref_low,
+        ref_high: display.ref_high,
+        converted: display.converted,
+        conversion_note: display.conversion_note,
+        original_value: display.original_value,
+        original_unit: display.original_unit,
+        original_ref_low: display.original_ref_low,
+        original_ref_high: display.original_ref_high,
+      };
+    });
+
     return NextResponse.json({
       authenticated: true,
-      profile,
-      observations: observations ?? [],
+      profile: {
+        id: profile.id,
+        lab_unit_system: unitSystem,
+      },
+      lab_unit_system: unitSystem,
+      observations: presented,
     });
   } catch {
     return NextResponse.json({ authenticated: false }, { status: 401 });

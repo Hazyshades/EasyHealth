@@ -24,6 +24,10 @@ type Observation = {
   observed_at: string;
   document_id: string | null;
   documents?: { id: string; original_filename: string } | null;
+  converted?: boolean;
+  conversion_note?: string | null;
+  original_value?: number;
+  original_unit?: string;
 };
 
 type StatusInfo = {
@@ -73,7 +77,17 @@ export function BiomarkerTable({ observations }: { observations: Observation[] }
                 <DataTableRow key={o.id}>
                   <DataTableCell className="font-medium">{o.name}</DataTableCell>
                   <DataTableCell>
-                    {o.value} {o.unit}
+                    <span>
+                      {o.value} {o.unit}
+                    </span>
+                    {o.converted && o.original_unit != null && (
+                      <span
+                        className="mt-0.5 block text-[11px] text-[var(--eh-text-muted)]"
+                        title={o.conversion_note ?? undefined}
+                      >
+                        Lab: {o.original_value} {o.original_unit}
+                      </span>
+                    )}
                   </DataTableCell>
                   <DataTableCell className="text-[var(--eh-text-secondary)]">
                     {o.ref_low != null && o.ref_high != null
@@ -116,6 +130,11 @@ export function BiomarkerTable({ observations }: { observations: Observation[] }
                     <p className="font-medium text-[var(--eh-text-primary)]">{o.name}</p>
                     <p className="mt-1 text-sm text-[var(--eh-text-primary)]">
                       {o.value} {o.unit}
+                      {o.converted && o.original_unit != null && (
+                        <span className="mt-0.5 block text-[11px] text-[var(--eh-text-muted)]">
+                          Lab: {o.original_value} {o.original_unit}
+                        </span>
+                      )}
                     </p>
                     <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
                       {o.observed_at}
