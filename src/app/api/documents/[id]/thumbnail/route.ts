@@ -19,6 +19,9 @@ export async function GET(_req: Request, context: RouteContext) {
   }
 
   const signed = await createSignedStorageUrl(doc!.thumbnail_storage_path);
+  if (!signed) {
+    return NextResponse.json({ error: "Thumbnail not available" }, { status: 404 });
+  }
 
   return noStoreJson({
     url: signed.url,

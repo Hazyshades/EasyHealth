@@ -1,4 +1,5 @@
 import { workerEnv } from "./env.js";
+import { ensureWorkerAiReady } from "./ai.js";
 import { runPipeline } from "./pipeline.js";
 import { supabase } from "./supabase.js";
 
@@ -45,7 +46,11 @@ async function claimJob(): Promise<JobRow | null> {
 async function processJob(job: JobRow) {
   console.log(`Processing job ${job.id} for document ${job.document_id}`);
   try {
-    await runPipeline(job);
+    const outcome = await runPipeline(job);
+    if (outcome === "failed") {
+      console.error(`Job ${job.id} failed (see document processing_error)`);
+      return;
+    }
     console.log(`Completed job ${job.id}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown worker error";
@@ -90,5 +95,6 @@ async function tick() {
 }
 
 console.log("EasyHealth document worker started");
+await ensureWorkerAiReady();
 await tick();
 setInterval(tick, workerEnv.pollIntervalMs);

@@ -79,6 +79,9 @@ export async function createSignedStorageUrl(storagePath: string) {
     .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
 
   if (error || !data?.signedUrl) {
+    if (error?.message === "Object not found") {
+      return null;
+    }
     throw new Error(error?.message ?? "Failed to create signed URL");
   }
 

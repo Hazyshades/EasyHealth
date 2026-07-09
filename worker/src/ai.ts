@@ -1,37 +1,43 @@
-import { createOpenAI, openai } from "@ai-sdk/openai";
-import type { LanguageModel } from "ai";
+import { validateNebiusModelCatalog } from "../../src/lib/ai/model-catalog.js";
+import {
+  coreAllowCrossProviderFallback,
+  coreIsNebiusConfigured,
+  coreModelIdForStage,
+  coreResolveLanguageModel,
+  coreResolveModelForStage,
+  coreResolveOpenAiVisionModel,
+} from "../../src/lib/ai/resolve-model-core.js";
 import { workerEnv } from "./env.js";
 
-export type AiProviderId = "openai" | "deepseek" | "owl_alpha";
+export type AiProviderId =
+  | "openai"
+  | "deepseek"
+  | "owl_alpha"
+  | "nebius_fast"
+  | "nebius_quality";
 
-export function resolveLanguageModel(provider: AiProviderId): LanguageModel {
-  if (provider === "deepseek") {
-    if (!workerEnv.deepseekApiKey) throw new Error("DeepSeek is not configured");
-    const deepseek = createOpenAI({
-      apiKey: workerEnv.deepseekApiKey,
-      baseURL: workerEnv.deepseekBaseUrl,
-    });
-    return deepseek(workerEnv.deepseekModel);
-  }
+export type AiPipelineStage =
+  | "classify"
+  | "extract_text"
+  | "extract_vision"
+  | "summarize"
+  | "report"
+  | "synthesis";
 
-  if (provider === "owl_alpha") {
-    if (!workerEnv.owlAlphaApiKey) throw new Error("Tencent Hy3 (OpenRouter) is not configured");
-    const openrouter = createOpenAI({
-      apiKey: workerEnv.owlAlphaApiKey,
-      baseURL: workerEnv.openrouterBaseUrl,
-      headers: {
-        "HTTP-Referer": "https://easyhealth.app",
-        "X-Title": "EasyHealth Worker",
-      },
-    });
-    return openrouter(workerEnv.owlAlphaModel);
-  }
-
-  return openai("gpt-4o-mini");
-}
+export const allowCrossProviderFallback = coreAllowCrossProviderFallback;
+export const resolveLanguageModel = coreResolveLanguageModel;
+export const resolveModelForStage = coreResolveModelForStage;
+export const resolveOpenAiVisionModel = coreResolveOpenAiVisionModel;
+export const modelIdForStage = coreModelIdForStage;
 
 export function modelIdForProvider(provider: AiProviderId): string {
-  if (provider === "deepseek") return workerEnv.deepseekModel;
-  if (provider === "owl_alpha") return workerEnv.owlAlphaModel;
-  return "gpt-4o-mini";
+  return coreModelIdForStage(provider, "extract_text");
+}
+
+export async function ensureWorkerAiReady(): Promise<void> {
+  if (workerEnv.nebiusApiKey || coreIsNebiusConfigured()) {
+    await validateNebiusModelCatalog({
+      failInProduction: process.env.NODE_ENV === "production",
+    });
+  }
 }

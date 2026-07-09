@@ -17,34 +17,36 @@ type ProfileResponse = {
   openai_available: boolean;
   deepseek_available: boolean;
   owl_alpha_available: boolean;
+  nebius_fast_available: boolean;
+  nebius_quality_available: boolean;
 };
 
-function isProviderAvailable(
-  provider: AiProviderId,
-  availability: Pick<
-    ProfileResponse,
-    "openai_available" | "deepseek_available" | "owl_alpha_available"
-  >
-): boolean {
+function isProviderAvailable(provider: AiProviderId, availability: ProfileResponse): boolean {
   if (provider === "openai") return availability.openai_available;
   if (provider === "deepseek") return availability.deepseek_available;
-  return availability.owl_alpha_available;
+  if (provider === "owl_alpha") return availability.owl_alpha_available;
+  if (provider === "nebius_fast") return availability.nebius_fast_available;
+  return availability.nebius_quality_available;
 }
 
 function providerUnavailableHint(provider: AiProviderId): string {
   if (provider === "deepseek") return "DeepSeek is not configured on this server.";
   if (provider === "owl_alpha") return "Tencent Hy3 (OpenRouter) is not configured on this server.";
+  if (provider === "nebius_fast" || provider === "nebius_quality") {
+    return "Nebius is not configured on this server.";
+  }
   return "This provider is not available.";
 }
 
 export default function AiSettingsPage() {
   const [aiProvider, setAiProvider] = useState<AiProviderId>("openai");
-  const [availability, setAvailability] = useState<
-    Pick<ProfileResponse, "openai_available" | "deepseek_available" | "owl_alpha_available">
-  >({
+  const [availability, setAvailability] = useState<ProfileResponse>({
+    ai_provider: "openai",
     openai_available: true,
     deepseek_available: false,
     owl_alpha_available: false,
+    nebius_fast_available: false,
+    nebius_quality_available: false,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -62,11 +64,7 @@ export default function AiSettingsPage() {
       })
       .then((data) => {
         setAiProvider(data.ai_provider);
-        setAvailability({
-          openai_available: data.openai_available,
-          deepseek_available: data.deepseek_available,
-          owl_alpha_available: data.owl_alpha_available,
-        });
+        setAvailability(data);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load AI settings"))
       .finally(() => setLoading(false));
@@ -89,11 +87,7 @@ export default function AiSettingsPage() {
       }
 
       setAiProvider(data.ai_provider);
-      setAvailability({
-        openai_available: data.openai_available,
-        deepseek_available: data.deepseek_available,
-        owl_alpha_available: data.owl_alpha_available,
-      });
+      setAvailability(data);
       setMessage("AI provider updated.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save AI settings");
@@ -120,7 +114,7 @@ export default function AiSettingsPage() {
 
       <SurfaceCard className="space-y-5 p-5">
         <p className="text-sm text-[var(--eh-text-secondary)]">
-          Processing uses the app&apos;s secure server keys. You do not need to enter an API key.          
+          Processing uses the app&apos;s secure server keys. You do not need to enter an API key.
         </p>
 
         <fieldset className="space-y-3">

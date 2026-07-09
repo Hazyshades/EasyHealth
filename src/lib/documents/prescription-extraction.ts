@@ -1,5 +1,9 @@
-import { generateText, type LanguageModel } from "ai";
-import { parseJsonFromModelText } from "@/lib/schemas/biomarkers";
+import type { LanguageModel } from "ai";
+import {
+  runStructuredImageExtraction,
+  runStructuredTextExtraction,
+} from "@/lib/ai/extract-with-trace";
+import type { PipelineLlmContext } from "@/lib/ai/pipeline-trace";
 
 export type PrescriptionMedication = {
   name: string;
@@ -85,43 +89,32 @@ function parsePrescriptionExtraction(raw: unknown): PrescriptionExtractionResult
 export async function extractPrescriptionFromText(
   text: string,
   model: LanguageModel,
-  filename: string
+  filename: string,
+  ctx?: PipelineLlmContext
 ): Promise<PrescriptionExtractionResult> {
-  const { text: response } = await generateText({
+  return runStructuredTextExtraction({
     model,
-    maxRetries: 2,
-    messages: [
-      { role: "system", content: PRESCRIPTION_INSTRUCTIONS },
-      {
-        role: "user",
-        content: `Extract prescription data from this document (${filename}):\n\n${text.slice(0, 120000)}`,
-      },
-    ],
+    system: PRESCRIPTION_INSTRUCTIONS,
+    userText: `Extract prescription data from this document (${filename}):\n\n${text.slice(0, 120000)}`,
+    parse: parsePrescriptionExtraction,
+    ctx,
   });
-
-  return parsePrescriptionExtraction(parseJsonFromModelText(response));
 }
 
 export async function extractPrescriptionFromImage(
   imageBuffer: Buffer,
   mimeType: string,
   model: LanguageModel,
-  filename: string
+  filename: string,
+  ctx?: PipelineLlmContext
 ): Promise<PrescriptionExtractionResult> {
-  const { text: response } = await generateText({
+  return runStructuredImageExtraction({
     model,
-    maxRetries: 2,
-    messages: [
-      { role: "system", content: PRESCRIPTION_INSTRUCTIONS },
-      {
-        role: "user",
-        content: [
-          { type: "text", text: `Extract prescription data from this image: ${filename}` },
-          { type: "image", image: imageBuffer, mediaType: mimeType },
-        ],
-      },
-    ],
+    system: PRESCRIPTION_INSTRUCTIONS,
+    imageBuffer,
+    mimeType,
+    promptText: `Extract prescription data from this image: ${filename}`,
+    parse: parsePrescriptionExtraction,
+    ctx,
   });
-
-  return parsePrescriptionExtraction(parseJsonFromModelText(response));
 }

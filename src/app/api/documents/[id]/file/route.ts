@@ -22,6 +22,9 @@ export async function GET(_req: Request, context: RouteContext) {
 
   const storagePath = getOriginalPath(doc!);
   const signed = await createSignedStorageUrl(storagePath);
+  if (!signed) {
+    return NextResponse.json({ error: "File not available" }, { status: 404 });
+  }
 
   return noStoreJson({
     url: signed.url,

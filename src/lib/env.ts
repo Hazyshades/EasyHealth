@@ -13,6 +13,53 @@ export const env = createEnv({
     OWL_ALPHA_API_KEY: z.string().min(1).optional(),
     OPENROUTER_BASE_URL: z.string().url().optional(),
     OWL_ALPHA_MODEL: z.string().min(1).optional(),
+    NEBIUS_API_KEY: z.string().min(1).optional(),
+    NEBIUS_BASE_URL: z.string().url().default("https://api.tokenfactory.nebius.com/v1"),
+    NEBIUS_REGION: z.string().min(1).default("eu-north1"),
+    NEBIUS_FAST_FLAVOR_SUFFIX: z.string().default("-fast"),
+    ALLOW_CROSS_PROVIDER_FALLBACK: z
+      .enum(["true", "false", "1", "0"])
+      .default("false")
+      .transform((v) => v === "true" || v === "1"),
+    NEBIUS_FAST_CLASSIFY_MODEL: z.string().min(1).default("Qwen/Qwen3-32B"),
+    NEBIUS_FAST_EXTRACT_TEXT_MODEL: z
+      .string()
+      .min(1)
+      .default("meta-llama/Llama-3.3-70B-Instruct"),
+    NEBIUS_FAST_EXTRACT_VISION_MODEL: z
+      .string()
+      .min(1)
+      .default("Qwen/Qwen2-VL-7B-Instruct"),
+    NEBIUS_FAST_SUMMARIZE_MODEL: z
+      .string()
+      .min(1)
+      .default("meta-llama/Llama-3.3-70B-Instruct"),
+    NEBIUS_FAST_REPORT_MODEL: z
+      .string()
+      .min(1)
+      .default("meta-llama/Llama-3.3-70B-Instruct"),
+    NEBIUS_FAST_SYNTHESIS_MODEL: z
+      .string()
+      .min(1)
+      .default("meta-llama/Llama-3.3-70B-Instruct"),
+    NEBIUS_QUALITY_CLASSIFY_MODEL: z
+      .string()
+      .min(1)
+      .default("meta-llama/Llama-3.3-70B-Instruct"),
+    NEBIUS_QUALITY_EXTRACT_TEXT_MODEL: z
+      .string()
+      .min(1)
+      .default("Qwen/Qwen3-235B-A22B-Instruct-2507"),
+    NEBIUS_QUALITY_EXTRACT_VISION_MODEL: z
+      .string()
+      .min(1)
+      .default("Qwen/Qwen2-VL-72B-Instruct"),
+    NEBIUS_QUALITY_SUMMARIZE_MODEL: z
+      .string()
+      .min(1)
+      .default("meta-llama/Llama-3.3-70B-Instruct"),
+    NEBIUS_QUALITY_REPORT_MODEL: z.string().min(1).default("deepseek-ai/DeepSeek-V3.2"),
+    NEBIUS_QUALITY_SYNTHESIS_MODEL: z.string().min(1).default("deepseek-ai/DeepSeek-V3.2"),
     URL: z.string().url().default("http://localhost:3000"),
   },
   client: {
@@ -32,6 +79,23 @@ export const env = createEnv({
     OWL_ALPHA_API_KEY: process.env.OWL_ALPHA_API_KEY,
     OPENROUTER_BASE_URL: process.env.OPENROUTER_BASE_URL,
     OWL_ALPHA_MODEL: process.env.OWL_ALPHA_MODEL,
+    NEBIUS_API_KEY: process.env.NEBIUS_API_KEY,
+    NEBIUS_BASE_URL: process.env.NEBIUS_BASE_URL,
+    NEBIUS_REGION: process.env.NEBIUS_REGION,
+    NEBIUS_FAST_FLAVOR_SUFFIX: process.env.NEBIUS_FAST_FLAVOR_SUFFIX,
+    ALLOW_CROSS_PROVIDER_FALLBACK: process.env.ALLOW_CROSS_PROVIDER_FALLBACK,
+    NEBIUS_FAST_CLASSIFY_MODEL: process.env.NEBIUS_FAST_CLASSIFY_MODEL,
+    NEBIUS_FAST_EXTRACT_TEXT_MODEL: process.env.NEBIUS_FAST_EXTRACT_TEXT_MODEL,
+    NEBIUS_FAST_EXTRACT_VISION_MODEL: process.env.NEBIUS_FAST_EXTRACT_VISION_MODEL,
+    NEBIUS_FAST_SUMMARIZE_MODEL: process.env.NEBIUS_FAST_SUMMARIZE_MODEL,
+    NEBIUS_FAST_REPORT_MODEL: process.env.NEBIUS_FAST_REPORT_MODEL,
+    NEBIUS_FAST_SYNTHESIS_MODEL: process.env.NEBIUS_FAST_SYNTHESIS_MODEL,
+    NEBIUS_QUALITY_CLASSIFY_MODEL: process.env.NEBIUS_QUALITY_CLASSIFY_MODEL,
+    NEBIUS_QUALITY_EXTRACT_TEXT_MODEL: process.env.NEBIUS_QUALITY_EXTRACT_TEXT_MODEL,
+    NEBIUS_QUALITY_EXTRACT_VISION_MODEL: process.env.NEBIUS_QUALITY_EXTRACT_VISION_MODEL,
+    NEBIUS_QUALITY_SUMMARIZE_MODEL: process.env.NEBIUS_QUALITY_SUMMARIZE_MODEL,
+    NEBIUS_QUALITY_REPORT_MODEL: process.env.NEBIUS_QUALITY_REPORT_MODEL,
+    NEBIUS_QUALITY_SYNTHESIS_MODEL: process.env.NEBIUS_QUALITY_SYNTHESIS_MODEL,
     URL:
       process.env.URL ??
       (process.env.VERCEL_URL

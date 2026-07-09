@@ -131,25 +131,111 @@ export function sanitizeExtraction(raw: unknown): ExtractionResult {
   return parseRawExtraction(raw);
 }
 
-export function parseJsonFromModelText(text: string): unknown {
-  const trimmed = text.trim();
+/** Strip Qwen/DeepSeek-style reasoning wrappers before JSON parsing. */
+function stripModelReasoningPreamble(text: string): string {
+  const thinkOpen = "\u003cthink\u003e";
+  const thinkClose = "\u003c/think\u003e";
+  let cleaned = text.trim();
+  cleaned = cleaned.replace(new RegExp(`${thinkOpen}[\\s\\S]*?${thinkClose}`, "gi"), "");
+  const closeIdx = cleaned.lastIndexOf(thinkClose);
+  if (closeIdx >= 0) {
+    cleaned = cleaned.slice(closeIdx + thinkClose.length);
+  }
+  return cleaned.trim();
+}
 
+export function parseJsonFromModelText(text: string): unknown {
+  if (!text.trim()) {
+    throw new Error(
+      "Model did not return JSON (debug:empty=true — provider may have returned tool-calls instead of text)"
+    );
+  }
+
+  const trimmed = stripModelReasoningPreamble(text);
+
+  // Fast path: the model returned raw JSON.
   try {
     return JSON.parse(trimmed);
   } catch {
-    const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if (fenced) {
-      return JSON.parse(fenced[1].trim());
-    }
-
-    const start = trimmed.indexOf("{");
-    const end = trimmed.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      return JSON.parse(trimmed.slice(start, end + 1));
-    }
-
-    throw new Error("Model did not return JSON");
+    // continue
   }
+
+  // Handle markdown fences: ```json { ... } ```
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced) {
+    try {
+      return JSON.parse(fenced[1].trim());
+    } catch {
+      // continue
+    }
+  }
+
+  // Robust fallback: find the first balanced JSON object/array substring.
+  // This is intentionally tolerant to “reasoning” preambles that may include braces.
+  function tryParseBalanced(openChar: "{" | "[", closeChar: "}" | "]"): unknown | null {
+    for (let start = trimmed.indexOf(openChar); start >= 0; start = trimmed.indexOf(openChar, start + 1)) {
+      let depth = 0;
+      let inString = false;
+      let escape = false;
+
+      for (let i = start; i < trimmed.length; i++) {
+        const ch = trimmed[i];
+
+        if (inString) {
+          if (escape) {
+            escape = false;
+            continue;
+          }
+          if (ch === "\\") {
+            escape = true;
+            continue;
+          }
+          if (ch === '"') {
+            inString = false;
+          }
+          continue;
+        }
+
+        if (ch === '"') {
+          inString = true;
+          continue;
+        }
+
+        if (ch === openChar) depth++;
+        if (ch === closeChar) depth--;
+
+        if (depth === 0) {
+          const candidate = trimmed.slice(start, i + 1);
+          try {
+            return JSON.parse(candidate);
+          } catch {
+            return null;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  const asObject = tryParseBalanced("{", "}");
+  if (asObject !== null) return asObject;
+
+  const asArray = tryParseBalanced("[", "]");
+  if (asArray !== null) return asArray;
+
+  const hasFence = /```/.test(trimmed);
+  const thinkClose = trimmed.toLowerCase().includes("</think>");
+  const braceStart = trimmed.indexOf("{");
+  const braceEnd = trimmed.lastIndexOf("}");
+  const arrayStart = trimmed.indexOf("[");
+  const arrayEnd = trimmed.lastIndexOf("]");
+
+  throw new Error(
+    [
+      "Model did not return JSON",
+      `(debug:fence=${hasFence},thinkClose=${thinkClose},brace=${braceStart}-${braceEnd},array=${arrayStart}-${arrayEnd})`,
+    ].join(" ")
+  );
 }
 
 export function normalizeBiomarkerKey(key: string, name: string): string {

@@ -1,5 +1,9 @@
-import { generateText, type LanguageModel } from "ai";
-import { parseJsonFromModelText } from "@/lib/schemas/biomarkers";
+import type { LanguageModel } from "ai";
+import {
+  runStructuredImageExtraction,
+  runStructuredTextExtraction,
+} from "@/lib/ai/extract-with-trace";
+import type { PipelineLlmContext } from "@/lib/ai/pipeline-trace";
 
 export type ReferralExtractionResult = {
   referring_provider: string | null;
@@ -53,43 +57,32 @@ function parseReferralExtraction(raw: unknown): ReferralExtractionResult {
 export async function extractReferralFromText(
   text: string,
   model: LanguageModel,
-  filename: string
+  filename: string,
+  ctx?: PipelineLlmContext
 ): Promise<ReferralExtractionResult> {
-  const { text: response } = await generateText({
+  return runStructuredTextExtraction({
     model,
-    maxRetries: 2,
-    messages: [
-      { role: "system", content: REFERRAL_INSTRUCTIONS },
-      {
-        role: "user",
-        content: `Extract referral data from this document (${filename}):\n\n${text.slice(0, 120000)}`,
-      },
-    ],
+    system: REFERRAL_INSTRUCTIONS,
+    userText: `Extract referral data from this document (${filename}):\n\n${text.slice(0, 120000)}`,
+    parse: parseReferralExtraction,
+    ctx,
   });
-
-  return parseReferralExtraction(parseJsonFromModelText(response));
 }
 
 export async function extractReferralFromImage(
   imageBuffer: Buffer,
   mimeType: string,
   model: LanguageModel,
-  filename: string
+  filename: string,
+  ctx?: PipelineLlmContext
 ): Promise<ReferralExtractionResult> {
-  const { text: response } = await generateText({
+  return runStructuredImageExtraction({
     model,
-    maxRetries: 2,
-    messages: [
-      { role: "system", content: REFERRAL_INSTRUCTIONS },
-      {
-        role: "user",
-        content: [
-          { type: "text", text: `Extract referral data from this image: ${filename}` },
-          { type: "image", image: imageBuffer, mediaType: mimeType },
-        ],
-      },
-    ],
+    system: REFERRAL_INSTRUCTIONS,
+    imageBuffer,
+    mimeType,
+    promptText: `Extract referral data from this image: ${filename}`,
+    parse: parseReferralExtraction,
+    ctx,
   });
-
-  return parseReferralExtraction(parseJsonFromModelText(response));
 }

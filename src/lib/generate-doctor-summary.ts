@@ -1,4 +1,6 @@
-import { generateText, type LanguageModel } from "ai";
+import type { LanguageModel } from "ai";
+import { generateStructuredJson } from "@/lib/ai/structured-llm";
+import type { PipelineLlmContext } from "@/lib/ai/pipeline-trace";
 import { parseDoctorSummary, parseJsonFromModelText } from "@/lib/schemas/biomarkers";
 
 const REPORT_JSON_INSTRUCTIONS = `Respond with a single JSON object only. No markdown fences, no commentary.
@@ -16,17 +18,41 @@ export async function generateDoctorSummary(options: {
   model: LanguageModel;
   system: string;
   prompt: string;
+  trace?: PipelineLlmContext;
 }) {
+  const messages = [
+    {
+      role: "system" as const,
+      content: `${options.system}\n\n${REPORT_JSON_INSTRUCTIONS}`,
+    },
+    { role: "user" as const, content: options.prompt },
+  ];
+
+  if (options.trace) {
+    const raw = await generateStructuredJson({
+      trace: {
+        model: options.model,
+        modelId: options.trace.modelId,
+        provider: options.trace.provider,
+        stage: "report",
+        profileId: options.trace.profileId,
+        documentId: options.trace.documentId,
+        providerSwitch: options.trace.providerSwitch ?? false,
+        supabase: options.trace.supabase,
+        temperature: 0.3,
+        messages,
+      },
+      parse: (text) => parseJsonFromModelText(text),
+    });
+    return parseDoctorSummary(raw);
+  }
+
+  const { generateText } = await import("ai");
   const { text } = await generateText({
     model: options.model,
     maxRetries: 2,
-    messages: [
-      {
-        role: "system",
-        content: `${options.system}\n\n${REPORT_JSON_INSTRUCTIONS}`,
-      },
-      { role: "user", content: options.prompt },
-    ],
+    temperature: 0.3,
+    messages,
   });
 
   const raw = parseJsonFromModelText(text);

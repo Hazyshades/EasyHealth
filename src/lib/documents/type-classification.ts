@@ -1,4 +1,6 @@
-import { generateText, type LanguageModel } from "ai";
+import type { LanguageModel } from "ai";
+import { generateStructuredJson } from "@/lib/ai/structured-llm";
+import type { PipelineLlmContext } from "@/lib/ai/pipeline-trace";
 import { parseJsonFromModelText } from "@/lib/schemas/biomarkers";
 import type { DocumentType } from "@/lib/health-systems";
 
@@ -61,20 +63,49 @@ function parseClassification(raw: unknown): TypeClassificationResult {
   return { detected_type, confidence, reason };
 }
 
+async function classifyWithTrace(
+  model: LanguageModel,
+  userContent: string | Array<{ type: "text"; text: string } | { type: "image"; image: Buffer; mediaType: string }>,
+  ctx: PipelineLlmContext
+): Promise<TypeClassificationResult> {
+  return generateStructuredJson({
+    trace: {
+      model,
+      modelId: ctx.modelId,
+      provider: ctx.provider,
+      stage: ctx.stage,
+      profileId: ctx.profileId,
+      documentId: ctx.documentId,
+      providerSwitch: ctx.providerSwitch ?? false,
+      supabase: ctx.supabase,
+      temperature: 0,
+      messages: [
+        { role: "system", content: CLASSIFICATION_INSTRUCTIONS },
+        { role: "user", content: userContent },
+      ],
+    },
+    parse: (raw) => parseClassification(parseJsonFromModelText(raw)),
+  });
+}
+
 export async function classifyDocumentFromText(
   text: string,
   model: LanguageModel,
-  filename: string
+  filename: string,
+  ctx?: PipelineLlmContext
 ): Promise<TypeClassificationResult> {
+  const userContent = `Classify this medical document (${filename}):\n\n${text.slice(0, 60000)}`;
+  if (ctx) {
+    return classifyWithTrace(model, userContent, ctx);
+  }
+
+  const { generateText } = await import("ai");
   const { text: response } = await generateText({
     model,
     maxRetries: 2,
     messages: [
       { role: "system", content: CLASSIFICATION_INSTRUCTIONS },
-      {
-        role: "user",
-        content: `Classify this medical document (${filename}):\n\n${text.slice(0, 60000)}`,
-      },
+      { role: "user", content: userContent },
     ],
   });
 
@@ -85,20 +116,25 @@ export async function classifyDocumentFromImage(
   imageBuffer: Buffer,
   mimeType: string,
   model: LanguageModel,
-  filename: string
+  filename: string,
+  ctx?: PipelineLlmContext
 ): Promise<TypeClassificationResult> {
+  const userContent = [
+    { type: "text" as const, text: `Classify this medical document image: ${filename}` },
+    { type: "image" as const, image: imageBuffer, mediaType: mimeType },
+  ];
+
+  if (ctx) {
+    return classifyWithTrace(model, userContent, ctx);
+  }
+
+  const { generateText } = await import("ai");
   const { text: response } = await generateText({
     model,
     maxRetries: 2,
     messages: [
       { role: "system", content: CLASSIFICATION_INSTRUCTIONS },
-      {
-        role: "user",
-        content: [
-          { type: "text", text: `Classify this medical document image: ${filename}` },
-          { type: "image", image: imageBuffer, mediaType: mimeType },
-        ],
-      },
+      { role: "user", content: userContent },
     ],
   });
 

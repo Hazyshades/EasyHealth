@@ -1,7 +1,11 @@
-import { generateText, type LanguageModel } from "ai";
+import type { LanguageModel } from "ai";
+import {
+  runStructuredImageExtraction,
+  runStructuredTextExtraction,
+} from "@/lib/ai/extract-with-trace";
+import type { PipelineLlmContext } from "@/lib/ai/pipeline-trace";
 import {
   normalizeBiomarkerKey,
-  parseJsonFromModelText,
   parseLabNumber,
   type Biomarker,
 } from "@/lib/schemas/biomarkers";
@@ -95,45 +99,34 @@ function parsePipelineExtraction(raw: unknown): PipelineExtractionResult {
 export async function extractPipelineBiomarkersFromText(
   text: string,
   model: LanguageModel,
-  filename: string
+  filename: string,
+  ctx?: PipelineLlmContext
 ): Promise<PipelineExtractionResult> {
-  const { text: response } = await generateText({
+  return runStructuredTextExtraction({
     model,
-    maxRetries: 2,
-    messages: [
-      { role: "system", content: PIPELINE_EXTRACTION_INSTRUCTIONS },
-      {
-        role: "user",
-        content: `Extract biomarkers from this lab document text (${filename}):\n\n${text.slice(0, 120000)}`,
-      },
-    ],
+    system: PIPELINE_EXTRACTION_INSTRUCTIONS,
+    userText: `Extract biomarkers from this lab document text (${filename}):\n\n${text.slice(0, 120000)}`,
+    parse: parsePipelineExtraction,
+    ctx,
   });
-
-  return parsePipelineExtraction(parseJsonFromModelText(response));
 }
 
 export async function extractPipelineBiomarkersFromImage(
   imageBuffer: Buffer,
   mimeType: string,
   model: LanguageModel,
-  filename: string
+  filename: string,
+  ctx?: PipelineLlmContext
 ): Promise<PipelineExtractionResult> {
-  const { text: response } = await generateText({
+  return runStructuredImageExtraction({
     model,
-    maxRetries: 2,
-    messages: [
-      { role: "system", content: PIPELINE_EXTRACTION_INSTRUCTIONS },
-      {
-        role: "user",
-        content: [
-          { type: "text", text: `Extract biomarkers from this lab document image: ${filename}` },
-          { type: "image", image: imageBuffer, mediaType: mimeType },
-        ],
-      },
-    ],
+    system: PIPELINE_EXTRACTION_INSTRUCTIONS,
+    imageBuffer,
+    mimeType,
+    promptText: `Extract biomarkers from this lab document image: ${filename}`,
+    parse: parsePipelineExtraction,
+    ctx,
   });
-
-  return parsePipelineExtraction(parseJsonFromModelText(response));
 }
 
 export function formatReferenceRange(ref_low: number | null, ref_high: number | null): string | null {

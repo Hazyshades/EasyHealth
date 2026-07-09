@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { withGateway } from "@/lib/x402";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { resolveModelForProfile } from "@/lib/ai-provider";
+import { getProfileById } from "@/lib/auth/profile";
+import { modelIdForStage, resolveModelForProfileStage } from "@/lib/ai-provider";
 import { generateDoctorSummary } from "@/lib/generate-doctor-summary";
 import {
   buildReportSystemPrompt,
@@ -187,11 +188,20 @@ async function postHandler(req: NextRequest, _payment: import("@/lib/x402").Sett
 
   let object;
   try {
-    const model = await resolveModelForProfile(profileId);
+    const profile = await getProfileById(profileId);
+    const model = await resolveModelForProfileStage(profileId, "report");
     object = await generateDoctorSummary({
       model,
       system: buildReportSystemPrompt(report_type, detail_level),
       prompt: `Create a health report from this patient's records (labs, imaging, consultations):\n${JSON.stringify(context, null, 2)}`,
+      trace: {
+        provider: profile.ai_provider,
+        profileId,
+        documentId: null,
+        stage: "report",
+        modelId: modelIdForStage(profile.ai_provider, "report"),
+        supabase,
+      },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

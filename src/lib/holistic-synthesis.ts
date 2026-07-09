@@ -1,5 +1,9 @@
 import { generateText, type LanguageModel } from "ai";
-import { resolveModelForProfile } from "@/lib/ai-provider";
+import {
+  modelIdForStage,
+  resolveModelForProfileStage,
+} from "@/lib/ai-provider";
+import { traceGenerateText } from "@/lib/ai/structured-llm";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 import type { HolisticSynthesis } from "@/lib/health-systems";
@@ -21,29 +25,52 @@ Rules:
 
 export async function generateHolisticSynthesisText(
   model: LanguageModel,
-  context: DocumentStructuredContext
+  context: DocumentStructuredContext,
+  options?: {
+    profileId: string;
+    provider: import("@/lib/ai-provider").AiProviderId;
+    modelId: string;
+    supabase: ReturnType<typeof createAdminClient>;
+  }
 ): Promise<string> {
+  const userContent = `Synthesize these records:\n${JSON.stringify(
+    {
+      biomarkers: context.biomarkers,
+      instrumental_findings: context.instrumental_findings,
+      consultation_notes: context.consultation_notes,
+      discharge_summaries: context.discharge_summaries,
+      prescriptions: context.prescriptions,
+      referrals: context.referrals,
+      document_summaries: context.document_summaries,
+    },
+    null,
+    2
+  )}`;
+
+  if (options) {
+    return traceGenerateText({
+      model,
+      modelId: options.modelId,
+      provider: options.provider,
+      stage: "synthesis",
+      profileId: options.profileId,
+      documentId: null,
+      temperature: 0.3,
+      supabase: options.supabase,
+      messages: [
+        { role: "system", content: SYNTHESIS_SYSTEM },
+        { role: "user", content: userContent },
+      ],
+    }).then((text) => text.trim());
+  }
+
   const { text } = await generateText({
     model,
     maxRetries: 2,
+    temperature: 0.3,
     messages: [
       { role: "system", content: SYNTHESIS_SYSTEM },
-      {
-        role: "user",
-        content: `Synthesize these records:\n${JSON.stringify(
-          {
-            biomarkers: context.biomarkers,
-            instrumental_findings: context.instrumental_findings,
-            consultation_notes: context.consultation_notes,
-            discharge_summaries: context.discharge_summaries,
-            prescriptions: context.prescriptions,
-            referrals: context.referrals,
-            document_summaries: context.document_summaries,
-          },
-          null,
-          2
-        )}`,
-      },
+      { role: "user", content: userContent },
     ],
   });
 
@@ -58,8 +85,16 @@ export async function forceRegenerateHolisticSynthesis(
 
   const inputHash = hashStructuredContext(context);
   const supabase = createAdminClient();
-  const model = await resolveModelForProfile(profileId);
-  const synthesisText = await generateHolisticSynthesisText(model, context);
+  const profile = await (await import("@/lib/auth/profile")).getProfileById(profileId);
+  const provider = profile.ai_provider;
+  const model = await resolveModelForProfileStage(profileId, "synthesis");
+  const modelId = modelIdForStage(provider, "synthesis");
+  const synthesisText = await generateHolisticSynthesisText(model, context, {
+    profileId,
+    provider,
+    modelId,
+    supabase,
+  });
   const generatedAt = new Date().toISOString();
 
   await supabase.from("profile_health_synthesis").upsert({
@@ -67,7 +102,7 @@ export async function forceRegenerateHolisticSynthesis(
     synthesis_text: synthesisText,
     source_document_ids: context.source_document_ids,
     input_hash: inputHash,
-    model: "gpt-4o-mini",
+    model: modelId,
     generated_at: generatedAt,
   });
 
@@ -103,9 +138,15 @@ export async function getOrCreateHolisticSynthesis(
     };
   }
 
-  const model = await resolveModelForProfile(profileId);
-  const synthesisText = await generateHolisticSynthesisText(model, context);
-  const modelId = "gpt-4o-mini";
+  const model = await resolveModelForProfileStage(profileId, "synthesis");
+  const profile = await (await import("@/lib/auth/profile")).getProfileById(profileId);
+  const modelId = modelIdForStage(profile.ai_provider, "synthesis");
+  const synthesisText = await generateHolisticSynthesisText(model, context, {
+    profileId,
+    provider: profile.ai_provider,
+    modelId,
+    supabase,
+  });
   const generatedAt = new Date().toISOString();
 
   await supabase.from("profile_health_synthesis").upsert({

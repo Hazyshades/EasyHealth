@@ -36,6 +36,9 @@ export async function GET(_req: Request, context: RouteContext) {
   }
 
   const signed = await createSignedStorageUrl(page.preview_storage_path);
+  if (!signed) {
+    return NextResponse.json({ error: "Page preview not available" }, { status: 404 });
+  }
 
   return noStoreJson({
     url: signed.url,

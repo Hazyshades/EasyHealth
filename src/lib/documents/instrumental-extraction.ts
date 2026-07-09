@@ -1,5 +1,10 @@
-import { generateText, type LanguageModel } from "ai";
-import { normalizeBiomarkerKey, parseJsonFromModelText, parseLabNumber } from "@/lib/schemas/biomarkers";
+import type { LanguageModel } from "ai";
+import {
+  runStructuredImageExtraction,
+  runStructuredTextExtraction,
+} from "@/lib/ai/extract-with-trace";
+import type { PipelineLlmContext } from "@/lib/ai/pipeline-trace";
+import { normalizeBiomarkerKey, parseLabNumber } from "@/lib/schemas/biomarkers";
 
 export type InstrumentalFinding = {
   finding_text: string;
@@ -135,43 +140,32 @@ function parseInstrumentalExtraction(raw: unknown): InstrumentalExtractionResult
 export async function extractInstrumentalFromText(
   text: string,
   model: LanguageModel,
-  filename: string
+  filename: string,
+  ctx?: PipelineLlmContext
 ): Promise<InstrumentalExtractionResult> {
-  const { text: response } = await generateText({
+  return runStructuredTextExtraction({
     model,
-    maxRetries: 2,
-    messages: [
-      { role: "system", content: INSTRUMENTAL_INSTRUCTIONS },
-      {
-        role: "user",
-        content: `Extract instrumental report data from this document text (${filename}):\n\n${text.slice(0, 120000)}`,
-      },
-    ],
+    system: INSTRUMENTAL_INSTRUCTIONS,
+    userText: `Extract instrumental report data from this document text (${filename}):\n\n${text.slice(0, 120000)}`,
+    parse: parseInstrumentalExtraction,
+    ctx,
   });
-
-  return parseInstrumentalExtraction(parseJsonFromModelText(response));
 }
 
 export async function extractInstrumentalFromImage(
   imageBuffer: Buffer,
   mimeType: string,
   model: LanguageModel,
-  filename: string
+  filename: string,
+  ctx?: PipelineLlmContext
 ): Promise<InstrumentalExtractionResult> {
-  const { text: response } = await generateText({
+  return runStructuredImageExtraction({
     model,
-    maxRetries: 2,
-    messages: [
-      { role: "system", content: INSTRUMENTAL_INSTRUCTIONS },
-      {
-        role: "user",
-        content: [
-          { type: "text", text: `Extract instrumental report data from this image: ${filename}` },
-          { type: "image", image: imageBuffer, mediaType: mimeType },
-        ],
-      },
-    ],
+    system: INSTRUMENTAL_INSTRUCTIONS,
+    imageBuffer,
+    mimeType,
+    promptText: `Extract instrumental report data from this image: ${filename}`,
+    parse: parseInstrumentalExtraction,
+    ctx,
   });
-
-  return parseInstrumentalExtraction(parseJsonFromModelText(response));
 }

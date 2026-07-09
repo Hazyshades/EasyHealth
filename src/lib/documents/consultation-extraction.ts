@@ -1,5 +1,9 @@
-import { generateText, type LanguageModel } from "ai";
-import { parseJsonFromModelText } from "@/lib/schemas/biomarkers";
+import type { LanguageModel } from "ai";
+import {
+  runStructuredImageExtraction,
+  runStructuredTextExtraction,
+} from "@/lib/ai/extract-with-trace";
+import type { PipelineLlmContext } from "@/lib/ai/pipeline-trace";
 
 export type ConsultationExtractionResult = {
   provider_name: string | null;
@@ -80,43 +84,32 @@ function parseConsultationExtraction(raw: unknown): ConsultationExtractionResult
 export async function extractConsultationFromText(
   text: string,
   model: LanguageModel,
-  filename: string
+  filename: string,
+  ctx?: PipelineLlmContext
 ): Promise<ConsultationExtractionResult> {
-  const { text: response } = await generateText({
+  return runStructuredTextExtraction({
     model,
-    maxRetries: 2,
-    messages: [
-      { role: "system", content: CONSULTATION_INSTRUCTIONS },
-      {
-        role: "user",
-        content: `Extract consultation note data from this document text (${filename}):\n\n${text.slice(0, 120000)}`,
-      },
-    ],
+    system: CONSULTATION_INSTRUCTIONS,
+    userText: `Extract consultation note data from this document text (${filename}):\n\n${text.slice(0, 120000)}`,
+    parse: parseConsultationExtraction,
+    ctx,
   });
-
-  return parseConsultationExtraction(parseJsonFromModelText(response));
 }
 
 export async function extractConsultationFromImage(
   imageBuffer: Buffer,
   mimeType: string,
   model: LanguageModel,
-  filename: string
+  filename: string,
+  ctx?: PipelineLlmContext
 ): Promise<ConsultationExtractionResult> {
-  const { text: response } = await generateText({
+  return runStructuredImageExtraction({
     model,
-    maxRetries: 2,
-    messages: [
-      { role: "system", content: CONSULTATION_INSTRUCTIONS },
-      {
-        role: "user",
-        content: [
-          { type: "text", text: `Extract consultation note data from this image: ${filename}` },
-          { type: "image", image: imageBuffer, mediaType: mimeType },
-        ],
-      },
-    ],
+    system: CONSULTATION_INSTRUCTIONS,
+    imageBuffer,
+    mimeType,
+    promptText: `Extract consultation note data from this image: ${filename}`,
+    parse: parseConsultationExtraction,
+    ctx,
   });
-
-  return parseConsultationExtraction(parseJsonFromModelText(response));
 }

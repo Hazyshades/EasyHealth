@@ -39,7 +39,12 @@ import {
   computeTypeMismatch,
 } from "../../src/lib/documents/type-classification.js";
 import { normalizeDocumentType, type DocumentType } from "../../src/lib/health-systems.js";
-import { modelIdForProvider, resolveLanguageModel, type AiProviderId } from "./ai.js";
+import { modelIdForStage, resolveModelForStage, type AiProviderId } from "./ai.js";
+import {
+  makePipelineTrace,
+  runClassifyTextOrImage,
+  runStageTextOrImage,
+} from "./pipeline-llm.js";
 import { extractPdfText, generatePagePreviews, generateThumbnail } from "./previews.js";
 import { LAB_DOCUMENTS_BUCKET, supabase } from "./supabase.js";
 
@@ -60,6 +65,20 @@ type DocumentRow = {
   mime_type: string | null;
   document_type: string;
 };
+
+async function uploadToLabDocuments(
+  storagePath: string,
+  body: Buffer | string,
+  contentType: string
+): Promise<void> {
+  const { error } = await supabase.storage.from(LAB_DOCUMENTS_BUCKET).upload(storagePath, body, {
+    contentType,
+    upsert: true,
+  });
+  if (error) {
+    throw new Error(`Storage upload failed (${storagePath}): ${error.message}`);
+  }
+}
 
 async function failJob(job: JobRow, documentId: string, message: string) {
   await supabase
@@ -84,13 +103,35 @@ async function failJob(job: JobRow, documentId: string, message: string) {
 async function runTextOrImageExtraction<T>(
   ocrText: string,
   pageBuffer: Buffer,
-  fromText: (text: string) => Promise<T>,
-  fromImage: (buffer: Buffer) => Promise<T>
-): Promise<T> {
-  if (ocrText.trim().length > 80) {
-    return fromText(ocrText);
-  }
-  return fromImage(pageBuffer);
+  provider: AiProviderId,
+  profileId: string,
+  documentId: string,
+  filename: string,
+  fromText: (
+    text: string,
+    model: import("ai").LanguageModel,
+    filename: string,
+    ctx: import("../../src/lib/ai/pipeline-trace.js").PipelineLlmContext
+  ) => Promise<T>,
+  fromImage: (
+    buffer: Buffer,
+    model: import("ai").LanguageModel,
+    filename: string,
+    ctx: import("../../src/lib/ai/pipeline-trace.js").PipelineLlmContext
+  ) => Promise<T>
+): Promise<{ result: T; modelId: string }> {
+  return runStageTextOrImage({
+    ocrText,
+    pageBuffer,
+    provider,
+    profileId,
+    documentId,
+    filename,
+    textStage: "extract_text",
+    visionStage: "extract_vision",
+    runText: fromText,
+    runImage: (buffer, model, name, ctx) => fromImage(buffer, model, name, ctx),
+  });
 }
 
 async function clearPriorExtractions(documentId: string) {
@@ -129,7 +170,7 @@ async function insertInstrumentalObservations(
   );
 }
 
-export async function runPipeline(job: JobRow) {
+export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> {
   const { data: document, error: docError } = await supabase
     .from("documents")
     .select(
@@ -140,7 +181,7 @@ export async function runPipeline(job: JobRow) {
 
   if (docError || !document) {
     await failJob(job, job.document_id, docError?.message ?? "Document not found");
-    return;
+    return "failed";
   }
 
   const doc = document as DocumentRow;
@@ -171,7 +212,7 @@ export async function runPipeline(job: JobRow) {
 
   if (downloadError || !fileData) {
     await failJob(job, doc.id, downloadError?.message ?? "Download failed");
-    return;
+    return "failed";
   }
 
   const buffer = Buffer.from(await fileData.arrayBuffer());
@@ -184,22 +225,16 @@ export async function runPipeline(job: JobRow) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Preview generation failed";
     await failJob(job, doc.id, message);
-    return;
+    return "failed";
   }
 
   const thumbBuffer = await generateThumbnail(pages[0].buffer);
   const thumbPath = thumbnailObjectPath(profileId, documentId);
-  await supabase.storage.from(LAB_DOCUMENTS_BUCKET).upload(thumbPath, thumbBuffer, {
-    contentType: "image/webp",
-    upsert: true,
-  });
+  await uploadToLabDocuments(thumbPath, thumbBuffer, "image/webp");
 
   for (const page of pages) {
     const previewPath = pagePreviewObjectPath(profileId, documentId, page.pageNumber);
-    await supabase.storage.from(LAB_DOCUMENTS_BUCKET).upload(previewPath, page.buffer, {
-      contentType: "image/webp",
-      upsert: true,
-    });
+    await uploadToLabDocuments(previewPath, page.buffer, "image/webp");
 
     await supabase.from("document_pages").insert({
       document_id: documentId,
@@ -215,10 +250,7 @@ export async function runPipeline(job: JobRow) {
   if (mimeType === "application/pdf") {
     ocrText = await extractPdfText(buffer);
     const ocrPath = ocrFulltextPath(profileId, documentId);
-    await supabase.storage.from(LAB_DOCUMENTS_BUCKET).upload(ocrPath, ocrText, {
-      contentType: "text/plain",
-      upsert: true,
-    });
+    await uploadToLabDocuments(ocrPath, ocrText, "text/plain");
   }
 
   const { data: profile } = await supabase
@@ -228,21 +260,24 @@ export async function runPipeline(job: JobRow) {
     .single();
 
   const provider = (profile?.ai_provider as AiProviderId | null) ?? "openai";
-  const model = resolveLanguageModel(provider);
-  const extractionModel = modelIdForProvider(provider);
 
   let detectedDocumentType: string | null = null;
   let typeMismatchWarning = false;
   let typeMismatchReason: string | null = null;
 
   try {
-    const classification = await runTextOrImageExtraction(
+    const classification = await runClassifyTextOrImage({
       ocrText,
-      pages[0].buffer,
-      (text) => classifyDocumentFromText(text, model, doc.original_filename),
-      (image) =>
-        classifyDocumentFromImage(image, "image/webp", model, doc.original_filename)
-    );
+      pageBuffer: pages[0].buffer,
+      provider,
+      profileId,
+      documentId,
+      filename: doc.original_filename,
+      runText: (text, model, filename, ctx) =>
+        classifyDocumentFromText(text, model, filename, ctx),
+      runImage: (image, model, filename, ctx) =>
+        classifyDocumentFromImage(image, "image/webp", model, filename, ctx),
+    });
 
     const mismatch = computeTypeMismatch(documentType, classification);
     detectedDocumentType = mismatch.detectedType;
@@ -258,17 +293,23 @@ export async function runPipeline(job: JobRow) {
   let modality: string | null = null;
   let documentSummary: string | null = null;
   let structuredPayload: unknown = null;
+  let extractionModel: string | null = null;
 
   try {
     if (documentType === "lab_result") {
-      const extraction = await runTextOrImageExtraction(
+      const { result: extraction, modelId } = await runTextOrImageExtraction(
         ocrText,
         pages[0].buffer,
-        (text) => extractPipelineBiomarkersFromText(text, model, doc.original_filename),
-        (image) =>
-          extractPipelineBiomarkersFromImage(image, "image/webp", model, doc.original_filename)
+        provider,
+        profileId,
+        documentId,
+        doc.original_filename,
+        (text, model, filename, ctx) => extractPipelineBiomarkersFromText(text, model, filename, ctx),
+        (image, model, filename, ctx) =>
+          extractPipelineBiomarkersFromImage(image, "image/webp", model, filename, ctx)
       );
 
+      extractionModel = modelId;
       structuredPayload = extraction;
       observedAt = extraction.observed_at;
       labName = extraction.lab_name;
@@ -296,21 +337,29 @@ export async function runPipeline(job: JobRow) {
         processingStatus = "needs_review";
       }
 
+      const summaryModel = resolveModelForStage(provider, "summarize");
+      const summaryCtx = makePipelineTrace(provider, profileId, documentId, "summarize");
       documentSummary = await generateDocumentSummary(
-        model,
+        summaryModel,
         documentType as DocumentType,
         extraction,
-        doc.original_filename
+        doc.original_filename,
+        summaryCtx
       );
     } else if (documentType === "instrumental_report") {
-      const extraction = await runTextOrImageExtraction(
+      const { result: extraction, modelId } = await runTextOrImageExtraction(
         ocrText,
         pages[0].buffer,
-        (text) => extractInstrumentalFromText(text, model, doc.original_filename),
-        (image) =>
-          extractInstrumentalFromImage(image, "image/webp", model, doc.original_filename)
+        provider,
+        profileId,
+        documentId,
+        doc.original_filename,
+        (text, model, filename, ctx) => extractInstrumentalFromText(text, model, filename, ctx),
+        (image, model, filename, ctx) =>
+          extractInstrumentalFromImage(image, "image/webp", model, filename, ctx)
       );
 
+      extractionModel = modelId;
       structuredPayload = extraction;
       observedAt = extraction.study_date;
       labName = extraction.facility_name;
@@ -358,21 +407,29 @@ export async function runPipeline(job: JobRow) {
         extraction.numeric_measures
       );
 
+      const summaryModel = resolveModelForStage(provider, "summarize");
+      const summaryCtx = makePipelineTrace(provider, profileId, documentId, "summarize");
       documentSummary = await generateDocumentSummary(
-        model,
+        summaryModel,
         documentType as DocumentType,
         extraction,
-        doc.original_filename
+        doc.original_filename,
+        summaryCtx
       );
     } else if (documentType === "consultation_note") {
-      const extraction = await runTextOrImageExtraction(
+      const { result: extraction, modelId } = await runTextOrImageExtraction(
         ocrText,
         pages[0].buffer,
-        (text) => extractConsultationFromText(text, model, doc.original_filename),
-        (image) =>
-          extractConsultationFromImage(image, "image/webp", model, doc.original_filename)
+        provider,
+        profileId,
+        documentId,
+        doc.original_filename,
+        (text, model, filename, ctx) => extractConsultationFromText(text, model, filename, ctx),
+        (image, model, filename, ctx) =>
+          extractConsultationFromImage(image, "image/webp", model, filename, ctx)
       );
 
+      extractionModel = modelId;
       structuredPayload = extraction;
       observedAt = extraction.visit_date;
       labName = extraction.provider_name;
@@ -396,20 +453,26 @@ export async function runPipeline(job: JobRow) {
       });
 
       documentSummary = await generateDocumentSummary(
-        model,
+        resolveModelForStage(provider, "summarize"),
         documentType as DocumentType,
         extraction,
-        doc.original_filename
+        doc.original_filename,
+        makePipelineTrace(provider, profileId, documentId, "summarize")
       );
     } else if (documentType === "discharge_summary") {
-      const extraction = await runTextOrImageExtraction(
+      const { result: extraction, modelId } = await runTextOrImageExtraction(
         ocrText,
         pages[0].buffer,
-        (text) => extractDischargeFromText(text, model, doc.original_filename),
-        (image) =>
-          extractDischargeFromImage(image, "image/webp", model, doc.original_filename)
+        provider,
+        profileId,
+        documentId,
+        doc.original_filename,
+        (text, model, filename, ctx) => extractDischargeFromText(text, model, filename, ctx),
+        (image, model, filename, ctx) =>
+          extractDischargeFromImage(image, "image/webp", model, filename, ctx)
       );
 
+      extractionModel = modelId;
       structuredPayload = extraction;
       observedAt = extraction.discharge_date ?? extraction.admission_date;
       labName = extraction.provider_name;
@@ -439,20 +502,26 @@ export async function runPipeline(job: JobRow) {
       });
 
       documentSummary = await generateDocumentSummary(
-        model,
+        resolveModelForStage(provider, "summarize"),
         documentType as DocumentType,
         extraction,
-        doc.original_filename
+        doc.original_filename,
+        makePipelineTrace(provider, profileId, documentId, "summarize")
       );
     } else if (documentType === "prescription") {
-      const extraction = await runTextOrImageExtraction(
+      const { result: extraction, modelId } = await runTextOrImageExtraction(
         ocrText,
         pages[0].buffer,
-        (text) => extractPrescriptionFromText(text, model, doc.original_filename),
-        (image) =>
-          extractPrescriptionFromImage(image, "image/webp", model, doc.original_filename)
+        provider,
+        profileId,
+        documentId,
+        doc.original_filename,
+        (text, model, filename, ctx) => extractPrescriptionFromText(text, model, filename, ctx),
+        (image, model, filename, ctx) =>
+          extractPrescriptionFromImage(image, "image/webp", model, filename, ctx)
       );
 
+      extractionModel = modelId;
       structuredPayload = extraction;
       observedAt = extraction.prescribed_at;
       labName = extraction.prescriber_name;
@@ -470,20 +539,26 @@ export async function runPipeline(job: JobRow) {
       });
 
       documentSummary = await generateDocumentSummary(
-        model,
+        resolveModelForStage(provider, "summarize"),
         documentType as DocumentType,
         extraction,
-        doc.original_filename
+        doc.original_filename,
+        makePipelineTrace(provider, profileId, documentId, "summarize")
       );
     } else if (documentType === "referral") {
-      const extraction = await runTextOrImageExtraction(
+      const { result: extraction, modelId } = await runTextOrImageExtraction(
         ocrText,
         pages[0].buffer,
-        (text) => extractReferralFromText(text, model, doc.original_filename),
-        (image) =>
-          extractReferralFromImage(image, "image/webp", model, doc.original_filename)
+        provider,
+        profileId,
+        documentId,
+        doc.original_filename,
+        (text, model, filename, ctx) => extractReferralFromText(text, model, filename, ctx),
+        (image, model, filename, ctx) =>
+          extractReferralFromImage(image, "image/webp", model, filename, ctx)
       );
 
+      extractionModel = modelId;
       structuredPayload = extraction;
       observedAt = extraction.referral_date;
       labName = extraction.referring_provider;
@@ -505,16 +580,17 @@ export async function runPipeline(job: JobRow) {
       });
 
       documentSummary = await generateDocumentSummary(
-        model,
+        resolveModelForStage(provider, "summarize"),
         documentType as DocumentType,
         extraction,
-        doc.original_filename
+        doc.original_filename,
+        makePipelineTrace(provider, profileId, documentId, "summarize")
       );
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Extraction failed";
     await failJob(job, doc.id, message);
-    return;
+    return "failed";
   }
 
   await supabase
@@ -550,4 +626,6 @@ export async function runPipeline(job: JobRow) {
       finished_at: new Date().toISOString(),
     })
     .eq("id", job.id);
+
+  return "completed";
 }

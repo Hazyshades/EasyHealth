@@ -31,7 +31,7 @@ const consentsSchema = z.object({
 
 const patchSchema = z
   .object({
-    ai_provider: z.enum(["openai", "deepseek", "owl_alpha"]).optional(),
+    ai_provider: z.enum(["openai", "deepseek", "owl_alpha", "nebius_fast", "nebius_quality"]).optional(),
     display_name: z.string().trim().min(1).max(120).optional(),
     first_name: z.string().trim().min(1).max(60).optional(),
     last_name: z.string().trim().max(60).nullable().optional(),
@@ -74,6 +74,9 @@ function providerUnavailableMessage(provider: AiProviderId): string {
   }
   if (provider === "owl_alpha") {
     return "Tencent Hy3 is temporarily unavailable. Try ChatGPT or contact support.";
+  }
+  if (provider === "nebius_fast" || provider === "nebius_quality") {
+    return "Nebius is temporarily unavailable. Try ChatGPT or contact support.";
   }
   return "This AI provider is not available.";
 }
