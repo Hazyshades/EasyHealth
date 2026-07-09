@@ -24,6 +24,11 @@ import {
 import { Button } from "@/components/ui/button";
 import type { DocumentType } from "@/lib/health-systems";
 import { DOCUMENT_TYPE_LABELS } from "@/lib/health-systems";
+import {
+  getCachedSignedUrl,
+  setCachedSignedUrl,
+  thumbnailCacheKey,
+} from "@/lib/documents/signed-url-cache";
 
 type Document = {
   id: string;
@@ -37,6 +42,8 @@ type Document = {
   error_message: string | null;
   has_thumbnail: boolean;
   is_legacy: boolean;
+  thumbnail_url?: string | null;
+  thumbnail_expires_in?: number | null;
 };
 
 const TABS: { id: DocumentType | "dicom"; label: string }[] = [
@@ -69,16 +76,61 @@ function statusVariant(status: string): "success" | "warning" | "error" | "neutr
   return "warning";
 }
 
-function DocumentThumb({ documentId, hasThumbnail }: { documentId: string; hasThumbnail: boolean }) {
-  const [url, setUrl] = useState<string | null>(null);
+function DocumentThumb({
+  documentId,
+  hasThumbnail,
+  thumbnailUrl,
+  thumbnailExpiresIn,
+}: {
+  documentId: string;
+  hasThumbnail: boolean;
+  thumbnailUrl?: string | null;
+  thumbnailExpiresIn?: number | null;
+}) {
+  const cacheKey = thumbnailCacheKey(documentId);
+  const initial =
+    thumbnailUrl ||
+    getCachedSignedUrl(cacheKey) ||
+    null;
+
+  const [url, setUrl] = useState<string | null>(initial);
 
   useEffect(() => {
-    if (!hasThumbnail) return;
+    if (thumbnailUrl) {
+      if (thumbnailExpiresIn) {
+        setCachedSignedUrl(cacheKey, thumbnailUrl, thumbnailExpiresIn);
+      }
+      setUrl(thumbnailUrl);
+      return;
+    }
+
+    const cached = getCachedSignedUrl(cacheKey);
+    if (cached) {
+      setUrl(cached);
+      return;
+    }
+
+    if (!hasThumbnail) {
+      setUrl(null);
+      return;
+    }
+
+    let cancelled = false;
     fetch(`/api/documents/${documentId}/thumbnail`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setUrl(data?.url ?? null))
+      .then((data) => {
+        if (cancelled || !data?.url) return;
+        if (typeof data.expiresIn === "number") {
+          setCachedSignedUrl(cacheKey, data.url, data.expiresIn);
+        }
+        setUrl(data.url);
+      })
       .catch(() => undefined);
-  }, [documentId, hasThumbnail]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [documentId, hasThumbnail, thumbnailUrl, thumbnailExpiresIn, cacheKey]);
 
   if (url) {
     return (
@@ -136,12 +188,27 @@ export default function DocumentsPage() {
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FloatingFilterValues>(EMPTY_FLOATING_FILTERS);
 
-  const loadDocuments = useCallback(() => {
-    setLoading(true);
-    fetch(`/api/documents?type=${activeTab}`)
+  const loadDocuments = useCallback((opts?: { soft?: boolean }) => {
+    const soft = Boolean(opts?.soft);
+    if (!soft) setLoading(true);
+    return fetch(`/api/documents?type=${activeTab}`)
       .then((r) => r.json())
-      .then((data) => setDocuments(data.documents ?? []))
-      .finally(() => setLoading(false));
+      .then((data) => {
+        const docs = (data.documents ?? []) as Document[];
+        for (const doc of docs) {
+          if (doc.thumbnail_url && doc.thumbnail_expires_in) {
+            setCachedSignedUrl(
+              thumbnailCacheKey(doc.id),
+              doc.thumbnail_url,
+              doc.thumbnail_expires_in
+            );
+          }
+        }
+        setDocuments(docs);
+      })
+      .finally(() => {
+        if (!soft) setLoading(false);
+      });
   }, [activeTab]);
 
   useEffect(() => {
@@ -150,15 +217,21 @@ export default function DocumentsPage() {
       setLoading(false);
       return;
     }
-    loadDocuments();
+    void loadDocuments({ soft: false });
   }, [activeTab, loadDocuments]);
 
+  const hasProcessing = useMemo(
+    () => documents.some((d) => displayStatus(d) === "processing"),
+    [documents]
+  );
+
   useEffect(() => {
-    const hasProcessing = documents.some((d) => displayStatus(d) === "processing");
-    if (!hasProcessing) return;
-    const timer = setInterval(loadDocuments, 10000);
+    if (!hasProcessing || activeTab === "dicom") return;
+    const timer = setInterval(() => {
+      void loadDocuments({ soft: true });
+    }, 10000);
     return () => clearInterval(timer);
-  }, [documents, loadDocuments]);
+  }, [hasProcessing, activeTab, loadDocuments]);
 
   const filteredDocuments = useMemo(
     () => applyClientFilters(documents, search, filters),
@@ -264,7 +337,12 @@ export default function DocumentsPage() {
                   <DataTableRow key={doc.id} className="cursor-pointer hover:bg-slate-50">
                     <DataTableCell>
                       <Link href={`/app/documents/${doc.id}`} className="block">
-                        <DocumentThumb documentId={doc.id} hasThumbnail={doc.has_thumbnail} />
+                        <DocumentThumb
+                          documentId={doc.id}
+                          hasThumbnail={doc.has_thumbnail}
+                          thumbnailUrl={doc.thumbnail_url}
+                          thumbnailExpiresIn={doc.thumbnail_expires_in}
+                        />
                       </Link>
                     </DataTableCell>
                     <DataTableCell className="font-medium">
@@ -300,7 +378,12 @@ export default function DocumentsPage() {
                 <Link href={`/app/documents/${doc.id}`}>
                   <SurfaceCard padding="sm" className="transition hover:border-[var(--eh-brand)]">
                     <div className="flex items-start gap-3">
-                      <DocumentThumb documentId={doc.id} hasThumbnail={doc.has_thumbnail} />
+                      <DocumentThumb
+                        documentId={doc.id}
+                        hasThumbnail={doc.has_thumbnail}
+                        thumbnailUrl={doc.thumbnail_url}
+                        thumbnailExpiresIn={doc.thumbnail_expires_in}
+                      />
                       <div className="min-w-0 flex-1">
                         <p className="font-medium text-[var(--eh-text-primary)]">
                           {doc.original_filename}

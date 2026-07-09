@@ -4,9 +4,35 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeDocumentType } from "@/lib/health-systems";
 import { getEligibleDocumentIds } from "@/lib/reports";
 import {
+  createSignedStorageUrl,
   isLegacyDocument,
   resolveDisplayProcessingStatus,
 } from "@/lib/documents/access";
+import { SIGNED_URL_TTL_SECONDS } from "@/lib/documents/constants";
+
+const THUMB_SIGN_CONCURRENCY = 8;
+
+async function mapPool<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  if (items.length === 0) return [];
+  const results = new Array<R>(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await fn(items[index], index);
+    }
+  }
+  const workers = Array.from(
+    { length: Math.min(concurrency, items.length) },
+    () => worker()
+  );
+  await Promise.all(workers);
+  return results;
+}
 
 export async function GET(req: NextRequest) {
   const profileId = await getSessionProfileId();
@@ -48,12 +74,39 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const enriched = (documents ?? []).map((doc) => ({
-    ...doc,
-    processing_status: resolveDisplayProcessingStatus(doc as Parameters<typeof resolveDisplayProcessingStatus>[0]),
-    is_legacy: isLegacyDocument(doc as Parameters<typeof isLegacyDocument>[0]),
-    has_thumbnail: Boolean(doc.thumbnail_storage_path),
-  }));
+  const rows = documents ?? [];
+
+  const thumbUrls = await mapPool(rows, THUMB_SIGN_CONCURRENCY, async (doc) => {
+    if (!doc.thumbnail_storage_path) {
+      return { thumbnail_url: null as string | null, thumbnail_expires_in: null as number | null };
+    }
+    try {
+      const signed = await createSignedStorageUrl(doc.thumbnail_storage_path);
+      if (!signed) {
+        return { thumbnail_url: null, thumbnail_expires_in: null };
+      }
+      return {
+        thumbnail_url: signed.url,
+        thumbnail_expires_in: signed.expiresIn ?? SIGNED_URL_TTL_SECONDS,
+      };
+    } catch {
+      return { thumbnail_url: null, thumbnail_expires_in: null };
+    }
+  });
+
+  const enriched = rows.map((doc, i) => {
+    const { thumbnail_storage_path: _path, ...rest } = doc;
+    return {
+      ...rest,
+      processing_status: resolveDisplayProcessingStatus(
+        doc as Parameters<typeof resolveDisplayProcessingStatus>[0]
+      ),
+      is_legacy: isLegacyDocument(doc as Parameters<typeof isLegacyDocument>[0]),
+      has_thumbnail: Boolean(doc.thumbnail_storage_path),
+      thumbnail_url: thumbUrls[i]?.thumbnail_url ?? null,
+      thumbnail_expires_in: thumbUrls[i]?.thumbnail_expires_in ?? null,
+    };
+  });
 
   return NextResponse.json({ documents: enriched });
 }

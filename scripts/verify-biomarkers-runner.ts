@@ -258,7 +258,7 @@ const num = parseLabValueCell("5.2");
 assert.equal(num?.value_kind, "numeric");
 assert.equal(num?.value, 5.2);
 
-// PSA display-only does not tank cardiovascular score
+// PSA display-only does not tank cardiovascular score (core still wins on that system)
 const psaProfile = buildHealthProfile(
   [
     {
@@ -303,10 +303,54 @@ const systems = psaProfile.systems.map((s) => s.id);
 assert.ok(systems.includes("cardiovascular"));
 const cardioOnly = psaProfile.systems.find((s) => s.id === "cardiovascular");
 assert.ok(cardioOnly && cardioOnly.state_score >= 90);
-// PSA stays general if only specialty — not a scored organ
+// PSA is specialty/display under general; soft-score applies only when no core
 const general = psaProfile.systems.find((s) => s.id === "general");
 if (general) {
-  assert.equal(computeSystemStateScore(general.markers.filter((m) => m.key === "psa")), 0);
+  const psaOnly = computeSystemStateScore(general.markers.filter((m) => m.key === "psa"));
+  assert.ok(psaOnly < 70, `out-of-range display soft-score should be low, got ${psaOnly}`);
+}
+
+// General / display-only in-range markers must not show catastrophic 0
+const generalInRange = buildHealthProfile(
+  [
+    {
+      biomarker_key: "mpv",
+      name: "Mean platelet volume (MPV)",
+      value: 11.3,
+      unit: "fL",
+      ref_low: 6,
+      ref_high: 13,
+      observed_at: "2025-09-09",
+      document_id: null,
+    },
+    {
+      biomarker_key: "neutrophils_percent",
+      name: "Neutrophils (NEU%)",
+      value: 62.6,
+      unit: "%",
+      ref_low: 40,
+      ref_high: 75,
+      observed_at: "2025-09-09",
+      document_id: null,
+    },
+    {
+      biomarker_key: "total_ige",
+      name: "Total IgE",
+      value: 65.1,
+      unit: "IU/mL",
+      ref_low: 0,
+      ref_high: 100,
+      observed_at: "2025-09-09",
+      document_id: null,
+    },
+  ],
+  []
+);
+for (const sys of generalInRange.systems) {
+  assert.ok(
+    sys.state_score >= 90,
+    `display/unmapped in-range system ${sys.id} should soft-score high, got ${sys.state_score}`
+  );
 }
 
 assert.equal(

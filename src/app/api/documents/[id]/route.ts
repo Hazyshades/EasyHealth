@@ -1,17 +1,36 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   assertDocumentOwner,
+  createSignedStorageUrl,
+  getOriginalPath,
+  guessMimeType,
   isLegacyDocument,
   noStoreJson,
   resolveDisplayProcessingStatus,
 } from "@/lib/documents/access";
 import { normalizeDocumentType } from "@/lib/health-systems";
+import { SIGNED_URL_TTL_SECONDS } from "@/lib/documents/constants";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function GET(_req: Request, context: RouteContext) {
+const EXTRACTED_BIOMARKER_SELECT =
+  "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, reference_range, source_page, source_text, confidence, status, processing_version, extraction_model, specimen, modifier, reported_alt_value, reported_alt_unit, created_at";
+
+const OBSERVATION_SELECT =
+  "id, biomarker_key, name, value, unit, ref_low, ref_high, observed_at, source_extracted_biomarker_id";
+
+async function safeSignedUrl(storagePath: string | null | undefined) {
+  if (!storagePath) return null;
+  try {
+    return await createSignedStorageUrl(storagePath);
+  } catch {
+    return null;
+  }
+}
+
+export async function GET(req: NextRequest, context: RouteContext) {
   const profileId = await getSessionProfileId();
   if (!profileId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -23,31 +42,44 @@ export async function GET(_req: Request, context: RouteContext) {
 
   const supabase = createAdminClient();
   const documentType = normalizeDocumentType(doc!.document_type) ?? "lab_result";
+  const pageParam = Number.parseInt(req.nextUrl.searchParams.get("page") ?? "1", 10);
+  const requestedPage =
+    Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
 
   const [
-    { data: pages },
-    { count: extractedCount },
-    { data: findings },
-    { data: clinicalNote },
-    { data: prescription },
-    { data: referral },
+    pagesResult,
+    extractedResult,
+    observationsResult,
+    findingsResult,
+    clinicalNoteResult,
+    prescriptionResult,
+    referralResult,
+    fileSigned,
   ] = await Promise.all([
     supabase
       .from("document_pages")
-      .select("page_number, width, height")
+      .select("page_number, width, height, preview_storage_path")
       .eq("document_id", id)
       .order("page_number", { ascending: true }),
     supabase
       .from("document_extracted_biomarkers")
-      .select("id", { count: "exact", head: true })
-      .eq("document_id", id),
+      .select(EXTRACTED_BIOMARKER_SELECT)
+      .eq("document_id", id)
+      .eq("profile_id", profileId)
+      .order("biomarker_name", { ascending: true }),
+    supabase
+      .from("observations")
+      .select(OBSERVATION_SELECT)
+      .eq("profile_id", profileId)
+      .eq("document_id", id)
+      .order("name", { ascending: true }),
     documentType === "instrumental_report"
       ? supabase
           .from("document_extracted_findings")
           .select("*")
           .eq("document_id", id)
           .eq("status", "accepted")
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [] as unknown[] }),
     documentType === "consultation_note" || documentType === "discharge_summary"
       ? supabase
           .from("document_extracted_clinical_notes")
@@ -72,7 +104,45 @@ export async function GET(_req: Request, context: RouteContext) {
           .eq("status", "accepted")
           .maybeSingle()
       : Promise.resolve({ data: null }),
+    safeSignedUrl(getOriginalPath(doc!)),
   ]);
+
+  const pageRows = pagesResult.data ?? [];
+  const pages = pageRows.map((p) => ({
+    page_number: p.page_number,
+    width: p.width,
+    height: p.height,
+  }));
+
+  const pageMatch =
+    pageRows.find((p) => p.page_number === requestedPage) ?? pageRows[0] ?? null;
+  const pageSigned = pageMatch
+    ? await safeSignedUrl(pageMatch.preview_storage_path)
+    : null;
+
+  const extractedItems = extractedResult.data ?? [];
+  const extractedCount = extractedItems.length;
+
+  const file =
+    fileSigned != null
+      ? {
+          url: fileSigned.url,
+          mimeType: guessMimeType(doc!.original_filename, doc!.mime_type),
+          filename: doc!.original_filename,
+          expiresIn: fileSigned.expiresIn ?? SIGNED_URL_TTL_SECONDS,
+        }
+      : null;
+
+  const current_page =
+    pageSigned != null && pageMatch
+      ? {
+          url: pageSigned.url,
+          pageNumber: pageMatch.page_number,
+          width: pageMatch.width,
+          height: pageMatch.height,
+          expiresIn: pageSigned.expiresIn ?? SIGNED_URL_TTL_SECONDS,
+        }
+      : null;
 
   return noStoreJson({
     document: {
@@ -94,17 +164,21 @@ export async function GET(_req: Request, context: RouteContext) {
       modality: doc!.modality,
       is_legacy: isLegacyDocument(doc!),
       has_thumbnail: Boolean(doc!.thumbnail_storage_path),
-      extracted_biomarker_count: extractedCount ?? 0,
+      extracted_biomarker_count: extractedCount,
       detected_document_type: doc!.detected_document_type ?? null,
       type_mismatch_warning: Boolean(doc!.type_mismatch_warning),
       type_mismatch_reason: doc!.type_mismatch_reason ?? null,
       suggested_document_type: doc!.detected_document_type ?? null,
     },
-    pages: pages ?? [],
-    instrumental_findings: findings ?? [],
-    clinical_note: clinicalNote ?? null,
-    prescription: prescription ?? null,
-    referral: referral ?? null,
+    pages,
+    instrumental_findings: findingsResult.data ?? [],
+    clinical_note: clinicalNoteResult.data ?? null,
+    prescription: prescriptionResult.data ?? null,
+    referral: referralResult.data ?? null,
+    extracted_biomarkers: extractedItems,
+    observations: observationsResult.data ?? [],
+    file,
+    current_page,
   });
 }
 

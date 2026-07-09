@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Download, Minus, Plus, RotateCcw } from "lucide-react";
@@ -19,6 +19,12 @@ import {
 } from "@/components/documents/document-insight-panels";
 import { TypeMismatchBanner } from "@/components/documents/type-mismatch-banner";
 import { normalizeDocumentType, type DocumentType } from "@/lib/health-systems";
+import {
+  fileCacheKey,
+  getCachedSignedUrl,
+  pageCacheKey,
+  setCachedSignedUrl,
+} from "@/lib/documents/signed-url-cache";
 
 type DocumentMeta = {
   id: string;
@@ -91,6 +97,30 @@ type ExtractedBiomarker = {
   modifier?: string | null;
 };
 
+type BootstrapPayload = {
+  document: DocumentMeta;
+  pages?: PageMeta[];
+  instrumental_findings?: InstrumentalFinding[];
+  clinical_note?: ClinicalNote | null;
+  prescription?: Record<string, unknown> | null;
+  referral?: Record<string, unknown> | null;
+  extracted_biomarkers?: ExtractedBiomarker[];
+  observations?: Observation[];
+  file?: {
+    url: string;
+    mimeType: string;
+    filename: string;
+    expiresIn: number;
+  } | null;
+  current_page?: {
+    url: string;
+    pageNumber: number;
+    width: number | null;
+    height: number | null;
+    expiresIn: number;
+  } | null;
+};
+
 function statusVariant(
   status: string
 ): "success" | "warning" | "error" | "neutral" {
@@ -100,15 +130,23 @@ function statusVariant(
   return "warning";
 }
 
+function applyExtractedSelection(items: ExtractedBiomarker[]) {
+  return new Set(
+    items
+      .filter((b) => b.status === "needs_review" || b.status === "pending_review")
+      .map((b) => b.id)
+  );
+}
+
 export function DocumentViewer({ documentId }: { documentId: string }) {
   const searchParams = useSearchParams();
   const initialPage = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const startPage =
+    Number.isFinite(initialPage) && initialPage > 0 ? initialPage : 1;
 
   const [doc, setDoc] = useState<DocumentMeta | null>(null);
   const [pages, setPages] = useState<PageMeta[]>([]);
-  const [currentPage, setCurrentPage] = useState(
-    Number.isFinite(initialPage) && initialPage > 0 ? initialPage : 1
-  );
+  const [currentPage, setCurrentPage] = useState(startPage);
   const [pageUrl, setPageUrl] = useState<string | null>(null);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [originalMime, setOriginalMime] = useState<string | null>(null);
@@ -126,87 +164,95 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const [reprocessing, setReprocessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadDocument = useCallback(async () => {
-    const res = await fetch(`/api/documents/${documentId}`);
-    if (!res.ok) throw new Error("Failed to load document");
-    const data = await res.json();
-    setDoc(data.document);
-    setPages(data.pages ?? []);
-    setInstrumentalFindings(data.instrumental_findings ?? []);
-    setClinicalNote(data.clinical_note ?? null);
-    setPrescription(data.prescription ?? null);
-    setReferral(data.referral ?? null);
-    return data.document as DocumentMeta;
-  }, [documentId]);
+  /** Skip page-only fetch once after bootstrap seeds pageUrl for the same page. */
+  const skipNextPageFetch = useRef(true);
 
-  const loadBiomarkers = useCallback(async (meta: DocumentMeta) => {
-    const useExtracted =
-      !meta.is_legacy &&
-      (meta.extracted_biomarker_count > 0 || meta.processing_status === "needs_review");
+  const applyBootstrap = useCallback(
+    (data: BootstrapPayload, opts?: { applyPage?: boolean }) => {
+      const meta = data.document;
+      setDoc(meta);
+      setPages(data.pages ?? []);
+      setInstrumentalFindings(data.instrumental_findings ?? []);
+      setClinicalNote(data.clinical_note ?? null);
+      setPrescription(data.prescription ?? null);
+      setReferral(data.referral ?? null);
 
-    if (useExtracted) {
-      const extRes = await fetch(`/api/documents/${documentId}/biomarkers`);
-      if (extRes.ok) {
-        const extData = await extRes.json();
-        setExtracted(extData.items ?? []);
-        setSelectedIds(
-          new Set(
-            (extData.items as ExtractedBiomarker[])
-              .filter((b) => b.status === "needs_review" || b.status === "pending_review")
-              .map((b) => b.id)
-          )
+      const items = data.extracted_biomarkers ?? [];
+      setExtracted(items);
+      setSelectedIds(applyExtractedSelection(items));
+      setObservations(data.observations ?? []);
+
+      if (data.file?.url) {
+        setOriginalUrl(data.file.url);
+        setOriginalMime(data.file.mimeType);
+        setCachedSignedUrl(
+          fileCacheKey(documentId),
+          data.file.url,
+          data.file.expiresIn
         );
       }
-      const obsRes = await fetch(`/api/documents/${documentId}/observations`);
-      if (obsRes.ok) {
-        const obsData = await obsRes.json();
-        setObservations(obsData.observations ?? []);
-      }
-      return;
-    }
 
-    const obsRes = await fetch(`/api/documents/${documentId}/observations`);
-    if (obsRes.ok) {
-      const obsData = await obsRes.json();
-      setObservations(obsData.observations ?? []);
-    }
-    setExtracted([]);
-  }, [documentId]);
+      if (opts?.applyPage !== false && data.current_page?.url) {
+        setPageUrl(data.current_page.url);
+        setCachedSignedUrl(
+          pageCacheKey(documentId, data.current_page.pageNumber),
+          data.current_page.url,
+          data.current_page.expiresIn
+        );
+      }
+
+      return meta;
+    },
+    [documentId]
+  );
+
+  const loadBootstrap = useCallback(
+    async (pageNumber: number, opts?: { soft?: boolean }) => {
+      const soft = Boolean(opts?.soft);
+      const res = await fetch(`/api/documents/${documentId}?page=${pageNumber}`);
+      if (!res.ok) throw new Error("Failed to load document");
+      const data = (await res.json()) as BootstrapPayload;
+      applyBootstrap(data, { applyPage: !soft || data.current_page?.pageNumber === pageNumber });
+      return data.document;
+    },
+    [documentId, applyBootstrap]
+  );
 
   const loadPageUrl = useCallback(
     async (pageNumber: number) => {
+      const cacheKey = pageCacheKey(documentId, pageNumber);
+      const cached = getCachedSignedUrl(cacheKey);
+      if (cached) {
+        setPageUrl(cached);
+        return;
+      }
       const res = await fetch(`/api/documents/${documentId}/pages/${pageNumber}`);
       if (res.ok) {
         const data = await res.json();
-        setPageUrl(data.url);
-        return;
+        if (data.url) {
+          if (typeof data.expiresIn === "number") {
+            setCachedSignedUrl(cacheKey, data.url, data.expiresIn);
+          }
+          setPageUrl(data.url);
+          return;
+        }
       }
       setPageUrl(null);
     },
     [documentId]
   );
 
-  const loadOriginal = useCallback(async () => {
-    const res = await fetch(`/api/documents/${documentId}/file`);
-    if (!res.ok) return;
-    const data = await res.json();
-    setOriginalUrl(data.url);
-    setOriginalMime(data.mimeType);
-  }, [documentId]);
-
+  // Initial open: single bootstrap request
   useEffect(() => {
     let cancelled = false;
+    skipNextPageFetch.current = true;
     setLoading(true);
     setError(null);
+    setDoc(null);
 
     (async () => {
       try {
-        const meta = await loadDocument();
-        if (cancelled) return;
-        await Promise.all([loadBiomarkers(meta), loadOriginal()]);
-        if (meta.page_count && meta.page_count > 0) {
-          await loadPageUrl(currentPage);
-        }
+        await loadBootstrap(startPage, { soft: false });
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load");
       } finally {
@@ -217,29 +263,45 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [loadDocument, loadBiomarkers, loadOriginal, loadPageUrl, currentPage]);
+  }, [documentId, startPage, loadBootstrap]);
 
+  // Soft processing poll — do not blank the viewer
   useEffect(() => {
     if (!doc || doc.processing_status !== "processing") return;
-    const timer = setInterval(async () => {
-      const meta = await loadDocument();
-      await loadBiomarkers(meta);
-      if (meta.page_count && meta.page_count > 0) {
-        await loadPageUrl(currentPage);
-      }
+    const timer = setInterval(() => {
+      void loadBootstrap(currentPage, { soft: true }).catch(() => undefined);
     }, 8000);
     return () => clearInterval(timer);
-  }, [doc, loadDocument, loadBiomarkers, loadPageUrl, currentPage]);
+  }, [doc?.processing_status, doc?.id, loadBootstrap, currentPage]);
 
+  // Page navigation only — not full document reload
   useEffect(() => {
     if (!doc?.page_count) return;
-    loadPageUrl(currentPage);
+    if (skipNextPageFetch.current) {
+      skipNextPageFetch.current = false;
+      return;
+    }
+    void loadPageUrl(currentPage);
   }, [currentPage, doc?.page_count, loadPageUrl]);
 
   async function handleDownload() {
+    const cacheKey = fileCacheKey(documentId);
+    const cached = getCachedSignedUrl(cacheKey);
+    if (cached) {
+      const a = document.createElement("a");
+      a.href = cached;
+      a.download = doc?.original_filename ?? "document";
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.click();
+      return;
+    }
     const res = await fetch(`/api/documents/${documentId}/file`);
     if (!res.ok) return;
     const data = await res.json();
+    if (typeof data.expiresIn === "number" && data.url) {
+      setCachedSignedUrl(cacheKey, data.url, data.expiresIn);
+    }
     const a = document.createElement("a");
     a.href = data.url;
     a.download = data.filename ?? "document";
@@ -258,13 +320,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
         body: JSON.stringify({ ids: Array.from(selectedIds) }),
       });
       if (!res.ok) throw new Error("Accept failed");
-      const meta = await loadDocument();
-      await loadBiomarkers(meta);
-      const obsRes = await fetch(`/api/documents/${documentId}/observations`);
-      if (obsRes.ok) {
-        const obsData = await obsRes.json();
-        setObservations(obsData.observations ?? []);
-      }
+      await loadBootstrap(currentPage, { soft: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Accept failed");
     } finally {
@@ -283,8 +339,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
           : undefined,
       });
       if (!res.ok) throw new Error("Reprocess failed");
-      const meta = await loadDocument();
-      await loadBiomarkers(meta);
+      await loadBootstrap(currentPage, { soft: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Reprocess failed");
     } finally {

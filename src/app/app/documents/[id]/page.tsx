@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use } from "react";
 import { DocumentViewer } from "@/components/documents/document-viewer";
 
 type PageProps = {
@@ -8,15 +8,6 @@ type PageProps = {
 };
 
 export default function DocumentDetailPage({ params }: PageProps) {
-  const [id, setId] = useState<string | null>(null);
-
-  useEffect(() => {
-    params.then((p) => setId(p.id));
-  }, [params]);
-
-  if (!id) {
-    return <p className="text-sm text-[var(--eh-text-secondary)]">Loading document…</p>;
-  }
-
+  const { id } = use(params);
   return <DocumentViewer documentId={id} />;
 }

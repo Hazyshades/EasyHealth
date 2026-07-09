@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ClipboardList, RefreshCw, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { SurfaceCard } from "@/components/ui/surface-card";
@@ -81,6 +81,7 @@ export default function ReportsPage() {
   const [range, setRange] = useState<ReportRange>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
+  const hasLoadedOnce = useRef(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
@@ -91,11 +92,15 @@ export default function ReportsPage() {
     debouncedSearch.trim().length > 0 || range !== "all" || typeFilter !== "all";
 
   const loadReports = useCallback(() => {
-    setLoading(true);
+    // Soft refresh after first load: keep previous rows visible while filters update
+    if (!hasLoadedOnce.current) setLoading(true);
     fetch(buildReportsUrl(debouncedSearch, range, typeFilter))
       .then((r) => r.json())
       .then((data) => setReports(data.reports ?? []))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        hasLoadedOnce.current = true;
+        setLoading(false);
+      });
   }, [debouncedSearch, range, typeFilter]);
 
   useEffect(() => {

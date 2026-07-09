@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
-import { getSessionProfileId } from "@/lib/auth/session";
+import { getSessionProfileIdEnsured } from "@/lib/auth/session";
 import { getProfileOnboardingState } from "@/lib/auth/onboarding";
 import { AppShell } from "@/components/layout/app-shell";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const profileId = await getSessionProfileId();
+  // Ensure profile row once per app shell entry; API routes use slim getSessionProfileId.
+  const profileId = await getSessionProfileIdEnsured();
   if (!profileId) {
     redirect("/?signin=required");
   }

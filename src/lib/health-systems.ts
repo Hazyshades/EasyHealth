@@ -272,31 +272,67 @@ function average(values: number[]): number {
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
 }
 
-function isScoreEligible(marker: SystemMarker): boolean {
-  const role = marker.score_role ?? getScoreRole(marker.key);
-  const kind = marker.value_kind ?? "numeric";
-  if (kind !== "numeric" || marker.value == null) return false;
-  if (role === "display" || role === "extended") return false;
-  return role === "core" && marker.status !== "unknown";
+function markerRole(marker: SystemMarker): "core" | "extended" | "display" {
+  return marker.score_role ?? getScoreRole(marker.key);
 }
 
-export function computeSystemStateScore(markers: SystemMarker[]): number {
-  const eligible = markers.filter(isScoreEligible);
-  if (eligible.length === 0) {
-    // Fall back: if only unknown-ref core markers exist, use mild unknown score average of core
-    const core = markers.filter((m) => (m.score_role ?? getScoreRole(m.key)) === "core");
-    if (core.length === 0) return 0;
-    return average(
-      core.map((marker) =>
-        markerStateScore(marker.status, marker.value, marker.ref_low, marker.ref_high)
-      )
-    );
-  }
+/** Numeric markers that can contribute to a system state score. */
+function isNumericMarker(marker: SystemMarker): boolean {
+  const kind = marker.value_kind ?? "numeric";
+  return kind === "numeric" && marker.value != null;
+}
+
+/** Core markers with known lab ref status — preferred score drivers. */
+function isCoreScoreEligible(marker: SystemMarker): boolean {
+  return isNumericMarker(marker) && markerRole(marker) === "core" && marker.status !== "unknown";
+}
+
+/**
+ * Soft drivers used only when a system has no core markers at all
+ * (e.g. General with unmapped/specialty labs, or blood differentials alone).
+ * Without this fallback, systems with only display/extended markers scored 0/100
+ * and were labeled "Needs attention" even when every value was in range.
+ */
+function isSoftScoreEligible(marker: SystemMarker): boolean {
+  return isNumericMarker(marker) && marker.status !== "unknown";
+}
+
+function averageMarkerStateScores(markers: SystemMarker[]): number {
   return average(
-    eligible.map((marker) =>
+    markers.map((marker) =>
       markerStateScore(marker.status, marker.value, marker.ref_low, marker.ref_high)
     )
   );
+}
+
+export function computeSystemStateScore(markers: SystemMarker[]): number {
+  // 1) Prefer core markers with known reference ranges
+  const coreEligible = markers.filter(isCoreScoreEligible);
+  if (coreEligible.length > 0) {
+    return averageMarkerStateScores(coreEligible);
+  }
+
+  // 2) Core present but all unknown-ref → mild unknown score (do not drop to 0)
+  const core = markers.filter((m) => markerRole(m) === "core" && isNumericMarker(m));
+  if (core.length > 0) {
+    return averageMarkerStateScores(core);
+  }
+
+  // 3) No core drivers: soft-score any numeric markers with known refs
+  //    (display/extended/unmapped). Keeps General & specialty-only systems honest.
+  const softEligible = markers.filter(isSoftScoreEligible);
+  if (softEligible.length > 0) {
+    return averageMarkerStateScores(softEligible);
+  }
+
+  // 4) Only numeric-without-ref → mild unknown average
+  const numericOnly = markers.filter(isNumericMarker);
+  if (numericOnly.length > 0) {
+    return averageMarkerStateScores(numericOnly);
+  }
+
+  // Truly nothing scoreable (empty / qualitative-only)
+  return 0;
 }
 
 export function computeSystemDataConfidence(

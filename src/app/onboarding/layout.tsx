@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
-import { getSessionProfileId } from "@/lib/auth/session";
+import { getSessionProfileIdEnsured } from "@/lib/auth/session";
 
 export default async function OnboardingLayout({ children }: { children: React.ReactNode }) {
-  const profileId = await getSessionProfileId();
+  const profileId = await getSessionProfileIdEnsured();
   if (!profileId) {
     redirect("/?signin=required");
   }
