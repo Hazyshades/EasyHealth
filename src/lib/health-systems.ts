@@ -4,8 +4,10 @@ import {
   getBiomarkerDefinition,
   getScoreRole,
   listCoverageKeysForSystem,
+  observationIdentityKey,
   resolveCanonicalKey,
   type BodySystemId,
+  type ValueKind,
 } from "@/lib/biomarkers";
 
 export type DocumentType =
@@ -94,13 +96,18 @@ export type MarkerStatus = "in_range" | "out_of_range" | "unknown";
 export type ObservationInput = {
   biomarker_key: string;
   name: string;
-  value: number;
+  value: number | null;
   unit: string;
   ref_low: number | null;
   ref_high: number | null;
   observed_at: string;
   document_id: string | null;
   observation_kind?: "lab" | "instrumental";
+  value_kind?: ValueKind;
+  value_text?: string | null;
+  ordinal?: number | null;
+  specimen?: string;
+  modifier?: string;
   /** Present when unit conversion was applied for display. */
   converted?: boolean;
   conversion_note?: string | null;
@@ -121,7 +128,7 @@ export type MarkerSource = HealthProfileSource;
 export type SystemMarker = {
   key: string;
   name: string;
-  value: number;
+  value: number | null;
   unit: string;
   ref_low: number | null;
   ref_high: number | null;
@@ -131,6 +138,11 @@ export type SystemMarker = {
   observation_kind?: "lab" | "instrumental";
   source: MarkerSource | null;
   score_role?: "core" | "extended" | "display";
+  value_kind?: ValueKind;
+  value_text?: string | null;
+  ordinal?: number | null;
+  specimen?: string;
+  modifier?: string;
   converted?: boolean;
   conversion_note?: string | null;
   original_value?: number;
@@ -209,10 +221,12 @@ export function getSystemForMarker(key: string): BodySystemId {
 }
 
 export function getMarkerStatus(
-  value: number,
+  value: number | null,
   refLow: number | null,
-  refHigh: number | null
+  refHigh: number | null,
+  valueKind: ValueKind = "numeric"
 ): MarkerStatus {
+  if (valueKind !== "numeric" || value == null) return "unknown";
   if (refLow == null && refHigh == null) return "unknown";
   if (refLow != null && value < refLow) return "out_of_range";
   if (refHigh != null && value > refHigh) return "out_of_range";
@@ -221,12 +235,12 @@ export function getMarkerStatus(
 
 export function markerStateScore(
   status: MarkerStatus,
-  value: number,
+  value: number | null,
   refLow: number | null,
   refHigh: number | null
 ): number {
   if (status === "in_range") return IN_RANGE_SCORE;
-  if (status === "unknown") return UNKNOWN_REF_SCORE;
+  if (status === "unknown" || value == null) return UNKNOWN_REF_SCORE;
 
   let deviation = 0;
   if (refLow != null && value < refLow) {
@@ -238,13 +252,16 @@ export function markerStateScore(
   return Math.max(OUT_OF_RANGE_MIN, Math.round(OUT_OF_RANGE_BASE - deviation * 35));
 }
 
-function latestByKey(observations: ObservationInput[]): Map<string, ObservationInput> {
+function latestByIdentity(observations: ObservationInput[]): Map<string, ObservationInput> {
   const map = new Map<string, ObservationInput>();
   for (const obs of observations) {
     const key = resolveCanonicalKey(obs.biomarker_key, obs.name);
-    const existing = map.get(key);
+    const specimen = obs.specimen ?? "unspecified";
+    const modifier = obs.modifier ?? "none";
+    const id = observationIdentityKey(key, specimen, modifier);
+    const existing = map.get(id);
     if (!existing || obs.observed_at > existing.observed_at) {
-      map.set(key, { ...obs, biomarker_key: key });
+      map.set(id, { ...obs, biomarker_key: key, specimen, modifier });
     }
   }
   return map;
@@ -257,6 +274,9 @@ function average(values: number[]): number {
 
 function isScoreEligible(marker: SystemMarker): boolean {
   const role = marker.score_role ?? getScoreRole(marker.key);
+  const kind = marker.value_kind ?? "numeric";
+  if (kind !== "numeric" || marker.value == null) return false;
+  if (role === "display" || role === "extended") return false;
   return role === "core" && marker.status !== "unknown";
 }
 
@@ -296,9 +316,14 @@ export function computeSystemDataConfidence(
   const coveragePart =
     (coverageKeys.filter((key) => presentKeys.has(key)).length / coverageDenom) * 100;
 
-  // Ref quality among present markers that are not display-only
-  const scorable = markers.filter((m) => (m.score_role ?? getScoreRole(m.key)) !== "display");
-  const pool = scorable.length > 0 ? scorable : markers;
+  // Ref quality among present numeric non-display markers
+  const scorable = markers.filter(
+    (m) =>
+      (m.score_role ?? getScoreRole(m.key)) !== "display" &&
+      (m.value_kind ?? "numeric") === "numeric" &&
+      m.value != null
+  );
+  const pool = scorable.length > 0 ? scorable : markers.filter((m) => (m.value_kind ?? "numeric") === "numeric");
   const withRef = pool.filter((marker) => marker.status !== "unknown").length;
   const refPart = (withRef / pool.length) * 100;
 
@@ -354,26 +379,33 @@ export function buildHealthProfile(
   sources: HealthProfileSource[]
 ): Omit<HealthProfileResult, "holistic_synthesis"> {
   const sourceById = new Map(sources.map((source) => [source.id, source]));
-  const latest = latestByKey(observations);
+  const latest = latestByIdentity(observations);
   const bySystem = new Map<BodySystemId, SystemMarker[]>();
 
   for (const obs of latest.values()) {
     const key = resolveCanonicalKey(obs.biomarker_key, obs.name);
     const systemId = getSystemForMarker(key);
+    const valueKind = obs.value_kind ?? "numeric";
+    const numericValue = obs.value != null ? Number(obs.value) : null;
     const markers = bySystem.get(systemId) ?? [];
     markers.push({
       key,
       name: obs.name,
-      value: Number(obs.value),
+      value: numericValue,
       unit: obs.unit,
       ref_low: obs.ref_low,
       ref_high: obs.ref_high,
-      status: getMarkerStatus(Number(obs.value), obs.ref_low, obs.ref_high),
+      status: getMarkerStatus(numericValue, obs.ref_low, obs.ref_high, valueKind),
       observed_at: obs.observed_at,
       document_id: obs.document_id,
       observation_kind: obs.observation_kind,
       source: obs.document_id ? sourceById.get(obs.document_id) ?? null : null,
       score_role: getScoreRole(key),
+      value_kind: valueKind,
+      value_text: obs.value_text ?? null,
+      ordinal: obs.ordinal ?? null,
+      specimen: obs.specimen ?? "unspecified",
+      modifier: obs.modifier ?? "none",
       converted: obs.converted,
       conversion_note: obs.conversion_note,
       original_value: obs.original_value,

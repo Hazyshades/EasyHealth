@@ -23,8 +23,8 @@ Rules:
 - Normalize biomarker keys to snake_case using common lab keys (e.g. hba1c, total_protein, wbc, sodium, potassium, crp, hs_crp, uacr, ferritin, ldl, free_t4).
 - Prefer canonical names: sodium not na, bicarbonate not co2, lpa for Lp(a), transferrin_saturation for TSAT, vitamin_d for 25-OH D.
 - Use ISO date YYYY-MM-DD for observed_at when visible.
-- Include only quantitative numeric tests.
-- Skip qualitative results such as Negative/Positive.
+- Include quantitative tests and qualitative/semi-quantitative results (Negative, Trace, 1+).
+- For qualitative results use a string in value (e.g. "Negative"); for numbers use numeric value.
 - For values like "< 0.20", use the numeric part as value (0.2).
 - ref_low and ref_high must be numbers when a numeric reference range is shown.
 - Do not diagnose or interpret clinically. Only extract values from the document.`;

@@ -27,8 +27,10 @@ import {
   extractReferralFromImage,
   extractReferralFromText,
 } from "../../src/lib/documents/referral-extraction.js";
+import { buildPageOcrArtifact } from "../../src/lib/biomarkers/ocr-artifact.js";
 import {
   ocrFulltextPath,
+  ocrPageJsonPath,
   pagePreviewObjectPath,
   resolveOriginalStoragePath,
   thumbnailObjectPath,
@@ -232,9 +234,34 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
   const thumbPath = thumbnailObjectPath(profileId, documentId);
   await uploadToLabDocuments(thumbPath, thumbBuffer, "image/webp");
 
+  let ocrText = "";
+  if (mimeType === "application/pdf") {
+    ocrText = await extractPdfText(buffer);
+    const ocrPath = ocrFulltextPath(profileId, documentId);
+    await uploadToLabDocuments(ocrPath, ocrText, "text/plain");
+  }
+
   for (const page of pages) {
     const previewPath = pagePreviewObjectPath(profileId, documentId, page.pageNumber);
     await uploadToLabDocuments(previewPath, page.buffer, "image/webp");
+
+    // Page OCR artifact (schema_version 1). Full PDF text stored on page 1 when available.
+    let ocrJsonPath: string | null = null;
+    if (ocrText && page.pageNumber === 1) {
+      const artifact = buildPageOcrArtifact({
+        engine: mimeType === "application/pdf" ? "pdf-text" : "none",
+        page_number: page.pageNumber,
+        full_text: ocrText,
+        width: page.width,
+        height: page.height,
+      });
+      ocrJsonPath = ocrPageJsonPath(profileId, documentId, page.pageNumber);
+      await uploadToLabDocuments(
+        ocrJsonPath,
+        Buffer.from(JSON.stringify(artifact), "utf8"),
+        "application/json"
+      );
+    }
 
     await supabase.from("document_pages").insert({
       document_id: documentId,
@@ -243,14 +270,9 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
       width: page.width,
       height: page.height,
       preview_storage_path: previewPath,
+      ocr_text: page.pageNumber === 1 && ocrText ? ocrText.slice(0, 50000) : null,
+      ocr_json_storage_path: ocrJsonPath,
     });
-  }
-
-  let ocrText = "";
-  if (mimeType === "application/pdf") {
-    ocrText = await extractPdfText(buffer);
-    const ocrPath = ocrFulltextPath(profileId, documentId);
-    await uploadToLabDocuments(ocrPath, ocrText, "text/plain");
   }
 
   const { data: profile } = await supabase
@@ -316,23 +338,50 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
 
       if (extraction.biomarkers.length > 0) {
         await supabase.from("document_extracted_biomarkers").insert(
-          extraction.biomarkers.map((b) => ({
-            document_id: documentId,
-            profile_id: profileId,
-            biomarker_key: b.key,
-            biomarker_name: b.name,
-            raw_name: b.name,
-            value_numeric: b.value,
-            unit: b.unit,
-            reference_range: formatReferenceRange(b.ref_low ?? null, b.ref_high ?? null),
-            source_page: b.source_page ?? 1,
-            source_text: b.source_text,
-            confidence: b.confidence,
-            extraction_method: "llm",
-            processing_version: DOCUMENT_PROCESSING_VERSION,
-            extraction_model: extractionModel,
-            status: "needs_review",
-          }))
+          extraction.biomarkers.map((b) => {
+            const anyB = b as {
+              key: string;
+              name: string;
+              value: number | null;
+              value_text?: string | null;
+              value_kind?: string | null;
+              ordinal?: number | null;
+              unit: string;
+              ref_low?: number | null;
+              ref_high?: number | null;
+              source_page?: number | null;
+              source_text?: string | null;
+              confidence?: number | null;
+              specimen?: string | null;
+              modifier?: string | null;
+              reported_alt_value?: number | null;
+              reported_alt_unit?: string | null;
+            };
+            return {
+              document_id: documentId,
+              profile_id: profileId,
+              biomarker_key: anyB.key,
+              biomarker_name: anyB.name,
+              raw_name: anyB.name,
+              value_numeric: anyB.value,
+              value_text: anyB.value_text ?? (anyB.value != null ? String(anyB.value) : null),
+              value_kind: anyB.value_kind ?? (anyB.value != null ? "numeric" : "text"),
+              ordinal: anyB.ordinal ?? null,
+              unit: anyB.unit,
+              reference_range: formatReferenceRange(anyB.ref_low ?? null, anyB.ref_high ?? null),
+              source_page: anyB.source_page ?? 1,
+              source_text: anyB.source_text,
+              confidence: anyB.confidence,
+              specimen: anyB.specimen ?? null,
+              modifier: anyB.modifier ?? null,
+              reported_alt_value: anyB.reported_alt_value ?? null,
+              reported_alt_unit: anyB.reported_alt_unit ?? null,
+              extraction_method: "llm",
+              processing_version: DOCUMENT_PROCESSING_VERSION,
+              extraction_model: extractionModel,
+              status: "needs_review",
+            };
+          })
         );
         processingStatus = "needs_review";
       }

@@ -27,6 +27,14 @@ export function ocrFulltextPath(profileId: string, documentId: string): string {
   return `${documentStoragePrefix(profileId, documentId)}/ocr/fulltext.txt`;
 }
 
+export function ocrPageJsonPath(
+  profileId: string,
+  documentId: string,
+  pageNumber: number
+): string {
+  return `${documentStoragePrefix(profileId, documentId)}/ocr/page-${pageNumber}.json`;
+}
+
 export function extractionJsonPath(profileId: string, documentId: string): string {
   return `${documentStoragePrefix(profileId, documentId)}/extraction/biomarkers.json`;
 }

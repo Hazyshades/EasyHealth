@@ -23,7 +23,7 @@ type Observation = {
   id: string;
   name: string;
   biomarker_key: string;
-  value: number;
+  value: number | null;
   unit: string;
   ref_low: number | null;
   ref_high: number | null;
@@ -34,6 +34,10 @@ type Observation = {
   conversion_note?: string | null;
   original_value?: number;
   original_unit?: string;
+  value_kind?: string;
+  value_text?: string | null;
+  specimen?: string;
+  modifier?: string;
 };
 
 type StatusFilter = "all" | "normal" | "attention" | "low" | "high";
@@ -47,7 +51,8 @@ const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
 ];
 
 function observationStatus(o: Observation): StatusFilter {
-  if (o.ref_low == null || o.ref_high == null) return "normal";
+  if (o.value_kind && o.value_kind !== "numeric") return "normal";
+  if (o.value == null || o.ref_low == null || o.ref_high == null) return "normal";
   if (o.value < o.ref_low) return "low";
   if (o.value > o.ref_high) return "high";
   return "normal";
@@ -132,9 +137,12 @@ export default function BiomarkersPage() {
   const selectedName =
     observations.find((o) => o.biomarker_key === selectedKey)?.name ?? selectedKey;
 
-  const chartData = observations
-    .filter((o) => o.biomarker_key === selectedKey)
+  const selectedSeries = observations.filter((o) => o.biomarker_key === selectedKey);
+  const chartData = selectedSeries
+    .filter((o) => o.value != null && (!o.value_kind || o.value_kind === "numeric"))
     .map((o) => ({ observed_at: o.observed_at, value: Number(o.value) }));
+  const chartIsQualitativeOnly =
+    selectedSeries.length > 0 && chartData.length === 0;
 
   return (
     <div>
@@ -205,7 +213,14 @@ export default function BiomarkersPage() {
             </SelectContent>
           </Select>
         </div>
-        <BiomarkerChart data={chartData} biomarkerName={selectedName} />
+        {chartIsQualitativeOnly ? (
+          <p className="text-sm text-[var(--eh-text-secondary)]">
+            This biomarker has text or qualitative results only — numeric trend chart is not
+            available.
+          </p>
+        ) : (
+          <BiomarkerChart data={chartData} biomarkerName={selectedName} />
+        )}
       </SurfaceCard>
 
       <p className="mt-6 text-xs text-[var(--eh-text-muted)]">{MEDICAL_DISCLAIMER}</p>

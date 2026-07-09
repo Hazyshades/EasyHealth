@@ -28,3 +28,21 @@ export {
 } from "./normalize";
 
 export { presentObservation, presentObservations, type NativeObservation } from "./units";
+
+export {
+  parseLabValueCell,
+  inferSpecimen,
+  inferModifier,
+  observationIdentityKey,
+  type ParsedLabValue,
+  type ValueKind,
+  type Specimen,
+  type Modifier,
+} from "./qualitative";
+
+export {
+  buildPageOcrArtifact,
+  isPageOcrArtifact,
+  type PageOcrArtifact,
+  type PageOcrBlock,
+} from "./ocr-artifact";

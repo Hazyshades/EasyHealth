@@ -143,8 +143,15 @@ export function HealthProfileDrawer({
                 <li key={marker.key} className="rounded-lg border p-3 text-sm">
                   <p className="font-medium">{marker.name}</p>
                   <p>
-                    {marker.value} {marker.unit}
+                    {marker.value_kind && marker.value_kind !== "numeric"
+                      ? marker.value_text ?? "—"
+                      : marker.value != null
+                        ? `${marker.value} ${marker.unit}`
+                        : marker.value_text ?? "—"}
                   </p>
+                  {marker.specimen && marker.specimen !== "unspecified" && (
+                    <p className="text-xs text-muted-foreground">Specimen: {marker.specimen}</p>
+                  )}
                   {marker.converted && marker.original_unit != null && (
                     <p className="text-xs text-muted-foreground" title={marker.conversion_note ?? undefined}>
                       Converted for display · Original: {marker.original_value} {marker.original_unit}

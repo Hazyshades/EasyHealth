@@ -17,7 +17,7 @@ type Observation = {
   id: string;
   name: string;
   biomarker_key: string;
-  value: number;
+  value: number | null;
   unit: string;
   ref_low: number | null;
   ref_high: number | null;
@@ -28,6 +28,10 @@ type Observation = {
   conversion_note?: string | null;
   original_value?: number;
   original_unit?: string;
+  value_kind?: string;
+  value_text?: string | null;
+  specimen?: string;
+  modifier?: string;
 };
 
 type StatusInfo = {
@@ -35,8 +39,19 @@ type StatusInfo = {
   variant: "success" | "warning" | "info" | "neutral";
 };
 
+function displayValue(o: Observation): string {
+  if (o.value_kind && o.value_kind !== "numeric") {
+    return o.value_text?.trim() || "—";
+  }
+  if (o.value == null) return o.value_text?.trim() || "—";
+  return `${o.value}${o.unit ? ` ${o.unit}` : ""}`;
+}
+
 function biomarkerStatus(o: Observation): StatusInfo {
-  if (o.ref_low == null || o.ref_high == null) {
+  if (o.value_kind && o.value_kind !== "numeric") {
+    return { label: "Text result", variant: "neutral" };
+  }
+  if (o.value == null || o.ref_low == null || o.ref_high == null) {
     return { label: "No range", variant: "neutral" };
   }
   if (o.value < o.ref_low) return { label: "Low", variant: "info" };
@@ -75,11 +90,19 @@ export function BiomarkerTable({ observations }: { observations: Observation[] }
               const status = biomarkerStatus(o);
               return (
                 <DataTableRow key={o.id}>
-                  <DataTableCell className="font-medium">{o.name}</DataTableCell>
+                  <DataTableCell className="font-medium">
+                    {o.name}
+                    {(o.specimen && o.specimen !== "unspecified") ||
+                    (o.modifier && o.modifier !== "none") ? (
+                      <span className="mt-0.5 block text-[11px] font-normal text-[var(--eh-text-muted)]">
+                        {[o.specimen !== "unspecified" ? o.specimen : null, o.modifier !== "none" ? o.modifier : null]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    ) : null}
+                  </DataTableCell>
                   <DataTableCell>
-                    <span>
-                      {o.value} {o.unit}
-                    </span>
+                    <span>{displayValue(o)}</span>
                     {o.converted && o.original_unit != null && (
                       <span
                         className="mt-0.5 block text-[11px] text-[var(--eh-text-muted)]"
@@ -129,7 +152,7 @@ export function BiomarkerTable({ observations }: { observations: Observation[] }
                   <div>
                     <p className="font-medium text-[var(--eh-text-primary)]">{o.name}</p>
                     <p className="mt-1 text-sm text-[var(--eh-text-primary)]">
-                      {o.value} {o.unit}
+                      {displayValue(o)}
                       {o.converted && o.original_unit != null && (
                         <span className="mt-0.5 block text-[11px] text-[var(--eh-text-muted)]">
                           Lab: {o.original_value} {o.original_unit}

@@ -19,7 +19,7 @@ export async function GET(_req: Request, context: RouteContext) {
   const { data: items, error: listError } = await supabase
     .from("document_extracted_biomarkers")
     .select(
-      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, unit, reference_range, source_page, source_text, confidence, status, processing_version, extraction_model, created_at"
+      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, reference_range, source_page, source_text, confidence, status, processing_version, extraction_model, specimen, modifier, reported_alt_value, reported_alt_unit, created_at"
     )
     .eq("document_id", id)
     .eq("profile_id", profileId)

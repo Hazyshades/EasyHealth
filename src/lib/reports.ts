@@ -147,8 +147,10 @@ export type MultiSourceReportContext = {
 };
 
 export function isAbnormalObservation(o: Pick<ObservationRow, "value" | "ref_low" | "ref_high">): boolean {
-  if (o.ref_low != null && o.value < o.ref_low) return true;
-  if (o.ref_high != null && o.value > o.ref_high) return true;
+  if (o.value == null || Number.isNaN(Number(o.value))) return false;
+  const value = Number(o.value);
+  if (o.ref_low != null && value < o.ref_low) return true;
+  if (o.ref_high != null && value > o.ref_high) return true;
   return false;
 }
 

@@ -243,4 +243,86 @@ const conf = computeSystemDataConfidence("blood", bloodMarkers);
 assert.ok(conf >= 80, `blood confidence expected high without differentials, got ${conf}`);
 assert.ok(computeSystemStateScore(bloodMarkers) >= 90);
 
+// Qualitative + specialty non-score
+import { parseLabValueCell, observationIdentityKey } from "../src/lib/biomarkers";
+
+const neg = parseLabValueCell("Negative");
+assert.equal(neg?.value_kind, "ordinal");
+assert.equal(neg?.ordinal, 0);
+assert.equal(neg?.value, null);
+
+const twoPlus = parseLabValueCell("2+");
+assert.equal(twoPlus?.ordinal, 3);
+
+const num = parseLabValueCell("5.2");
+assert.equal(num?.value_kind, "numeric");
+assert.equal(num?.value, 5.2);
+
+// PSA display-only does not tank cardiovascular score
+const psaProfile = buildHealthProfile(
+  [
+    {
+      biomarker_key: "ldl",
+      name: "LDL",
+      value: 90,
+      unit: "mg/dL",
+      ref_low: 0,
+      ref_high: 100,
+      observed_at: "2026-01-01",
+      document_id: null,
+    },
+    {
+      biomarker_key: "psa",
+      name: "PSA",
+      value: 20,
+      unit: "ng/mL",
+      ref_low: 0,
+      ref_high: 4,
+      observed_at: "2026-01-01",
+      document_id: null,
+      value_kind: "numeric",
+    },
+    {
+      biomarker_key: "urine_ketones",
+      name: "Ketones",
+      value: null,
+      unit: "",
+      ref_low: null,
+      ref_high: null,
+      observed_at: "2026-01-01",
+      document_id: null,
+      value_kind: "ordinal",
+      value_text: "Negative",
+      ordinal: 0,
+      specimen: "urine",
+    },
+  ],
+  []
+);
+const systems = psaProfile.systems.map((s) => s.id);
+assert.ok(systems.includes("cardiovascular"));
+const cardioOnly = psaProfile.systems.find((s) => s.id === "cardiovascular");
+assert.ok(cardioOnly && cardioOnly.state_score >= 90);
+// PSA stays general if only specialty — not a scored organ
+const general = psaProfile.systems.find((s) => s.id === "general");
+if (general) {
+  assert.equal(computeSystemStateScore(general.markers.filter((m) => m.key === "psa")), 0);
+}
+
+assert.equal(
+  observationIdentityKey("creatinine", "serum", "none") !==
+    observationIdentityKey("creatinine", "urine", "none"),
+  true
+);
+
+// OCR artifact shape
+import { buildPageOcrArtifact, isPageOcrArtifact } from "../src/lib/biomarkers";
+const art = buildPageOcrArtifact({
+  engine: "pdf-text",
+  page_number: 1,
+  full_text: "Glucose 90",
+});
+assert.equal(isPageOcrArtifact(art), true);
+assert.equal(art.schema_version, 1);
+
 console.log("verify-biomarkers: all checks passed");

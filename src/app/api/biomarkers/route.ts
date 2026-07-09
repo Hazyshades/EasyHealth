@@ -22,20 +22,44 @@ export async function GET() {
 
     const presented = (observations ?? []).map((row) => {
       const key = resolveCanonicalKey(row.biomarker_key, row.name ?? "");
-      const display = presentObservation(
-        {
-          biomarker_key: key,
-          value: Number(row.value),
-          unit: row.unit ?? "",
-          ref_low: row.ref_low != null ? Number(row.ref_low) : null,
-          ref_high: row.ref_high != null ? Number(row.ref_high) : null,
-        },
-        unitSystem
-      );
+      const valueKind = (row.value_kind as string) ?? "numeric";
+      const numericValue = row.value != null ? Number(row.value) : null;
+
+      let display = {
+        value: numericValue as number,
+        unit: row.unit ?? "",
+        ref_low: row.ref_low != null ? Number(row.ref_low) : null,
+        ref_high: row.ref_high != null ? Number(row.ref_high) : null,
+        converted: false,
+        conversion_note: null as string | null,
+        original_value: numericValue as number,
+        original_unit: row.unit ?? "",
+        original_ref_low: row.ref_low != null ? Number(row.ref_low) : null,
+        original_ref_high: row.ref_high != null ? Number(row.ref_high) : null,
+      };
+
+      if (valueKind === "numeric" && numericValue != null) {
+        display = presentObservation(
+          {
+            biomarker_key: key,
+            value: numericValue,
+            unit: row.unit ?? "",
+            ref_low: row.ref_low != null ? Number(row.ref_low) : null,
+            ref_high: row.ref_high != null ? Number(row.ref_high) : null,
+          },
+          unitSystem
+        );
+      }
+
       return {
         ...row,
         biomarker_key: key,
-        value: display.value,
+        value: valueKind === "numeric" ? display.value : null,
+        value_kind: valueKind,
+        value_text: row.value_text ?? (numericValue != null ? String(numericValue) : null),
+        ordinal: row.ordinal ?? null,
+        specimen: row.specimen ?? "unspecified",
+        modifier: row.modifier ?? "none",
         unit: display.unit,
         ref_low: display.ref_low,
         ref_high: display.ref_high,

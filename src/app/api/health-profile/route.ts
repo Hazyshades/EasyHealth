@@ -30,7 +30,7 @@ export async function GET() {
       supabase
         .from("observations")
         .select(
-          "biomarker_key, name, value, unit, ref_low, ref_high, observed_at, document_id, observation_kind"
+          "biomarker_key, name, value, unit, ref_low, ref_high, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier"
         )
         .eq("profile_id", profileId),
       supabase
@@ -71,10 +71,39 @@ export async function GET() {
   const profile = buildHealthProfile(
     scopedObservations.map((o) => {
       const key = resolveCanonicalKey(o.biomarker_key, o.name ?? "");
+      const valueKind =
+        o.value_kind === "qualitative" ||
+        o.value_kind === "ordinal" ||
+        o.value_kind === "text" ||
+        o.value_kind === "numeric"
+          ? o.value_kind
+          : "numeric";
+      const numericValue = o.value != null ? Number(o.value) : null;
+
+      if (valueKind !== "numeric" || numericValue == null) {
+        return {
+          biomarker_key: key,
+          name: o.name,
+          value: null,
+          unit: o.unit ?? "",
+          ref_low: o.ref_low != null ? Number(o.ref_low) : null,
+          ref_high: o.ref_high != null ? Number(o.ref_high) : null,
+          observed_at: o.observed_at,
+          document_id: o.document_id,
+          observation_kind:
+            o.observation_kind === "instrumental" ? "instrumental" : "lab",
+          value_kind: valueKind,
+          value_text: o.value_text ?? null,
+          ordinal: o.ordinal != null ? Number(o.ordinal) : null,
+          specimen: o.specimen ?? "unspecified",
+          modifier: o.modifier ?? "none",
+        };
+      }
+
       const display = presentObservation(
         {
           biomarker_key: key,
-          value: Number(o.value),
+          value: numericValue,
           unit: o.unit ?? "",
           ref_low: o.ref_low != null ? Number(o.ref_low) : null,
           ref_high: o.ref_high != null ? Number(o.ref_high) : null,
@@ -92,6 +121,11 @@ export async function GET() {
         document_id: o.document_id,
         observation_kind:
           o.observation_kind === "instrumental" ? "instrumental" : "lab",
+        value_kind: "numeric" as const,
+        value_text: o.value_text ?? String(display.value),
+        ordinal: null,
+        specimen: o.specimen ?? "unspecified",
+        modifier: o.modifier ?? "none",
         converted: display.converted,
         conversion_note: display.conversion_note,
         original_value: display.original_value,

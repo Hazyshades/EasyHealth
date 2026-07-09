@@ -79,12 +79,16 @@ type ExtractedBiomarker = {
   id: string;
   biomarker_name: string;
   value_numeric: number | null;
+  value_text?: string | null;
+  value_kind?: string | null;
   unit: string | null;
   reference_range: string | null;
   source_page: number | null;
   source_text: string | null;
   confidence: number | null;
   status: string;
+  specimen?: string | null;
+  modifier?: string | null;
 };
 
 function statusVariant(
@@ -586,7 +590,11 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                             {b.biomarker_name}
                           </p>
                           <p className="text-sm text-[var(--eh-text-secondary)]">
-                            {b.value_numeric ?? "—"} {b.unit ?? ""}
+                            {b.value_kind && b.value_kind !== "numeric"
+                              ? b.value_text ?? "—"
+                              : b.value_numeric != null
+                                ? `${b.value_numeric}${b.unit ? ` ${b.unit}` : ""}`
+                                : b.value_text ?? "—"}
                             {b.reference_range ? ` · ref ${b.reference_range}` : ""}
                           </p>
                           <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
@@ -594,6 +602,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                               ? `${Math.round(b.confidence * 100)}% confidence`
                               : ""}
                             {b.source_page ? ` · page ${b.source_page}` : ""}
+                            {b.source_text ? ` · “${b.source_text.slice(0, 80)}${b.source_text.length > 80 ? "…" : ""}”` : ""}
                             {b.status === "accepted" ? " · accepted" : ""}
                           </p>
                         </div>
