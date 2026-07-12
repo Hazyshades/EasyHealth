@@ -136,13 +136,23 @@ async function runTextOrImageExtraction<T>(
   });
 }
 
-async function clearPriorExtractions(documentId: string) {
-  await supabase.from("document_extracted_biomarkers").delete().eq("document_id", documentId);
+async function clearPriorExtractions(documentId: string, documentType: string) {
+  if (documentType === "lab_result") {
+    // Keep immutable extracted evidence and its append-only normalization audit trail.
+    // The next extraction rows use the default `is_current = true` value.
+    await supabase
+      .from("document_extracted_biomarkers")
+      .update({ is_current: false, superseded_at: new Date().toISOString() })
+      .eq("document_id", documentId)
+      .eq("is_current", true);
+  } else {
+    await supabase.from("document_extracted_biomarkers").delete().eq("document_id", documentId);
+    await supabase.from("observations").delete().eq("document_id", documentId);
+  }
   await supabase.from("document_extracted_findings").delete().eq("document_id", documentId);
   await supabase.from("document_extracted_clinical_notes").delete().eq("document_id", documentId);
   await supabase.from("document_extracted_prescriptions").delete().eq("document_id", documentId);
   await supabase.from("document_extracted_referrals").delete().eq("document_id", documentId);
-  await supabase.from("observations").delete().eq("document_id", documentId);
   await supabase.from("document_pages").delete().eq("document_id", documentId);
 }
 
@@ -206,7 +216,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
     })
     .eq("id", doc.id);
 
-  await clearPriorExtractions(doc.id);
+  await clearPriorExtractions(doc.id, documentType);
 
   const { data: fileData, error: downloadError } = await supabase.storage
     .from(LAB_DOCUMENTS_BUCKET)
@@ -368,7 +378,11 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
               value_kind: anyB.value_kind ?? (anyB.value != null ? "numeric" : "text"),
               ordinal: anyB.ordinal ?? null,
               unit: anyB.unit,
+              raw_unit: anyB.unit,
+              raw_value_text: anyB.value_text ?? (anyB.value != null ? String(anyB.value) : null),
               reference_range: formatReferenceRange(anyB.ref_low ?? null, anyB.ref_high ?? null),
+              raw_reference_range: formatReferenceRange(anyB.ref_low ?? null, anyB.ref_high ?? null),
+              section_context: null,
               source_page: anyB.source_page ?? 1,
               source_text: anyB.source_text,
               confidence: anyB.confidence,
@@ -380,6 +394,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
               processing_version: DOCUMENT_PROCESSING_VERSION,
               extraction_model: extractionModel,
               status: "needs_review",
+              is_current: true,
             };
           })
         );

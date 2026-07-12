@@ -12,11 +12,15 @@ import {
 } from "@/lib/documents/access";
 import { normalizeDocumentType } from "@/lib/health-systems";
 import { SIGNED_URL_TTL_SECONDS } from "@/lib/documents/constants";
+import {
+  buildNormalizationReview,
+  type NormalizationRevisionSummary,
+} from "@/lib/documents/normalization-review";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 const EXTRACTED_BIOMARKER_SELECT =
-  "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, reference_range, source_page, source_text, confidence, status, processing_version, extraction_model, specimen, modifier, reported_alt_value, reported_alt_unit, created_at";
+  "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, source_page, source_text, confidence, status, processing_version, extraction_model, specimen, modifier, reported_alt_value, reported_alt_unit, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, resolver_evidence, registry_version, registry_manifest_digest, resolver_version, normalization_schema_version, verification_status, created_at";
 
 const OBSERVATION_SELECT =
   "id, biomarker_key, name, value, unit, ref_low, ref_high, observed_at, source_extracted_biomarker_id";
@@ -66,6 +70,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
       .select(EXTRACTED_BIOMARKER_SELECT)
       .eq("document_id", id)
       .eq("profile_id", profileId)
+      .eq("is_current", true)
       .order("biomarker_name", { ascending: true }),
     supabase
       .from("observations")
@@ -121,7 +126,31 @@ export async function GET(req: NextRequest, context: RouteContext) {
     : null;
 
   const extractedItems = extractedResult.data ?? [];
-  const extractedCount = extractedItems.length;
+  const extractedIds = extractedItems.map((item) => item.id);
+  const revisionsResult = extractedIds.length
+    ? await supabase
+        .from("observation_normalization_revisions")
+        .select(
+          "id, extracted_biomarker_id, measurement_definition_key, canonical_biomarker_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, registry_version, resolver_version, normalization_schema_version, created_at"
+        )
+        .in("extracted_biomarker_id", extractedIds)
+        .order("created_at", { ascending: false })
+    : { data: [] as Array<Record<string, unknown>> };
+  const revisionsByExtractedId = new Map<string, Array<Record<string, unknown>>>();
+  for (const revision of revisionsResult.data ?? []) {
+    const key = String(revision.extracted_biomarker_id);
+    const entries = revisionsByExtractedId.get(key) ?? [];
+    entries.push(revision as Record<string, unknown>);
+    revisionsByExtractedId.set(key, entries);
+  }
+  const enrichedExtractedItems = extractedItems.map((item) => ({
+    ...item,
+    normalization: buildNormalizationReview(
+      item,
+      (revisionsByExtractedId.get(item.id) ?? []) as unknown as NormalizationRevisionSummary[]
+    ),
+  }));
+  const extractedCount = enrichedExtractedItems.length;
 
   const file =
     fileSigned != null
@@ -175,7 +204,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
     clinical_note: clinicalNoteResult.data ?? null,
     prescription: prescriptionResult.data ?? null,
     referral: referralResult.data ?? null,
-    extracted_biomarkers: extractedItems,
+    extracted_biomarkers: enrichedExtractedItems,
     observations: observationsResult.data ?? [],
     file,
     current_page,

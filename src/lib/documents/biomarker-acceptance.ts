@@ -2,9 +2,16 @@ import {
   getBiomarkerDefinition,
   inferModifier,
   inferSpecimen,
+  resolveMeasurementDefinition,
   normalizeBiomarkerKey,
   parseLabValueCell,
 } from "@/lib/biomarkers";
+import {
+  createNormalizationCandidate,
+  measurementResolutionMode,
+  promoteNormalizationRevision,
+} from "@/lib/documents/normalization-revisions";
+import { recordMeasurementShadowEvent } from "@/lib/documents/measurement-shadow";
 import { parseReferenceRange } from "@/lib/schemas/biomarkers";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -28,6 +35,10 @@ type ExtractedBiomarkerRow = {
   modifier?: string | null;
   reported_alt_value?: number | null;
   reported_alt_unit?: string | null;
+  raw_unit?: string | null;
+  raw_value_text?: string | null;
+  raw_reference_range?: string | null;
+  section_context?: string | null;
 };
 
 export class BiomarkerAcceptanceError extends Error {
@@ -57,10 +68,11 @@ export async function acceptExtractedBiomarkers(options: {
   const { data: rows, error: fetchError } = await supabase
     .from("document_extracted_biomarkers")
     .select(
-      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, reference_range, status, source_page, source_text, bounding_box, confidence, specimen, modifier, reported_alt_value, reported_alt_unit"
+      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, reference_range, raw_unit, raw_value_text, raw_reference_range, section_context, status, source_page, source_text, bounding_box, confidence, specimen, modifier, reported_alt_value, reported_alt_unit"
     )
     .eq("document_id", documentId)
     .eq("profile_id", profileId)
+    .eq("is_current", true)
     .in("id", ids);
 
   if (fetchError) {
@@ -141,26 +153,98 @@ export async function acceptExtractedBiomarkers(options: {
         reported_alt_value: row.reported_alt_value ?? null,
         reported_alt_unit: row.reported_alt_unit ?? null,
         source_extracted_biomarker_id: row.id,
+        measurement_input: {
+          rawLabel: row.raw_name ?? row.biomarker_name,
+          rawUnit: row.raw_unit ?? row.unit,
+          specimen,
+          modifier,
+          section: row.section_context ?? null,
+          referenceLow: ref_low,
+          referenceHigh: ref_high,
+          extractionConfidence: row.confidence ?? null,
+          proposedKey: row.biomarker_key,
+        },
       };
     })
     .filter((row): row is NonNullable<typeof row> => row !== null);
 
-  const acceptedIds = observations.map((row) => row.source_extracted_biomarker_id);
+  const mode = measurementResolutionMode();
+  const acceptedIds: string[] = [];
 
   if (observations.length > 0) {
-    const { error: upsertError } = await supabase.from("observations").upsert(observations, {
-      onConflict: "profile_id,biomarker_key,observed_at,specimen,modifier",
-    });
-    if (upsertError) {
-      throw new BiomarkerAcceptanceError(upsertError.message);
+    if (mode === "promote") {
+      for (const prepared of observations) {
+        const candidate = await createNormalizationCandidate({
+          extractedBiomarkerId: prepared.source_extracted_biomarker_id,
+          input: prepared.measurement_input,
+          verificationStatus: "user_verified",
+          actorId: profileId,
+        });
+        if (candidate.resolution.result !== "resolved" || !candidate.resolution.canonicalKey) continue;
+
+        const { measurement_input: _measurementInput, ...observation } = prepared;
+        const { data: activeObservation, error: upsertError } = await supabase
+          .from("observations")
+          .upsert(
+            {
+              ...observation,
+              biomarker_key: candidate.resolution.canonicalKey,
+              measurement_definition_key: candidate.resolution.measurementDefinitionKey,
+            },
+            { onConflict: "profile_id,biomarker_key,observed_at,specimen,modifier" }
+          )
+          .select("id")
+          .single();
+        if (upsertError) throw new BiomarkerAcceptanceError(upsertError.message);
+        await promoteNormalizationRevision({
+          revisionId: candidate.revision.id,
+          observationId: activeObservation.id,
+          actorId: profileId,
+        });
+        acceptedIds.push(prepared.source_extracted_biomarker_id);
+      }
+    } else {
+      if (mode === "shadow") {
+        await Promise.all(
+          observations.map(async (prepared) => {
+            const candidate = await createNormalizationCandidate({
+              extractedBiomarkerId: prepared.source_extracted_biomarker_id,
+              input: prepared.measurement_input,
+            });
+            await recordMeasurementShadowEvent({
+              profileId,
+              documentId,
+              extractedBiomarkerId: prepared.source_extracted_biomarker_id,
+              eventType: "resolution",
+              legacyBiomarkerKey: prepared.biomarker_key,
+              resolution: candidate.resolution,
+              promotionRejectionReason: "rollout_not_enabled",
+              context: {
+                normalized_unit: candidate.resolution.unit.normalizedUnit,
+                unit_dimension: candidate.resolution.unit.dimension,
+                specimen: prepared.specimen,
+                modifier: prepared.modifier,
+              },
+            });
+          })
+        );
+      }
+      const legacyObservations = observations.map(({ measurement_input: _measurementInput, ...observation }) => observation);
+      const { error: upsertError } = await supabase.from("observations").upsert(legacyObservations, {
+        onConflict: "profile_id,biomarker_key,observed_at,specimen,modifier",
+      });
+      if (upsertError) throw new BiomarkerAcceptanceError(upsertError.message);
+      acceptedIds.push(...observations.map((row) => row.source_extracted_biomarker_id));
     }
 
-    const { error: updateError } = await supabase
-      .from("document_extracted_biomarkers")
-      .update({ status: "accepted" })
-      .in("id", acceptedIds);
-    if (updateError) {
-      throw new BiomarkerAcceptanceError(updateError.message);
+    if (acceptedIds.length > 0) {
+      const { error: updateError } = await supabase
+        .from("document_extracted_biomarkers")
+        .update({ status: "accepted" })
+        .in("id", acceptedIds);
+      if (updateError) {
+        throw new BiomarkerAcceptanceError(updateError.message);
+      }
     }
   }
 
@@ -171,6 +255,7 @@ export async function acceptExtractedBiomarkers(options: {
     .from("document_extracted_biomarkers")
     .select("id", { count: "exact", head: true })
     .eq("document_id", documentId)
+    .eq("is_current", true)
     .in("status", ["needs_review", "pending_review"]);
 
   if (countError) {

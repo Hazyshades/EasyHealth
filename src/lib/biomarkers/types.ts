@@ -14,6 +14,139 @@ export type LegacyBodySystemId = "vitamins";
 
 export type ScoreRole = "core" | "extended" | "display";
 
+export type ResolverResult = "resolved" | "ambiguous" | "unmapped";
+
+export type VerificationStatus = "pending" | "user_verified" | "manually_corrected";
+
+export type AssessmentCompatibility = "compatible" | "display_only" | "incompatible";
+
+export type AnalyteKey = string;
+export type MeasurementDefinitionKey = string;
+export type NormalizedUnitKey = string;
+
+export type UnitDimension =
+  | "ratio"
+  | "cell_concentration"
+  | "volume"
+  | "mass_concentration"
+  | "molar_concentration";
+
+/** @deprecated Use `UnitDimension`; retained for registry call-site compatibility. */
+export type UnitToken = UnitDimension | "unknown";
+
+export type MissingUnitPolicy = "reject" | "ambiguous" | "display_only";
+
+export type MeasurementAlias = {
+  value: string;
+  normalizedValue: string;
+  source: "canonical" | "registry" | "laboratory" | "fixture";
+  matchType: "exact" | "normalized" | "ocr_variant";
+  locale?: string;
+  laboratory?: string;
+};
+
+export type MeasurementUnitPolicy = {
+  dimensions: readonly UnitDimension[];
+  acceptedUnits: readonly NormalizedUnitKey[];
+  canonicalUnit: NormalizedUnitKey | null;
+  conversionPolicyRef: string | null;
+  missingUnitPolicy: MissingUnitPolicy;
+};
+
+export type NormalizedMeasurementUnit = {
+  raw: string;
+  normalizedUnit: NormalizedUnitKey | null;
+  dimension: UnitDimension | null;
+};
+
+export type ResolutionEvidenceSource =
+  | "label"
+  | "unit"
+  | "specimen"
+  | "modifier"
+  | "section"
+  | "neighbour"
+  | "reference"
+  | "manual";
+
+export type ResolutionEvidenceStrength = "hard" | "strong" | "weak";
+
+export type ResolutionReasonCode =
+  | "definition_key_match"
+  | "alias_exact_match"
+  | "alias_normalized_match"
+  | "alias_ocr_variant_match"
+  | "proposed_key_match"
+  | "unit_compatible"
+  | "unit_dimension_conflict"
+  | "unit_not_accepted"
+  | "unit_missing"
+  | "specimen_compatible"
+  | "specimen_conflict"
+  | "modifier_compatible"
+  | "modifier_conflict"
+  | "section_support"
+  | "neighbour_support"
+  | "reference_shape_support"
+  | "manual_selection"
+  | "candidate_not_selected";
+
+export type ResolutionEvidence = {
+  code: ResolutionReasonCode;
+  source: ResolutionEvidenceSource;
+  strength: ResolutionEvidenceStrength;
+  observed?: string;
+  expected?: readonly string[];
+};
+
+export type CandidateEvidence = {
+  candidateKey: MeasurementDefinitionKey;
+  accepted: readonly ResolutionEvidence[];
+  rejected: readonly ResolutionEvidence[];
+  score: number | null;
+};
+
+export type MappingConfidenceBand = "high" | "medium" | "low";
+
+export type MeasurementDefinition = {
+  key: MeasurementDefinitionKey;
+  analyteKey: AnalyteKey;
+  displayName: string;
+  canonicalKey: string | null;
+  aliases: readonly MeasurementAlias[];
+  unitPolicy: MeasurementUnitPolicy;
+  allowedSpecimens?: string[];
+  requiredModifiers?: string[];
+  assessmentCompatibility: AssessmentCompatibility;
+};
+
+export type MeasurementResolutionInput = {
+  rawLabel: string;
+  rawUnit?: string | null;
+  specimen?: string | null;
+  modifier?: string | null;
+  section?: string | null;
+  neighbourLabels?: string[];
+  referenceLow?: number | null;
+  referenceHigh?: number | null;
+  extractionConfidence?: number | null;
+  proposedKey?: string | null;
+};
+
+export type MeasurementResolution = {
+  result: ResolverResult;
+  measurementDefinitionKey: string | null;
+  canonicalKey: string | null;
+  mappingConfidence: number;
+  mappingConfidenceBand: MappingConfidenceBand;
+  unit: NormalizedMeasurementUnit;
+  /** @deprecated Use `unit.dimension`; retained for callers built on Registry 2.0 draft types. */
+  unitToken: UnitToken;
+  candidateKeys: string[];
+  candidateEvidence: readonly CandidateEvidence[];
+  reasons: readonly ResolutionReasonCode[];
+};
+
 export type NamedBodySystemId = Exclude<BodySystemId, "general">;
 
 /** Alternative biomarker keys that satisfy one score-readiness condition. */

@@ -41,7 +41,7 @@ export function HealthAssessmentWidget({ data }: DashboardWidgetProps) {
       recordsUsedCount={healthProfile.records_used_count}
       scoreableNamedSystemCount={healthProfile.scoreable_named_system_count}
       scoreableNamedSystemTotal={healthProfile.scoreable_named_system_total}
-      dismissalKey={healthProfile.overall_assessment_dismissal_key}
+      dismissible={false}
       lastUpdated={lastUpdated}
       variant="compact"
       showProfileLink

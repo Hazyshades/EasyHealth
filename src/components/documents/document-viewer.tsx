@@ -95,6 +95,33 @@ type ExtractedBiomarker = {
   status: string;
   specimen?: string | null;
   modifier?: string | null;
+  normalization?: {
+    result: "resolved" | "ambiguous" | "unmapped";
+    candidateDefinitionKey: string | null;
+    mappingConfidence: number;
+    mappingConfidenceBand: "high" | "medium" | "low";
+    candidateEvidence: Array<{
+      candidateKey: string;
+      accepted: Array<{ code: string }>;
+      rejected: Array<{ code: string }>;
+    }>;
+    manualOptions: Array<{
+      key: string;
+      displayName: string;
+      canonicalKey: string;
+      assessmentCompatibility: string;
+    }>;
+    activeRevision: { id: string; measurement_definition_key: string | null; verification_status: string } | null;
+    revisions: Array<{
+      id: string;
+      measurement_definition_key: string | null;
+      verification_status: string;
+      is_active: boolean;
+      registry_version: string;
+      resolver_version: string;
+      normalization_schema_version: string;
+    }>;
+  };
 };
 
 type BootstrapPayload = {
@@ -161,6 +188,8 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const [activeSourceText, setActiveSourceText] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
+  const [manualSelections, setManualSelections] = useState<Record<string, string>>({});
+  const [normalizingId, setNormalizingId] = useState<string | null>(null);
   const [reprocessing, setReprocessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -325,6 +354,50 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
       setError(e instanceof Error ? e.message : "Accept failed");
     } finally {
       setAccepting(false);
+    }
+  }
+
+  async function handleManualCorrection(extractedBiomarkerId: string) {
+    const measurementDefinitionKey = manualSelections[extractedBiomarkerId];
+    if (!measurementDefinitionKey) return;
+    setNormalizingId(extractedBiomarkerId);
+    try {
+      const res = await fetch(`/api/documents/${documentId}/biomarkers`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          extractedBiomarkerId,
+          action: "correct",
+          measurementDefinitionKey,
+        }),
+      });
+      if (!res.ok) throw new Error("Mapping correction failed");
+      await loadBootstrap(currentPage, { soft: true });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Mapping correction failed");
+    } finally {
+      setNormalizingId(null);
+    }
+  }
+
+  async function handleUndoCorrection(extractedBiomarkerId: string, revertToRevisionId: string) {
+    setNormalizingId(extractedBiomarkerId);
+    try {
+      const res = await fetch(`/api/documents/${documentId}/biomarkers`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          extractedBiomarkerId,
+          action: "undo",
+          revertToRevisionId,
+        }),
+      });
+      if (!res.ok) throw new Error("Mapping rollback failed");
+      await loadBootstrap(currentPage, { soft: true });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Mapping rollback failed");
+    } finally {
+      setNormalizingId(null);
     }
   }
 
@@ -612,11 +685,12 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
             <ul className="max-h-[520px] space-y-2 overflow-y-auto">
               {extracted.map((b) => {
                 const reviewable = b.status === "needs_review" || b.status === "pending_review";
+                const normalization = b.normalization;
                 return (
-                  <li key={b.id}>
+                  <li key={b.id} className="rounded-xl border border-slate-200 bg-white p-3">
                     <button
                       type="button"
-                      className="w-full rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-[var(--eh-brand)]"
+                      className="w-full text-left transition hover:text-[var(--eh-brand)]"
                       onClick={() => {
                         if (b.source_page) setCurrentPage(b.source_page);
                         setActiveSourceText(b.source_text);
@@ -663,6 +737,80 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                         </div>
                       </div>
                     </button>
+                    {normalization && (
+                      <details className="mt-2 border-t border-slate-100 pt-2 text-xs text-[var(--eh-text-secondary)]">
+                        <summary className="cursor-pointer font-medium text-[var(--eh-text-primary)]">
+                          Mapping: {normalization.result} · {normalization.mappingConfidenceBand} confidence
+                        </summary>
+                        <p className="mt-2">
+                          Mapping confidence describes classification evidence, not a medical result.
+                        </p>
+                        <p className="mt-1">
+                          Active revision: {normalization.activeRevision?.measurement_definition_key ?? "none"}
+                          {normalization.activeRevision ? ` (${normalization.activeRevision.verification_status})` : ""}
+                        </p>
+                        <ul className="mt-2 space-y-1">
+                          {normalization.candidateEvidence.map((candidate) => (
+                            <li key={candidate.candidateKey}>
+                              <span className="font-medium">{candidate.candidateKey}</span>
+                              {candidate.accepted.length ? ` · supports: ${candidate.accepted.map((item) => item.code).join(", ")}` : ""}
+                              {candidate.rejected.length ? ` · rejects: ${candidate.rejected.map((item) => item.code).join(", ")}` : ""}
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="mt-2 text-[var(--eh-text-muted)]">
+                          Registry/resolver: {normalization.activeRevision?.id
+                            ? normalization.revisions.find((revision) => revision.id === normalization.activeRevision?.id)?.registry_version ?? "unknown"
+                            : "pending"}
+                          {" / "}
+                          {normalization.activeRevision?.id
+                            ? normalization.revisions.find((revision) => revision.id === normalization.activeRevision?.id)?.resolver_version ?? "unknown"
+                            : "pending"}
+                        </p>
+                        {normalization.manualOptions.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <select
+                              value={manualSelections[b.id] ?? ""}
+                              onChange={(event) =>
+                                setManualSelections((current) => ({ ...current, [b.id]: event.target.value }))
+                              }
+                              className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs"
+                              aria-label={`Choose compatible mapping for ${b.biomarker_name}`}
+                            >
+                              <option value="">Choose compatible mapping</option>
+                              {normalization.manualOptions.map((option) => (
+                                <option key={option.key} value={option.key}>
+                                  {option.displayName}
+                                </option>
+                              ))}
+                            </select>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={!manualSelections[b.id] || normalizingId === b.id}
+                              onClick={() => handleManualCorrection(b.id)}
+                            >
+                              {normalizingId === b.id ? "Saving…" : "Use mapping"}
+                            </Button>
+                          </div>
+                        )}
+                        {normalization.activeRevision &&
+                          normalization.revisions
+                            .filter((revision) => !revision.is_active && revision.measurement_definition_key)
+                            .map((revision) => (
+                              <Button
+                                key={revision.id}
+                                variant="ghost"
+                                size="sm"
+                                className="mt-2"
+                                disabled={normalizingId === b.id}
+                                onClick={() => handleUndoCorrection(b.id, revision.id)}
+                              >
+                                Restore {revision.measurement_definition_key}
+                              </Button>
+                            ))}
+                      </details>
+                    )}
                   </li>
                 );
               })}

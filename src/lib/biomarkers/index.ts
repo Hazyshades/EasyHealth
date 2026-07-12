@@ -1,5 +1,23 @@
 export type {
   BiomarkerDefinition,
+  MeasurementDefinition,
+  MeasurementAlias,
+  MeasurementUnitPolicy,
+  NormalizedMeasurementUnit,
+  AnalyteKey,
+  MeasurementDefinitionKey,
+  NormalizedUnitKey,
+  UnitDimension,
+  CandidateEvidence,
+  ResolutionEvidence,
+  ResolutionReasonCode,
+  MappingConfidenceBand,
+  MeasurementResolution,
+  MeasurementResolutionInput,
+  ResolverResult,
+  VerificationStatus,
+  AssessmentCompatibility,
+  UnitToken,
   BodySystemId,
   NamedBodySystemId,
   ConversionRule,
@@ -54,3 +72,29 @@ export {
   type PageOcrArtifact,
   type PageOcrBlock,
 } from "./ocr-artifact";
+
+export {
+  MEASUREMENT_DEFINITIONS,
+  MEASUREMENT_REGISTRY_VERSION,
+  MEASUREMENT_RESOLVER_VERSION,
+  MEASUREMENT_NORMALIZATION_SCHEMA_VERSION,
+  getMeasurementDefinition,
+  getMeasurementDefinitionsForAnalyte,
+  getMeasurementConversionPolicy,
+  normalizeMeasurementUnit,
+  normalizeUnitToken,
+  resolveMeasurementDefinition,
+  validateMeasurementRegistry,
+} from "./measurement-resolution";
+
+export {
+  MEASUREMENT_REGISTRY_DIGEST,
+  MEASUREMENT_REGISTRY_RELEASE,
+  buildMeasurementRegistryRelease,
+  classifyMeasurementDefinitionChange,
+  digestMeasurementRegistryManifest,
+  serializeMeasurementRegistryManifest,
+  type MappingChangeClassification,
+  type MeasurementRegistryChange,
+  type MeasurementRegistryRelease,
+} from "./measurement-registry-release";

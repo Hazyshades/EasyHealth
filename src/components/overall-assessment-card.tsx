@@ -16,6 +16,7 @@ type OverallAssessmentCardProps = {
   scoreableNamedSystemCount: number;
   scoreableNamedSystemTotal: number;
   dismissalKey?: string;
+  dismissible?: boolean;
   lastUpdated?: string | null;
   showProfileLink?: boolean;
   variant?: "compact" | "detailed";
@@ -68,6 +69,7 @@ export function OverallAssessmentCard({
   scoreableNamedSystemCount,
   scoreableNamedSystemTotal,
   dismissalKey,
+  dismissible = true,
   lastUpdated,
   showProfileLink = false,
   variant = "detailed",
@@ -75,10 +77,14 @@ export function OverallAssessmentCard({
   const isCompact = variant === "compact";
   const { iconRef, hoverProps } = useAnimatedIconHover();
   const storageKey = dismissalKey ? `easyhealth:overall-assessment:${dismissalKey}` : null;
+  const canDismiss = dismissible && storageKey != null;
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    if (!storageKey) return;
+    if (!canDismiss || !storageKey) {
+      setDismissed(false);
+      return;
+    }
     if (overallStateScore != null) {
       localStorage.removeItem(storageKey);
       setDismissed(false);
@@ -88,7 +94,7 @@ export function OverallAssessmentCard({
   }, [overallStateScore, storageKey]);
 
   if (overallStateScore == null) {
-    if (dismissed) return null;
+    if (canDismiss && dismissed) return null;
     return (
       <SurfaceCard padding="lg" className={cn("flex h-full flex-col", !isCompact && "shadow-sm")}>
         <p className="text-sm font-medium text-[var(--eh-text-secondary)]">
@@ -100,17 +106,19 @@ export function OverallAssessmentCard({
         <p className="mt-4 text-sm font-medium text-[var(--eh-text-primary)]">
           Based on {scoreableNamedSystemCount} of {scoreableNamedSystemTotal} systems
         </p>
-        <Button
-          type="button"
-          variant="ghost"
-          className="mt-4 w-fit px-0 text-[var(--eh-text-secondary)]"
-          onClick={() => {
-            if (storageKey) localStorage.setItem(storageKey, "dismissed");
-            setDismissed(true);
-          }}
-        >
-          Dismiss
-        </Button>
+        {canDismiss ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="mt-4 w-fit px-0 text-[var(--eh-text-secondary)]"
+            onClick={() => {
+              localStorage.setItem(storageKey, "dismissed");
+              setDismissed(true);
+            }}
+          >
+            Dismiss
+          </Button>
+        ) : null}
       </SurfaceCard>
     );
   }

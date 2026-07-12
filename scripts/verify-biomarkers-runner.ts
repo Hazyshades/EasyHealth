@@ -4,8 +4,16 @@
 import assert from "node:assert/strict";
 import {
   getBiomarkerDefinition,
+  getMeasurementConversionPolicy,
+  getMeasurementDefinitionsForAnalyte,
+  MEASUREMENT_DEFINITIONS,
+  MEASUREMENT_REGISTRY_DIGEST,
+  normalizeMeasurementUnit,
   presentObservation,
+  resolveMeasurementDefinition,
   resolveCanonicalKey,
+  serializeMeasurementRegistryManifest,
+  validateMeasurementRegistry,
 } from "../src/lib/biomarkers";
 import {
   buildHealthProfile,
@@ -25,6 +33,74 @@ assert.equal(resolveCanonicalKey("TSAT", "Transferrin saturation"), "transferrin
 assert.equal(resolveCanonicalKey("25-OH Vitamin D", ""), "vitamin_d");
 assert.equal(resolveCanonicalKey("CO2", "Carbon dioxide"), "bicarbonate");
 assert.equal(resolveCanonicalKey("hba1c", "HbA1c"), "hba1c");
+
+// Context-aware measurement resolution never guesses a differential form.
+assert.equal(
+  resolveMeasurementDefinition({ rawLabel: "Neutrophils", rawUnit: "%", specimen: "whole_blood" })
+    .measurementDefinitionKey,
+  "neutrophils_percent"
+);
+assert.equal(
+  resolveMeasurementDefinition({ rawLabel: "Neutrophils", rawUnit: "x10^9/L", specimen: "whole_blood" })
+    .measurementDefinitionKey,
+  "neutrophils_abs"
+);
+assert.equal(resolveMeasurementDefinition({ rawLabel: "Neutrophils" }).result, "ambiguous");
+assert.notEqual(
+  resolveMeasurementDefinition({ rawLabel: "Glucose", rawUnit: "mg/dL", specimen: "serum" })
+    .measurementDefinitionKey,
+  "fasting_glucose"
+);
+assert.equal(
+  resolveMeasurementDefinition({ rawLabel: "FPG", rawUnit: "mg/dL", specimen: "plasma", modifier: "fasting" })
+    .measurementDefinitionKey,
+  "fasting_glucose"
+);
+assert.equal(
+  resolveMeasurementDefinition({ rawLabel: "RDW", rawUnit: "fL" }).measurementDefinitionKey,
+  "rdw_sd"
+);
+
+// Registry 2.1: unit dimensions, evidence, and mapping confidence are independent from OCR.
+const neutrophilPercent = resolveMeasurementDefinition({
+  rawLabel: "Neutrophils",
+  rawUnit: "%",
+  specimen: "whole_blood",
+  extractionConfidence: 0.01,
+});
+assert.equal(neutrophilPercent.mappingConfidenceBand, "high");
+assert.equal(neutrophilPercent.mappingConfidence, 0.95);
+assert.ok(
+  neutrophilPercent.candidateEvidence.some(
+    (candidate) =>
+      candidate.candidateKey === "neutrophils_abs" &&
+      candidate.rejected.some((item) => item.code === "unit_dimension_conflict")
+  )
+);
+const highOcrAmbiguous = resolveMeasurementDefinition({
+  rawLabel: "Neutrophils",
+  extractionConfidence: 0.99,
+});
+assert.equal(highOcrAmbiguous.result, "ambiguous");
+assert.equal(highOcrAmbiguous.mappingConfidenceBand, "low");
+assert.equal(normalizeMeasurementUnit("mg/dL").normalizedUnit, "mg/dl");
+assert.equal(normalizeMeasurementUnit("mg/dL").dimension, "mass_concentration");
+assert.equal(
+  resolveMeasurementDefinition({ rawLabel: "FPG", rawUnit: "unknown-unit", specimen: "plasma" }).result,
+  "unmapped"
+);
+assert.equal(
+  resolveMeasurementDefinition({ rawLabel: "Glucose", specimen: "urine" }).measurementDefinitionKey,
+  "glucose_urine"
+);
+assert.equal(getMeasurementDefinitionsForAnalyte("glucose").length, 4);
+assert.equal(getMeasurementConversionPolicy("glucose_serum_plasma")?.type, "linear");
+assert.equal(validateMeasurementRegistry().valid, true);
+assert.equal(
+  serializeMeasurementRegistryManifest([...MEASUREMENT_DEFINITIONS].reverse()),
+  serializeMeasurementRegistryManifest(MEASUREMENT_DEFINITIONS)
+);
+assert.equal(MEASUREMENT_REGISTRY_DIGEST.length, 64);
 
 // Systems
 assert.equal(getSystemForMarker("crp"), "inflammation");
