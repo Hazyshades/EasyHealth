@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { HandHeartIcon } from "@/components/icons";
 import { DashboardCardIcon, useAnimatedIconHover } from "@/components/icons/use-animated-icon-hover";
 import { StatusChip } from "@/components/ui/status-chip";
@@ -9,9 +10,12 @@ import { SurfaceCard } from "@/components/ui/surface-card";
 import { cn } from "@/lib/utils";
 
 type OverallAssessmentCardProps = {
-  overallStateScore: number;
+  overallStateScore: number | null;
   overallDataConfidence: number;
   recordsUsedCount: number;
+  scoreableNamedSystemCount: number;
+  scoreableNamedSystemTotal: number;
+  dismissalKey?: string;
   lastUpdated?: string | null;
   showProfileLink?: boolean;
   variant?: "compact" | "detailed";
@@ -61,12 +65,55 @@ export function OverallAssessmentCard({
   overallStateScore,
   overallDataConfidence,
   recordsUsedCount,
+  scoreableNamedSystemCount,
+  scoreableNamedSystemTotal,
+  dismissalKey,
   lastUpdated,
   showProfileLink = false,
   variant = "detailed",
 }: OverallAssessmentCardProps) {
   const isCompact = variant === "compact";
   const { iconRef, hoverProps } = useAnimatedIconHover();
+  const storageKey = dismissalKey ? `easyhealth:overall-assessment:${dismissalKey}` : null;
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    if (!storageKey) return;
+    if (overallStateScore != null) {
+      localStorage.removeItem(storageKey);
+      setDismissed(false);
+      return;
+    }
+    setDismissed(localStorage.getItem(storageKey) === "dismissed");
+  }, [overallStateScore, storageKey]);
+
+  if (overallStateScore == null) {
+    if (dismissed) return null;
+    return (
+      <SurfaceCard padding="lg" className={cn("flex h-full flex-col", !isCompact && "shadow-sm")}>
+        <p className="text-sm font-medium text-[var(--eh-text-secondary)]">
+          Insufficient data for overall assessment
+        </p>
+        <p className="mt-2 text-sm text-[var(--eh-text-secondary)]">
+          A numeric overall assessment appears after at least three named systems have complete lab evidence.
+        </p>
+        <p className="mt-4 text-sm font-medium text-[var(--eh-text-primary)]">
+          Based on {scoreableNamedSystemCount} of {scoreableNamedSystemTotal} systems
+        </p>
+        <Button
+          type="button"
+          variant="ghost"
+          className="mt-4 w-fit px-0 text-[var(--eh-text-secondary)]"
+          onClick={() => {
+            if (storageKey) localStorage.setItem(storageKey, "dismissed");
+            setDismissed(true);
+          }}
+        >
+          Dismiss
+        </Button>
+      </SurfaceCard>
+    );
+  }
 
   if (isCompact) {
     return (
@@ -79,6 +126,9 @@ export function OverallAssessmentCard({
           {overallStateScore}
         </p>
         <p className="mt-1 text-sm text-[var(--eh-text-secondary)]">Current state assessment</p>
+        <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
+          Based on {scoreableNamedSystemCount} of {scoreableNamedSystemTotal} systems
+        </p>
         <AssessmentStats
           overallDataConfidence={overallDataConfidence}
           recordsUsedCount={recordsUsedCount}
@@ -109,6 +159,9 @@ export function OverallAssessmentCard({
         {overallStateScore}
       </p>
       <p className="mt-1 text-sm text-[var(--eh-text-secondary)]">Current state assessment</p>
+      <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
+        Based on {scoreableNamedSystemCount} of {scoreableNamedSystemTotal} systems
+      </p>
       <AssessmentStats
         overallDataConfidence={overallDataConfidence}
         recordsUsedCount={recordsUsedCount}

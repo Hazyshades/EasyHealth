@@ -57,19 +57,7 @@ export default function HealthProfilePage() {
 
 
 
-  const hasData =
-
-    profile &&
-
-    (profile.records_used_count > 0 ||
-
-      profile.systems.length > 0 ||
-
-      Boolean(profile.holistic_synthesis?.text));
-
-
-
-  if (!hasData) {
+  if (!profile || profile.profile_display_state === "onboarding") {
 
     return (
 
@@ -206,7 +194,7 @@ export default function HealthProfilePage() {
 
                 >
 
-                  {layout?.label ?? system.name}: {system.state_score}
+                  {layout?.label ?? system.name}: {system.state_score ?? "-"}
 
                 </FilterChip>
 
@@ -252,6 +240,12 @@ export default function HealthProfilePage() {
 
                 recordsUsedCount={profile!.records_used_count}
 
+                scoreableNamedSystemCount={profile!.scoreable_named_system_count}
+
+                scoreableNamedSystemTotal={profile!.scoreable_named_system_total}
+
+                dismissalKey={profile!.overall_assessment_dismissal_key}
+
                 lastUpdated={lastUpdated}
 
               />
@@ -268,6 +262,20 @@ export default function HealthProfilePage() {
 
         </>
 
+      ) : null}
+
+      {profile!.profile_display_state === "no_recognized_biomarkers" ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <h2 className="text-lg font-semibold text-[var(--eh-text-primary)]">
+            No recognized lab markers yet
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-[var(--eh-text-secondary)]">
+            Your uploaded records are available, but they did not yield recognized biomarker observations.
+          </p>
+          <Button asChild className="mt-6 rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
+            <Link href="/app/upload?type=lab_result">Upload lab results</Link>
+          </Button>
+        </div>
       ) : null}
 
 

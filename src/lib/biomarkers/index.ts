@@ -1,16 +1,24 @@
 export type {
   BiomarkerDefinition,
   BodySystemId,
+  NamedBodySystemId,
   ConversionRule,
   LabUnitSystem,
   PresentedObservation,
   ScoreRole,
+  ScoreContributionGroup,
+  ScoreRequiredGroup,
+  SystemScoreability,
 } from "./types";
 
 export {
   BIOMARKER_DEFINITIONS,
   BODY_SYSTEM_LABELS,
   NAMED_BODY_SYSTEMS,
+  NON_SCOREABLE_SYSTEMS,
+  SCOREABILITY_BY_SYSTEM,
+  SCORE_CONTRIBUTION_GROUPS,
+  SCORE_REQUIRED_GROUPS,
   buildMarkerToSystemMap,
   getBiomarkerDefinition,
   getScoreRole,

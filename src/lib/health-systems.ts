@@ -4,9 +4,14 @@ import {
   getBiomarkerDefinition,
   getScoreRole,
   listCoverageKeysForSystem,
+  NAMED_BODY_SYSTEMS,
+  NON_SCOREABLE_SYSTEMS,
   observationIdentityKey,
   resolveCanonicalKey,
+  SCORE_CONTRIBUTION_GROUPS,
+  SCORE_REQUIRED_GROUPS,
   type BodySystemId,
+  type SystemScoreability,
   type ValueKind,
 } from "@/lib/biomarkers";
 
@@ -152,12 +157,32 @@ export type SystemMarker = {
 export type SystemInsight = {
   id: BodySystemId;
   name: string;
-  state_score: number;
+  state_score: number | null;
   data_confidence: number;
+  scoreability: SystemScoreability;
+  score_readiness: SystemScoreReadiness;
   primary_source: MarkerSource | null;
   why_highlighted: string[];
   markers: SystemMarker[];
 };
+
+export type ScoreReadinessGroup = {
+  keys: string[];
+  status: "satisfied" | "missing" | "present_without_reference";
+  satisfied_by: string | null;
+  present_without_reference: string[];
+};
+
+export type SystemScoreReadiness = {
+  required_groups: ScoreReadinessGroup[];
+  missing_groups: string[][];
+  present_without_reference: string[];
+};
+
+export type ProfileDisplayState =
+  | "onboarding"
+  | "no_recognized_biomarkers"
+  | "body_map";
 
 export type HolisticSynthesis = {
   text: string;
@@ -168,8 +193,13 @@ export type HolisticSynthesis = {
 
 export type HealthProfileResult = {
   records_used_count: number;
-  overall_state_score: number;
+  biomarker_observation_count: number;
+  profile_display_state: ProfileDisplayState;
+  overall_state_score: number | null;
   overall_data_confidence: number;
+  scoreable_named_system_count: number;
+  scoreable_named_system_total: number;
+  overall_assessment_dismissal_key?: string;
   systems: SystemInsight[];
   sources: HealthProfileSource[];
   holistic_synthesis: HolisticSynthesis | null;
@@ -279,7 +309,7 @@ function markerRole(marker: SystemMarker): "core" | "extended" | "display" {
 /** Numeric markers that can contribute to a system state score. */
 function isNumericMarker(marker: SystemMarker): boolean {
   const kind = marker.value_kind ?? "numeric";
-  return kind === "numeric" && marker.value != null;
+  return kind === "numeric" && marker.value != null && Number.isFinite(marker.value);
 }
 
 /** Core markers with known lab ref status — preferred score drivers. */
@@ -305,7 +335,106 @@ function averageMarkerStateScores(markers: SystemMarker[]): number {
   );
 }
 
-export function computeSystemStateScore(markers: SystemMarker[]): number {
+function hasUsableDocumentReference(marker: SystemMarker): boolean {
+  return marker.ref_low != null || marker.ref_high != null;
+}
+
+function matchesCatalogSpecimen(marker: SystemMarker): boolean {
+  const expected = getBiomarkerDefinition(marker.key)?.specimen;
+  if (!expected || expected === "any" || !marker.specimen || marker.specimen === "unspecified") {
+    return true;
+  }
+  return marker.specimen === expected;
+}
+
+function isUsableCoreMarker(marker: SystemMarker): boolean {
+  return (
+    isNumericMarker(marker) &&
+    markerRole(marker) === "core" &&
+    hasUsableDocumentReference(marker) &&
+    matchesCatalogSpecimen(marker)
+  );
+}
+
+function pickUsableMarker(keys: readonly string[], markers: SystemMarker[]): SystemMarker | null {
+  for (const key of keys) {
+    const marker = markers.find((candidate) => candidate.key === key && isUsableCoreMarker(candidate));
+    if (marker) return marker;
+  }
+  return null;
+}
+
+function resolveReadinessGroup(keys: readonly string[], markers: SystemMarker[]): ScoreReadinessGroup {
+  const satisfied = pickUsableMarker(keys, markers);
+  if (satisfied) {
+    return {
+      keys: [...keys],
+      status: "satisfied",
+      satisfied_by: satisfied.key,
+      present_without_reference: [],
+    };
+  }
+
+  const presentWithoutReference = markers
+    .filter((marker) => keys.includes(marker.key) && !isUsableCoreMarker(marker))
+    .map((marker) => marker.key);
+
+  return {
+    keys: [...keys],
+    status: presentWithoutReference.length > 0 ? "present_without_reference" : "missing",
+    satisfied_by: null,
+    present_without_reference: [...new Set(presentWithoutReference)],
+  };
+}
+
+export function evaluateSystemScoreReadiness(
+  systemId: BodySystemId,
+  markers: SystemMarker[]
+): { scoreability: SystemScoreability; readiness: SystemScoreReadiness } {
+  if (systemId === "general") {
+    return {
+      scoreability: "supporting_only",
+      readiness: { required_groups: [], missing_groups: [], present_without_reference: [] },
+    };
+  }
+
+  if (NON_SCOREABLE_SYSTEMS.has(systemId)) {
+    return {
+      scoreability: "non_scoreable",
+      readiness: { required_groups: [], missing_groups: [], present_without_reference: [] },
+    };
+  }
+
+  const groups = SCORE_REQUIRED_GROUPS[systemId].map((keys) =>
+    resolveReadinessGroup(keys, markers)
+  );
+  const missingGroups = groups.filter((group) => group.status === "missing").map((group) => group.keys);
+  const withoutReference = groups.flatMap((group) => group.present_without_reference);
+
+  return {
+    scoreability: groups.every((group) => group.status === "satisfied") ? "scoreable" : "incomplete",
+    readiness: {
+      required_groups: groups,
+      missing_groups: missingGroups,
+      present_without_reference: [...new Set(withoutReference)],
+    },
+  };
+}
+
+export function computeSystemStateScore(
+  systemId: BodySystemId,
+  markers: SystemMarker[]
+): number | null {
+  const { scoreability } = evaluateSystemScoreReadiness(systemId, markers);
+  if (scoreability !== "scoreable" || systemId === "general") return null;
+
+  const contributionScores = SCORE_CONTRIBUTION_GROUPS[systemId]
+    .map((group) => pickUsableMarker(group.keys, markers))
+    .filter((marker): marker is SystemMarker => marker !== null)
+    .map((marker) => markerStateScore(marker.status, marker.value, marker.ref_low, marker.ref_high));
+
+  return contributionScores.length > 0 ? average(contributionScores) : null;
+
   // 1) Prefer core markers with known reference ranges
   const coreEligible = markers.filter(isCoreScoreEligible);
   if (coreEligible.length > 0) {
@@ -361,7 +490,7 @@ export function computeSystemDataConfidence(
   );
   const pool = scorable.length > 0 ? scorable : markers.filter((m) => (m.value_kind ?? "numeric") === "numeric");
   const withRef = pool.filter((marker) => marker.status !== "unknown").length;
-  const refPart = (withRef / pool.length) * 100;
+  const refPart = pool.length > 0 ? (withRef / pool.length) * 100 : 0;
 
   return Math.round(coveragePart * 0.6 + refPart * 0.4);
 }
@@ -451,42 +580,50 @@ export function buildHealthProfile(
   }
 
   const systems: SystemInsight[] = [];
-  const systemOrder: BodySystemId[] = [
-    "cardiovascular",
-    "metabolic",
-    "thyroid",
-    "liver",
-    "kidney",
-    "blood",
-    "nutrients",
-    "inflammation",
-    "general",
-  ];
+  const systemOrder: BodySystemId[] = [...NAMED_BODY_SYSTEMS, "general"];
 
   for (const systemId of systemOrder) {
     const markers = bySystem.get(systemId) ?? [];
-    if (markers.length === 0) continue;
+    if (latest.size === 0 || (systemId === "general" && markers.length === 0)) continue;
 
     const name = systemId === "general" ? "General" : BODY_SYSTEMS[systemId].name;
+    const { scoreability, readiness } = evaluateSystemScoreReadiness(systemId, markers);
 
     systems.push({
       id: systemId,
       name,
-      state_score: computeSystemStateScore(markers),
+      state_score: computeSystemStateScore(systemId, markers),
       data_confidence: computeSystemDataConfidence(systemId, markers),
+      scoreability,
+      score_readiness: readiness,
       primary_source: selectPrimarySource(markers),
       why_highlighted: buildWhyHighlighted(markers),
       markers,
     });
   }
 
-  const stateScores = systems.map((system) => system.state_score);
-  const confidenceScores = systems.map((system) => system.data_confidence);
+  const scoreableSystems = systems.filter(
+    (system): system is SystemInsight & { state_score: number } =>
+      system.id !== "general" && system.scoreability === "scoreable" && system.state_score != null
+  );
+  const namedSystems = systems.filter((system) => system.id !== "general");
+  const confidenceScores = namedSystems.map((system) => system.data_confidence);
+  const biomarkerObservationCount = latest.size;
 
   return {
     records_used_count: sources.length,
-    overall_state_score: average(stateScores),
+    biomarker_observation_count: biomarkerObservationCount,
+    profile_display_state:
+      biomarkerObservationCount > 0
+        ? "body_map"
+        : sources.length > 0
+          ? "no_recognized_biomarkers"
+          : "onboarding",
+    overall_state_score:
+      scoreableSystems.length >= 3 ? average(scoreableSystems.map((system) => system.state_score)) : null,
     overall_data_confidence: average(confidenceScores),
+    scoreable_named_system_count: scoreableSystems.length,
+    scoreable_named_system_total: NAMED_BODY_SYSTEMS.length,
     systems,
     sources,
   };
@@ -573,19 +710,22 @@ export function resolveBodyMapLayout(systemIds: BodySystemId[]): Map<BodySystemI
   return layouts;
 }
 
-export function stateScoreColor(score: number): string {
+export function stateScoreColor(score: number | null): string {
+  if (score == null) return "fill-slate-300 stroke-slate-400";
   if (score >= 70) return "fill-emerald-500 stroke-emerald-600";
   if (score >= 40) return "fill-amber-500 stroke-amber-600";
   return "fill-slate-400 stroke-slate-500";
 }
 
-export function stateScoreStroke(score: number): string {
+export function stateScoreStroke(score: number | null): string {
+  if (score == null) return "#94a3b8";
   if (score >= 70) return "#059669";
   if (score >= 40) return "#d97706";
   return "#64748b";
 }
 
-export function assessmentStatusLabel(stateScore: number, dataConfidence: number): string {
+export function assessmentStatusLabel(stateScore: number | null, dataConfidence: number): string {
+  if (stateScore == null) return "Assessment unavailable";
   if (dataConfidence < 40) return "Limited data";
   if (stateScore >= 70) return "Stable";
   return "Needs attention";

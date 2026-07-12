@@ -747,7 +747,7 @@ export const BIOMARKER_DEFINITIONS: BiomarkerDefinition[] = [
     key: "ferritin",
     displayName: "Ferritin",
     system: "blood",
-    scoreRole: "core",
+    scoreRole: "extended",
     coversConfidence: true,
     aliases: ["ferritin", "ферритин"],
     conversion: monoEqual("ng/mL", "µg/L"),

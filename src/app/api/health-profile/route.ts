@@ -162,5 +162,6 @@ export async function GET() {
     holistic_synthesis,
     synthesis_stale,
     lab_unit_system: labUnitSystem,
+    overall_assessment_dismissal_key: profileId,
   });
 }

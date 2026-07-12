@@ -25,7 +25,7 @@ const EMBEDDED_MAP_SCALE = 0.898;
 
 type BodyMapProps = {
   systems: SystemInsight[];
-  overallStateScore: number;
+  overallStateScore: number | null;
   overallDataConfidence: number;
   /** Hide floating summary -shown in page sidebar instead */
   embedded?: boolean;
@@ -159,7 +159,7 @@ export function BodyMap({
           <div className="body-map-summary absolute right-0 top-0 rounded-xl border border-slate-200/80 bg-white/95 p-3 shadow-sm backdrop-blur-sm">
             <p className="text-xs text-muted-foreground">Overall current state assessment</p>
             <p className="text-3xl font-bold tabular-nums tracking-tight text-slate-900">
-              {overallStateScore}
+              {overallStateScore ?? "-"}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               Data confidence {overallDataConfidence}%
@@ -184,7 +184,8 @@ export function BodyMap({
                   onClick={() => selectSystem(system.id)}
                   aria-current={isSelected ? "true" : undefined}
                 >
-                  {layout?.label ?? system.name}: {system.state_score}/100 current state assessment
+                  {layout?.label ?? system.name}: {system.state_score ?? "-"}
+                  {system.state_score == null ? " current state assessment unavailable" : "/100 current state assessment"}
                 </button>
               </li>
             );

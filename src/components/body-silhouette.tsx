@@ -181,7 +181,7 @@ export function BodyMapMarker({ x, y, active, dimmed, className }: BodyMapMarker
 type HealthSystemBadgeProps = {
   x: number;
   y: number;
-  score: number;
+  score: number | null;
   label: string;
   active?: boolean;
   dimmed?: boolean;
@@ -216,7 +216,11 @@ export function HealthSystemBadge({
       role="button"
       tabIndex={0}
       onKeyDown={(event) => handleBadgeKeyDown(event, onSelect)}
-      aria-label={`${label}: ${score} current state assessment`}
+      aria-label={
+        score == null
+          ? `${label}: current state assessment unavailable`
+          : `${label}: ${score} current state assessment`
+      }
       aria-pressed={active}
     >
       <circle cx={0} cy={0} r={16} fill="transparent" className="cursor-pointer" />
@@ -238,7 +242,7 @@ export function HealthSystemBadge({
           dominantBaseline="middle"
           className="body-map-badge-score pointer-events-none"
         >
-          {score}
+          {score ?? "-"}
         </text>
       </g>
       <text

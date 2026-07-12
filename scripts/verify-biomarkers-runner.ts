@@ -38,6 +38,7 @@ assert.equal(getSystemForMarker("na"), "kidney");
 assert.equal(getBiomarkerDefinition("apob")?.scoreRole, "extended");
 assert.equal(getBiomarkerDefinition("tsh")?.scoreRole, "core");
 assert.equal(getBiomarkerDefinition("free_t4")?.scoreRole, "core");
+assert.equal(getBiomarkerDefinition("ferritin")?.scoreRole, "extended");
 assert.equal(getBiomarkerDefinition("psa")?.scoreRole, "display");
 
 // Unit conversions
@@ -130,7 +131,7 @@ const profile = buildHealthProfile(
 );
 const cardio = profile.systems.find((s) => s.id === "cardiovascular");
 assert.ok(cardio);
-assert.ok(cardio!.state_score >= 90, `core-only score should be high, got ${cardio!.state_score}`);
+assert.equal(cardio!.state_score, null);
 
 // Coverage uses coversConfidence set (blood without differentials still OK)
 const bloodMarkers = [
@@ -241,7 +242,7 @@ const bloodMarkers = [
 ];
 const conf = computeSystemDataConfidence("blood", bloodMarkers);
 assert.ok(conf >= 80, `blood confidence expected high without differentials, got ${conf}`);
-assert.ok(computeSystemStateScore(bloodMarkers) >= 90);
+assert.ok(computeSystemStateScore("blood", bloodMarkers)! >= 90);
 
 // Qualitative + specialty non-score
 import { parseLabValueCell, observationIdentityKey } from "../src/lib/biomarkers";
@@ -302,15 +303,15 @@ const psaProfile = buildHealthProfile(
 const systems = psaProfile.systems.map((s) => s.id);
 assert.ok(systems.includes("cardiovascular"));
 const cardioOnly = psaProfile.systems.find((s) => s.id === "cardiovascular");
-assert.ok(cardioOnly && cardioOnly.state_score >= 90);
-// PSA is specialty/display under general; soft-score applies only when no core
+assert.equal(cardioOnly?.state_score, null);
+// General is factual-only and never receives a soft fallback score.
 const general = psaProfile.systems.find((s) => s.id === "general");
 if (general) {
-  const psaOnly = computeSystemStateScore(general.markers.filter((m) => m.key === "psa"));
-  assert.ok(psaOnly < 70, `out-of-range display soft-score should be low, got ${psaOnly}`);
+  const psaOnly = computeSystemStateScore("general", general.markers.filter((m) => m.key === "psa"));
+  assert.equal(psaOnly, null);
 }
 
-// General / display-only in-range markers must not show catastrophic 0
+// General / display-only in-range markers remain unscored.
 const generalInRange = buildHealthProfile(
   [
     {
@@ -347,10 +348,7 @@ const generalInRange = buildHealthProfile(
   []
 );
 for (const sys of generalInRange.systems) {
-  assert.ok(
-    sys.state_score >= 90,
-    `display/unmapped in-range system ${sys.id} should soft-score high, got ${sys.state_score}`
-  );
+  assert.equal(sys.state_score, null, `${sys.id} must not receive a soft fallback score`);
 }
 
 assert.equal(
@@ -368,5 +366,61 @@ const art = buildPageOcrArtifact({
 });
 assert.equal(isPageOcrArtifact(art), true);
 assert.equal(art.schema_version, 1);
+
+// Strict readiness: alternatives satisfy a group, but each named system needs every group.
+const strictProfile = buildHealthProfile(
+  [
+    { biomarker_key: "non_hdl_cholesterol", name: "Non-HDL", value: 120, unit: "mg/dL", ref_low: 0, ref_high: 150, observed_at: "2026-02-01", document_id: null },
+    { biomarker_key: "hdl", name: "HDL", value: 55, unit: "mg/dL", ref_low: 40, ref_high: 100, observed_at: "2026-02-01", document_id: null },
+    { biomarker_key: "triglycerides", name: "Triglycerides", value: 100, unit: "mg/dL", ref_low: 0, ref_high: 150, observed_at: "2026-02-01", document_id: null },
+    { biomarker_key: "hba1c", name: "HbA1c", value: 5.2, unit: "%", ref_low: 4, ref_high: 5.6, observed_at: "2026-02-01", document_id: null },
+    { biomarker_key: "tsh", name: "TSH", value: 2, unit: "mIU/L", ref_low: 0.4, ref_high: 4, observed_at: "2026-02-01", document_id: null },
+    { biomarker_key: "free_t4", name: "Free T4", value: 1.2, unit: "ng/dL", ref_low: 0.8, ref_high: 1.8, observed_at: "2026-02-01", document_id: null },
+  ],
+  []
+);
+const strictCardio = strictProfile.systems.find((system) => system.id === "cardiovascular");
+assert.equal(strictCardio?.scoreability, "scoreable");
+assert.equal(strictCardio?.score_readiness.required_groups[0]?.satisfied_by, "non_hdl_cholesterol");
+assert.ok(strictCardio?.state_score != null);
+assert.equal(strictProfile.scoreable_named_system_count, 3);
+assert.equal(strictProfile.scoreable_named_system_total, 8);
+assert.ok(strictProfile.overall_state_score != null);
+
+const missingReferenceProfile = buildHealthProfile(
+  [
+    { biomarker_key: "ldl", name: "LDL", value: 90, unit: "mg/dL", ref_low: null, ref_high: null, observed_at: "2026-02-01", document_id: null },
+    { biomarker_key: "hdl", name: "HDL", value: 55, unit: "mg/dL", ref_low: 40, ref_high: 100, observed_at: "2026-02-01", document_id: null },
+    { biomarker_key: "triglycerides", name: "Triglycerides", value: 100, unit: "mg/dL", ref_low: 0, ref_high: 150, observed_at: "2026-02-01", document_id: null },
+  ],
+  []
+);
+const missingReferenceCardio = missingReferenceProfile.systems.find((system) => system.id === "cardiovascular");
+assert.equal(missingReferenceCardio?.state_score, null);
+assert.deepEqual(missingReferenceCardio?.score_readiness.present_without_reference, ["ldl"]);
+
+const bloodWithCorrelatedOutlier = bloodMarkers.map((marker) =>
+  marker.key === "hematocrit"
+    ? { ...marker, value: 60, status: "out_of_range" as const }
+    : marker
+);
+assert.equal(computeSystemStateScore("blood", bloodWithCorrelatedOutlier), 95);
+
+const inflammationProfile = buildHealthProfile(
+  [
+    { biomarker_key: "crp", name: "CRP", value: 1, unit: "mg/L", ref_low: 0, ref_high: 5, observed_at: "2026-02-01", document_id: null },
+  ],
+  []
+);
+const inflammation = inflammationProfile.systems.find((system) => system.id === "inflammation");
+assert.equal(inflammation?.scoreability, "non_scoreable");
+assert.equal(inflammation?.state_score, null);
+assert.equal(inflammationProfile.overall_state_score, null);
+
+assert.equal(buildHealthProfile([], []).profile_display_state, "onboarding");
+assert.equal(
+  buildHealthProfile([], [{ id: "doc-1", original_filename: "report.pdf", observed_at: null, lab_name: null }]).profile_display_state,
+  "no_recognized_biomarkers"
+);
 
 console.log("verify-biomarkers: all checks passed");

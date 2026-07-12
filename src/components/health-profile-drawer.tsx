@@ -51,6 +51,19 @@ export function HealthProfileDrawer({
   if (!open || !system) return null;
 
   const status = assessmentStatusLabel(system.state_score, system.data_confidence);
+  const missingGroups = system.score_readiness.missing_groups;
+  const unavailableKeys = new Set(system.score_readiness.present_without_reference);
+  const supportingMarkers = system.markers.filter((marker) => marker.score_role !== "core");
+  const drawerState =
+    system.id === "general"
+      ? "Not scored - supporting / specialty data"
+      : system.markers.length === 0
+        ? "No data"
+        : system.scoreability === "non_scoreable"
+          ? "Not scored - individual markers only"
+          : system.state_score == null
+            ? "Not scored - incomplete core"
+            : null;
 
   return (
     <>
@@ -84,7 +97,9 @@ export function HealthProfileDrawer({
           <div className="grid grid-cols-2 gap-3 rounded-xl border bg-slate-50 p-4">
             <div>
               <p className="text-xs text-muted-foreground">Current state assessment</p>
-              <p className="text-2xl font-bold">{system.state_score}/100</p>
+              <p className="text-2xl font-bold">
+                {system.state_score == null ? "-" : `${system.state_score}/100`}
+              </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Data confidence</p>
@@ -104,6 +119,35 @@ export function HealthProfileDrawer({
             </div>
           </div>
 
+          {drawerState ? (
+            <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <h3 className="font-semibold">{drawerState}</h3>
+              {system.id === "general" ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  These supporting or specialty markers do not drive named-system assessments.
+                </p>
+              ) : null}
+              {missingGroups.length > 0 ? (
+                <div className="mt-3 text-sm text-muted-foreground">
+                  <p className="font-medium text-slate-800">Needed for this assessment</p>
+                  <ul className="mt-1 list-disc space-y-1 pl-5">
+                    {missingGroups.map((group) => (
+                      <li key={group.join("-")}>{group.join(" or ")}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {unavailableKeys.size > 0 ? (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Present without a usable lab reference range: {[...unavailableKeys].join(", ")}.
+                </p>
+              ) : null}
+              <Button asChild variant="outline" className="mt-4">
+                <Link href="/app/upload">Upload a document</Link>
+              </Button>
+            </section>
+          ) : null}
+
           <section>
             <h3 className="font-semibold">Why highlighted</h3>
             <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
@@ -112,6 +156,15 @@ export function HealthProfileDrawer({
               ))}
             </ul>
           </section>
+
+          {supportingMarkers.length > 0 ? (
+            <section>
+              <h3 className="font-semibold">Supporting markers</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {supportingMarkers.map((marker) => marker.name).join(", ")}
+              </p>
+            </section>
+          ) : null}
 
           {system.primary_source && (
             <section>

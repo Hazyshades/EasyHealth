@@ -14,6 +14,19 @@ export type LegacyBodySystemId = "vitamins";
 
 export type ScoreRole = "core" | "extended" | "display";
 
+export type NamedBodySystemId = Exclude<BodySystemId, "general">;
+
+/** Alternative biomarker keys that satisfy one score-readiness condition. */
+export type ScoreRequiredGroup = readonly string[];
+
+/** A deterministic score axis. At most one usable marker contributes per group. */
+export type ScoreContributionGroup = {
+  id: string;
+  keys: readonly string[];
+};
+
+export type SystemScoreability = "scoreable" | "incomplete" | "non_scoreable" | "supporting_only";
+
 export type LabUnitSystem = "us" | "si";
 
 export type ConversionRule =
