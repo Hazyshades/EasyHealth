@@ -47,10 +47,24 @@ next-env.d.ts
 xmcp-env.d.ts
 
 #scpecs
-*.md
+/docs/
 openspec/
 hackathon.md
 mvp_steps.md
 mvp_steps.md
 hachakton.md
 .next/
+
+.cursor/
+/worker/.env
+/worker/node_modules    
+
+/oh-my-pi
+/roadmap
+
+#agents
+.agents/
+
+#data
+/biomarkers/
+

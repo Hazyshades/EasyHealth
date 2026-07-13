@@ -1,0 +1,115 @@
+import type { LanguageModel } from "ai";
+import {
+  runStructuredImageExtraction,
+  runStructuredTextExtraction,
+} from "@/lib/ai/extract-with-trace";
+import type { PipelineLlmContext } from "@/lib/ai/pipeline-trace";
+
+export type ConsultationExtractionResult = {
+  provider_name: string | null;
+  visit_date: string | null;
+  chief_complaint: string | null;
+  history_summary: string | null;
+  exam_findings: string | null;
+  documented_problems: string[];
+  recommendations: string[];
+  follow_up_plan: string | null;
+};
+
+const CONSULTATION_INSTRUCTIONS = `You extract structured data from clinical consultation or visit notes.
+Respond with a single JSON object only. No markdown fences, no commentary.
+Shape:
+{
+  "provider_name": string | null,
+  "visit_date": "YYYY-MM-DD" | null,
+  "chief_complaint": string | null,
+  "history_summary": string | null,
+  "exam_findings": string | null,
+  "documented_problems": ["string"],
+  "recommendations": ["string"],
+  "follow_up_plan": string | null
+}
+Rules:
+- documented_problems: problem-list and assessment-style items as written (e.g. "Chest pain with features of angina").
+- EXCLUDE from documented_problems: past medical history, surgical history, allergies, family history, and physical examination findings.
+- history_summary: past medical/surgical history, allergies, family history, and relevant narrative history.
+- exam_findings: MUST include all vital signs when present (blood pressure, pulse, respirations, temperature, SpO2) plus pertinent physical exam narrative.
+- Do not add new diagnoses, treatments, or clinical conclusions.
+- Use educational extraction only; quote document wording where possible.
+- visit_date as ISO YYYY-MM-DD when visible.`;
+
+function parseStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    .map((item) => item.trim());
+}
+
+function parseConsultationExtraction(raw: unknown): ConsultationExtractionResult {
+  const data =
+    raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
+
+  return {
+    provider_name:
+      typeof data.provider_name === "string" && data.provider_name.trim()
+        ? data.provider_name.trim()
+        : null,
+    visit_date:
+      typeof data.visit_date === "string" && data.visit_date.trim() ? data.visit_date.trim() : null,
+    chief_complaint:
+      typeof data.chief_complaint === "string" && data.chief_complaint.trim()
+        ? data.chief_complaint.trim()
+        : null,
+    history_summary:
+      typeof data.history_summary === "string" && data.history_summary.trim()
+        ? data.history_summary.trim()
+        : null,
+    exam_findings:
+      typeof data.exam_findings === "string" && data.exam_findings.trim()
+        ? data.exam_findings.trim()
+        : null,
+    documented_problems: parseStringList(
+      data.documented_problems ?? data.documented_diagnoses
+    ),
+    recommendations: parseStringList(data.recommendations),
+    follow_up_plan:
+      typeof data.follow_up_plan === "string" && data.follow_up_plan.trim()
+        ? data.follow_up_plan.trim()
+        : null,
+  };
+}
+
+export async function extractConsultationFromText(
+  text: string,
+  model: LanguageModel,
+  filename: string,
+  ctx?: PipelineLlmContext
+): Promise<ConsultationExtractionResult> {
+  return runStructuredTextExtraction({
+    model,
+    system: CONSULTATION_INSTRUCTIONS,
+    userText: `Extract consultation note data from this document text (${filename}):\n\n${text.slice(0, 120000)}`,
+    parse: parseConsultationExtraction,
+    ctx,
+  });
+}
+
+export async function extractConsultationFromImage(
+  imageBuffer: Buffer,
+  mimeType: string,
+  model: LanguageModel,
+  filename: string,
+  ctx?: PipelineLlmContext
+): Promise<ConsultationExtractionResult> {
+  return runStructuredImageExtraction({
+    model,
+    system: CONSULTATION_INSTRUCTIONS,
+    imageBuffer,
+    mimeType,
+    promptText: `Extract consultation note data from this image: ${filename}`,
+    parse: parseConsultationExtraction,
+    ctx,
+  });
+}

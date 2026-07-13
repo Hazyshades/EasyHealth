@@ -1,0 +1,127 @@
+import { z } from "zod";
+
+export const REPORT_TYPES = [
+  "general_practice",
+  "cardiology",
+  "endocrinology",
+  "gastroenterology",
+  "hematology",
+  "nephrology",
+  "neurology",
+  "pulmonology",
+] as const;
+export type ReportType = (typeof REPORT_TYPES)[number];
+
+export const DETAIL_LEVELS = ["compact", "standard", "detailed", "full"] as const;
+export type DetailLevel = (typeof DETAIL_LEVELS)[number];
+
+export const REPORT_RANGE_OPTIONS = ["all", "30d", "90d", "year"] as const;
+export type ReportRange = (typeof REPORT_RANGE_OPTIONS)[number];
+
+export const REPORT_TYPE_LABELS: Record<ReportType, string> = {
+  general_practice: "Primary care (general practice)",
+  cardiology: "Cardiology",
+  endocrinology: "Endocrinology",
+  gastroenterology: "Gastroenterology",
+  hematology: "Hematology",
+  nephrology: "Nephrology",
+  neurology: "Neurology",
+  pulmonology: "Pulmonology",
+};
+
+export const DETAIL_LEVEL_LABELS: Record<DetailLevel, string> = {
+  compact: "Compact",
+  standard: "Standard",
+  detailed: "Detailed",
+  full: "Full",
+};
+
+export const DETAIL_LEVEL_HINTS: Partial<Record<DetailLevel, string>> = {
+  compact: "~1 page",
+  standard: "2–3 pages",
+  detailed: "4–5 pages",
+  full: "Comprehensive",
+};
+
+export const REPORT_RANGE_LABELS: Record<ReportRange, string> = {
+  all: "All time",
+  "30d": "Last 30 days",
+  "90d": "Last 90 days",
+  year: "This year",
+};
+
+export const createReportBodySchema = z.object({
+  title: z.string().min(1).max(200),
+  report_type: z.enum(REPORT_TYPES),
+  detail_level: z.enum(DETAIL_LEVELS),
+  document_ids: z.array(z.string().uuid()).nullable().optional(),
+  abnormal_only: z.boolean().optional().default(false),
+});
+
+export type CreateReportBody = z.infer<typeof createReportBodySchema>;
+
+export const SAFETY_PROMPT = `You are an educational health literacy assistant for EasyHealth.
+Generate a clinician-ready SUMMARY for discussion with a healthcare professional.
+Rules:
+- Educational language only. NO diagnoses, prescriptions, or treatment plans.
+- Cite specific biomarker values, imaging findings, and consultation notes from the provided data with dates and source filenames.
+- Synthesize across labs, instrumental reports, and consultation notes when multiple record types are present.
+- Include when_to_seek_care for urgent symptoms only (general guidance).
+- Use plain text only. Do NOT use markdown, asterisks, bullet symbols, or other formatting markup.
+- You MUST populate every JSON field. Do not leave changes or questions_for_clinician empty.
+- changes: at least 2 items. Compare values across dates when multiple dates exist; if only one lab date exists, note that longitudinal comparison is limited and cite the available values.
+- questions_for_clinician: at least 3 specific questions that reference the patient's biomarker values, imaging findings, or consultation notes.
+- Always append the required medical disclaimer in the final output (added automatically by the server).`;
+
+const SPECIALTY_PROMPTS: Record<ReportType, string> = {
+  general_practice: `Focus on holistic wellness and preventive health literacy across all provided biomarkers.
+Highlight patterns a primary care clinician might discuss at a routine visit.`,
+  cardiology: `Emphasize cardiovascular-related biomarkers (lipids, blood pressure markers, cardiac risk factors when present).
+Frame findings in terms of heart health literacy without diagnosing cardiovascular disease.`,
+  endocrinology: `Emphasize metabolic and endocrine-related biomarkers (glucose, HbA1c, thyroid markers when present).
+Frame findings in terms of metabolic health literacy without diagnosing endocrine disorders.`,
+  gastroenterology: `Emphasize liver enzymes and gastrointestinal-related biomarkers when present.
+Frame findings in terms of digestive health literacy without diagnosing GI disease.`,
+  hematology: `Emphasize blood count components, iron studies, and coagulation-related markers when present.
+Frame findings in terms of blood health literacy without diagnosing hematologic conditions.`,
+  nephrology: `Emphasize kidney-related biomarkers (creatinine, eGFR, electrolytes, urine markers when present).
+Frame findings in terms of kidney health literacy without diagnosing renal disease.`,
+  neurology: `Emphasize neurologically relevant biomarkers (B12, folate, inflammatory markers when present).
+Frame findings in terms of neurological health literacy without diagnosing neurological conditions.`,
+  pulmonology: `Emphasize respiratory-related biomarkers and oxygenation markers when present.
+Frame findings in terms of lung health literacy without diagnosing pulmonary disease.`,
+};
+
+const DETAIL_INSTRUCTIONS: Record<DetailLevel, string> = {
+  compact: "Keep the report brief (~1 page). Use short bullet points and minimal prose.",
+  standard: "Provide a balanced report (2–3 pages equivalent). Moderate detail in each section.",
+  detailed: "Provide an expanded report (4–5 pages equivalent). More context per finding.",
+  full: "Provide the most comprehensive educational summary possible within safety rules.",
+};
+
+export function buildReportSystemPrompt(reportType: ReportType, detailLevel: DetailLevel): string {
+  return `${SAFETY_PROMPT}
+
+Specialty focus:
+${SPECIALTY_PROMPTS[reportType]}
+
+Detail level:
+${DETAIL_INSTRUCTIONS[detailLevel]}`;
+}
+
+export function buildDefaultReportTitle(): string {
+  const date = new Date().toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  return `Report from ${date}`;
+}
+
+export function isReportType(value: string): value is ReportType {
+  return (REPORT_TYPES as readonly string[]).includes(value);
+}
+
+export function isReportRange(value: string): value is ReportRange {
+  return (REPORT_RANGE_OPTIONS as readonly string[]).includes(value);
+}

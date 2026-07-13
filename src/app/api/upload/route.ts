@@ -1,0 +1,119 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getSessionProfileId } from "@/lib/auth/session";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { ensureLabDocumentsBucket, LAB_DOCUMENTS_BUCKET } from "@/lib/supabase/storage";
+import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
+import {
+  isUploadableDocumentType,
+  normalizeDocumentType,
+  resolveFileKind,
+} from "@/lib/health-systems";
+import { originalObjectPath } from "@/lib/documents/paths";
+import { enqueueFullPipelineJob } from "@/lib/documents/jobs";
+
+const ALLOWED_TYPES = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/jpg",
+]);
+
+export async function POST(req: NextRequest) {
+  const profileId = await getSessionProfileId();
+  if (!profileId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const formData = await req.formData();
+  const file = formData.get("file");
+  const documentTypeRaw = formData.get("document_type");
+  const normalizedType =
+    typeof documentTypeRaw === "string" ? normalizeDocumentType(documentTypeRaw) : null;
+
+  if (normalizedType === "dicom") {
+    return NextResponse.json({ error: "DICOM upload is not available yet" }, { status: 400 });
+  }
+
+  const documentType =
+    normalizedType && isUploadableDocumentType(normalizedType) ? normalizedType : "lab_result";
+
+  if (!(file instanceof File)) {
+    return NextResponse.json({ error: "Missing file" }, { status: 400 });
+  }
+
+  if (file.size > 10 * 1024 * 1024) {
+    return NextResponse.json({ error: "File too large (max 10MB)" }, { status: 400 });
+  }
+
+  const mimeType = file.type || "application/octet-stream";
+  if (!ALLOWED_TYPES.has(mimeType) && !file.name.match(/\.(pdf|jpe?g|png)$/i)) {
+    return NextResponse.json({ error: "Only PDF, JPEG, and PNG are supported" }, { status: 400 });
+  }
+
+  const supabase = createAdminClient();
+  try {
+    await ensureLabDocumentsBucket(supabase);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Storage setup failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+
+  const documentId = crypto.randomUUID();
+  const storagePath = originalObjectPath(profileId, documentId, file.name);
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  const { error: uploadError } = await supabase.storage
+    .from(LAB_DOCUMENTS_BUCKET)
+    .upload(storagePath, buffer, { contentType: mimeType, upsert: false });
+
+  if (uploadError) {
+    return NextResponse.json(
+      { error: "Upload processing failed", message: uploadError.message },
+      { status: 500 }
+    );
+  }
+
+  const { data: document, error: docError } = await supabase
+    .from("documents")
+    .insert({
+      id: documentId,
+      profile_id: profileId,
+      storage_path: storagePath,
+      original_storage_path: storagePath,
+      original_filename: file.name,
+      document_type: documentType,
+      file_kind: resolveFileKind(mimeType, file.name),
+      status: "processing",
+      processing_status: "processing",
+      mime_type: mimeType,
+      file_size_bytes: file.size,
+    })
+    .select("id")
+    .single();
+
+  if (docError) {
+    return NextResponse.json(
+      { error: "Upload processing failed", message: docError.message },
+      { status: 500 }
+    );
+  }
+
+  try {
+    await enqueueFullPipelineJob(profileId, document.id);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to enqueue processing";
+    await supabase
+      .from("documents")
+      .update({ status: "failed", processing_status: "failed", processing_error: message })
+      .eq("id", document.id);
+    return NextResponse.json({ error: "Upload processing failed", message }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    documentId: document.id,
+    processingStatus: "processing",
+    disclaimer: MEDICAL_DISCLAIMER,
+  });
+}
+
+export const maxDuration = 60;

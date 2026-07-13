@@ -1,0 +1,22 @@
+{
+  "name": "easyhealth-document-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^2.0.0",
+    "@supabase/supabase-js": "^2.99.0",
+    "ai": "^5.0.26",
+    "dotenv": "^16.4.7",
+    "sharp": "^0.34.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.4",
+    "typescript": "^5"
+  }
+}

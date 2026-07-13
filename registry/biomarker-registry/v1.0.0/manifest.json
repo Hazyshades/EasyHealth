@@ -1,0 +1,65 @@
+{
+  "contentDigests": {
+    "auditMarkdown": "b09d1cdf471b6be73ba9f49ddd04c323f16aada8a5422b563322f0f70ed3dbaa",
+    "registryJson": "38dc38f6520e9dd40e0553c8a1519fcc6a1efbc83daaac9c76b6a1faf45b8caa",
+    "resolverCasesJson": "0225bf13c782d6411a5122648d1a10f84098e6228c7a76279ced1c1e30d72b2a"
+  },
+  "registryVersion": "1.0.0",
+  "schemaVersion": 1,
+  "sourceFiles": [
+    {
+      "path": "src/lib/biomarkers/catalog/definitions.ts",
+      "role": "legacy canonical definitions"
+    },
+    {
+      "path": "src/lib/biomarkers/normalize.ts",
+      "role": "legacy effective alias resolution"
+    }
+  ],
+  "summary": {
+    "auditFindingCounts": {
+      "ambiguous-context-required": 1,
+      "breaking-change-risk": 1,
+      "documented-safe": 2,
+      "follow-up-required": 2,
+      "metadata-gap": 1
+    },
+    "conversionCounts": {
+      "equal": 15,
+      "formula": 3,
+      "linear": 39,
+      "missing": 36,
+      "none": 20
+    },
+    "definitionCount": 113,
+    "definitionsBySystem": {
+      "blood": 25,
+      "cardiovascular": 9,
+      "general": 26,
+      "inflammation": 3,
+      "kidney": 24,
+      "liver": 10,
+      "metabolic": 5,
+      "nutrients": 3,
+      "thyroid": 8
+    },
+    "derivedMarkers": [
+      "non_hdl_cholesterol",
+      "remnant_cholesterol"
+    ],
+    "effectiveAliasCount": 383,
+    "equivalenceGroups": {
+      "urea_nitrogen": [
+        "bun",
+        "urea"
+      ]
+    },
+    "normalizedAliasCollisionCount": 6,
+    "sourceAliasCount": 378,
+    "specimenCounts": {
+      "serum": 1,
+      "unspecified": 100,
+      "urine": 12
+    }
+  }
+}
