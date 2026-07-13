@@ -6,12 +6,6 @@ if (!process.env.CI && !process.env.SKIP_ENV_VALIDATION) {
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@circle-fin/x402-batching"],
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
 };
 
 export default nextConfig;
