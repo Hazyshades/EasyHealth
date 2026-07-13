@@ -2562,10 +2562,6 @@
   ],
   "effectiveAliasMap": [
     {
-      "alias": "25_он_витамин_d",
-      "canonicalKey": "vitamin_d"
-    },
-    {
       "alias": "25_hydroxyvitamin_d",
       "canonicalKey": "vitamin_d"
     },
@@ -2582,488 +2578,8 @@
       "canonicalKey": "vitamin_d"
     },
     {
-      "alias": "азот_мочевины",
-      "canonicalKey": "bun"
-    },
-    {
-      "alias": "акр",
-      "canonicalKey": "uacr"
-    },
-    {
-      "alias": "алат",
-      "canonicalKey": "alt"
-    },
-    {
-      "alias": "алт",
-      "canonicalKey": "alt"
-    },
-    {
-      "alias": "альбумин",
-      "canonicalKey": "albumin"
-    },
-    {
-      "alias": "альбумин_в_моче",
-      "canonicalKey": "urine_albumin"
-    },
-    {
-      "alias": "альбумин_креатинин",
-      "canonicalKey": "uacr"
-    },
-    {
-      "alias": "антитела_к_тг",
-      "canonicalKey": "anti_tg"
-    },
-    {
-      "alias": "антитела_к_тпо",
-      "canonicalKey": "anti_tpo"
-    },
-    {
-      "alias": "анф",
-      "canonicalKey": "ana"
-    },
-    {
-      "alias": "апо_в",
-      "canonicalKey": "apob"
-    },
-    {
-      "alias": "аполипопротеин_b",
-      "canonicalKey": "apob"
-    },
-    {
-      "alias": "апоb",
-      "canonicalKey": "apob"
-    },
-    {
-      "alias": "асат",
-      "canonicalKey": "ast"
-    },
-    {
-      "alias": "аст",
-      "canonicalKey": "ast"
-    },
-    {
-      "alias": "ат_к_рецепторам_ттг",
-      "canonicalKey": "trab"
-    },
-    {
-      "alias": "ат_тг",
-      "canonicalKey": "anti_tg"
-    },
-    {
-      "alias": "ат_тпо",
-      "canonicalKey": "anti_tpo"
-    },
-    {
-      "alias": "ачтв",
-      "canonicalKey": "aptt"
-    },
-    {
-      "alias": "базофилы",
-      "canonicalKey": "basophils"
-    },
-    {
-      "alias": "белок_в_моче",
-      "canonicalKey": "urine_protein"
-    },
-    {
-      "alias": "белок_в_моче_кач",
-      "canonicalKey": "urine_protein_dipstick"
-    },
-    {
-      "alias": "бикарбонат",
-      "canonicalKey": "bicarbonate"
-    },
-    {
-      "alias": "билирубин",
-      "canonicalKey": "bilirubin"
-    },
-    {
-      "alias": "билирубин_непрямой",
-      "canonicalKey": "indirect_bilirubin"
-    },
-    {
-      "alias": "билирубин_общий",
-      "canonicalKey": "bilirubin"
-    },
-    {
-      "alias": "билирубин_прямой",
-      "canonicalKey": "direct_bilirubin"
-    },
-    {
-      "alias": "витамин_b12",
-      "canonicalKey": "b12"
-    },
-    {
-      "alias": "витамин_d",
+      "alias": "25_он_витамин_d",
       "canonicalKey": "vitamin_d"
-    },
-    {
-      "alias": "вч_срб",
-      "canonicalKey": "hs_crp"
-    },
-    {
-      "alias": "ггт",
-      "canonicalKey": "ggt"
-    },
-    {
-      "alias": "гематокрит",
-      "canonicalKey": "hematocrit"
-    },
-    {
-      "alias": "гемоглобин",
-      "canonicalKey": "hemoglobin"
-    },
-    {
-      "alias": "гидрокарбонат",
-      "canonicalKey": "bicarbonate"
-    },
-    {
-      "alias": "гликированный_гемоглобин",
-      "canonicalKey": "hba1c"
-    },
-    {
-      "alias": "гликогемоглобин",
-      "canonicalKey": "hba1c"
-    },
-    {
-      "alias": "глобулин",
-      "canonicalKey": "globulin"
-    },
-    {
-      "alias": "глюкоза",
-      "canonicalKey": "glucose"
-    },
-    {
-      "alias": "глюкоза_натощак",
-      "canonicalKey": "fasting_glucose"
-    },
-    {
-      "alias": "д_димер",
-      "canonicalKey": "d_dimer"
-    },
-    {
-      "alias": "железо",
-      "canonicalKey": "iron"
-    },
-    {
-      "alias": "инсулин",
-      "canonicalKey": "insulin"
-    },
-    {
-      "alias": "калий",
-      "canonicalKey": "potassium"
-    },
-    {
-      "alias": "кальций",
-      "canonicalKey": "calcium"
-    },
-    {
-      "alias": "кетоны_мочи",
-      "canonicalKey": "urine_ketones"
-    },
-    {
-      "alias": "кобаламин",
-      "canonicalKey": "b12"
-    },
-    {
-      "alias": "кортизол",
-      "canonicalKey": "cortisol"
-    },
-    {
-      "alias": "креатинин",
-      "canonicalKey": "creatinine"
-    },
-    {
-      "alias": "креатинин_в_моче",
-      "canonicalKey": "urine_creatinine"
-    },
-    {
-      "alias": "лейкоциты",
-      "canonicalKey": "wbc"
-    },
-    {
-      "alias": "лжсс",
-      "canonicalKey": "uibc"
-    },
-    {
-      "alias": "лимфоциты",
-      "canonicalKey": "lymphocytes"
-    },
-    {
-      "alias": "липопротеин_а",
-      "canonicalKey": "lpa"
-    },
-    {
-      "alias": "лп_а",
-      "canonicalKey": "lpa"
-    },
-    {
-      "alias": "лпа",
-      "canonicalKey": "lpa"
-    },
-    {
-      "alias": "лпвп",
-      "canonicalKey": "hdl"
-    },
-    {
-      "alias": "лпнп",
-      "canonicalKey": "ldl"
-    },
-    {
-      "alias": "магний",
-      "canonicalKey": "magnesium"
-    },
-    {
-      "alias": "микроальбумин",
-      "canonicalKey": "urine_albumin"
-    },
-    {
-      "alias": "мно",
-      "canonicalKey": "inr"
-    },
-    {
-      "alias": "моноциты",
-      "canonicalKey": "monocytes"
-    },
-    {
-      "alias": "мочевая_кислота",
-      "canonicalKey": "uric_acid"
-    },
-    {
-      "alias": "мочевина",
-      "canonicalKey": "urea"
-    },
-    {
-      "alias": "насыщение_трансферрина",
-      "canonicalKey": "transferrin_saturation"
-    },
-    {
-      "alias": "натрий",
-      "canonicalKey": "sodium"
-    },
-    {
-      "alias": "не_лпвп",
-      "canonicalKey": "non_hdl_cholesterol"
-    },
-    {
-      "alias": "нейтрофилы",
-      "canonicalKey": "neutrophils"
-    },
-    {
-      "alias": "нжсс",
-      "canonicalKey": "uibc"
-    },
-    {
-      "alias": "общий_белок",
-      "canonicalKey": "total_protein"
-    },
-    {
-      "alias": "общий_холестерин",
-      "canonicalKey": "total_cholesterol"
-    },
-    {
-      "alias": "ожсс",
-      "canonicalKey": "tibc"
-    },
-    {
-      "alias": "охс",
-      "canonicalKey": "total_cholesterol"
-    },
-    {
-      "alias": "пв",
-      "canonicalKey": "pt"
-    },
-    {
-      "alias": "прогестерон",
-      "canonicalKey": "progesterone"
-    },
-    {
-      "alias": "пролактин",
-      "canonicalKey": "prolactin"
-    },
-    {
-      "alias": "пса",
-      "canonicalKey": "psa"
-    },
-    {
-      "alias": "ревматоидный_фактор",
-      "canonicalKey": "rf"
-    },
-    {
-      "alias": "рскф",
-      "canonicalKey": "egfr"
-    },
-    {
-      "alias": "с_пептид",
-      "canonicalKey": "c_peptide"
-    },
-    {
-      "alias": "сахар_крови",
-      "canonicalKey": "glucose"
-    },
-    {
-      "alias": "св_т3",
-      "canonicalKey": "free_t3"
-    },
-    {
-      "alias": "св_т4",
-      "canonicalKey": "free_t4"
-    },
-    {
-      "alias": "свободный_т3",
-      "canonicalKey": "free_t3"
-    },
-    {
-      "alias": "свободный_т4",
-      "canonicalKey": "free_t4"
-    },
-    {
-      "alias": "скф",
-      "canonicalKey": "egfr"
-    },
-    {
-      "alias": "соэ",
-      "canonicalKey": "esr"
-    },
-    {
-      "alias": "срб",
-      "canonicalKey": "crp"
-    },
-    {
-      "alias": "сывороточное_железо",
-      "canonicalKey": "iron"
-    },
-    {
-      "alias": "т3",
-      "canonicalKey": "t3"
-    },
-    {
-      "alias": "т3_общий",
-      "canonicalKey": "t3"
-    },
-    {
-      "alias": "т4",
-      "canonicalKey": "t4"
-    },
-    {
-      "alias": "т4_общий",
-      "canonicalKey": "t4"
-    },
-    {
-      "alias": "т4_свободный",
-      "canonicalKey": "free_t4"
-    },
-    {
-      "alias": "тг",
-      "canonicalKey": "triglycerides"
-    },
-    {
-      "alias": "тестостерон",
-      "canonicalKey": "total_testosterone"
-    },
-    {
-      "alias": "тестостерон_общий",
-      "canonicalKey": "total_testosterone"
-    },
-    {
-      "alias": "тестостерон_свободный",
-      "canonicalKey": "free_testosterone"
-    },
-    {
-      "alias": "тиреотропный_гормон",
-      "canonicalKey": "tsh"
-    },
-    {
-      "alias": "трансферрин",
-      "canonicalKey": "transferrin"
-    },
-    {
-      "alias": "триглицериды",
-      "canonicalKey": "triglycerides"
-    },
-    {
-      "alias": "тромбоциты",
-      "canonicalKey": "platelets"
-    },
-    {
-      "alias": "тропонин_i",
-      "canonicalKey": "troponin_i"
-    },
-    {
-      "alias": "тропонин_t",
-      "canonicalKey": "troponin_t"
-    },
-    {
-      "alias": "ттг",
-      "canonicalKey": "tsh"
-    },
-    {
-      "alias": "ферритин",
-      "canonicalKey": "ferritin"
-    },
-    {
-      "alias": "фибриноген",
-      "canonicalKey": "fibrinogen"
-    },
-    {
-      "alias": "фолат",
-      "canonicalKey": "folate"
-    },
-    {
-      "alias": "фолиевая_кислота",
-      "canonicalKey": "folate"
-    },
-    {
-      "alias": "фосфат",
-      "canonicalKey": "phosphate"
-    },
-    {
-      "alias": "фосфор",
-      "canonicalKey": "phosphate"
-    },
-    {
-      "alias": "хлор",
-      "canonicalKey": "chloride"
-    },
-    {
-      "alias": "хлориды",
-      "canonicalKey": "chloride"
-    },
-    {
-      "alias": "холестерин_не_лпвп",
-      "canonicalKey": "non_hdl_cholesterol"
-    },
-    {
-      "alias": "холестерин_общий",
-      "canonicalKey": "total_cholesterol"
-    },
-    {
-      "alias": "хс_лпвп",
-      "canonicalKey": "hdl"
-    },
-    {
-      "alias": "хс_лпнп",
-      "canonicalKey": "ldl"
-    },
-    {
-      "alias": "щелочная_фосфатаза",
-      "canonicalKey": "alp"
-    },
-    {
-      "alias": "щф",
-      "canonicalKey": "alp"
-    },
-    {
-      "alias": "эозинофилы",
-      "canonicalKey": "eosinophils"
-    },
-    {
-      "alias": "эритроциты",
-      "canonicalKey": "rbc"
-    },
-    {
-      "alias": "эстрадиол",
-      "canonicalKey": "estradiol"
     },
     {
       "alias": "a1c",
@@ -3206,14 +2722,6 @@
       "canonicalKey": "bun"
     },
     {
-      "alias": "c_пептид",
-      "canonicalKey": "c_peptide"
-    },
-    {
-      "alias": "c_реактивный_белок",
-      "canonicalKey": "crp"
-    },
-    {
       "alias": "c_peptide",
       "canonicalKey": "c_peptide"
     },
@@ -3222,16 +2730,16 @@
       "canonicalKey": "crp"
     },
     {
+      "alias": "c_пептид",
+      "canonicalKey": "c_peptide"
+    },
+    {
+      "alias": "c_реактивный_белок",
+      "canonicalKey": "crp"
+    },
+    {
       "alias": "ca",
       "canonicalKey": "calcium"
-    },
-    {
-      "alias": "ca_125",
-      "canonicalKey": "ca_125"
-    },
-    {
-      "alias": "ca_19_9",
-      "canonicalKey": "ca_19_9"
     },
     {
       "alias": "ca125",
@@ -3239,6 +2747,14 @@
     },
     {
       "alias": "ca199",
+      "canonicalKey": "ca_19_9"
+    },
+    {
+      "alias": "ca_125",
+      "canonicalKey": "ca_125"
+    },
+    {
+      "alias": "ca_19_9",
       "canonicalKey": "ca_19_9"
     },
     {
@@ -3326,11 +2842,11 @@
       "canonicalKey": "troponin_t"
     },
     {
-      "alias": "d_димер",
+      "alias": "d_dimer",
       "canonicalKey": "d_dimer"
     },
     {
-      "alias": "d_dimer",
+      "alias": "d_димер",
       "canonicalKey": "d_dimer"
     },
     {
@@ -3846,16 +3362,16 @@
       "canonicalKey": "specific_gravity"
     },
     {
-      "alias": "t_sat",
-      "canonicalKey": "transferrin_saturation"
-    },
-    {
       "alias": "t3",
       "canonicalKey": "t3"
     },
     {
       "alias": "t4",
       "canonicalKey": "t4"
+    },
+    {
+      "alias": "t_sat",
+      "canonicalKey": "transferrin_saturation"
     },
     {
       "alias": "tbii",
@@ -4092,9 +3608,501 @@
     {
       "alias": "white_blood_cells",
       "canonicalKey": "wbc"
+    },
+    {
+      "alias": "азот_мочевины",
+      "canonicalKey": "bun"
+    },
+    {
+      "alias": "акр",
+      "canonicalKey": "uacr"
+    },
+    {
+      "alias": "алат",
+      "canonicalKey": "alt"
+    },
+    {
+      "alias": "алт",
+      "canonicalKey": "alt"
+    },
+    {
+      "alias": "альбумин",
+      "canonicalKey": "albumin"
+    },
+    {
+      "alias": "альбумин_в_моче",
+      "canonicalKey": "urine_albumin"
+    },
+    {
+      "alias": "альбумин_креатинин",
+      "canonicalKey": "uacr"
+    },
+    {
+      "alias": "антитела_к_тг",
+      "canonicalKey": "anti_tg"
+    },
+    {
+      "alias": "антитела_к_тпо",
+      "canonicalKey": "anti_tpo"
+    },
+    {
+      "alias": "анф",
+      "canonicalKey": "ana"
+    },
+    {
+      "alias": "апо_в",
+      "canonicalKey": "apob"
+    },
+    {
+      "alias": "апоb",
+      "canonicalKey": "apob"
+    },
+    {
+      "alias": "аполипопротеин_b",
+      "canonicalKey": "apob"
+    },
+    {
+      "alias": "асат",
+      "canonicalKey": "ast"
+    },
+    {
+      "alias": "аст",
+      "canonicalKey": "ast"
+    },
+    {
+      "alias": "ат_к_рецепторам_ттг",
+      "canonicalKey": "trab"
+    },
+    {
+      "alias": "ат_тг",
+      "canonicalKey": "anti_tg"
+    },
+    {
+      "alias": "ат_тпо",
+      "canonicalKey": "anti_tpo"
+    },
+    {
+      "alias": "ачтв",
+      "canonicalKey": "aptt"
+    },
+    {
+      "alias": "базофилы",
+      "canonicalKey": "basophils"
+    },
+    {
+      "alias": "белок_в_моче",
+      "canonicalKey": "urine_protein"
+    },
+    {
+      "alias": "белок_в_моче_кач",
+      "canonicalKey": "urine_protein_dipstick"
+    },
+    {
+      "alias": "бикарбонат",
+      "canonicalKey": "bicarbonate"
+    },
+    {
+      "alias": "билирубин",
+      "canonicalKey": "bilirubin"
+    },
+    {
+      "alias": "билирубин_непрямой",
+      "canonicalKey": "indirect_bilirubin"
+    },
+    {
+      "alias": "билирубин_общий",
+      "canonicalKey": "bilirubin"
+    },
+    {
+      "alias": "билирубин_прямой",
+      "canonicalKey": "direct_bilirubin"
+    },
+    {
+      "alias": "витамин_b12",
+      "canonicalKey": "b12"
+    },
+    {
+      "alias": "витамин_d",
+      "canonicalKey": "vitamin_d"
+    },
+    {
+      "alias": "вч_срб",
+      "canonicalKey": "hs_crp"
+    },
+    {
+      "alias": "ггт",
+      "canonicalKey": "ggt"
+    },
+    {
+      "alias": "гематокрит",
+      "canonicalKey": "hematocrit"
+    },
+    {
+      "alias": "гемоглобин",
+      "canonicalKey": "hemoglobin"
+    },
+    {
+      "alias": "гидрокарбонат",
+      "canonicalKey": "bicarbonate"
+    },
+    {
+      "alias": "гликированный_гемоглобин",
+      "canonicalKey": "hba1c"
+    },
+    {
+      "alias": "гликогемоглобин",
+      "canonicalKey": "hba1c"
+    },
+    {
+      "alias": "глобулин",
+      "canonicalKey": "globulin"
+    },
+    {
+      "alias": "глюкоза",
+      "canonicalKey": "glucose"
+    },
+    {
+      "alias": "глюкоза_натощак",
+      "canonicalKey": "fasting_glucose"
+    },
+    {
+      "alias": "д_димер",
+      "canonicalKey": "d_dimer"
+    },
+    {
+      "alias": "железо",
+      "canonicalKey": "iron"
+    },
+    {
+      "alias": "инсулин",
+      "canonicalKey": "insulin"
+    },
+    {
+      "alias": "калий",
+      "canonicalKey": "potassium"
+    },
+    {
+      "alias": "кальций",
+      "canonicalKey": "calcium"
+    },
+    {
+      "alias": "кетоны_мочи",
+      "canonicalKey": "urine_ketones"
+    },
+    {
+      "alias": "кобаламин",
+      "canonicalKey": "b12"
+    },
+    {
+      "alias": "кортизол",
+      "canonicalKey": "cortisol"
+    },
+    {
+      "alias": "креатинин",
+      "canonicalKey": "creatinine"
+    },
+    {
+      "alias": "креатинин_в_моче",
+      "canonicalKey": "urine_creatinine"
+    },
+    {
+      "alias": "лейкоциты",
+      "canonicalKey": "wbc"
+    },
+    {
+      "alias": "лжсс",
+      "canonicalKey": "uibc"
+    },
+    {
+      "alias": "лимфоциты",
+      "canonicalKey": "lymphocytes"
+    },
+    {
+      "alias": "липопротеин_а",
+      "canonicalKey": "lpa"
+    },
+    {
+      "alias": "лп_а",
+      "canonicalKey": "lpa"
+    },
+    {
+      "alias": "лпа",
+      "canonicalKey": "lpa"
+    },
+    {
+      "alias": "лпвп",
+      "canonicalKey": "hdl"
+    },
+    {
+      "alias": "лпнп",
+      "canonicalKey": "ldl"
+    },
+    {
+      "alias": "магний",
+      "canonicalKey": "magnesium"
+    },
+    {
+      "alias": "микроальбумин",
+      "canonicalKey": "urine_albumin"
+    },
+    {
+      "alias": "мно",
+      "canonicalKey": "inr"
+    },
+    {
+      "alias": "моноциты",
+      "canonicalKey": "monocytes"
+    },
+    {
+      "alias": "мочевая_кислота",
+      "canonicalKey": "uric_acid"
+    },
+    {
+      "alias": "мочевина",
+      "canonicalKey": "urea"
+    },
+    {
+      "alias": "насыщение_трансферрина",
+      "canonicalKey": "transferrin_saturation"
+    },
+    {
+      "alias": "натрий",
+      "canonicalKey": "sodium"
+    },
+    {
+      "alias": "не_лпвп",
+      "canonicalKey": "non_hdl_cholesterol"
+    },
+    {
+      "alias": "нейтрофилы",
+      "canonicalKey": "neutrophils"
+    },
+    {
+      "alias": "нжсс",
+      "canonicalKey": "uibc"
+    },
+    {
+      "alias": "общий_белок",
+      "canonicalKey": "total_protein"
+    },
+    {
+      "alias": "общий_холестерин",
+      "canonicalKey": "total_cholesterol"
+    },
+    {
+      "alias": "ожсс",
+      "canonicalKey": "tibc"
+    },
+    {
+      "alias": "охс",
+      "canonicalKey": "total_cholesterol"
+    },
+    {
+      "alias": "пв",
+      "canonicalKey": "pt"
+    },
+    {
+      "alias": "прогестерон",
+      "canonicalKey": "progesterone"
+    },
+    {
+      "alias": "пролактин",
+      "canonicalKey": "prolactin"
+    },
+    {
+      "alias": "пса",
+      "canonicalKey": "psa"
+    },
+    {
+      "alias": "ревматоидный_фактор",
+      "canonicalKey": "rf"
+    },
+    {
+      "alias": "рскф",
+      "canonicalKey": "egfr"
+    },
+    {
+      "alias": "с_пептид",
+      "canonicalKey": "c_peptide"
+    },
+    {
+      "alias": "сахар_крови",
+      "canonicalKey": "glucose"
+    },
+    {
+      "alias": "св_т3",
+      "canonicalKey": "free_t3"
+    },
+    {
+      "alias": "св_т4",
+      "canonicalKey": "free_t4"
+    },
+    {
+      "alias": "свободный_т3",
+      "canonicalKey": "free_t3"
+    },
+    {
+      "alias": "свободный_т4",
+      "canonicalKey": "free_t4"
+    },
+    {
+      "alias": "скф",
+      "canonicalKey": "egfr"
+    },
+    {
+      "alias": "соэ",
+      "canonicalKey": "esr"
+    },
+    {
+      "alias": "срб",
+      "canonicalKey": "crp"
+    },
+    {
+      "alias": "сывороточное_железо",
+      "canonicalKey": "iron"
+    },
+    {
+      "alias": "т3",
+      "canonicalKey": "t3"
+    },
+    {
+      "alias": "т3_общий",
+      "canonicalKey": "t3"
+    },
+    {
+      "alias": "т4",
+      "canonicalKey": "t4"
+    },
+    {
+      "alias": "т4_общий",
+      "canonicalKey": "t4"
+    },
+    {
+      "alias": "т4_свободный",
+      "canonicalKey": "free_t4"
+    },
+    {
+      "alias": "тг",
+      "canonicalKey": "triglycerides"
+    },
+    {
+      "alias": "тестостерон",
+      "canonicalKey": "total_testosterone"
+    },
+    {
+      "alias": "тестостерон_общий",
+      "canonicalKey": "total_testosterone"
+    },
+    {
+      "alias": "тестостерон_свободный",
+      "canonicalKey": "free_testosterone"
+    },
+    {
+      "alias": "тиреотропный_гормон",
+      "canonicalKey": "tsh"
+    },
+    {
+      "alias": "трансферрин",
+      "canonicalKey": "transferrin"
+    },
+    {
+      "alias": "триглицериды",
+      "canonicalKey": "triglycerides"
+    },
+    {
+      "alias": "тромбоциты",
+      "canonicalKey": "platelets"
+    },
+    {
+      "alias": "тропонин_i",
+      "canonicalKey": "troponin_i"
+    },
+    {
+      "alias": "тропонин_t",
+      "canonicalKey": "troponin_t"
+    },
+    {
+      "alias": "ттг",
+      "canonicalKey": "tsh"
+    },
+    {
+      "alias": "ферритин",
+      "canonicalKey": "ferritin"
+    },
+    {
+      "alias": "фибриноген",
+      "canonicalKey": "fibrinogen"
+    },
+    {
+      "alias": "фолат",
+      "canonicalKey": "folate"
+    },
+    {
+      "alias": "фолиевая_кислота",
+      "canonicalKey": "folate"
+    },
+    {
+      "alias": "фосфат",
+      "canonicalKey": "phosphate"
+    },
+    {
+      "alias": "фосфор",
+      "canonicalKey": "phosphate"
+    },
+    {
+      "alias": "хлор",
+      "canonicalKey": "chloride"
+    },
+    {
+      "alias": "хлориды",
+      "canonicalKey": "chloride"
+    },
+    {
+      "alias": "холестерин_не_лпвп",
+      "canonicalKey": "non_hdl_cholesterol"
+    },
+    {
+      "alias": "холестерин_общий",
+      "canonicalKey": "total_cholesterol"
+    },
+    {
+      "alias": "хс_лпвп",
+      "canonicalKey": "hdl"
+    },
+    {
+      "alias": "хс_лпнп",
+      "canonicalKey": "ldl"
+    },
+    {
+      "alias": "щелочная_фосфатаза",
+      "canonicalKey": "alp"
+    },
+    {
+      "alias": "щф",
+      "canonicalKey": "alp"
+    },
+    {
+      "alias": "эозинофилы",
+      "canonicalKey": "eosinophils"
+    },
+    {
+      "alias": "эритроциты",
+      "canonicalKey": "rbc"
+    },
+    {
+      "alias": "эстрадиол",
+      "canonicalKey": "estradiol"
     }
   ],
   "normalizedAliasCollisions": [
+    {
+      "alias": "neutrophils",
+      "effectiveCanonicalKey": "neutrophils",
+      "owners": [
+        "neutrophils",
+        "neutrophils_percent"
+      ]
+    },
     {
       "alias": "базофилы",
       "effectiveCanonicalKey": "basophils",
@@ -4134,24 +4142,9 @@
         "eosinophils",
         "eosinophils_percent"
       ]
-    },
-    {
-      "alias": "neutrophils",
-      "effectiveCanonicalKey": "neutrophils",
-      "owners": [
-        "neutrophils",
-        "neutrophils_percent"
-      ]
     }
   ],
   "normalizedAliasOwners": [
-    {
-      "alias": "25_он_витамин_d",
-      "effectiveCanonicalKey": "vitamin_d",
-      "owners": [
-        "vitamin_d"
-      ]
-    },
     {
       "alias": "25_hydroxyvitamin_d",
       "effectiveCanonicalKey": "vitamin_d",
@@ -4181,855 +4174,10 @@
       ]
     },
     {
-      "alias": "азот_мочевины",
-      "effectiveCanonicalKey": "bun",
-      "owners": [
-        "bun"
-      ]
-    },
-    {
-      "alias": "акр",
-      "effectiveCanonicalKey": "uacr",
-      "owners": [
-        "uacr"
-      ]
-    },
-    {
-      "alias": "алат",
-      "effectiveCanonicalKey": "alt",
-      "owners": [
-        "alt"
-      ]
-    },
-    {
-      "alias": "алт",
-      "effectiveCanonicalKey": "alt",
-      "owners": [
-        "alt"
-      ]
-    },
-    {
-      "alias": "альбумин",
-      "effectiveCanonicalKey": "albumin",
-      "owners": [
-        "albumin"
-      ]
-    },
-    {
-      "alias": "альбумин_в_моче",
-      "effectiveCanonicalKey": "urine_albumin",
-      "owners": [
-        "urine_albumin"
-      ]
-    },
-    {
-      "alias": "альбумин_креатинин",
-      "effectiveCanonicalKey": "uacr",
-      "owners": [
-        "uacr"
-      ]
-    },
-    {
-      "alias": "антитела_к_тг",
-      "effectiveCanonicalKey": "anti_tg",
-      "owners": [
-        "anti_tg"
-      ]
-    },
-    {
-      "alias": "антитела_к_тпо",
-      "effectiveCanonicalKey": "anti_tpo",
-      "owners": [
-        "anti_tpo"
-      ]
-    },
-    {
-      "alias": "анф",
-      "effectiveCanonicalKey": "ana",
-      "owners": [
-        "ana"
-      ]
-    },
-    {
-      "alias": "апо_в",
-      "effectiveCanonicalKey": "apob",
-      "owners": [
-        "apob"
-      ]
-    },
-    {
-      "alias": "аполипопротеин_b",
-      "effectiveCanonicalKey": "apob",
-      "owners": [
-        "apob"
-      ]
-    },
-    {
-      "alias": "апоb",
-      "effectiveCanonicalKey": "apob",
-      "owners": [
-        "apob"
-      ]
-    },
-    {
-      "alias": "асат",
-      "effectiveCanonicalKey": "ast",
-      "owners": [
-        "ast"
-      ]
-    },
-    {
-      "alias": "аст",
-      "effectiveCanonicalKey": "ast",
-      "owners": [
-        "ast"
-      ]
-    },
-    {
-      "alias": "ат_к_рецепторам_ттг",
-      "effectiveCanonicalKey": "trab",
-      "owners": [
-        "trab"
-      ]
-    },
-    {
-      "alias": "ат_тг",
-      "effectiveCanonicalKey": "anti_tg",
-      "owners": [
-        "anti_tg"
-      ]
-    },
-    {
-      "alias": "ат_тпо",
-      "effectiveCanonicalKey": "anti_tpo",
-      "owners": [
-        "anti_tpo"
-      ]
-    },
-    {
-      "alias": "ачтв",
-      "effectiveCanonicalKey": "aptt",
-      "owners": [
-        "aptt"
-      ]
-    },
-    {
-      "alias": "базофилы",
-      "effectiveCanonicalKey": "basophils",
-      "owners": [
-        "basophils",
-        "basophils_percent"
-      ]
-    },
-    {
-      "alias": "белок_в_моче",
-      "effectiveCanonicalKey": "urine_protein",
-      "owners": [
-        "urine_protein"
-      ]
-    },
-    {
-      "alias": "белок_в_моче_кач",
-      "effectiveCanonicalKey": "urine_protein_dipstick",
-      "owners": [
-        "urine_protein_dipstick"
-      ]
-    },
-    {
-      "alias": "бикарбонат",
-      "effectiveCanonicalKey": "bicarbonate",
-      "owners": [
-        "bicarbonate"
-      ]
-    },
-    {
-      "alias": "билирубин",
-      "effectiveCanonicalKey": "bilirubin",
-      "owners": [
-        "bilirubin"
-      ]
-    },
-    {
-      "alias": "билирубин_непрямой",
-      "effectiveCanonicalKey": "indirect_bilirubin",
-      "owners": [
-        "indirect_bilirubin"
-      ]
-    },
-    {
-      "alias": "билирубин_общий",
-      "effectiveCanonicalKey": "bilirubin",
-      "owners": [
-        "bilirubin"
-      ]
-    },
-    {
-      "alias": "билирубин_прямой",
-      "effectiveCanonicalKey": "direct_bilirubin",
-      "owners": [
-        "direct_bilirubin"
-      ]
-    },
-    {
-      "alias": "витамин_b12",
-      "effectiveCanonicalKey": "b12",
-      "owners": [
-        "b12"
-      ]
-    },
-    {
-      "alias": "витамин_d",
+      "alias": "25_он_витамин_d",
       "effectiveCanonicalKey": "vitamin_d",
       "owners": [
         "vitamin_d"
-      ]
-    },
-    {
-      "alias": "вч_срб",
-      "effectiveCanonicalKey": "hs_crp",
-      "owners": [
-        "hs_crp"
-      ]
-    },
-    {
-      "alias": "ггт",
-      "effectiveCanonicalKey": "ggt",
-      "owners": [
-        "ggt"
-      ]
-    },
-    {
-      "alias": "гематокрит",
-      "effectiveCanonicalKey": "hematocrit",
-      "owners": [
-        "hematocrit"
-      ]
-    },
-    {
-      "alias": "гемоглобин",
-      "effectiveCanonicalKey": "hemoglobin",
-      "owners": [
-        "hemoglobin"
-      ]
-    },
-    {
-      "alias": "гидрокарбонат",
-      "effectiveCanonicalKey": "bicarbonate",
-      "owners": [
-        "bicarbonate"
-      ]
-    },
-    {
-      "alias": "гликированный_гемоглобин",
-      "effectiveCanonicalKey": "hba1c",
-      "owners": [
-        "hba1c"
-      ]
-    },
-    {
-      "alias": "гликогемоглобин",
-      "effectiveCanonicalKey": "hba1c",
-      "owners": [
-        "hba1c"
-      ]
-    },
-    {
-      "alias": "глобулин",
-      "effectiveCanonicalKey": "globulin",
-      "owners": [
-        "globulin"
-      ]
-    },
-    {
-      "alias": "глюкоза",
-      "effectiveCanonicalKey": "glucose",
-      "owners": [
-        "glucose"
-      ]
-    },
-    {
-      "alias": "глюкоза_натощак",
-      "effectiveCanonicalKey": "fasting_glucose",
-      "owners": [
-        "fasting_glucose"
-      ]
-    },
-    {
-      "alias": "д_димер",
-      "effectiveCanonicalKey": "d_dimer",
-      "owners": [
-        "d_dimer"
-      ]
-    },
-    {
-      "alias": "железо",
-      "effectiveCanonicalKey": "iron",
-      "owners": [
-        "iron"
-      ]
-    },
-    {
-      "alias": "инсулин",
-      "effectiveCanonicalKey": "insulin",
-      "owners": [
-        "insulin"
-      ]
-    },
-    {
-      "alias": "калий",
-      "effectiveCanonicalKey": "potassium",
-      "owners": [
-        "potassium"
-      ]
-    },
-    {
-      "alias": "кальций",
-      "effectiveCanonicalKey": "calcium",
-      "owners": [
-        "calcium"
-      ]
-    },
-    {
-      "alias": "кетоны_мочи",
-      "effectiveCanonicalKey": "urine_ketones",
-      "owners": [
-        "urine_ketones"
-      ]
-    },
-    {
-      "alias": "кобаламин",
-      "effectiveCanonicalKey": "b12",
-      "owners": [
-        "b12"
-      ]
-    },
-    {
-      "alias": "кортизол",
-      "effectiveCanonicalKey": "cortisol",
-      "owners": [
-        "cortisol"
-      ]
-    },
-    {
-      "alias": "креатинин",
-      "effectiveCanonicalKey": "creatinine",
-      "owners": [
-        "creatinine"
-      ]
-    },
-    {
-      "alias": "креатинин_в_моче",
-      "effectiveCanonicalKey": "urine_creatinine",
-      "owners": [
-        "urine_creatinine"
-      ]
-    },
-    {
-      "alias": "лейкоциты",
-      "effectiveCanonicalKey": "wbc",
-      "owners": [
-        "wbc"
-      ]
-    },
-    {
-      "alias": "лжсс",
-      "effectiveCanonicalKey": "uibc",
-      "owners": [
-        "uibc"
-      ]
-    },
-    {
-      "alias": "лимфоциты",
-      "effectiveCanonicalKey": "lymphocytes",
-      "owners": [
-        "lymphocytes",
-        "lymphocytes_percent"
-      ]
-    },
-    {
-      "alias": "липопротеин_а",
-      "effectiveCanonicalKey": "lpa",
-      "owners": [
-        "lpa"
-      ]
-    },
-    {
-      "alias": "лп_а",
-      "effectiveCanonicalKey": "lpa",
-      "owners": [
-        "lpa"
-      ]
-    },
-    {
-      "alias": "лпа",
-      "effectiveCanonicalKey": "lpa",
-      "owners": [
-        "lpa"
-      ]
-    },
-    {
-      "alias": "лпвп",
-      "effectiveCanonicalKey": "hdl",
-      "owners": [
-        "hdl"
-      ]
-    },
-    {
-      "alias": "лпнп",
-      "effectiveCanonicalKey": "ldl",
-      "owners": [
-        "ldl"
-      ]
-    },
-    {
-      "alias": "магний",
-      "effectiveCanonicalKey": "magnesium",
-      "owners": [
-        "magnesium"
-      ]
-    },
-    {
-      "alias": "микроальбумин",
-      "effectiveCanonicalKey": "urine_albumin",
-      "owners": [
-        "urine_albumin"
-      ]
-    },
-    {
-      "alias": "мно",
-      "effectiveCanonicalKey": "inr",
-      "owners": [
-        "inr"
-      ]
-    },
-    {
-      "alias": "моноциты",
-      "effectiveCanonicalKey": "monocytes",
-      "owners": [
-        "monocytes",
-        "monocytes_percent"
-      ]
-    },
-    {
-      "alias": "мочевая_кислота",
-      "effectiveCanonicalKey": "uric_acid",
-      "owners": [
-        "uric_acid"
-      ]
-    },
-    {
-      "alias": "мочевина",
-      "effectiveCanonicalKey": "urea",
-      "owners": [
-        "urea"
-      ]
-    },
-    {
-      "alias": "насыщение_трансферрина",
-      "effectiveCanonicalKey": "transferrin_saturation",
-      "owners": [
-        "transferrin_saturation"
-      ]
-    },
-    {
-      "alias": "натрий",
-      "effectiveCanonicalKey": "sodium",
-      "owners": [
-        "sodium"
-      ]
-    },
-    {
-      "alias": "не_лпвп",
-      "effectiveCanonicalKey": "non_hdl_cholesterol",
-      "owners": [
-        "non_hdl_cholesterol"
-      ]
-    },
-    {
-      "alias": "нейтрофилы",
-      "effectiveCanonicalKey": "neutrophils",
-      "owners": [
-        "neutrophils",
-        "neutrophils_percent"
-      ]
-    },
-    {
-      "alias": "нжсс",
-      "effectiveCanonicalKey": "uibc",
-      "owners": [
-        "uibc"
-      ]
-    },
-    {
-      "alias": "общий_белок",
-      "effectiveCanonicalKey": "total_protein",
-      "owners": [
-        "total_protein"
-      ]
-    },
-    {
-      "alias": "общий_холестерин",
-      "effectiveCanonicalKey": "total_cholesterol",
-      "owners": [
-        "total_cholesterol"
-      ]
-    },
-    {
-      "alias": "ожсс",
-      "effectiveCanonicalKey": "tibc",
-      "owners": [
-        "tibc"
-      ]
-    },
-    {
-      "alias": "охс",
-      "effectiveCanonicalKey": "total_cholesterol",
-      "owners": [
-        "total_cholesterol"
-      ]
-    },
-    {
-      "alias": "пв",
-      "effectiveCanonicalKey": "pt",
-      "owners": [
-        "pt"
-      ]
-    },
-    {
-      "alias": "прогестерон",
-      "effectiveCanonicalKey": "progesterone",
-      "owners": [
-        "progesterone"
-      ]
-    },
-    {
-      "alias": "пролактин",
-      "effectiveCanonicalKey": "prolactin",
-      "owners": [
-        "prolactin"
-      ]
-    },
-    {
-      "alias": "пса",
-      "effectiveCanonicalKey": "psa",
-      "owners": [
-        "psa"
-      ]
-    },
-    {
-      "alias": "ревматоидный_фактор",
-      "effectiveCanonicalKey": "rf",
-      "owners": [
-        "rf"
-      ]
-    },
-    {
-      "alias": "рскф",
-      "effectiveCanonicalKey": "egfr",
-      "owners": [
-        "egfr"
-      ]
-    },
-    {
-      "alias": "с_пептид",
-      "effectiveCanonicalKey": "c_peptide",
-      "owners": [
-        "c_peptide"
-      ]
-    },
-    {
-      "alias": "сахар_крови",
-      "effectiveCanonicalKey": "glucose",
-      "owners": [
-        "glucose"
-      ]
-    },
-    {
-      "alias": "св_т3",
-      "effectiveCanonicalKey": "free_t3",
-      "owners": [
-        "free_t3"
-      ]
-    },
-    {
-      "alias": "св_т4",
-      "effectiveCanonicalKey": "free_t4",
-      "owners": [
-        "free_t4"
-      ]
-    },
-    {
-      "alias": "свободный_т3",
-      "effectiveCanonicalKey": "free_t3",
-      "owners": [
-        "free_t3"
-      ]
-    },
-    {
-      "alias": "свободный_т4",
-      "effectiveCanonicalKey": "free_t4",
-      "owners": [
-        "free_t4"
-      ]
-    },
-    {
-      "alias": "скф",
-      "effectiveCanonicalKey": "egfr",
-      "owners": [
-        "egfr"
-      ]
-    },
-    {
-      "alias": "соэ",
-      "effectiveCanonicalKey": "esr",
-      "owners": [
-        "esr"
-      ]
-    },
-    {
-      "alias": "срб",
-      "effectiveCanonicalKey": "crp",
-      "owners": [
-        "crp"
-      ]
-    },
-    {
-      "alias": "сывороточное_железо",
-      "effectiveCanonicalKey": "iron",
-      "owners": [
-        "iron"
-      ]
-    },
-    {
-      "alias": "т3",
-      "effectiveCanonicalKey": "t3",
-      "owners": [
-        "t3"
-      ]
-    },
-    {
-      "alias": "т3_общий",
-      "effectiveCanonicalKey": "t3",
-      "owners": [
-        "t3"
-      ]
-    },
-    {
-      "alias": "т4",
-      "effectiveCanonicalKey": "t4",
-      "owners": [
-        "t4"
-      ]
-    },
-    {
-      "alias": "т4_общий",
-      "effectiveCanonicalKey": "t4",
-      "owners": [
-        "t4"
-      ]
-    },
-    {
-      "alias": "т4_свободный",
-      "effectiveCanonicalKey": "free_t4",
-      "owners": [
-        "free_t4"
-      ]
-    },
-    {
-      "alias": "тг",
-      "effectiveCanonicalKey": "triglycerides",
-      "owners": [
-        "triglycerides"
-      ]
-    },
-    {
-      "alias": "тестостерон",
-      "effectiveCanonicalKey": "total_testosterone",
-      "owners": [
-        "total_testosterone"
-      ]
-    },
-    {
-      "alias": "тестостерон_общий",
-      "effectiveCanonicalKey": "total_testosterone",
-      "owners": [
-        "total_testosterone"
-      ]
-    },
-    {
-      "alias": "тестостерон_свободный",
-      "effectiveCanonicalKey": "free_testosterone",
-      "owners": [
-        "free_testosterone"
-      ]
-    },
-    {
-      "alias": "тиреотропный_гормон",
-      "effectiveCanonicalKey": "tsh",
-      "owners": [
-        "tsh"
-      ]
-    },
-    {
-      "alias": "трансферрин",
-      "effectiveCanonicalKey": "transferrin",
-      "owners": [
-        "transferrin"
-      ]
-    },
-    {
-      "alias": "триглицериды",
-      "effectiveCanonicalKey": "triglycerides",
-      "owners": [
-        "triglycerides"
-      ]
-    },
-    {
-      "alias": "тромбоциты",
-      "effectiveCanonicalKey": "platelets",
-      "owners": [
-        "platelets"
-      ]
-    },
-    {
-      "alias": "тропонин_i",
-      "effectiveCanonicalKey": "troponin_i",
-      "owners": [
-        "troponin_i"
-      ]
-    },
-    {
-      "alias": "тропонин_t",
-      "effectiveCanonicalKey": "troponin_t",
-      "owners": [
-        "troponin_t"
-      ]
-    },
-    {
-      "alias": "ттг",
-      "effectiveCanonicalKey": "tsh",
-      "owners": [
-        "tsh"
-      ]
-    },
-    {
-      "alias": "ферритин",
-      "effectiveCanonicalKey": "ferritin",
-      "owners": [
-        "ferritin"
-      ]
-    },
-    {
-      "alias": "фибриноген",
-      "effectiveCanonicalKey": "fibrinogen",
-      "owners": [
-        "fibrinogen"
-      ]
-    },
-    {
-      "alias": "фолат",
-      "effectiveCanonicalKey": "folate",
-      "owners": [
-        "folate"
-      ]
-    },
-    {
-      "alias": "фолиевая_кислота",
-      "effectiveCanonicalKey": "folate",
-      "owners": [
-        "folate"
-      ]
-    },
-    {
-      "alias": "фосфат",
-      "effectiveCanonicalKey": "phosphate",
-      "owners": [
-        "phosphate"
-      ]
-    },
-    {
-      "alias": "фосфор",
-      "effectiveCanonicalKey": "phosphate",
-      "owners": [
-        "phosphate"
-      ]
-    },
-    {
-      "alias": "хлор",
-      "effectiveCanonicalKey": "chloride",
-      "owners": [
-        "chloride"
-      ]
-    },
-    {
-      "alias": "хлориды",
-      "effectiveCanonicalKey": "chloride",
-      "owners": [
-        "chloride"
-      ]
-    },
-    {
-      "alias": "холестерин_не_лпвп",
-      "effectiveCanonicalKey": "non_hdl_cholesterol",
-      "owners": [
-        "non_hdl_cholesterol"
-      ]
-    },
-    {
-      "alias": "холестерин_общий",
-      "effectiveCanonicalKey": "total_cholesterol",
-      "owners": [
-        "total_cholesterol"
-      ]
-    },
-    {
-      "alias": "хс_лпвп",
-      "effectiveCanonicalKey": "hdl",
-      "owners": [
-        "hdl"
-      ]
-    },
-    {
-      "alias": "хс_лпнп",
-      "effectiveCanonicalKey": "ldl",
-      "owners": [
-        "ldl"
-      ]
-    },
-    {
-      "alias": "щелочная_фосфатаза",
-      "effectiveCanonicalKey": "alp",
-      "owners": [
-        "alp"
-      ]
-    },
-    {
-      "alias": "щф",
-      "effectiveCanonicalKey": "alp",
-      "owners": [
-        "alp"
-      ]
-    },
-    {
-      "alias": "эозинофилы",
-      "effectiveCanonicalKey": "eosinophils",
-      "owners": [
-        "eosinophils",
-        "eosinophils_percent"
-      ]
-    },
-    {
-      "alias": "эритроциты",
-      "effectiveCanonicalKey": "rbc",
-      "owners": [
-        "rbc"
-      ]
-    },
-    {
-      "alias": "эстрадиол",
-      "effectiveCanonicalKey": "estradiol",
-      "owners": [
-        "estradiol"
       ]
     },
     {
@@ -5278,20 +4426,6 @@
       ]
     },
     {
-      "alias": "c_пептид",
-      "effectiveCanonicalKey": "c_peptide",
-      "owners": [
-        "c_peptide"
-      ]
-    },
-    {
-      "alias": "c_реактивный_белок",
-      "effectiveCanonicalKey": "crp",
-      "owners": [
-        "crp"
-      ]
-    },
-    {
       "alias": "c_peptide",
       "effectiveCanonicalKey": "c_peptide",
       "owners": [
@@ -5306,17 +4440,17 @@
       ]
     },
     {
-      "alias": "ca_125",
-      "effectiveCanonicalKey": "ca_125",
+      "alias": "c_пептид",
+      "effectiveCanonicalKey": "c_peptide",
       "owners": [
-        "ca_125"
+        "c_peptide"
       ]
     },
     {
-      "alias": "ca_19_9",
-      "effectiveCanonicalKey": "ca_19_9",
+      "alias": "c_реактивный_белок",
+      "effectiveCanonicalKey": "crp",
       "owners": [
-        "ca_19_9"
+        "crp"
       ]
     },
     {
@@ -5328,6 +4462,20 @@
     },
     {
       "alias": "ca199",
+      "effectiveCanonicalKey": "ca_19_9",
+      "owners": [
+        "ca_19_9"
+      ]
+    },
+    {
+      "alias": "ca_125",
+      "effectiveCanonicalKey": "ca_125",
+      "owners": [
+        "ca_125"
+      ]
+    },
+    {
+      "alias": "ca_19_9",
       "effectiveCanonicalKey": "ca_19_9",
       "owners": [
         "ca_19_9"
@@ -5474,14 +4622,14 @@
       ]
     },
     {
-      "alias": "d_димер",
+      "alias": "d_dimer",
       "effectiveCanonicalKey": "d_dimer",
       "owners": [
         "d_dimer"
       ]
     },
     {
-      "alias": "d_dimer",
+      "alias": "d_димер",
       "effectiveCanonicalKey": "d_dimer",
       "owners": [
         "d_dimer"
@@ -6364,13 +5512,6 @@
       ]
     },
     {
-      "alias": "t_sat",
-      "effectiveCanonicalKey": "transferrin_saturation",
-      "owners": [
-        "transferrin_saturation"
-      ]
-    },
-    {
       "alias": "t3",
       "effectiveCanonicalKey": "t3",
       "owners": [
@@ -6382,6 +5523,13 @@
       "effectiveCanonicalKey": "t4",
       "owners": [
         "t4"
+      ]
+    },
+    {
+      "alias": "t_sat",
+      "effectiveCanonicalKey": "transferrin_saturation",
+      "owners": [
+        "transferrin_saturation"
       ]
     },
     {
@@ -6795,6 +5943,858 @@
       "effectiveCanonicalKey": "wbc",
       "owners": [
         "wbc"
+      ]
+    },
+    {
+      "alias": "азот_мочевины",
+      "effectiveCanonicalKey": "bun",
+      "owners": [
+        "bun"
+      ]
+    },
+    {
+      "alias": "акр",
+      "effectiveCanonicalKey": "uacr",
+      "owners": [
+        "uacr"
+      ]
+    },
+    {
+      "alias": "алат",
+      "effectiveCanonicalKey": "alt",
+      "owners": [
+        "alt"
+      ]
+    },
+    {
+      "alias": "алт",
+      "effectiveCanonicalKey": "alt",
+      "owners": [
+        "alt"
+      ]
+    },
+    {
+      "alias": "альбумин",
+      "effectiveCanonicalKey": "albumin",
+      "owners": [
+        "albumin"
+      ]
+    },
+    {
+      "alias": "альбумин_в_моче",
+      "effectiveCanonicalKey": "urine_albumin",
+      "owners": [
+        "urine_albumin"
+      ]
+    },
+    {
+      "alias": "альбумин_креатинин",
+      "effectiveCanonicalKey": "uacr",
+      "owners": [
+        "uacr"
+      ]
+    },
+    {
+      "alias": "антитела_к_тг",
+      "effectiveCanonicalKey": "anti_tg",
+      "owners": [
+        "anti_tg"
+      ]
+    },
+    {
+      "alias": "антитела_к_тпо",
+      "effectiveCanonicalKey": "anti_tpo",
+      "owners": [
+        "anti_tpo"
+      ]
+    },
+    {
+      "alias": "анф",
+      "effectiveCanonicalKey": "ana",
+      "owners": [
+        "ana"
+      ]
+    },
+    {
+      "alias": "апо_в",
+      "effectiveCanonicalKey": "apob",
+      "owners": [
+        "apob"
+      ]
+    },
+    {
+      "alias": "апоb",
+      "effectiveCanonicalKey": "apob",
+      "owners": [
+        "apob"
+      ]
+    },
+    {
+      "alias": "аполипопротеин_b",
+      "effectiveCanonicalKey": "apob",
+      "owners": [
+        "apob"
+      ]
+    },
+    {
+      "alias": "асат",
+      "effectiveCanonicalKey": "ast",
+      "owners": [
+        "ast"
+      ]
+    },
+    {
+      "alias": "аст",
+      "effectiveCanonicalKey": "ast",
+      "owners": [
+        "ast"
+      ]
+    },
+    {
+      "alias": "ат_к_рецепторам_ттг",
+      "effectiveCanonicalKey": "trab",
+      "owners": [
+        "trab"
+      ]
+    },
+    {
+      "alias": "ат_тг",
+      "effectiveCanonicalKey": "anti_tg",
+      "owners": [
+        "anti_tg"
+      ]
+    },
+    {
+      "alias": "ат_тпо",
+      "effectiveCanonicalKey": "anti_tpo",
+      "owners": [
+        "anti_tpo"
+      ]
+    },
+    {
+      "alias": "ачтв",
+      "effectiveCanonicalKey": "aptt",
+      "owners": [
+        "aptt"
+      ]
+    },
+    {
+      "alias": "базофилы",
+      "effectiveCanonicalKey": "basophils",
+      "owners": [
+        "basophils",
+        "basophils_percent"
+      ]
+    },
+    {
+      "alias": "белок_в_моче",
+      "effectiveCanonicalKey": "urine_protein",
+      "owners": [
+        "urine_protein"
+      ]
+    },
+    {
+      "alias": "белок_в_моче_кач",
+      "effectiveCanonicalKey": "urine_protein_dipstick",
+      "owners": [
+        "urine_protein_dipstick"
+      ]
+    },
+    {
+      "alias": "бикарбонат",
+      "effectiveCanonicalKey": "bicarbonate",
+      "owners": [
+        "bicarbonate"
+      ]
+    },
+    {
+      "alias": "билирубин",
+      "effectiveCanonicalKey": "bilirubin",
+      "owners": [
+        "bilirubin"
+      ]
+    },
+    {
+      "alias": "билирубин_непрямой",
+      "effectiveCanonicalKey": "indirect_bilirubin",
+      "owners": [
+        "indirect_bilirubin"
+      ]
+    },
+    {
+      "alias": "билирубин_общий",
+      "effectiveCanonicalKey": "bilirubin",
+      "owners": [
+        "bilirubin"
+      ]
+    },
+    {
+      "alias": "билирубин_прямой",
+      "effectiveCanonicalKey": "direct_bilirubin",
+      "owners": [
+        "direct_bilirubin"
+      ]
+    },
+    {
+      "alias": "витамин_b12",
+      "effectiveCanonicalKey": "b12",
+      "owners": [
+        "b12"
+      ]
+    },
+    {
+      "alias": "витамин_d",
+      "effectiveCanonicalKey": "vitamin_d",
+      "owners": [
+        "vitamin_d"
+      ]
+    },
+    {
+      "alias": "вч_срб",
+      "effectiveCanonicalKey": "hs_crp",
+      "owners": [
+        "hs_crp"
+      ]
+    },
+    {
+      "alias": "ггт",
+      "effectiveCanonicalKey": "ggt",
+      "owners": [
+        "ggt"
+      ]
+    },
+    {
+      "alias": "гематокрит",
+      "effectiveCanonicalKey": "hematocrit",
+      "owners": [
+        "hematocrit"
+      ]
+    },
+    {
+      "alias": "гемоглобин",
+      "effectiveCanonicalKey": "hemoglobin",
+      "owners": [
+        "hemoglobin"
+      ]
+    },
+    {
+      "alias": "гидрокарбонат",
+      "effectiveCanonicalKey": "bicarbonate",
+      "owners": [
+        "bicarbonate"
+      ]
+    },
+    {
+      "alias": "гликированный_гемоглобин",
+      "effectiveCanonicalKey": "hba1c",
+      "owners": [
+        "hba1c"
+      ]
+    },
+    {
+      "alias": "гликогемоглобин",
+      "effectiveCanonicalKey": "hba1c",
+      "owners": [
+        "hba1c"
+      ]
+    },
+    {
+      "alias": "глобулин",
+      "effectiveCanonicalKey": "globulin",
+      "owners": [
+        "globulin"
+      ]
+    },
+    {
+      "alias": "глюкоза",
+      "effectiveCanonicalKey": "glucose",
+      "owners": [
+        "glucose"
+      ]
+    },
+    {
+      "alias": "глюкоза_натощак",
+      "effectiveCanonicalKey": "fasting_glucose",
+      "owners": [
+        "fasting_glucose"
+      ]
+    },
+    {
+      "alias": "д_димер",
+      "effectiveCanonicalKey": "d_dimer",
+      "owners": [
+        "d_dimer"
+      ]
+    },
+    {
+      "alias": "железо",
+      "effectiveCanonicalKey": "iron",
+      "owners": [
+        "iron"
+      ]
+    },
+    {
+      "alias": "инсулин",
+      "effectiveCanonicalKey": "insulin",
+      "owners": [
+        "insulin"
+      ]
+    },
+    {
+      "alias": "калий",
+      "effectiveCanonicalKey": "potassium",
+      "owners": [
+        "potassium"
+      ]
+    },
+    {
+      "alias": "кальций",
+      "effectiveCanonicalKey": "calcium",
+      "owners": [
+        "calcium"
+      ]
+    },
+    {
+      "alias": "кетоны_мочи",
+      "effectiveCanonicalKey": "urine_ketones",
+      "owners": [
+        "urine_ketones"
+      ]
+    },
+    {
+      "alias": "кобаламин",
+      "effectiveCanonicalKey": "b12",
+      "owners": [
+        "b12"
+      ]
+    },
+    {
+      "alias": "кортизол",
+      "effectiveCanonicalKey": "cortisol",
+      "owners": [
+        "cortisol"
+      ]
+    },
+    {
+      "alias": "креатинин",
+      "effectiveCanonicalKey": "creatinine",
+      "owners": [
+        "creatinine"
+      ]
+    },
+    {
+      "alias": "креатинин_в_моче",
+      "effectiveCanonicalKey": "urine_creatinine",
+      "owners": [
+        "urine_creatinine"
+      ]
+    },
+    {
+      "alias": "лейкоциты",
+      "effectiveCanonicalKey": "wbc",
+      "owners": [
+        "wbc"
+      ]
+    },
+    {
+      "alias": "лжсс",
+      "effectiveCanonicalKey": "uibc",
+      "owners": [
+        "uibc"
+      ]
+    },
+    {
+      "alias": "лимфоциты",
+      "effectiveCanonicalKey": "lymphocytes",
+      "owners": [
+        "lymphocytes",
+        "lymphocytes_percent"
+      ]
+    },
+    {
+      "alias": "липопротеин_а",
+      "effectiveCanonicalKey": "lpa",
+      "owners": [
+        "lpa"
+      ]
+    },
+    {
+      "alias": "лп_а",
+      "effectiveCanonicalKey": "lpa",
+      "owners": [
+        "lpa"
+      ]
+    },
+    {
+      "alias": "лпа",
+      "effectiveCanonicalKey": "lpa",
+      "owners": [
+        "lpa"
+      ]
+    },
+    {
+      "alias": "лпвп",
+      "effectiveCanonicalKey": "hdl",
+      "owners": [
+        "hdl"
+      ]
+    },
+    {
+      "alias": "лпнп",
+      "effectiveCanonicalKey": "ldl",
+      "owners": [
+        "ldl"
+      ]
+    },
+    {
+      "alias": "магний",
+      "effectiveCanonicalKey": "magnesium",
+      "owners": [
+        "magnesium"
+      ]
+    },
+    {
+      "alias": "микроальбумин",
+      "effectiveCanonicalKey": "urine_albumin",
+      "owners": [
+        "urine_albumin"
+      ]
+    },
+    {
+      "alias": "мно",
+      "effectiveCanonicalKey": "inr",
+      "owners": [
+        "inr"
+      ]
+    },
+    {
+      "alias": "моноциты",
+      "effectiveCanonicalKey": "monocytes",
+      "owners": [
+        "monocytes",
+        "monocytes_percent"
+      ]
+    },
+    {
+      "alias": "мочевая_кислота",
+      "effectiveCanonicalKey": "uric_acid",
+      "owners": [
+        "uric_acid"
+      ]
+    },
+    {
+      "alias": "мочевина",
+      "effectiveCanonicalKey": "urea",
+      "owners": [
+        "urea"
+      ]
+    },
+    {
+      "alias": "насыщение_трансферрина",
+      "effectiveCanonicalKey": "transferrin_saturation",
+      "owners": [
+        "transferrin_saturation"
+      ]
+    },
+    {
+      "alias": "натрий",
+      "effectiveCanonicalKey": "sodium",
+      "owners": [
+        "sodium"
+      ]
+    },
+    {
+      "alias": "не_лпвп",
+      "effectiveCanonicalKey": "non_hdl_cholesterol",
+      "owners": [
+        "non_hdl_cholesterol"
+      ]
+    },
+    {
+      "alias": "нейтрофилы",
+      "effectiveCanonicalKey": "neutrophils",
+      "owners": [
+        "neutrophils",
+        "neutrophils_percent"
+      ]
+    },
+    {
+      "alias": "нжсс",
+      "effectiveCanonicalKey": "uibc",
+      "owners": [
+        "uibc"
+      ]
+    },
+    {
+      "alias": "общий_белок",
+      "effectiveCanonicalKey": "total_protein",
+      "owners": [
+        "total_protein"
+      ]
+    },
+    {
+      "alias": "общий_холестерин",
+      "effectiveCanonicalKey": "total_cholesterol",
+      "owners": [
+        "total_cholesterol"
+      ]
+    },
+    {
+      "alias": "ожсс",
+      "effectiveCanonicalKey": "tibc",
+      "owners": [
+        "tibc"
+      ]
+    },
+    {
+      "alias": "охс",
+      "effectiveCanonicalKey": "total_cholesterol",
+      "owners": [
+        "total_cholesterol"
+      ]
+    },
+    {
+      "alias": "пв",
+      "effectiveCanonicalKey": "pt",
+      "owners": [
+        "pt"
+      ]
+    },
+    {
+      "alias": "прогестерон",
+      "effectiveCanonicalKey": "progesterone",
+      "owners": [
+        "progesterone"
+      ]
+    },
+    {
+      "alias": "пролактин",
+      "effectiveCanonicalKey": "prolactin",
+      "owners": [
+        "prolactin"
+      ]
+    },
+    {
+      "alias": "пса",
+      "effectiveCanonicalKey": "psa",
+      "owners": [
+        "psa"
+      ]
+    },
+    {
+      "alias": "ревматоидный_фактор",
+      "effectiveCanonicalKey": "rf",
+      "owners": [
+        "rf"
+      ]
+    },
+    {
+      "alias": "рскф",
+      "effectiveCanonicalKey": "egfr",
+      "owners": [
+        "egfr"
+      ]
+    },
+    {
+      "alias": "с_пептид",
+      "effectiveCanonicalKey": "c_peptide",
+      "owners": [
+        "c_peptide"
+      ]
+    },
+    {
+      "alias": "сахар_крови",
+      "effectiveCanonicalKey": "glucose",
+      "owners": [
+        "glucose"
+      ]
+    },
+    {
+      "alias": "св_т3",
+      "effectiveCanonicalKey": "free_t3",
+      "owners": [
+        "free_t3"
+      ]
+    },
+    {
+      "alias": "св_т4",
+      "effectiveCanonicalKey": "free_t4",
+      "owners": [
+        "free_t4"
+      ]
+    },
+    {
+      "alias": "свободный_т3",
+      "effectiveCanonicalKey": "free_t3",
+      "owners": [
+        "free_t3"
+      ]
+    },
+    {
+      "alias": "свободный_т4",
+      "effectiveCanonicalKey": "free_t4",
+      "owners": [
+        "free_t4"
+      ]
+    },
+    {
+      "alias": "скф",
+      "effectiveCanonicalKey": "egfr",
+      "owners": [
+        "egfr"
+      ]
+    },
+    {
+      "alias": "соэ",
+      "effectiveCanonicalKey": "esr",
+      "owners": [
+        "esr"
+      ]
+    },
+    {
+      "alias": "срб",
+      "effectiveCanonicalKey": "crp",
+      "owners": [
+        "crp"
+      ]
+    },
+    {
+      "alias": "сывороточное_железо",
+      "effectiveCanonicalKey": "iron",
+      "owners": [
+        "iron"
+      ]
+    },
+    {
+      "alias": "т3",
+      "effectiveCanonicalKey": "t3",
+      "owners": [
+        "t3"
+      ]
+    },
+    {
+      "alias": "т3_общий",
+      "effectiveCanonicalKey": "t3",
+      "owners": [
+        "t3"
+      ]
+    },
+    {
+      "alias": "т4",
+      "effectiveCanonicalKey": "t4",
+      "owners": [
+        "t4"
+      ]
+    },
+    {
+      "alias": "т4_общий",
+      "effectiveCanonicalKey": "t4",
+      "owners": [
+        "t4"
+      ]
+    },
+    {
+      "alias": "т4_свободный",
+      "effectiveCanonicalKey": "free_t4",
+      "owners": [
+        "free_t4"
+      ]
+    },
+    {
+      "alias": "тг",
+      "effectiveCanonicalKey": "triglycerides",
+      "owners": [
+        "triglycerides"
+      ]
+    },
+    {
+      "alias": "тестостерон",
+      "effectiveCanonicalKey": "total_testosterone",
+      "owners": [
+        "total_testosterone"
+      ]
+    },
+    {
+      "alias": "тестостерон_общий",
+      "effectiveCanonicalKey": "total_testosterone",
+      "owners": [
+        "total_testosterone"
+      ]
+    },
+    {
+      "alias": "тестостерон_свободный",
+      "effectiveCanonicalKey": "free_testosterone",
+      "owners": [
+        "free_testosterone"
+      ]
+    },
+    {
+      "alias": "тиреотропный_гормон",
+      "effectiveCanonicalKey": "tsh",
+      "owners": [
+        "tsh"
+      ]
+    },
+    {
+      "alias": "трансферрин",
+      "effectiveCanonicalKey": "transferrin",
+      "owners": [
+        "transferrin"
+      ]
+    },
+    {
+      "alias": "триглицериды",
+      "effectiveCanonicalKey": "triglycerides",
+      "owners": [
+        "triglycerides"
+      ]
+    },
+    {
+      "alias": "тромбоциты",
+      "effectiveCanonicalKey": "platelets",
+      "owners": [
+        "platelets"
+      ]
+    },
+    {
+      "alias": "тропонин_i",
+      "effectiveCanonicalKey": "troponin_i",
+      "owners": [
+        "troponin_i"
+      ]
+    },
+    {
+      "alias": "тропонин_t",
+      "effectiveCanonicalKey": "troponin_t",
+      "owners": [
+        "troponin_t"
+      ]
+    },
+    {
+      "alias": "ттг",
+      "effectiveCanonicalKey": "tsh",
+      "owners": [
+        "tsh"
+      ]
+    },
+    {
+      "alias": "ферритин",
+      "effectiveCanonicalKey": "ferritin",
+      "owners": [
+        "ferritin"
+      ]
+    },
+    {
+      "alias": "фибриноген",
+      "effectiveCanonicalKey": "fibrinogen",
+      "owners": [
+        "fibrinogen"
+      ]
+    },
+    {
+      "alias": "фолат",
+      "effectiveCanonicalKey": "folate",
+      "owners": [
+        "folate"
+      ]
+    },
+    {
+      "alias": "фолиевая_кислота",
+      "effectiveCanonicalKey": "folate",
+      "owners": [
+        "folate"
+      ]
+    },
+    {
+      "alias": "фосфат",
+      "effectiveCanonicalKey": "phosphate",
+      "owners": [
+        "phosphate"
+      ]
+    },
+    {
+      "alias": "фосфор",
+      "effectiveCanonicalKey": "phosphate",
+      "owners": [
+        "phosphate"
+      ]
+    },
+    {
+      "alias": "хлор",
+      "effectiveCanonicalKey": "chloride",
+      "owners": [
+        "chloride"
+      ]
+    },
+    {
+      "alias": "хлориды",
+      "effectiveCanonicalKey": "chloride",
+      "owners": [
+        "chloride"
+      ]
+    },
+    {
+      "alias": "холестерин_не_лпвп",
+      "effectiveCanonicalKey": "non_hdl_cholesterol",
+      "owners": [
+        "non_hdl_cholesterol"
+      ]
+    },
+    {
+      "alias": "холестерин_общий",
+      "effectiveCanonicalKey": "total_cholesterol",
+      "owners": [
+        "total_cholesterol"
+      ]
+    },
+    {
+      "alias": "хс_лпвп",
+      "effectiveCanonicalKey": "hdl",
+      "owners": [
+        "hdl"
+      ]
+    },
+    {
+      "alias": "хс_лпнп",
+      "effectiveCanonicalKey": "ldl",
+      "owners": [
+        "ldl"
+      ]
+    },
+    {
+      "alias": "щелочная_фосфатаза",
+      "effectiveCanonicalKey": "alp",
+      "owners": [
+        "alp"
+      ]
+    },
+    {
+      "alias": "щф",
+      "effectiveCanonicalKey": "alp",
+      "owners": [
+        "alp"
+      ]
+    },
+    {
+      "alias": "эозинофилы",
+      "effectiveCanonicalKey": "eosinophils",
+      "owners": [
+        "eosinophils",
+        "eosinophils_percent"
+      ]
+    },
+    {
+      "alias": "эритроциты",
+      "effectiveCanonicalKey": "rbc",
+      "owners": [
+        "rbc"
+      ]
+    },
+    {
+      "alias": "эстрадиол",
+      "effectiveCanonicalKey": "estradiol",
+      "owners": [
+        "estradiol"
       ]
     }
   ],

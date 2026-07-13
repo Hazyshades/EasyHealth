@@ -1,8 +1,8 @@
 {
   "contentDigests": {
-    "auditMarkdown": "0b68ddf1269041d5dc1bfc5611595f0ae23b65491784e0dcb52752e4c01b08c9",
-    "registryJson": "5aea78b9586925c53c7c43f2925c8ae7f8d6b1eb6b0208132237f3546e74d2a1",
-    "resolverCasesJson": "95a085ad5e193728211b222456fe6c78abbddb244e821f09751bdd1b33d3e85d"
+    "auditMarkdown": "b09d1cdf471b6be73ba9f49ddd04c323f16aada8a5422b563322f0f70ed3dbaa",
+    "registryJson": "38dc38f6520e9dd40e0553c8a1519fcc6a1efbc83daaac9c76b6a1faf45b8caa",
+    "resolverCasesJson": "0225bf13c782d6411a5122648d1a10f84098e6228c7a76279ced1c1e30d72b2a"
   },
   "registryVersion": "1.0.0",
   "schemaVersion": 1,

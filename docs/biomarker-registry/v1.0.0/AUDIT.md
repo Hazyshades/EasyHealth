@@ -34,12 +34,12 @@ The following source aliases normalize to more than one v1 definition. The effec
 
 | Normalized alias | Source owners | Effective v1 result | Finding |
 | --- | --- | --- | --- |
+| `neutrophils` | `neutrophils`, `neutrophils_percent` | `neutrophils` | ALIAS-001 |
 | `базофилы` | `basophils`, `basophils_percent` | `basophils` | ALIAS-001 |
 | `лимфоциты` | `lymphocytes`, `lymphocytes_percent` | `lymphocytes` | ALIAS-001 |
 | `моноциты` | `monocytes`, `monocytes_percent` | `monocytes` | ALIAS-001 |
 | `нейтрофилы` | `neutrophils`, `neutrophils_percent` | `neutrophils` | ALIAS-001 |
 | `эозинофилы` | `eosinophils`, `eosinophils_percent` | `eosinophils` | ALIAS-001 |
-| `neutrophils` | `neutrophils`, `neutrophils_percent` | `neutrophils` | ALIAS-001 |
 
 ## Resolver Behavior
 

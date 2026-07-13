@@ -121,6 +121,13 @@ export function canonicalJson(value: unknown): string {
   return `${JSON.stringify(asJson(value), null, 2)}\n`;
 }
 
+/** Use UTF-16 code-unit order rather than locale-sensitive collation for stable artifacts. */
+export function compareStableStrings(left: string, right: string): number {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+}
+
 export function sha256(content: string): string {
   return createHash("sha256").update(content).digest("hex");
 }
@@ -172,7 +179,7 @@ function buildAliasOwners(
       owners: [...keys].sort(),
       effectiveCanonicalKey: aliasMap.get(alias) ?? null,
     }))
-    .sort((left, right) => left.alias.localeCompare(right.alias));
+    .sort((left, right) => compareStableStrings(left.alias, right.alias));
 }
 
 function buildResolverCases(
@@ -308,7 +315,7 @@ function buildResolverCases(
       ...fixture,
       expectedCanonicalKey: resolve(fixture.input.key, fixture.input.name),
     }))
-    .sort((left, right) => left.id.localeCompare(right.id));
+    .sort((left, right) => compareStableStrings(left.id, right.id));
 }
 
 function countBy<T>(items: readonly T[], keyFor: (item: T) => string): Record<string, number> {
@@ -317,7 +324,7 @@ function countBy<T>(items: readonly T[], keyFor: (item: T) => string): Record<st
     const key = keyFor(item);
     result[key] = (result[key] ?? 0) + 1;
   }
-  return Object.fromEntries(Object.entries(result).sort(([left], [right]) => left.localeCompare(right)));
+  return Object.fromEntries(Object.entries(result).sort(([left], [right]) => compareStableStrings(left, right)));
 }
 
 function buildAuditFindings(snapshot: RegistryV1Snapshot): AuditFinding[] {
@@ -422,13 +429,13 @@ export function buildRegistryV1Baseline(inputs: RegistryV1BaselineInputs = {}): 
   const normalizeAlias = inputs.normalizeAlias ?? snakeCaseToken;
   requireUniqueKeys(definitions);
 
-  const normalizedDefinitions = definitions.map(normalizeDefinition).sort((left, right) => left.key.localeCompare(right.key));
+  const normalizedDefinitions = definitions.map(normalizeDefinition).sort((left, right) => compareStableStrings(left.key, right.key));
   const aliasOwners = buildAliasOwners(definitions, aliasMap, normalizeAlias);
   const normalizedAliasCollisions = aliasOwners.filter((owner) => owner.owners.length > 1);
   const sourceAliases = new Set(aliasOwners.map((owner) => owner.alias));
   const effectiveAliasMap = [...aliasMap.entries()]
     .map(([alias, canonicalKey]) => ({ alias, canonicalKey }))
-    .sort((left, right) => left.alias.localeCompare(right.alias));
+    .sort((left, right) => compareStableStrings(left.alias, right.alias));
   const snapshot: RegistryV1Snapshot = {
     schemaVersion: REGISTRY_V1_SNAPSHOT_SCHEMA_VERSION,
     registryVersion: REGISTRY_V1_BASELINE_VERSION,

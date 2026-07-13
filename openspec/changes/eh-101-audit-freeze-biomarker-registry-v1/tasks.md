@@ -36,5 +36,5 @@
 
 - [x] 5.1 Document the baseline release procedure, tag annotation text, clean-worktree requirement, verification commands, rollback boundary, and immutability policy.
 - [x] 5.2 Review and record the final artifact digests and audit summary in the release handoff.
-- [ ] 5.3 Commit the complete verified EH-101 baseline so the snapshot, audit, tooling, and CI check share one traceable repository revision.
-- [ ] 5.4 Create and verify the annotated `registry-v1.0.0` tag on that clean baseline commit; pushing the tag requires the repository release owner's explicit action.
+- [x] 5.3 Commit the complete verified EH-101 baseline so the snapshot, audit, tooling, and CI check share one traceable repository revision.
+- [x] 5.4 Create and verify the annotated `registry-v1.0.0` tag on that clean baseline commit; pushing the tag requires the repository release owner's explicit action.

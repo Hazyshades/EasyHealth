@@ -12,6 +12,16 @@
     },
     {
       "category": "collision",
+      "expectedCanonicalKey": "neutrophils",
+      "id": "collision-neutrophils",
+      "input": {
+        "key": "neutrophils",
+        "name": ""
+      },
+      "note": "Normalized source alias has owners: neutrophils, neutrophils_percent."
+    },
+    {
+      "category": "collision",
       "expectedCanonicalKey": "basophils",
       "id": "collision-базофилы",
       "input": {
@@ -59,16 +69,6 @@
         "name": ""
       },
       "note": "Normalized source alias has owners: eosinophils, eosinophils_percent."
-    },
-    {
-      "category": "collision",
-      "expectedCanonicalKey": "neutrophils",
-      "id": "collision-neutrophils",
-      "input": {
-        "key": "neutrophils",
-        "name": ""
-      },
-      "note": "Normalized source alias has owners: neutrophils, neutrophils_percent."
     },
     {
       "category": "identity_risk",

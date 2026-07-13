@@ -7,6 +7,7 @@ import { BIOMARKER_DEFINITIONS } from "../src/lib/biomarkers/catalog/definitions
 import {
   buildRegistryV1Baseline,
   canonicalJson,
+  compareStableStrings,
   getRegistryV1BaselinePaths,
   verifyRegistryV1Baseline,
   verifyRegistryV1Snapshot,
@@ -17,6 +18,7 @@ const second = buildRegistryV1Baseline();
 
 assert.equal(canonicalJson(first.registry), canonicalJson(second.registry), "baseline registry must be deterministic");
 assert.equal(first.manifest.contentDigests.registryJson, second.manifest.contentDigests.registryJson);
+assert.equal(compareStableStrings("z", "\u00e4"), -1, "baseline ordering must not use locale-sensitive collation");
 assert.ok(first.registry.effectiveAliasMap.length > 0, "effective Map entries must be serialized explicitly");
 assert.notEqual(JSON.stringify(ALIAS_MAP), canonicalJson(first.registry.effectiveAliasMap).trim(), "Map JSON serialization must not be used");
 assert.equal(verifyRegistryV1Snapshot(first.registry).length, 0);
