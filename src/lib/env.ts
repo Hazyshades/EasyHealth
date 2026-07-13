@@ -3,13 +3,7 @@ import { z } from "zod";
 
 export const env = createEnv({
   server: {
-    // Frozen Circle / x402 stack — optional so human app boots without payments
-    SELLER_ADDRESS: z
-      .string()
-      .regex(/^0x[a-fA-F0-9]{40}$/)
-      .optional(),
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
-    CIRCLE_API_KEY: z.string().min(1).optional(),
     OPENAI_API_KEY: z.string().min(1),
     DEEPSEEK_API_KEY: z.string().min(1).optional(),
     DEEPSEEK_BASE_URL: z.string().url().optional(),
@@ -69,14 +63,10 @@ export const env = createEnv({
   client: {
     NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
-    // Frozen Circle human auth — optional
-    NEXT_PUBLIC_CIRCLE_APP_ID: z.string().min(1).optional(),
     NEXT_PUBLIC_GOOGLE_CLIENT_ID: z.string().min(1).optional(),
   },
   runtimeEnv: {
-    SELLER_ADDRESS: process.env.SELLER_ADDRESS,
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-    CIRCLE_API_KEY: process.env.CIRCLE_API_KEY,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
     DEEPSEEK_BASE_URL: process.env.DEEPSEEK_BASE_URL,
@@ -108,7 +98,6 @@ export const env = createEnv({
         : "http://localhost:3000"),
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    NEXT_PUBLIC_CIRCLE_APP_ID: process.env.NEXT_PUBLIC_CIRCLE_APP_ID,
     NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
   },
   emptyStringAsUndefined: true,
