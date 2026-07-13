@@ -47,7 +47,6 @@ next-env.d.ts
 xmcp-env.d.ts
 
 #scpecs
-*.md
 openspec/
 hackathon.md
 mvp_steps.md
@@ -61,3 +60,12 @@ hachakton.md
 
 /oh-my-pi
 /roadmap
+
+#agents
+.agents/
+
+#data
+/biomarkers/
+/content/
+/docs/
+
