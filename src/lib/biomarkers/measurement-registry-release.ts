@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import {
   MEASUREMENT_DEFINITIONS,
+  ANALYTES,
+  MEASUREMENT_ADAPTER_VERSION,
   MEASUREMENT_NORMALIZATION_SCHEMA_VERSION,
   MEASUREMENT_REGISTRY_VERSION,
   MEASUREMENT_RESOLVER_VERSION,
@@ -45,6 +47,12 @@ function manifestDefinition(definition: MeasurementDefinition) {
   return {
     key: definition.key,
     analyteKey: definition.analyteKey,
+    definitionSource: definition.definitionSource,
+    specimen: definition.specimen,
+    property: definition.property,
+    scale: definition.scale,
+    timing: definition.timing,
+    method: definition.method,
     canonicalKey: definition.canonicalKey,
     aliases: definition.aliases.map((alias) => ({
       value: alias.value,
@@ -65,6 +73,8 @@ export function serializeMeasurementRegistryManifest(
   definitions: readonly MeasurementDefinition[] = MEASUREMENT_DEFINITIONS
 ): string {
   return stableValue({
+    adapterVersion: MEASUREMENT_ADAPTER_VERSION,
+    analytes: ANALYTES,
     definitions: definitions.map(manifestDefinition),
   });
 }
@@ -85,6 +95,12 @@ export function classifyMeasurementDefinitionChange(
 
   const identityChanged =
     previous.analyteKey !== next.analyteKey ||
+    previous.definitionSource !== next.definitionSource ||
+    previous.specimen !== next.specimen ||
+    previous.property !== next.property ||
+    previous.scale !== next.scale ||
+    previous.timing !== next.timing ||
+    previous.method !== next.method ||
     previous.canonicalKey !== next.canonicalKey ||
     previous.assessmentCompatibility !== next.assessmentCompatibility ||
     stableValue(previous.unitPolicy) !== stableValue(next.unitPolicy) ||

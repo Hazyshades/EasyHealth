@@ -23,6 +23,23 @@ export type AssessmentCompatibility = "compatible" | "display_only" | "incompati
 export type AnalyteKey = string;
 export type MeasurementDefinitionKey = string;
 export type NormalizedUnitKey = string;
+export type DefinitionSource = "curated" | "legacy_adapter";
+export type AnalyteStatus = "active" | "deprecated";
+export type SpecimenKey = "serum" | "plasma" | "whole_blood" | "urine" | "unspecified";
+export type MeasurementPropertyKey = "cell_count" | "percentage" | "segmented_percentage" | "band_percentage" | "distribution_width" | "substance_concentration" | "presence" | "unspecified";
+export type MeasurementScaleKey = "quantitative" | "ordinal" | "nominal" | "unspecified";
+export type MeasurementTimingKey = "point_in_time" | "fasting" | "unspecified";
+export type MeasurementMethodKey = "automated" | "dipstick" | "unspecified";
+
+export type Analyte = { key: AnalyteKey; displayName: string; aliases: readonly string[]; status: AnalyteStatus };
+export type MeasurementIdentity = {
+  analyteKey: AnalyteKey;
+  specimen: SpecimenKey;
+  property: MeasurementPropertyKey;
+  scale: MeasurementScaleKey;
+  timing: MeasurementTimingKey;
+  method: MeasurementMethodKey;
+};
 
 export type UnitDimension =
   | "ratio"
@@ -111,6 +128,12 @@ export type MappingConfidenceBand = "high" | "medium" | "low";
 export type MeasurementDefinition = {
   key: MeasurementDefinitionKey;
   analyteKey: AnalyteKey;
+  definitionSource: DefinitionSource;
+  specimen: SpecimenKey;
+  property: MeasurementPropertyKey;
+  scale: MeasurementScaleKey;
+  timing: MeasurementTimingKey;
+  method: MeasurementMethodKey;
   displayName: string;
   canonicalKey: string | null;
   aliases: readonly MeasurementAlias[];

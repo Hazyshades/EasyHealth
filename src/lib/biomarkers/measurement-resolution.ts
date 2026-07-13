@@ -1,7 +1,8 @@
 import { snakeCaseToken } from "./normalize";
-import { getBiomarkerDefinition } from "./catalog";
+import { BIOMARKER_DEFINITIONS, getBiomarkerDefinition } from "./catalog";
 import type {
   CandidateEvidence,
+  Analyte,
   MappingConfidenceBand,
   MeasurementAlias,
   MeasurementDefinition,
@@ -15,7 +16,7 @@ import type {
   UnitToken,
 } from "./types";
 
-export const MEASUREMENT_REGISTRY_VERSION = "2026-07-12.2";
+export const MEASUREMENT_REGISTRY_VERSION = "2026-07-13.0";
 export const MEASUREMENT_RESOLVER_VERSION = "2";
 export const MEASUREMENT_NORMALIZATION_SCHEMA_VERSION = "2";
 
@@ -74,7 +75,9 @@ const registryAliases = (values: readonly string[]) => aliases(values);
 const ocrAliases = (values: readonly string[]) =>
   aliases(values, { source: "fixture", matchType: "ocr_variant" });
 
-export const MEASUREMENT_DEFINITIONS: readonly MeasurementDefinition[] = [
+type CuratedInput = Omit<MeasurementDefinition, "definitionSource" | "specimen" | "property" | "scale" | "timing" | "method"> & Partial<Pick<MeasurementDefinition, "specimen" | "property" | "scale" | "timing" | "method">>;
+
+const CURATED_RAW: readonly CuratedInput[] = [
   {
     key: "neutrophils_abs",
     analyteKey: "neutrophils",
@@ -163,13 +166,23 @@ export const MEASUREMENT_DEFINITIONS: readonly MeasurementDefinition[] = [
     assessmentCompatibility: "display_only",
   },
   {
-    key: "glucose_serum_plasma",
+    key: "glucose_serum",
     analyteKey: "glucose",
-    displayName: "Glucose, serum or plasma",
+    displayName: "Glucose, serum",
     canonicalKey: "glucose",
-    aliases: registryAliases(["glucose", "blood_glucose", "serum_glucose", "plasma_glucose"]),
+    aliases: registryAliases(["glucose", "blood_glucose", "serum_glucose"]),
     unitPolicy: GLUCOSE_POLICY,
-    allowedSpecimens: ["serum", "plasma"],
+    allowedSpecimens: ["serum"],
+    assessmentCompatibility: "compatible",
+  },
+  {
+    key: "glucose_plasma",
+    analyteKey: "glucose",
+    displayName: "Glucose, plasma",
+    canonicalKey: "glucose",
+    aliases: registryAliases(["glucose", "blood_glucose", "plasma_glucose"]),
+    unitPolicy: GLUCOSE_POLICY,
+    allowedSpecimens: ["plasma"],
     assessmentCompatibility: "compatible",
   },
   {
@@ -226,6 +239,50 @@ export const MEASUREMENT_DEFINITIONS: readonly MeasurementDefinition[] = [
     assessmentCompatibility: "display_only",
   },
 ];
+
+function curated(definition: CuratedInput): MeasurementDefinition {
+  const unit = definition.unitPolicy;
+  const specimen = definition.specimen ?? (definition.allowedSpecimens?.[0] as MeasurementDefinition["specimen"] | undefined) ?? "unspecified";
+  const property = definition.property ?? (definition.key.startsWith("segmented_") ? "segmented_percentage" : definition.key.startsWith("band_") ? "band_percentage" : unit.dimensions.includes("cell_concentration") ? "cell_count" : unit.dimensions.includes("ratio") ? "percentage" : unit.dimensions.includes("volume") ? "distribution_width" : unit.dimensions.length ? "substance_concentration" : "presence");
+  return { ...definition, definitionSource: "curated", specimen, property, scale: definition.scale ?? (property === "presence" ? "nominal" : "quantitative"), timing: definition.timing ?? (definition.requiredModifiers?.includes("fasting") ? "fasting" : "point_in_time"), method: definition.method ?? (definition.key.includes("urine") ? "dipstick" : "automated") };
+}
+
+export const CURATED_MEASUREMENT_DEFINITIONS: readonly MeasurementDefinition[] = CURATED_RAW.map(curated);
+
+const ANALYTE_ENTRIES: readonly (readonly [string, Analyte])[] = [
+  ...BIOMARKER_DEFINITIONS.map((definition): readonly [string, Analyte] => [definition.key, { key: definition.key, displayName: definition.displayName, aliases: [definition.key, ...definition.aliases], status: "active" }]),
+  ...CURATED_RAW.map((definition): readonly [string, Analyte] => [definition.analyteKey, { key: definition.analyteKey, displayName: definition.analyteKey, aliases: [definition.analyteKey], status: "active" }]),
+];
+export const ANALYTES: readonly Analyte[] = [...new Map<string, Analyte>(ANALYTE_ENTRIES).values()];
+const ANALYTE_BY_KEY = new Map(ANALYTES.map((analyte) => [analyte.key, analyte]));
+
+function fallbackDefinition(definition: (typeof BIOMARKER_DEFINITIONS)[number]): MeasurementDefinition {
+  const specimen = definition.specimen && definition.specimen !== "any" ? definition.specimen : "unspecified";
+  return {
+    key: `legacy_${definition.key}`,
+    analyteKey: definition.key,
+    definitionSource: "legacy_adapter",
+    specimen,
+    property: "unspecified",
+    scale: "unspecified",
+    timing: "unspecified",
+    method: "unspecified",
+    displayName: definition.displayName,
+    canonicalKey: definition.key,
+    aliases: registryAliases([definition.key, ...definition.aliases]),
+    unitPolicy: QUALITATIVE_URINE_POLICY,
+    allowedSpecimens: specimen === "unspecified" ? undefined : [specimen],
+    assessmentCompatibility: definition.scoreRole === "core" ? "compatible" : "display_only",
+  };
+}
+
+const CURATED_LEGACY_KEYS = new Set(CURATED_MEASUREMENT_DEFINITIONS.flatMap((definition) => definition.canonicalKey ? [definition.canonicalKey] : []));
+export const LEGACY_COMPATIBILITY_DEFINITIONS: readonly MeasurementDefinition[] = BIOMARKER_DEFINITIONS
+  .filter((definition) => !CURATED_LEGACY_KEYS.has(definition.key))
+  .sort((left, right) => left.key.localeCompare(right.key))
+  .map(fallbackDefinition);
+export const MEASUREMENT_DEFINITIONS: readonly MeasurementDefinition[] = [...CURATED_MEASUREMENT_DEFINITIONS, ...LEGACY_COMPATIBILITY_DEFINITIONS];
+export const MEASUREMENT_ADAPTER_VERSION = "1";
 
 const DEFINITION_BY_KEY = new Map(MEASUREMENT_DEFINITIONS.map((definition) => [definition.key, definition]));
 
@@ -386,6 +443,14 @@ export function getMeasurementDefinition(key: string): MeasurementDefinition | u
   return DEFINITION_BY_KEY.get(key);
 }
 
+export function getAnalyte(key: string): Analyte | undefined {
+  return ANALYTE_BY_KEY.get(key);
+}
+
+export function getMeasurementIdentity(definition: MeasurementDefinition) {
+  return [definition.analyteKey, definition.specimen, definition.property, definition.scale, definition.timing, definition.method] as const;
+}
+
 export function getMeasurementDefinitionsForAnalyte(analyteKey: string): readonly MeasurementDefinition[] {
   return MEASUREMENT_DEFINITIONS.filter((definition) => definition.analyteKey === analyteKey);
 }
@@ -407,10 +472,10 @@ export function resolveMeasurementDefinition(input: MeasurementResolutionInput):
   const specimen = input.specimen?.trim().toLowerCase() || "unspecified";
   const modifier = normalizedModifier(input);
   const unit = normalizeMeasurementUnit(input.rawUnit);
-  const labelDefinitions = MEASUREMENT_DEFINITIONS.filter((definition) => matchesDefinition(definition, label));
+  const labelDefinitions = CURATED_MEASUREMENT_DEFINITIONS.filter((definition) => matchesDefinition(definition, label));
   const proposedDefinitions = labelDefinitions.length || !proposed
     ? []
-    : MEASUREMENT_DEFINITIONS.filter((definition) => matchesDefinition(definition, proposed));
+    : CURATED_MEASUREMENT_DEFINITIONS.filter((definition) => matchesDefinition(definition, proposed));
   const considered = labelDefinitions.length ? labelDefinitions : proposedDefinitions;
   const source = labelDefinitions.length ? "label" as const : "proposed" as const;
   const candidateEvidence: CandidateEvidence[] = considered.map((definition) =>
@@ -459,11 +524,16 @@ export function validateMeasurementRegistry(
   const warnings: string[] = [];
   const keys = new Set<string>();
   const aliasesByValue = new Map<string, MeasurementDefinition[]>();
+  const curatedIdentities = new Map<string, string>();
+  const coveredLegacy = new Set<string>();
+  const adapterFallbacks = new Map<string, number>();
 
   for (const definition of definitions) {
     if (keys.has(definition.key)) errors.push(`Duplicate measurement definition key: ${definition.key}`);
     keys.add(definition.key);
     if (!definition.analyteKey) errors.push(`Missing analyte key: ${definition.key}`);
+    if (!ANALYTE_BY_KEY.has(definition.analyteKey)) errors.push(`Unknown analyte key: ${definition.key} -> ${definition.analyteKey}`);
+    if (!definition.definitionSource || !definition.specimen || !definition.property || !definition.scale || !definition.timing || !definition.method) errors.push(`Incomplete measurement identity: ${definition.key}`);
     if (definition.canonicalKey && !getBiomarkerDefinition(definition.canonicalKey)) {
       errors.push(`Unknown canonical biomarker key: ${definition.key} -> ${definition.canonicalKey}`);
     }
@@ -471,7 +541,17 @@ export function validateMeasurementRegistry(
     if (definition.unitPolicy.dimensions.length && !definition.unitPolicy.acceptedUnits.length) {
       errors.push(`Unit policy has dimensions but no accepted units: ${definition.key}`);
     }
-    for (const alias of definition.aliases) {
+    if (definition.canonicalKey) coveredLegacy.add(definition.canonicalKey);
+    if (definition.definitionSource === "legacy_adapter") {
+      if (!definition.canonicalKey) errors.push(`Adapter definition lacks legacy key: ${definition.key}`);
+      else adapterFallbacks.set(definition.canonicalKey, (adapterFallbacks.get(definition.canonicalKey) ?? 0) + 1);
+    } else {
+      const identity = getMeasurementIdentity(definition).join("|");
+      const previous = curatedIdentities.get(identity);
+      if (previous) errors.push(`Duplicate curated measurement identity: ${previous} and ${definition.key}`);
+      curatedIdentities.set(identity, definition.key);
+    }
+    for (const alias of definition.definitionSource === "curated" ? definition.aliases : []) {
       if (!alias.normalizedValue || !alias.source || !alias.matchType) {
         errors.push(`Incomplete alias metadata: ${definition.key}`);
       }
@@ -479,6 +559,11 @@ export function validateMeasurementRegistry(
       bucket.push(definition);
       aliasesByValue.set(alias.normalizedValue, bucket);
     }
+  }
+
+  for (const legacy of BIOMARKER_DEFINITIONS) {
+    if (!coveredLegacy.has(legacy.key)) errors.push(`Uncovered legacy biomarker key: ${legacy.key}`);
+    if ((adapterFallbacks.get(legacy.key) ?? 0) > 1) errors.push(`Multiple adapter fallbacks for legacy key: ${legacy.key}`);
   }
 
   for (const [alias, definitionsForAlias] of aliasesByValue) {

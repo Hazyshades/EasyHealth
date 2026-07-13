@@ -6,6 +6,9 @@ import {
   getBiomarkerDefinition,
   getMeasurementConversionPolicy,
   getMeasurementDefinitionsForAnalyte,
+  getAnalyte,
+  LEGACY_COMPATIBILITY_DEFINITIONS,
+  BIOMARKER_DEFINITIONS,
   MEASUREMENT_DEFINITIONS,
   MEASUREMENT_REGISTRY_DIGEST,
   normalizeMeasurementUnit,
@@ -93,8 +96,15 @@ assert.equal(
   resolveMeasurementDefinition({ rawLabel: "Glucose", specimen: "urine" }).measurementDefinitionKey,
   "glucose_urine"
 );
-assert.equal(getMeasurementDefinitionsForAnalyte("glucose").length, 4);
-assert.equal(getMeasurementConversionPolicy("glucose_serum_plasma")?.type, "linear");
+assert.equal(resolveMeasurementDefinition({ rawLabel: "Glucose", rawUnit: "mg/dL", specimen: "serum" }).measurementDefinitionKey, "glucose_serum");
+assert.equal(resolveMeasurementDefinition({ rawLabel: "Glucose", rawUnit: "mg/dL", specimen: "plasma" }).measurementDefinitionKey, "glucose_plasma");
+assert.equal(getMeasurementDefinitionsForAnalyte("glucose").length, 5);
+assert.equal(getMeasurementConversionPolicy("glucose_serum")?.type, "linear");
+assert.ok(getAnalyte("neutrophils"));
+assert.deepEqual(
+  new Set(MEASUREMENT_DEFINITIONS.flatMap((definition) => definition.canonicalKey ? [definition.canonicalKey] : [])),
+  new Set(BIOMARKER_DEFINITIONS.map((definition) => definition.key))
+);
 assert.equal(validateMeasurementRegistry().valid, true);
 assert.equal(
   serializeMeasurementRegistryManifest([...MEASUREMENT_DEFINITIONS].reverse()),

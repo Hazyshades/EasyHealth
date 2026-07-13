@@ -4,6 +4,8 @@ import {
   classifyMeasurementDefinitionChange,
   digestMeasurementRegistryManifest,
   MEASUREMENT_DEFINITIONS,
+  LEGACY_COMPATIBILITY_DEFINITIONS,
+  BIOMARKER_DEFINITIONS,
   MEASUREMENT_REGISTRY_DIGEST,
   resolveMeasurementDefinition,
   serializeMeasurementRegistryManifest,
@@ -65,6 +67,10 @@ assert.equal(
   classifyMeasurementDefinitionChange(originalDefinition, assessmentChanged).classification,
   "breaking"
 );
+assert.equal(
+  classifyMeasurementDefinitionChange(originalDefinition, { ...originalDefinition, specimen: "serum" }).classification,
+  "breaking"
+);
 
 const release = buildMeasurementRegistryRelease({
   previousDefinitions: MEASUREMENT_DEFINITIONS,
@@ -73,6 +79,9 @@ const release = buildMeasurementRegistryRelease({
 assert.equal(release.manifestDigest, MEASUREMENT_REGISTRY_DIGEST);
 assert.ok(release.changedDefinitions.every((change) => change.classification));
 assert.ok(serializeMeasurementRegistryManifest(MEASUREMENT_DEFINITIONS).includes("analyteKey"));
+assert.ok(serializeMeasurementRegistryManifest(MEASUREMENT_DEFINITIONS).includes("definitionSource"));
+assert.equal(LEGACY_COMPATIBILITY_DEFINITIONS.length, BIOMARKER_DEFINITIONS.length - 8);
+assert.ok(LEGACY_COMPATIBILITY_DEFINITIONS.every((definition) => definition.definitionSource === "legacy_adapter"));
 
 const neutrophilPercentInput = {
   rawLabel: "Neutrophils",
