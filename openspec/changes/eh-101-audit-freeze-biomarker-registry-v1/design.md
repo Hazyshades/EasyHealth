@@ -32,7 +32,7 @@ The current audit baseline has 113 definitions, 383 effective alias-map entries,
 
 ### 1. Store four complementary baseline artifacts
 
-The baseline lives under `docs/biomarker-registry/v1.0.0/`:
+The baseline lives under `registry/biomarker-registry/v1.0.0/`:
 
 ```text
 registry.json

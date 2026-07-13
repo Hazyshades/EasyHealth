@@ -408,7 +408,7 @@ function renderAuditReport(
 }
 
 function baselinePaths(rootDirectory: string) {
-  const directory = path.join(rootDirectory, "docs", "biomarker-registry", "v1.0.0");
+  const directory = path.join(rootDirectory, "registry", "biomarker-registry", "v1.0.0");
   return {
     directory,
     registry: path.join(directory, "registry.json"),

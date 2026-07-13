@@ -7,7 +7,7 @@
 
 ## 2. Registry and Resolver Artifacts
 
-- [x] 2.1 Generate `docs/biomarker-registry/v1.0.0/registry.json` with every canonical definition and all compatibility metadata required by the spec.
+- [x] 2.1 Generate `registry/biomarker-registry/v1.0.0/registry.json` with every canonical definition and all compatibility metadata required by the spec.
 - [x] 2.2 Generate deterministic alias ownership and effective-resolution inventories, including canonical-key precedence and all normalized multi-owner source aliases.
 - [x] 2.3 Define and generate `resolver-cases.json` for canonical/EN/RU aliases, collisions, `Na` versus missing tokens, short chemistry symbols, name fallback, empty/unknown input, and Registry 2.0 decomposition risks.
 - [x] 2.4 Generate `manifest.json` with snapshot schema version, registry version, source-file inventory, per-artifact digests, definition counts by system, alias counts, collision counts, specimen/conversion counts, equivalence groups, and derived-marker counts.
