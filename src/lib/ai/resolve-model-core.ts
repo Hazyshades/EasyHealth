@@ -23,21 +23,29 @@ export function coreAllowCrossProviderFallback(): boolean {
   return raw === "1" || raw.toLowerCase() === "true";
 }
 
+type OpenAiFetch = NonNullable<
+  NonNullable<Parameters<typeof createOpenAI>[0]>["fetch"]
+>;
+
 /** Nebius Llama models may return tool-calls with empty text unless tool_choice is set. */
-function nebiusFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  if (init?.body && typeof init.body === "string") {
-    try {
-      const body = JSON.parse(init.body) as Record<string, unknown>;
-      if (body.tool_choice == null) {
-        body.tool_choice = "none";
-        init = { ...init, body: JSON.stringify(body) };
+const nebiusFetch: OpenAiFetch = Object.assign(
+  async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    if (init?.body && typeof init.body === "string") {
+      try {
+        const body = JSON.parse(init.body) as Record<string, unknown>;
+        if (body.tool_choice == null) {
+          body.tool_choice = "none";
+          init = { ...init, body: JSON.stringify(body) };
+        }
+      } catch {
+        // Keep the original request body if it is not JSON.
       }
-    } catch {
-      // Keep the original request body if it is not JSON.
     }
-  }
-  return fetch(input, init);
-}
+    return globalThis.fetch(input, init);
+  },
+  // The AI SDK fetch contract includes preconnect, which Node's global fetch does not expose.
+  { preconnect: async () => undefined }
+);
 
 function createNebiusClient() {
   const config = buildNebiusEnvConfig();

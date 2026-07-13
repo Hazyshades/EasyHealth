@@ -58,3 +58,6 @@ hachakton.md
 .cursor/
 /worker/.env
 /worker/node_modules    
+
+/oh-my-pi
+/roadmap
