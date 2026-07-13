@@ -2,8 +2,26 @@ name: Measurement Registry
 
 on:
   pull_request:
+    paths:
+      - ".github/workflows/measurement-registry.yml"
+      - "package.json"
+      - "package-lock.json"
+      - "pnpm-lock.yaml"
+      - "src/lib/biomarkers/**"
+      - "src/lib/documents/**"
+      - "scripts/**"
+      - "docs/biomarker-registry/**"
   push:
     branches: [main]
+    paths:
+      - ".github/workflows/measurement-registry.yml"
+      - "package.json"
+      - "package-lock.json"
+      - "pnpm-lock.yaml"
+      - "src/lib/biomarkers/**"
+      - "src/lib/documents/**"
+      - "scripts/**"
+      - "docs/biomarker-registry/**"
 
 jobs:
   verify:

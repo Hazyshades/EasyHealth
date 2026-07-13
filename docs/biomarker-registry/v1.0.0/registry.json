@@ -1,0 +1,6825 @@
+{
+  "definitions": [
+    {
+      "aliases": [
+        "afp",
+        "alpha_fetoprotein"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "AFP",
+      "equivalenceGroup": null,
+      "key": "afp",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "tumor_markers"
+      ]
+    },
+    {
+      "aliases": [
+        "albumin",
+        "альбумин"
+      ],
+      "conversion": {
+        "conventionalUnit": "g/dL",
+        "factorCo": 10,
+        "factorSi": 0.1,
+        "siUnit": "g/L",
+        "type": "linear"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "Albumin",
+      "equivalenceGroup": null,
+      "key": "albumin",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "liver",
+      "tags": [
+        "cmp",
+        "proteins"
+      ]
+    },
+    {
+      "aliases": [
+        "alkaline_phosphatase",
+        "alp",
+        "щелочная_фосфатаза",
+        "щф"
+      ],
+      "conversion": {
+        "reason": "Enzyme activity units (U/L); no US/SI mass conversion",
+        "type": "none"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "Alkaline phosphatase",
+      "equivalenceGroup": null,
+      "key": "alp",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "liver",
+      "tags": []
+    },
+    {
+      "aliases": [
+        "alanine_aminotransferase",
+        "alt",
+        "sgpt",
+        "алат",
+        "алт"
+      ],
+      "conversion": {
+        "reason": "Enzyme activity units (U/L); no US/SI mass conversion",
+        "type": "none"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "ALT",
+      "equivalenceGroup": null,
+      "key": "alt",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "liver",
+      "tags": []
+    },
+    {
+      "aliases": [
+        "ana",
+        "antinuclear_antibodies",
+        "анф"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "ANA",
+      "equivalenceGroup": null,
+      "key": "ana",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "autoimmune"
+      ]
+    },
+    {
+      "aliases": [
+        "anti_tg",
+        "tg_ab",
+        "tgab",
+        "антитела_к_тг",
+        "ат_тг"
+      ],
+      "conversion": {
+        "reason": "Assay-specific antibody units",
+        "type": "none"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Anti-Tg",
+      "equivalenceGroup": null,
+      "key": "anti_tg",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "thyroid",
+      "tags": []
+    },
+    {
+      "aliases": [
+        "anti_tpo",
+        "tpo_ab",
+        "tpo_antibodies",
+        "антитела_к_тпо",
+        "ат_тпо"
+      ],
+      "conversion": {
+        "reason": "Assay-specific antibody units",
+        "type": "none"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Anti-TPO",
+      "equivalenceGroup": null,
+      "key": "anti_tpo",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "thyroid",
+      "tags": []
+    },
+    {
+      "aliases": [
+        "apo_b",
+        "apob",
+        "apolipoprotein_b",
+        "апо_в",
+        "апоb",
+        "аполипопротеин_b"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "factorCo": 0.01,
+        "factorSi": 100,
+        "siUnit": "g/L",
+        "type": "linear"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Apolipoprotein B",
+      "equivalenceGroup": null,
+      "key": "apob",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "cardiovascular",
+      "tags": [
+        "lipids"
+      ]
+    },
+    {
+      "aliases": [
+        "aptt",
+        "ptt",
+        "ачтв"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "aPTT",
+      "equivalenceGroup": null,
+      "key": "aptt",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "coagulation"
+      ]
+    },
+    {
+      "aliases": [
+        "aspartate_aminotransferase",
+        "ast",
+        "sgot",
+        "асат",
+        "аст"
+      ],
+      "conversion": {
+        "reason": "Enzyme activity units (U/L); no US/SI mass conversion",
+        "type": "none"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "AST",
+      "equivalenceGroup": null,
+      "key": "ast",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "liver",
+      "tags": []
+    },
+    {
+      "aliases": [
+        "b12",
+        "cobalamin",
+        "vitamin_b12",
+        "витамин_b12",
+        "кобаламин"
+      ],
+      "conversion": {
+        "conventionalUnit": "pg/mL",
+        "factorCo": 0.738,
+        "factorSi": 1.355,
+        "siUnit": "pmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "Vitamin B12",
+      "equivalenceGroup": null,
+      "key": "b12",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "nutrients",
+      "tags": []
+    },
+    {
+      "aliases": [
+        "basophils",
+        "basophils_abs",
+        "базофилы"
+      ],
+      "conversion": {
+        "conventionalUnit": "×10³/µL",
+        "siUnit": "×10⁹/L",
+        "type": "equal"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Basophils (absolute)",
+      "equivalenceGroup": null,
+      "key": "basophils",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "cbc",
+        "differential"
+      ]
+    },
+    {
+      "aliases": [
+        "basophils_percent",
+        "базофилы_"
+      ],
+      "conversion": {
+        "reason": "Percent",
+        "type": "none"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Basophils %",
+      "equivalenceGroup": null,
+      "key": "basophils_percent",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "cbc",
+        "differential"
+      ]
+    },
+    {
+      "aliases": [
+        "bicarbonate",
+        "carbon_dioxide",
+        "co2",
+        "hco3",
+        "total_co2",
+        "бикарбонат",
+        "гидрокарбонат"
+      ],
+      "conversion": {
+        "conventionalUnit": "mEq/L",
+        "siUnit": "mmol/L",
+        "type": "equal"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Bicarbonate / CO2",
+      "equivalenceGroup": null,
+      "key": "bicarbonate",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "kidney",
+      "tags": [
+        "cmp",
+        "electrolytes"
+      ]
+    },
+    {
+      "aliases": [
+        "bili_total",
+        "bilirubin",
+        "total_bilirubin",
+        "билирубин",
+        "билирубин_общий"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "factorCo": 17.1,
+        "factorSi": 0.0585,
+        "siUnit": "µmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "Total bilirubin",
+      "equivalenceGroup": null,
+      "key": "bilirubin",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "liver",
+      "tags": []
+    },
+    {
+      "aliases": [
+        "bnp"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "BNP",
+      "equivalenceGroup": null,
+      "key": "bnp",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "cardiac_acute"
+      ]
+    },
+    {
+      "aliases": [
+        "blood_urea_nitrogen",
+        "bun",
+        "urea_nitrogen",
+        "азот_мочевины"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "formula": "bun_urea",
+        "siUnit": "mmol/L",
+        "type": "formula"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "BUN",
+      "equivalenceGroup": "urea_nitrogen",
+      "key": "bun",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "kidney",
+      "tags": [
+        "cmp",
+        "kidney"
+      ]
+    },
+    {
+      "aliases": [
+        "c_peptide",
+        "c_пептид",
+        "cpeptide",
+        "с_пептид"
+      ],
+      "conversion": {
+        "conventionalUnit": "ng/mL",
+        "factorCo": 0.33,
+        "factorSi": 3.03,
+        "siUnit": "nmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "C-peptide",
+      "equivalenceGroup": null,
+      "key": "c_peptide",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "metabolic",
+      "tags": []
+    },
+    {
+      "aliases": [
+        "ca125",
+        "ca_125"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "CA-125",
+      "equivalenceGroup": null,
+      "key": "ca_125",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "tumor_markers"
+      ]
+    },
+    {
+      "aliases": [
+        "ca199",
+        "ca_19_9",
+        "ca_19_9"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "CA 19-9",
+      "equivalenceGroup": null,
+      "key": "ca_19_9",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "tumor_markers"
+      ]
+    },
+    {
+      "aliases": [
+        "calcium",
+        "кальций"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "factorCo": 0.25,
+        "factorSi": 4,
+        "siUnit": "mmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Calcium",
+      "equivalenceGroup": null,
+      "key": "calcium",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "kidney",
+      "tags": [
+        "cmp",
+        "electrolytes"
+      ]
+    },
+    {
+      "aliases": [
+        "carcinoembryonic_antigen",
+        "cea"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "CEA",
+      "equivalenceGroup": null,
+      "key": "cea",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "tumor_markers"
+      ]
+    },
+    {
+      "aliases": [
+        "chloride",
+        "хлор",
+        "хлориды"
+      ],
+      "conversion": {
+        "conventionalUnit": "mEq/L",
+        "siUnit": "mmol/L",
+        "type": "equal"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Chloride",
+      "equivalenceGroup": null,
+      "key": "chloride",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "kidney",
+      "tags": [
+        "cmp",
+        "electrolytes"
+      ]
+    },
+    {
+      "aliases": [
+        "cortisol",
+        "кортизол"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Cortisol",
+      "equivalenceGroup": null,
+      "key": "cortisol",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "hormones"
+      ]
+    },
+    {
+      "aliases": [
+        "creat",
+        "creatinine",
+        "креатинин"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "factorCo": 88.4,
+        "factorSi": 0.0113,
+        "siUnit": "µmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "Creatinine",
+      "equivalenceGroup": null,
+      "key": "creatinine",
+      "scoreRole": "core",
+      "specimen": "serum",
+      "system": "kidney",
+      "tags": [
+        "cmp",
+        "kidney"
+      ]
+    },
+    {
+      "aliases": [
+        "c_reactive_protein",
+        "c_реактивный_белок",
+        "crp",
+        "срб"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "factorCo": 10,
+        "factorSi": 0.1,
+        "siUnit": "mg/L",
+        "type": "linear"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "CRP",
+      "equivalenceGroup": null,
+      "key": "crp",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "inflammation",
+      "tags": [
+        "inflammation"
+      ]
+    },
+    {
+      "aliases": [
+        "d_dimer",
+        "d_димер",
+        "д_димер"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "D-dimer",
+      "equivalenceGroup": null,
+      "key": "d_dimer",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "coagulation"
+      ]
+    },
+    {
+      "aliases": [
+        "dhea_s",
+        "dhea_sulfate",
+        "dheas"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "DHEA-S",
+      "equivalenceGroup": null,
+      "key": "dhea_s",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "hormones"
+      ]
+    },
+    {
+      "aliases": [
+        "conjugated_bilirubin",
+        "direct_bilirubin",
+        "билирубин_прямой"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "factorCo": 17.1,
+        "factorSi": 0.0585,
+        "siUnit": "µmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Direct bilirubin",
+      "equivalenceGroup": null,
+      "key": "direct_bilirubin",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "liver",
+      "tags": []
+    },
+    {
+      "aliases": [
+        "ckd_epi",
+        "egfr",
+        "egfrcr",
+        "estimated_gfr",
+        "рскф",
+        "скф"
+      ],
+      "conversion": {
+        "reason": "eGFR already mL/min/1.73 m²",
+        "type": "none"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "eGFR",
+      "equivalenceGroup": null,
+      "key": "egfr",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "kidney",
+      "tags": [
+        "kidney"
+      ]
+    },
+    {
+      "aliases": [
+        "eosinophils",
+        "eosinophils_abs",
+        "эозинофилы"
+      ],
+      "conversion": {
+        "conventionalUnit": "×10³/µL",
+        "siUnit": "×10⁹/L",
+        "type": "equal"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Eosinophils (absolute)",
+      "equivalenceGroup": null,
+      "key": "eosinophils",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "cbc",
+        "differential"
+      ]
+    },
+    {
+      "aliases": [
+        "eosinophils_percent",
+        "эозинофилы_"
+      ],
+      "conversion": {
+        "reason": "Percent",
+        "type": "none"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Eosinophils %",
+      "equivalenceGroup": null,
+      "key": "eosinophils_percent",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "cbc",
+        "differential"
+      ]
+    },
+    {
+      "aliases": [
+        "erythrocyte_sedimentation_rate",
+        "esr",
+        "sedimentation_rate",
+        "соэ"
+      ],
+      "conversion": {
+        "reason": "mm/hr",
+        "type": "none"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "ESR",
+      "equivalenceGroup": null,
+      "key": "esr",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "inflammation",
+      "tags": [
+        "inflammation"
+      ]
+    },
+    {
+      "aliases": [
+        "e2",
+        "estradiol",
+        "эстрадиол"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Estradiol",
+      "equivalenceGroup": null,
+      "key": "estradiol",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "hormones"
+      ]
+    },
+    {
+      "aliases": [
+        "fasting_glucose",
+        "fasting_plasma_glucose",
+        "fpg",
+        "глюкоза_натощак"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "factorCo": 0.0555,
+        "factorSi": 18.02,
+        "siUnit": "mmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "Fasting glucose",
+      "equivalenceGroup": null,
+      "key": "fasting_glucose",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "metabolic",
+      "tags": [
+        "metabolic"
+      ]
+    },
+    {
+      "aliases": [
+        "ferritin",
+        "ферритин"
+      ],
+      "conversion": {
+        "conventionalUnit": "ng/mL",
+        "siUnit": "µg/L",
+        "type": "equal"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "Ferritin",
+      "equivalenceGroup": null,
+      "key": "ferritin",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "iron_studies"
+      ]
+    },
+    {
+      "aliases": [
+        "fibrinogen",
+        "фибриноген"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Fibrinogen",
+      "equivalenceGroup": null,
+      "key": "fibrinogen",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "coagulation"
+      ]
+    },
+    {
+      "aliases": [
+        "folate",
+        "folic_acid",
+        "vitamin_b9",
+        "фолат",
+        "фолиевая_кислота"
+      ],
+      "conversion": {
+        "conventionalUnit": "ng/mL",
+        "factorCo": 2.265,
+        "factorSi": 0.442,
+        "siUnit": "nmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "Folate",
+      "equivalenceGroup": null,
+      "key": "folate",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "nutrients",
+      "tags": []
+    },
+    {
+      "aliases": [
+        "free_t3",
+        "ft3",
+        "св_т3",
+        "свободный_т3"
+      ],
+      "conversion": {
+        "conventionalUnit": "pg/mL",
+        "factorCo": 1.536,
+        "factorSi": 0.651,
+        "siUnit": "pmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Free T3",
+      "equivalenceGroup": null,
+      "key": "free_t3",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "thyroid",
+      "tags": []
+    },
+    {
+      "aliases": [
+        "free_t4",
+        "free_thyroxine",
+        "ft4",
+        "св_т4",
+        "свободный_т4",
+        "т4_свободный"
+      ],
+      "conversion": {
+        "conventionalUnit": "ng/dL",
+        "factorCo": 12.9,
+        "factorSi": 0.0775,
+        "siUnit": "pmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "Free T4",
+      "equivalenceGroup": null,
+      "key": "free_t4",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "thyroid",
+      "tags": []
+    },
+    {
+      "aliases": [
+        "free_testosterone",
+        "тестостерон_свободный"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Free testosterone",
+      "equivalenceGroup": null,
+      "key": "free_testosterone",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "hormones"
+      ]
+    },
+    {
+      "aliases": [
+        "follicle_stimulating_hormone",
+        "fsh"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "FSH",
+      "equivalenceGroup": null,
+      "key": "fsh",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "hormones"
+      ]
+    },
+    {
+      "aliases": [
+        "gamma_glutamyl_transferase",
+        "gamma_gt",
+        "ggt",
+        "ггт"
+      ],
+      "conversion": {
+        "reason": "Enzyme activity units (U/L); no US/SI mass conversion",
+        "type": "none"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "GGT",
+      "equivalenceGroup": null,
+      "key": "ggt",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "liver",
+      "tags": []
+    },
+    {
+      "aliases": [
+        "globulin",
+        "глобулин"
+      ],
+      "conversion": {
+        "conventionalUnit": "g/dL",
+        "factorCo": 10,
+        "factorSi": 0.1,
+        "siUnit": "g/L",
+        "type": "linear"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Globulin",
+      "equivalenceGroup": null,
+      "key": "globulin",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "liver",
+      "tags": [
+        "proteins"
+      ]
+    },
+    {
+      "aliases": [
+        "blood_glucose",
+        "blood_sugar",
+        "glucose",
+        "random_glucose",
+        "глюкоза",
+        "сахар_крови"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "factorCo": 0.0555,
+        "factorSi": 18.02,
+        "siUnit": "mmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "Glucose",
+      "equivalenceGroup": null,
+      "key": "glucose",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "metabolic",
+      "tags": [
+        "cmp",
+        "metabolic"
+      ]
+    },
+    {
+      "aliases": [
+        "a1c",
+        "glycated_hemoglobin",
+        "glycohemoglobin",
+        "hb_a1c",
+        "hba1c",
+        "hemoglobin_a1c",
+        "гликированный_гемоглобин",
+        "гликогемоглобин"
+      ],
+      "conversion": {
+        "conventionalUnit": "%",
+        "formula": "hba1c_ngsp_ifcc",
+        "siUnit": "mmol/mol",
+        "type": "formula"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "Hemoglobin A1c",
+      "equivalenceGroup": null,
+      "key": "hba1c",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "metabolic",
+      "tags": [
+        "metabolic"
+      ]
+    },
+    {
+      "aliases": [
+        "hdl",
+        "hdl_c",
+        "hdl_cholesterol",
+        "лпвп",
+        "хс_лпвп"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "factorCo": 0.0259,
+        "factorSi": 38.61,
+        "siUnit": "mmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "HDL cholesterol",
+      "equivalenceGroup": null,
+      "key": "hdl",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "cardiovascular",
+      "tags": [
+        "lipids"
+      ]
+    },
+    {
+      "aliases": [
+        "hct",
+        "hematocrit",
+        "pcv",
+        "гематокрит"
+      ],
+      "conversion": {
+        "conventionalUnit": "%",
+        "factorCo": 0.01,
+        "factorSi": 100,
+        "siUnit": "L/L",
+        "type": "linear"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "Hematocrit",
+      "equivalenceGroup": null,
+      "key": "hematocrit",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "cbc"
+      ]
+    },
+    {
+      "aliases": [
+        "hb",
+        "hemoglobin",
+        "hgb",
+        "гемоглобин"
+      ],
+      "conversion": {
+        "conventionalUnit": "g/dL",
+        "factorCo": 10,
+        "factorSi": 0.1,
+        "siUnit": "g/L",
+        "type": "linear"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "Hemoglobin",
+      "equivalenceGroup": null,
+      "key": "hemoglobin",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "cbc"
+      ]
+    },
+    {
+      "aliases": [
+        "cardiac_crp",
+        "high_sensitivity_crp",
+        "hs_crp",
+        "hscrp",
+        "вч_срб"
+      ],
+      "conversion": {
+        "reason": "Usually already mg/L",
+        "type": "none"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "hs-CRP",
+      "equivalenceGroup": null,
+      "key": "hs_crp",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "inflammation",
+      "tags": [
+        "cardiovascular_risk_marker",
+        "inflammation"
+      ]
+    },
+    {
+      "aliases": [
+        "indirect_bilirubin",
+        "unconjugated_bilirubin",
+        "билирубин_непрямой"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "factorCo": 17.1,
+        "factorSi": 0.0585,
+        "siUnit": "µmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Indirect bilirubin",
+      "equivalenceGroup": null,
+      "key": "indirect_bilirubin",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "liver",
+      "tags": []
+    },
+    {
+      "aliases": [
+        "inr",
+        "мно"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "INR",
+      "equivalenceGroup": null,
+      "key": "inr",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "coagulation"
+      ]
+    },
+    {
+      "aliases": [
+        "insulin",
+        "инсулин"
+      ],
+      "conversion": {
+        "conventionalUnit": "µIU/mL",
+        "siUnit": "mIU/L",
+        "type": "equal"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Insulin",
+      "equivalenceGroup": null,
+      "key": "insulin",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "metabolic",
+      "tags": [
+        "metabolic"
+      ]
+    },
+    {
+      "aliases": [
+        "fe",
+        "iron",
+        "serum_iron",
+        "железо",
+        "сывороточное_железо"
+      ],
+      "conversion": {
+        "conventionalUnit": "µg/dL",
+        "factorCo": 0.179,
+        "factorSi": 5.587,
+        "siUnit": "µmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Serum iron",
+      "equivalenceGroup": null,
+      "key": "iron",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "iron_studies"
+      ]
+    },
+    {
+      "aliases": [
+        "ldl",
+        "ldl_c",
+        "ldl_cholesterol",
+        "лпнп",
+        "хс_лпнп"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "factorCo": 0.0259,
+        "factorSi": 38.61,
+        "siUnit": "mmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "LDL cholesterol",
+      "equivalenceGroup": null,
+      "key": "ldl",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "cardiovascular",
+      "tags": [
+        "lipids"
+      ]
+    },
+    {
+      "aliases": [
+        "lh",
+        "luteinizing_hormone"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "LH",
+      "equivalenceGroup": null,
+      "key": "lh",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "hormones"
+      ]
+    },
+    {
+      "aliases": [
+        "lipoprotein_a",
+        "lipoprotein_a_",
+        "lp_a",
+        "lpa",
+        "липопротеин_а",
+        "лп_а",
+        "лпа"
+      ],
+      "conversion": {
+        "reason": "Lp(a) mg/dL↔nmol/L not safe with fixed factor",
+        "type": "none"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Lipoprotein(a)",
+      "equivalenceGroup": null,
+      "key": "lpa",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "cardiovascular",
+      "tags": [
+        "cardiovascular_risk_marker",
+        "lipids"
+      ]
+    },
+    {
+      "aliases": [
+        "lymphocytes",
+        "lymphocytes_abs",
+        "лимфоциты"
+      ],
+      "conversion": {
+        "conventionalUnit": "×10³/µL",
+        "siUnit": "×10⁹/L",
+        "type": "equal"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Lymphocytes (absolute)",
+      "equivalenceGroup": null,
+      "key": "lymphocytes",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "cbc",
+        "differential"
+      ]
+    },
+    {
+      "aliases": [
+        "lymphocytes_percent",
+        "лимфоциты_"
+      ],
+      "conversion": {
+        "reason": "Percent",
+        "type": "none"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Lymphocytes %",
+      "equivalenceGroup": null,
+      "key": "lymphocytes_percent",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "cbc",
+        "differential"
+      ]
+    },
+    {
+      "aliases": [
+        "magnesium",
+        "магний"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "factorCo": 0.4114,
+        "factorSi": 2.43,
+        "siUnit": "mmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Magnesium",
+      "equivalenceGroup": null,
+      "key": "magnesium",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "kidney",
+      "tags": [
+        "electrolytes"
+      ]
+    },
+    {
+      "aliases": [
+        "mch"
+      ],
+      "conversion": {
+        "reason": "Already pg",
+        "type": "none"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "MCH",
+      "equivalenceGroup": null,
+      "key": "mch",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "cbc"
+      ]
+    },
+    {
+      "aliases": [
+        "mchc"
+      ],
+      "conversion": {
+        "conventionalUnit": "g/dL",
+        "factorCo": 10,
+        "factorSi": 0.1,
+        "siUnit": "g/L",
+        "type": "linear"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "MCHC",
+      "equivalenceGroup": null,
+      "key": "mchc",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "cbc"
+      ]
+    },
+    {
+      "aliases": [
+        "mcv",
+        "mean_corpuscular_volume"
+      ],
+      "conversion": {
+        "reason": "Already fL",
+        "type": "none"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "MCV",
+      "equivalenceGroup": null,
+      "key": "mcv",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "cbc"
+      ]
+    },
+    {
+      "aliases": [
+        "monocytes",
+        "monocytes_abs",
+        "моноциты"
+      ],
+      "conversion": {
+        "conventionalUnit": "×10³/µL",
+        "siUnit": "×10⁹/L",
+        "type": "equal"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Monocytes (absolute)",
+      "equivalenceGroup": null,
+      "key": "monocytes",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "cbc",
+        "differential"
+      ]
+    },
+    {
+      "aliases": [
+        "monocytes_percent",
+        "моноциты_"
+      ],
+      "conversion": {
+        "reason": "Percent",
+        "type": "none"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Monocytes %",
+      "equivalenceGroup": null,
+      "key": "monocytes_percent",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "cbc",
+        "differential"
+      ]
+    },
+    {
+      "aliases": [
+        "absolute_neutrophil_count",
+        "anc",
+        "neutrophils",
+        "neutrophils_abs",
+        "нейтрофилы"
+      ],
+      "conversion": {
+        "conventionalUnit": "×10³/µL",
+        "siUnit": "×10⁹/L",
+        "type": "equal"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Neutrophils (absolute)",
+      "equivalenceGroup": null,
+      "key": "neutrophils",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "cbc",
+        "differential"
+      ]
+    },
+    {
+      "aliases": [
+        "neutrophils_",
+        "neutrophils_percent",
+        "нейтрофилы_"
+      ],
+      "conversion": {
+        "reason": "Percent",
+        "type": "none"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Neutrophils %",
+      "equivalenceGroup": null,
+      "key": "neutrophils_percent",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "cbc",
+        "differential"
+      ]
+    },
+    {
+      "aliases": [
+        "non_hdl",
+        "non_hdl_c",
+        "non_hdl_cholesterol",
+        "не_лпвп",
+        "холестерин_не_лпвп"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "factorCo": 0.0259,
+        "factorSi": 38.61,
+        "siUnit": "mmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": true,
+      "derived": true,
+      "displayName": "Non-HDL cholesterol",
+      "equivalenceGroup": null,
+      "key": "non_hdl_cholesterol",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "cardiovascular",
+      "tags": [
+        "lipids"
+      ]
+    },
+    {
+      "aliases": [
+        "nt_pro_bnp",
+        "nt_pro_bnp",
+        "ntprobnp"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "NT-proBNP",
+      "equivalenceGroup": null,
+      "key": "nt_pro_bnp",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "cardiac_acute"
+      ]
+    },
+    {
+      "aliases": [
+        "phosphate",
+        "phosphorus",
+        "po4",
+        "фосфат",
+        "фосфор"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "factorCo": 0.323,
+        "factorSi": 3.1,
+        "siUnit": "mmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Phosphate",
+      "equivalenceGroup": null,
+      "key": "phosphate",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "kidney",
+      "tags": [
+        "electrolytes"
+      ]
+    },
+    {
+      "aliases": [
+        "platelets",
+        "plt",
+        "thrombocytes",
+        "тромбоциты"
+      ],
+      "conversion": {
+        "conventionalUnit": "×10³/µL",
+        "siUnit": "×10⁹/L",
+        "type": "equal"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "Platelets",
+      "equivalenceGroup": null,
+      "key": "platelets",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "cbc"
+      ]
+    },
+    {
+      "aliases": [
+        "potassium",
+        "калий"
+      ],
+      "conversion": {
+        "conventionalUnit": "mEq/L",
+        "siUnit": "mmol/L",
+        "type": "equal"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Potassium",
+      "equivalenceGroup": null,
+      "key": "potassium",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "kidney",
+      "tags": [
+        "cmp",
+        "electrolytes"
+      ]
+    },
+    {
+      "aliases": [
+        "progesterone",
+        "прогестерон"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Progesterone",
+      "equivalenceGroup": null,
+      "key": "progesterone",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "hormones"
+      ]
+    },
+    {
+      "aliases": [
+        "prolactin",
+        "пролактин"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Prolactin",
+      "equivalenceGroup": null,
+      "key": "prolactin",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "hormones"
+      ]
+    },
+    {
+      "aliases": [
+        "prostate_specific_antigen",
+        "psa",
+        "пса"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "PSA",
+      "equivalenceGroup": null,
+      "key": "psa",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "tumor_markers"
+      ]
+    },
+    {
+      "aliases": [
+        "prothrombin_time",
+        "pt",
+        "пв"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Prothrombin time",
+      "equivalenceGroup": null,
+      "key": "pt",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "coagulation"
+      ]
+    },
+    {
+      "aliases": [
+        "erythrocytes",
+        "rbc",
+        "red_blood_cells",
+        "эритроциты"
+      ],
+      "conversion": {
+        "conventionalUnit": "×10³/µL",
+        "siUnit": "×10⁹/L",
+        "type": "equal"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "RBC",
+      "equivalenceGroup": null,
+      "key": "rbc",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "cbc"
+      ]
+    },
+    {
+      "aliases": [
+        "rdw",
+        "red_cell_distribution_width"
+      ],
+      "conversion": {
+        "reason": "Percent / ratio",
+        "type": "none"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "RDW",
+      "equivalenceGroup": null,
+      "key": "rdw",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "cbc"
+      ]
+    },
+    {
+      "aliases": [
+        "remnant_c",
+        "remnant_cholesterol"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "factorCo": 0.0259,
+        "factorSi": 38.61,
+        "siUnit": "mmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": false,
+      "derived": true,
+      "displayName": "Remnant cholesterol",
+      "equivalenceGroup": null,
+      "key": "remnant_cholesterol",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "cardiovascular",
+      "tags": [
+        "lipids"
+      ]
+    },
+    {
+      "aliases": [
+        "rf",
+        "rheumatoid_factor",
+        "ревматоидный_фактор"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Rheumatoid factor",
+      "equivalenceGroup": null,
+      "key": "rf",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "autoimmune"
+      ]
+    },
+    {
+      "aliases": [
+        "shbg"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "SHBG",
+      "equivalenceGroup": null,
+      "key": "shbg",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "hormones"
+      ]
+    },
+    {
+      "aliases": [
+        "sodium",
+        "натрий"
+      ],
+      "conversion": {
+        "conventionalUnit": "mEq/L",
+        "siUnit": "mmol/L",
+        "type": "equal"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Sodium",
+      "equivalenceGroup": null,
+      "key": "sodium",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "kidney",
+      "tags": [
+        "cmp",
+        "electrolytes"
+      ]
+    },
+    {
+      "aliases": [
+        "sg",
+        "specific_gravity",
+        "urine_specific_gravity"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Specific gravity",
+      "equivalenceGroup": null,
+      "key": "specific_gravity",
+      "scoreRole": "display",
+      "specimen": "urine",
+      "system": "kidney",
+      "tags": [
+        "urine"
+      ]
+    },
+    {
+      "aliases": [
+        "t3",
+        "total_t3",
+        "triiodothyronine",
+        "т3",
+        "т3_общий"
+      ],
+      "conversion": {
+        "conventionalUnit": "ng/dL",
+        "factorCo": 0.0154,
+        "factorSi": 64.9,
+        "siUnit": "nmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Total T3",
+      "equivalenceGroup": null,
+      "key": "t3",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "thyroid",
+      "tags": []
+    },
+    {
+      "aliases": [
+        "t4",
+        "thyroxine",
+        "total_t4",
+        "т4",
+        "т4_общий"
+      ],
+      "conversion": {
+        "conventionalUnit": "µg/dL",
+        "factorCo": 12.9,
+        "factorSi": 0.0775,
+        "siUnit": "nmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Total T4",
+      "equivalenceGroup": null,
+      "key": "t4",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "thyroid",
+      "tags": []
+    },
+    {
+      "aliases": [
+        "tibc",
+        "total_iron_binding_capacity",
+        "ожсс"
+      ],
+      "conversion": {
+        "conventionalUnit": "µg/dL",
+        "factorCo": 0.179,
+        "factorSi": 5.587,
+        "siUnit": "µmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "TIBC",
+      "equivalenceGroup": null,
+      "key": "tibc",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "iron_studies"
+      ]
+    },
+    {
+      "aliases": [
+        "chol",
+        "cholesterol_total",
+        "tc",
+        "total_cholesterol",
+        "общий_холестерин",
+        "охс",
+        "холестерин_общий"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "factorCo": 0.0259,
+        "factorSi": 38.61,
+        "siUnit": "mmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "Total cholesterol",
+      "equivalenceGroup": null,
+      "key": "total_cholesterol",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "cardiovascular",
+      "tags": [
+        "lipids"
+      ]
+    },
+    {
+      "aliases": [
+        "total_protein",
+        "общий_белок"
+      ],
+      "conversion": {
+        "conventionalUnit": "g/dL",
+        "factorCo": 10,
+        "factorSi": 0.1,
+        "siUnit": "g/L",
+        "type": "linear"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Total protein",
+      "equivalenceGroup": null,
+      "key": "total_protein",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "liver",
+      "tags": [
+        "cmp",
+        "proteins"
+      ]
+    },
+    {
+      "aliases": [
+        "testosterone",
+        "total_testosterone",
+        "тестостерон",
+        "тестостерон_общий"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Total testosterone",
+      "equivalenceGroup": null,
+      "key": "total_testosterone",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "hormones"
+      ]
+    },
+    {
+      "aliases": [
+        "tbii",
+        "trab",
+        "tsh_receptor_antibodies",
+        "ат_к_рецепторам_ттг"
+      ],
+      "conversion": {
+        "reason": "Assay-specific antibody units",
+        "type": "none"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "TSH receptor antibodies",
+      "equivalenceGroup": null,
+      "key": "trab",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "thyroid",
+      "tags": []
+    },
+    {
+      "aliases": [
+        "transferrin",
+        "трансферрин"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "factorCo": 0.01,
+        "factorSi": 100,
+        "siUnit": "g/L",
+        "type": "linear"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Transferrin",
+      "equivalenceGroup": null,
+      "key": "transferrin",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "iron_studies"
+      ]
+    },
+    {
+      "aliases": [
+        "t_sat",
+        "transferrin_saturation",
+        "tsat",
+        "насыщение_трансферрина"
+      ],
+      "conversion": {
+        "reason": "Percent",
+        "type": "none"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Transferrin saturation",
+      "equivalenceGroup": null,
+      "key": "transferrin_saturation",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "iron_studies"
+      ]
+    },
+    {
+      "aliases": [
+        "tg",
+        "trig",
+        "triglycerides",
+        "тг",
+        "триглицериды"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "factorCo": 0.0113,
+        "factorSi": 88.5,
+        "siUnit": "mmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "Triglycerides",
+      "equivalenceGroup": null,
+      "key": "triglycerides",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "cardiovascular",
+      "tags": [
+        "lipids"
+      ]
+    },
+    {
+      "aliases": [
+        "ctni",
+        "troponin_i",
+        "тропонин_i"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Troponin I",
+      "equivalenceGroup": null,
+      "key": "troponin_i",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "cardiac_acute"
+      ]
+    },
+    {
+      "aliases": [
+        "ctnt",
+        "troponin_t",
+        "тропонин_t"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Troponin T",
+      "equivalenceGroup": null,
+      "key": "troponin_t",
+      "scoreRole": "display",
+      "specimen": null,
+      "system": "general",
+      "tags": [
+        "cardiac_acute"
+      ]
+    },
+    {
+      "aliases": [
+        "thyrotropin",
+        "tsh",
+        "тиреотропный_гормон",
+        "ттг"
+      ],
+      "conversion": {
+        "conventionalUnit": "µIU/mL",
+        "siUnit": "mIU/L",
+        "type": "equal"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "TSH",
+      "equivalenceGroup": null,
+      "key": "tsh",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "thyroid",
+      "tags": []
+    },
+    {
+      "aliases": [
+        "acr",
+        "albumin_creatinine_ratio",
+        "microalbumin_creatinine_ratio",
+        "uacr",
+        "акр",
+        "альбумин_креатинин"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/g",
+        "factorCo": 0.113,
+        "factorSi": 8.84,
+        "siUnit": "mg/mmol",
+        "type": "linear"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "Urine albumin/creatinine ratio",
+      "equivalenceGroup": null,
+      "key": "uacr",
+      "scoreRole": "core",
+      "specimen": "urine",
+      "system": "kidney",
+      "tags": [
+        "kidney",
+        "urine"
+      ]
+    },
+    {
+      "aliases": [
+        "uibc",
+        "unsaturated_iron_binding_capacity",
+        "лжсс",
+        "нжсс"
+      ],
+      "conversion": {
+        "conventionalUnit": "µg/dL",
+        "factorCo": 0.179,
+        "factorSi": 5.587,
+        "siUnit": "µmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "UIBC",
+      "equivalenceGroup": null,
+      "key": "uibc",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "iron_studies"
+      ]
+    },
+    {
+      "aliases": [
+        "urea",
+        "мочевина"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "formula": "bun_urea",
+        "siUnit": "mmol/L",
+        "type": "formula"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "Urea",
+      "equivalenceGroup": "urea_nitrogen",
+      "key": "urea",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "kidney",
+      "tags": [
+        "kidney"
+      ]
+    },
+    {
+      "aliases": [
+        "urate",
+        "uric_acid",
+        "мочевая_кислота"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "factorCo": 59,
+        "factorSi": 0.0169,
+        "siUnit": "µmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Uric acid",
+      "equivalenceGroup": null,
+      "key": "uric_acid",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "kidney",
+      "tags": []
+    },
+    {
+      "aliases": [
+        "microalbumin",
+        "urine_albumin",
+        "альбумин_в_моче",
+        "микроальбумин"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Urine albumin",
+      "equivalenceGroup": null,
+      "key": "urine_albumin",
+      "scoreRole": "extended",
+      "specimen": "urine",
+      "system": "kidney",
+      "tags": [
+        "urine"
+      ]
+    },
+    {
+      "aliases": [
+        "blood_urine",
+        "urine_blood",
+        "urine_blood_dipstick"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Urine blood (dipstick)",
+      "equivalenceGroup": null,
+      "key": "urine_blood_dipstick",
+      "scoreRole": "display",
+      "specimen": "urine",
+      "system": "kidney",
+      "tags": [
+        "dipstick",
+        "qualitative",
+        "urine"
+      ]
+    },
+    {
+      "aliases": [
+        "urine_creatinine",
+        "креатинин_в_моче"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "factorCo": 0.0884,
+        "factorSi": 11.31,
+        "siUnit": "mmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Urine creatinine",
+      "equivalenceGroup": null,
+      "key": "urine_creatinine",
+      "scoreRole": "extended",
+      "specimen": "urine",
+      "system": "kidney",
+      "tags": [
+        "urine"
+      ]
+    },
+    {
+      "aliases": [
+        "glucose_urine",
+        "urine_glucose_dipstick"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Urine glucose (dipstick)",
+      "equivalenceGroup": null,
+      "key": "urine_glucose_dipstick",
+      "scoreRole": "display",
+      "specimen": "urine",
+      "system": "kidney",
+      "tags": [
+        "dipstick",
+        "qualitative",
+        "urine"
+      ]
+    },
+    {
+      "aliases": [
+        "ketones",
+        "urine_ketones",
+        "кетоны_мочи"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Urine ketones",
+      "equivalenceGroup": null,
+      "key": "urine_ketones",
+      "scoreRole": "display",
+      "specimen": "urine",
+      "system": "kidney",
+      "tags": [
+        "dipstick",
+        "qualitative",
+        "urine"
+      ]
+    },
+    {
+      "aliases": [
+        "leu",
+        "leukocyte_esterase",
+        "urine_leukocyte_esterase"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Leukocyte esterase",
+      "equivalenceGroup": null,
+      "key": "urine_leukocyte_esterase",
+      "scoreRole": "display",
+      "specimen": "urine",
+      "system": "kidney",
+      "tags": [
+        "dipstick",
+        "qualitative",
+        "urine"
+      ]
+    },
+    {
+      "aliases": [
+        "nitrite",
+        "urine_nitrite"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Urine nitrite",
+      "equivalenceGroup": null,
+      "key": "urine_nitrite",
+      "scoreRole": "display",
+      "specimen": "urine",
+      "system": "kidney",
+      "tags": [
+        "dipstick",
+        "qualitative",
+        "urine"
+      ]
+    },
+    {
+      "aliases": [
+        "ph_urine",
+        "urine_ph"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Urine pH",
+      "equivalenceGroup": null,
+      "key": "urine_ph",
+      "scoreRole": "display",
+      "specimen": "urine",
+      "system": "kidney",
+      "tags": [
+        "urine"
+      ]
+    },
+    {
+      "aliases": [
+        "urine_protein",
+        "белок_в_моче"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Urine protein",
+      "equivalenceGroup": null,
+      "key": "urine_protein",
+      "scoreRole": "extended",
+      "specimen": "urine",
+      "system": "kidney",
+      "tags": [
+        "urine"
+      ]
+    },
+    {
+      "aliases": [
+        "protein_urine",
+        "urine_protein_dipstick",
+        "белок_в_моче_кач"
+      ],
+      "conversion": null,
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "Urine protein (dipstick)",
+      "equivalenceGroup": null,
+      "key": "urine_protein_dipstick",
+      "scoreRole": "display",
+      "specimen": "urine",
+      "system": "kidney",
+      "tags": [
+        "dipstick",
+        "qualitative",
+        "urine"
+      ]
+    },
+    {
+      "aliases": [
+        "25_hydroxyvitamin_d",
+        "25_oh_d",
+        "25_oh_vitamin_d",
+        "25_ohd",
+        "25_он_витамин_d",
+        "calcidiol",
+        "vitamin_d",
+        "витамин_d"
+      ],
+      "conversion": {
+        "conventionalUnit": "ng/mL",
+        "factorCo": 2.5,
+        "factorSi": 0.4,
+        "siUnit": "nmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "Vitamin D (25-OH)",
+      "equivalenceGroup": null,
+      "key": "vitamin_d",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "nutrients",
+      "tags": []
+    },
+    {
+      "aliases": [
+        "vldl",
+        "vldl_c",
+        "vldl_cholesterol"
+      ],
+      "conversion": {
+        "conventionalUnit": "mg/dL",
+        "factorCo": 0.0259,
+        "factorSi": 38.61,
+        "siUnit": "mmol/L",
+        "type": "linear"
+      },
+      "coversConfidence": false,
+      "derived": false,
+      "displayName": "VLDL cholesterol",
+      "equivalenceGroup": null,
+      "key": "vldl",
+      "scoreRole": "extended",
+      "specimen": null,
+      "system": "cardiovascular",
+      "tags": [
+        "lipids"
+      ]
+    },
+    {
+      "aliases": [
+        "leukocytes",
+        "wbc",
+        "white_blood_cells",
+        "лейкоциты"
+      ],
+      "conversion": {
+        "conventionalUnit": "×10³/µL",
+        "siUnit": "×10⁹/L",
+        "type": "equal"
+      },
+      "coversConfidence": true,
+      "derived": false,
+      "displayName": "WBC",
+      "equivalenceGroup": null,
+      "key": "wbc",
+      "scoreRole": "core",
+      "specimen": null,
+      "system": "blood",
+      "tags": [
+        "cbc"
+      ]
+    }
+  ],
+  "effectiveAliasMap": [
+    {
+      "alias": "25_он_витамин_d",
+      "canonicalKey": "vitamin_d"
+    },
+    {
+      "alias": "25_hydroxyvitamin_d",
+      "canonicalKey": "vitamin_d"
+    },
+    {
+      "alias": "25_oh_d",
+      "canonicalKey": "vitamin_d"
+    },
+    {
+      "alias": "25_oh_vitamin_d",
+      "canonicalKey": "vitamin_d"
+    },
+    {
+      "alias": "25_ohd",
+      "canonicalKey": "vitamin_d"
+    },
+    {
+      "alias": "азот_мочевины",
+      "canonicalKey": "bun"
+    },
+    {
+      "alias": "акр",
+      "canonicalKey": "uacr"
+    },
+    {
+      "alias": "алат",
+      "canonicalKey": "alt"
+    },
+    {
+      "alias": "алт",
+      "canonicalKey": "alt"
+    },
+    {
+      "alias": "альбумин",
+      "canonicalKey": "albumin"
+    },
+    {
+      "alias": "альбумин_в_моче",
+      "canonicalKey": "urine_albumin"
+    },
+    {
+      "alias": "альбумин_креатинин",
+      "canonicalKey": "uacr"
+    },
+    {
+      "alias": "антитела_к_тг",
+      "canonicalKey": "anti_tg"
+    },
+    {
+      "alias": "антитела_к_тпо",
+      "canonicalKey": "anti_tpo"
+    },
+    {
+      "alias": "анф",
+      "canonicalKey": "ana"
+    },
+    {
+      "alias": "апо_в",
+      "canonicalKey": "apob"
+    },
+    {
+      "alias": "аполипопротеин_b",
+      "canonicalKey": "apob"
+    },
+    {
+      "alias": "апоb",
+      "canonicalKey": "apob"
+    },
+    {
+      "alias": "асат",
+      "canonicalKey": "ast"
+    },
+    {
+      "alias": "аст",
+      "canonicalKey": "ast"
+    },
+    {
+      "alias": "ат_к_рецепторам_ттг",
+      "canonicalKey": "trab"
+    },
+    {
+      "alias": "ат_тг",
+      "canonicalKey": "anti_tg"
+    },
+    {
+      "alias": "ат_тпо",
+      "canonicalKey": "anti_tpo"
+    },
+    {
+      "alias": "ачтв",
+      "canonicalKey": "aptt"
+    },
+    {
+      "alias": "базофилы",
+      "canonicalKey": "basophils"
+    },
+    {
+      "alias": "белок_в_моче",
+      "canonicalKey": "urine_protein"
+    },
+    {
+      "alias": "белок_в_моче_кач",
+      "canonicalKey": "urine_protein_dipstick"
+    },
+    {
+      "alias": "бикарбонат",
+      "canonicalKey": "bicarbonate"
+    },
+    {
+      "alias": "билирубин",
+      "canonicalKey": "bilirubin"
+    },
+    {
+      "alias": "билирубин_непрямой",
+      "canonicalKey": "indirect_bilirubin"
+    },
+    {
+      "alias": "билирубин_общий",
+      "canonicalKey": "bilirubin"
+    },
+    {
+      "alias": "билирубин_прямой",
+      "canonicalKey": "direct_bilirubin"
+    },
+    {
+      "alias": "витамин_b12",
+      "canonicalKey": "b12"
+    },
+    {
+      "alias": "витамин_d",
+      "canonicalKey": "vitamin_d"
+    },
+    {
+      "alias": "вч_срб",
+      "canonicalKey": "hs_crp"
+    },
+    {
+      "alias": "ггт",
+      "canonicalKey": "ggt"
+    },
+    {
+      "alias": "гематокрит",
+      "canonicalKey": "hematocrit"
+    },
+    {
+      "alias": "гемоглобин",
+      "canonicalKey": "hemoglobin"
+    },
+    {
+      "alias": "гидрокарбонат",
+      "canonicalKey": "bicarbonate"
+    },
+    {
+      "alias": "гликированный_гемоглобин",
+      "canonicalKey": "hba1c"
+    },
+    {
+      "alias": "гликогемоглобин",
+      "canonicalKey": "hba1c"
+    },
+    {
+      "alias": "глобулин",
+      "canonicalKey": "globulin"
+    },
+    {
+      "alias": "глюкоза",
+      "canonicalKey": "glucose"
+    },
+    {
+      "alias": "глюкоза_натощак",
+      "canonicalKey": "fasting_glucose"
+    },
+    {
+      "alias": "д_димер",
+      "canonicalKey": "d_dimer"
+    },
+    {
+      "alias": "железо",
+      "canonicalKey": "iron"
+    },
+    {
+      "alias": "инсулин",
+      "canonicalKey": "insulin"
+    },
+    {
+      "alias": "калий",
+      "canonicalKey": "potassium"
+    },
+    {
+      "alias": "кальций",
+      "canonicalKey": "calcium"
+    },
+    {
+      "alias": "кетоны_мочи",
+      "canonicalKey": "urine_ketones"
+    },
+    {
+      "alias": "кобаламин",
+      "canonicalKey": "b12"
+    },
+    {
+      "alias": "кортизол",
+      "canonicalKey": "cortisol"
+    },
+    {
+      "alias": "креатинин",
+      "canonicalKey": "creatinine"
+    },
+    {
+      "alias": "креатинин_в_моче",
+      "canonicalKey": "urine_creatinine"
+    },
+    {
+      "alias": "лейкоциты",
+      "canonicalKey": "wbc"
+    },
+    {
+      "alias": "лжсс",
+      "canonicalKey": "uibc"
+    },
+    {
+      "alias": "лимфоциты",
+      "canonicalKey": "lymphocytes"
+    },
+    {
+      "alias": "липопротеин_а",
+      "canonicalKey": "lpa"
+    },
+    {
+      "alias": "лп_а",
+      "canonicalKey": "lpa"
+    },
+    {
+      "alias": "лпа",
+      "canonicalKey": "lpa"
+    },
+    {
+      "alias": "лпвп",
+      "canonicalKey": "hdl"
+    },
+    {
+      "alias": "лпнп",
+      "canonicalKey": "ldl"
+    },
+    {
+      "alias": "магний",
+      "canonicalKey": "magnesium"
+    },
+    {
+      "alias": "микроальбумин",
+      "canonicalKey": "urine_albumin"
+    },
+    {
+      "alias": "мно",
+      "canonicalKey": "inr"
+    },
+    {
+      "alias": "моноциты",
+      "canonicalKey": "monocytes"
+    },
+    {
+      "alias": "мочевая_кислота",
+      "canonicalKey": "uric_acid"
+    },
+    {
+      "alias": "мочевина",
+      "canonicalKey": "urea"
+    },
+    {
+      "alias": "насыщение_трансферрина",
+      "canonicalKey": "transferrin_saturation"
+    },
+    {
+      "alias": "натрий",
+      "canonicalKey": "sodium"
+    },
+    {
+      "alias": "не_лпвп",
+      "canonicalKey": "non_hdl_cholesterol"
+    },
+    {
+      "alias": "нейтрофилы",
+      "canonicalKey": "neutrophils"
+    },
+    {
+      "alias": "нжсс",
+      "canonicalKey": "uibc"
+    },
+    {
+      "alias": "общий_белок",
+      "canonicalKey": "total_protein"
+    },
+    {
+      "alias": "общий_холестерин",
+      "canonicalKey": "total_cholesterol"
+    },
+    {
+      "alias": "ожсс",
+      "canonicalKey": "tibc"
+    },
+    {
+      "alias": "охс",
+      "canonicalKey": "total_cholesterol"
+    },
+    {
+      "alias": "пв",
+      "canonicalKey": "pt"
+    },
+    {
+      "alias": "прогестерон",
+      "canonicalKey": "progesterone"
+    },
+    {
+      "alias": "пролактин",
+      "canonicalKey": "prolactin"
+    },
+    {
+      "alias": "пса",
+      "canonicalKey": "psa"
+    },
+    {
+      "alias": "ревматоидный_фактор",
+      "canonicalKey": "rf"
+    },
+    {
+      "alias": "рскф",
+      "canonicalKey": "egfr"
+    },
+    {
+      "alias": "с_пептид",
+      "canonicalKey": "c_peptide"
+    },
+    {
+      "alias": "сахар_крови",
+      "canonicalKey": "glucose"
+    },
+    {
+      "alias": "св_т3",
+      "canonicalKey": "free_t3"
+    },
+    {
+      "alias": "св_т4",
+      "canonicalKey": "free_t4"
+    },
+    {
+      "alias": "свободный_т3",
+      "canonicalKey": "free_t3"
+    },
+    {
+      "alias": "свободный_т4",
+      "canonicalKey": "free_t4"
+    },
+    {
+      "alias": "скф",
+      "canonicalKey": "egfr"
+    },
+    {
+      "alias": "соэ",
+      "canonicalKey": "esr"
+    },
+    {
+      "alias": "срб",
+      "canonicalKey": "crp"
+    },
+    {
+      "alias": "сывороточное_железо",
+      "canonicalKey": "iron"
+    },
+    {
+      "alias": "т3",
+      "canonicalKey": "t3"
+    },
+    {
+      "alias": "т3_общий",
+      "canonicalKey": "t3"
+    },
+    {
+      "alias": "т4",
+      "canonicalKey": "t4"
+    },
+    {
+      "alias": "т4_общий",
+      "canonicalKey": "t4"
+    },
+    {
+      "alias": "т4_свободный",
+      "canonicalKey": "free_t4"
+    },
+    {
+      "alias": "тг",
+      "canonicalKey": "triglycerides"
+    },
+    {
+      "alias": "тестостерон",
+      "canonicalKey": "total_testosterone"
+    },
+    {
+      "alias": "тестостерон_общий",
+      "canonicalKey": "total_testosterone"
+    },
+    {
+      "alias": "тестостерон_свободный",
+      "canonicalKey": "free_testosterone"
+    },
+    {
+      "alias": "тиреотропный_гормон",
+      "canonicalKey": "tsh"
+    },
+    {
+      "alias": "трансферрин",
+      "canonicalKey": "transferrin"
+    },
+    {
+      "alias": "триглицериды",
+      "canonicalKey": "triglycerides"
+    },
+    {
+      "alias": "тромбоциты",
+      "canonicalKey": "platelets"
+    },
+    {
+      "alias": "тропонин_i",
+      "canonicalKey": "troponin_i"
+    },
+    {
+      "alias": "тропонин_t",
+      "canonicalKey": "troponin_t"
+    },
+    {
+      "alias": "ттг",
+      "canonicalKey": "tsh"
+    },
+    {
+      "alias": "ферритин",
+      "canonicalKey": "ferritin"
+    },
+    {
+      "alias": "фибриноген",
+      "canonicalKey": "fibrinogen"
+    },
+    {
+      "alias": "фолат",
+      "canonicalKey": "folate"
+    },
+    {
+      "alias": "фолиевая_кислота",
+      "canonicalKey": "folate"
+    },
+    {
+      "alias": "фосфат",
+      "canonicalKey": "phosphate"
+    },
+    {
+      "alias": "фосфор",
+      "canonicalKey": "phosphate"
+    },
+    {
+      "alias": "хлор",
+      "canonicalKey": "chloride"
+    },
+    {
+      "alias": "хлориды",
+      "canonicalKey": "chloride"
+    },
+    {
+      "alias": "холестерин_не_лпвп",
+      "canonicalKey": "non_hdl_cholesterol"
+    },
+    {
+      "alias": "холестерин_общий",
+      "canonicalKey": "total_cholesterol"
+    },
+    {
+      "alias": "хс_лпвп",
+      "canonicalKey": "hdl"
+    },
+    {
+      "alias": "хс_лпнп",
+      "canonicalKey": "ldl"
+    },
+    {
+      "alias": "щелочная_фосфатаза",
+      "canonicalKey": "alp"
+    },
+    {
+      "alias": "щф",
+      "canonicalKey": "alp"
+    },
+    {
+      "alias": "эозинофилы",
+      "canonicalKey": "eosinophils"
+    },
+    {
+      "alias": "эритроциты",
+      "canonicalKey": "rbc"
+    },
+    {
+      "alias": "эстрадиол",
+      "canonicalKey": "estradiol"
+    },
+    {
+      "alias": "a1c",
+      "canonicalKey": "hba1c"
+    },
+    {
+      "alias": "absolute_neutrophil_count",
+      "canonicalKey": "neutrophils"
+    },
+    {
+      "alias": "acr",
+      "canonicalKey": "uacr"
+    },
+    {
+      "alias": "afp",
+      "canonicalKey": "afp"
+    },
+    {
+      "alias": "alanine_aminotransferase",
+      "canonicalKey": "alt"
+    },
+    {
+      "alias": "albumin",
+      "canonicalKey": "albumin"
+    },
+    {
+      "alias": "albumin_creatinine_ratio",
+      "canonicalKey": "uacr"
+    },
+    {
+      "alias": "alkaline_phosphatase",
+      "canonicalKey": "alp"
+    },
+    {
+      "alias": "alp",
+      "canonicalKey": "alp"
+    },
+    {
+      "alias": "alpha_fetoprotein",
+      "canonicalKey": "afp"
+    },
+    {
+      "alias": "alt",
+      "canonicalKey": "alt"
+    },
+    {
+      "alias": "ana",
+      "canonicalKey": "ana"
+    },
+    {
+      "alias": "anc",
+      "canonicalKey": "neutrophils"
+    },
+    {
+      "alias": "anti_tg",
+      "canonicalKey": "anti_tg"
+    },
+    {
+      "alias": "anti_tpo",
+      "canonicalKey": "anti_tpo"
+    },
+    {
+      "alias": "antinuclear_antibodies",
+      "canonicalKey": "ana"
+    },
+    {
+      "alias": "apo_b",
+      "canonicalKey": "apob"
+    },
+    {
+      "alias": "apob",
+      "canonicalKey": "apob"
+    },
+    {
+      "alias": "apolipoprotein_b",
+      "canonicalKey": "apob"
+    },
+    {
+      "alias": "aptt",
+      "canonicalKey": "aptt"
+    },
+    {
+      "alias": "aspartate_aminotransferase",
+      "canonicalKey": "ast"
+    },
+    {
+      "alias": "ast",
+      "canonicalKey": "ast"
+    },
+    {
+      "alias": "b12",
+      "canonicalKey": "b12"
+    },
+    {
+      "alias": "basophils",
+      "canonicalKey": "basophils"
+    },
+    {
+      "alias": "basophils_abs",
+      "canonicalKey": "basophils"
+    },
+    {
+      "alias": "basophils_percent",
+      "canonicalKey": "basophils_percent"
+    },
+    {
+      "alias": "bicarbonate",
+      "canonicalKey": "bicarbonate"
+    },
+    {
+      "alias": "bili_total",
+      "canonicalKey": "bilirubin"
+    },
+    {
+      "alias": "bilirubin",
+      "canonicalKey": "bilirubin"
+    },
+    {
+      "alias": "blood_glucose",
+      "canonicalKey": "glucose"
+    },
+    {
+      "alias": "blood_sugar",
+      "canonicalKey": "glucose"
+    },
+    {
+      "alias": "blood_urea_nitrogen",
+      "canonicalKey": "bun"
+    },
+    {
+      "alias": "blood_urine",
+      "canonicalKey": "urine_blood_dipstick"
+    },
+    {
+      "alias": "bnp",
+      "canonicalKey": "bnp"
+    },
+    {
+      "alias": "bun",
+      "canonicalKey": "bun"
+    },
+    {
+      "alias": "c_пептид",
+      "canonicalKey": "c_peptide"
+    },
+    {
+      "alias": "c_реактивный_белок",
+      "canonicalKey": "crp"
+    },
+    {
+      "alias": "c_peptide",
+      "canonicalKey": "c_peptide"
+    },
+    {
+      "alias": "c_reactive_protein",
+      "canonicalKey": "crp"
+    },
+    {
+      "alias": "ca",
+      "canonicalKey": "calcium"
+    },
+    {
+      "alias": "ca_125",
+      "canonicalKey": "ca_125"
+    },
+    {
+      "alias": "ca_19_9",
+      "canonicalKey": "ca_19_9"
+    },
+    {
+      "alias": "ca125",
+      "canonicalKey": "ca_125"
+    },
+    {
+      "alias": "ca199",
+      "canonicalKey": "ca_19_9"
+    },
+    {
+      "alias": "calcidiol",
+      "canonicalKey": "vitamin_d"
+    },
+    {
+      "alias": "calcium",
+      "canonicalKey": "calcium"
+    },
+    {
+      "alias": "carbon_dioxide",
+      "canonicalKey": "bicarbonate"
+    },
+    {
+      "alias": "carcinoembryonic_antigen",
+      "canonicalKey": "cea"
+    },
+    {
+      "alias": "cardiac_crp",
+      "canonicalKey": "hs_crp"
+    },
+    {
+      "alias": "cea",
+      "canonicalKey": "cea"
+    },
+    {
+      "alias": "chloride",
+      "canonicalKey": "chloride"
+    },
+    {
+      "alias": "chol",
+      "canonicalKey": "total_cholesterol"
+    },
+    {
+      "alias": "cholesterol_total",
+      "canonicalKey": "total_cholesterol"
+    },
+    {
+      "alias": "ckd_epi",
+      "canonicalKey": "egfr"
+    },
+    {
+      "alias": "cl",
+      "canonicalKey": "chloride"
+    },
+    {
+      "alias": "co2",
+      "canonicalKey": "bicarbonate"
+    },
+    {
+      "alias": "cobalamin",
+      "canonicalKey": "b12"
+    },
+    {
+      "alias": "conjugated_bilirubin",
+      "canonicalKey": "direct_bilirubin"
+    },
+    {
+      "alias": "cortisol",
+      "canonicalKey": "cortisol"
+    },
+    {
+      "alias": "cpeptide",
+      "canonicalKey": "c_peptide"
+    },
+    {
+      "alias": "creat",
+      "canonicalKey": "creatinine"
+    },
+    {
+      "alias": "creatinine",
+      "canonicalKey": "creatinine"
+    },
+    {
+      "alias": "crp",
+      "canonicalKey": "crp"
+    },
+    {
+      "alias": "ctni",
+      "canonicalKey": "troponin_i"
+    },
+    {
+      "alias": "ctnt",
+      "canonicalKey": "troponin_t"
+    },
+    {
+      "alias": "d_димер",
+      "canonicalKey": "d_dimer"
+    },
+    {
+      "alias": "d_dimer",
+      "canonicalKey": "d_dimer"
+    },
+    {
+      "alias": "dhea_s",
+      "canonicalKey": "dhea_s"
+    },
+    {
+      "alias": "dhea_sulfate",
+      "canonicalKey": "dhea_s"
+    },
+    {
+      "alias": "dheas",
+      "canonicalKey": "dhea_s"
+    },
+    {
+      "alias": "direct_bilirubin",
+      "canonicalKey": "direct_bilirubin"
+    },
+    {
+      "alias": "e2",
+      "canonicalKey": "estradiol"
+    },
+    {
+      "alias": "egfr",
+      "canonicalKey": "egfr"
+    },
+    {
+      "alias": "egfrcr",
+      "canonicalKey": "egfr"
+    },
+    {
+      "alias": "eosinophils",
+      "canonicalKey": "eosinophils"
+    },
+    {
+      "alias": "eosinophils_abs",
+      "canonicalKey": "eosinophils"
+    },
+    {
+      "alias": "eosinophils_percent",
+      "canonicalKey": "eosinophils_percent"
+    },
+    {
+      "alias": "erythrocyte_sedimentation_rate",
+      "canonicalKey": "esr"
+    },
+    {
+      "alias": "erythrocytes",
+      "canonicalKey": "rbc"
+    },
+    {
+      "alias": "esr",
+      "canonicalKey": "esr"
+    },
+    {
+      "alias": "estimated_gfr",
+      "canonicalKey": "egfr"
+    },
+    {
+      "alias": "estradiol",
+      "canonicalKey": "estradiol"
+    },
+    {
+      "alias": "fasting_glucose",
+      "canonicalKey": "fasting_glucose"
+    },
+    {
+      "alias": "fasting_plasma_glucose",
+      "canonicalKey": "fasting_glucose"
+    },
+    {
+      "alias": "fe",
+      "canonicalKey": "iron"
+    },
+    {
+      "alias": "ferritin",
+      "canonicalKey": "ferritin"
+    },
+    {
+      "alias": "fibrinogen",
+      "canonicalKey": "fibrinogen"
+    },
+    {
+      "alias": "folate",
+      "canonicalKey": "folate"
+    },
+    {
+      "alias": "folic_acid",
+      "canonicalKey": "folate"
+    },
+    {
+      "alias": "follicle_stimulating_hormone",
+      "canonicalKey": "fsh"
+    },
+    {
+      "alias": "fpg",
+      "canonicalKey": "fasting_glucose"
+    },
+    {
+      "alias": "free_t3",
+      "canonicalKey": "free_t3"
+    },
+    {
+      "alias": "free_t4",
+      "canonicalKey": "free_t4"
+    },
+    {
+      "alias": "free_testosterone",
+      "canonicalKey": "free_testosterone"
+    },
+    {
+      "alias": "free_thyroxine",
+      "canonicalKey": "free_t4"
+    },
+    {
+      "alias": "fsh",
+      "canonicalKey": "fsh"
+    },
+    {
+      "alias": "ft3",
+      "canonicalKey": "free_t3"
+    },
+    {
+      "alias": "ft4",
+      "canonicalKey": "free_t4"
+    },
+    {
+      "alias": "gamma_glutamyl_transferase",
+      "canonicalKey": "ggt"
+    },
+    {
+      "alias": "gamma_gt",
+      "canonicalKey": "ggt"
+    },
+    {
+      "alias": "ggt",
+      "canonicalKey": "ggt"
+    },
+    {
+      "alias": "globulin",
+      "canonicalKey": "globulin"
+    },
+    {
+      "alias": "glucose",
+      "canonicalKey": "glucose"
+    },
+    {
+      "alias": "glucose_urine",
+      "canonicalKey": "urine_glucose_dipstick"
+    },
+    {
+      "alias": "glycated_hemoglobin",
+      "canonicalKey": "hba1c"
+    },
+    {
+      "alias": "glycohemoglobin",
+      "canonicalKey": "hba1c"
+    },
+    {
+      "alias": "hb",
+      "canonicalKey": "hemoglobin"
+    },
+    {
+      "alias": "hb_a1c",
+      "canonicalKey": "hba1c"
+    },
+    {
+      "alias": "hba1c",
+      "canonicalKey": "hba1c"
+    },
+    {
+      "alias": "hco3",
+      "canonicalKey": "bicarbonate"
+    },
+    {
+      "alias": "hct",
+      "canonicalKey": "hematocrit"
+    },
+    {
+      "alias": "hdl",
+      "canonicalKey": "hdl"
+    },
+    {
+      "alias": "hdl_c",
+      "canonicalKey": "hdl"
+    },
+    {
+      "alias": "hdl_cholesterol",
+      "canonicalKey": "hdl"
+    },
+    {
+      "alias": "hematocrit",
+      "canonicalKey": "hematocrit"
+    },
+    {
+      "alias": "hemoglobin",
+      "canonicalKey": "hemoglobin"
+    },
+    {
+      "alias": "hemoglobin_a1c",
+      "canonicalKey": "hba1c"
+    },
+    {
+      "alias": "hgb",
+      "canonicalKey": "hemoglobin"
+    },
+    {
+      "alias": "high_sensitivity_crp",
+      "canonicalKey": "hs_crp"
+    },
+    {
+      "alias": "hs_crp",
+      "canonicalKey": "hs_crp"
+    },
+    {
+      "alias": "hscrp",
+      "canonicalKey": "hs_crp"
+    },
+    {
+      "alias": "indirect_bilirubin",
+      "canonicalKey": "indirect_bilirubin"
+    },
+    {
+      "alias": "inr",
+      "canonicalKey": "inr"
+    },
+    {
+      "alias": "insulin",
+      "canonicalKey": "insulin"
+    },
+    {
+      "alias": "iron",
+      "canonicalKey": "iron"
+    },
+    {
+      "alias": "k",
+      "canonicalKey": "potassium"
+    },
+    {
+      "alias": "ketones",
+      "canonicalKey": "urine_ketones"
+    },
+    {
+      "alias": "ldl",
+      "canonicalKey": "ldl"
+    },
+    {
+      "alias": "ldl_c",
+      "canonicalKey": "ldl"
+    },
+    {
+      "alias": "ldl_cholesterol",
+      "canonicalKey": "ldl"
+    },
+    {
+      "alias": "leu",
+      "canonicalKey": "urine_leukocyte_esterase"
+    },
+    {
+      "alias": "leukocyte_esterase",
+      "canonicalKey": "urine_leukocyte_esterase"
+    },
+    {
+      "alias": "leukocytes",
+      "canonicalKey": "wbc"
+    },
+    {
+      "alias": "lh",
+      "canonicalKey": "lh"
+    },
+    {
+      "alias": "lipoprotein_a",
+      "canonicalKey": "lpa"
+    },
+    {
+      "alias": "lp_a",
+      "canonicalKey": "lpa"
+    },
+    {
+      "alias": "lpa",
+      "canonicalKey": "lpa"
+    },
+    {
+      "alias": "luteinizing_hormone",
+      "canonicalKey": "lh"
+    },
+    {
+      "alias": "lymphocytes",
+      "canonicalKey": "lymphocytes"
+    },
+    {
+      "alias": "lymphocytes_abs",
+      "canonicalKey": "lymphocytes"
+    },
+    {
+      "alias": "lymphocytes_percent",
+      "canonicalKey": "lymphocytes_percent"
+    },
+    {
+      "alias": "magnesium",
+      "canonicalKey": "magnesium"
+    },
+    {
+      "alias": "mch",
+      "canonicalKey": "mch"
+    },
+    {
+      "alias": "mchc",
+      "canonicalKey": "mchc"
+    },
+    {
+      "alias": "mcv",
+      "canonicalKey": "mcv"
+    },
+    {
+      "alias": "mean_corpuscular_volume",
+      "canonicalKey": "mcv"
+    },
+    {
+      "alias": "mg",
+      "canonicalKey": "magnesium"
+    },
+    {
+      "alias": "microalbumin",
+      "canonicalKey": "urine_albumin"
+    },
+    {
+      "alias": "microalbumin_creatinine_ratio",
+      "canonicalKey": "uacr"
+    },
+    {
+      "alias": "monocytes",
+      "canonicalKey": "monocytes"
+    },
+    {
+      "alias": "monocytes_abs",
+      "canonicalKey": "monocytes"
+    },
+    {
+      "alias": "monocytes_percent",
+      "canonicalKey": "monocytes_percent"
+    },
+    {
+      "alias": "na",
+      "canonicalKey": "sodium"
+    },
+    {
+      "alias": "neutrophils",
+      "canonicalKey": "neutrophils"
+    },
+    {
+      "alias": "neutrophils_abs",
+      "canonicalKey": "neutrophils"
+    },
+    {
+      "alias": "neutrophils_percent",
+      "canonicalKey": "neutrophils_percent"
+    },
+    {
+      "alias": "nitrite",
+      "canonicalKey": "urine_nitrite"
+    },
+    {
+      "alias": "non_hdl",
+      "canonicalKey": "non_hdl_cholesterol"
+    },
+    {
+      "alias": "non_hdl_c",
+      "canonicalKey": "non_hdl_cholesterol"
+    },
+    {
+      "alias": "non_hdl_cholesterol",
+      "canonicalKey": "non_hdl_cholesterol"
+    },
+    {
+      "alias": "nt_pro_bnp",
+      "canonicalKey": "nt_pro_bnp"
+    },
+    {
+      "alias": "ntprobnp",
+      "canonicalKey": "nt_pro_bnp"
+    },
+    {
+      "alias": "pcv",
+      "canonicalKey": "hematocrit"
+    },
+    {
+      "alias": "ph_urine",
+      "canonicalKey": "urine_ph"
+    },
+    {
+      "alias": "phosphate",
+      "canonicalKey": "phosphate"
+    },
+    {
+      "alias": "phosphorus",
+      "canonicalKey": "phosphate"
+    },
+    {
+      "alias": "platelets",
+      "canonicalKey": "platelets"
+    },
+    {
+      "alias": "plt",
+      "canonicalKey": "platelets"
+    },
+    {
+      "alias": "po4",
+      "canonicalKey": "phosphate"
+    },
+    {
+      "alias": "potassium",
+      "canonicalKey": "potassium"
+    },
+    {
+      "alias": "progesterone",
+      "canonicalKey": "progesterone"
+    },
+    {
+      "alias": "prolactin",
+      "canonicalKey": "prolactin"
+    },
+    {
+      "alias": "prostate_specific_antigen",
+      "canonicalKey": "psa"
+    },
+    {
+      "alias": "protein_urine",
+      "canonicalKey": "urine_protein_dipstick"
+    },
+    {
+      "alias": "prothrombin_time",
+      "canonicalKey": "pt"
+    },
+    {
+      "alias": "psa",
+      "canonicalKey": "psa"
+    },
+    {
+      "alias": "pt",
+      "canonicalKey": "pt"
+    },
+    {
+      "alias": "ptt",
+      "canonicalKey": "aptt"
+    },
+    {
+      "alias": "random_glucose",
+      "canonicalKey": "glucose"
+    },
+    {
+      "alias": "rbc",
+      "canonicalKey": "rbc"
+    },
+    {
+      "alias": "rdw",
+      "canonicalKey": "rdw"
+    },
+    {
+      "alias": "red_blood_cells",
+      "canonicalKey": "rbc"
+    },
+    {
+      "alias": "red_cell_distribution_width",
+      "canonicalKey": "rdw"
+    },
+    {
+      "alias": "remnant_c",
+      "canonicalKey": "remnant_cholesterol"
+    },
+    {
+      "alias": "remnant_cholesterol",
+      "canonicalKey": "remnant_cholesterol"
+    },
+    {
+      "alias": "rf",
+      "canonicalKey": "rf"
+    },
+    {
+      "alias": "rheumatoid_factor",
+      "canonicalKey": "rf"
+    },
+    {
+      "alias": "sedimentation_rate",
+      "canonicalKey": "esr"
+    },
+    {
+      "alias": "serum_iron",
+      "canonicalKey": "iron"
+    },
+    {
+      "alias": "sg",
+      "canonicalKey": "specific_gravity"
+    },
+    {
+      "alias": "sgot",
+      "canonicalKey": "ast"
+    },
+    {
+      "alias": "sgpt",
+      "canonicalKey": "alt"
+    },
+    {
+      "alias": "shbg",
+      "canonicalKey": "shbg"
+    },
+    {
+      "alias": "sodium",
+      "canonicalKey": "sodium"
+    },
+    {
+      "alias": "specific_gravity",
+      "canonicalKey": "specific_gravity"
+    },
+    {
+      "alias": "t_sat",
+      "canonicalKey": "transferrin_saturation"
+    },
+    {
+      "alias": "t3",
+      "canonicalKey": "t3"
+    },
+    {
+      "alias": "t4",
+      "canonicalKey": "t4"
+    },
+    {
+      "alias": "tbii",
+      "canonicalKey": "trab"
+    },
+    {
+      "alias": "tc",
+      "canonicalKey": "total_cholesterol"
+    },
+    {
+      "alias": "testosterone",
+      "canonicalKey": "total_testosterone"
+    },
+    {
+      "alias": "tg",
+      "canonicalKey": "triglycerides"
+    },
+    {
+      "alias": "tg_ab",
+      "canonicalKey": "anti_tg"
+    },
+    {
+      "alias": "tgab",
+      "canonicalKey": "anti_tg"
+    },
+    {
+      "alias": "thrombocytes",
+      "canonicalKey": "platelets"
+    },
+    {
+      "alias": "thyrotropin",
+      "canonicalKey": "tsh"
+    },
+    {
+      "alias": "thyroxine",
+      "canonicalKey": "t4"
+    },
+    {
+      "alias": "tibc",
+      "canonicalKey": "tibc"
+    },
+    {
+      "alias": "total_bilirubin",
+      "canonicalKey": "bilirubin"
+    },
+    {
+      "alias": "total_cholesterol",
+      "canonicalKey": "total_cholesterol"
+    },
+    {
+      "alias": "total_co2",
+      "canonicalKey": "bicarbonate"
+    },
+    {
+      "alias": "total_iron_binding_capacity",
+      "canonicalKey": "tibc"
+    },
+    {
+      "alias": "total_protein",
+      "canonicalKey": "total_protein"
+    },
+    {
+      "alias": "total_t3",
+      "canonicalKey": "t3"
+    },
+    {
+      "alias": "total_t4",
+      "canonicalKey": "t4"
+    },
+    {
+      "alias": "total_testosterone",
+      "canonicalKey": "total_testosterone"
+    },
+    {
+      "alias": "tpo_ab",
+      "canonicalKey": "anti_tpo"
+    },
+    {
+      "alias": "tpo_antibodies",
+      "canonicalKey": "anti_tpo"
+    },
+    {
+      "alias": "trab",
+      "canonicalKey": "trab"
+    },
+    {
+      "alias": "transferrin",
+      "canonicalKey": "transferrin"
+    },
+    {
+      "alias": "transferrin_saturation",
+      "canonicalKey": "transferrin_saturation"
+    },
+    {
+      "alias": "trig",
+      "canonicalKey": "triglycerides"
+    },
+    {
+      "alias": "triglycerides",
+      "canonicalKey": "triglycerides"
+    },
+    {
+      "alias": "triiodothyronine",
+      "canonicalKey": "t3"
+    },
+    {
+      "alias": "troponin_i",
+      "canonicalKey": "troponin_i"
+    },
+    {
+      "alias": "troponin_t",
+      "canonicalKey": "troponin_t"
+    },
+    {
+      "alias": "tsat",
+      "canonicalKey": "transferrin_saturation"
+    },
+    {
+      "alias": "tsh",
+      "canonicalKey": "tsh"
+    },
+    {
+      "alias": "tsh_receptor_antibodies",
+      "canonicalKey": "trab"
+    },
+    {
+      "alias": "uacr",
+      "canonicalKey": "uacr"
+    },
+    {
+      "alias": "uibc",
+      "canonicalKey": "uibc"
+    },
+    {
+      "alias": "unconjugated_bilirubin",
+      "canonicalKey": "indirect_bilirubin"
+    },
+    {
+      "alias": "unsaturated_iron_binding_capacity",
+      "canonicalKey": "uibc"
+    },
+    {
+      "alias": "urate",
+      "canonicalKey": "uric_acid"
+    },
+    {
+      "alias": "urea",
+      "canonicalKey": "urea"
+    },
+    {
+      "alias": "urea_nitrogen",
+      "canonicalKey": "bun"
+    },
+    {
+      "alias": "uric_acid",
+      "canonicalKey": "uric_acid"
+    },
+    {
+      "alias": "urine_albumin",
+      "canonicalKey": "urine_albumin"
+    },
+    {
+      "alias": "urine_blood",
+      "canonicalKey": "urine_blood_dipstick"
+    },
+    {
+      "alias": "urine_blood_dipstick",
+      "canonicalKey": "urine_blood_dipstick"
+    },
+    {
+      "alias": "urine_creatinine",
+      "canonicalKey": "urine_creatinine"
+    },
+    {
+      "alias": "urine_glucose_dipstick",
+      "canonicalKey": "urine_glucose_dipstick"
+    },
+    {
+      "alias": "urine_ketones",
+      "canonicalKey": "urine_ketones"
+    },
+    {
+      "alias": "urine_leukocyte_esterase",
+      "canonicalKey": "urine_leukocyte_esterase"
+    },
+    {
+      "alias": "urine_nitrite",
+      "canonicalKey": "urine_nitrite"
+    },
+    {
+      "alias": "urine_ph",
+      "canonicalKey": "urine_ph"
+    },
+    {
+      "alias": "urine_protein",
+      "canonicalKey": "urine_protein"
+    },
+    {
+      "alias": "urine_protein_dipstick",
+      "canonicalKey": "urine_protein_dipstick"
+    },
+    {
+      "alias": "urine_specific_gravity",
+      "canonicalKey": "specific_gravity"
+    },
+    {
+      "alias": "vitamin_b12",
+      "canonicalKey": "b12"
+    },
+    {
+      "alias": "vitamin_b9",
+      "canonicalKey": "folate"
+    },
+    {
+      "alias": "vitamin_d",
+      "canonicalKey": "vitamin_d"
+    },
+    {
+      "alias": "vldl",
+      "canonicalKey": "vldl"
+    },
+    {
+      "alias": "vldl_c",
+      "canonicalKey": "vldl"
+    },
+    {
+      "alias": "vldl_cholesterol",
+      "canonicalKey": "vldl"
+    },
+    {
+      "alias": "wbc",
+      "canonicalKey": "wbc"
+    },
+    {
+      "alias": "white_blood_cells",
+      "canonicalKey": "wbc"
+    }
+  ],
+  "normalizedAliasCollisions": [
+    {
+      "alias": "базофилы",
+      "effectiveCanonicalKey": "basophils",
+      "owners": [
+        "basophils",
+        "basophils_percent"
+      ]
+    },
+    {
+      "alias": "лимфоциты",
+      "effectiveCanonicalKey": "lymphocytes",
+      "owners": [
+        "lymphocytes",
+        "lymphocytes_percent"
+      ]
+    },
+    {
+      "alias": "моноциты",
+      "effectiveCanonicalKey": "monocytes",
+      "owners": [
+        "monocytes",
+        "monocytes_percent"
+      ]
+    },
+    {
+      "alias": "нейтрофилы",
+      "effectiveCanonicalKey": "neutrophils",
+      "owners": [
+        "neutrophils",
+        "neutrophils_percent"
+      ]
+    },
+    {
+      "alias": "эозинофилы",
+      "effectiveCanonicalKey": "eosinophils",
+      "owners": [
+        "eosinophils",
+        "eosinophils_percent"
+      ]
+    },
+    {
+      "alias": "neutrophils",
+      "effectiveCanonicalKey": "neutrophils",
+      "owners": [
+        "neutrophils",
+        "neutrophils_percent"
+      ]
+    }
+  ],
+  "normalizedAliasOwners": [
+    {
+      "alias": "25_он_витамин_d",
+      "effectiveCanonicalKey": "vitamin_d",
+      "owners": [
+        "vitamin_d"
+      ]
+    },
+    {
+      "alias": "25_hydroxyvitamin_d",
+      "effectiveCanonicalKey": "vitamin_d",
+      "owners": [
+        "vitamin_d"
+      ]
+    },
+    {
+      "alias": "25_oh_d",
+      "effectiveCanonicalKey": "vitamin_d",
+      "owners": [
+        "vitamin_d"
+      ]
+    },
+    {
+      "alias": "25_oh_vitamin_d",
+      "effectiveCanonicalKey": "vitamin_d",
+      "owners": [
+        "vitamin_d"
+      ]
+    },
+    {
+      "alias": "25_ohd",
+      "effectiveCanonicalKey": "vitamin_d",
+      "owners": [
+        "vitamin_d"
+      ]
+    },
+    {
+      "alias": "азот_мочевины",
+      "effectiveCanonicalKey": "bun",
+      "owners": [
+        "bun"
+      ]
+    },
+    {
+      "alias": "акр",
+      "effectiveCanonicalKey": "uacr",
+      "owners": [
+        "uacr"
+      ]
+    },
+    {
+      "alias": "алат",
+      "effectiveCanonicalKey": "alt",
+      "owners": [
+        "alt"
+      ]
+    },
+    {
+      "alias": "алт",
+      "effectiveCanonicalKey": "alt",
+      "owners": [
+        "alt"
+      ]
+    },
+    {
+      "alias": "альбумин",
+      "effectiveCanonicalKey": "albumin",
+      "owners": [
+        "albumin"
+      ]
+    },
+    {
+      "alias": "альбумин_в_моче",
+      "effectiveCanonicalKey": "urine_albumin",
+      "owners": [
+        "urine_albumin"
+      ]
+    },
+    {
+      "alias": "альбумин_креатинин",
+      "effectiveCanonicalKey": "uacr",
+      "owners": [
+        "uacr"
+      ]
+    },
+    {
+      "alias": "антитела_к_тг",
+      "effectiveCanonicalKey": "anti_tg",
+      "owners": [
+        "anti_tg"
+      ]
+    },
+    {
+      "alias": "антитела_к_тпо",
+      "effectiveCanonicalKey": "anti_tpo",
+      "owners": [
+        "anti_tpo"
+      ]
+    },
+    {
+      "alias": "анф",
+      "effectiveCanonicalKey": "ana",
+      "owners": [
+        "ana"
+      ]
+    },
+    {
+      "alias": "апо_в",
+      "effectiveCanonicalKey": "apob",
+      "owners": [
+        "apob"
+      ]
+    },
+    {
+      "alias": "аполипопротеин_b",
+      "effectiveCanonicalKey": "apob",
+      "owners": [
+        "apob"
+      ]
+    },
+    {
+      "alias": "апоb",
+      "effectiveCanonicalKey": "apob",
+      "owners": [
+        "apob"
+      ]
+    },
+    {
+      "alias": "асат",
+      "effectiveCanonicalKey": "ast",
+      "owners": [
+        "ast"
+      ]
+    },
+    {
+      "alias": "аст",
+      "effectiveCanonicalKey": "ast",
+      "owners": [
+        "ast"
+      ]
+    },
+    {
+      "alias": "ат_к_рецепторам_ттг",
+      "effectiveCanonicalKey": "trab",
+      "owners": [
+        "trab"
+      ]
+    },
+    {
+      "alias": "ат_тг",
+      "effectiveCanonicalKey": "anti_tg",
+      "owners": [
+        "anti_tg"
+      ]
+    },
+    {
+      "alias": "ат_тпо",
+      "effectiveCanonicalKey": "anti_tpo",
+      "owners": [
+        "anti_tpo"
+      ]
+    },
+    {
+      "alias": "ачтв",
+      "effectiveCanonicalKey": "aptt",
+      "owners": [
+        "aptt"
+      ]
+    },
+    {
+      "alias": "базофилы",
+      "effectiveCanonicalKey": "basophils",
+      "owners": [
+        "basophils",
+        "basophils_percent"
+      ]
+    },
+    {
+      "alias": "белок_в_моче",
+      "effectiveCanonicalKey": "urine_protein",
+      "owners": [
+        "urine_protein"
+      ]
+    },
+    {
+      "alias": "белок_в_моче_кач",
+      "effectiveCanonicalKey": "urine_protein_dipstick",
+      "owners": [
+        "urine_protein_dipstick"
+      ]
+    },
+    {
+      "alias": "бикарбонат",
+      "effectiveCanonicalKey": "bicarbonate",
+      "owners": [
+        "bicarbonate"
+      ]
+    },
+    {
+      "alias": "билирубин",
+      "effectiveCanonicalKey": "bilirubin",
+      "owners": [
+        "bilirubin"
+      ]
+    },
+    {
+      "alias": "билирубин_непрямой",
+      "effectiveCanonicalKey": "indirect_bilirubin",
+      "owners": [
+        "indirect_bilirubin"
+      ]
+    },
+    {
+      "alias": "билирубин_общий",
+      "effectiveCanonicalKey": "bilirubin",
+      "owners": [
+        "bilirubin"
+      ]
+    },
+    {
+      "alias": "билирубин_прямой",
+      "effectiveCanonicalKey": "direct_bilirubin",
+      "owners": [
+        "direct_bilirubin"
+      ]
+    },
+    {
+      "alias": "витамин_b12",
+      "effectiveCanonicalKey": "b12",
+      "owners": [
+        "b12"
+      ]
+    },
+    {
+      "alias": "витамин_d",
+      "effectiveCanonicalKey": "vitamin_d",
+      "owners": [
+        "vitamin_d"
+      ]
+    },
+    {
+      "alias": "вч_срб",
+      "effectiveCanonicalKey": "hs_crp",
+      "owners": [
+        "hs_crp"
+      ]
+    },
+    {
+      "alias": "ггт",
+      "effectiveCanonicalKey": "ggt",
+      "owners": [
+        "ggt"
+      ]
+    },
+    {
+      "alias": "гематокрит",
+      "effectiveCanonicalKey": "hematocrit",
+      "owners": [
+        "hematocrit"
+      ]
+    },
+    {
+      "alias": "гемоглобин",
+      "effectiveCanonicalKey": "hemoglobin",
+      "owners": [
+        "hemoglobin"
+      ]
+    },
+    {
+      "alias": "гидрокарбонат",
+      "effectiveCanonicalKey": "bicarbonate",
+      "owners": [
+        "bicarbonate"
+      ]
+    },
+    {
+      "alias": "гликированный_гемоглобин",
+      "effectiveCanonicalKey": "hba1c",
+      "owners": [
+        "hba1c"
+      ]
+    },
+    {
+      "alias": "гликогемоглобин",
+      "effectiveCanonicalKey": "hba1c",
+      "owners": [
+        "hba1c"
+      ]
+    },
+    {
+      "alias": "глобулин",
+      "effectiveCanonicalKey": "globulin",
+      "owners": [
+        "globulin"
+      ]
+    },
+    {
+      "alias": "глюкоза",
+      "effectiveCanonicalKey": "glucose",
+      "owners": [
+        "glucose"
+      ]
+    },
+    {
+      "alias": "глюкоза_натощак",
+      "effectiveCanonicalKey": "fasting_glucose",
+      "owners": [
+        "fasting_glucose"
+      ]
+    },
+    {
+      "alias": "д_димер",
+      "effectiveCanonicalKey": "d_dimer",
+      "owners": [
+        "d_dimer"
+      ]
+    },
+    {
+      "alias": "железо",
+      "effectiveCanonicalKey": "iron",
+      "owners": [
+        "iron"
+      ]
+    },
+    {
+      "alias": "инсулин",
+      "effectiveCanonicalKey": "insulin",
+      "owners": [
+        "insulin"
+      ]
+    },
+    {
+      "alias": "калий",
+      "effectiveCanonicalKey": "potassium",
+      "owners": [
+        "potassium"
+      ]
+    },
+    {
+      "alias": "кальций",
+      "effectiveCanonicalKey": "calcium",
+      "owners": [
+        "calcium"
+      ]
+    },
+    {
+      "alias": "кетоны_мочи",
+      "effectiveCanonicalKey": "urine_ketones",
+      "owners": [
+        "urine_ketones"
+      ]
+    },
+    {
+      "alias": "кобаламин",
+      "effectiveCanonicalKey": "b12",
+      "owners": [
+        "b12"
+      ]
+    },
+    {
+      "alias": "кортизол",
+      "effectiveCanonicalKey": "cortisol",
+      "owners": [
+        "cortisol"
+      ]
+    },
+    {
+      "alias": "креатинин",
+      "effectiveCanonicalKey": "creatinine",
+      "owners": [
+        "creatinine"
+      ]
+    },
+    {
+      "alias": "креатинин_в_моче",
+      "effectiveCanonicalKey": "urine_creatinine",
+      "owners": [
+        "urine_creatinine"
+      ]
+    },
+    {
+      "alias": "лейкоциты",
+      "effectiveCanonicalKey": "wbc",
+      "owners": [
+        "wbc"
+      ]
+    },
+    {
+      "alias": "лжсс",
+      "effectiveCanonicalKey": "uibc",
+      "owners": [
+        "uibc"
+      ]
+    },
+    {
+      "alias": "лимфоциты",
+      "effectiveCanonicalKey": "lymphocytes",
+      "owners": [
+        "lymphocytes",
+        "lymphocytes_percent"
+      ]
+    },
+    {
+      "alias": "липопротеин_а",
+      "effectiveCanonicalKey": "lpa",
+      "owners": [
+        "lpa"
+      ]
+    },
+    {
+      "alias": "лп_а",
+      "effectiveCanonicalKey": "lpa",
+      "owners": [
+        "lpa"
+      ]
+    },
+    {
+      "alias": "лпа",
+      "effectiveCanonicalKey": "lpa",
+      "owners": [
+        "lpa"
+      ]
+    },
+    {
+      "alias": "лпвп",
+      "effectiveCanonicalKey": "hdl",
+      "owners": [
+        "hdl"
+      ]
+    },
+    {
+      "alias": "лпнп",
+      "effectiveCanonicalKey": "ldl",
+      "owners": [
+        "ldl"
+      ]
+    },
+    {
+      "alias": "магний",
+      "effectiveCanonicalKey": "magnesium",
+      "owners": [
+        "magnesium"
+      ]
+    },
+    {
+      "alias": "микроальбумин",
+      "effectiveCanonicalKey": "urine_albumin",
+      "owners": [
+        "urine_albumin"
+      ]
+    },
+    {
+      "alias": "мно",
+      "effectiveCanonicalKey": "inr",
+      "owners": [
+        "inr"
+      ]
+    },
+    {
+      "alias": "моноциты",
+      "effectiveCanonicalKey": "monocytes",
+      "owners": [
+        "monocytes",
+        "monocytes_percent"
+      ]
+    },
+    {
+      "alias": "мочевая_кислота",
+      "effectiveCanonicalKey": "uric_acid",
+      "owners": [
+        "uric_acid"
+      ]
+    },
+    {
+      "alias": "мочевина",
+      "effectiveCanonicalKey": "urea",
+      "owners": [
+        "urea"
+      ]
+    },
+    {
+      "alias": "насыщение_трансферрина",
+      "effectiveCanonicalKey": "transferrin_saturation",
+      "owners": [
+        "transferrin_saturation"
+      ]
+    },
+    {
+      "alias": "натрий",
+      "effectiveCanonicalKey": "sodium",
+      "owners": [
+        "sodium"
+      ]
+    },
+    {
+      "alias": "не_лпвп",
+      "effectiveCanonicalKey": "non_hdl_cholesterol",
+      "owners": [
+        "non_hdl_cholesterol"
+      ]
+    },
+    {
+      "alias": "нейтрофилы",
+      "effectiveCanonicalKey": "neutrophils",
+      "owners": [
+        "neutrophils",
+        "neutrophils_percent"
+      ]
+    },
+    {
+      "alias": "нжсс",
+      "effectiveCanonicalKey": "uibc",
+      "owners": [
+        "uibc"
+      ]
+    },
+    {
+      "alias": "общий_белок",
+      "effectiveCanonicalKey": "total_protein",
+      "owners": [
+        "total_protein"
+      ]
+    },
+    {
+      "alias": "общий_холестерин",
+      "effectiveCanonicalKey": "total_cholesterol",
+      "owners": [
+        "total_cholesterol"
+      ]
+    },
+    {
+      "alias": "ожсс",
+      "effectiveCanonicalKey": "tibc",
+      "owners": [
+        "tibc"
+      ]
+    },
+    {
+      "alias": "охс",
+      "effectiveCanonicalKey": "total_cholesterol",
+      "owners": [
+        "total_cholesterol"
+      ]
+    },
+    {
+      "alias": "пв",
+      "effectiveCanonicalKey": "pt",
+      "owners": [
+        "pt"
+      ]
+    },
+    {
+      "alias": "прогестерон",
+      "effectiveCanonicalKey": "progesterone",
+      "owners": [
+        "progesterone"
+      ]
+    },
+    {
+      "alias": "пролактин",
+      "effectiveCanonicalKey": "prolactin",
+      "owners": [
+        "prolactin"
+      ]
+    },
+    {
+      "alias": "пса",
+      "effectiveCanonicalKey": "psa",
+      "owners": [
+        "psa"
+      ]
+    },
+    {
+      "alias": "ревматоидный_фактор",
+      "effectiveCanonicalKey": "rf",
+      "owners": [
+        "rf"
+      ]
+    },
+    {
+      "alias": "рскф",
+      "effectiveCanonicalKey": "egfr",
+      "owners": [
+        "egfr"
+      ]
+    },
+    {
+      "alias": "с_пептид",
+      "effectiveCanonicalKey": "c_peptide",
+      "owners": [
+        "c_peptide"
+      ]
+    },
+    {
+      "alias": "сахар_крови",
+      "effectiveCanonicalKey": "glucose",
+      "owners": [
+        "glucose"
+      ]
+    },
+    {
+      "alias": "св_т3",
+      "effectiveCanonicalKey": "free_t3",
+      "owners": [
+        "free_t3"
+      ]
+    },
+    {
+      "alias": "св_т4",
+      "effectiveCanonicalKey": "free_t4",
+      "owners": [
+        "free_t4"
+      ]
+    },
+    {
+      "alias": "свободный_т3",
+      "effectiveCanonicalKey": "free_t3",
+      "owners": [
+        "free_t3"
+      ]
+    },
+    {
+      "alias": "свободный_т4",
+      "effectiveCanonicalKey": "free_t4",
+      "owners": [
+        "free_t4"
+      ]
+    },
+    {
+      "alias": "скф",
+      "effectiveCanonicalKey": "egfr",
+      "owners": [
+        "egfr"
+      ]
+    },
+    {
+      "alias": "соэ",
+      "effectiveCanonicalKey": "esr",
+      "owners": [
+        "esr"
+      ]
+    },
+    {
+      "alias": "срб",
+      "effectiveCanonicalKey": "crp",
+      "owners": [
+        "crp"
+      ]
+    },
+    {
+      "alias": "сывороточное_железо",
+      "effectiveCanonicalKey": "iron",
+      "owners": [
+        "iron"
+      ]
+    },
+    {
+      "alias": "т3",
+      "effectiveCanonicalKey": "t3",
+      "owners": [
+        "t3"
+      ]
+    },
+    {
+      "alias": "т3_общий",
+      "effectiveCanonicalKey": "t3",
+      "owners": [
+        "t3"
+      ]
+    },
+    {
+      "alias": "т4",
+      "effectiveCanonicalKey": "t4",
+      "owners": [
+        "t4"
+      ]
+    },
+    {
+      "alias": "т4_общий",
+      "effectiveCanonicalKey": "t4",
+      "owners": [
+        "t4"
+      ]
+    },
+    {
+      "alias": "т4_свободный",
+      "effectiveCanonicalKey": "free_t4",
+      "owners": [
+        "free_t4"
+      ]
+    },
+    {
+      "alias": "тг",
+      "effectiveCanonicalKey": "triglycerides",
+      "owners": [
+        "triglycerides"
+      ]
+    },
+    {
+      "alias": "тестостерон",
+      "effectiveCanonicalKey": "total_testosterone",
+      "owners": [
+        "total_testosterone"
+      ]
+    },
+    {
+      "alias": "тестостерон_общий",
+      "effectiveCanonicalKey": "total_testosterone",
+      "owners": [
+        "total_testosterone"
+      ]
+    },
+    {
+      "alias": "тестостерон_свободный",
+      "effectiveCanonicalKey": "free_testosterone",
+      "owners": [
+        "free_testosterone"
+      ]
+    },
+    {
+      "alias": "тиреотропный_гормон",
+      "effectiveCanonicalKey": "tsh",
+      "owners": [
+        "tsh"
+      ]
+    },
+    {
+      "alias": "трансферрин",
+      "effectiveCanonicalKey": "transferrin",
+      "owners": [
+        "transferrin"
+      ]
+    },
+    {
+      "alias": "триглицериды",
+      "effectiveCanonicalKey": "triglycerides",
+      "owners": [
+        "triglycerides"
+      ]
+    },
+    {
+      "alias": "тромбоциты",
+      "effectiveCanonicalKey": "platelets",
+      "owners": [
+        "platelets"
+      ]
+    },
+    {
+      "alias": "тропонин_i",
+      "effectiveCanonicalKey": "troponin_i",
+      "owners": [
+        "troponin_i"
+      ]
+    },
+    {
+      "alias": "тропонин_t",
+      "effectiveCanonicalKey": "troponin_t",
+      "owners": [
+        "troponin_t"
+      ]
+    },
+    {
+      "alias": "ттг",
+      "effectiveCanonicalKey": "tsh",
+      "owners": [
+        "tsh"
+      ]
+    },
+    {
+      "alias": "ферритин",
+      "effectiveCanonicalKey": "ferritin",
+      "owners": [
+        "ferritin"
+      ]
+    },
+    {
+      "alias": "фибриноген",
+      "effectiveCanonicalKey": "fibrinogen",
+      "owners": [
+        "fibrinogen"
+      ]
+    },
+    {
+      "alias": "фолат",
+      "effectiveCanonicalKey": "folate",
+      "owners": [
+        "folate"
+      ]
+    },
+    {
+      "alias": "фолиевая_кислота",
+      "effectiveCanonicalKey": "folate",
+      "owners": [
+        "folate"
+      ]
+    },
+    {
+      "alias": "фосфат",
+      "effectiveCanonicalKey": "phosphate",
+      "owners": [
+        "phosphate"
+      ]
+    },
+    {
+      "alias": "фосфор",
+      "effectiveCanonicalKey": "phosphate",
+      "owners": [
+        "phosphate"
+      ]
+    },
+    {
+      "alias": "хлор",
+      "effectiveCanonicalKey": "chloride",
+      "owners": [
+        "chloride"
+      ]
+    },
+    {
+      "alias": "хлориды",
+      "effectiveCanonicalKey": "chloride",
+      "owners": [
+        "chloride"
+      ]
+    },
+    {
+      "alias": "холестерин_не_лпвп",
+      "effectiveCanonicalKey": "non_hdl_cholesterol",
+      "owners": [
+        "non_hdl_cholesterol"
+      ]
+    },
+    {
+      "alias": "холестерин_общий",
+      "effectiveCanonicalKey": "total_cholesterol",
+      "owners": [
+        "total_cholesterol"
+      ]
+    },
+    {
+      "alias": "хс_лпвп",
+      "effectiveCanonicalKey": "hdl",
+      "owners": [
+        "hdl"
+      ]
+    },
+    {
+      "alias": "хс_лпнп",
+      "effectiveCanonicalKey": "ldl",
+      "owners": [
+        "ldl"
+      ]
+    },
+    {
+      "alias": "щелочная_фосфатаза",
+      "effectiveCanonicalKey": "alp",
+      "owners": [
+        "alp"
+      ]
+    },
+    {
+      "alias": "щф",
+      "effectiveCanonicalKey": "alp",
+      "owners": [
+        "alp"
+      ]
+    },
+    {
+      "alias": "эозинофилы",
+      "effectiveCanonicalKey": "eosinophils",
+      "owners": [
+        "eosinophils",
+        "eosinophils_percent"
+      ]
+    },
+    {
+      "alias": "эритроциты",
+      "effectiveCanonicalKey": "rbc",
+      "owners": [
+        "rbc"
+      ]
+    },
+    {
+      "alias": "эстрадиол",
+      "effectiveCanonicalKey": "estradiol",
+      "owners": [
+        "estradiol"
+      ]
+    },
+    {
+      "alias": "a1c",
+      "effectiveCanonicalKey": "hba1c",
+      "owners": [
+        "hba1c"
+      ]
+    },
+    {
+      "alias": "absolute_neutrophil_count",
+      "effectiveCanonicalKey": "neutrophils",
+      "owners": [
+        "neutrophils"
+      ]
+    },
+    {
+      "alias": "acr",
+      "effectiveCanonicalKey": "uacr",
+      "owners": [
+        "uacr"
+      ]
+    },
+    {
+      "alias": "afp",
+      "effectiveCanonicalKey": "afp",
+      "owners": [
+        "afp"
+      ]
+    },
+    {
+      "alias": "alanine_aminotransferase",
+      "effectiveCanonicalKey": "alt",
+      "owners": [
+        "alt"
+      ]
+    },
+    {
+      "alias": "albumin",
+      "effectiveCanonicalKey": "albumin",
+      "owners": [
+        "albumin"
+      ]
+    },
+    {
+      "alias": "albumin_creatinine_ratio",
+      "effectiveCanonicalKey": "uacr",
+      "owners": [
+        "uacr"
+      ]
+    },
+    {
+      "alias": "alkaline_phosphatase",
+      "effectiveCanonicalKey": "alp",
+      "owners": [
+        "alp"
+      ]
+    },
+    {
+      "alias": "alp",
+      "effectiveCanonicalKey": "alp",
+      "owners": [
+        "alp"
+      ]
+    },
+    {
+      "alias": "alpha_fetoprotein",
+      "effectiveCanonicalKey": "afp",
+      "owners": [
+        "afp"
+      ]
+    },
+    {
+      "alias": "alt",
+      "effectiveCanonicalKey": "alt",
+      "owners": [
+        "alt"
+      ]
+    },
+    {
+      "alias": "ana",
+      "effectiveCanonicalKey": "ana",
+      "owners": [
+        "ana"
+      ]
+    },
+    {
+      "alias": "anc",
+      "effectiveCanonicalKey": "neutrophils",
+      "owners": [
+        "neutrophils"
+      ]
+    },
+    {
+      "alias": "anti_tg",
+      "effectiveCanonicalKey": "anti_tg",
+      "owners": [
+        "anti_tg"
+      ]
+    },
+    {
+      "alias": "anti_tpo",
+      "effectiveCanonicalKey": "anti_tpo",
+      "owners": [
+        "anti_tpo"
+      ]
+    },
+    {
+      "alias": "antinuclear_antibodies",
+      "effectiveCanonicalKey": "ana",
+      "owners": [
+        "ana"
+      ]
+    },
+    {
+      "alias": "apo_b",
+      "effectiveCanonicalKey": "apob",
+      "owners": [
+        "apob"
+      ]
+    },
+    {
+      "alias": "apob",
+      "effectiveCanonicalKey": "apob",
+      "owners": [
+        "apob"
+      ]
+    },
+    {
+      "alias": "apolipoprotein_b",
+      "effectiveCanonicalKey": "apob",
+      "owners": [
+        "apob"
+      ]
+    },
+    {
+      "alias": "aptt",
+      "effectiveCanonicalKey": "aptt",
+      "owners": [
+        "aptt"
+      ]
+    },
+    {
+      "alias": "aspartate_aminotransferase",
+      "effectiveCanonicalKey": "ast",
+      "owners": [
+        "ast"
+      ]
+    },
+    {
+      "alias": "ast",
+      "effectiveCanonicalKey": "ast",
+      "owners": [
+        "ast"
+      ]
+    },
+    {
+      "alias": "b12",
+      "effectiveCanonicalKey": "b12",
+      "owners": [
+        "b12"
+      ]
+    },
+    {
+      "alias": "basophils",
+      "effectiveCanonicalKey": "basophils",
+      "owners": [
+        "basophils"
+      ]
+    },
+    {
+      "alias": "basophils_abs",
+      "effectiveCanonicalKey": "basophils",
+      "owners": [
+        "basophils"
+      ]
+    },
+    {
+      "alias": "basophils_percent",
+      "effectiveCanonicalKey": "basophils_percent",
+      "owners": [
+        "basophils_percent"
+      ]
+    },
+    {
+      "alias": "bicarbonate",
+      "effectiveCanonicalKey": "bicarbonate",
+      "owners": [
+        "bicarbonate"
+      ]
+    },
+    {
+      "alias": "bili_total",
+      "effectiveCanonicalKey": "bilirubin",
+      "owners": [
+        "bilirubin"
+      ]
+    },
+    {
+      "alias": "bilirubin",
+      "effectiveCanonicalKey": "bilirubin",
+      "owners": [
+        "bilirubin"
+      ]
+    },
+    {
+      "alias": "blood_glucose",
+      "effectiveCanonicalKey": "glucose",
+      "owners": [
+        "glucose"
+      ]
+    },
+    {
+      "alias": "blood_sugar",
+      "effectiveCanonicalKey": "glucose",
+      "owners": [
+        "glucose"
+      ]
+    },
+    {
+      "alias": "blood_urea_nitrogen",
+      "effectiveCanonicalKey": "bun",
+      "owners": [
+        "bun"
+      ]
+    },
+    {
+      "alias": "blood_urine",
+      "effectiveCanonicalKey": "urine_blood_dipstick",
+      "owners": [
+        "urine_blood_dipstick"
+      ]
+    },
+    {
+      "alias": "bnp",
+      "effectiveCanonicalKey": "bnp",
+      "owners": [
+        "bnp"
+      ]
+    },
+    {
+      "alias": "bun",
+      "effectiveCanonicalKey": "bun",
+      "owners": [
+        "bun"
+      ]
+    },
+    {
+      "alias": "c_пептид",
+      "effectiveCanonicalKey": "c_peptide",
+      "owners": [
+        "c_peptide"
+      ]
+    },
+    {
+      "alias": "c_реактивный_белок",
+      "effectiveCanonicalKey": "crp",
+      "owners": [
+        "crp"
+      ]
+    },
+    {
+      "alias": "c_peptide",
+      "effectiveCanonicalKey": "c_peptide",
+      "owners": [
+        "c_peptide"
+      ]
+    },
+    {
+      "alias": "c_reactive_protein",
+      "effectiveCanonicalKey": "crp",
+      "owners": [
+        "crp"
+      ]
+    },
+    {
+      "alias": "ca_125",
+      "effectiveCanonicalKey": "ca_125",
+      "owners": [
+        "ca_125"
+      ]
+    },
+    {
+      "alias": "ca_19_9",
+      "effectiveCanonicalKey": "ca_19_9",
+      "owners": [
+        "ca_19_9"
+      ]
+    },
+    {
+      "alias": "ca125",
+      "effectiveCanonicalKey": "ca_125",
+      "owners": [
+        "ca_125"
+      ]
+    },
+    {
+      "alias": "ca199",
+      "effectiveCanonicalKey": "ca_19_9",
+      "owners": [
+        "ca_19_9"
+      ]
+    },
+    {
+      "alias": "calcidiol",
+      "effectiveCanonicalKey": "vitamin_d",
+      "owners": [
+        "vitamin_d"
+      ]
+    },
+    {
+      "alias": "calcium",
+      "effectiveCanonicalKey": "calcium",
+      "owners": [
+        "calcium"
+      ]
+    },
+    {
+      "alias": "carbon_dioxide",
+      "effectiveCanonicalKey": "bicarbonate",
+      "owners": [
+        "bicarbonate"
+      ]
+    },
+    {
+      "alias": "carcinoembryonic_antigen",
+      "effectiveCanonicalKey": "cea",
+      "owners": [
+        "cea"
+      ]
+    },
+    {
+      "alias": "cardiac_crp",
+      "effectiveCanonicalKey": "hs_crp",
+      "owners": [
+        "hs_crp"
+      ]
+    },
+    {
+      "alias": "cea",
+      "effectiveCanonicalKey": "cea",
+      "owners": [
+        "cea"
+      ]
+    },
+    {
+      "alias": "chloride",
+      "effectiveCanonicalKey": "chloride",
+      "owners": [
+        "chloride"
+      ]
+    },
+    {
+      "alias": "chol",
+      "effectiveCanonicalKey": "total_cholesterol",
+      "owners": [
+        "total_cholesterol"
+      ]
+    },
+    {
+      "alias": "cholesterol_total",
+      "effectiveCanonicalKey": "total_cholesterol",
+      "owners": [
+        "total_cholesterol"
+      ]
+    },
+    {
+      "alias": "ckd_epi",
+      "effectiveCanonicalKey": "egfr",
+      "owners": [
+        "egfr"
+      ]
+    },
+    {
+      "alias": "co2",
+      "effectiveCanonicalKey": "bicarbonate",
+      "owners": [
+        "bicarbonate"
+      ]
+    },
+    {
+      "alias": "cobalamin",
+      "effectiveCanonicalKey": "b12",
+      "owners": [
+        "b12"
+      ]
+    },
+    {
+      "alias": "conjugated_bilirubin",
+      "effectiveCanonicalKey": "direct_bilirubin",
+      "owners": [
+        "direct_bilirubin"
+      ]
+    },
+    {
+      "alias": "cortisol",
+      "effectiveCanonicalKey": "cortisol",
+      "owners": [
+        "cortisol"
+      ]
+    },
+    {
+      "alias": "cpeptide",
+      "effectiveCanonicalKey": "c_peptide",
+      "owners": [
+        "c_peptide"
+      ]
+    },
+    {
+      "alias": "creat",
+      "effectiveCanonicalKey": "creatinine",
+      "owners": [
+        "creatinine"
+      ]
+    },
+    {
+      "alias": "creatinine",
+      "effectiveCanonicalKey": "creatinine",
+      "owners": [
+        "creatinine"
+      ]
+    },
+    {
+      "alias": "crp",
+      "effectiveCanonicalKey": "crp",
+      "owners": [
+        "crp"
+      ]
+    },
+    {
+      "alias": "ctni",
+      "effectiveCanonicalKey": "troponin_i",
+      "owners": [
+        "troponin_i"
+      ]
+    },
+    {
+      "alias": "ctnt",
+      "effectiveCanonicalKey": "troponin_t",
+      "owners": [
+        "troponin_t"
+      ]
+    },
+    {
+      "alias": "d_димер",
+      "effectiveCanonicalKey": "d_dimer",
+      "owners": [
+        "d_dimer"
+      ]
+    },
+    {
+      "alias": "d_dimer",
+      "effectiveCanonicalKey": "d_dimer",
+      "owners": [
+        "d_dimer"
+      ]
+    },
+    {
+      "alias": "dhea_s",
+      "effectiveCanonicalKey": "dhea_s",
+      "owners": [
+        "dhea_s"
+      ]
+    },
+    {
+      "alias": "dhea_sulfate",
+      "effectiveCanonicalKey": "dhea_s",
+      "owners": [
+        "dhea_s"
+      ]
+    },
+    {
+      "alias": "dheas",
+      "effectiveCanonicalKey": "dhea_s",
+      "owners": [
+        "dhea_s"
+      ]
+    },
+    {
+      "alias": "direct_bilirubin",
+      "effectiveCanonicalKey": "direct_bilirubin",
+      "owners": [
+        "direct_bilirubin"
+      ]
+    },
+    {
+      "alias": "e2",
+      "effectiveCanonicalKey": "estradiol",
+      "owners": [
+        "estradiol"
+      ]
+    },
+    {
+      "alias": "egfr",
+      "effectiveCanonicalKey": "egfr",
+      "owners": [
+        "egfr"
+      ]
+    },
+    {
+      "alias": "egfrcr",
+      "effectiveCanonicalKey": "egfr",
+      "owners": [
+        "egfr"
+      ]
+    },
+    {
+      "alias": "eosinophils",
+      "effectiveCanonicalKey": "eosinophils",
+      "owners": [
+        "eosinophils"
+      ]
+    },
+    {
+      "alias": "eosinophils_abs",
+      "effectiveCanonicalKey": "eosinophils",
+      "owners": [
+        "eosinophils"
+      ]
+    },
+    {
+      "alias": "eosinophils_percent",
+      "effectiveCanonicalKey": "eosinophils_percent",
+      "owners": [
+        "eosinophils_percent"
+      ]
+    },
+    {
+      "alias": "erythrocyte_sedimentation_rate",
+      "effectiveCanonicalKey": "esr",
+      "owners": [
+        "esr"
+      ]
+    },
+    {
+      "alias": "erythrocytes",
+      "effectiveCanonicalKey": "rbc",
+      "owners": [
+        "rbc"
+      ]
+    },
+    {
+      "alias": "esr",
+      "effectiveCanonicalKey": "esr",
+      "owners": [
+        "esr"
+      ]
+    },
+    {
+      "alias": "estimated_gfr",
+      "effectiveCanonicalKey": "egfr",
+      "owners": [
+        "egfr"
+      ]
+    },
+    {
+      "alias": "estradiol",
+      "effectiveCanonicalKey": "estradiol",
+      "owners": [
+        "estradiol"
+      ]
+    },
+    {
+      "alias": "fasting_glucose",
+      "effectiveCanonicalKey": "fasting_glucose",
+      "owners": [
+        "fasting_glucose"
+      ]
+    },
+    {
+      "alias": "fasting_plasma_glucose",
+      "effectiveCanonicalKey": "fasting_glucose",
+      "owners": [
+        "fasting_glucose"
+      ]
+    },
+    {
+      "alias": "fe",
+      "effectiveCanonicalKey": "iron",
+      "owners": [
+        "iron"
+      ]
+    },
+    {
+      "alias": "ferritin",
+      "effectiveCanonicalKey": "ferritin",
+      "owners": [
+        "ferritin"
+      ]
+    },
+    {
+      "alias": "fibrinogen",
+      "effectiveCanonicalKey": "fibrinogen",
+      "owners": [
+        "fibrinogen"
+      ]
+    },
+    {
+      "alias": "folate",
+      "effectiveCanonicalKey": "folate",
+      "owners": [
+        "folate"
+      ]
+    },
+    {
+      "alias": "folic_acid",
+      "effectiveCanonicalKey": "folate",
+      "owners": [
+        "folate"
+      ]
+    },
+    {
+      "alias": "follicle_stimulating_hormone",
+      "effectiveCanonicalKey": "fsh",
+      "owners": [
+        "fsh"
+      ]
+    },
+    {
+      "alias": "fpg",
+      "effectiveCanonicalKey": "fasting_glucose",
+      "owners": [
+        "fasting_glucose"
+      ]
+    },
+    {
+      "alias": "free_t3",
+      "effectiveCanonicalKey": "free_t3",
+      "owners": [
+        "free_t3"
+      ]
+    },
+    {
+      "alias": "free_t4",
+      "effectiveCanonicalKey": "free_t4",
+      "owners": [
+        "free_t4"
+      ]
+    },
+    {
+      "alias": "free_testosterone",
+      "effectiveCanonicalKey": "free_testosterone",
+      "owners": [
+        "free_testosterone"
+      ]
+    },
+    {
+      "alias": "free_thyroxine",
+      "effectiveCanonicalKey": "free_t4",
+      "owners": [
+        "free_t4"
+      ]
+    },
+    {
+      "alias": "fsh",
+      "effectiveCanonicalKey": "fsh",
+      "owners": [
+        "fsh"
+      ]
+    },
+    {
+      "alias": "ft3",
+      "effectiveCanonicalKey": "free_t3",
+      "owners": [
+        "free_t3"
+      ]
+    },
+    {
+      "alias": "ft4",
+      "effectiveCanonicalKey": "free_t4",
+      "owners": [
+        "free_t4"
+      ]
+    },
+    {
+      "alias": "gamma_glutamyl_transferase",
+      "effectiveCanonicalKey": "ggt",
+      "owners": [
+        "ggt"
+      ]
+    },
+    {
+      "alias": "gamma_gt",
+      "effectiveCanonicalKey": "ggt",
+      "owners": [
+        "ggt"
+      ]
+    },
+    {
+      "alias": "ggt",
+      "effectiveCanonicalKey": "ggt",
+      "owners": [
+        "ggt"
+      ]
+    },
+    {
+      "alias": "globulin",
+      "effectiveCanonicalKey": "globulin",
+      "owners": [
+        "globulin"
+      ]
+    },
+    {
+      "alias": "glucose",
+      "effectiveCanonicalKey": "glucose",
+      "owners": [
+        "glucose"
+      ]
+    },
+    {
+      "alias": "glucose_urine",
+      "effectiveCanonicalKey": "urine_glucose_dipstick",
+      "owners": [
+        "urine_glucose_dipstick"
+      ]
+    },
+    {
+      "alias": "glycated_hemoglobin",
+      "effectiveCanonicalKey": "hba1c",
+      "owners": [
+        "hba1c"
+      ]
+    },
+    {
+      "alias": "glycohemoglobin",
+      "effectiveCanonicalKey": "hba1c",
+      "owners": [
+        "hba1c"
+      ]
+    },
+    {
+      "alias": "hb",
+      "effectiveCanonicalKey": "hemoglobin",
+      "owners": [
+        "hemoglobin"
+      ]
+    },
+    {
+      "alias": "hb_a1c",
+      "effectiveCanonicalKey": "hba1c",
+      "owners": [
+        "hba1c"
+      ]
+    },
+    {
+      "alias": "hba1c",
+      "effectiveCanonicalKey": "hba1c",
+      "owners": [
+        "hba1c"
+      ]
+    },
+    {
+      "alias": "hco3",
+      "effectiveCanonicalKey": "bicarbonate",
+      "owners": [
+        "bicarbonate"
+      ]
+    },
+    {
+      "alias": "hct",
+      "effectiveCanonicalKey": "hematocrit",
+      "owners": [
+        "hematocrit"
+      ]
+    },
+    {
+      "alias": "hdl",
+      "effectiveCanonicalKey": "hdl",
+      "owners": [
+        "hdl"
+      ]
+    },
+    {
+      "alias": "hdl_c",
+      "effectiveCanonicalKey": "hdl",
+      "owners": [
+        "hdl"
+      ]
+    },
+    {
+      "alias": "hdl_cholesterol",
+      "effectiveCanonicalKey": "hdl",
+      "owners": [
+        "hdl"
+      ]
+    },
+    {
+      "alias": "hematocrit",
+      "effectiveCanonicalKey": "hematocrit",
+      "owners": [
+        "hematocrit"
+      ]
+    },
+    {
+      "alias": "hemoglobin",
+      "effectiveCanonicalKey": "hemoglobin",
+      "owners": [
+        "hemoglobin"
+      ]
+    },
+    {
+      "alias": "hemoglobin_a1c",
+      "effectiveCanonicalKey": "hba1c",
+      "owners": [
+        "hba1c"
+      ]
+    },
+    {
+      "alias": "hgb",
+      "effectiveCanonicalKey": "hemoglobin",
+      "owners": [
+        "hemoglobin"
+      ]
+    },
+    {
+      "alias": "high_sensitivity_crp",
+      "effectiveCanonicalKey": "hs_crp",
+      "owners": [
+        "hs_crp"
+      ]
+    },
+    {
+      "alias": "hs_crp",
+      "effectiveCanonicalKey": "hs_crp",
+      "owners": [
+        "hs_crp"
+      ]
+    },
+    {
+      "alias": "hscrp",
+      "effectiveCanonicalKey": "hs_crp",
+      "owners": [
+        "hs_crp"
+      ]
+    },
+    {
+      "alias": "indirect_bilirubin",
+      "effectiveCanonicalKey": "indirect_bilirubin",
+      "owners": [
+        "indirect_bilirubin"
+      ]
+    },
+    {
+      "alias": "inr",
+      "effectiveCanonicalKey": "inr",
+      "owners": [
+        "inr"
+      ]
+    },
+    {
+      "alias": "insulin",
+      "effectiveCanonicalKey": "insulin",
+      "owners": [
+        "insulin"
+      ]
+    },
+    {
+      "alias": "iron",
+      "effectiveCanonicalKey": "iron",
+      "owners": [
+        "iron"
+      ]
+    },
+    {
+      "alias": "ketones",
+      "effectiveCanonicalKey": "urine_ketones",
+      "owners": [
+        "urine_ketones"
+      ]
+    },
+    {
+      "alias": "ldl",
+      "effectiveCanonicalKey": "ldl",
+      "owners": [
+        "ldl"
+      ]
+    },
+    {
+      "alias": "ldl_c",
+      "effectiveCanonicalKey": "ldl",
+      "owners": [
+        "ldl"
+      ]
+    },
+    {
+      "alias": "ldl_cholesterol",
+      "effectiveCanonicalKey": "ldl",
+      "owners": [
+        "ldl"
+      ]
+    },
+    {
+      "alias": "leu",
+      "effectiveCanonicalKey": "urine_leukocyte_esterase",
+      "owners": [
+        "urine_leukocyte_esterase"
+      ]
+    },
+    {
+      "alias": "leukocyte_esterase",
+      "effectiveCanonicalKey": "urine_leukocyte_esterase",
+      "owners": [
+        "urine_leukocyte_esterase"
+      ]
+    },
+    {
+      "alias": "leukocytes",
+      "effectiveCanonicalKey": "wbc",
+      "owners": [
+        "wbc"
+      ]
+    },
+    {
+      "alias": "lh",
+      "effectiveCanonicalKey": "lh",
+      "owners": [
+        "lh"
+      ]
+    },
+    {
+      "alias": "lipoprotein_a",
+      "effectiveCanonicalKey": "lpa",
+      "owners": [
+        "lpa"
+      ]
+    },
+    {
+      "alias": "lp_a",
+      "effectiveCanonicalKey": "lpa",
+      "owners": [
+        "lpa"
+      ]
+    },
+    {
+      "alias": "lpa",
+      "effectiveCanonicalKey": "lpa",
+      "owners": [
+        "lpa"
+      ]
+    },
+    {
+      "alias": "luteinizing_hormone",
+      "effectiveCanonicalKey": "lh",
+      "owners": [
+        "lh"
+      ]
+    },
+    {
+      "alias": "lymphocytes",
+      "effectiveCanonicalKey": "lymphocytes",
+      "owners": [
+        "lymphocytes"
+      ]
+    },
+    {
+      "alias": "lymphocytes_abs",
+      "effectiveCanonicalKey": "lymphocytes",
+      "owners": [
+        "lymphocytes"
+      ]
+    },
+    {
+      "alias": "lymphocytes_percent",
+      "effectiveCanonicalKey": "lymphocytes_percent",
+      "owners": [
+        "lymphocytes_percent"
+      ]
+    },
+    {
+      "alias": "magnesium",
+      "effectiveCanonicalKey": "magnesium",
+      "owners": [
+        "magnesium"
+      ]
+    },
+    {
+      "alias": "mch",
+      "effectiveCanonicalKey": "mch",
+      "owners": [
+        "mch"
+      ]
+    },
+    {
+      "alias": "mchc",
+      "effectiveCanonicalKey": "mchc",
+      "owners": [
+        "mchc"
+      ]
+    },
+    {
+      "alias": "mcv",
+      "effectiveCanonicalKey": "mcv",
+      "owners": [
+        "mcv"
+      ]
+    },
+    {
+      "alias": "mean_corpuscular_volume",
+      "effectiveCanonicalKey": "mcv",
+      "owners": [
+        "mcv"
+      ]
+    },
+    {
+      "alias": "microalbumin",
+      "effectiveCanonicalKey": "urine_albumin",
+      "owners": [
+        "urine_albumin"
+      ]
+    },
+    {
+      "alias": "microalbumin_creatinine_ratio",
+      "effectiveCanonicalKey": "uacr",
+      "owners": [
+        "uacr"
+      ]
+    },
+    {
+      "alias": "monocytes",
+      "effectiveCanonicalKey": "monocytes",
+      "owners": [
+        "monocytes"
+      ]
+    },
+    {
+      "alias": "monocytes_abs",
+      "effectiveCanonicalKey": "monocytes",
+      "owners": [
+        "monocytes"
+      ]
+    },
+    {
+      "alias": "monocytes_percent",
+      "effectiveCanonicalKey": "monocytes_percent",
+      "owners": [
+        "monocytes_percent"
+      ]
+    },
+    {
+      "alias": "neutrophils",
+      "effectiveCanonicalKey": "neutrophils",
+      "owners": [
+        "neutrophils",
+        "neutrophils_percent"
+      ]
+    },
+    {
+      "alias": "neutrophils_abs",
+      "effectiveCanonicalKey": "neutrophils",
+      "owners": [
+        "neutrophils"
+      ]
+    },
+    {
+      "alias": "neutrophils_percent",
+      "effectiveCanonicalKey": "neutrophils_percent",
+      "owners": [
+        "neutrophils_percent"
+      ]
+    },
+    {
+      "alias": "nitrite",
+      "effectiveCanonicalKey": "urine_nitrite",
+      "owners": [
+        "urine_nitrite"
+      ]
+    },
+    {
+      "alias": "non_hdl",
+      "effectiveCanonicalKey": "non_hdl_cholesterol",
+      "owners": [
+        "non_hdl_cholesterol"
+      ]
+    },
+    {
+      "alias": "non_hdl_c",
+      "effectiveCanonicalKey": "non_hdl_cholesterol",
+      "owners": [
+        "non_hdl_cholesterol"
+      ]
+    },
+    {
+      "alias": "non_hdl_cholesterol",
+      "effectiveCanonicalKey": "non_hdl_cholesterol",
+      "owners": [
+        "non_hdl_cholesterol"
+      ]
+    },
+    {
+      "alias": "nt_pro_bnp",
+      "effectiveCanonicalKey": "nt_pro_bnp",
+      "owners": [
+        "nt_pro_bnp"
+      ]
+    },
+    {
+      "alias": "ntprobnp",
+      "effectiveCanonicalKey": "nt_pro_bnp",
+      "owners": [
+        "nt_pro_bnp"
+      ]
+    },
+    {
+      "alias": "pcv",
+      "effectiveCanonicalKey": "hematocrit",
+      "owners": [
+        "hematocrit"
+      ]
+    },
+    {
+      "alias": "ph_urine",
+      "effectiveCanonicalKey": "urine_ph",
+      "owners": [
+        "urine_ph"
+      ]
+    },
+    {
+      "alias": "phosphate",
+      "effectiveCanonicalKey": "phosphate",
+      "owners": [
+        "phosphate"
+      ]
+    },
+    {
+      "alias": "phosphorus",
+      "effectiveCanonicalKey": "phosphate",
+      "owners": [
+        "phosphate"
+      ]
+    },
+    {
+      "alias": "platelets",
+      "effectiveCanonicalKey": "platelets",
+      "owners": [
+        "platelets"
+      ]
+    },
+    {
+      "alias": "plt",
+      "effectiveCanonicalKey": "platelets",
+      "owners": [
+        "platelets"
+      ]
+    },
+    {
+      "alias": "po4",
+      "effectiveCanonicalKey": "phosphate",
+      "owners": [
+        "phosphate"
+      ]
+    },
+    {
+      "alias": "potassium",
+      "effectiveCanonicalKey": "potassium",
+      "owners": [
+        "potassium"
+      ]
+    },
+    {
+      "alias": "progesterone",
+      "effectiveCanonicalKey": "progesterone",
+      "owners": [
+        "progesterone"
+      ]
+    },
+    {
+      "alias": "prolactin",
+      "effectiveCanonicalKey": "prolactin",
+      "owners": [
+        "prolactin"
+      ]
+    },
+    {
+      "alias": "prostate_specific_antigen",
+      "effectiveCanonicalKey": "psa",
+      "owners": [
+        "psa"
+      ]
+    },
+    {
+      "alias": "protein_urine",
+      "effectiveCanonicalKey": "urine_protein_dipstick",
+      "owners": [
+        "urine_protein_dipstick"
+      ]
+    },
+    {
+      "alias": "prothrombin_time",
+      "effectiveCanonicalKey": "pt",
+      "owners": [
+        "pt"
+      ]
+    },
+    {
+      "alias": "psa",
+      "effectiveCanonicalKey": "psa",
+      "owners": [
+        "psa"
+      ]
+    },
+    {
+      "alias": "pt",
+      "effectiveCanonicalKey": "pt",
+      "owners": [
+        "pt"
+      ]
+    },
+    {
+      "alias": "ptt",
+      "effectiveCanonicalKey": "aptt",
+      "owners": [
+        "aptt"
+      ]
+    },
+    {
+      "alias": "random_glucose",
+      "effectiveCanonicalKey": "glucose",
+      "owners": [
+        "glucose"
+      ]
+    },
+    {
+      "alias": "rbc",
+      "effectiveCanonicalKey": "rbc",
+      "owners": [
+        "rbc"
+      ]
+    },
+    {
+      "alias": "rdw",
+      "effectiveCanonicalKey": "rdw",
+      "owners": [
+        "rdw"
+      ]
+    },
+    {
+      "alias": "red_blood_cells",
+      "effectiveCanonicalKey": "rbc",
+      "owners": [
+        "rbc"
+      ]
+    },
+    {
+      "alias": "red_cell_distribution_width",
+      "effectiveCanonicalKey": "rdw",
+      "owners": [
+        "rdw"
+      ]
+    },
+    {
+      "alias": "remnant_c",
+      "effectiveCanonicalKey": "remnant_cholesterol",
+      "owners": [
+        "remnant_cholesterol"
+      ]
+    },
+    {
+      "alias": "remnant_cholesterol",
+      "effectiveCanonicalKey": "remnant_cholesterol",
+      "owners": [
+        "remnant_cholesterol"
+      ]
+    },
+    {
+      "alias": "rf",
+      "effectiveCanonicalKey": "rf",
+      "owners": [
+        "rf"
+      ]
+    },
+    {
+      "alias": "rheumatoid_factor",
+      "effectiveCanonicalKey": "rf",
+      "owners": [
+        "rf"
+      ]
+    },
+    {
+      "alias": "sedimentation_rate",
+      "effectiveCanonicalKey": "esr",
+      "owners": [
+        "esr"
+      ]
+    },
+    {
+      "alias": "serum_iron",
+      "effectiveCanonicalKey": "iron",
+      "owners": [
+        "iron"
+      ]
+    },
+    {
+      "alias": "sg",
+      "effectiveCanonicalKey": "specific_gravity",
+      "owners": [
+        "specific_gravity"
+      ]
+    },
+    {
+      "alias": "sgot",
+      "effectiveCanonicalKey": "ast",
+      "owners": [
+        "ast"
+      ]
+    },
+    {
+      "alias": "sgpt",
+      "effectiveCanonicalKey": "alt",
+      "owners": [
+        "alt"
+      ]
+    },
+    {
+      "alias": "shbg",
+      "effectiveCanonicalKey": "shbg",
+      "owners": [
+        "shbg"
+      ]
+    },
+    {
+      "alias": "sodium",
+      "effectiveCanonicalKey": "sodium",
+      "owners": [
+        "sodium"
+      ]
+    },
+    {
+      "alias": "specific_gravity",
+      "effectiveCanonicalKey": "specific_gravity",
+      "owners": [
+        "specific_gravity"
+      ]
+    },
+    {
+      "alias": "t_sat",
+      "effectiveCanonicalKey": "transferrin_saturation",
+      "owners": [
+        "transferrin_saturation"
+      ]
+    },
+    {
+      "alias": "t3",
+      "effectiveCanonicalKey": "t3",
+      "owners": [
+        "t3"
+      ]
+    },
+    {
+      "alias": "t4",
+      "effectiveCanonicalKey": "t4",
+      "owners": [
+        "t4"
+      ]
+    },
+    {
+      "alias": "tbii",
+      "effectiveCanonicalKey": "trab",
+      "owners": [
+        "trab"
+      ]
+    },
+    {
+      "alias": "tc",
+      "effectiveCanonicalKey": "total_cholesterol",
+      "owners": [
+        "total_cholesterol"
+      ]
+    },
+    {
+      "alias": "testosterone",
+      "effectiveCanonicalKey": "total_testosterone",
+      "owners": [
+        "total_testosterone"
+      ]
+    },
+    {
+      "alias": "tg",
+      "effectiveCanonicalKey": "triglycerides",
+      "owners": [
+        "triglycerides"
+      ]
+    },
+    {
+      "alias": "tg_ab",
+      "effectiveCanonicalKey": "anti_tg",
+      "owners": [
+        "anti_tg"
+      ]
+    },
+    {
+      "alias": "tgab",
+      "effectiveCanonicalKey": "anti_tg",
+      "owners": [
+        "anti_tg"
+      ]
+    },
+    {
+      "alias": "thrombocytes",
+      "effectiveCanonicalKey": "platelets",
+      "owners": [
+        "platelets"
+      ]
+    },
+    {
+      "alias": "thyrotropin",
+      "effectiveCanonicalKey": "tsh",
+      "owners": [
+        "tsh"
+      ]
+    },
+    {
+      "alias": "thyroxine",
+      "effectiveCanonicalKey": "t4",
+      "owners": [
+        "t4"
+      ]
+    },
+    {
+      "alias": "tibc",
+      "effectiveCanonicalKey": "tibc",
+      "owners": [
+        "tibc"
+      ]
+    },
+    {
+      "alias": "total_bilirubin",
+      "effectiveCanonicalKey": "bilirubin",
+      "owners": [
+        "bilirubin"
+      ]
+    },
+    {
+      "alias": "total_cholesterol",
+      "effectiveCanonicalKey": "total_cholesterol",
+      "owners": [
+        "total_cholesterol"
+      ]
+    },
+    {
+      "alias": "total_co2",
+      "effectiveCanonicalKey": "bicarbonate",
+      "owners": [
+        "bicarbonate"
+      ]
+    },
+    {
+      "alias": "total_iron_binding_capacity",
+      "effectiveCanonicalKey": "tibc",
+      "owners": [
+        "tibc"
+      ]
+    },
+    {
+      "alias": "total_protein",
+      "effectiveCanonicalKey": "total_protein",
+      "owners": [
+        "total_protein"
+      ]
+    },
+    {
+      "alias": "total_t3",
+      "effectiveCanonicalKey": "t3",
+      "owners": [
+        "t3"
+      ]
+    },
+    {
+      "alias": "total_t4",
+      "effectiveCanonicalKey": "t4",
+      "owners": [
+        "t4"
+      ]
+    },
+    {
+      "alias": "total_testosterone",
+      "effectiveCanonicalKey": "total_testosterone",
+      "owners": [
+        "total_testosterone"
+      ]
+    },
+    {
+      "alias": "tpo_ab",
+      "effectiveCanonicalKey": "anti_tpo",
+      "owners": [
+        "anti_tpo"
+      ]
+    },
+    {
+      "alias": "tpo_antibodies",
+      "effectiveCanonicalKey": "anti_tpo",
+      "owners": [
+        "anti_tpo"
+      ]
+    },
+    {
+      "alias": "trab",
+      "effectiveCanonicalKey": "trab",
+      "owners": [
+        "trab"
+      ]
+    },
+    {
+      "alias": "transferrin",
+      "effectiveCanonicalKey": "transferrin",
+      "owners": [
+        "transferrin"
+      ]
+    },
+    {
+      "alias": "transferrin_saturation",
+      "effectiveCanonicalKey": "transferrin_saturation",
+      "owners": [
+        "transferrin_saturation"
+      ]
+    },
+    {
+      "alias": "trig",
+      "effectiveCanonicalKey": "triglycerides",
+      "owners": [
+        "triglycerides"
+      ]
+    },
+    {
+      "alias": "triglycerides",
+      "effectiveCanonicalKey": "triglycerides",
+      "owners": [
+        "triglycerides"
+      ]
+    },
+    {
+      "alias": "triiodothyronine",
+      "effectiveCanonicalKey": "t3",
+      "owners": [
+        "t3"
+      ]
+    },
+    {
+      "alias": "troponin_i",
+      "effectiveCanonicalKey": "troponin_i",
+      "owners": [
+        "troponin_i"
+      ]
+    },
+    {
+      "alias": "troponin_t",
+      "effectiveCanonicalKey": "troponin_t",
+      "owners": [
+        "troponin_t"
+      ]
+    },
+    {
+      "alias": "tsat",
+      "effectiveCanonicalKey": "transferrin_saturation",
+      "owners": [
+        "transferrin_saturation"
+      ]
+    },
+    {
+      "alias": "tsh",
+      "effectiveCanonicalKey": "tsh",
+      "owners": [
+        "tsh"
+      ]
+    },
+    {
+      "alias": "tsh_receptor_antibodies",
+      "effectiveCanonicalKey": "trab",
+      "owners": [
+        "trab"
+      ]
+    },
+    {
+      "alias": "uacr",
+      "effectiveCanonicalKey": "uacr",
+      "owners": [
+        "uacr"
+      ]
+    },
+    {
+      "alias": "uibc",
+      "effectiveCanonicalKey": "uibc",
+      "owners": [
+        "uibc"
+      ]
+    },
+    {
+      "alias": "unconjugated_bilirubin",
+      "effectiveCanonicalKey": "indirect_bilirubin",
+      "owners": [
+        "indirect_bilirubin"
+      ]
+    },
+    {
+      "alias": "unsaturated_iron_binding_capacity",
+      "effectiveCanonicalKey": "uibc",
+      "owners": [
+        "uibc"
+      ]
+    },
+    {
+      "alias": "urate",
+      "effectiveCanonicalKey": "uric_acid",
+      "owners": [
+        "uric_acid"
+      ]
+    },
+    {
+      "alias": "urea",
+      "effectiveCanonicalKey": "urea",
+      "owners": [
+        "urea"
+      ]
+    },
+    {
+      "alias": "urea_nitrogen",
+      "effectiveCanonicalKey": "bun",
+      "owners": [
+        "bun"
+      ]
+    },
+    {
+      "alias": "uric_acid",
+      "effectiveCanonicalKey": "uric_acid",
+      "owners": [
+        "uric_acid"
+      ]
+    },
+    {
+      "alias": "urine_albumin",
+      "effectiveCanonicalKey": "urine_albumin",
+      "owners": [
+        "urine_albumin"
+      ]
+    },
+    {
+      "alias": "urine_blood",
+      "effectiveCanonicalKey": "urine_blood_dipstick",
+      "owners": [
+        "urine_blood_dipstick"
+      ]
+    },
+    {
+      "alias": "urine_blood_dipstick",
+      "effectiveCanonicalKey": "urine_blood_dipstick",
+      "owners": [
+        "urine_blood_dipstick"
+      ]
+    },
+    {
+      "alias": "urine_creatinine",
+      "effectiveCanonicalKey": "urine_creatinine",
+      "owners": [
+        "urine_creatinine"
+      ]
+    },
+    {
+      "alias": "urine_glucose_dipstick",
+      "effectiveCanonicalKey": "urine_glucose_dipstick",
+      "owners": [
+        "urine_glucose_dipstick"
+      ]
+    },
+    {
+      "alias": "urine_ketones",
+      "effectiveCanonicalKey": "urine_ketones",
+      "owners": [
+        "urine_ketones"
+      ]
+    },
+    {
+      "alias": "urine_leukocyte_esterase",
+      "effectiveCanonicalKey": "urine_leukocyte_esterase",
+      "owners": [
+        "urine_leukocyte_esterase"
+      ]
+    },
+    {
+      "alias": "urine_nitrite",
+      "effectiveCanonicalKey": "urine_nitrite",
+      "owners": [
+        "urine_nitrite"
+      ]
+    },
+    {
+      "alias": "urine_ph",
+      "effectiveCanonicalKey": "urine_ph",
+      "owners": [
+        "urine_ph"
+      ]
+    },
+    {
+      "alias": "urine_protein",
+      "effectiveCanonicalKey": "urine_protein",
+      "owners": [
+        "urine_protein"
+      ]
+    },
+    {
+      "alias": "urine_protein_dipstick",
+      "effectiveCanonicalKey": "urine_protein_dipstick",
+      "owners": [
+        "urine_protein_dipstick"
+      ]
+    },
+    {
+      "alias": "urine_specific_gravity",
+      "effectiveCanonicalKey": "specific_gravity",
+      "owners": [
+        "specific_gravity"
+      ]
+    },
+    {
+      "alias": "vitamin_b12",
+      "effectiveCanonicalKey": "b12",
+      "owners": [
+        "b12"
+      ]
+    },
+    {
+      "alias": "vitamin_b9",
+      "effectiveCanonicalKey": "folate",
+      "owners": [
+        "folate"
+      ]
+    },
+    {
+      "alias": "vitamin_d",
+      "effectiveCanonicalKey": "vitamin_d",
+      "owners": [
+        "vitamin_d"
+      ]
+    },
+    {
+      "alias": "vldl",
+      "effectiveCanonicalKey": "vldl",
+      "owners": [
+        "vldl"
+      ]
+    },
+    {
+      "alias": "vldl_c",
+      "effectiveCanonicalKey": "vldl",
+      "owners": [
+        "vldl"
+      ]
+    },
+    {
+      "alias": "vldl_cholesterol",
+      "effectiveCanonicalKey": "vldl",
+      "owners": [
+        "vldl"
+      ]
+    },
+    {
+      "alias": "wbc",
+      "effectiveCanonicalKey": "wbc",
+      "owners": [
+        "wbc"
+      ]
+    },
+    {
+      "alias": "white_blood_cells",
+      "effectiveCanonicalKey": "wbc",
+      "owners": [
+        "wbc"
+      ]
+    }
+  ],
+  "registryVersion": "1.0.0",
+  "schemaVersion": 1,
+  "shortAliasOverlays": [
+    {
+      "alias": "ca",
+      "canonicalKey": "calcium"
+    },
+    {
+      "alias": "cl",
+      "canonicalKey": "chloride"
+    },
+    {
+      "alias": "k",
+      "canonicalKey": "potassium"
+    },
+    {
+      "alias": "mg",
+      "canonicalKey": "magnesium"
+    },
+    {
+      "alias": "na",
+      "canonicalKey": "sodium"
+    }
+  ]
+}

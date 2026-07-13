@@ -9,7 +9,10 @@
     "typecheck": "tsc --noEmit",
     "test:biomarkers": "tsx scripts/verify-biomarkers-runner.ts",
     "test:measurement-registry": "tsx scripts/verify-measurement-registry-runner.ts",
-    "verify:registry": "pnpm test:biomarkers && pnpm test:measurement-registry"
+    "generate:registry-v1": "tsx scripts/registry-v1-baseline.ts --write",
+    "check:registry-v1": "tsx scripts/registry-v1-baseline.ts --check",
+    "test:registry-v1": "tsx scripts/verify-registry-v1-baseline-runner.ts",
+    "verify:registry": "tsx scripts/verify-biomarkers-runner.ts && tsx scripts/verify-measurement-registry-runner.ts && tsx scripts/verify-registry-v1-baseline-runner.ts && tsx scripts/registry-v1-baseline.ts --check"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.0",
@@ -45,6 +48,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "tw-animate-css": "^1.3.7",
     "typescript": "^5"
   },

@@ -1,0 +1,246 @@
+{
+  "cases": [
+    {
+      "category": "canonical",
+      "expectedCanonicalKey": "hba1c",
+      "id": "canonical-hba1c",
+      "input": {
+        "key": "hba1c",
+        "name": "Hemoglobin A1c"
+      },
+      "note": "Canonical keys retain direct precedence."
+    },
+    {
+      "category": "collision",
+      "expectedCanonicalKey": "basophils",
+      "id": "collision-базофилы",
+      "input": {
+        "key": "базофилы",
+        "name": ""
+      },
+      "note": "Normalized source alias has owners: basophils, basophils_percent."
+    },
+    {
+      "category": "collision",
+      "expectedCanonicalKey": "lymphocytes",
+      "id": "collision-лимфоциты",
+      "input": {
+        "key": "лимфоциты",
+        "name": ""
+      },
+      "note": "Normalized source alias has owners: lymphocytes, lymphocytes_percent."
+    },
+    {
+      "category": "collision",
+      "expectedCanonicalKey": "monocytes",
+      "id": "collision-моноциты",
+      "input": {
+        "key": "моноциты",
+        "name": ""
+      },
+      "note": "Normalized source alias has owners: monocytes, monocytes_percent."
+    },
+    {
+      "category": "collision",
+      "expectedCanonicalKey": "neutrophils",
+      "id": "collision-нейтрофилы",
+      "input": {
+        "key": "нейтрофилы",
+        "name": ""
+      },
+      "note": "Normalized source alias has owners: neutrophils, neutrophils_percent."
+    },
+    {
+      "category": "collision",
+      "expectedCanonicalKey": "eosinophils",
+      "id": "collision-эозинофилы",
+      "input": {
+        "key": "эозинофилы",
+        "name": ""
+      },
+      "note": "Normalized source alias has owners: eosinophils, eosinophils_percent."
+    },
+    {
+      "category": "collision",
+      "expectedCanonicalKey": "neutrophils",
+      "id": "collision-neutrophils",
+      "input": {
+        "key": "neutrophils",
+        "name": ""
+      },
+      "note": "Normalized source alias has owners: neutrophils, neutrophils_percent."
+    },
+    {
+      "category": "identity_risk",
+      "expectedCanonicalKey": "neutrophils",
+      "id": "differential-absolute-legacy-key",
+      "input": {
+        "key": "neutrophils",
+        "name": ""
+      },
+      "note": "Legacy key denotes the absolute form; Registry 2.0 resolves count versus percent from context."
+    },
+    {
+      "category": "identity_risk",
+      "expectedCanonicalKey": "neutrophils_percent",
+      "id": "differential-percent-legacy-key",
+      "input": {
+        "key": "neutrophils_percent",
+        "name": ""
+      },
+      "note": "Legacy percentage form remains distinct from the absolute form."
+    },
+    {
+      "category": "unknown",
+      "expectedCanonicalKey": "unknown",
+      "id": "empty-input",
+      "input": {
+        "key": "",
+        "name": ""
+      },
+      "note": "Empty input fallback."
+    },
+    {
+      "category": "alias",
+      "expectedCanonicalKey": "vitamin_d",
+      "id": "english-vitamin-d-alias",
+      "input": {
+        "key": "25-OH Vitamin D",
+        "name": ""
+      },
+      "note": "Common normalized English alias."
+    },
+    {
+      "category": "identity_risk",
+      "expectedCanonicalKey": "fasting_glucose",
+      "id": "fasting-glucose-legacy-key",
+      "input": {
+        "key": "fpg",
+        "name": ""
+      },
+      "note": "Fasting context is encoded only by label aliases in v1."
+    },
+    {
+      "category": "identity_risk",
+      "expectedCanonicalKey": "free_t4",
+      "id": "free-t4-legacy-key",
+      "input": {
+        "key": "free_t4",
+        "name": ""
+      },
+      "note": "Free and total T4 remain distinct measurements and are not equivalents."
+    },
+    {
+      "category": "identity_risk",
+      "expectedCanonicalKey": "glucose",
+      "id": "glucose-serum-plasma-legacy-key",
+      "input": {
+        "key": "glucose",
+        "name": ""
+      },
+      "note": "v1 glucose does not encode specimen."
+    },
+    {
+      "category": "identity_risk",
+      "expectedCanonicalKey": "urine_glucose_dipstick",
+      "id": "glucose-urine-legacy-key",
+      "input": {
+        "key": "glucose_urine",
+        "name": ""
+      },
+      "note": "Urine glucose maps to a distinct qualitative v1 key."
+    },
+    {
+      "category": "missing_token",
+      "expectedCanonicalKey": "unknown",
+      "id": "missing-na-dot-a",
+      "input": {
+        "key": "n.a.",
+        "name": ""
+      },
+      "note": "Punctuated missing-value token is a separate observed fixture."
+    },
+    {
+      "category": "missing_token",
+      "expectedCanonicalKey": "unknown",
+      "id": "missing-na-slash-a",
+      "input": {
+        "key": "N/A",
+        "name": ""
+      },
+      "note": "Missing-value token must not inherit sodium behavior."
+    },
+    {
+      "category": "fallback",
+      "expectedCanonicalKey": "hba1c",
+      "id": "name-fallback-hba1c",
+      "input": {
+        "key": "unrecognized_key",
+        "name": "HbA1c"
+      },
+      "note": "Name fallback remains part of legacy resolution behavior."
+    },
+    {
+      "category": "alias",
+      "expectedCanonicalKey": "total_cholesterol",
+      "id": "non-ascii-catalog-alias",
+      "input": {
+        "key": "общий_холестерин",
+        "name": ""
+      },
+      "note": "Catalog-provided non-ASCII alias retained as observed legacy behavior."
+    },
+    {
+      "category": "identity_risk",
+      "expectedCanonicalKey": "rdw",
+      "id": "rdw-legacy-key",
+      "input": {
+        "key": "rdw",
+        "name": ""
+      },
+      "note": "Registry 2.0 distinguishes RDW-CV and RDW-SD; v1 has one compatibility key."
+    },
+    {
+      "category": "identity_risk",
+      "expectedCanonicalKey": "reticulocytes",
+      "id": "reticulocytes-no-v1-key",
+      "input": {
+        "key": "reticulocytes",
+        "name": ""
+      },
+      "note": "No v1 canonical reticulocyte key exists; future definitions cannot claim one-to-one compatibility."
+    },
+    {
+      "category": "short_alias",
+      "expectedCanonicalKey": "sodium",
+      "id": "short-sodium-alias",
+      "input": {
+        "key": "Na",
+        "name": ""
+      },
+      "note": "Short chemistry token behavior is frozen for compatibility review."
+    },
+    {
+      "category": "identity_risk",
+      "expectedCanonicalKey": "t4",
+      "id": "total-t4-legacy-key",
+      "input": {
+        "key": "t4",
+        "name": ""
+      },
+      "note": "Free and total T4 remain distinct measurements and are not equivalents."
+    },
+    {
+      "category": "unknown",
+      "expectedCanonicalKey": "made_up_lab_marker",
+      "id": "unknown-input",
+      "input": {
+        "key": "made-up lab marker",
+        "name": ""
+      },
+      "note": "Unknown labels are preserved as normalized tokens."
+    }
+  ],
+  "registryVersion": "1.0.0",
+  "schemaVersion": 1
+}
