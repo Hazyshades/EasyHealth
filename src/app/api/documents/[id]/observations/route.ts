@@ -18,7 +18,7 @@ export async function GET(_req: Request, context: RouteContext) {
   const supabase = createAdminClient();
   const { data: observations, error: obsError } = await supabase
     .from("observations")
-    .select("id, biomarker_key, name, value, unit, ref_low, ref_high, observed_at, source_extracted_biomarker_id")
+    .select("id, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, source_extracted_biomarker_id")
     .eq("profile_id", profileId)
     .eq("document_id", id)
     .order("name", { ascending: true });

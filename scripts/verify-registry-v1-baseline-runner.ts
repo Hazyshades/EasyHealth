@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { ALIAS_MAP } from "../src/lib/biomarkers/normalize";
 import { BIOMARKER_DEFINITIONS } from "../src/lib/biomarkers/catalog/definitions";
 import {
   buildRegistryV1Baseline,
+  ALIAS_MAP,
   canonicalJson,
   compareStableStrings,
   getRegistryV1BaselinePaths,
@@ -50,6 +50,15 @@ writeFileSync(temporaryPaths.resolverCases, first.files["resolver-cases.json"], 
 writeFileSync(temporaryPaths.manifest, first.files["manifest.json"], "utf8");
 writeFileSync(temporaryPaths.audit, first.files["AUDIT.md"], "utf8");
 assert.deepEqual(verifyRegistryV1Baseline(temporaryRoot), []);
+writeFileSync(temporaryPaths.registry, first.files["registry.json"].replace(/\n/g, "\r\n"), "utf8");
+writeFileSync(temporaryPaths.resolverCases, first.files["resolver-cases.json"].replace(/\n/g, "\r\n"), "utf8");
+writeFileSync(temporaryPaths.manifest, first.files["manifest.json"].replace(/\n/g, "\r\n"), "utf8");
+writeFileSync(temporaryPaths.audit, first.files["AUDIT.md"].replace(/\n/g, "\r\n"), "utf8");
+assert.deepEqual(
+  verifyRegistryV1Baseline(temporaryRoot),
+  [],
+  "baseline verification must tolerate platform line endings"
+);
 writeFileSync(temporaryPaths.audit, `${first.files["AUDIT.md"]}\nStale audit summary.\n`, "utf8");
 assert.ok(
   verifyRegistryV1Baseline(temporaryRoot).some((error) => error.includes("Stale baseline artifact") && error.includes("AUDIT.md")),

@@ -8,7 +8,6 @@ import type {
   SystemScoreability,
 } from "../types";
 import { BIOMARKER_DEFINITIONS } from "./definitions";
-import { ALIAS_MAP } from "../normalize";
 
 const BY_KEY = new Map<string, BiomarkerDefinition>();
 for (const def of BIOMARKER_DEFINITIONS) {
@@ -152,5 +151,3 @@ export function buildMarkerToSystemMap(): Map<string, Exclude<BodySystemId, "gen
   }
   return map;
 }
-
-export { ALIAS_MAP };

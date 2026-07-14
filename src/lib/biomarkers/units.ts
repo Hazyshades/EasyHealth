@@ -1,13 +1,20 @@
-import { getBiomarkerDefinition } from "./catalog";
+import { getLaunchConversion } from "./launch-registry";
+import { getMeasurementDefinition } from "./measurement-resolution";
 import type { LabUnitSystem, PresentedObservation } from "./types";
 
 export type NativeObservation = {
-  biomarker_key: string;
+  measurement_definition_key?: string | null;
+  biomarker_key?: string | null;
   value: number;
   unit: string;
   ref_low: number | null;
   ref_high: number | null;
 };
+
+function resolveIdentityKey(obs: NativeObservation): string {
+  const key = obs.measurement_definition_key ?? obs.biomarker_key ?? "";
+  return getMeasurementDefinition(key)?.analyteKey ?? key;
+}
 
 function roundForUnit(value: number, unit: string, key: string): number {
   const u = unit.toLowerCase();
@@ -178,6 +185,7 @@ export function presentObservation(
   obs: NativeObservation,
   target: LabUnitSystem
 ): PresentedObservation {
+  const identityKey = resolveIdentityKey(obs);
   const original = {
     value: obs.value,
     unit: obs.unit,
@@ -185,8 +193,7 @@ export function presentObservation(
     ref_high: obs.ref_high,
   };
 
-  const def = getBiomarkerDefinition(obs.biomarker_key);
-  const rule = def?.conversion;
+  const rule = getLaunchConversion(identityKey);
 
   const base: PresentedObservation = {
     value: obs.value,
@@ -208,7 +215,7 @@ export function presentObservation(
   // Formula special cases
   if (rule.type === "formula") {
     if (rule.formula === "bun_urea") {
-      const result = convertBunUrea(obs.biomarker_key, obs.value, obs.unit, target);
+      const result = convertBunUrea(identityKey, obs.value, obs.unit, target);
       if (!result) return base;
 
       const converted = Boolean(result.note);
@@ -217,12 +224,12 @@ export function presentObservation(
       let ref_low = obs.ref_low;
       let ref_high = obs.ref_high;
       if (converted && scale !== 1) {
-        if (ref_low != null) ref_low = roundForUnit(ref_low * scale, result.unit, obs.biomarker_key);
-        if (ref_high != null) ref_high = roundForUnit(ref_high * scale, result.unit, obs.biomarker_key);
+        if (ref_low != null) ref_low = roundForUnit(ref_low * scale, result.unit, identityKey);
+        if (ref_high != null) ref_high = roundForUnit(ref_high * scale, result.unit, identityKey);
       }
 
       return {
-        value: roundForUnit(result.value, result.unit, obs.biomarker_key),
+        value: roundForUnit(result.value, result.unit, identityKey),
         unit: result.unit,
         ref_low,
         ref_high,
@@ -255,10 +262,10 @@ export function presentObservation(
         const lo = obs.ref_low != null ? convertHba1c(obs.ref_low, "conventional") : null;
         const hi = obs.ref_high != null ? convertHba1c(obs.ref_high, "conventional") : null;
         return {
-          value: roundForUnit(v, "mmol/mol", "hba1c"),
+          value: roundForUnit(v, "mmol/mol", identityKey),
           unit: "mmol/mol",
-          ref_low: lo != null ? roundForUnit(lo, "mmol/mol", "hba1c") : null,
-          ref_high: hi != null ? roundForUnit(hi, "mmol/mol", "hba1c") : null,
+          ref_low: lo != null ? roundForUnit(lo, "mmol/mol", identityKey) : null,
+          ref_high: hi != null ? roundForUnit(hi, "mmol/mol", identityKey) : null,
           converted: true,
           original_value: original.value,
           original_unit: original.unit,
@@ -272,10 +279,10 @@ export function presentObservation(
         const lo = obs.ref_low != null ? convertHba1c(obs.ref_low, "si") : null;
         const hi = obs.ref_high != null ? convertHba1c(obs.ref_high, "si") : null;
         return {
-          value: roundForUnit(v, "%", "hba1c"),
+          value: roundForUnit(v, "%", identityKey),
           unit: "%",
-          ref_low: lo != null ? roundForUnit(lo, "%", "hba1c") : null,
-          ref_high: hi != null ? roundForUnit(hi, "%", "hba1c") : null,
+          ref_low: lo != null ? roundForUnit(lo, "%", identityKey) : null,
+          ref_high: hi != null ? roundForUnit(hi, "%", identityKey) : null,
           converted: true,
           original_value: original.value,
           original_unit: original.unit,
@@ -335,10 +342,10 @@ export function presentObservation(
           ? convertLinear(obs.ref_high, "conventional", rule.factorCo, rule.factorSi)
           : null;
       return {
-        value: roundForUnit(v, rule.siUnit, obs.biomarker_key),
+        value: roundForUnit(v, rule.siUnit, identityKey),
         unit: rule.siUnit,
-        ref_low: lo != null ? roundForUnit(lo, rule.siUnit, obs.biomarker_key) : null,
-        ref_high: hi != null ? roundForUnit(hi, rule.siUnit, obs.biomarker_key) : null,
+        ref_low: lo != null ? roundForUnit(lo, rule.siUnit, identityKey) : null,
+        ref_high: hi != null ? roundForUnit(hi, rule.siUnit, identityKey) : null,
         converted: true,
         original_value: original.value,
         original_unit: original.unit,
@@ -359,10 +366,10 @@ export function presentObservation(
           ? convertLinear(obs.ref_high, "si", rule.factorCo, rule.factorSi)
           : null;
       return {
-        value: roundForUnit(v, rule.conventionalUnit, obs.biomarker_key),
+        value: roundForUnit(v, rule.conventionalUnit, identityKey),
         unit: rule.conventionalUnit,
-        ref_low: lo != null ? roundForUnit(lo, rule.conventionalUnit, obs.biomarker_key) : null,
-        ref_high: hi != null ? roundForUnit(hi, rule.conventionalUnit, obs.biomarker_key) : null,
+        ref_low: lo != null ? roundForUnit(lo, rule.conventionalUnit, identityKey) : null,
+        ref_high: hi != null ? roundForUnit(hi, rule.conventionalUnit, identityKey) : null,
         converted: true,
         original_value: original.value,
         original_unit: original.unit,

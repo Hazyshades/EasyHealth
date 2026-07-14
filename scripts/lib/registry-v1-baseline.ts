@@ -2,8 +2,14 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { BIOMARKER_DEFINITIONS } from "../../src/lib/biomarkers/catalog/definitions";
-import { ALIAS_MAP, resolveCanonicalKey, snakeCaseToken } from "../../src/lib/biomarkers/normalize";
 import type { BiomarkerDefinition, BodySystemId, ConversionRule } from "../../src/lib/biomarkers/types";
+
+const V1_BLOCKED = new Set(["n_a", "na_", "n_a_", "null", "none", "unknown", "not_applicable", "not_available"]);
+export function snakeCaseToken(raw: string): string { return raw.trim().toLowerCase().replace(/ё/g, "е").replace(/[^a-z0-9а-я]+/gi, "_").replace(/^_+|_+$/g, "").replace(/_+/g, "_"); }
+export const ALIAS_MAP = new Map<string, string>();
+for (const definition of BIOMARKER_DEFINITIONS) { ALIAS_MAP.set(definition.key, definition.key); for (const alias of definition.aliases) { const token = snakeCaseToken(alias); if (token && !V1_BLOCKED.has(token) && !ALIAS_MAP.has(token)) ALIAS_MAP.set(token, definition.key); } }
+for (const [alias, key] of Object.entries({ na: "sodium", k: "potassium", cl: "chloride", ca: "calcium", mg: "magnesium", fe: "iron", hb: "hemoglobin", tg: "triglycerides", tc: "total_cholesterol" })) ALIAS_MAP.set(alias, key);
+export function resolveCanonicalKey(key: string, name = ""): string { const keyToken = snakeCaseToken(key); const nameToken = snakeCaseToken(name); const token = V1_BLOCKED.has(keyToken) ? nameToken : keyToken || nameToken; return ALIAS_MAP.get(token) ?? ALIAS_MAP.get(nameToken) ?? (token || "unknown"); }
 
 export const REGISTRY_V1_BASELINE_VERSION = "1.0.0";
 export const REGISTRY_V1_SNAPSHOT_SCHEMA_VERSION = 1;
@@ -543,7 +549,11 @@ export function verifyRegistryV1Baseline(rootDirectory = process.cwd()): string[
       errors.push(`Missing baseline artifact: ${path.relative(rootDirectory, filePath)}`);
       continue;
     }
-    if (actual !== artifacts.files[name]) errors.push(`Stale baseline artifact: ${path.relative(rootDirectory, filePath)}`);
+    const normalizedActual = actual.replace(/\r\n/g, "\n");
+    const normalizedExpected = artifacts.files[name].replace(/\r\n/g, "\n");
+    if (normalizedActual !== normalizedExpected) {
+      errors.push(`Stale baseline artifact: ${path.relative(rootDirectory, filePath)}`);
+    }
   }
   return errors;
 }

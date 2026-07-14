@@ -37,7 +37,11 @@ export async function getSessionProfileIdEnsured(): Promise<string | null> {
   try {
     return await ensureProfile(user);
   } catch (error) {
-    console.error("[auth] ensureProfile failed:", error);
+    const details =
+      error instanceof Error
+        ? { message: error.message, stack: error.stack }
+        : { value: error };
+    console.error("[auth] ensureProfile failed:", details);
     return user.id;
   }
 }

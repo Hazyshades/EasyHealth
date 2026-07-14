@@ -68,7 +68,8 @@ export async function getEligibleDocumentIds(profileId: string): Promise<string[
 
 export type ObservationRow = {
   name: string;
-  biomarker_key: string;
+  analyte_key: string | null;
+  measurement_definition_key: string | null;
   value: number;
   unit: string;
   ref_low: number | null;
@@ -79,7 +80,8 @@ export type ObservationRow = {
 
 export type ReportContextItem = {
   biomarker: string;
-  key: string;
+  analyte_key: string | null;
+  measurement_definition_key: string | null;
   value: number;
   unit: string;
   ref_low: number | null;
@@ -161,7 +163,8 @@ export function filterAbnormalObservations<T extends ObservationRow>(observation
 export function buildReportContext(observations: ObservationRow[]): ReportContextItem[] {
   return observations.map((o) => ({
     biomarker: o.name,
-    key: o.biomarker_key,
+    analyte_key: o.analyte_key,
+    measurement_definition_key: o.measurement_definition_key,
     value: o.value,
     unit: o.unit,
     ref_low: o.ref_low,

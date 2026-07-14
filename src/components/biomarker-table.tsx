@@ -16,7 +16,9 @@ import {
 type Observation = {
   id: string;
   name: string;
-  biomarker_key: string;
+  measurement_definition_key: string | null;
+  analyte_key: string | null;
+  resolution_status: string | null;
   value: number | null;
   unit: string;
   ref_low: number | null;

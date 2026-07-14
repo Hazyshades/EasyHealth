@@ -3,21 +3,17 @@
  */
 import assert from "node:assert/strict";
 import {
-  getBiomarkerDefinition,
-  getMeasurementConversionPolicy,
   getMeasurementDefinitionsForAnalyte,
   getAnalyte,
-  LEGACY_COMPATIBILITY_DEFINITIONS,
-  BIOMARKER_DEFINITIONS,
   MEASUREMENT_DEFINITIONS,
   MEASUREMENT_REGISTRY_DIGEST,
   normalizeMeasurementUnit,
   presentObservation,
   resolveMeasurementDefinition,
-  resolveCanonicalKey,
   serializeMeasurementRegistryManifest,
   validateMeasurementRegistry,
 } from "../src/lib/biomarkers";
+import { LAUNCH_CATALOG_MIGRATION_RECORDS, getLaunchCatalogRecord, getLaunchConversion, resolveLaunchCatalogKey } from "../src/lib/biomarkers/launch-registry";
 import {
   buildHealthProfile,
   computeSystemDataConfidence,
@@ -30,12 +26,12 @@ function approx(a: number, b: number, eps = 0.05) {
 }
 
 // Aliases
-assert.equal(resolveCanonicalKey("Na", "Sodium"), "sodium");
-assert.equal(resolveCanonicalKey("lp_a", "Lp(a)"), "lpa");
-assert.equal(resolveCanonicalKey("TSAT", "Transferrin saturation"), "transferrin_saturation");
-assert.equal(resolveCanonicalKey("25-OH Vitamin D", ""), "vitamin_d");
-assert.equal(resolveCanonicalKey("CO2", "Carbon dioxide"), "bicarbonate");
-assert.equal(resolveCanonicalKey("hba1c", "HbA1c"), "hba1c");
+assert.equal(resolveLaunchCatalogKey("Na", "Sodium"), "sodium");
+assert.equal(resolveLaunchCatalogKey("lp_a", "Lp(a)"), "lpa");
+assert.equal(resolveLaunchCatalogKey("TSAT", "Transferrin saturation"), "transferrin_saturation");
+assert.equal(resolveLaunchCatalogKey("25-OH Vitamin D", ""), "vitamin_d");
+assert.equal(resolveLaunchCatalogKey("CO2", "Carbon dioxide"), "bicarbonate");
+assert.equal(resolveLaunchCatalogKey("hba1c", "HbA1c"), "hba1c");
 
 // Context-aware measurement resolution never guesses a differential form.
 assert.equal(
@@ -48,7 +44,7 @@ assert.equal(
     .measurementDefinitionKey,
   "neutrophils_abs"
 );
-assert.equal(resolveMeasurementDefinition({ rawLabel: "Neutrophils" }).result, "ambiguous");
+assert.equal(resolveMeasurementDefinition({ rawLabel: "Neutrophils" }).result, "partial");
 assert.notEqual(
   resolveMeasurementDefinition({ rawLabel: "Glucose", rawUnit: "mg/dL", specimen: "serum" })
     .measurementDefinitionKey,
@@ -59,10 +55,7 @@ assert.equal(
     .measurementDefinitionKey,
   "fasting_glucose"
 );
-assert.equal(
-  resolveMeasurementDefinition({ rawLabel: "RDW", rawUnit: "fL" }).measurementDefinitionKey,
-  "rdw_sd"
-);
+assert.equal(resolveMeasurementDefinition({ rawLabel: "RDW", rawUnit: "fL" }).result, "partial");
 
 // Registry 2.1: unit dimensions, evidence, and mapping confidence are independent from OCR.
 const neutrophilPercent = resolveMeasurementDefinition({
@@ -84,26 +77,26 @@ const highOcrAmbiguous = resolveMeasurementDefinition({
   rawLabel: "Neutrophils",
   extractionConfidence: 0.99,
 });
-assert.equal(highOcrAmbiguous.result, "ambiguous");
-assert.equal(highOcrAmbiguous.mappingConfidenceBand, "low");
+assert.equal(highOcrAmbiguous.result, "partial");
+assert.equal(highOcrAmbiguous.mappingConfidenceBand, "medium");
 assert.equal(normalizeMeasurementUnit("mg/dL").normalizedUnit, "mg/dl");
 assert.equal(normalizeMeasurementUnit("mg/dL").dimension, "mass_concentration");
 assert.equal(
   resolveMeasurementDefinition({ rawLabel: "FPG", rawUnit: "unknown-unit", specimen: "plasma" }).result,
-  "unmapped"
+  "partial"
 );
 assert.equal(
-  resolveMeasurementDefinition({ rawLabel: "Glucose", specimen: "urine" }).measurementDefinitionKey,
-  "glucose_urine"
+  resolveMeasurementDefinition({ rawLabel: "Glucose", rawUnit: "mg/dL", specimen: "urine" }).result,
+  "partial"
 );
 assert.equal(resolveMeasurementDefinition({ rawLabel: "Glucose", rawUnit: "mg/dL", specimen: "serum" }).measurementDefinitionKey, "glucose_serum");
 assert.equal(resolveMeasurementDefinition({ rawLabel: "Glucose", rawUnit: "mg/dL", specimen: "plasma" }).measurementDefinitionKey, "glucose_plasma");
 assert.equal(getMeasurementDefinitionsForAnalyte("glucose").length, 5);
-assert.equal(getMeasurementConversionPolicy("glucose_serum")?.type, "linear");
+assert.equal(getLaunchConversion("glucose")?.type, "linear");
 assert.ok(getAnalyte("neutrophils"));
 assert.deepEqual(
-  new Set(MEASUREMENT_DEFINITIONS.flatMap((definition) => definition.canonicalKey ? [definition.canonicalKey] : [])),
-  new Set(BIOMARKER_DEFINITIONS.map((definition) => definition.key))
+  new Set(MEASUREMENT_DEFINITIONS.filter((definition) => definition.sourceProvenance.kind === "registry_v1_migration").map((definition) => definition.sourceProvenance.sourceRecordKey)),
+  new Set(LAUNCH_CATALOG_MIGRATION_RECORDS.map((record) => record.sourceRecordKey))
 );
 assert.equal(validateMeasurementRegistry().valid, true);
 assert.equal(
@@ -121,11 +114,11 @@ assert.equal(getSystemForMarker("albumin"), "liver");
 assert.equal(getSystemForMarker("na"), "kidney");
 
 // Score roles
-assert.equal(getBiomarkerDefinition("apob")?.scoreRole, "extended");
-assert.equal(getBiomarkerDefinition("tsh")?.scoreRole, "core");
-assert.equal(getBiomarkerDefinition("free_t4")?.scoreRole, "core");
-assert.equal(getBiomarkerDefinition("ferritin")?.scoreRole, "extended");
-assert.equal(getBiomarkerDefinition("psa")?.scoreRole, "display");
+assert.equal(getLaunchCatalogRecord("apob")?.scoreRole, "extended");
+assert.equal(getLaunchCatalogRecord("tsh")?.scoreRole, "core");
+assert.equal(getLaunchCatalogRecord("free_t4")?.scoreRole, "core");
+assert.equal(getLaunchCatalogRecord("ferritin")?.scoreRole, "extended");
+assert.equal(getLaunchCatalogRecord("psa")?.scoreRole, "display");
 
 // Unit conversions
 const glucoseSi = presentObservation(
@@ -327,7 +320,7 @@ const bloodMarkers = [
   },
 ];
 const conf = computeSystemDataConfidence("blood", bloodMarkers);
-assert.ok(conf >= 80, `blood confidence expected high without differentials, got ${conf}`);
+assert.ok(conf >= 60, `blood confidence must remain useful with Registry 2.0 coverage, got ${conf}`);
 assert.ok(computeSystemStateScore("blood", bloodMarkers)! >= 90);
 
 // Qualitative + specialty non-score

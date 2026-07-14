@@ -22,7 +22,9 @@ type LabUnitSystem = "us" | "si";
 type Observation = {
   id: string;
   name: string;
-  biomarker_key: string;
+  measurement_definition_key: string | null;
+  analyte_key: string | null;
+  resolution_status: string | null;
   value: number | null;
   unit: string;
   ref_low: number | null;
@@ -83,9 +85,11 @@ export default function BiomarkersPage() {
           setLabUnitSystem(data.lab_unit_system);
         }
         setSelectedKey((prev) => {
-          if (prev && obs.some((o: Observation) => o.biomarker_key === prev)) return prev;
-          const hba1c = obs.find((o: Observation) => o.biomarker_key === "hba1c");
-          return hba1c?.biomarker_key ?? obs[0]?.biomarker_key ?? "";
+          if (prev && obs.some((o: Observation) => o.measurement_definition_key === prev)) return prev;
+          const resolved = obs.find(
+            (o: Observation) => o.measurement_definition_key && o.resolution_status === "resolved"
+          );
+          return resolved?.measurement_definition_key ?? obs.find((o: Observation) => o.measurement_definition_key)?.measurement_definition_key ?? "";
         });
       });
   }, []);
@@ -123,26 +127,35 @@ export default function BiomarkersPage() {
       if (!q) return true;
       return (
         o.name.toLowerCase().includes(q) ||
-        o.biomarker_key.toLowerCase().includes(q) ||
+        o.measurement_definition_key?.toLowerCase().includes(q) ||
+        o.analyte_key?.toLowerCase().includes(q) ||
         (o.documents?.original_filename ?? "").toLowerCase().includes(q)
       );
     });
   }, [observations, search, statusFilter]);
 
   const keys = useMemo(
-    () => [...new Set(observations.map((o) => o.biomarker_key))],
+    () =>
+      [
+        ...new Set(
+          observations
+            .filter((o) => o.measurement_definition_key && o.resolution_status === "resolved")
+            .map((o) => o.measurement_definition_key as string)
+        ),
+      ],
     [observations]
   );
 
   const selectedName =
-    observations.find((o) => o.biomarker_key === selectedKey)?.name ?? selectedKey;
+    observations.find((o) => o.measurement_definition_key === selectedKey)?.name ?? selectedKey;
 
-  const selectedSeries = observations.filter((o) => o.biomarker_key === selectedKey);
+  const selectedSeries = observations.filter((o) => o.measurement_definition_key === selectedKey);
   const chartData = selectedSeries
     .filter((o) => o.value != null && (!o.value_kind || o.value_kind === "numeric"))
     .map((o) => ({ observed_at: o.observed_at, value: Number(o.value) }));
   const chartIsQualitativeOnly =
     selectedSeries.length > 0 && chartData.length === 0;
+  const hasResolvedTrendSeries = keys.length > 0;
 
   return (
     <div>
@@ -203,7 +216,7 @@ export default function BiomarkersPage() {
             </SelectTrigger>
             <SelectContent>
               {keys.map((key) => {
-                const name = observations.find((o) => o.biomarker_key === key)?.name ?? key;
+                const name = observations.find((o) => o.measurement_definition_key === key)?.name ?? key;
                 return (
                   <SelectItem key={key} value={key}>
                     {name}
@@ -213,7 +226,11 @@ export default function BiomarkersPage() {
             </SelectContent>
           </Select>
         </div>
-        {chartIsQualitativeOnly ? (
+        {!hasResolvedTrendSeries ? (
+          <p className="text-sm text-[var(--eh-text-secondary)]">
+            No resolved measurement definitions are available for trends yet.
+          </p>
+        ) : chartIsQualitativeOnly ? (
           <p className="text-sm text-[var(--eh-text-secondary)]">
             This biomarker has text or qualitative results only — numeric trend chart is not
             available.

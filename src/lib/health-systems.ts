@@ -1,19 +1,16 @@
+import { observationIdentityKey, type BodySystemId, type SystemScoreability, type ValueKind } from "@/lib/biomarkers";
 import {
   BODY_SYSTEM_LABELS,
-  buildMarkerToSystemMap,
-  getBiomarkerDefinition,
-  getScoreRole,
-  listCoverageKeysForSystem,
+  getLaunchScoreRole,
+  getLaunchSpecimen,
+  getLaunchSystem,
+  listLaunchCoverageKeys,
   NAMED_BODY_SYSTEMS,
   NON_SCOREABLE_SYSTEMS,
-  observationIdentityKey,
-  resolveCanonicalKey,
+  resolveLaunchCatalogKey,
   SCORE_CONTRIBUTION_GROUPS,
   SCORE_REQUIRED_GROUPS,
-  type BodySystemId,
-  type SystemScoreability,
-  type ValueKind,
-} from "@/lib/biomarkers";
+} from "@/lib/biomarkers/launch-registry";
 
 export type DocumentType =
   | "lab_result"
@@ -206,8 +203,6 @@ export type HealthProfileResult = {
   synthesis_stale?: boolean;
 };
 
-const MARKER_TO_SYSTEM = buildMarkerToSystemMap();
-
 const BODY_SYSTEMS: Record<
   Exclude<BodySystemId, "general">,
   { name: string }
@@ -244,10 +239,7 @@ export function normalizeBodySystemId(id: string): BodySystemId {
 }
 
 export function getSystemForMarker(key: string): BodySystemId {
-  const canonical = resolveCanonicalKey(key, key);
-  const fromCatalog = getBiomarkerDefinition(canonical)?.system;
-  if (fromCatalog) return fromCatalog;
-  return MARKER_TO_SYSTEM.get(canonical) ?? MARKER_TO_SYSTEM.get(key) ?? "general";
+  return getLaunchSystem(key);
 }
 
 export function getMarkerStatus(
@@ -285,7 +277,7 @@ export function markerStateScore(
 function latestByIdentity(observations: ObservationInput[]): Map<string, ObservationInput> {
   const map = new Map<string, ObservationInput>();
   for (const obs of observations) {
-    const key = resolveCanonicalKey(obs.biomarker_key, obs.name);
+    const key = resolveLaunchCatalogKey(obs.biomarker_key, obs.name);
     const specimen = obs.specimen ?? "unspecified";
     const modifier = obs.modifier ?? "none";
     const id = observationIdentityKey(key, specimen, modifier);
@@ -303,7 +295,7 @@ function average(values: number[]): number {
 }
 
 function markerRole(marker: SystemMarker): "core" | "extended" | "display" {
-  return marker.score_role ?? getScoreRole(marker.key);
+  return marker.score_role ?? getLaunchScoreRole(marker.key);
 }
 
 /** Numeric markers that can contribute to a system state score. */
@@ -340,8 +332,8 @@ function hasUsableDocumentReference(marker: SystemMarker): boolean {
 }
 
 function matchesCatalogSpecimen(marker: SystemMarker): boolean {
-  const expected = getBiomarkerDefinition(marker.key)?.specimen;
-  if (!expected || expected === "any" || !marker.specimen || marker.specimen === "unspecified") {
+  const expected = getLaunchSpecimen(marker.key);
+  if (!expected || !marker.specimen || marker.specimen === "unspecified") {
     return true;
   }
   return marker.specimen === expected;
@@ -475,7 +467,7 @@ export function computeSystemDataConfidence(
     return Math.round((withRef / markers.length) * 100);
   }
 
-  const coverageKeys = listCoverageKeysForSystem(systemId);
+  const coverageKeys = listLaunchCoverageKeys(systemId);
   const presentKeys = new Set(markers.map((marker) => marker.key));
   const coverageDenom = Math.max(coverageKeys.length, 1);
   const coveragePart =
@@ -484,7 +476,7 @@ export function computeSystemDataConfidence(
   // Ref quality among present numeric non-display markers
   const scorable = markers.filter(
     (m) =>
-      (m.score_role ?? getScoreRole(m.key)) !== "display" &&
+      (m.score_role ?? getLaunchScoreRole(m.key)) !== "display" &&
       (m.value_kind ?? "numeric") === "numeric" &&
       m.value != null
   );
@@ -523,7 +515,7 @@ export function buildWhyHighlighted(markers: SystemMarker[]): string[] {
   const outOfRange = markers.filter(
     (marker) =>
       marker.status === "out_of_range" &&
-      (marker.score_role ?? getScoreRole(marker.key)) === "core"
+      (marker.score_role ?? getLaunchScoreRole(marker.key)) === "core"
   );
   if (outOfRange.length > 0) {
     return outOfRange.map(
@@ -548,7 +540,7 @@ export function buildHealthProfile(
   const bySystem = new Map<BodySystemId, SystemMarker[]>();
 
   for (const obs of latest.values()) {
-    const key = resolveCanonicalKey(obs.biomarker_key, obs.name);
+    const key = resolveLaunchCatalogKey(obs.biomarker_key, obs.name);
     const systemId = getSystemForMarker(key);
     const valueKind = obs.value_kind ?? "numeric";
     const numericValue = obs.value != null ? Number(obs.value) : null;
@@ -565,7 +557,7 @@ export function buildHealthProfile(
       document_id: obs.document_id,
       observation_kind: obs.observation_kind,
       source: obs.document_id ? sourceById.get(obs.document_id) ?? null : null,
-      score_role: getScoreRole(key),
+      score_role: getLaunchScoreRole(key),
       value_kind: valueKind,
       value_text: obs.value_text ?? null,
       ordinal: obs.ordinal ?? null,

@@ -17,17 +17,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   compatibleManualDefinitions,
   decideAutomaticPromotion,
-  measurementResolutionMode,
   type PromotionDecision,
-  type RegistryResolutionMode,
 } from "./normalization-policy";
 
 export {
   compatibleManualDefinitions,
   decideAutomaticPromotion,
-  measurementResolutionMode,
   type PromotionDecision,
-  type RegistryResolutionMode,
 };
 
 export type NormalizationRevision = {
@@ -35,7 +31,7 @@ export type NormalizationRevision = {
   extracted_biomarker_id: string;
   observation_id: string | null;
   measurement_definition_key: string | null;
-  canonical_biomarker_key: string | null;
+  analyte_key: string | null;
   resolver_result: MeasurementResolution["result"];
   mapping_confidence: number;
   mapping_confidence_band: MeasurementResolution["mappingConfidenceBand"] | null;
@@ -80,7 +76,7 @@ export async function createNormalizationCandidate(options: {
     extracted_biomarker_id: options.extractedBiomarkerId,
     input_evidence_hash: buildInputEvidenceHash(options.input),
     measurement_definition_key: resolution.measurementDefinitionKey,
-    canonical_biomarker_key: resolution.canonicalKey,
+    analyte_key: resolution.analyteKey,
     resolver_result: resolution.result,
     mapping_confidence: resolution.mappingConfidence,
     mapping_confidence_band: resolution.mappingConfidenceBand,
@@ -100,7 +96,7 @@ export async function createNormalizationCandidate(options: {
   const { data, error } = await supabase
     .from("observation_normalization_revisions")
     .insert(payload)
-    .select("id, extracted_biomarker_id, observation_id, measurement_definition_key, canonical_biomarker_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, mapping_change_classification")
+    .select("id, extracted_biomarker_id, observation_id, measurement_definition_key, analyte_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, mapping_change_classification")
     .single();
   if (error) throw error;
   const { error: metadataError } = await supabase
@@ -154,8 +150,11 @@ export async function createManualCorrection(options: {
   );
   const resolution: MeasurementResolution = {
     ...baseResolution,
+    result: "resolved",
     measurementDefinitionKey: definition.key,
-    canonicalKey: definition.canonicalKey,
+    analyteKey: definition.analyteKey,
+    mappingConfidence: 0.95,
+    mappingConfidenceBand: "high",
     candidateEvidence,
   };
 
@@ -220,7 +219,7 @@ export async function getActiveNormalizationRevision(extractedBiomarkerId: strin
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("observation_normalization_revisions")
-    .select("id, extracted_biomarker_id, observation_id, measurement_definition_key, canonical_biomarker_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, mapping_change_classification")
+    .select("id, extracted_biomarker_id, observation_id, measurement_definition_key, analyte_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, mapping_change_classification")
     .eq("extracted_biomarker_id", extractedBiomarkerId)
     .eq("is_active", true)
     .maybeSingle();

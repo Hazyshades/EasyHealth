@@ -6,7 +6,12 @@ export type {
   NormalizedMeasurementUnit,
   AnalyteKey,
   Analyte,
-  DefinitionSource,
+  MeasurementMaturity,
+  MeasurementValueKind,
+  RegistrySourceKind,
+  AssessmentBinding,
+  MeasurementSourceProvenance,
+  LaunchCatalogMigrationRecord,
   MeasurementIdentity,
   SpecimenKey,
   MeasurementPropertyKey,
@@ -37,30 +42,6 @@ export type {
   SystemScoreability,
 } from "./types";
 
-export {
-  BIOMARKER_DEFINITIONS,
-  BODY_SYSTEM_LABELS,
-  NAMED_BODY_SYSTEMS,
-  NON_SCOREABLE_SYSTEMS,
-  SCOREABILITY_BY_SYSTEM,
-  SCORE_CONTRIBUTION_GROUPS,
-  SCORE_REQUIRED_GROUPS,
-  buildMarkerToSystemMap,
-  getBiomarkerDefinition,
-  getScoreRole,
-  listCoreKeysForSystem,
-  listCoverageKeysForSystem,
-  listKeysForSystem,
-} from "./catalog";
-
-export {
-  ALIAS_MAP,
-  normalizeBiomarkerKey,
-  normalizeBiomarkerKeyToken,
-  resolveCanonicalKey,
-  snakeCaseToken,
-} from "./normalize";
-
 export { presentObservation, presentObservations, type NativeObservation } from "./units";
 
 export {
@@ -84,9 +65,7 @@ export {
 export {
   MEASUREMENT_DEFINITIONS,
   CURATED_MEASUREMENT_DEFINITIONS,
-  LEGACY_COMPATIBILITY_DEFINITIONS,
   ANALYTES,
-  MEASUREMENT_ADAPTER_VERSION,
   MEASUREMENT_REGISTRY_VERSION,
   MEASUREMENT_RESOLVER_VERSION,
   MEASUREMENT_NORMALIZATION_SCHEMA_VERSION,
@@ -100,6 +79,9 @@ export {
   resolveMeasurementDefinition,
   validateMeasurementRegistry,
 } from "./measurement-resolution";
+
+export { LAUNCH_CATALOG_MIGRATION_RECORDS } from "./launch-catalog.generated";
+export { SAMPLE_NEWEST_LAUNCH_FIXTURES, buildLaunchCoverageReport, type LaunchResolverFixture } from "./launch-fixtures";
 
 export {
   MEASUREMENT_REGISTRY_DIGEST,

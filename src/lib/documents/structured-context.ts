@@ -4,7 +4,9 @@ import type { DocumentType } from "@/lib/health-systems";
 
 export type StructuredBiomarkerContext = {
   biomarker: string;
-  key: string;
+  analyte_key: string | null;
+  measurement_definition_key: string | null;
+  resolution_status: string | null;
   value: number;
   unit: string;
   ref_low: number | null;
@@ -220,7 +222,9 @@ export async function buildDocumentStructuredContext(
   for (const obs of observations ?? []) {
     biomarkers.push({
       biomarker: obs.name,
-      key: obs.biomarker_key,
+      analyte_key: obs.analyte_key ?? null,
+      measurement_definition_key: obs.measurement_definition_key ?? null,
+      resolution_status: obs.resolution_status ?? null,
       value: Number(obs.value),
       unit: obs.unit,
       ref_low: obs.ref_low != null ? Number(obs.ref_low) : null,

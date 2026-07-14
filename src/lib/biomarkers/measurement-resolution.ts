@@ -1,8 +1,8 @@
 import { snakeCaseToken } from "./normalize";
-import { BIOMARKER_DEFINITIONS, getBiomarkerDefinition } from "./catalog";
+import { LAUNCH_CATALOG_MIGRATION_RECORDS } from "./launch-catalog.generated";
 import type {
-  CandidateEvidence,
   Analyte,
+  CandidateEvidence,
   MappingConfidenceBand,
   MeasurementAlias,
   MeasurementDefinition,
@@ -16,286 +16,86 @@ import type {
   UnitToken,
 } from "./types";
 
-export const MEASUREMENT_REGISTRY_VERSION = "2026-07-13.0";
-export const MEASUREMENT_RESOLVER_VERSION = "2";
-export const MEASUREMENT_NORMALIZATION_SCHEMA_VERSION = "2";
+export const MEASUREMENT_REGISTRY_VERSION = "2026-07-14.1";
+export const MEASUREMENT_RESOLVER_VERSION = "4";
+export const MEASUREMENT_NORMALIZATION_SCHEMA_VERSION = "3";
 
-const CELL_CONCENTRATION_UNITS = ["10^9/l", "10^3/ul"] as const;
 const PERCENT_POLICY: MeasurementUnitPolicy = {
-  dimensions: ["ratio"],
-  acceptedUnits: ["%"],
-  canonicalUnit: "%",
-  conversionPolicyRef: null,
-  missingUnitPolicy: "ambiguous",
+  dimensions: ["ratio"], acceptedUnits: ["%"], canonicalUnit: "%", conversionPolicyRef: null, missingUnitPolicy: "ambiguous",
 };
-const CELL_CONCENTRATION_POLICY: MeasurementUnitPolicy = {
-  dimensions: ["cell_concentration"],
-  acceptedUnits: CELL_CONCENTRATION_UNITS,
-  canonicalUnit: "10^9/l",
-  conversionPolicyRef: "equivalent-cell-count",
-  missingUnitPolicy: "ambiguous",
+const CELL_POLICY: MeasurementUnitPolicy = {
+  dimensions: ["cell_concentration"], acceptedUnits: ["10^9/l", "10^3/ul"], canonicalUnit: "10^9/l", conversionPolicyRef: null, missingUnitPolicy: "ambiguous",
 };
 const VOLUME_POLICY: MeasurementUnitPolicy = {
-  dimensions: ["volume"],
-  acceptedUnits: ["fl"],
-  canonicalUnit: "fl",
-  conversionPolicyRef: null,
-  missingUnitPolicy: "ambiguous",
+  dimensions: ["volume"], acceptedUnits: ["fl"], canonicalUnit: "fl", conversionPolicyRef: null, missingUnitPolicy: "ambiguous",
 };
 const GLUCOSE_POLICY: MeasurementUnitPolicy = {
-  dimensions: ["mass_concentration", "molar_concentration"],
-  acceptedUnits: ["mg/dl", "mmol/l"],
-  canonicalUnit: "mmol/l",
-  conversionPolicyRef: "biomarker:glucose",
-  missingUnitPolicy: "ambiguous",
+  dimensions: ["mass_concentration", "molar_concentration"], acceptedUnits: ["mg/dl", "mmol/l"], canonicalUnit: "mmol/l", conversionPolicyRef: "launch:glucose", missingUnitPolicy: "ambiguous",
 };
-const QUALITATIVE_URINE_POLICY: MeasurementUnitPolicy = {
-  dimensions: [],
-  acceptedUnits: [],
-  canonicalUnit: null,
-  conversionPolicyRef: null,
-  missingUnitPolicy: "display_only",
+const ENZYME_POLICY: MeasurementUnitPolicy = {
+  dimensions: ["catalytic_activity_concentration"], acceptedUnits: ["u/l"], canonicalUnit: "u/l", conversionPolicyRef: null, missingUnitPolicy: "ambiguous",
+};
+const DISPLAY_POLICY: MeasurementUnitPolicy = {
+  dimensions: [], acceptedUnits: [], canonicalUnit: null, conversionPolicyRef: null, missingUnitPolicy: "display_only",
 };
 
-function aliases(
-  values: readonly string[],
-  options: Omit<MeasurementAlias, "value" | "normalizedValue"> = {
-    source: "registry",
-    matchType: "normalized",
-  }
-): MeasurementAlias[] {
-  return values.map((value) => ({
-    value,
-    normalizedValue: snakeCaseToken(value),
-    ...options,
-  }));
+function aliases(values: readonly string[], source: MeasurementAlias["source"], approvalStatus: "reviewed" | "provisional", fixtureRefs?: readonly string[]): MeasurementAlias[] {
+  return [...new Set(values)].map((value) => ({ value, normalizedValue: snakeCaseToken(value), source, matchType: "normalized", approvalStatus, ...(fixtureRefs ? { fixtureRefs } : {}) }));
 }
 
-const registryAliases = (values: readonly string[]) => aliases(values);
-const ocrAliases = (values: readonly string[]) =>
-  aliases(values, { source: "fixture", matchType: "ocr_variant" });
-
-type CuratedInput = Omit<MeasurementDefinition, "definitionSource" | "specimen" | "property" | "scale" | "timing" | "method"> & Partial<Pick<MeasurementDefinition, "specimen" | "property" | "scale" | "timing" | "method">>;
-
-const CURATED_RAW: readonly CuratedInput[] = [
-  {
-    key: "neutrophils_abs",
-    analyteKey: "neutrophils",
-    displayName: "Neutrophils, absolute",
-    canonicalKey: "neutrophils",
-    aliases: [...registryAliases(["neutrophils", "neutrophils_abs", "anc", "absolute_neutrophil_count"])],
-    unitPolicy: CELL_CONCENTRATION_POLICY,
-    allowedSpecimens: ["whole_blood"],
-    requiredModifiers: ["absolute"],
-    assessmentCompatibility: "display_only",
-  },
-  {
-    key: "neutrophils_percent",
-    analyteKey: "neutrophils",
-    displayName: "Neutrophils, percent",
-    canonicalKey: "neutrophils_percent",
-    aliases: [
-      ...registryAliases(["neutrophils", "neutrophils_percent", "neu_percent"]),
-      ...ocrAliases(["neutrophils_"]),
-    ],
-    unitPolicy: PERCENT_POLICY,
-    allowedSpecimens: ["whole_blood"],
-    requiredModifiers: ["percent"],
-    assessmentCompatibility: "display_only",
-  },
-  {
-    key: "lymphocytes_abs",
-    analyteKey: "lymphocytes",
-    displayName: "Lymphocytes, absolute",
-    canonicalKey: "lymphocytes",
-    aliases: registryAliases(["lymphocytes", "lymphocytes_abs", "absolute_lymphocyte_count"]),
-    unitPolicy: CELL_CONCENTRATION_POLICY,
-    allowedSpecimens: ["whole_blood"],
-    requiredModifiers: ["absolute"],
-    assessmentCompatibility: "display_only",
-  },
-  {
-    key: "lymphocytes_percent",
-    analyteKey: "lymphocytes",
-    displayName: "Lymphocytes, percent",
-    canonicalKey: "lymphocytes_percent",
-    aliases: registryAliases(["lymphocytes", "lymphocytes_percent", "lym_percent"]),
-    unitPolicy: PERCENT_POLICY,
-    allowedSpecimens: ["whole_blood"],
-    requiredModifiers: ["percent"],
-    assessmentCompatibility: "display_only",
-  },
-  {
-    key: "rdw_cv",
-    analyteKey: "red_cell_distribution_width",
-    displayName: "RDW-CV",
-    canonicalKey: "rdw",
-    aliases: registryAliases(["rdw_cv", "rdw-cv", "rdw"]),
-    unitPolicy: PERCENT_POLICY,
-    assessmentCompatibility: "compatible",
-  },
-  {
-    key: "rdw_sd",
-    analyteKey: "red_cell_distribution_width",
-    displayName: "RDW-SD",
-    canonicalKey: null,
-    aliases: registryAliases(["rdw_sd", "rdw-sd", "rdw"]),
-    unitPolicy: VOLUME_POLICY,
-    assessmentCompatibility: "display_only",
-  },
-  {
-    key: "reticulocytes_abs",
-    analyteKey: "reticulocytes",
-    displayName: "Reticulocytes, absolute",
-    canonicalKey: null,
-    aliases: registryAliases(["reticulocytes", "reticulocytes_abs", "absolute_reticulocyte_count"]),
-    unitPolicy: CELL_CONCENTRATION_POLICY,
-    allowedSpecimens: ["whole_blood"],
-    requiredModifiers: ["absolute"],
-    assessmentCompatibility: "display_only",
-  },
-  {
-    key: "reticulocytes_percent",
-    analyteKey: "reticulocytes",
-    displayName: "Reticulocytes, percent",
-    canonicalKey: null,
-    aliases: registryAliases(["reticulocytes", "reticulocytes_percent", "retic_percent"]),
-    unitPolicy: PERCENT_POLICY,
-    allowedSpecimens: ["whole_blood"],
-    requiredModifiers: ["percent"],
-    assessmentCompatibility: "display_only",
-  },
-  {
-    key: "glucose_serum",
-    analyteKey: "glucose",
-    displayName: "Glucose, serum",
-    canonicalKey: "glucose",
-    aliases: registryAliases(["glucose", "blood_glucose", "serum_glucose"]),
-    unitPolicy: GLUCOSE_POLICY,
-    allowedSpecimens: ["serum"],
-    assessmentCompatibility: "compatible",
-  },
-  {
-    key: "glucose_plasma",
-    analyteKey: "glucose",
-    displayName: "Glucose, plasma",
-    canonicalKey: "glucose",
-    aliases: registryAliases(["glucose", "blood_glucose", "plasma_glucose"]),
-    unitPolicy: GLUCOSE_POLICY,
-    allowedSpecimens: ["plasma"],
-    assessmentCompatibility: "compatible",
-  },
-  {
-    key: "glucose_whole_blood",
-    analyteKey: "glucose",
-    displayName: "Glucose, whole blood",
-    canonicalKey: "glucose",
-    aliases: registryAliases(["glucose", "blood_glucose", "whole_blood_glucose"]),
-    unitPolicy: GLUCOSE_POLICY,
-    allowedSpecimens: ["whole_blood"],
-    assessmentCompatibility: "display_only",
-  },
-  {
-    key: "glucose_urine",
-    analyteKey: "glucose",
-    displayName: "Glucose, urine",
-    canonicalKey: "urine_glucose_dipstick",
-    aliases: registryAliases(["glucose", "urine_glucose", "glucose_urine"]),
-    unitPolicy: QUALITATIVE_URINE_POLICY,
-    allowedSpecimens: ["urine"],
-    assessmentCompatibility: "display_only",
-  },
-  {
-    key: "fasting_glucose",
-    analyteKey: "glucose",
-    displayName: "Fasting glucose",
-    canonicalKey: "fasting_glucose",
-    aliases: registryAliases(["fasting_glucose", "fpg", "fasting_plasma_glucose"]),
-    unitPolicy: GLUCOSE_POLICY,
-    allowedSpecimens: ["serum", "plasma"],
-    requiredModifiers: ["fasting"],
-    assessmentCompatibility: "compatible",
-  },
-  {
-    key: "segmented_neutrophils_percent",
-    analyteKey: "neutrophils",
-    displayName: "Segmented neutrophils, percent",
-    canonicalKey: null,
-    aliases: registryAliases(["segmented_neutrophils", "segs", "segmented_neutrophils_percent"]),
-    unitPolicy: PERCENT_POLICY,
-    allowedSpecimens: ["whole_blood"],
-    requiredModifiers: ["percent"],
-    assessmentCompatibility: "display_only",
-  },
-  {
-    key: "band_neutrophils_percent",
-    analyteKey: "neutrophils",
-    displayName: "Band neutrophils, percent",
-    canonicalKey: null,
-    aliases: registryAliases(["band_neutrophils", "bands", "band_neutrophils_percent"]),
-    unitPolicy: PERCENT_POLICY,
-    allowedSpecimens: ["whole_blood"],
-    requiredModifiers: ["percent"],
-    assessmentCompatibility: "display_only",
-  },
-];
-
-function curated(definition: CuratedInput): MeasurementDefinition {
-  const unit = definition.unitPolicy;
-  const specimen = definition.specimen ?? (definition.allowedSpecimens?.[0] as MeasurementDefinition["specimen"] | undefined) ?? "unspecified";
-  const property = definition.property ?? (definition.key.startsWith("segmented_") ? "segmented_percentage" : definition.key.startsWith("band_") ? "band_percentage" : unit.dimensions.includes("cell_concentration") ? "cell_count" : unit.dimensions.includes("ratio") ? "percentage" : unit.dimensions.includes("volume") ? "distribution_width" : unit.dimensions.length ? "substance_concentration" : "presence");
-  return { ...definition, definitionSource: "curated", specimen, property, scale: definition.scale ?? (property === "presence" ? "nominal" : "quantitative"), timing: definition.timing ?? (definition.requiredModifiers?.includes("fasting") ? "fasting" : "point_in_time"), method: definition.method ?? (definition.key.includes("urine") ? "dipstick" : "automated") };
-}
-
-export const CURATED_MEASUREMENT_DEFINITIONS: readonly MeasurementDefinition[] = CURATED_RAW.map(curated);
-
-const ANALYTE_ENTRIES: readonly (readonly [string, Analyte])[] = [
-  ...BIOMARKER_DEFINITIONS.map((definition): readonly [string, Analyte] => [definition.key, { key: definition.key, displayName: definition.displayName, aliases: [definition.key, ...definition.aliases], status: "active" }]),
-  ...CURATED_RAW.map((definition): readonly [string, Analyte] => [definition.analyteKey, { key: definition.analyteKey, displayName: definition.analyteKey, aliases: [definition.analyteKey], status: "active" }]),
-];
-export const ANALYTES: readonly Analyte[] = [...new Map<string, Analyte>(ANALYTE_ENTRIES).values()];
-const ANALYTE_BY_KEY = new Map(ANALYTES.map((analyte) => [analyte.key, analyte]));
-
-function fallbackDefinition(definition: (typeof BIOMARKER_DEFINITIONS)[number]): MeasurementDefinition {
-  const specimen = definition.specimen && definition.specimen !== "any" ? definition.specimen : "unspecified";
+function reviewed(definition: Omit<MeasurementDefinition, "maturity" | "sourceProvenance" | "assessmentBindings"> & { assessmentInputKey?: string }): MeasurementDefinition {
+  const { assessmentInputKey, ...record } = definition;
   return {
-    key: `legacy_${definition.key}`,
-    analyteKey: definition.key,
-    definitionSource: "legacy_adapter",
-    specimen,
-    property: "unspecified",
-    scale: "unspecified",
-    timing: "unspecified",
-    method: "unspecified",
-    displayName: definition.displayName,
-    canonicalKey: definition.key,
-    aliases: registryAliases([definition.key, ...definition.aliases]),
-    unitPolicy: QUALITATIVE_URINE_POLICY,
-    allowedSpecimens: specimen === "unspecified" ? undefined : [specimen],
-    assessmentCompatibility: definition.scoreRole === "core" ? "compatible" : "display_only",
+    ...record,
+    maturity: "reviewed",
+    sourceProvenance: { kind: "launch_catalog", sourceRecordKey: record.key },
+    assessmentBindings: assessmentInputKey ? [{ assessmentInputKey, compatibility: "compatible", status: "reviewed" }] : [],
   };
 }
 
-const CURATED_LEGACY_KEYS = new Set(CURATED_MEASUREMENT_DEFINITIONS.flatMap((definition) => definition.canonicalKey ? [definition.canonicalKey] : []));
-export const LEGACY_COMPATIBILITY_DEFINITIONS: readonly MeasurementDefinition[] = BIOMARKER_DEFINITIONS
-  .filter((definition) => !CURATED_LEGACY_KEYS.has(definition.key))
-  .sort((left, right) => left.key.localeCompare(right.key))
-  .map(fallbackDefinition);
-export const MEASUREMENT_DEFINITIONS: readonly MeasurementDefinition[] = [...CURATED_MEASUREMENT_DEFINITIONS, ...LEGACY_COMPATIBILITY_DEFINITIONS];
-export const MEASUREMENT_ADAPTER_VERSION = "1";
+const REVIEWED_DEFINITIONS: readonly MeasurementDefinition[] = [
+  reviewed({ key: "glucose_serum", analyteKey: "glucose", displayName: "Glucose, serum", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["glucose", "blood_glucose", "serum_glucose"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, allowedSpecimens: ["serum"], assessmentInputKey: "glucose" }),
+  reviewed({ key: "glucose_plasma", analyteKey: "glucose", displayName: "Glucose, plasma", specimen: "plasma", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["glucose", "blood_glucose", "plasma_glucose"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, allowedSpecimens: ["plasma"], assessmentInputKey: "glucose" }),
+  reviewed({ key: "glucose_whole_blood", analyteKey: "glucose", displayName: "Glucose, whole blood", specimen: "whole_blood", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["whole_blood_glucose"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, allowedSpecimens: ["whole_blood"] }),
+  reviewed({ key: "fasting_glucose", analyteKey: "glucose", displayName: "Fasting glucose", specimen: "plasma", property: "substance_concentration", scale: "quantitative", timing: "fasting", method: "automated", valueKind: "numeric", aliases: aliases(["fasting_glucose", "fpg"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, allowedSpecimens: ["plasma"], requiredModifiers: ["fasting"], assessmentInputKey: "glucose" }),
+  reviewed({ key: "neutrophils_percent", analyteKey: "neutrophils", displayName: "Neutrophils, percent", specimen: "whole_blood", property: "percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["neutrophils", "neutrophils_percent", "neu%", "neu_percent"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY, allowedSpecimens: ["whole_blood"] }),
+  reviewed({ key: "neutrophils_abs", analyteKey: "neutrophils", displayName: "Neutrophils, absolute", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["neutrophils", "neutrophils_absolute", "neutrophils_abs", "absolute_neutrophil_count", "neu"], "registry", "reviewed"), unitPolicy: CELL_POLICY, allowedSpecimens: ["whole_blood"] }),
+  reviewed({ key: "lymphocytes_percent", analyteKey: "lymphocytes", displayName: "Lymphocytes, percent", specimen: "whole_blood", property: "percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["lymphocytes", "lymphocytes_percent", "lymf%", "lym_percent"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY, allowedSpecimens: ["whole_blood"] }),
+  reviewed({ key: "lymphocytes_abs", analyteKey: "lymphocytes", displayName: "Lymphocytes, absolute", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["lymphocytes_absolute", "lymphocytes_abs", "absolute_lymphocyte_count", "lymf"], "registry", "reviewed"), unitPolicy: CELL_POLICY, allowedSpecimens: ["whole_blood"] }),
+  reviewed({ key: "rdw_cv", analyteKey: "red_cell_distribution_width", displayName: "RDW-CV", specimen: "whole_blood", property: "distribution_width_cv", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["rdw", "rdw_cv", "rdw-cv"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY, allowedSpecimens: ["whole_blood"] }),
+  reviewed({ key: "rdw_sd", analyteKey: "red_cell_distribution_width", displayName: "RDW-SD", specimen: "whole_blood", property: "distribution_width_sd", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["rdw", "rdw_sd", "rdw-sd"], "registry", "reviewed"), unitPolicy: VOLUME_POLICY, allowedSpecimens: ["whole_blood"] }),
+  reviewed({ key: "reticulocytes_percent", analyteKey: "reticulocytes", displayName: "Reticulocytes, percent", specimen: "whole_blood", property: "percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["reticulocytes_percent", "retic_percent"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY, allowedSpecimens: ["whole_blood"] }),
+  reviewed({ key: "reticulocytes_abs", analyteKey: "reticulocytes", displayName: "Reticulocytes, absolute", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["reticulocytes_abs", "absolute_reticulocyte_count"], "registry", "reviewed"), unitPolicy: CELL_POLICY, allowedSpecimens: ["whole_blood"] }),
+  reviewed({ key: "segmented_neutrophils_percent", analyteKey: "neutrophils", displayName: "Segmented neutrophils, percent", specimen: "whole_blood", property: "segmented_percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["segmented_neutrophils"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY, allowedSpecimens: ["whole_blood"] }),
+  reviewed({ key: "band_neutrophils_percent", analyteKey: "neutrophils", displayName: "Band neutrophils, percent", specimen: "whole_blood", property: "band_percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["band_neutrophils"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY, allowedSpecimens: ["whole_blood"] }),
+  ...(["alt", "ast", "alp", "ggt"] as const).flatMap((analyteKey) => (["serum", "plasma"] as const).map((specimen) => reviewed({ key: `${analyteKey}_${specimen}_catalytic_activity`, analyteKey, displayName: `${analyteKey.toUpperCase()}, ${specimen} catalytic activity`, specimen, property: "catalytic_activity_concentration", scale: "quantitative", timing: "point_in_time", method: "unspecified", valueKind: "numeric", aliases: aliases([analyteKey, ...(analyteKey === "alt" ? ["alanine_aminotransferase"] : analyteKey === "ast" ? ["aspartate_aminotransferase"] : [])], "registry", "reviewed"), unitPolicy: ENZYME_POLICY, allowedSpecimens: [specimen], assessmentInputKey: analyteKey }))),
+];
 
+const SAMPLE_FIXTURES: readonly [string, string, "numeric" | "qualitative"][] = [
+  ["total_protein", "Total protein", "numeric"], ["total_bilirubin", "Total bilirubin", "numeric"], ["direct_bilirubin", "Direct bilirubin", "numeric"], ["crp", "C-reactive protein, quantitative", "numeric"], ["aso", "Antistreptolysin-O (ASO)", "numeric"],
+  ["alt_sample", "ALT (alanine aminotransferase)", "numeric"], ["ast_sample", "AST (aspartate aminotransferase)", "numeric"],
+  ["red_blood_cells", "Red blood cells (RBC)", "numeric"], ["hemoglobin", "Hemoglobin (HGB)", "numeric"], ["hematocrit", "Hematocrit (HCT)", "numeric"], ["mcv", "Mean corpuscular volume (MCV)", "numeric"], ["mch", "Mean corpuscular hemoglobin (MCH)", "numeric"], ["mchc", "Mean corpuscular hemoglobin concentration (MCHC)", "numeric"], ["rdw_sample", "Red cell distribution width (RDW)", "numeric"], ["platelets", "Platelets (PLT)", "numeric"], ["mpv", "Mean platelet volume (MPV)", "numeric"], ["pdw", "Platelet distribution width (PDW)", "numeric"], ["plateletcrit", "Plateletcrit (PCT)", "numeric"], ["white_blood_cells", "White blood cells (WBC)", "numeric"], ["neutrophils_percent_sample", "Neutrophils (NEU%)", "numeric"], ["neutrophils_abs_sample", "Neutrophils, absolute (NEU)", "numeric"], ["lymphocytes_percent_sample", "Lymphocytes (LYMF%)", "numeric"], ["lymphocytes_abs_sample", "Lymphocytes, absolute (LYMF)", "numeric"],
+  ["monocytes_percent", "Monocytes (MON%)", "numeric"], ["monocytes_abs", "Monocytes, absolute (MON)", "numeric"], ["eosinophils_percent", "Eosinophils (EOS%)", "numeric"], ["eosinophils_abs", "Eosinophils, absolute (EOS)", "numeric"], ["basophils_percent", "Basophils (BAS%)", "numeric"], ["basophils_abs", "Basophils, absolute (BAS)", "numeric"], ["esr", "ESR, Westergren automated", "numeric"], ["segmented_neutrophils", "Segmented neutrophils", "numeric"], ["band_neutrophils", "Band neutrophils", "numeric"], ["lymphocytes_manual", "Lymphocytes, manual differential", "numeric"], ["monocytes_manual", "Monocytes, manual differential", "numeric"], ["eosinophils_manual", "Eosinophils, manual differential", "numeric"],
+  ["giardia_antibodies_total", "Giardia antibodies, total", "numeric"], ["ascaris_igg", "Ascaris IgG antibodies", "qualitative"], ["toxocara_igg", "anti-Toxocara IgG, qualitative ELISA", "qualitative"], ["opisthorchis_felineus_igg", "anti-Opisthorchis felineus IgG, qualitative ELISA", "qualitative"], ["echinococcus_igg", "anti-Echinococcus IgG, qualitative ELISA", "qualitative"], ["trichinella_igg", "anti-Trichinella sp. IgG, qualitative ELISA", "qualitative"], ["total_ige", "Total IgE", "numeric"], ["eosinophilic_cationic_protein", "Eosinophilic cationic protein (ECP)", "numeric"],
+];
+
+const MIGRATED_DEFINITIONS: readonly MeasurementDefinition[] = LAUNCH_CATALOG_MIGRATION_RECORDS.map((record) => ({
+  key: record.key, analyteKey: record.analyteKey, displayName: record.displayName, maturity: "provisional", sourceProvenance: { kind: "registry_v1_migration", sourceRecordKey: record.sourceRecordKey }, specimen: record.specimen, property: "unspecified", scale: "unspecified", timing: "unspecified", method: "unspecified", valueKind: "unspecified", aliases: aliases(record.aliases, "registry", "provisional"), unitPolicy: DISPLAY_POLICY, assessmentBindings: record.scoreRole === "core" ? [{ assessmentInputKey: record.sourceRecordKey, compatibility: "compatible", status: "provisional" }] : [],
+}));
+
+const SAMPLE_FIXTURE_DEFINITIONS: readonly MeasurementDefinition[] = SAMPLE_FIXTURES.map(([key, label, valueKind]) => ({
+  key: `sample_${key}`, analyteKey: key, displayName: label, maturity: "provisional", sourceProvenance: { kind: "sample_fixture", sourceRecordKey: "sample_newest.pdf" }, specimen: "unspecified", property: "unspecified", scale: valueKind === "qualitative" ? "nominal" : "quantitative", timing: "unspecified", method: "unspecified", valueKind, aliases: aliases([label, key], "fixture", "provisional", ["sample_newest.pdf"]), unitPolicy: DISPLAY_POLICY, assessmentBindings: [],
+}));
+
+export const CURATED_MEASUREMENT_DEFINITIONS = REVIEWED_DEFINITIONS;
+export const MEASUREMENT_DEFINITIONS: readonly MeasurementDefinition[] = [...REVIEWED_DEFINITIONS, ...MIGRATED_DEFINITIONS, ...SAMPLE_FIXTURE_DEFINITIONS];
+
+export const ANALYTES: readonly Analyte[] = [...new Map(MEASUREMENT_DEFINITIONS.map((definition) => [definition.analyteKey, { key: definition.analyteKey, displayName: definition.displayName, aliases: definition.aliases.map((alias) => alias.value), status: "active" as const }])).values()];
 const DEFINITION_BY_KEY = new Map(MEASUREMENT_DEFINITIONS.map((definition) => [definition.key, definition]));
+const ANALYTE_BY_KEY = new Map(ANALYTES.map((analyte) => [analyte.key, analyte]));
 
 function normalizeRawUnit(rawUnit: string): string {
-  return rawUnit
-    .trim()
-    .toLowerCase()
-    .replace(/[\u00b5\u03bc]/g, "u")
-    .replace(/\u00d7/g, "x")
-    .replace(/\u2079/g, "9")
-    .replace(/\s+/g, "")
-    .replace(/x?10\^?9\/l/g, "10^9/l")
-    .replace(/x?10\^?3\/(ul|u?l)/g, "10^3/ul");
+  return rawUnit.trim().toLowerCase().replace(/[\u00b5\u03bc]/g, "u").replace(/\u00d7/g, "x").replace(/\s+/g, "").replace(/x?10\^?9\/l/g, "10^9/l").replace(/x?10\^?12\/l/g, "10^12/l").replace(/x?10\^?3\/(ul|u?l)/g, "10^3/ul");
 }
 
 export function normalizeMeasurementUnit(rawUnit: string | null | undefined): NormalizedMeasurementUnit {
@@ -303,277 +103,85 @@ export function normalizeMeasurementUnit(rawUnit: string | null | undefined): No
   const unit = normalizeRawUnit(raw);
   if (!unit) return { raw, normalizedUnit: null, dimension: null };
   if (unit === "%" || unit === "percent") return { raw, normalizedUnit: "%", dimension: "ratio" };
-  if (unit === "fl" || unit === "femtoliter" || unit === "femtolitre") {
-    return { raw, normalizedUnit: "fl", dimension: "volume" };
-  }
-  if (unit === "10^9/l" || unit === "10^3/ul" || /\/ul$/.test(unit)) {
-    return { raw, normalizedUnit: unit === "10^3/ul" ? "10^3/ul" : "10^9/l", dimension: "cell_concentration" };
-  }
-  if (unit === "mmol/l" || unit === "umol/l" || unit === "nmol/l" || unit === "pmol/l") {
-    return { raw, normalizedUnit: unit, dimension: "molar_concentration" };
-  }
-  if (["mg/dl", "g/dl", "g/l", "ng/ml", "pg/ml", "ug/dl"].includes(unit)) {
-    return { raw, normalizedUnit: unit, dimension: "mass_concentration" };
-  }
+  if (["fl", "femtoliter", "femtolitre"].includes(unit)) return { raw, normalizedUnit: "fl", dimension: "volume" };
+  if (["10^9/l", "10^3/ul", "10^12/l"].includes(unit)) return { raw, normalizedUnit: unit, dimension: "cell_concentration" };
+  if (["u/l", "iu/l"].includes(unit)) return { raw, normalizedUnit: "u/l", dimension: "catalytic_activity_concentration" };
+  if (["mmol/l", "umol/l", "nmol/l", "pmol/l"].includes(unit)) return { raw, normalizedUnit: unit, dimension: "molar_concentration" };
+  if (["mg/dl", "g/dl", "g/l", "ng/ml", "pg/ml", "ug/dl"].includes(unit)) return { raw, normalizedUnit: unit, dimension: "mass_concentration" };
+  if (["iu/ml", "mm/hour", "titer", "positivitycoefficient"].includes(unit)) return { raw, normalizedUnit: unit, dimension: "arbitrary" };
   return { raw, normalizedUnit: unit, dimension: null };
 }
 
-/** @deprecated Use `normalizeMeasurementUnit`; retained for Registry 2.0 draft callers. */
-export function normalizeUnitToken(unit: string | null | undefined): UnitToken {
-  return normalizeMeasurementUnit(unit).dimension ?? "unknown";
-}
+export function normalizeUnitToken(unit: string | null | undefined): UnitToken { return normalizeMeasurementUnit(unit).dimension ?? "unknown"; }
+export function getMeasurementDefinition(key: string): MeasurementDefinition | undefined { return DEFINITION_BY_KEY.get(key); }
+export function getAnalyte(key: string): Analyte | undefined { return ANALYTE_BY_KEY.get(key); }
+export function getMeasurementIdentity(definition: MeasurementDefinition) { return [definition.analyteKey, definition.specimen, definition.property, definition.scale, definition.timing, definition.method, definition.valueKind] as const; }
+export function getMeasurementDefinitionsForAnalyte(analyteKey: string): readonly MeasurementDefinition[] { return MEASUREMENT_DEFINITIONS.filter((definition) => definition.analyteKey === analyteKey); }
+export function getMeasurementConversionPolicy(key: string) { const sourceKey = getMeasurementDefinition(key)?.sourceProvenance.sourceRecordKey; return LAUNCH_CATALOG_MIGRATION_RECORDS.find((record) => record.sourceRecordKey === sourceKey)?.conversion ?? null; }
 
-function normalizedModifier(input: MeasurementResolutionInput): string {
-  const explicit = input.modifier?.trim().toLowerCase();
-  if (explicit && explicit !== "none") return explicit;
-  const label = input.rawLabel.toLowerCase();
-  if (/fasting|fpg/.test(label)) return "fasting";
-  if (/absolute|abs\b/.test(label)) return "absolute";
-  if (/percent|%/.test(label)) return "percent";
-  return "none";
-}
-
-function evidence(
-  code: ResolutionReasonCode,
-  source: ResolutionEvidence["source"],
-  strength: ResolutionEvidence["strength"],
-  observed?: string,
-  expected?: readonly string[]
-): ResolutionEvidence {
-  return { code, source, strength, ...(observed ? { observed } : {}), ...(expected ? { expected } : {}) };
-}
-
-function aliasMatch(definition: MeasurementDefinition, label: string): MeasurementAlias | null {
-  return definition.aliases.find((alias) => alias.normalizedValue === label) ?? null;
-}
-
-function matchesDefinition(definition: MeasurementDefinition, label: string): MeasurementAlias | "key" | null {
-  if (definition.key === label) return "key";
-  return aliasMatch(definition, label);
-}
-
-function buildCandidateEvidence(
-  definition: MeasurementDefinition,
-  input: MeasurementResolutionInput,
-  label: string,
-  proposed: string,
-  unit: NormalizedMeasurementUnit,
-  specimen: string,
-  modifier: string,
-  source: "label" | "proposed"
-): CandidateEvidence {
-  const accepted: ResolutionEvidence[] = [];
+function evidence(code: ResolutionReasonCode, source: ResolutionEvidence["source"], strength: ResolutionEvidence["strength"], observed?: string, expected?: readonly string[]): ResolutionEvidence { return { code, source, strength, ...(observed ? { observed } : {}), ...(expected ? { expected } : {}) }; }
+function matches(definition: MeasurementDefinition, label: string) { return definition.key === label || definition.aliases.some((alias) => alias.normalizedValue === label); }
+function normalizedSpecimen(value: string | null | undefined) { const normalized = snakeCaseToken(value ?? ""); return ["serum", "plasma", "whole_blood", "urine"].includes(normalized) ? normalized : "unspecified"; }
+function candidateEvidence(definition: MeasurementDefinition, input: MeasurementResolutionInput, label: string, unit: NormalizedMeasurementUnit): CandidateEvidence {
+  const accepted: ResolutionEvidence[] = [evidence(definition.key === label ? "definition_key_match" : "alias_normalized_match", "label", "strong", definition.displayName)];
   const rejected: ResolutionEvidence[] = [];
-  const match = matchesDefinition(definition, source === "label" ? label : proposed);
-
-  if (match === "key") {
-    accepted.push(evidence("definition_key_match", "label", "strong", definition.key));
-  } else if (match) {
-    const code =
-      match.matchType === "exact"
-        ? "alias_exact_match"
-        : match.matchType === "ocr_variant"
-          ? "alias_ocr_variant_match"
-          : "alias_normalized_match";
-    accepted.push(evidence(code, "label", match.matchType === "ocr_variant" ? "weak" : "strong", match.value));
-  } else if (source === "proposed") {
-    accepted.push(evidence("proposed_key_match", "label", "weak", proposed));
+  const missingAxes: Array<"specimen" | "modifier" | "timing" | "method" | "value_kind"> = [];
+  if (unit.normalizedUnit && definition.unitPolicy.dimensions.length) {
+    if (!unit.dimension || !definition.unitPolicy.dimensions.includes(unit.dimension)) rejected.push(evidence("unit_dimension_conflict", "unit", "hard", unit.normalizedUnit, definition.unitPolicy.dimensions));
+    else if (!definition.unitPolicy.acceptedUnits.includes(unit.normalizedUnit)) rejected.push(evidence("unit_not_accepted", "unit", "hard", unit.normalizedUnit, definition.unitPolicy.acceptedUnits));
+    else accepted.push(evidence("unit_compatible", "unit", "strong", unit.normalizedUnit));
+  } else if (!unit.normalizedUnit) accepted.push(evidence("unit_missing", "unit", "weak"));
+  const specimen = normalizedSpecimen(input.specimen);
+  if (definition.specimen !== "unspecified") {
+    if (specimen === "unspecified") { missingAxes.push("specimen"); accepted.push(evidence("specimen_missing", "specimen", "weak")); }
+    else if (specimen !== definition.specimen) rejected.push(evidence("specimen_conflict", "specimen", "hard", specimen, [definition.specimen]));
+    else accepted.push(evidence("specimen_compatible", "specimen", "strong", specimen));
   }
-
-  if (unit.normalizedUnit == null) {
-    if (definition.unitPolicy.missingUnitPolicy === "reject") {
-      rejected.push(evidence("unit_missing", "unit", "hard"));
-    } else {
-      accepted.push(evidence("unit_missing", "unit", "weak"));
-    }
-  } else if (unit.dimension == null || !definition.unitPolicy.dimensions.includes(unit.dimension)) {
-    rejected.push(
-      evidence("unit_dimension_conflict", "unit", "hard", unit.normalizedUnit, definition.unitPolicy.dimensions)
-    );
-  } else if (!definition.unitPolicy.acceptedUnits.includes(unit.normalizedUnit)) {
-    rejected.push(
-      evidence("unit_not_accepted", "unit", "hard", unit.normalizedUnit, definition.unitPolicy.acceptedUnits)
-    );
-  } else {
-    accepted.push(evidence("unit_compatible", "unit", "strong", unit.normalizedUnit));
+  if (definition.requiredModifiers?.length) {
+    const modifier = snakeCaseToken(input.modifier ?? "");
+    if (!modifier) { missingAxes.push("modifier"); accepted.push(evidence("modifier_missing", "modifier", "weak")); }
+    else if (!definition.requiredModifiers.includes(modifier)) rejected.push(evidence("modifier_conflict", "modifier", "hard", modifier, definition.requiredModifiers));
+    else accepted.push(evidence("modifier_compatible", "modifier", "strong", modifier));
   }
-
-  if (definition.allowedSpecimens?.length && specimen !== "unspecified") {
-    if (!definition.allowedSpecimens.includes(specimen)) {
-      rejected.push(evidence("specimen_conflict", "specimen", "hard", specimen, definition.allowedSpecimens));
-    } else {
-      accepted.push(evidence("specimen_compatible", "specimen", "strong", specimen));
-    }
-  }
-
-  if (definition.requiredModifiers?.length && modifier !== "none") {
-    if (!definition.requiredModifiers.includes(modifier)) {
-      rejected.push(evidence("modifier_conflict", "modifier", "hard", modifier, definition.requiredModifiers));
-    } else {
-      accepted.push(evidence("modifier_compatible", "modifier", "strong", modifier));
-    }
-  }
-
-  const neighbourLabels = input.neighbourLabels?.map(snakeCaseToken) ?? [];
-  if (neighbourLabels.includes(definition.analyteKey)) {
-    accepted.push(evidence("neighbour_support", "neighbour", "weak", definition.analyteKey));
-  }
-  if (input.section?.trim()) {
-    accepted.push(evidence("section_support", "section", "weak", input.section.trim()));
-  }
-  if (input.referenceLow != null || input.referenceHigh != null) {
-    accepted.push(evidence("reference_shape_support", "reference", "weak"));
-  }
-
-  const score = rejected.length ? null : accepted.reduce((total, item) => total + (item.strength === "strong" ? 2 : 1), 0);
-  return { candidateKey: definition.key, accepted, rejected, score };
-}
-
-function confidenceFor(
-  result: MeasurementResolution["result"],
-  selected: CandidateEvidence | undefined
-): { band: MappingConfidenceBand; value: number } {
-  if (result !== "resolved" || !selected) return { band: "low", value: 0 };
-  const strongEvidence = selected.accepted.filter((item) => item.strength === "strong").length;
-  if (strongEvidence >= 2) return { band: "high", value: 0.95 };
-  return { band: "medium", value: 0.7 };
-}
-
-export function getMeasurementDefinition(key: string): MeasurementDefinition | undefined {
-  return DEFINITION_BY_KEY.get(key);
-}
-
-export function getAnalyte(key: string): Analyte | undefined {
-  return ANALYTE_BY_KEY.get(key);
-}
-
-export function getMeasurementIdentity(definition: MeasurementDefinition) {
-  return [definition.analyteKey, definition.specimen, definition.property, definition.scale, definition.timing, definition.method] as const;
-}
-
-export function getMeasurementDefinitionsForAnalyte(analyteKey: string): readonly MeasurementDefinition[] {
-  return MEASUREMENT_DEFINITIONS.filter((definition) => definition.analyteKey === analyteKey);
-}
-
-/**
- * Reuses existing biomarker conversion rules. Measurement definitions only
- * reference a policy; they never duplicate numerical conversion constants.
- */
-export function getMeasurementConversionPolicy(key: string) {
-  const definition = getMeasurementDefinition(key);
-  if (!definition?.unitPolicy.conversionPolicyRef?.startsWith("biomarker:")) return null;
-  const biomarkerKey = definition.unitPolicy.conversionPolicyRef.slice("biomarker:".length);
-  return getBiomarkerDefinition(biomarkerKey)?.conversion ?? null;
+  if (definition.valueKind !== "unspecified" && input.valueKind && input.valueKind !== definition.valueKind) missingAxes.push("value_kind");
+  const score = rejected.length ? null : accepted.reduce((sum, item) => sum + (item.strength === "strong" ? 2 : 1), 0);
+  return { candidateKey: definition.key, accepted, rejected, missingAxes, score };
 }
 
 export function resolveMeasurementDefinition(input: MeasurementResolutionInput): MeasurementResolution {
   const label = snakeCaseToken(input.rawLabel);
-  const proposed = input.proposedKey ? snakeCaseToken(input.proposedKey) : "";
-  const specimen = input.specimen?.trim().toLowerCase() || "unspecified";
-  const modifier = normalizedModifier(input);
+  const proposed = snakeCaseToken(input.proposedKey ?? "");
+  const matched = MEASUREMENT_DEFINITIONS.filter((definition) => matches(definition, label) || (!label && proposed && matches(definition, proposed)));
   const unit = normalizeMeasurementUnit(input.rawUnit);
-  const labelDefinitions = CURATED_MEASUREMENT_DEFINITIONS.filter((definition) => matchesDefinition(definition, label));
-  const proposedDefinitions = labelDefinitions.length || !proposed
-    ? []
-    : CURATED_MEASUREMENT_DEFINITIONS.filter((definition) => matchesDefinition(definition, proposed));
-  const considered = labelDefinitions.length ? labelDefinitions : proposedDefinitions;
-  const source = labelDefinitions.length ? "label" as const : "proposed" as const;
-  const candidateEvidence: CandidateEvidence[] = considered.map((definition) =>
-    buildCandidateEvidence(definition, input, label, proposed, unit, specimen, modifier, source)
-  );
-  const compatible = candidateEvidence.filter((candidate) => candidate.rejected.length === 0);
-  const exactCandidate = compatible.filter((candidate) => candidate.candidateKey === label);
-  const narrowed = exactCandidate.length === 1 ? exactCandidate : compatible;
-  const selected = narrowed.length === 1 ? narrowed[0] : undefined;
-  const result: MeasurementResolution["result"] = selected
-    ? "resolved"
-    : narrowed.length === 0
-      ? "unmapped"
-      : "ambiguous";
-  const definition = selected ? getMeasurementDefinition(selected.candidateKey) : undefined;
-  const confidence = confidenceFor(result, selected);
-  const reasons = candidateEvidence.flatMap((candidate) => [
-    ...candidate.accepted.map((item) => item.code),
-    ...candidate.rejected.map((item) => item.code),
-  ]);
-
-  return {
-    result,
-    measurementDefinitionKey: definition?.key ?? null,
-    canonicalKey: definition?.canonicalKey ?? null,
-    mappingConfidence: confidence.value,
-    mappingConfidenceBand: confidence.band,
-    unit,
-    unitToken: unit.dimension ?? "unknown",
-    candidateKeys: narrowed.map((candidate) => candidate.candidateKey),
-    candidateEvidence,
-    reasons: [...new Set(reasons)],
-  };
+  const evidenceByCandidate = matched.map((definition) => candidateEvidence(definition, input, label || proposed, unit));
+  const compatible = evidenceByCandidate.filter((candidate) => candidate.rejected.length === 0);
+  const concrete = compatible.filter((candidate) => { const definition = getMeasurementDefinition(candidate.candidateKey)!; return definition.maturity === "reviewed" && candidate.missingAxes.length === 0; });
+  const result = concrete.length === 1 ? "resolved" : concrete.length > 1 ? "ambiguous" : matched.length ? "partial" : "unmapped";
+  const selected = concrete.length === 1 ? getMeasurementDefinition(concrete[0].candidateKey) : undefined;
+  const analytes = new Set((compatible.length ? compatible : evidenceByCandidate).map((candidate) => getMeasurementDefinition(candidate.candidateKey)?.analyteKey).filter((key): key is string => Boolean(key)));
+  const reasons = [...new Set(evidenceByCandidate.flatMap((candidate) => [...candidate.accepted, ...candidate.rejected].map((item) => item.code)))];
+  const missingAxes = [...new Set(evidenceByCandidate.flatMap((candidate) => candidate.missingAxes))];
+  const conflicts = [...new Set(evidenceByCandidate.flatMap((candidate) => candidate.rejected.map((item) => item.code)))];
+  const confidence: { value: number; band: MappingConfidenceBand } = result === "resolved" ? { value: 0.95, band: "high" } : result === "partial" ? { value: 0.7, band: "medium" } : { value: 0, band: "low" };
+  return { result, measurementDefinitionKey: selected?.key ?? null, analyteKey: analytes.size === 1 ? [...analytes][0] : selected?.analyteKey ?? null, mappingConfidence: confidence.value, mappingConfidenceBand: confidence.band, unit, unitToken: unit.dimension ?? "unknown", candidateKeys: (compatible.length ? compatible : evidenceByCandidate).map((candidate) => candidate.candidateKey), missingAxes, conflicts, candidateEvidence: evidenceByCandidate, reasons };
 }
 
-export type MeasurementRegistryValidation = {
-  valid: boolean;
-  errors: string[];
-  warnings: string[];
-};
-
-export function validateMeasurementRegistry(
-  definitions: readonly MeasurementDefinition[] = MEASUREMENT_DEFINITIONS
-): MeasurementRegistryValidation {
+export type MeasurementRegistryValidation = { valid: boolean; errors: string[]; warnings: string[] };
+export function validateMeasurementRegistry(definitions: readonly MeasurementDefinition[] = MEASUREMENT_DEFINITIONS): MeasurementRegistryValidation {
   const errors: string[] = [];
   const warnings: string[] = [];
   const keys = new Set<string>();
-  const aliasesByValue = new Map<string, MeasurementDefinition[]>();
-  const curatedIdentities = new Map<string, string>();
-  const coveredLegacy = new Set<string>();
-  const adapterFallbacks = new Map<string, number>();
-
+  const migrated = new Set<string>();
+  const reviewedIdentities = new Map<string, string>();
   for (const definition of definitions) {
     if (keys.has(definition.key)) errors.push(`Duplicate measurement definition key: ${definition.key}`);
     keys.add(definition.key);
-    if (!definition.analyteKey) errors.push(`Missing analyte key: ${definition.key}`);
-    if (!ANALYTE_BY_KEY.has(definition.analyteKey)) errors.push(`Unknown analyte key: ${definition.key} -> ${definition.analyteKey}`);
-    if (!definition.definitionSource || !definition.specimen || !definition.property || !definition.scale || !definition.timing || !definition.method) errors.push(`Incomplete measurement identity: ${definition.key}`);
-    if (definition.canonicalKey && !getBiomarkerDefinition(definition.canonicalKey)) {
-      errors.push(`Unknown canonical biomarker key: ${definition.key} -> ${definition.canonicalKey}`);
-    }
-    if (!definition.unitPolicy) errors.push(`Missing unit policy: ${definition.key}`);
-    if (definition.unitPolicy.dimensions.length && !definition.unitPolicy.acceptedUnits.length) {
-      errors.push(`Unit policy has dimensions but no accepted units: ${definition.key}`);
-    }
-    if (definition.canonicalKey) coveredLegacy.add(definition.canonicalKey);
-    if (definition.definitionSource === "legacy_adapter") {
-      if (!definition.canonicalKey) errors.push(`Adapter definition lacks legacy key: ${definition.key}`);
-      else adapterFallbacks.set(definition.canonicalKey, (adapterFallbacks.get(definition.canonicalKey) ?? 0) + 1);
-    } else {
-      const identity = getMeasurementIdentity(definition).join("|");
-      const previous = curatedIdentities.get(identity);
-      if (previous) errors.push(`Duplicate curated measurement identity: ${previous} and ${definition.key}`);
-      curatedIdentities.set(identity, definition.key);
-    }
-    for (const alias of definition.definitionSource === "curated" ? definition.aliases : []) {
-      if (!alias.normalizedValue || !alias.source || !alias.matchType) {
-        errors.push(`Incomplete alias metadata: ${definition.key}`);
-      }
-      const bucket = aliasesByValue.get(alias.normalizedValue) ?? [];
-      bucket.push(definition);
-      aliasesByValue.set(alias.normalizedValue, bucket);
-    }
+    if (!definition.analyteKey || !definition.maturity || !definition.sourceProvenance || !definition.valueKind) errors.push(`Incomplete measurement definition: ${definition.key}`);
+    if (definition.sourceProvenance.kind === "registry_v1_migration") migrated.add(definition.sourceProvenance.sourceRecordKey);
+    if (definition.maturity === "reviewed") { const identity = getMeasurementIdentity(definition).join("|"); const existing = reviewedIdentities.get(identity); if (existing) errors.push(`Duplicate reviewed measurement identity: ${existing} and ${definition.key}`); reviewedIdentities.set(identity, definition.key); }
+    if (definition.unitPolicy.dimensions.length && !definition.unitPolicy.acceptedUnits.length) errors.push(`Unit policy has dimensions but no units: ${definition.key}`);
   }
-
-  for (const legacy of BIOMARKER_DEFINITIONS) {
-    if (!coveredLegacy.has(legacy.key)) errors.push(`Uncovered legacy biomarker key: ${legacy.key}`);
-    if ((adapterFallbacks.get(legacy.key) ?? 0) > 1) errors.push(`Multiple adapter fallbacks for legacy key: ${legacy.key}`);
-  }
-
-  for (const [alias, definitionsForAlias] of aliasesByValue) {
-    const analytes = new Set(definitionsForAlias.map((definition) => definition.analyteKey));
-    if (analytes.size > 1) {
-      errors.push(`Alias collision across analytes: ${alias}`);
-    } else if (definitionsForAlias.length > 1) {
-      warnings.push(`Context-dependent alias: ${alias}`);
-    }
-  }
-
+  for (const record of LAUNCH_CATALOG_MIGRATION_RECORDS) if (!migrated.has(record.sourceRecordKey)) errors.push(`Undispositioned Registry v1 concept: ${record.sourceRecordKey}`);
+  if (definitions.filter((definition) => definition.maturity === "provisional").length < LAUNCH_CATALOG_MIGRATION_RECORDS.length) warnings.push("Launch migration has fewer provisional records than its source inventory");
   return { valid: errors.length === 0, errors, warnings };
 }

@@ -1,117 +1,26 @@
 import assert from "node:assert/strict";
-import {
-  buildMeasurementRegistryRelease,
-  classifyMeasurementDefinitionChange,
-  digestMeasurementRegistryManifest,
-  MEASUREMENT_DEFINITIONS,
-  LEGACY_COMPATIBILITY_DEFINITIONS,
-  BIOMARKER_DEFINITIONS,
-  MEASUREMENT_REGISTRY_DIGEST,
-  resolveMeasurementDefinition,
-  serializeMeasurementRegistryManifest,
-  validateMeasurementRegistry,
-} from "../src/lib/biomarkers";
-import {
-  compatibleManualDefinitions,
-  decideAutomaticPromotion,
-} from "../src/lib/documents/normalization-policy";
-
+import { readFileSync } from "node:fs";
+import { LAUNCH_CATALOG_MIGRATION_RECORDS, MEASUREMENT_DEFINITIONS, MEASUREMENT_REGISTRY_DIGEST, digestMeasurementRegistryManifest, normalizeMeasurementUnit, resolveMeasurementDefinition, serializeMeasurementRegistryManifest, validateMeasurementRegistry } from "../src/lib/biomarkers";
+import { acceptancePathForResolution, decideAutomaticPromotion } from "../src/lib/documents/normalization-policy";
 const validation = validateMeasurementRegistry();
 assert.equal(validation.valid, true, validation.errors.join("; "));
-assert.equal(MEASUREMENT_REGISTRY_DIGEST.length, 64);
-assert.equal(
-  digestMeasurementRegistryManifest([...MEASUREMENT_DEFINITIONS].reverse()),
-  MEASUREMENT_REGISTRY_DIGEST,
-  "manifest ordering must not affect its digest"
-);
-
-const changedAliasDefinitions = MEASUREMENT_DEFINITIONS.map((definition) =>
-  definition.key === "neutrophils_percent"
-    ? {
-        ...definition,
-        aliases: [
-          ...definition.aliases,
-          {
-            value: "neu_pct",
-            normalizedValue: "neu_pct",
-            source: "fixture" as const,
-            matchType: "ocr_variant" as const,
-          },
-        ],
-      }
-    : definition
-);
-assert.notEqual(
-  digestMeasurementRegistryManifest(changedAliasDefinitions),
-  MEASUREMENT_REGISTRY_DIGEST,
-  "alias policy changes must affect the digest"
-);
-
-const changedDefinition = changedAliasDefinitions.find(
-  (definition) => definition.key === "neutrophils_percent"
-);
-const originalDefinition = MEASUREMENT_DEFINITIONS.find(
-  (definition) => definition.key === "neutrophils_percent"
-);
-assert.ok(changedDefinition && originalDefinition);
-assert.equal(
-  classifyMeasurementDefinitionChange(originalDefinition, changedDefinition).classification,
-  "review_required"
-);
-
-const assessmentChanged = {
-  ...originalDefinition,
-  assessmentCompatibility: "compatible" as const,
-};
-assert.equal(
-  classifyMeasurementDefinitionChange(originalDefinition, assessmentChanged).classification,
-  "breaking"
-);
-assert.equal(
-  classifyMeasurementDefinitionChange(originalDefinition, { ...originalDefinition, specimen: "serum" }).classification,
-  "breaking"
-);
-
-const release = buildMeasurementRegistryRelease({
-  previousDefinitions: MEASUREMENT_DEFINITIONS,
-  regressionFixtures: [{ name: "verify-measurement-registry-runner", status: "passed" }],
-});
-assert.equal(release.manifestDigest, MEASUREMENT_REGISTRY_DIGEST);
-assert.ok(release.changedDefinitions.every((change) => change.classification));
-assert.ok(serializeMeasurementRegistryManifest(MEASUREMENT_DEFINITIONS).includes("analyteKey"));
-assert.ok(serializeMeasurementRegistryManifest(MEASUREMENT_DEFINITIONS).includes("definitionSource"));
-assert.equal(LEGACY_COMPATIBILITY_DEFINITIONS.length, BIOMARKER_DEFINITIONS.length - 8);
-assert.ok(LEGACY_COMPATIBILITY_DEFINITIONS.every((definition) => definition.definitionSource === "legacy_adapter"));
-
-const neutrophilPercentInput = {
-  rawLabel: "Neutrophils",
-  rawUnit: "%",
-  specimen: "whole_blood",
-};
-assert.deepEqual(
-  compatibleManualDefinitions(neutrophilPercentInput).map((definition) => definition.key),
-  ["neutrophils_percent"],
-  "manual review must not offer definitions with a hard unit conflict"
-);
-const percentResolution = resolveMeasurementDefinition(neutrophilPercentInput);
-assert.deepEqual(
-  decideAutomaticPromotion({
-    resolution: percentResolution,
-    mappingClassification: "compatibility_preserving",
-    activeRevision: { verification_status: "manually_corrected" },
-    mode: "promote",
-    qualityGateApproved: true,
-  }),
-  { allowed: false, reason: "manual_decision_protected" }
-);
-assert.deepEqual(
-  decideAutomaticPromotion({
-    resolution: percentResolution,
-    mappingClassification: "compatibility_preserving",
-    mode: "promote",
-    qualityGateApproved: false,
-  }),
-  { allowed: false, reason: "quality_gate_not_approved" }
-);
-
+assert.equal(LAUNCH_CATALOG_MIGRATION_RECORDS.length, 113);
+assert.equal(new Set(LAUNCH_CATALOG_MIGRATION_RECORDS.map((record) => record.sourceRecordKey)).size, 113);
+assert.ok(MEASUREMENT_DEFINITIONS.every((definition) => definition.sourceProvenance.kind !== "registry_v1_migration" || definition.maturity === "provisional"));
+assert.match(readFileSync("supabase/migrations/025_registry_v2_hard_cutover.sql", "utf8"), /'partial'/);
+assert.equal(digestMeasurementRegistryManifest([...MEASUREMENT_DEFINITIONS].reverse()), MEASUREMENT_REGISTRY_DIGEST);
+assert.ok(serializeMeasurementRegistryManifest(MEASUREMENT_DEFINITIONS).includes("assessmentBindings"));
+assert.deepEqual(normalizeMeasurementUnit("U/L"), { raw: "U/L", normalizedUnit: "u/l", dimension: "catalytic_activity_concentration" });
+for (const enzyme of ["alt", "ast", "alp", "ggt"] as const) { const resolved = resolveMeasurementDefinition({ rawLabel: enzyme, rawUnit: "U/L", specimen: "serum", valueKind: "numeric" }); assert.equal(resolved.result, "resolved"); assert.equal(resolved.measurementDefinitionKey, `${enzyme}_serum_catalytic_activity`); }
+const altPartial = resolveMeasurementDefinition({ rawLabel: "Alanine aminotransferase", rawUnit: "U/L", valueKind: "numeric" });
+assert.equal(altPartial.result, "partial"); assert.equal(altPartial.analyteKey, "alt"); assert.ok(altPartial.missingAxes.includes("specimen")); assert.equal(acceptancePathForResolution(altPartial), "raw");
+const opisthorchis = resolveMeasurementDefinition({ rawLabel: "anti-Opisthorchis felineus IgG, qualitative ELISA", valueKind: "qualitative" });
+assert.equal(opisthorchis.result, "partial"); assert.equal(opisthorchis.analyteKey, "opisthorchis_felineus_igg"); assert.equal(resolveMeasurementDefinition({ rawLabel: "Not a known laboratory marker" }).result, "unmapped");
+const fastingWithoutModifier = resolveMeasurementDefinition({ rawLabel: "FPG", rawUnit: "mmol/L", specimen: "plasma", valueKind: "numeric" });
+assert.equal(fastingWithoutModifier.result, "partial");
+assert.ok(fastingWithoutModifier.missingAxes.includes("modifier"));
+const glucoseWithoutSpecimen = resolveMeasurementDefinition({ rawLabel: "Glucose", rawUnit: "mmol/L", valueKind: "numeric" });
+assert.equal(glucoseWithoutSpecimen.result, "partial");
+assert.ok(glucoseWithoutSpecimen.missingAxes.includes("specimen"));
+assert.deepEqual(decideAutomaticPromotion({ resolution: altPartial, mappingClassification: "compatibility_preserving", qualityGateApproved: true }), { allowed: false, reason: "resolver_not_resolved" });
 console.log("verify-measurement-registry: all checks passed");

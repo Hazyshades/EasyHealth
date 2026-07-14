@@ -2,14 +2,9 @@ import { NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertDocumentOwner } from "@/lib/documents/access";
-import {
-  getBiomarkerDefinition,
-  inferModifier,
-  inferSpecimen,
-  normalizeBiomarkerKey,
-  parseLabValueCell,
-} from "@/lib/biomarkers";
+import { parseLabValueCell } from "@/lib/biomarkers";
 import { parseReferenceRange } from "@/lib/schemas/biomarkers";
+import { buildObservationUpsertPayload } from "@/lib/documents/observation-identity";
 import {
   compatibleManualDefinitions,
   createManualCorrection,
@@ -21,7 +16,6 @@ import {
   buildNormalizationReview,
   type NormalizationRevisionSummary,
 } from "@/lib/documents/normalization-review";
-import { recordMeasurementShadowEvent } from "@/lib/documents/measurement-shadow";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -86,7 +80,7 @@ export async function GET(_req: Request, context: RouteContext) {
     ? await supabase
         .from("observation_normalization_revisions")
         .select(
-          "id, extracted_biomarker_id, measurement_definition_key, canonical_biomarker_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, registry_version, resolver_version, normalization_schema_version, created_at"
+          "id, extracted_biomarker_id, analyte_key, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, registry_version, resolver_version, normalization_schema_version, created_at"
         )
         .in("extracted_biomarker_id", ids)
         .order("created_at", { ascending: false })
@@ -145,10 +139,8 @@ export async function PATCH(req: Request, context: RouteContext) {
   if (!data) return NextResponse.json({ error: "Extracted biomarker not found" }, { status: 404 });
   const row = data as ExtractedBiomarkerRow;
 
-  const legacyKey = normalizeBiomarkerKey(row.biomarker_key ?? "", row.biomarker_name);
-  const legacyDefinition = getBiomarkerDefinition(legacyKey);
-  const specimen = inferSpecimen(legacyKey, row.biomarker_name, row.specimen ?? legacyDefinition?.specimen ?? null);
-  const modifier = inferModifier(legacyKey, row.biomarker_name, row.modifier ?? null);
+  const specimen = row.specimen ?? "unspecified";
+  const modifier = row.modifier ?? "none";
   const { ref_low, ref_high } = parseReferenceRange(row.reference_range ?? row.raw_reference_range);
   const input = {
     rawLabel: row.raw_name ?? row.biomarker_name,
@@ -186,7 +178,7 @@ export async function PATCH(req: Request, context: RouteContext) {
   if (!revisionResult) {
     return NextResponse.json({ error: "A compatible definition and active revision are required" }, { status: 400 });
   }
-  if (!revisionResult.resolution.canonicalKey || !revisionResult.resolution.measurementDefinitionKey) {
+  if (!revisionResult.resolution.measurementDefinitionKey) {
     return NextResponse.json({ error: "This compatible definition has no supported observation identity" }, { status: 409 });
   }
 
@@ -217,11 +209,10 @@ export async function PATCH(req: Request, context: RouteContext) {
   const { data: observation, error: upsertError } = await supabase
     .from("observations")
     .upsert(
-      {
+      buildObservationUpsertPayload(
+        {
         profile_id: profileId,
         document_id: id,
-        biomarker_key: revisionResult.resolution.canonicalKey,
-        measurement_definition_key: revisionResult.resolution.measurementDefinitionKey,
         name: row.biomarker_name,
         value,
         value_kind: valueKind ?? "text",
@@ -242,7 +233,9 @@ export async function PATCH(req: Request, context: RouteContext) {
         reported_alt_unit: row.reported_alt_unit,
         source_extracted_biomarker_id: row.id,
       },
-      { onConflict: "profile_id,biomarker_key,observed_at,specimen,modifier" }
+        revisionResult.resolution
+      ),
+      { onConflict: "source_extracted_biomarker_id" }
     )
     .select("id")
     .single();
@@ -253,16 +246,6 @@ export async function PATCH(req: Request, context: RouteContext) {
     .update({ status: "accepted", verification_status: "manually_corrected" })
     .eq("id", row.id);
   if (statusError) return NextResponse.json({ error: statusError.message }, { status: 500 });
-  await recordMeasurementShadowEvent({
-    profileId,
-    documentId: id,
-    extractedBiomarkerId: row.id,
-    eventType: "manual_correction",
-    legacyBiomarkerKey: legacyKey,
-    resolution: revisionResult.resolution,
-    context: { specimen, modifier, raw_unit: row.raw_unit ?? row.unit },
-  });
-
   return NextResponse.json({
     revision: revisionResult.revision,
     compatibleDefinitionKeys: compatibleManualDefinitions(input).map((definition) => definition.key),

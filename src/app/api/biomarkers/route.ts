@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { getProfileById } from "@/lib/auth/profile";
-import { presentObservation, resolveCanonicalKey } from "@/lib/biomarkers";
+import { presentObservation } from "@/lib/biomarkers";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
@@ -21,7 +21,7 @@ export async function GET() {
       .order("observed_at", { ascending: false });
 
     const presented = (observations ?? []).map((row) => {
-      const key = resolveCanonicalKey(row.biomarker_key, row.name ?? "");
+      const definitionKey = row.measurement_definition_key ?? null;
       const valueKind = (row.value_kind as string) ?? "numeric";
       const numericValue = row.value != null ? Number(row.value) : null;
 
@@ -38,10 +38,10 @@ export async function GET() {
         original_ref_high: row.ref_high != null ? Number(row.ref_high) : null,
       };
 
-      if (valueKind === "numeric" && numericValue != null) {
+      if (valueKind === "numeric" && numericValue != null && definitionKey) {
         display = presentObservation(
           {
-            biomarker_key: key,
+            measurement_definition_key: definitionKey,
             value: numericValue,
             unit: row.unit ?? "",
             ref_low: row.ref_low != null ? Number(row.ref_low) : null,
@@ -53,7 +53,9 @@ export async function GET() {
 
       return {
         ...row,
-        biomarker_key: key,
+        measurement_definition_key: definitionKey,
+        analyte_key: row.analyte_key ?? null,
+        resolution_status: row.resolution_status ?? null,
         value: valueKind === "numeric" ? display.value : null,
         value_kind: valueKind,
         value_text: row.value_text ?? (numericValue != null ? String(numericValue) : null),

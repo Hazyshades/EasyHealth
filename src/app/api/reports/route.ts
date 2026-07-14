@@ -167,7 +167,8 @@ export async function POST(req: NextRequest) {
     structured,
     (observations ?? []).map((o) => ({
       name: o.name,
-      biomarker_key: o.biomarker_key,
+      analyte_key: o.analyte_key ?? null,
+      measurement_definition_key: o.measurement_definition_key ?? null,
       value: Number(o.value),
       unit: o.unit,
       ref_low: o.ref_low != null ? Number(o.ref_low) : null,

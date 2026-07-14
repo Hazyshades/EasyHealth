@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { getProfileById } from "@/lib/auth/profile";
-import { presentObservation, resolveCanonicalKey } from "@/lib/biomarkers";
+import { getMeasurementDefinition, presentObservation } from "@/lib/biomarkers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildHealthProfile, type HealthProfileSource } from "@/lib/health-systems";
 import {
@@ -30,7 +30,7 @@ export async function GET() {
       supabase
         .from("observations")
         .select(
-          "biomarker_key, name, value, unit, ref_low, ref_high, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier"
+          "measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier"
         )
         .eq("profile_id", profileId),
       supabase
@@ -69,8 +69,11 @@ export async function GET() {
   );
 
   const profile = buildHealthProfile(
-    scopedObservations.map((o) => {
-      const key = resolveCanonicalKey(o.biomarker_key, o.name ?? "");
+    scopedObservations.flatMap<Parameters<typeof buildHealthProfile>[0][number]>((o) => {
+      if (o.resolution_status !== "resolved" || !o.measurement_definition_key) return [];
+      const definition = getMeasurementDefinition(o.measurement_definition_key);
+      const key = definition?.assessmentBindings.find((binding) => binding.status === "reviewed" && binding.compatibility === "compatible")?.assessmentInputKey;
+      if (!key) return [];
       const valueKind =
         o.value_kind === "qualitative" ||
         o.value_kind === "ordinal" ||
@@ -81,7 +84,7 @@ export async function GET() {
       const numericValue = o.value != null ? Number(o.value) : null;
 
       if (valueKind !== "numeric" || numericValue == null) {
-        return {
+        return [{
           biomarker_key: key,
           name: o.name,
           value: null,
@@ -97,12 +100,12 @@ export async function GET() {
           ordinal: o.ordinal != null ? Number(o.ordinal) : null,
           specimen: o.specimen ?? "unspecified",
           modifier: o.modifier ?? "none",
-        };
+        }];
       }
 
       const display = presentObservation(
         {
-          biomarker_key: key,
+          measurement_definition_key: o.measurement_definition_key,
           value: numericValue,
           unit: o.unit ?? "",
           ref_low: o.ref_low != null ? Number(o.ref_low) : null,
@@ -110,7 +113,7 @@ export async function GET() {
         },
         labUnitSystem
       );
-      return {
+      return [{
         biomarker_key: key,
         name: o.name,
         value: display.value,
@@ -130,7 +133,7 @@ export async function GET() {
         conversion_note: display.conversion_note,
         original_value: display.original_value,
         original_unit: display.original_unit,
-      };
+      }];
     }),
     sources
   );

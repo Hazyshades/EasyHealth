@@ -7,10 +7,10 @@ import type { PipelineLlmContext } from "@/lib/ai/pipeline-trace";
 import {
   inferModifier,
   inferSpecimen,
-  normalizeBiomarkerKey,
   parseLabValueCell,
   type ValueKind,
 } from "@/lib/biomarkers";
+import { resolveLaunchCatalogKey as normalizeBiomarkerKey } from "@/lib/biomarkers/launch-registry";
 import { parseLabNumber } from "@/lib/schemas/biomarkers";
 
 export function formatReferenceRange(

@@ -81,40 +81,40 @@ export async function ensureProfile(user: User): Promise<string> {
     (typeof user.user_metadata?.name === "string" && user.user_metadata.name) ||
     null;
   const identity = resolveProfileIdentity(metaName, email);
-
-  const { data: existing } = await supabase
-    .from("profiles")
-    .select("id, email")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (existing) {
-    if (email && email !== existing.email) {
-      await supabase.from("profiles").update({ email }).eq("id", existing.id);
-    }
-    return existing.id as string;
-  }
-
   const { data, error } = await supabase
     .from("profiles")
-    .insert({
-      id: user.id,
-      email,
-      display_name: identity.firstName,
-      // first_name left null so onboarding profile gate still runs unless set later
-    })
+    .upsert(
+      {
+        id: user.id,
+        email,
+        display_name: identity.firstName,
+        // first_name left null so onboarding profile gate still runs unless set later
+      },
+      { onConflict: "id" }
+    )
     .select("id")
     .single();
 
   if (error) {
-    // Race: concurrent ensure may hit unique id
-    const { data: raced } = await supabase
+    const { data: existing } = await supabase
       .from("profiles")
       .select("id")
       .eq("id", user.id)
       .maybeSingle();
-    if (raced?.id) return raced.id as string;
-    throw error;
+    if (existing?.id) return existing.id as string;
+
+    throw new Error(
+      `ensureProfile upsert failed: ${JSON.stringify(
+        {
+          message: (error as { message?: string }).message,
+          code: (error as { code?: string }).code,
+          details: (error as { details?: string }).details,
+          hint: (error as { hint?: string }).hint,
+        },
+        null,
+        2
+      )}`
+    );
   }
 
   return data.id as string;

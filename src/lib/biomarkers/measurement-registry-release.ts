@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import {
   MEASUREMENT_DEFINITIONS,
   ANALYTES,
-  MEASUREMENT_ADAPTER_VERSION,
   MEASUREMENT_NORMALIZATION_SCHEMA_VERSION,
   MEASUREMENT_REGISTRY_VERSION,
   MEASUREMENT_RESOLVER_VERSION,
@@ -47,13 +46,14 @@ function manifestDefinition(definition: MeasurementDefinition) {
   return {
     key: definition.key,
     analyteKey: definition.analyteKey,
-    definitionSource: definition.definitionSource,
+    maturity: definition.maturity,
+    sourceProvenance: definition.sourceProvenance,
     specimen: definition.specimen,
     property: definition.property,
     scale: definition.scale,
     timing: definition.timing,
     method: definition.method,
-    canonicalKey: definition.canonicalKey,
+    valueKind: definition.valueKind,
     aliases: definition.aliases.map((alias) => ({
       value: alias.value,
       normalizedValue: alias.normalizedValue,
@@ -65,7 +65,7 @@ function manifestDefinition(definition: MeasurementDefinition) {
     unitPolicy: definition.unitPolicy,
     allowedSpecimens: definition.allowedSpecimens ?? [],
     requiredModifiers: definition.requiredModifiers ?? [],
-    assessmentCompatibility: definition.assessmentCompatibility,
+    assessmentBindings: definition.assessmentBindings,
   };
 }
 
@@ -73,7 +73,7 @@ export function serializeMeasurementRegistryManifest(
   definitions: readonly MeasurementDefinition[] = MEASUREMENT_DEFINITIONS
 ): string {
   return stableValue({
-    adapterVersion: MEASUREMENT_ADAPTER_VERSION,
+    registryModel: "launch-catalog-v2",
     analytes: ANALYTES,
     definitions: definitions.map(manifestDefinition),
   });
@@ -95,14 +95,15 @@ export function classifyMeasurementDefinitionChange(
 
   const identityChanged =
     previous.analyteKey !== next.analyteKey ||
-    previous.definitionSource !== next.definitionSource ||
+    previous.maturity !== next.maturity ||
+    stableValue(previous.sourceProvenance) !== stableValue(next.sourceProvenance) ||
     previous.specimen !== next.specimen ||
     previous.property !== next.property ||
     previous.scale !== next.scale ||
     previous.timing !== next.timing ||
     previous.method !== next.method ||
-    previous.canonicalKey !== next.canonicalKey ||
-    previous.assessmentCompatibility !== next.assessmentCompatibility ||
+    previous.valueKind !== next.valueKind ||
+    stableValue(previous.assessmentBindings) !== stableValue(next.assessmentBindings) ||
     stableValue(previous.unitPolicy) !== stableValue(next.unitPolicy) ||
     stableValue(previous.allowedSpecimens ?? []) !== stableValue(next.allowedSpecimens ?? []) ||
     stableValue(previous.requiredModifiers ?? []) !== stableValue(next.requiredModifiers ?? []);

@@ -9,10 +9,14 @@
     "typecheck": "tsc --noEmit",
     "test:biomarkers": "tsx scripts/verify-biomarkers-runner.ts",
     "test:measurement-registry": "tsx scripts/verify-measurement-registry-runner.ts",
+    "test:document-review": "tsx scripts/verify-document-review-runner.ts",
+    "test:observation-identity": "tsx scripts/verify-observation-identity-runner.ts",
+    "check:no-registry-v1-runtime": "tsx scripts/verify-no-registry-v1-runtime-imports.ts",
     "generate:registry-v1": "tsx scripts/registry-v1-baseline.ts --write",
+    "generate:launch-catalog": "tsx scripts/generate-launch-catalog.ts",
     "check:registry-v1": "tsx scripts/registry-v1-baseline.ts --check",
     "test:registry-v1": "tsx scripts/verify-registry-v1-baseline-runner.ts",
-    "verify:registry": "tsx scripts/verify-biomarkers-runner.ts && tsx scripts/verify-measurement-registry-runner.ts && tsx scripts/verify-registry-v1-baseline-runner.ts && tsx scripts/registry-v1-baseline.ts --check"
+    "verify:registry": "tsx scripts/verify-biomarkers-runner.ts && tsx scripts/verify-measurement-registry-runner.ts && tsx scripts/verify-observation-identity-runner.ts && tsx scripts/verify-registry-v1-baseline-runner.ts && tsx scripts/registry-v1-baseline.ts --check && tsx scripts/verify-no-registry-v1-runtime-imports.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.0",
