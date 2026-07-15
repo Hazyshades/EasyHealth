@@ -68,3 +68,6 @@ hachakton.md
 #data
 /biomarkers/
 
+#db
+supabase/.temp
+
