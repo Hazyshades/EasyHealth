@@ -180,7 +180,9 @@
 
 .body-map-connector {
   stroke-dasharray: 4 4;
-  transition: opacity 180ms ease-out, stroke 180ms ease-out;
+  transition:
+    opacity 180ms ease-out,
+    stroke 180ms ease-out;
 }
 
 .body-map-connector.is-active {
@@ -266,7 +268,9 @@
 .body-map-marker-dot {
   transform-box: fill-box;
   transform-origin: center;
-  transition: transform 180ms var(--ease-out-strong), opacity 180ms ease-out;
+  transition:
+    transform 180ms var(--ease-out-strong),
+    opacity 180ms ease-out;
 }
 
 .body-map-marker.is-active .body-map-marker-dot {
@@ -291,7 +295,9 @@
 }
 
 .body-map-list-item {
-  transition: transform 140ms var(--ease-out-strong), color 140ms ease-out,
+  transition:
+    transform 140ms var(--ease-out-strong),
+    color 140ms ease-out,
     background-color 140ms ease-out;
 }
 
@@ -319,6 +325,12 @@
   .body-map-list-item {
     animation: none;
     transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-safe\:animate-pulse {
+    animation: none !important;
   }
 }
 

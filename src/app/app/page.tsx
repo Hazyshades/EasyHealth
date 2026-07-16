@@ -9,6 +9,7 @@ import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
 import { PageHeader } from "@/components/layout/page-header";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { greetingLabel } from "@/lib/display-name";
 import type { HealthProfileResult } from "@/lib/health-systems";
 
@@ -35,7 +36,8 @@ function timeGreeting(): string {
 export default function DashboardPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [profile, setProfile] = useState<HealthProfileResult | null>(null);
-  const [accountProfile, setAccountProfile] = useState<ProfileOnboarding | null>(null);
+  const [accountProfile, setAccountProfile] =
+    useState<ProfileOnboarding | null>(null);
   const [loading, setLoading] = useState(true);
   const [showWizard, setShowWizard] = useState(false);
   const [showBanner, setShowBanner] = useState(false);
@@ -52,7 +54,8 @@ export default function DashboardPage() {
       setAccountProfile(accountData);
 
       const wizardOpen =
-        !accountData.onboarding_dismissed_at && !accountData.onboarding_completed_at;
+        !accountData.onboarding_dismissed_at &&
+        !accountData.onboarding_completed_at;
       setShowWizard(wizardOpen);
 
       const bannerOpen =
@@ -66,7 +69,9 @@ export default function DashboardPage() {
     loadData().finally(() => setLoading(false));
   }, [loadData]);
 
-  async function patchOnboarding(action: "dismiss_wizard" | "complete_wizard" | "dismiss_banner") {
+  async function patchOnboarding(
+    action: "dismiss_wizard" | "complete_wizard" | "dismiss_banner",
+  ) {
     const res = await fetch("/api/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -84,7 +89,7 @@ export default function DashboardPage() {
   const name = greetingLabel(
     accountProfile?.first_name,
     accountProfile?.last_name,
-    null
+    null,
   );
 
   return (
@@ -102,7 +107,10 @@ export default function DashboardPage() {
             >
               <Link href="/app/upload">Add document</Link>
             </Button>
-            <Button asChild className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
+            <Button
+              asChild
+              className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90"
+            >
               <Link href="/app/reports/create">Generate report</Link>
             </Button>
           </>
@@ -125,7 +133,26 @@ export default function DashboardPage() {
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-[var(--eh-text-secondary)]">Loading…</p>
+        <>
+          <div className="mb-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <SurfaceCard key={i} padding="lg" className="h-[220px] space-y-4">
+                <Skeleton className="h-5 w-2/3" />
+                <Skeleton className="h-12 w-16" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+              </SurfaceCard>
+            ))}
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <SurfaceCard key={i} padding="lg" className="h-[220px] space-y-4">
+                <Skeleton className="h-5 w-1/2" />
+                <Skeleton className="h-4 w-full" />
+              </SurfaceCard>
+            ))}
+          </div>
+        </>
       ) : completed === 0 ? (
         <>
           <SurfaceCard padding="lg" className="mb-6 text-center">
@@ -136,19 +163,31 @@ export default function DashboardPage() {
               No lab records yet
             </h2>
             <p className="mx-auto mt-2 max-w-md text-sm text-[var(--eh-text-secondary)]">
-              Upload your first lab to extract biomarkers and build your health profile.
+              Upload your first lab to extract biomarkers and build your health
+              profile.
             </p>
-            <Button asChild className="mt-6 rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
+            <Button
+              asChild
+              className="mt-6 rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90"
+            >
               <Link href="/app/upload">Upload lab results</Link>
             </Button>
           </SurfaceCard>
           <DashboardWidgetGrid
-            data={{ completedDocuments: completed, healthProfile: profile, lastUpdated }}
+            data={{
+              completedDocuments: completed,
+              healthProfile: profile,
+              lastUpdated,
+            }}
           />
         </>
       ) : (
         <DashboardWidgetGrid
-          data={{ completedDocuments: completed, healthProfile: profile, lastUpdated }}
+          data={{
+            completedDocuments: completed,
+            healthProfile: profile,
+            lastUpdated,
+          }}
         />
       )}
 

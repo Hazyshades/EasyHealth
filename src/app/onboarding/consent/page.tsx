@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LEGAL_LINKS } from "@/lib/legal-links";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type RequiredConsents = {
   terms: boolean;
@@ -39,7 +40,10 @@ export default function OnboardingConsentPage() {
   });
 
   const allRequiredChecked =
-    required.terms && required.privacy && required.health_data && required.ai_processing;
+    required.terms &&
+    required.privacy &&
+    required.health_data &&
+    required.ai_processing;
 
   useEffect(() => {
     fetch("/api/profile")
@@ -56,7 +60,9 @@ export default function OnboardingConsentPage() {
           router.replace("/app");
         }
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load profile"))
+      .catch((e) =>
+        setError(e instanceof Error ? e.message : "Failed to load profile"),
+      )
       .finally(() => setLoading(false));
   }, [router]);
 
@@ -94,7 +100,17 @@ export default function OnboardingConsentPage() {
   }
 
   if (loading) {
-    return <p className="text-center text-sm text-[var(--eh-text-secondary)]">Loading…</p>;
+    return (
+      <div className="space-y-5">
+        <Skeleton className="h-8 w-3/4" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="mt-4 h-5 w-40" />
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-11 w-full" />
+      </div>
+    );
   }
 
   return (
@@ -103,13 +119,14 @@ export default function OnboardingConsentPage() {
         Your privacy and health data choices
       </h1>
       <p className="mt-3 text-sm text-[var(--eh-text-secondary)]">
-        EasyHealth helps you organize, understand, and track the health information you choose to
-        provide. Health information is sensitive, and we treat it with additional care.
+        EasyHealth helps you organize, understand, and track the health
+        information you choose to provide. Health information is sensitive, and
+        we treat it with additional care.
       </p>
       <p className="mt-3 text-sm text-[var(--eh-text-secondary)]">
-        EasyHealth is not a medical provider. Information in the app is for educational purposes
-        only and is not a diagnosis, treatment plan, or substitute for advice from a qualified
-        healthcare professional.
+        EasyHealth is not a medical provider. Information in the app is for
+        educational purposes only and is not a diagnosis, treatment plan, or
+        substitute for advice from a qualified healthcare professional.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-6">
@@ -132,23 +149,31 @@ export default function OnboardingConsentPage() {
               },
               {
                 key: "health_data" as const,
-                title: "I explicitly consent to the processing of my health data.",
+                title:
+                  "I explicitly consent to the processing of my health data.",
                 body: "I consent to EasyHealth processing health-related information I provide, upload, or connect to the app for summaries, insights, tracking, and personalized health features.",
               },
               {
                 key: "ai_processing" as const,
-                title: "I explicitly consent to AI-assisted processing of my health data.",
+                title:
+                  "I explicitly consent to AI-assisted processing of my health data.",
                 body: "I understand that EasyHealth may use AI models and trusted service providers to analyze my health information. AI-generated content may be incomplete or inaccurate and should not be used as the sole basis for medical decisions.",
               },
             ] as const
           ).map((item) => (
-            <div key={item.key} className="flex gap-3 rounded-xl border border-[var(--eh-border)] p-4">
+            <div
+              key={item.key}
+              className="flex gap-3 rounded-xl border border-[var(--eh-border)] p-4"
+            >
               <input
                 id={item.key}
                 type="checkbox"
                 checked={required[item.key]}
                 onChange={(e) =>
-                  setRequired((prev) => ({ ...prev, [item.key]: e.target.checked }))
+                  setRequired((prev) => ({
+                    ...prev,
+                    [item.key]: e.target.checked,
+                  }))
                 }
                 className="mt-1 size-4 shrink-0 accent-[var(--eh-brand)]"
               />
@@ -156,7 +181,9 @@ export default function OnboardingConsentPage() {
                 <label htmlFor={item.key} className="font-medium leading-snug">
                   {item.title}
                 </label>
-                <p className="text-sm text-[var(--eh-text-secondary)]">{item.body}</p>
+                <p className="text-sm text-[var(--eh-text-secondary)]">
+                  {item.body}
+                </p>
               </div>
             </div>
           ))}
@@ -170,9 +197,18 @@ export default function OnboardingConsentPage() {
           {(
             [
               { key: "analytics" as const, title: "Product analytics" },
-              { key: "personalization" as const, title: "Personalized experience" },
-              { key: "marketing_email" as const, title: "Marketing communications" },
-              { key: "marketing_cookies" as const, title: "Marketing and advertising cookies" },
+              {
+                key: "personalization" as const,
+                title: "Personalized experience",
+              },
+              {
+                key: "marketing_email" as const,
+                title: "Marketing communications",
+              },
+              {
+                key: "marketing_cookies" as const,
+                title: "Marketing and advertising cookies",
+              },
             ] as const
           ).map((item) => (
             <div key={item.key} className="flex items-center gap-3">
@@ -181,7 +217,10 @@ export default function OnboardingConsentPage() {
                 type="checkbox"
                 checked={optional[item.key]}
                 onChange={(e) =>
-                  setOptional((prev) => ({ ...prev, [item.key]: e.target.checked }))
+                  setOptional((prev) => ({
+                    ...prev,
+                    [item.key]: e.target.checked,
+                  }))
                 }
                 className="size-4 accent-[var(--eh-brand)]"
               />
@@ -191,19 +230,28 @@ export default function OnboardingConsentPage() {
         </div>
 
         <p className="text-xs text-[var(--eh-text-secondary)]">
-          You can withdraw consent or change optional preferences at any time in Settings. If you
-          withdraw consent for health data or AI-assisted processing, some features may no longer
-          work.
+          You can withdraw consent or change optional preferences at any time in
+          Settings. If you withdraw consent for health data or AI-assisted
+          processing, some features may no longer work.
         </p>
 
         <div className="flex flex-wrap gap-3 text-xs">
-          <Link href={LEGAL_LINKS.privacy} className="text-[var(--eh-brand)] underline">
+          <Link
+            href={LEGAL_LINKS.privacy}
+            className="text-[var(--eh-brand)] underline"
+          >
             Privacy Policy
           </Link>
-          <Link href={LEGAL_LINKS.terms} className="text-[var(--eh-brand)] underline">
+          <Link
+            href={LEGAL_LINKS.terms}
+            className="text-[var(--eh-brand)] underline"
+          >
             Terms of Service
           </Link>
-          <Link href={LEGAL_LINKS.cookies} className="text-[var(--eh-brand)] underline">
+          <Link
+            href={LEGAL_LINKS.cookies}
+            className="text-[var(--eh-brand)] underline"
+          >
             Cookie Policy
           </Link>
         </div>
@@ -214,7 +262,7 @@ export default function OnboardingConsentPage() {
           type="submit"
           disabled={saving || !allRequiredChecked}
           size="lg"
-          className="h-11 w-full rounded-xl border-0 bg-[#2563eb] font-semibold text-white shadow-sm hover:bg-[#1d4ed8] disabled:bg-[#93c5fd] disabled:text-white disabled:opacity-100"
+          className="h-11 w-full rounded-xl border-0 bg-[var(--eh-brand)] font-semibold text-white shadow-sm hover:bg-[var(--eh-brand)]/90 disabled:bg-[var(--eh-brand)]/50 disabled:text-white disabled:opacity-100"
         >
           {saving ? "Saving…" : "Continue"}
         </Button>
