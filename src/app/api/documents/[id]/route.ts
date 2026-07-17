@@ -17,6 +17,7 @@ import {
   type NormalizationRevisionSummary,
 } from "@/lib/documents/normalization-review";
 import { reviewDataErrorMessage } from "@/lib/documents/biomarker-review-state";
+import { isWorkerOffline } from "@/lib/documents/worker-health";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -47,6 +48,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
   const supabase = createAdminClient();
   const documentType = normalizeDocumentType(doc!.document_type) ?? "lab_result";
+  const processingStatus = resolveDisplayProcessingStatus(doc!);
   const pageParam = Number.parseInt(req.nextUrl.searchParams.get("page") ?? "1", 10);
   const requestedPage =
     Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
@@ -60,6 +62,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
     prescriptionResult,
     referralResult,
     fileSigned,
+    heartbeatResult,
   ] = await Promise.all([
     supabase
       .from("document_pages")
@@ -111,7 +114,25 @@ export async function GET(req: NextRequest, context: RouteContext) {
           .maybeSingle()
       : Promise.resolve({ data: null }),
     safeSignedUrl(getOriginalPath(doc!)),
+    processingStatus === "processing"
+      ? supabase
+          .from("worker_heartbeats")
+          .select("last_seen")
+          .order("last_seen", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ]);
+
+  if (heartbeatResult.error) {
+    console.error("Failed to load document worker heartbeat", {
+      documentId: id,
+      message: heartbeatResult.error.message,
+    });
+  }
+  const workerOffline =
+    processingStatus === "processing" &&
+    isWorkerOffline(heartbeatResult.data?.last_seen);
 
   const pageRows = pagesResult.data ?? [];
   const pages = pageRows.map((p) => ({
@@ -192,7 +213,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
       mime_type: doc!.mime_type,
       file_kind: doc!.file_kind,
       page_count: doc!.page_count,
-      processing_status: resolveDisplayProcessingStatus(doc!),
+      processing_status: processingStatus,
       processing_error: doc!.processing_error ?? doc!.error_message,
       processing_version: doc!.processing_version,
       extraction_model: doc!.extraction_model,
@@ -207,6 +228,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
       type_mismatch_reason: doc!.type_mismatch_reason ?? null,
       suggested_document_type: doc!.detected_document_type ?? null,
     },
+    workerOffline,
     pages,
     instrumental_findings: findingsResult.data ?? [],
     clinical_note: clinicalNoteResult.data ?? null,

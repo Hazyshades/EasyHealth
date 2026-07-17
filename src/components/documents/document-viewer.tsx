@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
+  CircleAlert,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -173,6 +174,7 @@ type BootstrapPayload = {
   extracted_biomarkers?: ExtractedBiomarker[];
   review_data_error?: string | null;
   observations?: Observation[];
+  workerOffline?: boolean;
   file?: {
     url: string;
     mimeType: string;
@@ -187,6 +189,9 @@ type BootstrapPayload = {
     expiresIn: number;
   } | null;
 };
+
+const PROCESSING_POLL_INTERVAL_MS = 8_000;
+const PROCESSING_POLL_TIMEOUT_MS = 150_000;
 
 function statusVariant(
   status: string,
@@ -245,14 +250,23 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const [normalizingId, setNormalizingId] = useState<string | null>(null);
   const [reprocessing, setReprocessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [workerOffline, setWorkerOffline] = useState(false);
+  const [processingStuck, setProcessingStuck] = useState(false);
+  const [retryingProcessing, setRetryingProcessing] = useState(false);
 
   /** Skip page-only fetch once after bootstrap seeds pageUrl for the same page. */
   const skipNextPageFetch = useRef(true);
+  const processingStartedAt = useRef<number | null>(null);
 
   const applyBootstrap = useCallback(
     (data: BootstrapPayload, opts?: { applyPage?: boolean }) => {
       const meta = data.document;
       setDoc(meta);
+      setWorkerOffline(Boolean(data.workerOffline));
+      if (meta.processing_status !== "processing") {
+        processingStartedAt.current = null;
+        setProcessingStuck(false);
+      }
       setPages(data.pages ?? []);
       setInstrumentalFindings(data.instrumental_findings ?? []);
       setClinicalNote(data.clinical_note ?? null);
@@ -338,6 +352,9 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     setLoading(true);
     setError(null);
     setDoc(null);
+    processingStartedAt.current = null;
+    setWorkerOffline(false);
+    setProcessingStuck(false);
 
     (async () => {
       try {
@@ -357,12 +374,44 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
 
   // Soft processing poll — do not blank the viewer
   useEffect(() => {
-    if (!doc || doc.processing_status !== "processing") return;
+    if (!doc || doc.processing_status !== "processing" || processingStuck) {
+      return;
+    }
+    if (workerOffline) {
+      setProcessingStuck(true);
+      return;
+    }
+
+    const startedAt = processingStartedAt.current ?? Date.now();
+    processingStartedAt.current = startedAt;
+    const remainingMs =
+      PROCESSING_POLL_TIMEOUT_MS - (Date.now() - startedAt);
+
+    if (remainingMs <= 0) {
+      setProcessingStuck(true);
+      return;
+    }
+
     const timer = setInterval(() => {
       void loadBootstrap(currentPage, { soft: true }).catch(() => undefined);
-    }, 8000);
-    return () => clearInterval(timer);
-  }, [doc?.processing_status, doc?.id, loadBootstrap, currentPage]);
+    }, PROCESSING_POLL_INTERVAL_MS);
+    const timeout = setTimeout(
+      () => setProcessingStuck(true),
+      remainingMs,
+    );
+
+    return () => {
+      clearInterval(timer);
+      clearTimeout(timeout);
+    };
+  }, [
+    doc?.processing_status,
+    doc?.id,
+    loadBootstrap,
+    currentPage,
+    processingStuck,
+    workerOffline,
+  ]);
 
   // Page navigation only — not full document reload
   useEffect(() => {
@@ -497,6 +546,9 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   }
 
   async function handleReprocess(documentTypeOverride?: DocumentType) {
+    processingStartedAt.current = Date.now();
+    setWorkerOffline(false);
+    setProcessingStuck(false);
     setReprocessing(true);
     try {
       const res = await fetch(`/api/documents/${documentId}/reprocess`, {
@@ -514,6 +566,22 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
       setError(e instanceof Error ? e.message : "Reprocess failed");
     } finally {
       setReprocessing(false);
+    }
+  }
+
+  async function handleRetryProcessing() {
+    processingStartedAt.current = Date.now();
+    setWorkerOffline(false);
+    setProcessingStuck(false);
+    setRetryingProcessing(true);
+    setError(null);
+    try {
+      await loadBootstrap(currentPage, { soft: true });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Status check failed");
+      setProcessingStuck(true);
+    } finally {
+      setRetryingProcessing(false);
     }
   }
 
@@ -592,6 +660,9 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     doc.type_mismatch_warning &&
     suggestedType &&
     suggestedType !== documentType;
+  const showProcessingRecovery =
+    doc.processing_status === "processing" &&
+    (processingStuck || workerOffline);
 
   return (
     <div className="space-y-4">
@@ -645,6 +716,51 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
 
       {doc.processing_error && (
         <p className="text-sm text-red-600">{doc.processing_error}</p>
+      )}
+
+      {showProcessingRecovery && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex flex-col gap-3 rounded-[14px] border border-amber-200 bg-amber-50 p-4 text-amber-950 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="flex min-w-0 items-start gap-3">
+            <CircleAlert
+              className="mt-0.5 size-5 shrink-0"
+              aria-hidden
+            />
+            <div className="min-w-0">
+              <p className="font-medium">
+                {workerOffline
+                  ? "Document processing is temporarily unavailable"
+                  : "Extraction is taking longer than expected"}
+              </p>
+              <p className="mt-1 max-w-[65ch] text-sm text-amber-900">
+                {workerOffline
+                  ? "The processing service has not checked in recently. Retry after the service is restored, or start a fresh processing attempt."
+                  : "You can check the status again or start a fresh processing attempt."}
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Button
+              size="sm"
+              disabled={retryingProcessing || reprocessing}
+              onClick={handleRetryProcessing}
+            >
+              {retryingProcessing ? "Checking…" : "Retry status"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={retryingProcessing || reprocessing}
+              onClick={() => handleReprocess()}
+            >
+              <RotateCcw className="size-4" aria-hidden />
+              {reprocessing ? "Reprocessing…" : "Reprocess document"}
+            </Button>
+          </div>
+        </div>
       )}
 
       {showMismatchBanner && suggestedType ? (

@@ -10,6 +10,7 @@
     "test:biomarkers": "tsx scripts/verify-biomarkers-runner.ts",
     "test:measurement-registry": "tsx scripts/verify-measurement-registry-runner.ts",
     "test:document-review": "tsx scripts/verify-document-review-runner.ts",
+    "test:document-worker": "tsx scripts/verify-document-worker-reliability.ts",
     "test:observation-identity": "tsx scripts/verify-observation-identity-runner.ts",
     "test:observation-provenance": "tsx scripts/verify-observation-provenance-runner.ts",
     "check:no-registry-v1-runtime": "tsx scripts/verify-no-registry-v1-runtime-imports.ts",

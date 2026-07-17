@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { logAiInvocation } from "@/lib/ai/invocation-log";
 import type { AiInvocationRow, AiPipelineStage, AiProviderId } from "@/lib/ai/types";
 import { isNebiusProvider } from "@/lib/ai/types";
+import { temperatureForModel } from "@/lib/ai/model-capabilities";
 
 export type TraceGenerateOptions = {
   model: LanguageModel;
@@ -49,6 +50,11 @@ export async function traceGenerateText(options: TraceGenerateOptions): Promise<
   const providerSwitch = options.providerSwitch ?? false;
   const useNebius = isNebiusProvider(options.provider);
   const { system, messages } = splitSystemMessage(options.messages);
+  const temperature = temperatureForModel(
+    options.provider,
+    options.modelId,
+    options.temperature,
+  );
 
   try {
     const userMeta = useNebius ? nebiusUserMetadata(options.documentId, String(options.stage)) : undefined;
@@ -58,7 +64,7 @@ export async function traceGenerateText(options: TraceGenerateOptions): Promise<
     const { text, usage } = await generateText({
       model: options.model,
       system,
-      ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
+      ...(temperature !== undefined ? { temperature } : {}),
       maxRetries: 1,
       messages,
       providerOptions: {

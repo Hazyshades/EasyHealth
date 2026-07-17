@@ -82,7 +82,7 @@ async function uploadToLabDocuments(
   }
 }
 
-async function failJob(job: JobRow, documentId: string, message: string) {
+export async function failJob(job: Pick<JobRow, "id">, documentId: string, message: string) {
   await supabase
     .from("document_processing_jobs")
     .update({
