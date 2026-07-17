@@ -66,9 +66,10 @@ export {
   MEASUREMENT_DEFINITIONS,
   CURATED_MEASUREMENT_DEFINITIONS,
   ANALYTES,
-  MEASUREMENT_REGISTRY_VERSION,
+  MEASUREMENT_CATALOG_MANIFEST_VERSION,
   MEASUREMENT_RESOLVER_VERSION,
-  MEASUREMENT_NORMALIZATION_SCHEMA_VERSION,
+  MEASUREMENT_NORMALIZATION_VERSION,
+  OBSERVATION_PROVENANCE_SCHEMA_VERSION,
   getMeasurementDefinition,
   getAnalyte,
   getMeasurementIdentity,
@@ -84,13 +85,13 @@ export { LAUNCH_CATALOG_MIGRATION_RECORDS } from "./launch-catalog.generated";
 export { SAMPLE_NEWEST_LAUNCH_FIXTURES, buildLaunchCoverageReport, type LaunchResolverFixture } from "./launch-fixtures";
 
 export {
-  MEASUREMENT_REGISTRY_DIGEST,
-  MEASUREMENT_REGISTRY_RELEASE,
-  buildMeasurementRegistryRelease,
+  MEASUREMENT_CATALOG_MANIFEST_DIGEST,
+  MEASUREMENT_CATALOG_MANIFEST_RELEASE,
+  buildMeasurementCatalogManifestRelease,
   classifyMeasurementDefinitionChange,
   digestMeasurementRegistryManifest,
   serializeMeasurementRegistryManifest,
   type MappingChangeClassification,
   type MeasurementRegistryChange,
-  type MeasurementRegistryRelease,
+  type MeasurementCatalogManifestRelease,
 } from "./measurement-registry-release";

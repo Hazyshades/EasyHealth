@@ -11,6 +11,7 @@ type ExtractedReviewRow = {
   raw_unit?: string | null;
   reference_range?: string | null;
   raw_reference_range?: string | null;
+  raw_value_text?: string | null;
   section_context?: string | null;
   confidence?: number | null;
   specimen?: string | null;
@@ -27,9 +28,9 @@ export type NormalizationRevisionSummary = {
   mapping_confidence_band: string | null;
   verification_status: string;
   is_active: boolean;
-  registry_version: string;
+  catalog_manifest_version: string;
   resolver_version: string;
-  normalization_schema_version: string;
+  normalization_version: string;
   created_at: string;
 };
 
@@ -45,6 +46,7 @@ export function measurementInputFromExtracted(row: ExtractedReviewRow) {
     referenceHigh: ref_high,
     extractionConfidence: row.confidence ?? null,
     proposedKey: row.biomarker_key,
+    rawValueText: row.raw_value_text ?? null,
   };
 }
 

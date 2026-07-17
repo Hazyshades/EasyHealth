@@ -180,6 +180,7 @@ export type LaunchCatalogMigrationRecord = {
 export type MeasurementResolutionInput = {
   rawLabel: string;
   rawUnit?: string | null;
+  rawValueText?: string | null;
   specimen?: string | null;
   modifier?: string | null;
   section?: string | null;

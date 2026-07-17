@@ -6,7 +6,7 @@ import {
   getMeasurementDefinitionsForAnalyte,
   getAnalyte,
   MEASUREMENT_DEFINITIONS,
-  MEASUREMENT_REGISTRY_DIGEST,
+  MEASUREMENT_CATALOG_MANIFEST_DIGEST,
   normalizeMeasurementUnit,
   presentObservation,
   resolveMeasurementDefinition,
@@ -103,7 +103,7 @@ assert.equal(
   serializeMeasurementRegistryManifest([...MEASUREMENT_DEFINITIONS].reverse()),
   serializeMeasurementRegistryManifest(MEASUREMENT_DEFINITIONS)
 );
-assert.equal(MEASUREMENT_REGISTRY_DIGEST.length, 64);
+assert.equal(MEASUREMENT_CATALOG_MANIFEST_DIGEST.length, 64);
 
 // Systems
 assert.equal(getSystemForMarker("crp"), "inflammation");

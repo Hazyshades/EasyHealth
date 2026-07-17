@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import {
-  MEASUREMENT_NORMALIZATION_SCHEMA_VERSION,
-  MEASUREMENT_REGISTRY_RELEASE,
-  MEASUREMENT_REGISTRY_VERSION,
+  MEASUREMENT_CATALOG_MANIFEST_RELEASE,
+  MEASUREMENT_CATALOG_MANIFEST_VERSION,
+  MEASUREMENT_NORMALIZATION_VERSION,
   MEASUREMENT_RESOLVER_VERSION,
   resolveMeasurementDefinition,
 } from "@/lib/biomarkers";
@@ -47,6 +47,7 @@ export function buildInputEvidenceHash(input: MeasurementResolutionInput): strin
       JSON.stringify({
         rawLabel: input.rawLabel,
         rawUnit: input.rawUnit ?? null,
+        rawValueText: input.rawValueText ?? null,
         specimen: input.specimen ?? null,
         modifier: input.modifier ?? null,
         section: input.section ?? null,
@@ -69,6 +70,7 @@ export async function createNormalizationCandidate(options: {
   reversalOfRevisionId?: string | null;
   supersedesRevisionId?: string | null;
   resolutionOverride?: MeasurementResolution;
+  extractionVersion?: string | null;
 }): Promise<{ revision: NormalizationRevision; resolution: MeasurementResolution }> {
   const supabase = createAdminClient();
   const resolution = options.resolutionOverride ?? resolveMeasurementDefinition(options.input);
@@ -81,10 +83,11 @@ export async function createNormalizationCandidate(options: {
     mapping_confidence: resolution.mappingConfidence,
     mapping_confidence_band: resolution.mappingConfidenceBand,
     resolver_evidence: resolution.candidateEvidence,
-    registry_version: MEASUREMENT_REGISTRY_VERSION,
-    registry_manifest_digest: MEASUREMENT_REGISTRY_RELEASE.manifestDigest,
+    catalog_manifest_version: MEASUREMENT_CATALOG_MANIFEST_VERSION,
+    catalog_manifest_digest: MEASUREMENT_CATALOG_MANIFEST_RELEASE.manifestDigest,
     resolver_version: MEASUREMENT_RESOLVER_VERSION,
-    normalization_schema_version: MEASUREMENT_NORMALIZATION_SCHEMA_VERSION,
+    normalization_version: MEASUREMENT_NORMALIZATION_VERSION,
+    extraction_version: options.extractionVersion ?? null,
     verification_status: options.verificationStatus ?? "pending",
     mapping_change_classification: options.mappingClassification ?? "additive",
     created_by: options.actorId ?? null,
@@ -109,10 +112,11 @@ export async function createNormalizationCandidate(options: {
       resolver_evidence: resolution.candidateEvidence,
       normalized_unit: resolution.unit.normalizedUnit,
       unit_dimension: resolution.unit.dimension,
-      registry_version: MEASUREMENT_REGISTRY_VERSION,
-      registry_manifest_digest: MEASUREMENT_REGISTRY_RELEASE.manifestDigest,
+      catalog_manifest_version: MEASUREMENT_CATALOG_MANIFEST_VERSION,
+      catalog_manifest_digest: MEASUREMENT_CATALOG_MANIFEST_RELEASE.manifestDigest,
       resolver_version: MEASUREMENT_RESOLVER_VERSION,
-      normalization_schema_version: MEASUREMENT_NORMALIZATION_SCHEMA_VERSION,
+      normalization_version: MEASUREMENT_NORMALIZATION_VERSION,
+      extraction_version: options.extractionVersion ?? null,
       verification_status: options.verificationStatus ?? "pending",
     })
     .eq("id", options.extractedBiomarkerId);
@@ -128,6 +132,7 @@ export async function createManualCorrection(options: {
   correctionReason?: string | null;
   supersedesRevisionId?: string | null;
   reversalOfRevisionId?: string | null;
+  extractionVersion?: string | null;
 }): Promise<{ revision: NormalizationRevision; resolution: MeasurementResolution }> {
   const baseResolution = resolveMeasurementDefinition(options.input);
   const definition = compatibleManualDefinitions(options.input).find(
@@ -167,6 +172,7 @@ export async function createManualCorrection(options: {
     correctionReason: options.correctionReason ?? null,
     supersedesRevisionId: options.supersedesRevisionId ?? null,
     reversalOfRevisionId: options.reversalOfRevisionId ?? null,
+    extractionVersion: options.extractionVersion ?? null,
     resolutionOverride: resolution,
   });
 }
@@ -177,6 +183,7 @@ export async function createManualReversal(options: {
   revertToRevisionId: string;
   activeRevisionId: string;
   actorId: string;
+  extractionVersion?: string | null;
 }): Promise<{ revision: NormalizationRevision; resolution: MeasurementResolution }> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
@@ -194,6 +201,7 @@ export async function createManualReversal(options: {
     input: options.input,
     selectedDefinitionKey: data.measurement_definition_key,
     actorId: options.actorId,
+    extractionVersion: options.extractionVersion ?? null,
     correctionReason: "Manual correction reverted",
     supersedesRevisionId: options.activeRevisionId,
     reversalOfRevisionId: options.revertToRevisionId,

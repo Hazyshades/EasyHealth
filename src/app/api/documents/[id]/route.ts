@@ -21,10 +21,10 @@ import { reviewDataErrorMessage } from "@/lib/documents/biomarker-review-state";
 type RouteContext = { params: Promise<{ id: string }> };
 
 const EXTRACTED_BIOMARKER_SELECT =
-  "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, source_page, source_text, confidence, status, processing_version, extraction_model, specimen, modifier, reported_alt_value, reported_alt_unit, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, resolver_evidence, registry_version, registry_manifest_digest, resolver_version, normalization_schema_version, verification_status, created_at";
+  "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, source_page, source_text, confidence, status, processing_version, extraction_model, specimen, modifier, reported_alt_value, reported_alt_unit, raw_value_text, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, resolver_evidence, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, verification_status, created_at";
 
 const OBSERVATION_SELECT =
-  "id, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, source_extracted_biomarker_id";
+  "id, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, source_extracted_biomarker_id, raw_name, raw_value_text, raw_reference_text, raw_unit, source_page, source_text, bounding_box, confidence, extraction_version, provenance_schema_version, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version";
 
 async function safeSignedUrl(storagePath: string | null | undefined) {
   if (!storagePath) return null;
@@ -139,7 +139,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
     ? await supabase
         .from("observation_normalization_revisions")
         .select(
-          "id, extracted_biomarker_id, analyte_key, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, registry_version, resolver_version, normalization_schema_version, created_at"
+          "id, extracted_biomarker_id, analyte_key, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, catalog_manifest_version, resolver_version, normalization_version, created_at"
         )
         .in("extracted_biomarker_id", extractedIds)
         .order("created_at", { ascending: false })

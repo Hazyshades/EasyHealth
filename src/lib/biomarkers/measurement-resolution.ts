@@ -16,9 +16,11 @@ import type {
   UnitToken,
 } from "./types";
 
-export const MEASUREMENT_REGISTRY_VERSION = "2026-07-14.1";
+export const MEASUREMENT_CATALOG_MANIFEST_VERSION = "2026-07-14.1";
 export const MEASUREMENT_RESOLVER_VERSION = "4";
-export const MEASUREMENT_NORMALIZATION_SCHEMA_VERSION = "3";
+export const MEASUREMENT_NORMALIZATION_VERSION = "3";
+/** Observation provenance schema version, assigned by the persistence layer (not copied from extraction). */
+export const OBSERVATION_PROVENANCE_SCHEMA_VERSION = "1";
 
 const PERCENT_POLICY: MeasurementUnitPolicy = {
   dimensions: ["ratio"], acceptedUnits: ["%"], canonicalUnit: "%", conversionPolicyRef: null, missingUnitPolicy: "ambiguous",

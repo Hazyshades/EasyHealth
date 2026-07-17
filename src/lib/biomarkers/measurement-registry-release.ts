@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import {
   MEASUREMENT_DEFINITIONS,
   ANALYTES,
-  MEASUREMENT_NORMALIZATION_SCHEMA_VERSION,
-  MEASUREMENT_REGISTRY_VERSION,
+  MEASUREMENT_NORMALIZATION_VERSION,
+  MEASUREMENT_CATALOG_MANIFEST_VERSION,
   MEASUREMENT_RESOLVER_VERSION,
 } from "./measurement-resolution";
 import type { MeasurementDefinition } from "./types";
@@ -20,10 +20,10 @@ export type MeasurementRegistryChange = {
   reason: string;
 };
 
-export type MeasurementRegistryRelease = {
-  registryVersion: string;
+export type MeasurementCatalogManifestRelease = {
+  catalogManifestVersion: string;
   resolverVersion: string;
-  normalizationSchemaVersion: string;
+  normalizationVersion: string;
   manifestDigest: string;
   changelog: string[];
   changedDefinitions: MeasurementRegistryChange[];
@@ -128,16 +128,16 @@ export function classifyMeasurementDefinitionChange(
   };
 }
 
-export function buildMeasurementRegistryRelease(options?: {
+export function buildMeasurementCatalogManifestRelease(options?: {
   previousDefinitions?: readonly MeasurementDefinition[];
   changelog?: string[];
-  regressionFixtures?: MeasurementRegistryRelease["regressionFixtures"];
-}): MeasurementRegistryRelease {
+  regressionFixtures?: MeasurementCatalogManifestRelease["regressionFixtures"];
+}): MeasurementCatalogManifestRelease {
   const previousByKey = new Map(options?.previousDefinitions?.map((definition) => [definition.key, definition]));
   return {
-    registryVersion: MEASUREMENT_REGISTRY_VERSION,
+    catalogManifestVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,
     resolverVersion: MEASUREMENT_RESOLVER_VERSION,
-    normalizationSchemaVersion: MEASUREMENT_NORMALIZATION_SCHEMA_VERSION,
+    normalizationVersion: MEASUREMENT_NORMALIZATION_VERSION,
     manifestDigest: digestMeasurementRegistryManifest(),
     changelog: options?.changelog ?? ["Registry 2.1 measurement governance baseline"],
     changedDefinitions: MEASUREMENT_DEFINITIONS.map((definition) =>
@@ -149,5 +149,5 @@ export function buildMeasurementRegistryRelease(options?: {
   };
 }
 
-export const MEASUREMENT_REGISTRY_DIGEST = digestMeasurementRegistryManifest();
-export const MEASUREMENT_REGISTRY_RELEASE = buildMeasurementRegistryRelease();
+export const MEASUREMENT_CATALOG_MANIFEST_DIGEST = digestMeasurementRegistryManifest();
+export const MEASUREMENT_CATALOG_MANIFEST_RELEASE = buildMeasurementCatalogManifestRelease();

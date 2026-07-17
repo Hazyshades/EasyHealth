@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertDocumentOwner } from "@/lib/documents/access";
-import { parseLabValueCell } from "@/lib/biomarkers";
+import { parseLabValueCell, OBSERVATION_PROVENANCE_SCHEMA_VERSION, MEASUREMENT_CATALOG_MANIFEST_VERSION, MEASUREMENT_CATALOG_MANIFEST_RELEASE, MEASUREMENT_RESOLVER_VERSION, MEASUREMENT_NORMALIZATION_VERSION } from "@/lib/biomarkers";
 import { parseReferenceRange } from "@/lib/schemas/biomarkers";
 import { buildObservationUpsertPayload } from "@/lib/documents/observation-identity";
 import {
@@ -40,7 +40,9 @@ type ExtractedBiomarkerRow = {
   source_text: string | null;
   bounding_box?: unknown;
   reported_alt_value: number | null;
-  reported_alt_unit: string | null;
+  reported_alt_unit: number | null;
+  raw_value_text: string | null;
+  processing_version: string | null;
 };
 
 function finite(value: number | string | null): number | null {
@@ -63,7 +65,7 @@ export async function GET(_req: Request, context: RouteContext) {
   const { data: items, error: listError } = await supabase
     .from("document_extracted_biomarkers")
     .select(
-      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, source_page, source_text, confidence, status, processing_version, extraction_model, specimen, modifier, reported_alt_value, reported_alt_unit, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, resolver_evidence, registry_version, registry_manifest_digest, resolver_version, normalization_schema_version, verification_status, created_at"
+      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, source_page, source_text, confidence, status, processing_version, extraction_model, specimen, modifier, reported_alt_value, reported_alt_unit, raw_value_text, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, resolver_evidence, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, verification_status, created_at"
     )
     .eq("document_id", id)
     .eq("profile_id", profileId)
@@ -80,7 +82,7 @@ export async function GET(_req: Request, context: RouteContext) {
     ? await supabase
         .from("observation_normalization_revisions")
         .select(
-          "id, extracted_biomarker_id, analyte_key, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, registry_version, resolver_version, normalization_schema_version, created_at"
+          "id, extracted_biomarker_id, analyte_key, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, catalog_manifest_version, resolver_version, normalization_version, created_at"
         )
         .in("extracted_biomarker_id", ids)
         .order("created_at", { ascending: false })
@@ -128,7 +130,7 @@ export async function PATCH(req: Request, context: RouteContext) {
   const { data, error: extractedError } = await supabase
     .from("document_extracted_biomarkers")
     .select(
-      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, confidence, specimen, modifier, source_page, source_text, bounding_box, reported_alt_value, reported_alt_unit"
+      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, confidence, specimen, modifier, source_page, source_text, bounding_box, reported_alt_value, reported_alt_unit, raw_value_text, processing_version"
     )
     .eq("id", body.extractedBiomarkerId)
     .eq("document_id", id)
@@ -152,6 +154,7 @@ export async function PATCH(req: Request, context: RouteContext) {
     referenceHigh: ref_high,
     extractionConfidence: row.confidence,
     proposedKey: row.biomarker_key,
+    rawValueText: row.raw_value_text ?? null,
   };
   const activeRevision = await getActiveNormalizationRevision(row.id);
   const revisionResult =
@@ -171,6 +174,7 @@ export async function PATCH(req: Request, context: RouteContext) {
             input,
             selectedDefinitionKey: body.measurementDefinitionKey,
             actorId: profileId,
+            extractionVersion: row.processing_version ?? null,
             correctionReason: body.correctionReason ?? null,
             supersedesRevisionId: activeRevision?.id ?? null,
           })
@@ -232,6 +236,15 @@ export async function PATCH(req: Request, context: RouteContext) {
         reported_alt_value: row.reported_alt_value,
         reported_alt_unit: row.reported_alt_unit,
         source_extracted_biomarker_id: row.id,
+        raw_value_text: row.raw_value_text ?? null,
+        raw_reference_text: row.raw_reference_range ?? null,
+        raw_unit: row.raw_unit ?? row.unit ?? null,
+        extraction_version: row.processing_version ?? null,
+        provenance_schema_version: OBSERVATION_PROVENANCE_SCHEMA_VERSION,
+        catalog_manifest_version: MEASUREMENT_CATALOG_MANIFEST_VERSION,
+        catalog_manifest_digest: MEASUREMENT_CATALOG_MANIFEST_RELEASE.manifestDigest,
+        resolver_version: MEASUREMENT_RESOLVER_VERSION,
+        normalization_version: MEASUREMENT_NORMALIZATION_VERSION,
       },
         revisionResult.resolution
       ),

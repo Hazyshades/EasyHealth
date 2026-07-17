@@ -27,6 +27,15 @@ const rawSource = {
   reported_alt_value: null,
   reported_alt_unit: null,
   source_extracted_biomarker_id: "extracted_1",
+  raw_value_text: null,
+  raw_reference_text: null,
+  raw_unit: null,
+  extraction_version: null,
+  provenance_schema_version: "1",
+  catalog_manifest_version: null,
+  catalog_manifest_digest: null,
+  resolver_version: null,
+  normalization_version: null,
 };
 
 const cases = [

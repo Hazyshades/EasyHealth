@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { LAUNCH_CATALOG_MIGRATION_RECORDS, MEASUREMENT_DEFINITIONS, MEASUREMENT_REGISTRY_DIGEST, digestMeasurementRegistryManifest, normalizeMeasurementUnit, resolveMeasurementDefinition, serializeMeasurementRegistryManifest, validateMeasurementRegistry } from "../src/lib/biomarkers";
+import { LAUNCH_CATALOG_MIGRATION_RECORDS, MEASUREMENT_DEFINITIONS, MEASUREMENT_CATALOG_MANIFEST_DIGEST, digestMeasurementRegistryManifest, normalizeMeasurementUnit, resolveMeasurementDefinition, serializeMeasurementRegistryManifest, validateMeasurementRegistry } from "../src/lib/biomarkers";
 import { acceptancePathForResolution, decideAutomaticPromotion } from "../src/lib/documents/normalization-policy";
 const validation = validateMeasurementRegistry();
 assert.equal(validation.valid, true, validation.errors.join("; "));
@@ -8,7 +8,7 @@ assert.equal(LAUNCH_CATALOG_MIGRATION_RECORDS.length, 113);
 assert.equal(new Set(LAUNCH_CATALOG_MIGRATION_RECORDS.map((record) => record.sourceRecordKey)).size, 113);
 assert.ok(MEASUREMENT_DEFINITIONS.every((definition) => definition.sourceProvenance.kind !== "registry_v1_migration" || definition.maturity === "provisional"));
 assert.match(readFileSync("supabase/migrations/025_registry_v2_hard_cutover.sql", "utf8"), /'partial'/);
-assert.equal(digestMeasurementRegistryManifest([...MEASUREMENT_DEFINITIONS].reverse()), MEASUREMENT_REGISTRY_DIGEST);
+assert.equal(digestMeasurementRegistryManifest([...MEASUREMENT_DEFINITIONS].reverse()), MEASUREMENT_CATALOG_MANIFEST_DIGEST);
 assert.ok(serializeMeasurementRegistryManifest(MEASUREMENT_DEFINITIONS).includes("assessmentBindings"));
 assert.deepEqual(normalizeMeasurementUnit("U/L"), { raw: "U/L", normalizedUnit: "u/l", dimension: "catalytic_activity_concentration" });
 for (const enzyme of ["alt", "ast", "alp", "ggt"] as const) { const resolved = resolveMeasurementDefinition({ rawLabel: enzyme, rawUnit: "U/L", specimen: "serum", valueKind: "numeric" }); assert.equal(resolved.result, "resolved"); assert.equal(resolved.measurementDefinitionKey, `${enzyme}_serum_catalytic_activity`); }

@@ -89,13 +89,29 @@ type PageMeta = {
 
 type Observation = {
   id: string;
-  biomarker_key: string;
+  analyte_key: string | null;
+  measurement_definition_key: string | null;
+  resolution_status: string | null;
   name: string;
-  value: number;
+  value: number | null;
+  value_kind: string;
+  value_text: string | null;
   unit: string;
   ref_low: number | null;
   ref_high: number | null;
   observed_at: string;
+  raw_name: string | null;
+  raw_value_text: string | null;
+  raw_reference_text: string | null;
+  raw_unit: string | null;
+  source_page: number | null;
+  source_text: string | null;
+  extraction_version: string | null;
+  provenance_schema_version: string;
+  catalog_manifest_version: string | null;
+  catalog_manifest_digest: string | null;
+  resolver_version: string | null;
+  normalization_version: string | null;
 };
 
 type ExtractedBiomarker = {
@@ -140,9 +156,9 @@ type ExtractedBiomarker = {
       measurement_definition_key: string | null;
       verification_status: string;
       is_active: boolean;
-      registry_version: string;
+      catalog_manifest_version: string;
       resolver_version: string;
-      normalization_schema_version: string;
+      normalization_version: string;
     }>;
   };
 };
@@ -942,13 +958,13 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                                 )}
                               </ul>
                               <p className="mt-2 text-[var(--eh-text-muted)]">
-                                Registry/resolver:{" "}
+                                Catalog/resolver:{" "}
                                 {normalization.activeRevision?.id
                                   ? (normalization.revisions.find(
                                       (revision) =>
                                         revision.id ===
                                         normalization.activeRevision?.id,
-                                    )?.registry_version ?? "unknown")
+                                    )?.catalog_manifest_version ?? "unknown")
                                   : "pending"}
                                 {" / "}
                                 {normalization.activeRevision?.id

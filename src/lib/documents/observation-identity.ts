@@ -26,8 +26,17 @@ export type ObservationUpsertSource = {
   bounding_box: unknown;
   confidence: number | null;
   reported_alt_value: number | null;
-  reported_alt_unit: string | null;
+  reported_alt_unit: number | null;
   source_extracted_biomarker_id: string;
+  raw_value_text: string | null;
+  raw_reference_text: string | null;
+  raw_unit: string | null;
+  extraction_version: string | null;
+  provenance_schema_version: string;
+  catalog_manifest_version: string | null;
+  catalog_manifest_digest: string | null;
+  resolver_version: string | null;
+  normalization_version: string | null;
 };
 
 export function buildObservationSemanticIdentity(
