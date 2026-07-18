@@ -13,6 +13,8 @@
     "test:document-worker": "tsx scripts/verify-document-worker-reliability.ts",
     "test:observation-identity": "tsx scripts/verify-observation-identity-runner.ts",
     "test:observation-provenance": "tsx scripts/verify-observation-provenance-runner.ts",
+    "preflight:eh104": "tsx scripts/eh104-preflight.ts",
+    "test:eh104-db": "supabase test db --local supabase/tests/eh104_observation_resolution_verification.sql",
     "check:no-registry-v1-runtime": "tsx scripts/verify-no-registry-v1-runtime-imports.ts",
     "generate:registry-v1": "tsx scripts/registry-v1-baseline.ts --write",
     "generate:launch-catalog": "tsx scripts/generate-launch-catalog.ts",

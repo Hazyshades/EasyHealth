@@ -23,7 +23,9 @@ export function acceptancePathForResolution(
 export function decideAutomaticPromotion(options: {
   resolution: MeasurementResolution;
   mappingClassification: MappingChangeClassification;
-  activeRevision?: { verification_status: "pending" | "user_verified" | "manually_corrected" } | null;
+  activeRevision?: {
+    verification_status: "pending" | "auto_verified" | "user_verified" | "manually_corrected";
+  } | null;
   qualityGateApproved: boolean;
 }): PromotionDecision {
   if (!options.qualityGateApproved) return { allowed: false, reason: "quality_gate_not_approved" };

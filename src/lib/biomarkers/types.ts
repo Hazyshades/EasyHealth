@@ -16,7 +16,13 @@ export type ScoreRole = "core" | "extended" | "display";
 
 export type ResolverResult = "resolved" | "ambiguous" | "partial" | "unmapped";
 
-export type VerificationStatus = "pending" | "user_verified" | "manually_corrected";
+export type VerificationStatus =
+  | "pending"
+  | "auto_verified"
+  | "user_verified"
+  | "manually_corrected";
+
+export type VerificationActorType = "system" | "user";
 
 export type AssessmentCompatibility = "compatible" | "display_only" | "incompatible";
 

@@ -1,4 +1,5 @@
 import { resolveMeasurementDefinition } from "@/lib/biomarkers";
+import type { VerificationStatus } from "@/lib/biomarkers";
 import { parseReferenceRange } from "@/lib/schemas/biomarkers";
 import { compatibleManualDefinitions } from "./normalization-revisions";
 
@@ -26,7 +27,7 @@ export type NormalizationRevisionSummary = {
   resolver_result: string;
   mapping_confidence: number;
   mapping_confidence_band: string | null;
-  verification_status: string;
+  verification_status: VerificationStatus;
   is_active: boolean;
   catalog_manifest_version: string;
   resolver_version: string;

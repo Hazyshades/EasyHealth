@@ -48,7 +48,8 @@ xmcp-env.d.ts
 
 #scpecs
 /docs/
-openspec/
+openspec/domains/
+openspec/specs/
 hackathon.md
 mvp_steps.md
 mvp_steps.md

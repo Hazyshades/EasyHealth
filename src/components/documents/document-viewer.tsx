@@ -39,6 +39,7 @@ import {
   resolveBiomarkerPanelMode,
   resolveBiomarkerReviewAction,
 } from "@/lib/documents/biomarker-review-state";
+import type { VerificationStatus } from "@/lib/biomarkers";
 
 type DocumentMeta = {
   id: string;
@@ -150,12 +151,12 @@ type ExtractedBiomarker = {
     activeRevision: {
       id: string;
       measurement_definition_key: string | null;
-      verification_status: string;
+      verification_status: VerificationStatus;
     } | null;
     revisions: Array<{
       id: string;
       measurement_definition_key: string | null;
-      verification_status: string;
+      verification_status: VerificationStatus;
       is_active: boolean;
       catalog_manifest_version: string;
       resolver_version: string;

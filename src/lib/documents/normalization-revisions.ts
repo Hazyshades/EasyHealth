@@ -10,6 +10,7 @@ import type {
   CandidateEvidence,
   MeasurementResolution,
   MeasurementResolutionInput,
+  VerificationActorType,
   VerificationStatus,
 } from "@/lib/biomarkers";
 import type { MappingChangeClassification } from "@/lib/biomarkers";
@@ -36,10 +37,45 @@ export type NormalizationRevision = {
   mapping_confidence: number;
   mapping_confidence_band: MeasurementResolution["mappingConfidenceBand"] | null;
   verification_status: VerificationStatus;
+  verification_decided_at: string | null;
+  verification_actor_type: VerificationActorType | null;
+  verification_actor_id: string | null;
   is_active: boolean;
   mapping_change_classification: MappingChangeClassification | null;
 };
 
+type VerificationDecisionMetadata = {
+  verification_decided_at: string | null;
+  verification_actor_type: VerificationActorType | null;
+  verification_actor_id: string | null;
+};
+
+function verificationDecisionMetadata(
+  status: VerificationStatus,
+  actorId: string | null | undefined
+): VerificationDecisionMetadata {
+  if (status === "pending") {
+    return {
+      verification_decided_at: null,
+      verification_actor_type: null,
+      verification_actor_id: null,
+    };
+  }
+
+  if (status === "auto_verified") {
+    return {
+      verification_decided_at: new Date().toISOString(),
+      verification_actor_type: "system",
+      verification_actor_id: null,
+    };
+  }
+
+  return {
+    verification_decided_at: new Date().toISOString(),
+    verification_actor_type: "user",
+    verification_actor_id: actorId ?? null,
+  };
+}
 
 export function buildInputEvidenceHash(input: MeasurementResolutionInput): string {
   return createHash("sha256")
@@ -74,6 +110,7 @@ export async function createNormalizationCandidate(options: {
 }): Promise<{ revision: NormalizationRevision; resolution: MeasurementResolution }> {
   const supabase = createAdminClient();
   const resolution = options.resolutionOverride ?? resolveMeasurementDefinition(options.input);
+  const verificationStatus = options.verificationStatus ?? "pending";
   const payload = {
     extracted_biomarker_id: options.extractedBiomarkerId,
     input_evidence_hash: buildInputEvidenceHash(options.input),
@@ -88,7 +125,8 @@ export async function createNormalizationCandidate(options: {
     resolver_version: MEASUREMENT_RESOLVER_VERSION,
     normalization_version: MEASUREMENT_NORMALIZATION_VERSION,
     extraction_version: options.extractionVersion ?? null,
-    verification_status: options.verificationStatus ?? "pending",
+    verification_status: verificationStatus,
+    ...verificationDecisionMetadata(verificationStatus, options.actorId),
     mapping_change_classification: options.mappingClassification ?? "additive",
     created_by: options.actorId ?? null,
     correction_reason: options.correctionReason ?? null,
@@ -99,7 +137,7 @@ export async function createNormalizationCandidate(options: {
   const { data, error } = await supabase
     .from("observation_normalization_revisions")
     .insert(payload)
-    .select("id, extracted_biomarker_id, observation_id, measurement_definition_key, analyte_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, mapping_change_classification")
+    .select("id, extracted_biomarker_id, observation_id, measurement_definition_key, analyte_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, verification_decided_at, verification_actor_type, verification_actor_id, is_active, mapping_change_classification")
     .single();
   if (error) throw error;
   const { error: metadataError } = await supabase
@@ -117,7 +155,7 @@ export async function createNormalizationCandidate(options: {
       resolver_version: MEASUREMENT_RESOLVER_VERSION,
       normalization_version: MEASUREMENT_NORMALIZATION_VERSION,
       extraction_version: options.extractionVersion ?? null,
-      verification_status: options.verificationStatus ?? "pending",
+      verification_status: verificationStatus,
     })
     .eq("id", options.extractedBiomarkerId);
   if (metadataError) throw metadataError;
@@ -223,11 +261,28 @@ export async function promoteNormalizationRevision(options: {
   return data as NormalizationRevision;
 }
 
+export async function promoteNormalizationRevisionV2(options: {
+  revisionId: string;
+  observationId: string;
+  expectedActiveRevisionId: string | null;
+  actorId?: string | null;
+}): Promise<NormalizationRevision> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.rpc("promote_observation_normalization_revision_v2", {
+    p_revision_id: options.revisionId,
+    p_observation_id: options.observationId,
+    p_expected_active_revision_id: options.expectedActiveRevisionId,
+    p_actor_id: options.actorId ?? null,
+  });
+  if (error) throw error;
+  return data as NormalizationRevision;
+}
+
 export async function getActiveNormalizationRevision(extractedBiomarkerId: string): Promise<NormalizationRevision | null> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("observation_normalization_revisions")
-    .select("id, extracted_biomarker_id, observation_id, measurement_definition_key, analyte_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, mapping_change_classification")
+    .select("id, extracted_biomarker_id, observation_id, measurement_definition_key, analyte_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, verification_decided_at, verification_actor_type, verification_actor_id, is_active, mapping_change_classification")
     .eq("extracted_biomarker_id", extractedBiomarkerId)
     .eq("is_active", true)
     .maybeSingle();
