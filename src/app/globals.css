@@ -210,6 +210,10 @@
 /* Body map -motion tokens (Emil design-eng: strong ease-out, transform + opacity only) */
 :root {
   --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --eh-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --eh-dur-fast: 120ms;
+  --eh-dur-med: 180ms;
+  --eh-dur-slow: 250ms;
 }
 
 @keyframes body-map-enter {
@@ -428,5 +432,23 @@
 
   .app-content {
     padding: 24px 16px 88px;
+  }
+}
+/* Shared motion utilities (refactor-animation) */
+.eh-press {
+  transition: transform var(--eh-dur-fast) var(--eh-ease);
+}
+.eh-press:active {
+  transform: scale(0.98);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
