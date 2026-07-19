@@ -11,16 +11,19 @@
     "test:measurement-registry": "tsx scripts/verify-measurement-registry-runner.ts",
     "test:document-review": "tsx scripts/verify-document-review-runner.ts",
     "test:document-worker": "tsx scripts/verify-document-worker-reliability.ts",
+    "test:eh105": "tsx scripts/verify-eh105-instrumental-lineage.ts && tsx scripts/verify-eh105-worker-safety.ts",
     "test:observation-identity": "tsx scripts/verify-observation-identity-runner.ts",
     "test:observation-provenance": "tsx scripts/verify-observation-provenance-runner.ts",
     "preflight:eh104": "tsx scripts/eh104-preflight.ts",
     "test:eh104-db": "supabase test db --local supabase/tests/eh104_observation_resolution_verification.sql",
+    "test:eh105-db": "supabase test db --local supabase/tests/eh105_instrumental_observation_lineage.sql",
+    "check:no-observations-biomarker-key": "tsx scripts/verify-no-observations-biomarker-key.ts",
     "check:no-registry-v1-runtime": "tsx scripts/verify-no-registry-v1-runtime-imports.ts",
     "generate:registry-v1": "tsx scripts/registry-v1-baseline.ts --write",
     "generate:launch-catalog": "tsx scripts/generate-launch-catalog.ts",
     "check:registry-v1": "tsx scripts/registry-v1-baseline.ts --check",
     "test:registry-v1": "tsx scripts/verify-registry-v1-baseline-runner.ts",
-    "verify:registry": "tsx scripts/verify-biomarkers-runner.ts && tsx scripts/verify-measurement-registry-runner.ts && tsx scripts/verify-observation-identity-runner.ts && tsx scripts/verify-observation-provenance-runner.ts && tsx scripts/verify-registry-v1-baseline-runner.ts && tsx scripts/registry-v1-baseline.ts --check && tsx scripts/verify-no-registry-v1-runtime-imports.ts"
+    "verify:registry": "tsx scripts/verify-biomarkers-runner.ts && tsx scripts/verify-measurement-registry-runner.ts && tsx scripts/verify-observation-identity-runner.ts && tsx scripts/verify-observation-provenance-runner.ts && tsx scripts/verify-registry-v1-baseline-runner.ts && tsx scripts/registry-v1-baseline.ts --check && tsx scripts/verify-no-registry-v1-runtime-imports.ts && tsx scripts/verify-no-observations-biomarker-key.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.0",

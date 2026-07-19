@@ -8,6 +8,7 @@ import {
   buildDocumentStructuredContext,
   hashStructuredContext,
 } from "@/lib/documents/structured-context";
+import { isLaboratoryObservation } from "@/lib/documents/observation-read-boundaries";
 import { getOrCreateHolisticSynthesis } from "@/lib/holistic-synthesis";
 
 export async function GET() {
@@ -32,7 +33,10 @@ export async function GET() {
         .select(
           "measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier"
         )
-        .eq("profile_id", profileId),
+        .eq("profile_id", profileId)
+        // EH-105: Health Profile remains a laboratory-only assessment boundary.
+        // EH-106 owns typed instrumental presentation and consumer migration.
+        .eq("observation_kind", "lab"),
       supabase
         .from("documents")
         .select("id, original_filename, observed_at, lab_name, document_type, document_summary, processing_status, status")
@@ -65,7 +69,8 @@ export async function GET() {
   const completedDocumentIds = new Set(sources.map((source) => source.id));
   const scopedObservations = (observations ?? []).filter(
     (observation) =>
-      observation.document_id == null || completedDocumentIds.has(observation.document_id)
+      isLaboratoryObservation(observation) &&
+      (observation.document_id == null || completedDocumentIds.has(observation.document_id))
   );
 
   const profile = buildHealthProfile(
@@ -93,8 +98,7 @@ export async function GET() {
           ref_high: o.ref_high != null ? Number(o.ref_high) : null,
           observed_at: o.observed_at,
           document_id: o.document_id,
-          observation_kind:
-            o.observation_kind === "instrumental" ? "instrumental" : "lab",
+          observation_kind: "lab",
           value_kind: valueKind,
           value_text: o.value_text ?? null,
           ordinal: o.ordinal != null ? Number(o.ordinal) : null,
@@ -122,8 +126,7 @@ export async function GET() {
         ref_high: display.ref_high,
         observed_at: o.observed_at,
         document_id: o.document_id,
-        observation_kind:
-          o.observation_kind === "instrumental" ? "instrumental" : "lab",
+        observation_kind: "lab",
         value_kind: "numeric" as const,
         value_text: o.value_text ?? String(display.value),
         ordinal: null,
