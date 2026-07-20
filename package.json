@@ -23,7 +23,14 @@
     "generate:launch-catalog": "tsx scripts/generate-launch-catalog.ts",
     "check:registry-v1": "tsx scripts/registry-v1-baseline.ts --check",
     "test:registry-v1": "tsx scripts/verify-registry-v1-baseline-runner.ts",
-    "verify:registry": "tsx scripts/verify-biomarkers-runner.ts && tsx scripts/verify-measurement-registry-runner.ts && tsx scripts/verify-observation-identity-runner.ts && tsx scripts/verify-observation-provenance-runner.ts && tsx scripts/verify-registry-v1-baseline-runner.ts && tsx scripts/registry-v1-baseline.ts --check && tsx scripts/verify-no-registry-v1-runtime-imports.ts && tsx scripts/verify-no-observations-biomarker-key.ts"
+    "verify:registry": "tsx scripts/verify-biomarkers-runner.ts && tsx scripts/verify-measurement-registry-runner.ts && tsx scripts/verify-observation-identity-runner.ts && tsx scripts/verify-observation-provenance-runner.ts && tsx scripts/verify-registry-v1-baseline-runner.ts && tsx scripts/registry-v1-baseline.ts --check && tsx scripts/verify-no-registry-v1-runtime-imports.ts && tsx scripts/verify-no-observations-biomarker-key.ts",
+    "e2e:install": "playwright install chromium",
+    "preflight:e2e": "tsx e2e/preflight.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:safety": "tsx e2e/verify-safety.ts",
+    "e2e:cleanup": "tsx e2e/cleanup-owned.ts",
+    "e2e:cleanup:orphans": "tsx e2e/cleanup-orphans.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.0",
@@ -49,6 +56,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

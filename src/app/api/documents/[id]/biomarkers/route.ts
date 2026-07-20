@@ -4,7 +4,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { assertDocumentOwner } from "@/lib/documents/access";
 import { parseLabValueCell, OBSERVATION_PROVENANCE_SCHEMA_VERSION, MEASUREMENT_CATALOG_MANIFEST_VERSION, MEASUREMENT_CATALOG_MANIFEST_RELEASE, MEASUREMENT_RESOLVER_VERSION, MEASUREMENT_NORMALIZATION_VERSION } from "@/lib/biomarkers";
 import { parseReferenceRange } from "@/lib/schemas/biomarkers";
-import { buildObservationUpsertPayload } from "@/lib/documents/observation-identity";
+import {
+  buildObservationUpsertPayload,
+  persistObservationByExtractedBiomarker,
+} from "@/lib/documents/observation-identity";
 import {
   compatibleManualDefinitions,
   createManualCorrection,
@@ -210,9 +213,10 @@ export async function PATCH(req: Request, context: RouteContext) {
     return NextResponse.json({ error: "Qualitative observation has no usable value" }, { status: 422 });
   }
 
-  const { data: observation, error: upsertError } = await supabase
-    .from("observations")
-    .upsert(
+  let observation: { id: string };
+  try {
+    observation = await persistObservationByExtractedBiomarker(
+      supabase,
       buildObservationUpsertPayload(
         {
         profile_id: profileId,
@@ -248,11 +252,13 @@ export async function PATCH(req: Request, context: RouteContext) {
       },
         revisionResult.resolution
       ),
-      { onConflict: "source_extracted_biomarker_id" }
-    )
-    .select("id")
-    .single();
-  if (upsertError) return NextResponse.json({ error: upsertError.message }, { status: 500 });
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to persist observation" },
+      { status: 500 },
+    );
+  }
   await promoteNormalizationRevision({ revisionId: revisionResult.revision.id, observationId: observation.id, actorId: profileId });
   const { error: statusError } = await supabase
     .from("document_extracted_biomarkers")

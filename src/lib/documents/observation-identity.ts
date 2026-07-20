@@ -1,4 +1,5 @@
 import type { MeasurementResolution } from "@/lib/biomarkers";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type ObservationSemanticIdentity = {
   analyte_key: string | null;
@@ -58,4 +59,40 @@ export function buildObservationUpsertPayload(
     ...source,
     ...buildObservationSemanticIdentity(resolution),
   };
+}
+
+/**
+ * Persist the one observation owned by an extracted biomarker.
+ *
+ * The original Registry v2 migration used a partial unique index for this
+ * invariant. PostgreSQL enforces it, but PostgREST cannot use that index as
+ * an `onConflict` target. Updating first, then inserting and retrying the
+ * update after a duplicate-key race, preserves the same identity contract on
+ * both the pre-033 schema and the replacement UNIQUE constraint.
+ */
+export async function persistObservationByExtractedBiomarker(
+  client: SupabaseClient,
+  payload: ReturnType<typeof buildObservationUpsertPayload>,
+): Promise<{ id: string }> {
+  const updateExisting = async () => {
+    const result = await client
+      .from("observations")
+      .update(payload)
+      .eq("source_extracted_biomarker_id", payload.source_extracted_biomarker_id)
+      .select("id")
+      .maybeSingle();
+    if (result.error) throw result.error;
+    return result.data as { id: string } | null;
+  };
+
+  const existing = await updateExisting();
+  if (existing) return existing;
+
+  const inserted = await client.from("observations").insert(payload).select("id").single();
+  if (!inserted.error) return inserted.data as { id: string };
+  if (inserted.error.code !== "23505") throw inserted.error;
+
+  const concurrent = await updateExisting();
+  if (concurrent) return concurrent;
+  throw inserted.error;
 }
