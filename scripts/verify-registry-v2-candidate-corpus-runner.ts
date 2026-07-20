@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { resolveMeasurementDefinition } from "../src/lib/biomarkers";
 import {
   canonicalJson,
+  REQUIRED_CANDIDATE_CORPUS_ROW_COUNT,
   runRegistryV2CandidateCorpus,
 } from "./lib/registry-v2-candidate-corpus";
 
@@ -27,8 +28,8 @@ const first = runRegistryV2CandidateCorpus();
 const second = runRegistryV2CandidateCorpus();
 
 assert.equal(first.manifest.launchable, true, "committed candidate evidence must satisfy the release gate");
-assert.equal(first.report.coverage.requiredRows, 44);
-assert.equal(first.report.coverage.actualRows, 44);
+assert.equal(first.report.coverage.requiredRows, REQUIRED_CANDIDATE_CORPUS_ROW_COUNT);
+assert.equal(first.report.coverage.actualRows, REQUIRED_CANDIDATE_CORPUS_ROW_COUNT);
 assert.ok(first.report.coverage.missingContextNegativeCount > 0, "missing-context negatives must remain represented");
 assert.ok(first.report.coverage.deidentifiedDocumentCount >= 4, "representative de-identified document fixtures are required");
 assert.ok(first.report.coverage.specialtyDocumentCount > 0, "specialty document coverage is required");
@@ -51,6 +52,13 @@ assert.ok(first.manifest.candidateInputHash.match(/^[a-f0-9]{64}$/));
 assert.ok(first.manifest.manifestHash.match(/^[a-f0-9]{64}$/));
 assert.deepEqual(canonicalJson(first), canonicalJson(second), "same inputs must produce byte-for-byte reproducible output");
 assert.deepEqual(first.manifest.thresholdChecks.map((check) => check.passed), Array(first.manifest.thresholdChecks.length).fill(true));
+for (const segments of Object.values(first.report.segments)) {
+  assert.equal(
+    Object.values(segments).reduce((total, segment) => total + segment.total, 0),
+    REQUIRED_CANDIDATE_CORPUS_ROW_COUNT,
+    "every report segmentation must account for every candidate row"
+  );
+}
 
 const runnerSource = readFileSync("scripts/lib/registry-v2-candidate-corpus.ts", "utf8");
 assert.doesNotMatch(
@@ -81,6 +89,34 @@ assert.equal(
   false
 );
 
+const forcedAmbiguous = runRegistryV2CandidateCorpus({
+  resolver: (input) => {
+    const resolution = resolveMeasurementDefinition(input);
+    return input.rawLabel === "Total protein"
+      ? { ...resolution, result: "ambiguous", measurementDefinitionKey: null, analyteKey: null }
+      : resolution;
+  },
+});
+assert.equal(forcedAmbiguous.manifest.launchable, false, "unexpected ambiguous results must fail the expected-classification gate");
+assert.equal(forcedAmbiguous.report.rows.find((row) => row.id === "total-protein")?.actualClassification, "ambiguous");
+assert.equal(forcedAmbiguous.report.segments.panel.biochemistry?.ambiguous, 1, "ambiguous outcomes must remain visible in panel segments");
+
+const processingFailure = runRegistryV2CandidateCorpus({
+  resolver: (input) => {
+    if (input.rawLabel === "Total protein") throw new Error("simulated candidate processor failure");
+    return resolveMeasurementDefinition(input);
+  },
+});
+assert.equal(processingFailure.manifest.launchable, false, "processing errors must block launchability");
+assert.equal(processingFailure.report.metrics.processingErrors, 1);
+assert.equal(processingFailure.report.processingErrors[0]?.id, "total-protein");
+assert.equal(processingFailure.report.segments.panel.biochemistry?.processingErrors, 1);
+assert.equal(
+  processingFailure.manifest.thresholdChecks.find((check) => check.metric === "processingErrors")?.passed,
+  false,
+  "processing-error thresholds must be enforced"
+);
+
 const missingFixtureRoot = temporaryCandidateRoot();
 try {
   rmSync(join(missingFixtureRoot, "documents", "cbc-ru-north.json"));
@@ -98,6 +134,69 @@ try {
   assert.throws(() => runRegistryV2CandidateCorpus({ root: unclassifiedRoot }), /valid expected classification/);
 } finally {
   rmSync(unclassifiedRoot, { recursive: true, force: true });
+}
+
+const malformedClassificationRoot = temporaryCandidateRoot();
+try {
+  changeJson(malformedClassificationRoot, "corpus.json", (corpus) => {
+    const rows = corpus.rows as Array<Record<string, unknown>>;
+    (rows[0]!.expected as Record<string, unknown>).classification = "unsupported";
+  });
+  assert.throws(() => runRegistryV2CandidateCorpus({ root: malformedClassificationRoot }), /valid expected classification/);
+} finally {
+  rmSync(malformedClassificationRoot, { recursive: true, force: true });
+}
+
+const loweredCorpusRoot = temporaryCandidateRoot();
+try {
+  changeJson(loweredCorpusRoot, "corpus.json", (corpus) => {
+    const rows = corpus.rows as Array<Record<string, unknown>>;
+    rows.pop();
+    corpus.requiredRowCount = REQUIRED_CANDIDATE_CORPUS_ROW_COUNT - 1;
+  });
+  changeJson(loweredCorpusRoot, "policy.json", (policy) => {
+    policy.requiredLaunchRows = REQUIRED_CANDIDATE_CORPUS_ROW_COUNT - 1;
+  });
+  assert.throws(() => runRegistryV2CandidateCorpus({ root: loweredCorpusRoot }), /must remain 44/);
+} finally {
+  rmSync(loweredCorpusRoot, { recursive: true, force: true });
+}
+
+const missingRequiredCoverageRoot = temporaryCandidateRoot();
+try {
+  changeJson(missingRequiredCoverageRoot, "documents.json", (documents) => {
+    delete documents.requiredCoverage;
+  });
+  assert.throws(() => runRegistryV2CandidateCorpus({ root: missingRequiredCoverageRoot }), /documents\.requiredCoverage is required/);
+} finally {
+  rmSync(missingRequiredCoverageRoot, { recursive: true, force: true });
+}
+
+const incompleteRequiredCoverageRoot = temporaryCandidateRoot();
+try {
+  changeJson(incompleteRequiredCoverageRoot, "documents.json", (documents) => {
+    (documents.requiredCoverage as Record<string, unknown>).languages = [];
+  });
+  assert.throws(
+    () => runRegistryV2CandidateCorpus({ root: incompleteRequiredCoverageRoot }),
+    /documents\.requiredCoverage\.languages must be a non-empty string array/
+  );
+} finally {
+  rmSync(incompleteRequiredCoverageRoot, { recursive: true, force: true });
+}
+
+const mismatchedDocumentRawRowRoot = temporaryCandidateRoot();
+try {
+  changeJson(mismatchedDocumentRawRowRoot, "documents/chemistry-en-west.json", (document) => {
+    const rawRows = document.rawRows as Array<Record<string, unknown>>;
+    rawRows[0]!.rawUnit = "mg/dL";
+  });
+  assert.throws(
+    () => runRegistryV2CandidateCorpus({ root: mismatchedDocumentRawRowRoot }),
+    /raw row is not represented in the candidate corpus/
+  );
+} finally {
+  rmSync(mismatchedDocumentRawRowRoot, { recursive: true, force: true });
 }
 
 const missingApprovalRoot = temporaryCandidateRoot();
@@ -126,6 +225,28 @@ try {
   rmSync(missingScoreApprovalRoot, { recursive: true, force: true });
 }
 
+const invalidExtraApprovalRoot = temporaryCandidateRoot();
+try {
+  changeJson(invalidExtraApprovalRoot, "approvals.json", (evidence) => {
+    const approvals = evidence.approvals as Array<Record<string, unknown>>;
+    approvals.push({
+      id: "invalid-extra-approval",
+      scope: "not_a_real_scope",
+      role: "registry-safety-reviewer",
+      approvedBy: "Registry Safety Reviewer",
+      status: "rejected",
+      candidateInputHash: approvals[0]!.candidateInputHash,
+      note: "Malformed approval records must not be ignored.",
+    });
+  });
+  const invalidExtraApproval = runRegistryV2CandidateCorpus({ root: invalidExtraApprovalRoot });
+  assert.equal(invalidExtraApproval.manifest.launchable, false, "invalid extra approval evidence must block launchability");
+  assert.match(invalidExtraApproval.manifest.approvals.errors.join("\n"), /invalid scope/);
+  assert.match(invalidExtraApproval.manifest.approvals.errors.join("\n"), /invalid status/);
+} finally {
+  rmSync(invalidExtraApprovalRoot, { recursive: true, force: true });
+}
+
 const staleApprovalRoot = temporaryCandidateRoot();
 try {
   changeJson(staleApprovalRoot, "corpus.json", (corpus) => {
@@ -146,5 +267,9 @@ try {
 } finally {
   rmSync(missingReleaseArtifactRoot, { recursive: true, force: true });
 }
+
+const workflow = readFileSync(".github/workflows/measurement-registry.yml", "utf8");
+assert.match(workflow, /registry-v2-candidate-release-approvals\.json/, "CI must publish raw approval evidence");
+assert.match(workflow, /registry-v2-candidate-release-reset-rollback\.md/, "CI must publish reset and rollback notes");
 
 console.log("verify-registry-v2-candidate-corpus: all checks passed");

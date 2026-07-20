@@ -1,6 +1,6 @@
 begin;
 
-select plan(25);
+select plan(31);
 
 select ok(
   has_function_privilege(
@@ -113,7 +113,9 @@ values
   ('00000000-0000-0000-0000-000000001084', '00000000-0000-0000-0000-000000001071', '00000000-0000-0000-0000-000000001061', 'Unreviewed rejection', 'needs_review'),
   ('00000000-0000-0000-0000-000000001085', '00000000-0000-0000-0000-000000001071', '00000000-0000-0000-0000-000000001061', 'Stale target', 'needs_review'),
   ('00000000-0000-0000-0000-000000001086', '00000000-0000-0000-0000-000000001071', '00000000-0000-0000-0000-000000001061', 'Ownership target', 'needs_review'),
-  ('00000000-0000-0000-0000-000000001087', '00000000-0000-0000-0000-000000001071', '00000000-0000-0000-0000-000000001061', 'Idempotent target', 'needs_review');
+  ('00000000-0000-0000-0000-000000001087', '00000000-0000-0000-0000-000000001071', '00000000-0000-0000-0000-000000001061', 'Idempotent target', 'needs_review'),
+  ('00000000-0000-0000-0000-000000001088', '00000000-0000-0000-0000-000000001071', '00000000-0000-0000-0000-000000001061', 'Ambiguous acceptance', 'needs_review'),
+  ('00000000-0000-0000-0000-000000001089', '00000000-0000-0000-0000-000000001071', '00000000-0000-0000-0000-000000001061', 'Unmapped acceptance', 'needs_review');
 
 select lives_ok(
   $$
@@ -146,9 +148,16 @@ select is(
 );
 
 select is(
-  (select verification_actor_id from public.observation_normalization_revisions where extracted_biomarker_id = '00000000-0000-0000-0000-000000001081' and is_active),
+  (
+    select verification_actor_id
+    from public.observation_normalization_revisions
+    where extracted_biomarker_id = '00000000-0000-0000-0000-000000001081'
+      and is_active
+      and verification_actor_type = 'user'
+      and verification_decided_at is not null
+  ),
   '00000000-0000-0000-0000-000000001062'::uuid,
-  'resolved acceptance carries user decision metadata'
+  'resolved acceptance carries complete user decision metadata'
 );
 
 select ok(
@@ -218,6 +227,88 @@ select ok(
 select lives_ok(
   $$
     select public.write_observation_normalization_revision_v2(
+      '00000000-0000-0000-0000-000000001088',
+      public.eh106_observation_payload(
+        '00000000-0000-0000-0000-000000001061',
+        '00000000-0000-0000-0000-000000001071',
+        'Ambiguous acceptance'
+      ),
+      public.eh106_resolution_payload('ambiguous', null, null),
+      'acceptance',
+      '00000000-0000-0000-0000-000000001062',
+      repeat('8', 64),
+      null,
+      'additive',
+      null,
+      null,
+      null,
+      'eh106-test',
+      false
+    )
+  $$,
+  'ambiguous raw acceptance writes and promotes atomically'
+);
+
+select ok(
+  exists (
+    select 1
+    from public.observation_normalization_revisions
+    where extracted_biomarker_id = '00000000-0000-0000-0000-000000001088'
+      and is_active
+      and verification_status = 'pending'
+      and measurement_definition_key is null
+      and analyte_key is null
+      and verification_decided_at is null
+      and verification_actor_type is null
+      and verification_actor_id is null
+  ),
+  'ambiguous acceptance remains pending without concrete identity or decision metadata'
+);
+
+select lives_ok(
+  $$
+    select public.write_observation_normalization_revision_v2(
+      '00000000-0000-0000-0000-000000001089',
+      public.eh106_observation_payload(
+        '00000000-0000-0000-0000-000000001061',
+        '00000000-0000-0000-0000-000000001071',
+        'Unmapped acceptance'
+      ),
+      public.eh106_resolution_payload('unmapped', null, null),
+      'acceptance',
+      '00000000-0000-0000-0000-000000001062',
+      repeat('9', 64),
+      null,
+      'additive',
+      null,
+      null,
+      null,
+      'eh106-test',
+      false
+    )
+  $$,
+  'unmapped raw acceptance writes and promotes atomically'
+);
+
+select ok(
+  exists (
+    select 1
+    from public.observation_normalization_revisions
+    where extracted_biomarker_id = '00000000-0000-0000-0000-000000001089'
+      and is_active
+      and verification_status = 'pending'
+      and measurement_definition_key is null
+      and analyte_key is null
+      and verification_decided_at is null
+      and verification_actor_type is null
+      and verification_actor_id is null
+  ),
+  'unmapped acceptance remains pending without concrete identity or decision metadata'
+);
+
+select lives_ok(
+  $$
+    select public.write_observation_normalization_revision_v2(
       '00000000-0000-0000-0000-000000001083',
       public.eh106_observation_payload(
         '00000000-0000-0000-0000-000000001061',
@@ -247,9 +338,16 @@ select is(
 );
 
 select is(
-  (select verification_actor_id from public.observation_normalization_revisions where extracted_biomarker_id = '00000000-0000-0000-0000-000000001083' and is_active),
+  (
+    select verification_actor_id
+    from public.observation_normalization_revisions
+    where extracted_biomarker_id = '00000000-0000-0000-0000-000000001083'
+      and is_active
+      and verification_actor_type = 'user'
+      and verification_decided_at is not null
+  ),
   '00000000-0000-0000-0000-000000001062'::uuid,
-  'manual correction carries user decision metadata'
+  'manual correction carries complete user decision metadata'
 );
 
 select throws_ok(
@@ -382,6 +480,18 @@ select is(
   (select count(*)::bigint from public.observations where source_extracted_biomarker_id = '00000000-0000-0000-0000-000000001086'),
   0::bigint,
   'ownership failure rolls back the newly created observation'
+);
+
+select is(
+  (select count(*)::bigint from public.observation_normalization_revisions where extracted_biomarker_id = '00000000-0000-0000-0000-000000001086'),
+  0::bigint,
+  'ownership failure rolls back the newly created candidate revision'
+);
+
+select is(
+  (select status from public.document_extracted_biomarkers where id = '00000000-0000-0000-0000-000000001086'),
+  'needs_review',
+  'ownership failure leaves the source review status unchanged'
 );
 
 select lives_ok(

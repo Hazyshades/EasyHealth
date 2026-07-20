@@ -22,10 +22,13 @@ import {
  */
 
 export const DEFAULT_CANDIDATE_CORPUS_ROOT = "registry/candidate-release/v1";
+export const REQUIRED_CANDIDATE_CORPUS_ROW_COUNT = 44;
 
 const RESULTS: readonly ResolverResult[] = ["resolved", "partial", "ambiguous", "unmapped"];
 const VALUE_KINDS: readonly MeasurementValueKind[] = ["numeric", "qualitative", "ordinal", "unspecified"];
 const UNIT_CONFLICTS = new Set(["unit_dimension_conflict", "unit_not_accepted"]);
+const APPROVAL_SCOPES = ["false_concrete_review", "score_affecting_binding", "release_gate"] as const;
+const APPROVAL_STATUSES = ["approved"] as const;
 
 export type CandidateCorpusRow = {
   id: string;
@@ -114,10 +117,10 @@ export type CandidateReleasePolicy = {
 
 export type CandidateApproval = {
   id: string;
-  scope: "false_concrete_review" | "score_affecting_binding" | "release_gate";
+  scope: (typeof APPROVAL_SCOPES)[number];
   role: string;
   approvedBy: string;
-  status: "approved";
+  status: (typeof APPROVAL_STATUSES)[number];
   candidateInputHash: string;
   bindingKey?: string;
   note: string;
@@ -363,16 +366,41 @@ function missingString(value: unknown): boolean {
   return typeof value !== "string" || value.trim().length === 0;
 }
 
+function requiredStringArray(value: unknown, label: string, errors: string[]): string[] {
+  if (!Array.isArray(value) || value.length === 0 || value.some(missingString)) {
+    errors.push(`${label} must be a non-empty string array`);
+    return [];
+  }
+  return value;
+}
+
+function rawEvidenceKey(row: Pick<CandidateCorpusRow, "rawLabel" | "rawUnit" | "rawValueText" | "valueKind">): string {
+  return canonicalJson({
+    rawLabel: row.rawLabel,
+    rawUnit: row.rawUnit,
+    rawValueText: row.rawValueText,
+    valueKind: row.valueKind,
+  });
+}
+
 function validateCandidateCorpus(loaded: Omit<LoadedCandidateCorpus, "fixtureErrors">): string[] {
   const errors: string[] = [];
   const { corpus, documentIndex, documents, policy, resetRollbackNotes } = loaded;
   if (corpus.schemaVersion !== "1") errors.push("corpus.schemaVersion must be 1");
   if (missingString(corpus.candidate?.id)) errors.push("corpus.candidate.id is required");
   if (missingString(corpus.candidate?.registryRelease)) errors.push("corpus.candidate.registryRelease is required");
-  if (!Number.isInteger(corpus.requiredRowCount) || corpus.requiredRowCount < 1) errors.push("corpus.requiredRowCount must be a positive integer");
+  if (corpus.requiredRowCount !== REQUIRED_CANDIDATE_CORPUS_ROW_COUNT) {
+    errors.push(`corpus.requiredRowCount must remain ${REQUIRED_CANDIDATE_CORPUS_ROW_COUNT}`);
+  }
   if (!Array.isArray(corpus.rows)) errors.push("corpus.rows must be an array");
   if (!Array.isArray(corpus.rows) || corpus.rows.length !== corpus.requiredRowCount) {
     errors.push(`required row count is ${corpus.requiredRowCount}, but fixture contains ${Array.isArray(corpus.rows) ? corpus.rows.length : 0}`);
+  }
+  if (!Array.isArray(corpus.rows) || corpus.rows.length !== REQUIRED_CANDIDATE_CORPUS_ROW_COUNT) {
+    errors.push(`candidate corpus must contain exactly ${REQUIRED_CANDIDATE_CORPUS_ROW_COUNT} rows`);
+  }
+  if (policy.requiredLaunchRows !== REQUIRED_CANDIDATE_CORPUS_ROW_COUNT) {
+    errors.push(`policy.requiredLaunchRows must remain ${REQUIRED_CANDIDATE_CORPUS_ROW_COUNT}`);
   }
   if (corpus.requiredRowCount !== policy.requiredLaunchRows) {
     errors.push(`corpus.requiredRowCount (${corpus.requiredRowCount}) must match policy.requiredLaunchRows (${policy.requiredLaunchRows})`);
@@ -411,6 +439,22 @@ function validateCandidateCorpus(loaded: Omit<LoadedCandidateCorpus, "fixtureErr
   if (documentIndex.schemaVersion !== "1") errors.push("documents.schemaVersion must be 1");
   if (!Array.isArray(documentIndex.documents) || documentIndex.documents.length === 0) errors.push("at least one representative document fixture is required");
   if (documents.size !== documentIndex.documents?.length) errors.push("document fixture identifiers must be unique");
+  const requiredCoverage = documentIndex.requiredCoverage;
+  if (!requiredCoverage || typeof requiredCoverage !== "object") {
+    errors.push("documents.requiredCoverage is required");
+  }
+  const requiredPanels = requiredStringArray(requiredCoverage?.panels, "documents.requiredCoverage.panels", errors);
+  const requiredLanguages = requiredStringArray(requiredCoverage?.languages, "documents.requiredCoverage.languages", errors);
+  const requiredLaboratories = requiredStringArray(requiredCoverage?.laboratories, "documents.requiredCoverage.laboratories", errors);
+  if (typeof requiredCoverage?.requiresSpecialtyRows !== "boolean") {
+    errors.push("documents.requiredCoverage.requiresSpecialtyRows must be a boolean");
+  }
+  const corpusRawRowsByDocument = new Map<string, Set<string>>();
+  for (const row of corpus.rows ?? []) {
+    const rows = corpusRawRowsByDocument.get(row.documentId) ?? new Set<string>();
+    rows.add(rawEvidenceKey(row));
+    corpusRawRowsByDocument.set(row.documentId, rows);
+  }
   const panels = new Set<string>();
   const languages = new Set<string>();
   const laboratories = new Set<string>();
@@ -423,15 +467,43 @@ function validateCandidateCorpus(loaded: Omit<LoadedCandidateCorpus, "fixtureErr
     if (!document.deidentified) errors.push(`document ${document.id || "<unknown>"} is not marked deidentified`);
     if (!Array.isArray(document.panels) || document.panels.length === 0) errors.push(`document ${document.id || "<unknown>"} has no panel coverage`);
     if (!Array.isArray(document.rawRows) || document.rawRows.length === 0) errors.push(`document ${document.id || "<unknown>"} has no representative raw rows`);
+    const corpusRawRows = corpusRawRowsByDocument.get(document.id) ?? new Set<string>();
+    for (const rawRow of document.rawRows ?? []) {
+      if (!rawRow || typeof rawRow !== "object") {
+        errors.push(`document ${document.id || "<unknown>"} has an invalid raw row`);
+        continue;
+      }
+      let rawRowValid = true;
+      if (missingString(rawRow.rawLabel)) {
+        errors.push(`document ${document.id || "<unknown>"} raw row is missing rawLabel`);
+        rawRowValid = false;
+      }
+      if (rawRow.rawUnit !== null && typeof rawRow.rawUnit !== "string") {
+        errors.push(`document ${document.id || "<unknown>"} raw row has an invalid rawUnit`);
+        rawRowValid = false;
+      }
+      if (missingString(rawRow.rawValueText)) {
+        errors.push(`document ${document.id || "<unknown>"} raw row is missing rawValueText`);
+        rawRowValid = false;
+      }
+      if (!VALUE_KINDS.includes(rawRow.valueKind)) {
+        errors.push(`document ${document.id || "<unknown>"} raw row has an invalid valueKind`);
+        rawRowValid = false;
+      }
+      if (!rawRowValid) continue;
+      if (!corpusRawRows.has(rawEvidenceKey(rawRow))) {
+        errors.push(`document ${document.id || "<unknown>"} raw row is not represented in the candidate corpus: ${rawRow.rawLabel || "<unknown>"}`);
+      }
+    }
     for (const panel of document.panels ?? []) panels.add(panel);
     if (document.language) languages.add(document.language);
     if (document.laboratory) laboratories.add(document.laboratory);
     if (document.specialtyRows) specialtyCount += 1;
   }
-  for (const panel of documentIndex.requiredCoverage?.panels ?? []) if (!panels.has(panel)) errors.push(`required document panel coverage is missing: ${panel}`);
-  for (const language of documentIndex.requiredCoverage?.languages ?? []) if (!languages.has(language)) errors.push(`required document language coverage is missing: ${language}`);
-  for (const laboratory of documentIndex.requiredCoverage?.laboratories ?? []) if (!laboratories.has(laboratory)) errors.push(`required document laboratory coverage is missing: ${laboratory}`);
-  if (documentIndex.requiredCoverage?.requiresSpecialtyRows && specialtyCount === 0) errors.push("representative specialty document coverage is missing");
+  for (const panel of requiredPanels) if (!panels.has(panel)) errors.push(`required document panel coverage is missing: ${panel}`);
+  for (const language of requiredLanguages) if (!languages.has(language)) errors.push(`required document language coverage is missing: ${language}`);
+  for (const laboratory of requiredLaboratories) if (!laboratories.has(laboratory)) errors.push(`required document laboratory coverage is missing: ${laboratory}`);
+  if (requiredCoverage?.requiresSpecialtyRows && specialtyCount === 0) errors.push("representative specialty document coverage is missing");
 
   if (policy.schemaVersion !== "1") errors.push("policy.schemaVersion must be 1");
   const thresholds = policy.thresholds;
@@ -570,6 +642,18 @@ function validateApprovals(
   for (const approval of evidence.approvals ?? []) {
     if (missingString(approval.id) || missingString(approval.role) || missingString(approval.approvedBy) || missingString(approval.note)) {
       errors.push("approval evidence contains an incomplete approval record");
+    }
+    if (!APPROVAL_SCOPES.includes(approval.scope)) {
+      errors.push(`approval ${approval.id || "<unknown>"} has an invalid scope`);
+    }
+    if (!APPROVAL_STATUSES.includes(approval.status)) {
+      errors.push(`approval ${approval.id || "<unknown>"} has an invalid status`);
+    }
+    if (approval.scope === "score_affecting_binding" && missingString(approval.bindingKey)) {
+      errors.push(`score-affecting approval ${approval.id || "<unknown>"} must name a binding key`);
+    }
+    if (approval.scope !== "score_affecting_binding" && approval.bindingKey !== undefined) {
+      errors.push(`non-score approval ${approval.id || "<unknown>"} must not name a binding key`);
     }
     if (approval.candidateInputHash !== candidateInputHash) errors.push(`approval ${approval.id || "<unknown>"} is bound to a different candidate input hash`);
   }

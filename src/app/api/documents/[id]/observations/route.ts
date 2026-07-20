@@ -2,17 +2,13 @@ import { NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertDocumentOwner } from "@/lib/documents/access";
-import { isCurrentDocumentObservation } from "@/lib/documents/observation-read-boundaries";
-import { getMeasurementDefinition } from "@/lib/biomarkers";
+import {
+  isCurrentDocumentObservation,
+  projectActiveRegistryV2LaboratoryBinding,
+  type RegistryV2NormalizationRevisionReadBoundary,
+} from "@/lib/documents/observation-read-boundaries";
 
 type RouteContext = { params: Promise<{ id: string }> };
-
-type LinkedRevision = {
-  resolver_result: string;
-  verification_status: string;
-  measurement_definition_key: string | null;
-  is_active: boolean;
-};
 
 type InstrumentalMeasureSource = {
   id: string;
@@ -46,7 +42,10 @@ type ObservationWithRevision = {
     | InstrumentalMeasureSource
     | InstrumentalMeasureSource[]
     | null;
-  normalization_revision: LinkedRevision | LinkedRevision[] | null;
+  normalization_revision:
+    | RegistryV2NormalizationRevisionReadBoundary
+    | RegistryV2NormalizationRevisionReadBoundary[]
+    | null;
 };
 
 export async function GET(_req: Request, context: RouteContext) {
@@ -86,34 +85,18 @@ export async function GET(_req: Request, context: RouteContext) {
       ) {
         return [];
       }
-      const revisions = Array.isArray(normalization_revision)
-        ? normalization_revision
-        : normalization_revision
-          ? [normalization_revision]
-          : [];
-      const activeRevision = revisions.find((revision) => revision.is_active) ?? null;
-      const measurementDefinitionKey =
-        activeRevision?.measurement_definition_key ??
-        observation.measurement_definition_key ??
-        null;
-      const resolverResult =
-        activeRevision?.resolver_result ?? observation.resolution_status ?? null;
-      const definition = measurementDefinitionKey
-        ? getMeasurementDefinition(measurementDefinitionKey)
-        : undefined;
-      const registryBindingReady =
-        observation.observation_kind === "lab" &&
-        activeRevision?.is_active === true &&
-        resolverResult === "resolved" &&
-        definition?.maturity === "reviewed";
+      const binding = projectActiveRegistryV2LaboratoryBinding(
+        observation,
+        normalization_revision
+      );
       return [{
         ...observation,
-        measurement_definition_key: measurementDefinitionKey,
-        resolution_status: resolverResult,
+        measurement_definition_key: binding.measurementDefinitionKey,
+        resolution_status: binding.resolutionStatus,
         source_instrumental_measure: instrumentalSource,
-        resolver_result: resolverResult,
-        verification_status: activeRevision?.verification_status ?? null,
-        registry_binding_ready: registryBindingReady,
+        resolver_result: binding.resolutionStatus,
+        verification_status: binding.verificationStatus,
+        registry_binding_ready: binding.registryBindingReady,
       }];
     }
   );

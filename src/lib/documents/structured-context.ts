@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
-import { getMeasurementDefinition } from "@/lib/biomarkers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { DocumentType } from "@/lib/health-systems";
+import {
+  projectActiveRegistryV2LaboratoryBinding,
+  type RegistryV2NormalizationRevisionReadBoundary,
+} from "@/lib/documents/observation-read-boundaries";
 
 export type StructuredBiomarkerContext = {
   biomarker: string;
@@ -99,24 +102,6 @@ export type DocumentStructuredContext = {
   }>;
   source_document_ids: string[];
 };
-
-type LinkedRevision = {
-  resolver_result: string | null;
-  verification_status: string | null;
-  measurement_definition_key: string | null;
-  is_active: boolean;
-};
-
-function activeRevision(
-  relation: LinkedRevision | LinkedRevision[] | null | undefined
-): LinkedRevision | null {
-  const revisions = Array.isArray(relation)
-    ? relation
-    : relation
-      ? [relation]
-      : [];
-  return revisions.find((revision) => revision.is_active) ?? null;
-}
 
 function isProcessedDocument(processingStatus: string | null, status: string): boolean {
   if (processingStatus === "ready" || processingStatus === "needs_review") return true;
@@ -246,28 +231,21 @@ export async function buildDocumentStructuredContext(
   ]);
 
   for (const obs of observations ?? []) {
-    const revision = activeRevision(
-      obs.normalization_revision as LinkedRevision | LinkedRevision[] | null
+    const binding = projectActiveRegistryV2LaboratoryBinding(
+      obs,
+      obs.normalization_revision as
+        | RegistryV2NormalizationRevisionReadBoundary
+        | RegistryV2NormalizationRevisionReadBoundary[]
+        | null
     );
-    const measurementDefinitionKey =
-      revision?.measurement_definition_key ?? obs.measurement_definition_key ?? null;
-    const resolutionStatus =
-      revision?.resolver_result ?? obs.resolution_status ?? null;
-    const definition = measurementDefinitionKey
-      ? getMeasurementDefinition(measurementDefinitionKey)
-      : undefined;
-    const registryBindingReady =
-      revision?.is_active === true &&
-      resolutionStatus === "resolved" &&
-      definition?.maturity === "reviewed";
     const numericValue = obs.value != null ? Number(obs.value) : null;
     biomarkers.push({
       biomarker: obs.name,
       analyte_key: obs.analyte_key ?? null,
-      measurement_definition_key: measurementDefinitionKey,
-      resolution_status: resolutionStatus,
-      verification_status: revision?.verification_status ?? null,
-      registry_binding_ready: registryBindingReady,
+      measurement_definition_key: binding.measurementDefinitionKey,
+      resolution_status: binding.resolutionStatus,
+      verification_status: binding.verificationStatus,
+      registry_binding_ready: binding.registryBindingReady,
       value: numericValue != null && Number.isFinite(numericValue) ? numericValue : null,
       value_kind: obs.value_kind ?? "numeric",
       value_text: obs.value_text ?? (numericValue != null ? String(numericValue) : null),

@@ -1,6 +1,6 @@
 # EH-106: Registry 2.0 runtime hard cutover
 
-**Roadmap status:** Ready for manual QA; DB fixture execution pending an available local/CI Supabase stack  
+**Roadmap status:** Ready for manual QA; DB fixture is enforced in CI, with local execution pending Docker availability
 **Build / environment:** `________`  
 **Test run date:** `________`  
 **Tester:** `________`
@@ -156,28 +156,48 @@ conflict. It does not duplicate the observation or change unrelated results.
   direct and generated-v1 runtime dependencies while allowlisted audit and
   migration tooling remains usable.
 - [x] **Engineering:** focused resolver, extraction, unit/assessment, API,
-  report, structured-context, and document-review regression tests pass.
-- [ ] **Database owner:** writer tests prove every `ids[]` entry is
-  transactionally independent, uses the v2 promotion primitive, preserves
-  expected-active CAS, rejects source/profile mismatch, and leaves no new
-  half-linked record after failure.
+  report, structured-context, document-review, and active Registry 2.0
+  revision-projection regressions pass.
+- [x] **Engineering:** `test:eh106-writer` exercises the real independent
+  batch helper: duplicate ids, a missing row, stale-row failure, and a
+  succeeding sibling. The static boundary also verifies routing through the
+  v2 writer primitive.
 - [ ] **Database owner:** where a local Supabase stack is available, database
   fixtures cover service-only grants, v2 no-op/retry, resolved
-  `user_verified`, raw incomplete `pending`, reviewed correction
-  `manually_corrected`, and direct-client denial.
+  `user_verified` decision metadata, raw `partial`/`ambiguous`/`unmapped`
+  `pending` states, reviewed correction `manually_corrected` decision
+  metadata, expected-active CAS, ownership rollback, and direct-client denial.
+- [x] **Engineering / CI configuration:** the `database` workflow job starts
+  local Supabase and runs `pnpm test:eh106-db` on every pull request and main
+  push; it stops the stack even after a test failure.
 - [x] **Release owner:** candidate-corpus evidence records all 44 rows,
-  fixture/document coverage, deterministic input hashes, segmented
-  outcome/coverage/error/assessment report, thresholds, named approvals, and
-  reset/rollback notes.
+  fixed launch-size policy, required fixture/document coverage and raw
+  document rows represented in the candidate corpus, deterministic input
+  hashes, segmented outcome/coverage/error/assessment report, thresholds,
+  named approvals, and reset/rollback notes.
 - [x] **Engineering / CI:** candidate-corpus tests prove it does not call
   patient-state mutation paths or change observations, revisions, trends,
   readiness, scores, or manual decisions.
+- [x] **Engineering / CI:** the published candidate-release artifact contains
+  the combined report plus raw approvals and reset/rollback evidence.
 - [x] **Engineering / CI:** typecheck and production build pass.
+
+## Automated regression coverage (2026-07-20)
+
+| EH-106 boundary | Automated evidence |
+| --- | --- |
+| Atomic acceptance and correction writer | `verify-eh106-writer-boundary`, `verify-eh106-acceptance-batch`, and the pgTAP `eh106_atomic_observation_normalization_writer.sql` contract (CI) |
+| Consumer reads, conversions, assessment, reports | `verify-eh106-consumer-cutover`: active reviewed/resolved, partial/ambiguous/unmapped, provisional, inactive revision, instrumental, and key-only Health Profile rejection |
+| Registry v1 removal and v2 runtime | `verify-registry-v2-runtime-cutover`, `check:no-registry-v1-runtime`, and `verify:registry` |
+| Candidate-release governance | `verify-registry-v2-candidate-corpus-runner` validates the fixed 44 rows, coverage, raw-row integrity, approvals, thresholds, segments, processing errors, and artifact paths |
+| Database execution | CI `database` job uses Supabase CLI 2.109.0 and runs `test:eh106-db`; not executed on this Docker-less workstation |
 
 ## Local verification record (2026-07-20)
 
-- [x] `corepack pnpm test:eh106` passed: atomic writer boundary, consumer
-  cutover, Registry 2.0 runtime, and the non-mutating candidate-corpus gate.
+- [x] `corepack pnpm test:eh106` passed with non-secret CI placeholder
+  environment values: static writer boundary, independent acceptance batch,
+  consumer cutover, Registry 2.0 runtime, and the non-mutating candidate-
+  corpus gate.
 - [x] `corepack pnpm verify:registry` passed with non-secret placeholder
   environment values; it includes the static v1-runtime ban and candidate
   corpus checks.
@@ -187,10 +207,11 @@ conflict. It does not duplicate the observation or change unrelated results.
 - [x] Candidate evidence is launchable: 44 rows, input hash
   `0f5787d47810be2912afd868ac033e1cb6604613306a2aea416baa84f9282c32`,
   manifest hash `3ec5806b50290b078e71a4048dc45367070d98a5235504d55b5e1a28b7344ead`.
-- [ ] `corepack pnpm test:eh106-db` could not run locally because the Docker/
-  Supabase stack is unavailable. Run it in CI or a Docker-enabled environment
-  before release; its fixture covers service-only access, CAS, ownership,
-  idempotency, incomplete acceptance, correction, and direct-client denial.
+- [ ] `corepack pnpm test:eh106-db` could not run locally because the Docker
+  CLI is unavailable (`supabase --version` is `2.109.0`). The CI `database`
+  job now runs it in a Docker-enabled environment; its fixture covers
+  service-only access, CAS, ownership rollback, idempotency, resolved and
+  incomplete acceptance, correction, and direct-client denial.
 
 ## Out of scope or not manually testable yet
 
@@ -205,5 +226,7 @@ conflict. It does not duplicate the observation or change unrelated results.
 - Persistent-environment preflight/reset decisions are operational work, not a
   tester UI action. The database/release owner must supply the diagnostics and
   approved reset or abort evidence.
+- There is no existing browser E2E harness in this repository. The interface
+  scenarios above remain manual QA until one is deliberately introduced.
 - No checks above are marked passed until a tester records a result and
   supporting evidence.

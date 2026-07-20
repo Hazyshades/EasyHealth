@@ -97,7 +97,7 @@ export type MarkerStatus = "in_range" | "out_of_range" | "unknown";
 
 export type ObservationInput = {
   biomarker_key: string;
-  /** Preferred Registry 2.0 identity. `biomarker_key` remains an assessment-binding input for existing callers. */
+  /** Required Registry 2.0 identity for concrete assessment inputs. */
   measurement_definition_key?: string | null;
   resolution_status?: "resolved" | "partial" | "ambiguous" | "unmapped" | null;
   name: string;
@@ -283,7 +283,8 @@ function latestByIdentity(observations: ObservationInput[]): Map<string, Observa
   for (const obs of observations) {
     if (obs.observation_kind && obs.observation_kind !== "lab") continue;
     if (obs.resolution_status && obs.resolution_status !== "resolved") continue;
-    const binding = getReviewedAssessmentBinding(obs.measurement_definition_key ?? obs.biomarker_key);
+    if (!obs.measurement_definition_key) continue;
+    const binding = getReviewedAssessmentBinding(obs.measurement_definition_key);
     if (!binding) continue;
     const key = binding.binding.assessmentInputKey;
     const specimen = obs.specimen ?? "unspecified";

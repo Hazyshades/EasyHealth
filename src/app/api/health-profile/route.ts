@@ -1,32 +1,19 @@
 import { NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { getProfileById } from "@/lib/auth/profile";
-import { getMeasurementDefinition, presentObservation } from "@/lib/biomarkers";
+import { presentObservation } from "@/lib/biomarkers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildHealthProfile, type HealthProfileSource } from "@/lib/health-systems";
 import {
   buildDocumentStructuredContext,
   hashStructuredContext,
 } from "@/lib/documents/structured-context";
-import { isLaboratoryObservation } from "@/lib/documents/observation-read-boundaries";
+import {
+  isLaboratoryObservation,
+  projectActiveRegistryV2LaboratoryBinding,
+  type RegistryV2NormalizationRevisionReadBoundary,
+} from "@/lib/documents/observation-read-boundaries";
 import { getOrCreateHolisticSynthesis } from "@/lib/holistic-synthesis";
-
-type LinkedRevision = {
-  resolver_result: string | null;
-  measurement_definition_key: string | null;
-  is_active: boolean;
-};
-
-function activeRevision(
-  relation: LinkedRevision | LinkedRevision[] | null | undefined
-): LinkedRevision | null {
-  const revisions = Array.isArray(relation)
-    ? relation
-    : relation
-      ? [relation]
-      : [];
-  return revisions.find((revision) => revision.is_active) ?? null;
-}
 
 export async function GET() {
   const profileId = await getSessionProfileId();
@@ -92,20 +79,22 @@ export async function GET() {
 
   const profile = buildHealthProfile(
     scopedObservations.flatMap<Parameters<typeof buildHealthProfile>[0][number]>((o) => {
-      const revision = activeRevision(
-        o.normalization_revision as LinkedRevision | LinkedRevision[] | null
+      const binding = projectActiveRegistryV2LaboratoryBinding(
+        o,
+        o.normalization_revision as
+          | RegistryV2NormalizationRevisionReadBoundary
+          | RegistryV2NormalizationRevisionReadBoundary[]
+          | null
       );
-      const measurementDefinitionKey = revision?.measurement_definition_key ?? null;
-      if (
-        revision?.is_active !== true ||
-        revision.resolver_result !== "resolved" ||
-        !measurementDefinitionKey
-      ) {
+      const measurementDefinitionKey = binding.measurementDefinitionKey;
+      const definition = binding.measurementDefinition;
+      if (!binding.registryBindingReady || !measurementDefinitionKey || !definition) {
         return [];
       }
-      const definition = getMeasurementDefinition(measurementDefinitionKey);
-      if (definition?.maturity !== "reviewed") return [];
-      const key = definition?.assessmentBindings.find((binding) => binding.status === "reviewed" && binding.compatibility === "compatible")?.assessmentInputKey;
+      const key = definition.assessmentBindings.find((assessmentBinding) =>
+        assessmentBinding.status === "reviewed" &&
+        assessmentBinding.compatibility === "compatible"
+      )?.assessmentInputKey;
       if (!key) return [];
       const valueKind =
         o.value_kind === "qualitative" ||

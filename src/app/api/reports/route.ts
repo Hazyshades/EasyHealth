@@ -19,25 +19,10 @@ import {
   withDisclaimer,
 } from "@/lib/reports";
 import { buildDocumentStructuredContext } from "@/lib/documents/structured-context";
-import { getMeasurementDefinition } from "@/lib/biomarkers";
-
-type LinkedRevision = {
-  resolver_result: string | null;
-  verification_status: string | null;
-  measurement_definition_key: string | null;
-  is_active: boolean;
-};
-
-function activeRevision(
-  relation: LinkedRevision | LinkedRevision[] | null | undefined
-): LinkedRevision | null {
-  const revisions = Array.isArray(relation)
-    ? relation
-    : relation
-      ? [relation]
-      : [];
-  return revisions.find((revision) => revision.is_active) ?? null;
-}
+import {
+  projectActiveRegistryV2LaboratoryBinding,
+  type RegistryV2NormalizationRevisionReadBoundary,
+} from "@/lib/documents/observation-read-boundaries";
 
 function sanitizeSearchTerm(value: string): string {
   return value.replace(/[%_,]/g, "").trim();
@@ -188,20 +173,13 @@ export async function POST(req: NextRequest) {
   const context = buildMultiSourceReportContext(
     structured,
     (observations ?? []).map((o) => {
-      const revision = activeRevision(
-        o.normalization_revision as LinkedRevision | LinkedRevision[] | null
+      const binding = projectActiveRegistryV2LaboratoryBinding(
+        o,
+        o.normalization_revision as
+          | RegistryV2NormalizationRevisionReadBoundary
+          | RegistryV2NormalizationRevisionReadBoundary[]
+          | null
       );
-      const measurementDefinitionKey =
-        revision?.measurement_definition_key ?? o.measurement_definition_key ?? null;
-      const resolutionStatus =
-        revision?.resolver_result ?? o.resolution_status ?? null;
-      const definition = measurementDefinitionKey
-        ? getMeasurementDefinition(measurementDefinitionKey)
-        : undefined;
-      const registryBindingReady =
-        revision?.is_active === true &&
-        resolutionStatus === "resolved" &&
-        definition?.maturity === "reviewed";
       const numericValue = o.value != null ? Number(o.value) : null;
       const document = Array.isArray(o.documents)
         ? o.documents[0] ?? null
@@ -210,10 +188,10 @@ export async function POST(req: NextRequest) {
       return {
         name: o.name,
         analyte_key: o.analyte_key ?? null,
-        measurement_definition_key: measurementDefinitionKey,
-        resolution_status: resolutionStatus,
-        verification_status: revision?.verification_status ?? null,
-        registry_binding_ready: registryBindingReady,
+        measurement_definition_key: binding.measurementDefinitionKey,
+        resolution_status: binding.resolutionStatus,
+        verification_status: binding.verificationStatus,
+        registry_binding_ready: binding.registryBindingReady,
         value_kind: o.value_kind ?? "numeric",
         value_text:
           o.value_text ??

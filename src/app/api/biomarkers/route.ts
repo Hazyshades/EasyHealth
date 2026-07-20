@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { getProfileById } from "@/lib/auth/profile";
-import { getMeasurementDefinition, presentObservation } from "@/lib/biomarkers";
+import { presentObservation } from "@/lib/biomarkers";
+import {
+  projectActiveRegistryV2LaboratoryBinding,
+  type RegistryV2NormalizationRevisionReadBoundary,
+} from "@/lib/documents/observation-read-boundaries";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-type LinkedRevision = {
-  resolver_result: string | null;
-  verification_status: string | null;
-  measurement_definition_key: string | null;
-  is_active: boolean;
-};
 
 type BiomarkerObservation = {
   id: string;
@@ -30,19 +27,11 @@ type BiomarkerObservation = {
   specimen: string | null;
   modifier: string | null;
   documents: { id: string; original_filename: string } | { id: string; original_filename: string }[] | null;
-  normalization_revision: LinkedRevision | LinkedRevision[] | null;
+  normalization_revision:
+    | RegistryV2NormalizationRevisionReadBoundary
+    | RegistryV2NormalizationRevisionReadBoundary[]
+    | null;
 };
-
-function activeRevision(
-  relation: BiomarkerObservation["normalization_revision"]
-): LinkedRevision | null {
-  const revisions = Array.isArray(relation)
-    ? relation
-    : relation
-      ? [relation]
-      : [];
-  return revisions.find((revision) => revision.is_active) ?? null;
-}
 
 function firstDocument(
   relation: BiomarkerObservation["documents"]
@@ -75,18 +64,16 @@ export async function GET() {
 
     const presented = ((observations ?? []) as BiomarkerObservation[]).map(
       ({ normalization_revision, documents, ...row }) => {
-      const revision = activeRevision(normalization_revision);
-      const definitionKey =
-        revision?.measurement_definition_key ?? row.measurement_definition_key ?? null;
-      const resolutionStatus =
-        revision?.resolver_result ?? row.resolution_status ?? null;
-      const definition = definitionKey
-        ? getMeasurementDefinition(definitionKey)
-        : undefined;
-      const registryBindingReady =
-        revision?.is_active === true &&
-        resolutionStatus === "resolved" &&
-        definition?.maturity === "reviewed";
+      const binding = projectActiveRegistryV2LaboratoryBinding(
+        row,
+        normalization_revision
+      );
+      const {
+        measurementDefinitionKey: definitionKey,
+        resolutionStatus,
+        verificationStatus,
+        registryBindingReady,
+      } = binding;
       const valueKind = row.value_kind ?? "numeric";
       const numericValue = row.value != null ? Number(row.value) : null;
 
@@ -128,7 +115,7 @@ export async function GET() {
         measurement_definition_key: definitionKey,
         analyte_key: row.analyte_key ?? null,
         resolution_status: resolutionStatus,
-        verification_status: revision?.verification_status ?? null,
+        verification_status: verificationStatus,
         registry_binding_ready: registryBindingReady,
         value: valueKind === "numeric" ? display.value : null,
         value_kind: valueKind,

@@ -38,14 +38,42 @@ jobs:
         run: |
           mkdir -p .artifacts
           pnpm report:registry-v2-candidate-corpus > .artifacts/registry-v2-candidate-release.json
+          cp registry/candidate-release/v1/approvals.json .artifacts/registry-v2-candidate-release-approvals.json
+          cp registry/candidate-release/v1/reset-rollback.md .artifacts/registry-v2-candidate-release-reset-rollback.md
       - name: Upload Registry 2.0 candidate-release evidence
         uses: actions/upload-artifact@v4
         with:
           name: registry-v2-candidate-release-evidence
-          path: .artifacts/registry-v2-candidate-release.json
+          path: |
+            .artifacts/registry-v2-candidate-release.json
+            .artifacts/registry-v2-candidate-release-approvals.json
+            .artifacts/registry-v2-candidate-release-reset-rollback.md
       - run: pnpm build
         env:
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
           OPENAI_API_KEY: ci-placeholder
           NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+
+  database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - run: pnpm install --frozen-lockfile
+      - name: Start local Supabase services
+        run: supabase db start
+      - name: Run EH-106 atomic writer database contract
+        run: pnpm test:eh106-db
+      - name: Stop local Supabase services
+        if: always()
+        run: supabase stop --no-backup

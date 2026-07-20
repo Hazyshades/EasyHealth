@@ -4,25 +4,19 @@ import {
   ObservationNormalizationWriterError,
   writeExtractedBiomarkerNormalization,
 } from "./observation-normalization-writer";
+import {
+  acceptExtractedBiomarkerRows,
+  type BiomarkerAcceptanceFailure,
+} from "./biomarker-acceptance-batch";
 
 type ExtractedBiomarkerRow = ExtractedBiomarkerWriterRow & {
   status: string | null;
-};
-
-export type BiomarkerAcceptanceFailure = {
-  id: string;
-  error: string;
 };
 
 export class BiomarkerAcceptanceError extends Error {
   constructor(message: string, public readonly status = 500) {
     super(message);
   }
-}
-
-function failureMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return "Normalization writer failed";
 }
 
 /**
@@ -51,35 +45,20 @@ export async function acceptExtractedBiomarkers(options: {
   if (fetchError) throw new BiomarkerAcceptanceError(fetchError.message);
   if (!rows?.length) throw new BiomarkerAcceptanceError("No matching biomarkers", 404);
 
-  const rowsById = new Map(
-    (rows as unknown as ExtractedBiomarkerRow[]).map((row) => [row.id, row])
-  );
-  const acceptedIds: string[] = [];
-  const failures: BiomarkerAcceptanceFailure[] = [];
-
-  for (const id of ids) {
-    const row = rowsById.get(id);
-    if (!row) {
-      failures.push({ id, error: "Extracted biomarker not found" });
-      continue;
-    }
-
-    try {
-      await writeExtractedBiomarkerNormalization({
+  return acceptExtractedBiomarkerRows({
+    ids,
+    rows: rows as unknown as ExtractedBiomarkerRow[],
+    writeRow: (row) =>
+      writeExtractedBiomarkerNormalization({
         profileId: options.profileId,
         documentId: options.documentId,
         observedAt: options.observedAt,
         row,
         actorId: options.profileId,
         writeKind: "acceptance",
-      });
-      acceptedIds.push(row.id);
-    } catch (error) {
-      failures.push({ id: row.id, error: failureMessage(error) });
-    }
-  }
-
-  return { acceptedIds, failures };
+      }),
+  });
 }
 
 export { ObservationNormalizationWriterError };
+export { acceptExtractedBiomarkerRows, type BiomarkerAcceptanceFailure };
