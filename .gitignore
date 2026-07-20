@@ -62,8 +62,13 @@ hachakton.md
 
 /oh-my-pi
 
-#agents
-.agents/
+# agents
+# Keep local agent state untracked, but version the shared roadmap QA skill.
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/roadmap-qa-checklists/
+!.agents/skills/roadmap-qa-checklists/**
 
 #data
 /biomarkers/
