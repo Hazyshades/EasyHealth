@@ -11,7 +11,6 @@ export type {
   RegistrySourceKind,
   AssessmentBinding,
   MeasurementSourceProvenance,
-  LaunchCatalogMigrationRecord,
   MeasurementIdentity,
   SpecimenKey,
   MeasurementPropertyKey,
@@ -42,6 +41,8 @@ export type {
   ScoreRequiredGroup,
   SystemScoreability,
 } from "./types";
+
+export { normalizeBiomarkerKeyToken, snakeCaseToken } from "./normalize";
 
 export { presentObservation, presentObservations, type NativeObservation } from "./units";
 
@@ -76,13 +77,16 @@ export {
   getMeasurementIdentity,
   getMeasurementDefinitionsForAnalyte,
   getMeasurementConversionPolicy,
+  getReviewedAssessmentBinding,
+  getReviewedScoreContributionGroups,
+  getReviewedScoreReadinessGroups,
+  listReviewedCoverageKeys,
   normalizeMeasurementUnit,
   normalizeUnitToken,
   resolveMeasurementDefinition,
   validateMeasurementRegistry,
 } from "./measurement-resolution";
 
-export { LAUNCH_CATALOG_MIGRATION_RECORDS } from "./launch-catalog.generated";
 export { SAMPLE_NEWEST_LAUNCH_FIXTURES, buildLaunchCoverageReport, type LaunchResolverFixture } from "./launch-fixtures";
 
 export {

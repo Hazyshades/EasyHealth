@@ -19,7 +19,30 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+      - run: pnpm check:registry-v2-cutover
       - run: pnpm verify:registry
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+          OPENAI_API_KEY: ci-placeholder
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      - run: pnpm test:eh106
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+          OPENAI_API_KEY: ci-placeholder
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      - name: Validate Registry 2.0 candidate-release evidence
+        run: pnpm check:registry-v2-candidate-corpus
+      - name: Publish Registry 2.0 candidate-release evidence
+        run: |
+          mkdir -p .artifacts
+          pnpm report:registry-v2-candidate-corpus > .artifacts/registry-v2-candidate-release.json
+      - name: Upload Registry 2.0 candidate-release evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: registry-v2-candidate-release-evidence
+          path: .artifacts/registry-v2-candidate-release.json
       - run: pnpm build
         env:
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder

@@ -3,12 +3,14 @@ import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertDocumentOwner } from "@/lib/documents/access";
 import { isCurrentDocumentObservation } from "@/lib/documents/observation-read-boundaries";
+import { getMeasurementDefinition } from "@/lib/biomarkers";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 type LinkedRevision = {
   resolver_result: string;
   verification_status: string;
+  measurement_definition_key: string | null;
   is_active: boolean;
 };
 
@@ -61,7 +63,7 @@ export async function GET(_req: Request, context: RouteContext) {
   const { data: observations, error: obsError } = await supabase
     .from("observations")
     .select(
-      "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, source_extracted_biomarker_id, source_instrumental_measure_id, source_instrumental_measure:document_extracted_instrumental_measures!observations_instrumental_source_owner_fk(id, key_hint, raw_name, raw_value_text, raw_unit, source_page, source_text, source_locator, occurrence_index, snapshot_hash, is_current), normalization_revision:observation_normalization_revisions!observations_normalization_revision_fk(resolver_result, verification_status, is_active)"
+      "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, source_extracted_biomarker_id, source_instrumental_measure_id, source_instrumental_measure:document_extracted_instrumental_measures!observations_instrumental_source_owner_fk(id, key_hint, raw_name, raw_value_text, raw_unit, source_page, source_text, source_locator, occurrence_index, snapshot_hash, is_current), normalization_revision:observation_normalization_revisions!observations_normalization_revision_fk(resolver_result, verification_status, measurement_definition_key, is_active)"
     )
     .eq("profile_id", profileId)
     .eq("document_id", id)
@@ -90,11 +92,28 @@ export async function GET(_req: Request, context: RouteContext) {
           ? [normalization_revision]
           : [];
       const activeRevision = revisions.find((revision) => revision.is_active) ?? null;
+      const measurementDefinitionKey =
+        activeRevision?.measurement_definition_key ??
+        observation.measurement_definition_key ??
+        null;
+      const resolverResult =
+        activeRevision?.resolver_result ?? observation.resolution_status ?? null;
+      const definition = measurementDefinitionKey
+        ? getMeasurementDefinition(measurementDefinitionKey)
+        : undefined;
+      const registryBindingReady =
+        observation.observation_kind === "lab" &&
+        activeRevision?.is_active === true &&
+        resolverResult === "resolved" &&
+        definition?.maturity === "reviewed";
       return [{
         ...observation,
+        measurement_definition_key: measurementDefinitionKey,
+        resolution_status: resolverResult,
         source_instrumental_measure: instrumentalSource,
-        resolver_result: activeRevision?.resolver_result ?? null,
+        resolver_result: resolverResult,
         verification_status: activeRevision?.verification_status ?? null,
+        registry_binding_ready: registryBindingReady,
       }];
     }
   );

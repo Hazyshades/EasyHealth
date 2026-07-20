@@ -70,7 +70,12 @@ export type ObservationRow = {
   name: string;
   analyte_key: string | null;
   measurement_definition_key: string | null;
-  value: number;
+  resolution_status?: string | null;
+  verification_status?: string | null;
+  registry_binding_ready?: boolean;
+  value_kind?: string | null;
+  value_text?: string | null;
+  value: number | null;
   unit: string;
   ref_low: number | null;
   ref_high: number | null;
@@ -82,7 +87,12 @@ export type ReportContextItem = {
   biomarker: string;
   analyte_key: string | null;
   measurement_definition_key: string | null;
-  value: number;
+  resolution_status: string | null;
+  verification_status: string | null;
+  registry_binding_ready: boolean;
+  value_kind: string | null;
+  value_text: string | null;
+  value: number | null;
   unit: string;
   ref_low: number | null;
   ref_high: number | null;
@@ -148,7 +158,12 @@ export type MultiSourceReportContext = {
   }>;
 };
 
-export function isAbnormalObservation(o: Pick<ObservationRow, "value" | "ref_low" | "ref_high">): boolean {
+export function isAbnormalObservation(
+  o: Pick<ObservationRow, "value" | "ref_low" | "ref_high" | "registry_binding_ready">
+): boolean {
+  if (o.registry_binding_ready === false) {
+    return false;
+  }
   if (o.value == null || Number.isNaN(Number(o.value))) return false;
   const value = Number(o.value);
   if (o.ref_low != null && value < o.ref_low) return true;
@@ -165,6 +180,11 @@ export function buildReportContext(observations: ObservationRow[]): ReportContex
     biomarker: o.name,
     analyte_key: o.analyte_key,
     measurement_definition_key: o.measurement_definition_key,
+    resolution_status: o.resolution_status ?? null,
+    verification_status: o.verification_status ?? null,
+    registry_binding_ready: o.registry_binding_ready === true,
+    value_kind: o.value_kind ?? null,
+    value_text: o.value_text ?? null,
     value: o.value,
     unit: o.unit,
     ref_low: o.ref_low,

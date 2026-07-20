@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { getMeasurementDefinition } from "@/lib/biomarkers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { DocumentType } from "@/lib/health-systems";
 
@@ -7,7 +8,11 @@ export type StructuredBiomarkerContext = {
   analyte_key: string | null;
   measurement_definition_key: string | null;
   resolution_status: string | null;
-  value: number;
+  verification_status: string | null;
+  registry_binding_ready: boolean;
+  value: number | null;
+  value_kind: string;
+  value_text: string | null;
   unit: string;
   ref_low: number | null;
   ref_high: number | null;
@@ -94,6 +99,24 @@ export type DocumentStructuredContext = {
   }>;
   source_document_ids: string[];
 };
+
+type LinkedRevision = {
+  resolver_result: string | null;
+  verification_status: string | null;
+  measurement_definition_key: string | null;
+  is_active: boolean;
+};
+
+function activeRevision(
+  relation: LinkedRevision | LinkedRevision[] | null | undefined
+): LinkedRevision | null {
+  const revisions = Array.isArray(relation)
+    ? relation
+    : relation
+      ? [relation]
+      : [];
+  return revisions.find((revision) => revision.is_active) ?? null;
+}
 
 function isProcessedDocument(processingStatus: string | null, status: string): boolean {
   if (processingStatus === "ready" || processingStatus === "needs_review") return true;
@@ -189,9 +212,12 @@ export async function buildDocumentStructuredContext(
   ] = await Promise.all([
     supabase
       .from("observations")
-      .select("*, documents(original_filename)")
+      .select(
+        "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, document_id, documents(original_filename), normalization_revision:observation_normalization_revisions!observations_normalization_revision_fk(resolver_result, verification_status, measurement_definition_key, is_active)"
+      )
       .eq("profile_id", profileId)
       .in("document_id", eligibleIds)
+      .eq("observation_kind", "lab")
       .order("observed_at", { ascending: true }),
     supabase
       .from("document_extracted_findings")
@@ -220,12 +246,31 @@ export async function buildDocumentStructuredContext(
   ]);
 
   for (const obs of observations ?? []) {
+    const revision = activeRevision(
+      obs.normalization_revision as LinkedRevision | LinkedRevision[] | null
+    );
+    const measurementDefinitionKey =
+      revision?.measurement_definition_key ?? obs.measurement_definition_key ?? null;
+    const resolutionStatus =
+      revision?.resolver_result ?? obs.resolution_status ?? null;
+    const definition = measurementDefinitionKey
+      ? getMeasurementDefinition(measurementDefinitionKey)
+      : undefined;
+    const registryBindingReady =
+      revision?.is_active === true &&
+      resolutionStatus === "resolved" &&
+      definition?.maturity === "reviewed";
+    const numericValue = obs.value != null ? Number(obs.value) : null;
     biomarkers.push({
       biomarker: obs.name,
       analyte_key: obs.analyte_key ?? null,
-      measurement_definition_key: obs.measurement_definition_key ?? null,
-      resolution_status: obs.resolution_status ?? null,
-      value: Number(obs.value),
+      measurement_definition_key: measurementDefinitionKey,
+      resolution_status: resolutionStatus,
+      verification_status: revision?.verification_status ?? null,
+      registry_binding_ready: registryBindingReady,
+      value: numericValue != null && Number.isFinite(numericValue) ? numericValue : null,
+      value_kind: obs.value_kind ?? "numeric",
+      value_text: obs.value_text ?? (numericValue != null ? String(numericValue) : null),
       unit: obs.unit,
       ref_low: obs.ref_low != null ? Number(obs.ref_low) : null,
       ref_high: obs.ref_high != null ? Number(obs.ref_high) : null,

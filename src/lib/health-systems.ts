@@ -1,16 +1,16 @@
 import { observationIdentityKey, type BodySystemId, type SystemScoreability, type ValueKind } from "@/lib/biomarkers";
 import {
   BODY_SYSTEM_LABELS,
-  getLaunchScoreRole,
-  getLaunchSpecimen,
-  getLaunchSystem,
-  listLaunchCoverageKeys,
+  getRegistryV2ExpectedSpecimen,
+  getRegistryV2ScoreContributionGroups,
+  getRegistryV2ScoreReadinessGroups,
+  getRegistryV2ScoreRole,
+  getRegistryV2System,
+  listRegistryV2CoverageKeys,
   NAMED_BODY_SYSTEMS,
   NON_SCOREABLE_SYSTEMS,
-  resolveLaunchCatalogKey,
-  SCORE_CONTRIBUTION_GROUPS,
-  SCORE_REQUIRED_GROUPS,
-} from "@/lib/biomarkers/launch-registry";
+} from "@/lib/biomarkers/registry-v2-runtime";
+import { getReviewedAssessmentBinding } from "@/lib/biomarkers";
 
 export type DocumentType =
   | "lab_result"
@@ -97,6 +97,9 @@ export type MarkerStatus = "in_range" | "out_of_range" | "unknown";
 
 export type ObservationInput = {
   biomarker_key: string;
+  /** Preferred Registry 2.0 identity. `biomarker_key` remains an assessment-binding input for existing callers. */
+  measurement_definition_key?: string | null;
+  resolution_status?: "resolved" | "partial" | "ambiguous" | "unmapped" | null;
   name: string;
   value: number | null;
   unit: string;
@@ -129,6 +132,7 @@ export type MarkerSource = HealthProfileSource;
 
 export type SystemMarker = {
   key: string;
+  measurement_definition_key?: string | null;
   name: string;
   value: number | null;
   unit: string;
@@ -239,7 +243,7 @@ export function normalizeBodySystemId(id: string): BodySystemId {
 }
 
 export function getSystemForMarker(key: string): BodySystemId {
-  return getLaunchSystem(key);
+  return getRegistryV2System(key);
 }
 
 export function getMarkerStatus(
@@ -277,13 +281,23 @@ export function markerStateScore(
 function latestByIdentity(observations: ObservationInput[]): Map<string, ObservationInput> {
   const map = new Map<string, ObservationInput>();
   for (const obs of observations) {
-    const key = resolveLaunchCatalogKey(obs.biomarker_key, obs.name);
+    if (obs.observation_kind && obs.observation_kind !== "lab") continue;
+    if (obs.resolution_status && obs.resolution_status !== "resolved") continue;
+    const binding = getReviewedAssessmentBinding(obs.measurement_definition_key ?? obs.biomarker_key);
+    if (!binding) continue;
+    const key = binding.binding.assessmentInputKey;
     const specimen = obs.specimen ?? "unspecified";
     const modifier = obs.modifier ?? "none";
     const id = observationIdentityKey(key, specimen, modifier);
     const existing = map.get(id);
     if (!existing || obs.observed_at > existing.observed_at) {
-      map.set(id, { ...obs, biomarker_key: key, specimen, modifier });
+      map.set(id, {
+        ...obs,
+        biomarker_key: key,
+        measurement_definition_key: binding.definition.key,
+        specimen,
+        modifier,
+      });
     }
   }
   return map;
@@ -295,7 +309,7 @@ function average(values: number[]): number {
 }
 
 function markerRole(marker: SystemMarker): "core" | "extended" | "display" {
-  return marker.score_role ?? getLaunchScoreRole(marker.key);
+  return getRegistryV2ScoreRole(marker.measurement_definition_key ?? marker.key);
 }
 
 /** Numeric markers that can contribute to a system state score. */
@@ -331,11 +345,9 @@ function hasUsableDocumentReference(marker: SystemMarker): boolean {
   return marker.ref_low != null || marker.ref_high != null;
 }
 
-function matchesCatalogSpecimen(marker: SystemMarker): boolean {
-  const expected = getLaunchSpecimen(marker.key);
-  if (!expected || !marker.specimen || marker.specimen === "unspecified") {
-    return true;
-  }
+function matchesReviewedSpecimen(marker: SystemMarker): boolean {
+  const expected = getRegistryV2ExpectedSpecimen(marker.measurement_definition_key ?? marker.key);
+  if (!expected) return true;
   return marker.specimen === expected;
 }
 
@@ -344,7 +356,7 @@ function isUsableCoreMarker(marker: SystemMarker): boolean {
     isNumericMarker(marker) &&
     markerRole(marker) === "core" &&
     hasUsableDocumentReference(marker) &&
-    matchesCatalogSpecimen(marker)
+    matchesReviewedSpecimen(marker)
   );
 }
 
@@ -397,7 +409,7 @@ export function evaluateSystemScoreReadiness(
     };
   }
 
-  const groups = SCORE_REQUIRED_GROUPS[systemId].map((keys) =>
+  const groups = getRegistryV2ScoreReadinessGroups(systemId).map((keys) =>
     resolveReadinessGroup(keys, markers)
   );
   const missingGroups = groups.filter((group) => group.status === "missing").map((group) => group.keys);
@@ -420,7 +432,7 @@ export function computeSystemStateScore(
   const { scoreability } = evaluateSystemScoreReadiness(systemId, markers);
   if (scoreability !== "scoreable" || systemId === "general") return null;
 
-  const contributionScores = SCORE_CONTRIBUTION_GROUPS[systemId]
+  const contributionScores = getRegistryV2ScoreContributionGroups(systemId)
     .map((group) => pickUsableMarker(group.keys, markers))
     .filter((marker): marker is SystemMarker => marker !== null)
     .map((marker) => markerStateScore(marker.status, marker.value, marker.ref_low, marker.ref_high));
@@ -467,7 +479,7 @@ export function computeSystemDataConfidence(
     return Math.round((withRef / markers.length) * 100);
   }
 
-  const coverageKeys = listLaunchCoverageKeys(systemId);
+  const coverageKeys = listRegistryV2CoverageKeys(systemId);
   const presentKeys = new Set(markers.map((marker) => marker.key));
   const coverageDenom = Math.max(coverageKeys.length, 1);
   const coveragePart =
@@ -476,7 +488,7 @@ export function computeSystemDataConfidence(
   // Ref quality among present numeric non-display markers
   const scorable = markers.filter(
     (m) =>
-      (m.score_role ?? getLaunchScoreRole(m.key)) !== "display" &&
+      markerRole(m) !== "display" &&
       (m.value_kind ?? "numeric") === "numeric" &&
       m.value != null
   );
@@ -515,7 +527,7 @@ export function buildWhyHighlighted(markers: SystemMarker[]): string[] {
   const outOfRange = markers.filter(
     (marker) =>
       marker.status === "out_of_range" &&
-      (marker.score_role ?? getLaunchScoreRole(marker.key)) === "core"
+      markerRole(marker) === "core"
   );
   if (outOfRange.length > 0) {
     return outOfRange.map(
@@ -540,13 +552,14 @@ export function buildHealthProfile(
   const bySystem = new Map<BodySystemId, SystemMarker[]>();
 
   for (const obs of latest.values()) {
-    const key = resolveLaunchCatalogKey(obs.biomarker_key, obs.name);
+    const key = obs.biomarker_key;
     const systemId = getSystemForMarker(key);
     const valueKind = obs.value_kind ?? "numeric";
     const numericValue = obs.value != null ? Number(obs.value) : null;
     const markers = bySystem.get(systemId) ?? [];
     markers.push({
       key,
+      measurement_definition_key: obs.measurement_definition_key ?? null,
       name: obs.name,
       value: numericValue,
       unit: obs.unit,
@@ -557,7 +570,7 @@ export function buildHealthProfile(
       document_id: obs.document_id,
       observation_kind: obs.observation_kind,
       source: obs.document_id ? sourceById.get(obs.document_id) ?? null : null,
-      score_role: getLaunchScoreRole(key),
+      score_role: getRegistryV2ScoreRole(obs.measurement_definition_key ?? key),
       value_kind: valueKind,
       value_text: obs.value_text ?? null,
       ordinal: obs.ordinal ?? null,

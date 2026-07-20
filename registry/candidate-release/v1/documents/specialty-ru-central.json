@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1",
+  "id": "specialty-ru-central",
+  "language": "ru",
+  "laboratory": "central-serology",
+  "panels": ["serology"],
+  "specialtyRows": true,
+  "deidentified": true,
+  "rawRows": [
+    { "rawLabel": "anti-Toxocara IgG, qualitative ELISA", "rawUnit": null, "rawValueText": "negative", "valueKind": "qualitative" },
+    { "rawLabel": "Eosinophilic cationic protein (ECP)", "rawUnit": "ng/mL", "rawValueText": "11", "valueKind": "numeric" }
+  ]
+}

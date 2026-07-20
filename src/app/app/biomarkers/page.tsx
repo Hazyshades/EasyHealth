@@ -25,6 +25,8 @@ type Observation = {
   measurement_definition_key: string | null;
   analyte_key: string | null;
   resolution_status: string | null;
+  verification_status?: string | null;
+  registry_binding_ready?: boolean;
   value: number | null;
   unit: string;
   ref_low: number | null;
@@ -42,17 +44,19 @@ type Observation = {
   modifier?: string;
 };
 
-type StatusFilter = "all" | "normal" | "attention" | "low" | "high";
+type StatusFilter = "all" | "normal" | "attention" | "low" | "high" | "mapping";
 
 const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "normal", label: "Normal" },
   { id: "attention", label: "Attention" },
+  { id: "mapping", label: "Needs mapping" },
   { id: "low", label: "Low" },
   { id: "high", label: "High" },
 ];
 
 function observationStatus(o: Observation): StatusFilter {
+  if (!o.registry_binding_ready) return "mapping";
   if (o.value_kind && o.value_kind !== "numeric") return "normal";
   if (o.value == null || o.ref_low == null || o.ref_high == null) return "normal";
   if (o.value < o.ref_low) return "low";
@@ -87,9 +91,10 @@ export default function BiomarkersPage() {
         setSelectedKey((prev) => {
           if (prev && obs.some((o: Observation) => o.measurement_definition_key === prev)) return prev;
           const resolved = obs.find(
-            (o: Observation) => o.measurement_definition_key && o.resolution_status === "resolved"
+            (o: Observation) =>
+              o.measurement_definition_key && o.registry_binding_ready
           );
-          return resolved?.measurement_definition_key ?? obs.find((o: Observation) => o.measurement_definition_key)?.measurement_definition_key ?? "";
+          return resolved?.measurement_definition_key ?? "";
         });
       });
   }, []);
@@ -139,7 +144,9 @@ export default function BiomarkersPage() {
       [
         ...new Set(
           observations
-            .filter((o) => o.measurement_definition_key && o.resolution_status === "resolved")
+            .filter(
+              (o) => o.measurement_definition_key && o.registry_binding_ready
+            )
             .map((o) => o.measurement_definition_key as string)
         ),
       ],
@@ -149,7 +156,11 @@ export default function BiomarkersPage() {
   const selectedName =
     observations.find((o) => o.measurement_definition_key === selectedKey)?.name ?? selectedKey;
 
-  const selectedSeries = observations.filter((o) => o.measurement_definition_key === selectedKey);
+  const selectedSeries = observations.filter(
+    (o) =>
+      o.registry_binding_ready &&
+      o.measurement_definition_key === selectedKey
+  );
   const chartData = selectedSeries
     .filter((o) => o.value != null && (!o.value_kind || o.value_kind === "numeric"))
     .map((o) => ({ observed_at: o.observed_at, value: Number(o.value) }));

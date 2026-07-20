@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1",
+  "requiredLaunchRows": 44,
+  "thresholds": {
+    "minRawPreservationRate": 1,
+    "minRecognitionRate": 1,
+    "minExpectedClassificationRate": 1,
+    "minAliasCoverageRate": 1,
+    "minUnitCoverageRate": 1,
+    "maxFalseConcreteResolutions": 0,
+    "maxProcessingErrors": 0,
+    "maxUnclassifiedRows": 0
+  },
+  "approvals": {
+    "falseConcreteReviewRoles": ["registry-safety-reviewer"],
+    "releaseApprovalRoles": ["release-manager"],
+    "scoreAffectingBindingOwners": {
+      "alt_serum_catalytic_activity": "assessment-owner",
+      "glucose_serum": "assessment-owner"
+    }
+  },
+  "releaseEvidence": {
+    "resetRollbackFile": "reset-rollback.md"
+  }
+}

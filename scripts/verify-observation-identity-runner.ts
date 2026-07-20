@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import {
-  LAUNCH_CATALOG_MIGRATION_RECORDS,
   MEASUREMENT_DEFINITIONS,
 } from "../src/lib/biomarkers";
 import { buildObservationUpsertPayload } from "../src/lib/documents/observation-identity";
@@ -116,33 +115,12 @@ const reviewedBindings = MEASUREMENT_DEFINITIONS.filter((definition) =>
     (binding) => binding.status === "reviewed" && binding.compatibility === "compatible"
   )
 );
-const provisionalBindings = MEASUREMENT_DEFINITIONS.filter((definition) =>
-  definition.assessmentBindings.some(
-    (binding) => binding.status === "provisional" && binding.compatibility === "compatible"
-  )
-);
-const legacyScoreRoles = LAUNCH_CATALOG_MIGRATION_RECORDS.reduce(
-  (counts, record) => {
-    counts[record.scoreRole] += 1;
-    return counts;
-  },
-  { core: 0, extended: 0, display: 0 } as Record<"core" | "extended" | "display", number>
-);
-
 assert.ok(reviewedBindings.length > 0);
-assert.ok(provisionalBindings.length > 0);
+assert.ok(reviewedBindings.every((definition) => definition.sourceProvenance.kind === "registry_v2_review"));
 
 console.log("observation-identity: all checks passed");
 console.log(
-  `assessment-impact: legacy core=${legacyScoreRoles.core}, extended=${legacyScoreRoles.extended}, display=${legacyScoreRoles.display}`
-);
-console.log(
   `assessment-impact: reviewed bindings=${reviewedBindings.length} on ${reviewedBindings
-    .map((definition) => definition.key)
-    .join(", ")}`
-);
-console.log(
-  `assessment-impact: provisional bindings=${provisionalBindings.length} on ${provisionalBindings
     .map((definition) => definition.key)
     .join(", ")}`
 );

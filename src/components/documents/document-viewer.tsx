@@ -91,29 +91,20 @@ type PageMeta = {
 
 type Observation = {
   id: string;
+  observation_kind?: "lab" | "instrumental";
   analyte_key: string | null;
   measurement_definition_key: string | null;
   resolution_status: string | null;
+  resolver_result?: string | null;
+  verification_status?: string | null;
   name: string;
-  value: number | null;
-  value_kind: string;
-  value_text: string | null;
+  value: number | string | null;
+  value_kind?: string | null;
+  value_text?: string | null;
   unit: string;
-  ref_low: number | null;
-  ref_high: number | null;
+  ref_low: number | string | null;
+  ref_high: number | string | null;
   observed_at: string;
-  raw_name: string | null;
-  raw_value_text: string | null;
-  raw_reference_text: string | null;
-  raw_unit: string | null;
-  source_page: number | null;
-  source_text: string | null;
-  extraction_version: string | null;
-  provenance_schema_version: string;
-  catalog_manifest_version: string | null;
-  catalog_manifest_digest: string | null;
-  resolver_version: string | null;
-  normalization_version: string | null;
 };
 
 type ExtractedBiomarker = {
@@ -174,7 +165,6 @@ type BootstrapPayload = {
   referral?: Record<string, unknown> | null;
   extracted_biomarkers?: ExtractedBiomarker[];
   review_data_error?: string | null;
-  observations?: Observation[];
   workerOffline?: boolean;
   file?: {
     url: string;
@@ -189,6 +179,15 @@ type BootstrapPayload = {
     height: number | null;
     expiresIn: number;
   } | null;
+};
+
+type WriterActionPayload = {
+  error?: string;
+  failures?: Array<{
+    id?: string;
+    observationId?: string;
+    error?: string;
+  }>;
 };
 
 const PROCESSING_POLL_INTERVAL_MS = 8_000;
@@ -211,6 +210,13 @@ function applyExtractedSelection(items: ExtractedBiomarker[]) {
       )
       .map((b) => b.id),
   );
+}
+
+function formatWriterFailures(action: string, failures: NonNullable<WriterActionPayload["failures"]>) {
+  const details = failures
+    .map((failure) => failure.error ?? `Row ${failure.id ?? failure.observationId ?? "unknown"} failed`)
+    .join("; ");
+  return `${action} completed for some results, but ${failures.length} row${failures.length === 1 ? "" : "s"} failed: ${details}`;
 }
 
 export function DocumentViewer({ documentId }: { documentId: string }) {
@@ -251,6 +257,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const [normalizingId, setNormalizingId] = useState<string | null>(null);
   const [reprocessing, setReprocessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [workerOffline, setWorkerOffline] = useState(false);
   const [processingStuck, setProcessingStuck] = useState(false);
   const [retryingProcessing, setRetryingProcessing] = useState(false);
@@ -258,6 +265,13 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   /** Skip page-only fetch once after bootstrap seeds pageUrl for the same page. */
   const skipNextPageFetch = useRef(true);
   const processingStartedAt = useRef<number | null>(null);
+
+  const loadAuthoritativeObservations = useCallback(async () => {
+    const res = await fetch(`/api/documents/${documentId}/observations`);
+    if (!res.ok) throw new Error("Failed to load document observations");
+    const data = (await res.json()) as { observations?: Observation[] };
+    setObservations(data.observations ?? []);
+  }, [documentId]);
 
   const applyBootstrap = useCallback(
     (data: BootstrapPayload, opts?: { applyPage?: boolean }) => {
@@ -278,7 +292,6 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
       setExtracted(items);
       setReviewDataError(data.review_data_error ?? null);
       setSelectedIds(applyExtractedSelection(items));
-      setObservations(data.observations ?? []);
 
       if (data.file?.url) {
         setOriginalUrl(data.file.url);
@@ -315,9 +328,10 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
       applyBootstrap(data, {
         applyPage: !soft || data.current_page?.pageNumber === pageNumber,
       });
+      await loadAuthoritativeObservations();
       return data.document;
     },
-    [documentId, applyBootstrap],
+    [documentId, applyBootstrap, loadAuthoritativeObservations],
   );
 
   const loadPageUrl = useCallback(
@@ -453,6 +467,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   async function handleAccept() {
     if (selectedIds.size === 0) return;
     setAccepting(true);
+    setActionError(null);
     try {
       const res = await fetch(
         `/api/documents/${documentId}/biomarkers/accept`,
@@ -462,10 +477,14 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
           body: JSON.stringify({ ids: Array.from(selectedIds) }),
         },
       );
-      if (!res.ok) throw new Error("Accept failed");
+      const payload = (await res.json().catch(() => ({}))) as WriterActionPayload;
+      if (!res.ok) throw new Error(payload.error ?? "Accept failed");
       await loadBootstrap(currentPage, { soft: true });
+      if (payload.failures?.length) {
+        setActionError(formatWriterFailures("Acceptance", payload.failures));
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Accept failed");
+      setActionError(e instanceof Error ? e.message : "Accept failed");
     } finally {
       setAccepting(false);
     }
@@ -474,6 +493,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   async function handleConfirmObservations() {
     if (observations.length === 0) return;
     setConfirmingObservations(true);
+    setActionError(null);
     try {
       const res = await fetch(
         `/api/documents/${documentId}/biomarkers/confirm-observations`,
@@ -485,15 +505,14 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
           }),
         },
       );
-      if (!res.ok) {
-        const payload = (await res.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        throw new Error(payload.error ?? "Confirmation failed");
-      }
+      const payload = (await res.json().catch(() => ({}))) as WriterActionPayload;
+      if (!res.ok) throw new Error(payload.error ?? "Confirmation failed");
       await loadBootstrap(currentPage, { soft: true });
+      if (payload.failures?.length) {
+        setActionError(formatWriterFailures("Confirmation", payload.failures));
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Confirmation failed");
+      setActionError(e instanceof Error ? e.message : "Confirmation failed");
     } finally {
       setConfirmingObservations(false);
     }
@@ -717,6 +736,11 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
 
       {doc.processing_error && (
         <p className="text-sm text-red-600">{doc.processing_error}</p>
+      )}
+      {actionError && (
+        <p role="alert" className="text-sm text-red-600">
+          {actionError}
+        </p>
       )}
 
       {showProcessingRecovery && (
@@ -1168,8 +1192,8 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                 <div>
                   {doc.processing_status === "needs_review" && (
                     <p className="mb-3 text-sm text-[var(--eh-text-secondary)]">
-                      These biomarkers are already stored for this document.
-                      Confirm them to complete review.
+                      These Registry 2.0 observations are already linked to this
+                      document. Confirm them to complete review.
                     </p>
                   )}
                   <ul className="max-h-[520px] space-y-2 overflow-y-auto">
@@ -1190,6 +1214,14 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                         <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
                           {o.observed_at}
                         </p>
+                        {(o.resolver_result ?? o.resolution_status) && (
+                          <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
+                            Mapping: {o.resolver_result ?? o.resolution_status}
+                            {o.verification_status
+                              ? ` · ${o.verification_status}`
+                              : ""}
+                          </p>
+                        )}
                       </li>
                     ))}
                   </ul>

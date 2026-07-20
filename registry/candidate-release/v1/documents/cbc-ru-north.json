@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1",
+  "id": "cbc-ru-north",
+  "language": "ru",
+  "laboratory": "northern-diagnostics",
+  "panels": ["cbc"],
+  "specialtyRows": false,
+  "deidentified": true,
+  "rawRows": [
+    { "rawLabel": "Neutrophils (NEU%)", "rawUnit": "%", "rawValueText": "54", "valueKind": "numeric" },
+    { "rawLabel": "Segmented neutrophils", "rawUnit": "%", "rawValueText": "49", "valueKind": "numeric" }
+  ]
+}

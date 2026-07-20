@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1",
+  "requiredCoverage": {
+    "panels": ["biochemistry", "cbc", "serology"],
+    "languages": ["en", "ru"],
+    "laboratories": ["central-serology", "northern-diagnostics", "westfield-diagnostics"],
+    "requiresSpecialtyRows": true
+  },
+  "documents": [
+    { "id": "chemistry-en-west", "fixture": "documents/chemistry-en-west.json" },
+    { "id": "cbc-ru-north", "fixture": "documents/cbc-ru-north.json" },
+    { "id": "specialty-en-central", "fixture": "documents/specialty-en-central.json" },
+    { "id": "specialty-ru-central", "fixture": "documents/specialty-ru-central.json" }
+  ]
+}

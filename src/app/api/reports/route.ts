@@ -19,6 +19,25 @@ import {
   withDisclaimer,
 } from "@/lib/reports";
 import { buildDocumentStructuredContext } from "@/lib/documents/structured-context";
+import { getMeasurementDefinition } from "@/lib/biomarkers";
+
+type LinkedRevision = {
+  resolver_result: string | null;
+  verification_status: string | null;
+  measurement_definition_key: string | null;
+  is_active: boolean;
+};
+
+function activeRevision(
+  relation: LinkedRevision | LinkedRevision[] | null | undefined
+): LinkedRevision | null {
+  const revisions = Array.isArray(relation)
+    ? relation
+    : relation
+      ? [relation]
+      : [];
+  return revisions.find((revision) => revision.is_active) ?? null;
+}
 
 function sanitizeSearchTerm(value: string): string {
   return value.replace(/[%_,]/g, "").trim();
@@ -154,9 +173,12 @@ export async function POST(req: NextRequest) {
 
   const { data: observations, error: obsError } = await supabase
     .from("observations")
-    .select("*, documents(original_filename, observed_at)")
+    .select(
+      "name, analyte_key, measurement_definition_key, resolution_status, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, observation_kind, documents(original_filename, observed_at), normalization_revision:observation_normalization_revisions!observations_normalization_revision_fk(resolver_result, verification_status, measurement_definition_key, is_active)"
+    )
     .eq("profile_id", profileId)
     .in("document_id", scopeIds)
+    .eq("observation_kind", "lab")
     .order("observed_at", { ascending: true });
 
   if (obsError) {
@@ -165,17 +187,50 @@ export async function POST(req: NextRequest) {
 
   const context = buildMultiSourceReportContext(
     structured,
-    (observations ?? []).map((o) => ({
-      name: o.name,
-      analyte_key: o.analyte_key ?? null,
-      measurement_definition_key: o.measurement_definition_key ?? null,
-      value: Number(o.value),
-      unit: o.unit,
-      ref_low: o.ref_low != null ? Number(o.ref_low) : null,
-      ref_high: o.ref_high != null ? Number(o.ref_high) : null,
-      observed_at: o.observed_at,
-      documents: o.documents as { original_filename: string; observed_at: string | null } | null,
-    })),
+    (observations ?? []).map((o) => {
+      const revision = activeRevision(
+        o.normalization_revision as LinkedRevision | LinkedRevision[] | null
+      );
+      const measurementDefinitionKey =
+        revision?.measurement_definition_key ?? o.measurement_definition_key ?? null;
+      const resolutionStatus =
+        revision?.resolver_result ?? o.resolution_status ?? null;
+      const definition = measurementDefinitionKey
+        ? getMeasurementDefinition(measurementDefinitionKey)
+        : undefined;
+      const registryBindingReady =
+        revision?.is_active === true &&
+        resolutionStatus === "resolved" &&
+        definition?.maturity === "reviewed";
+      const numericValue = o.value != null ? Number(o.value) : null;
+      const document = Array.isArray(o.documents)
+        ? o.documents[0] ?? null
+        : o.documents ?? null;
+
+      return {
+        name: o.name,
+        analyte_key: o.analyte_key ?? null,
+        measurement_definition_key: measurementDefinitionKey,
+        resolution_status: resolutionStatus,
+        verification_status: revision?.verification_status ?? null,
+        registry_binding_ready: registryBindingReady,
+        value_kind: o.value_kind ?? "numeric",
+        value_text:
+          o.value_text ??
+          (numericValue != null && Number.isFinite(numericValue)
+            ? String(numericValue)
+            : null),
+        value:
+          numericValue != null && Number.isFinite(numericValue)
+            ? numericValue
+            : null,
+        unit: o.unit,
+        ref_low: o.ref_low != null ? Number(o.ref_low) : null,
+        ref_high: o.ref_high != null ? Number(o.ref_high) : null,
+        observed_at: o.observed_at,
+        documents: document as { original_filename: string; observed_at: string | null } | null,
+      };
+    }),
     abnormal_only
   );
 

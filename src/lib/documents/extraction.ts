@@ -7,10 +7,10 @@ import type { PipelineLlmContext } from "@/lib/ai/pipeline-trace";
 import {
   inferModifier,
   inferSpecimen,
+  normalizeBiomarkerKeyToken,
   parseLabValueCell,
   type ValueKind,
 } from "@/lib/biomarkers";
-import { resolveLaunchCatalogKey as normalizeBiomarkerKey } from "@/lib/biomarkers/launch-registry";
 import { parseLabNumber } from "@/lib/schemas/biomarkers";
 
 export function formatReferenceRange(
@@ -103,7 +103,9 @@ function parsePipelineExtraction(raw: unknown): PipelineExtractionResult {
 
     const name = typeof row.name === "string" && row.name.trim() ? row.name.trim() : "Unknown test";
     const keySource = typeof row.key === "string" && row.key.trim() ? row.key : name;
-    const key = normalizeBiomarkerKey(keySource, name);
+    // This is an opaque extraction hint. Semantic identity is assigned later by
+    // the Registry 2.0 resolver using label, unit, and context evidence.
+    const key = normalizeBiomarkerKeyToken(keySource) || "unknown";
 
     const parsed = parseLabValueCell(row.value);
     if (!parsed) {

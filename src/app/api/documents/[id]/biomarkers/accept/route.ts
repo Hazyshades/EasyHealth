@@ -33,7 +33,11 @@ export async function POST(req: NextRequest, context: RouteContext) {
       observedAt,
       ids,
     });
-    return NextResponse.json(result);
+    return NextResponse.json(result, {
+      // A selected row may legitimately lose the v2 CAS while another row in
+      // the same ids[] request commits its own independent transaction.
+      status: result.failures.length ? 207 : 200,
+    });
   } catch (error) {
     if (error instanceof BiomarkerAcceptanceError) {
       return NextResponse.json({ error: error.message }, { status: error.status });

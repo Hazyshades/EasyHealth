@@ -11,7 +11,6 @@ import {
   resolveDisplayProcessingStatus,
 } from "@/lib/documents/access";
 import { normalizeDocumentType } from "@/lib/health-systems";
-import { isCurrentDocumentObservation } from "@/lib/documents/observation-read-boundaries";
 import { SIGNED_URL_TTL_SECONDS } from "@/lib/documents/constants";
 import {
   buildNormalizationReview,
@@ -24,9 +23,6 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 const EXTRACTED_BIOMARKER_SELECT =
   "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, source_page, source_text, confidence, status, processing_version, extraction_model, specimen, modifier, reported_alt_value, reported_alt_unit, raw_value_text, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, resolver_evidence, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, verification_status, created_at";
-
-const OBSERVATION_SELECT =
-  "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, source_extracted_biomarker_id, source_instrumental_measure_id, raw_name, raw_value_text, raw_reference_text, raw_unit, source_page, source_text, bounding_box, confidence, extraction_version, provenance_schema_version, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, source_instrumental_measure:document_extracted_instrumental_measures!observations_instrumental_source_owner_fk(id, key_hint, raw_name, raw_value_text, raw_unit, source_page, source_text, source_locator, occurrence_index, snapshot_hash, is_current)";
 
 async function safeSignedUrl(storagePath: string | null | undefined) {
   if (!storagePath) return null;
@@ -57,7 +53,6 @@ export async function GET(req: NextRequest, context: RouteContext) {
   const [
     pagesResult,
     extractedResult,
-    observationsResult,
     findingsResult,
     clinicalNoteResult,
     prescriptionResult,
@@ -77,12 +72,6 @@ export async function GET(req: NextRequest, context: RouteContext) {
       .eq("profile_id", profileId)
       .eq("is_current", true)
       .order("biomarker_name", { ascending: true }),
-    supabase
-      .from("observations")
-      .select(OBSERVATION_SELECT)
-      .eq("profile_id", profileId)
-      .eq("document_id", id)
-      .order("name", { ascending: true }),
     documentType === "instrumental_report"
       ? supabase
           .from("document_extracted_findings")
@@ -181,8 +170,6 @@ export async function GET(req: NextRequest, context: RouteContext) {
     ),
   }));
   const extractedCount = enrichedExtractedItems.length;
-  const currentObservations = (observationsResult.data ?? []).filter(isCurrentDocumentObservation);
-
   const file =
     fileSigned != null
       ? {
@@ -238,7 +225,6 @@ export async function GET(req: NextRequest, context: RouteContext) {
     referral: referralResult.data ?? null,
     extracted_biomarkers: enrichedExtractedItems,
     review_data_error: reviewDataError,
-    observations: currentObservations,
     file,
     current_page,
   });

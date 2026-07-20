@@ -108,8 +108,11 @@ assert.equal(isLaboratoryObservation({ observation_kind: "instrumental" }), fals
 
 const healthProfileRoute = readFileSync("src/app/api/health-profile/route.ts", "utf8");
 assert.match(healthProfileRoute, /\.eq\("observation_kind", "lab"\)/);
-const documentRoute = readFileSync("src/app/api/documents/[id]/route.ts", "utf8");
-assert.match(documentRoute, /source_instrumental_measure_id/);
-assert.match(documentRoute, /isCurrentDocumentObservation/);
+const observationsRoute = readFileSync(
+  "src/app/api/documents/[id]/observations/route.ts",
+  "utf8"
+);
+assert.match(observationsRoute, /source_instrumental_measure_id/);
+assert.match(observationsRoute, /isCurrentDocumentObservation/);
 
 console.log("verify-eh105-instrumental-lineage: all checks passed");

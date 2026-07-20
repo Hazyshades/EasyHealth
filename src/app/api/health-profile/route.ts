@@ -11,6 +11,23 @@ import {
 import { isLaboratoryObservation } from "@/lib/documents/observation-read-boundaries";
 import { getOrCreateHolisticSynthesis } from "@/lib/holistic-synthesis";
 
+type LinkedRevision = {
+  resolver_result: string | null;
+  measurement_definition_key: string | null;
+  is_active: boolean;
+};
+
+function activeRevision(
+  relation: LinkedRevision | LinkedRevision[] | null | undefined
+): LinkedRevision | null {
+  const revisions = Array.isArray(relation)
+    ? relation
+    : relation
+      ? [relation]
+      : [];
+  return revisions.find((revision) => revision.is_active) ?? null;
+}
+
 export async function GET() {
   const profileId = await getSessionProfileId();
   if (!profileId) {
@@ -31,7 +48,7 @@ export async function GET() {
       supabase
         .from("observations")
         .select(
-          "measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier"
+          "measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier, normalization_revision:observation_normalization_revisions!observations_normalization_revision_fk(resolver_result, measurement_definition_key, is_active)"
         )
         .eq("profile_id", profileId)
         // EH-105: Health Profile remains a laboratory-only assessment boundary.
@@ -75,8 +92,19 @@ export async function GET() {
 
   const profile = buildHealthProfile(
     scopedObservations.flatMap<Parameters<typeof buildHealthProfile>[0][number]>((o) => {
-      if (o.resolution_status !== "resolved" || !o.measurement_definition_key) return [];
-      const definition = getMeasurementDefinition(o.measurement_definition_key);
+      const revision = activeRevision(
+        o.normalization_revision as LinkedRevision | LinkedRevision[] | null
+      );
+      const measurementDefinitionKey = revision?.measurement_definition_key ?? null;
+      if (
+        revision?.is_active !== true ||
+        revision.resolver_result !== "resolved" ||
+        !measurementDefinitionKey
+      ) {
+        return [];
+      }
+      const definition = getMeasurementDefinition(measurementDefinitionKey);
+      if (definition?.maturity !== "reviewed") return [];
       const key = definition?.assessmentBindings.find((binding) => binding.status === "reviewed" && binding.compatibility === "compatible")?.assessmentInputKey;
       if (!key) return [];
       const valueKind =
@@ -91,6 +119,7 @@ export async function GET() {
       if (valueKind !== "numeric" || numericValue == null) {
         return [{
           biomarker_key: key,
+          measurement_definition_key: measurementDefinitionKey,
           name: o.name,
           value: null,
           unit: o.unit ?? "",
@@ -109,7 +138,7 @@ export async function GET() {
 
       const display = presentObservation(
         {
-          measurement_definition_key: o.measurement_definition_key,
+          measurement_definition_key: measurementDefinitionKey,
           value: numericValue,
           unit: o.unit ?? "",
           ref_low: o.ref_low != null ? Number(o.ref_low) : null,
@@ -119,6 +148,7 @@ export async function GET() {
       );
       return [{
         biomarker_key: key,
+        measurement_definition_key: measurementDefinitionKey,
         name: o.name,
         value: display.value,
         unit: display.unit,

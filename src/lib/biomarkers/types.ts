@@ -30,7 +30,8 @@ export type AnalyteKey = string;
 export type MeasurementDefinitionKey = string;
 export type NormalizedUnitKey = string;
 export type MeasurementMaturity = "provisional" | "reviewed" | "retired";
-export type RegistrySourceKind = "registry_v1_migration" | "launch_catalog" | "sample_fixture";
+/** Provenance for Registry 2.0 definition data used by the runtime resolver. */
+export type RegistrySourceKind = "registry_v2_review" | "sample_fixture";
 export type AnalyteStatus = "active" | "deprecated";
 export type SpecimenKey = "serum" | "plasma" | "whole_blood" | "urine" | "unspecified";
 export type MeasurementPropertyKey = "cell_count" | "percentage" | "segmented_percentage" | "band_percentage" | "distribution_width_cv" | "distribution_width_sd" | "substance_concentration" | "catalytic_activity_concentration" | "presence" | "unspecified";
@@ -79,6 +80,14 @@ export type AssessmentBinding = {
   assessmentInputKey: string;
   compatibility: AssessmentCompatibility;
   status: "reviewed" | "provisional";
+  /** Registry 2.0-owned assessment metadata. Present on every reviewed binding. */
+  system?: BodySystemId;
+  scoreRole?: ScoreRole;
+  coversConfidence?: boolean;
+  /** Alternatives that satisfy the same readiness requirement share this id. */
+  readinessGroup?: string;
+  /** At most one usable marker in a contribution group affects a state score. */
+  contributionGroup?: string;
 };
 
 export type MeasurementSourceProvenance = {
@@ -166,21 +175,11 @@ export type MeasurementDefinition = {
   displayName: string;
   aliases: readonly MeasurementAlias[];
   unitPolicy: MeasurementUnitPolicy;
+  /** Display-only conversion rule reviewed with this concrete definition. */
+  conversion?: ConversionRule | null;
   allowedSpecimens?: string[];
   requiredModifiers?: string[];
   assessmentBindings: readonly AssessmentBinding[];
-};
-
-export type LaunchCatalogMigrationRecord = {
-  key: string;
-  analyteKey: string;
-  displayName: string;
-  aliases: readonly string[];
-  specimen: SpecimenKey;
-  system: BodySystemId;
-  scoreRole: ScoreRole;
-  conversion: ConversionRule | null;
-  sourceRecordKey: string;
 };
 
 export type MeasurementResolutionInput = {
