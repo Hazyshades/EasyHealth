@@ -1,6 +1,6 @@
 begin;
 
-select plan(41);
+select plan(42);
 
 -- ── schema / grants ──────────────────────────────────────────────────────────
 
@@ -367,7 +367,7 @@ select throws_ok(
     end
     $body$;
   $$,
-  '23514',
+  '23503',
   null,
   'MATCH FULL rejects source-only laboratory half-link at constraint check'
 );
@@ -665,7 +665,7 @@ select lives_ok(
       ),
       'acceptance',
       '00000000-0000-0000-0000-000000000002',
-      'eh104-phase-b-request-1',
+      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
       null::uuid,
       'additive',
       null::text,
