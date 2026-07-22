@@ -1,6 +1,8 @@
 begin;
 
-select plan(35);
+select plan(41);
+
+-- ── schema / grants ──────────────────────────────────────────────────────────
 
 select ok(
   exists (
@@ -17,12 +19,39 @@ select ok(
 select ok(
   exists (
     select 1
-    from pg_constraint
-    where conrelid = 'public.observation_normalization_revisions'::regclass
-      and conname = 'observation_normalization_revisions_id_extracted_key'
-      and pg_get_constraintdef(oid) like '%UNIQUE (id, extracted_biomarker_id)%'
+    from pg_trigger
+    where tgrelid = 'public.observation_normalization_revisions'::regclass
+      and tgname = 'eh104_normalization_revision_verification_guard'
+      and not tgisinternal
   ),
-  'revision composite uniqueness target exists for Phase B'
+  'Phase B attaches the revision verification guard trigger'
+);
+
+select ok(
+  exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.document_extracted_biomarkers'::regclass
+      and conname = 'document_extracted_biomarkers_resolver_result_check'
+      and pg_get_constraintdef(oid) like '%partial%'
+  ),
+  'extracted resolver_result is constrained to the four-value domain or null'
+);
+
+select ok(
+  exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.observations'::regclass
+      and conname = 'observations_normalization_revision_same_source_fk'
+      and pg_get_constraintdef(oid) ilike '%match full%'
+  ),
+  'laboratory observation revision pair uses MATCH FULL composite FK'
+);
+
+select ok(
+  to_regprocedure('public.promote_observation_normalization_revision(uuid,uuid,uuid)') is null,
+  'legacy promotion RPC is dropped'
 );
 
 select ok(
@@ -55,28 +84,28 @@ select ok(
 select ok(
   has_function_privilege(
     'service_role',
-    'public.promote_observation_normalization_revision(uuid,uuid,uuid)'::regprocedure,
+    'public.purge_document_derived_laboratory_lineage(uuid)'::regprocedure,
     'EXECUTE'
   ),
-  'service_role retains temporary access to the legacy promotion RPC'
+  'service_role can execute laboratory lineage purge'
 );
 
 select ok(
   not has_function_privilege(
     'anon',
-    'public.promote_observation_normalization_revision(uuid,uuid,uuid)'::regprocedure,
+    'public.purge_document_derived_laboratory_lineage(uuid)'::regprocedure,
     'EXECUTE'
   ),
-  'anon cannot execute the legacy promotion RPC'
+  'anon cannot execute laboratory lineage purge'
 );
 
 select ok(
   not has_function_privilege(
     'authenticated',
-    'public.promote_observation_normalization_revision(uuid,uuid,uuid)'::regprocedure,
+    'public.purge_document_derived_laboratory_lineage(uuid)'::regprocedure,
     'EXECUTE'
   ),
-  'authenticated cannot execute the legacy promotion RPC'
+  'authenticated cannot execute laboratory lineage purge'
 );
 
 select ok(
@@ -106,6 +135,8 @@ select ok(
   'authenticated cannot execute the populated-data preflight'
 );
 
+-- ── seed ─────────────────────────────────────────────────────────────────────
+
 insert into public.profiles (id, email)
 values
   ('00000000-0000-0000-0000-000000000001', 'eh104-primary@example.test'),
@@ -116,32 +147,42 @@ values
 insert into public.documents (id, profile_id, storage_path, original_filename, status)
 values
   ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'eh104/primary.pdf', 'primary.pdf', 'completed'),
-  ('00000000-0000-0000-0000-000000000011', '00000000-0000-0000-0000-000000000004', 'eh104/secondary.pdf', 'secondary.pdf', 'completed');
+  ('00000000-0000-0000-0000-000000000011', '00000000-0000-0000-0000-000000000004', 'eh104/secondary.pdf', 'secondary.pdf', 'completed'),
+  ('00000000-0000-0000-0000-000000000012', '00000000-0000-0000-0000-000000000001', 'eh104/purge.pdf', 'purge.pdf', 'completed');
 
 insert into public.document_extracted_biomarkers (
   id,
   document_id,
   profile_id,
   biomarker_name,
-  status
+  status,
+  resolver_result
 )
 values
-  ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'Primary target', 'needs_review'),
-  ('00000000-0000-0000-0000-000000000021', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'Different source', 'needs_review'),
-  ('00000000-0000-0000-0000-000000000022', '00000000-0000-0000-0000-000000000011', '00000000-0000-0000-0000-000000000004', 'Other profile source', 'needs_review'),
-  ('00000000-0000-0000-0000-000000000023', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'Legacy invalid source', 'needs_review');
+  ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'Primary target', 'needs_review', 'partial'),
+  ('00000000-0000-0000-0000-000000000021', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'Different source', 'needs_review', null),
+  ('00000000-0000-0000-0000-000000000022', '00000000-0000-0000-0000-000000000011', '00000000-0000-0000-0000-000000000004', 'Other profile source', 'needs_review', null),
+  ('00000000-0000-0000-0000-000000000023', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'Guard source', 'needs_review', 'partial'),
+  ('00000000-0000-0000-0000-000000000024', '00000000-0000-0000-0000-000000000012', '00000000-0000-0000-0000-000000000001', 'Purge source', 'accepted', 'resolved');
 
 select is(
   (select count(*)::bigint from public.eh104_resolution_verification_preflight()),
   0::bigint,
-  'preflight is clean before populated legacy fixtures are introduced'
+  'preflight is clean on valid seed data'
 );
 
-update public.document_extracted_biomarkers
-set resolver_result = 'legacy_invalid',
-    verification_status = 'legacy_invalid'
-where id = '00000000-0000-0000-0000-000000000023';
+select throws_ok(
+  $$
+    update public.document_extracted_biomarkers
+    set resolver_result = 'legacy_invalid'
+    where id = '00000000-0000-0000-0000-000000000023'
+  $$,
+  '23514',
+  null,
+  'extracted resolver_result rejects unsupported values'
+);
 
+-- Source-only laboratory rows are allowed only until commit (deferred MATCH FULL).
 insert into public.observations (
   id,
   profile_id,
@@ -150,19 +191,22 @@ insert into public.observations (
   name,
   value,
   unit,
-  observed_at
+  observed_at,
+  observation_kind
 )
 values
-  ('00000000-0000-0000-0000-000000000030', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000020', 'Primary observation', 1, 'mg/dL', '2026-01-01'),
-  ('00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000021', 'Source mismatch observation', 2, 'mg/dL', '2026-01-02'),
-  ('00000000-0000-0000-0000-000000000032', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000022', 'Profile mismatch observation', 3, 'mg/dL', '2026-01-03'),
-  ('00000000-0000-0000-0000-000000000033', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000023', 'Half-linked observation', 4, 'mg/dL', '2026-01-04');
+  ('00000000-0000-0000-0000-000000000030', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000020', 'Primary observation', 1, 'mg/dL', '2026-01-01', 'lab'),
+  ('00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000021', 'Source mismatch observation', 2, 'mg/dL', '2026-01-02', 'lab'),
+  ('00000000-0000-0000-0000-000000000032', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000022', 'Profile mismatch observation', 3, 'mg/dL', '2026-01-03', 'lab'),
+  ('00000000-0000-0000-0000-000000000034', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', '00000000-0000-0000-0000-000000000024', 'Purge observation', 5, 'mg/dL', '2026-01-05', 'lab'),
+  ('00000000-0000-0000-0000-000000000035', '00000000-0000-0000-0000-000000000001', null, null, 'Standalone both-null observation', 6, 'mg/dL', '2026-01-06', 'lab');
 
 insert into public.observation_normalization_revisions (
   id,
   extracted_biomarker_id,
   input_evidence_hash,
   analyte_key,
+  measurement_definition_key,
   resolver_result,
   mapping_confidence,
   catalog_manifest_version,
@@ -171,16 +215,13 @@ insert into public.observation_normalization_revisions (
   verification_status
 )
 values
-  ('00000000-0000-0000-0000-000000000040', '00000000-0000-0000-0000-000000000020', 'eh104-target', 'primary_target', 'partial', 0.5, 'eh104', 'eh104', 'eh104', 'pending'),
-  ('00000000-0000-0000-0000-000000000041', '00000000-0000-0000-0000-000000000020', 'eh104-stale', 'primary_target', 'partial', 0.5, 'eh104', 'eh104', 'eh104', 'pending'),
-  ('00000000-0000-0000-0000-000000000042', '00000000-0000-0000-0000-000000000022', 'eh104-cross-profile', 'other_target', 'partial', 0.5, 'eh104', 'eh104', 'eh104', 'pending'),
-  ('00000000-0000-0000-0000-000000000043', '00000000-0000-0000-0000-000000000023', 'eh104-guard', 'legacy_target', 'partial', 0.5, 'eh104', 'eh104', 'eh104', 'pending'),
-  ('00000000-0000-0000-0000-000000000044', '00000000-0000-0000-0000-000000000023', 'eh104-legacy-invalid', null, 'partial', 0.5, 'eh104', 'eh104', 'eh104', 'user_verified');
+  ('00000000-0000-0000-0000-000000000040', '00000000-0000-0000-0000-000000000020', 'eh104-target', 'primary_target', null, 'partial', 0.5, 'eh104', 'eh104', 'eh104', 'pending'),
+  ('00000000-0000-0000-0000-000000000041', '00000000-0000-0000-0000-000000000020', 'eh104-stale', 'primary_target', null, 'partial', 0.5, 'eh104', 'eh104', 'eh104', 'pending'),
+  ('00000000-0000-0000-0000-000000000042', '00000000-0000-0000-0000-000000000022', 'eh104-cross-profile', 'other_target', null, 'partial', 0.5, 'eh104', 'eh104', 'eh104', 'pending'),
+  ('00000000-0000-0000-0000-000000000043', '00000000-0000-0000-0000-000000000023', 'eh104-guard', 'legacy_target', null, 'partial', 0.5, 'eh104', 'eh104', 'eh104', 'pending'),
+  ('00000000-0000-0000-0000-000000000047', '00000000-0000-0000-0000-000000000024', 'eh104-purge', 'purge_target', 'glucose_serum', 'resolved', 0.9, 'eh104', 'eh104', 'eh104', 'pending');
 
-create trigger eh104_phase_a_guard_fixture
-before insert or update on public.observation_normalization_revisions
-for each row
-execute function public.eh104_validate_normalization_revision_verification();
+-- ── attached guards ──────────────────────────────────────────────────────────
 
 select throws_ok(
   $$
@@ -217,7 +258,7 @@ select throws_ok(
   $$,
   'P0001',
   'pending verification must not include decision metadata',
-  'unattached guard rejects invalid pending INSERT metadata'
+  'attached guard rejects invalid pending INSERT metadata'
 );
 
 select throws_ok(
@@ -228,7 +269,7 @@ select throws_ok(
   $$,
   'P0001',
   'user_verified requires a user decision timestamp and actor id',
-  'unattached guard rejects invalid UPDATE actor metadata'
+  'attached guard rejects invalid UPDATE actor metadata'
 );
 
 select throws_ok(
@@ -242,10 +283,108 @@ select throws_ok(
   $$,
   'P0001',
   'verified normalization revision must be resolved and have a measurement definition',
-  'unattached guard rejects verified incomplete UPDATE'
+  'attached guard rejects verified incomplete UPDATE'
 );
 
-drop trigger eh104_phase_a_guard_fixture on public.observation_normalization_revisions;
+select throws_ok(
+  $$
+    insert into public.observation_normalization_revisions (
+      id,
+      extracted_biomarker_id,
+      input_evidence_hash,
+      analyte_key,
+      measurement_definition_key,
+      resolver_result,
+      mapping_confidence,
+      catalog_manifest_version,
+      resolver_version,
+      normalization_version,
+      verification_status,
+      verification_decided_at,
+      verification_actor_type,
+      verification_actor_id
+    )
+    values (
+      '00000000-0000-0000-0000-000000000048',
+      '00000000-0000-0000-0000-000000000023',
+      'eh104-verified-incomplete',
+      null,
+      null,
+      'partial',
+      0.5,
+      'eh104',
+      'eh104',
+      'eh104',
+      'user_verified',
+      now(),
+      'user',
+      '00000000-0000-0000-0000-000000000002'
+    )
+  $$,
+  'P0001',
+  'verified normalization revision must be resolved and have a measurement definition',
+  'attached guard rejects verified incomplete INSERT'
+);
+
+select throws_ok(
+  $$
+    delete from public.observation_normalization_revisions
+    where id = '00000000-0000-0000-0000-000000000043'
+  $$,
+  'P0001',
+  'normalization_revision_delete_forbidden',
+  'direct revision delete is denied outside purge'
+);
+
+-- Half-link at rest: nested constraint check, then roll back only that attempt.
+select throws_ok(
+  $$
+    do $body$
+    begin
+      insert into public.observations (
+        id,
+        profile_id,
+        document_id,
+        source_extracted_biomarker_id,
+        name,
+        value,
+        unit,
+        observed_at,
+        observation_kind
+      )
+      values (
+        '00000000-0000-0000-0000-000000000033',
+        '00000000-0000-0000-0000-000000000001',
+        '00000000-0000-0000-0000-000000000010',
+        '00000000-0000-0000-0000-000000000023',
+        'Half-linked observation',
+        4,
+        'mg/dL',
+        '2026-01-04',
+        'lab'
+      );
+      execute 'set constraints observations_normalization_revision_same_source_fk immediate';
+    end
+    $body$;
+  $$,
+  '23514',
+  null,
+  'MATCH FULL rejects source-only laboratory half-link at constraint check'
+);
+
+select is(
+  (
+    select count(*)::bigint
+    from public.observations
+    where id = '00000000-0000-0000-0000-000000000035'
+      and source_extracted_biomarker_id is null
+      and normalization_revision_id is null
+  ),
+  1::bigint,
+  'both-null laboratory lineage pair remains valid'
+);
+
+-- ── v2 promotion contracts ───────────────────────────────────────────────────
 
 with function_definition as (
   select regexp_replace(
@@ -280,54 +419,26 @@ select ok(
 )
 from function_definition;
 
-select ok(
-  exists (
-    select 1
-    from public.eh104_resolution_verification_preflight()
-    where finding_code = 'invalid_extracted_resolver_result'
-      and subject_id = '00000000-0000-0000-0000-000000000023'
-  ),
-  'preflight reports invalid extracted resolver result'
+select lives_ok(
+  $$
+    select public.promote_observation_normalization_revision_v2(
+      '00000000-0000-0000-0000-000000000040',
+      '00000000-0000-0000-0000-000000000030',
+      null::uuid,
+      '00000000-0000-0000-0000-000000000002'
+    )
+  $$,
+  'v2 promotes a same-source laboratory observation'
 );
 
-select ok(
-  exists (
-    select 1
-    from public.eh104_resolution_verification_preflight()
-    where finding_code = 'invalid_extracted_verification_status'
-      and subject_id = '00000000-0000-0000-0000-000000000023'
+select is(
+  (
+    select normalization_revision_id
+    from public.observations
+    where id = '00000000-0000-0000-0000-000000000030'
   ),
-  'preflight reports invalid extracted verification status'
-);
-
-select ok(
-  exists (
-    select 1
-    from public.eh104_resolution_verification_preflight()
-    where finding_code = 'half_linked_observation'
-      and subject_id = '00000000-0000-0000-0000-000000000033'
-  ),
-  'preflight reports legacy source-only observation'
-);
-
-select ok(
-  exists (
-    select 1
-    from public.eh104_resolution_verification_preflight()
-    where finding_code = 'verified_incomplete_revision'
-      and subject_id = '00000000-0000-0000-0000-000000000044'
-  ),
-  'preflight reports verified incomplete revision'
-);
-
-select ok(
-  exists (
-    select 1
-    from public.eh104_resolution_verification_preflight()
-    where finding_code = 'invalid_revision_verification_decision_metadata'
-      and subject_id = '00000000-0000-0000-0000-000000000044'
-  ),
-  'preflight reports missing decision metadata on a verified legacy revision'
+  '00000000-0000-0000-0000-000000000040'::uuid,
+  'promotion writes the composite same-source pair'
 );
 
 select lives_ok(
@@ -339,49 +450,7 @@ select lives_ok(
       '00000000-0000-0000-0000-000000000002'
     )
   $$,
-  'v2 promotes the first pending partial revision with a null expected active revision'
-);
-
-select is(
-  (select is_active from public.observation_normalization_revisions where id = '00000000-0000-0000-0000-000000000040'),
-  true,
-  'v2 activates the target revision'
-);
-
-select is(
-  (select normalization_revision_id from public.observations where id = '00000000-0000-0000-0000-000000000030'),
-  '00000000-0000-0000-0000-000000000040'::uuid,
-  'v2 synchronizes the observation revision projection'
-);
-
-select is(
-  (select resolution_status from public.observations where id = '00000000-0000-0000-0000-000000000030'),
-  'partial'::text,
-  'v2 synchronizes the partial resolver outcome'
-);
-
-select is(
-  (select measurement_definition_key from public.observations where id = '00000000-0000-0000-0000-000000000030'),
-  null::text,
-  'v2 synchronizes a null definition for an incomplete revision'
-);
-
-select lives_ok(
-  $$
-    select public.promote_observation_normalization_revision_v2(
-      '00000000-0000-0000-0000-000000000040',
-      '00000000-0000-0000-0000-000000000030',
-      null::uuid,
-      '00000000-0000-0000-0000-000000000003'
-    )
-  $$,
-  'initial retry with null expected active revision is a strict no-op before CAS'
-);
-
-select is(
-  (select promoted_by from public.observation_normalization_revisions where id = '00000000-0000-0000-0000-000000000040'),
-  '00000000-0000-0000-0000-000000000002'::uuid,
-  'strict no-op preserves original promotion metadata'
+  'complete first-activation retry is a no-op before CAS'
 );
 
 select throws_ok(
@@ -390,18 +459,12 @@ select throws_ok(
       '00000000-0000-0000-0000-000000000041',
       '00000000-0000-0000-0000-000000000030',
       null::uuid,
-      '00000000-0000-0000-0000-000000000003'
+      '00000000-0000-0000-0000-000000000002'
     )
   $$,
   'P0001',
   'stale_revision_conflict',
-  'v2 rejects a stale expected active revision after locks are acquired'
-);
-
-select is(
-  (select is_active from public.observation_normalization_revisions where id = '00000000-0000-0000-0000-000000000041'),
-  false,
-  'stale CAS rollback leaves the inactive candidate unchanged'
+  'stale expected active revision fails'
 );
 
 select throws_ok(
@@ -415,7 +478,7 @@ select throws_ok(
   $$,
   'P0001',
   'observation_source_mismatch',
-  'v2 rejects target and observation with different extracted sources'
+  'source mismatch is rejected'
 );
 
 select throws_ok(
@@ -429,7 +492,15 @@ select throws_ok(
   $$,
   'P0001',
   'observation_source_owner_mismatch',
-  'v2 rejects cross-profile or cross-document ownership'
+  'profile/document ownership mismatch is rejected'
+);
+
+-- Remove intentional source-only rows used only for promotion negative tests so
+-- deferred MATCH FULL checks later in the transaction stay focused.
+delete from public.observations
+where id in (
+  '00000000-0000-0000-0000-000000000031',
+  '00000000-0000-0000-0000-000000000032'
 );
 
 select throws_ok(
@@ -488,6 +559,141 @@ select is(
   (select resolution_status from public.observations where id = '00000000-0000-0000-0000-000000000030'),
   'resolved'::text,
   'projection-mismatch failure rolls back without an implicit repair'
+);
+
+-- ── purge ────────────────────────────────────────────────────────────────────
+
+-- Complete the purge document pair before purge so MATCH FULL is satisfied.
+select lives_ok(
+  $$
+    select public.promote_observation_normalization_revision_v2(
+      '00000000-0000-0000-0000-000000000047',
+      '00000000-0000-0000-0000-000000000034',
+      null::uuid,
+      '00000000-0000-0000-0000-000000000002'
+    )
+  $$,
+  'purge fixture observation promotes cleanly'
+);
+
+select lives_ok(
+  $$
+    select public.purge_document_derived_laboratory_lineage(
+      '00000000-0000-0000-0000-000000000012'
+    )
+  $$,
+  'controlled purge succeeds for a document with laboratory lineage'
+);
+
+select is(
+  (
+    select count(*)::bigint
+    from public.observations
+    where id = '00000000-0000-0000-0000-000000000034'
+      and source_extracted_biomarker_id is null
+      and normalization_revision_id is null
+  ),
+  1::bigint,
+  'purge leaves a full null laboratory lineage pair'
+);
+
+select is(
+  (
+    select count(*)::bigint
+    from public.document_extracted_biomarkers
+    where document_id = '00000000-0000-0000-0000-000000000012'
+  ),
+  0::bigint,
+  'purge deletes document-derived extracted biomarker rows'
+);
+
+select is(
+  (
+    select count(*)::bigint
+    from public.observation_normalization_revisions
+    where id = '00000000-0000-0000-0000-000000000047'
+  ),
+  0::bigint,
+  'purge removes cascaded normalization revisions under purge context'
+);
+
+select throws_ok(
+  $$
+    select public.eh104_phase_b_reset_document_derived_laboratory_lineage(false)
+  $$,
+  'P0001',
+  'phase_b_reset_not_allowed',
+  'disposable reset refuses without explicit confirmation'
+);
+
+-- ── EH-106 writer still works under Phase B ──────────────────────────────────
+
+select lives_ok(
+  $$
+    select public.write_observation_normalization_revision_v2(
+      '00000000-0000-0000-0000-000000000021',
+      jsonb_build_object(
+        'profile_id', '00000000-0000-0000-0000-000000000001',
+        'document_id', '00000000-0000-0000-0000-000000000010',
+        'name', 'EH-104 Phase B writer row',
+        'value', 21,
+        'value_kind', 'numeric',
+        'value_text', '21',
+        'unit', 'U/L',
+        'observed_at', '2026-07-22',
+        'specimen', 'serum',
+        'modifier', 'none',
+        'raw_name', 'ALT',
+        'raw_value_text', '21',
+        'raw_unit', 'U/L',
+        'provenance_schema_version', '1'
+      ),
+      jsonb_build_object(
+        'input_evidence_hash', 'eh104-phase-b-writer',
+        'measurement_definition_key', 'alt_serum',
+        'analyte_key', 'alt',
+        'resolver_result', 'resolved',
+        'mapping_confidence', 0.95,
+        'mapping_confidence_band', 'high',
+        'resolver_evidence', '[]'::jsonb,
+        'normalized_unit', 'U/L',
+        'unit_dimension', 'enzyme_activity',
+        'catalog_manifest_version', 'eh104',
+        'catalog_manifest_digest', 'eh104',
+        'resolver_version', 'eh104',
+        'normalization_version', 'eh104'
+      ),
+      'acceptance',
+      '00000000-0000-0000-0000-000000000002',
+      'eh104-phase-b-request-1',
+      null::uuid,
+      'additive',
+      null::text,
+      null::uuid,
+      null::uuid,
+      'test',
+      true
+    )
+  $$,
+  'EH-106 atomic writer succeeds on a clean Phase B database'
+);
+
+select is(
+  (
+    select count(*)::bigint
+    from public.observations
+    where source_extracted_biomarker_id = '00000000-0000-0000-0000-000000000021'
+      and normalization_revision_id is not null
+      and resolution_status = 'resolved'
+  ),
+  1::bigint,
+  'atomic writer leaves a full same-source laboratory pair'
+);
+
+select is(
+  (select count(*)::bigint from public.eh104_resolution_verification_preflight()),
+  0::bigint,
+  'preflight remains clean after successful writer and purge paths'
 );
 
 select * from finish();

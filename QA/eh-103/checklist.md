@@ -1,6 +1,6 @@
 # EH-103: Raw evidence and version provenance for observations
 
-**Roadmap status:** Delivered  
+**Roadmap status:** Delivered — issue closeout 2026-07-22 (CI/static authority; manual UI unchecked)  
 **Build / environment:** `________`  
 **Test run date:** `________`  
 **Tester:** `________`
@@ -94,3 +94,10 @@ input merely because its text/value exists.
 
 - Full revision-history browsing is not required in the current user interface.
 - Resolver outcome and verification lifecycle checks are covered by EH-104.
+
+## Closeout evidence (2026-07-22)
+
+- OpenSpec change `eh-103-observation-provenance-metadata` is complete (18/18).
+- Implementation lives in migrations `027`/`028` and related observation provenance paths on the main line.
+- Local Docker/Supabase was not required for this closeout. Database proof for later Sprint 1 items is owned by CI `database` jobs where configured.
+- Manual UI checks above remain unmarked until a tester executes them. Do not treat this closeout as manual QA pass.
