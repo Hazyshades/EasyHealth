@@ -4,6 +4,8 @@ export function snakeCaseToken(raw: string): string {
     .trim()
     .toLowerCase()
     .replace(/[\u00b5\u03bc]/g, "u")
+    // Preserve percent markers so aliases like `neu%` do not collapse onto `neu`.
+    .replace(/%/g, "_percent")
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/_+/g, "_")
     .replace(/^_+|_+$/g, "");

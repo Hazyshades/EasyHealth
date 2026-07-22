@@ -8,11 +8,12 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test:biomarkers": "tsx scripts/verify-biomarkers-runner.ts",
+    "test:cbc-regression": "tsx scripts/verify-cbc-measurement-regression-runner.ts",
     "test:measurement-registry": "tsx scripts/verify-measurement-registry-runner.ts",
     "test:document-review": "tsx scripts/verify-document-review-runner.ts",
     "test:document-worker": "tsx scripts/verify-document-worker-reliability.ts",
     "test:eh105": "tsx scripts/verify-eh105-instrumental-lineage.ts && tsx scripts/verify-eh105-worker-safety.ts",
-    "test:eh106": "tsx scripts/verify-eh106-writer-boundary.ts && tsx scripts/verify-eh106-acceptance-batch.ts && tsx scripts/verify-eh106-consumer-cutover.ts && tsx scripts/verify-registry-v2-runtime-cutover.ts && tsx scripts/verify-registry-v2-candidate-corpus-runner.ts && tsx scripts/registry-v2-candidate-corpus.ts --check",
+    "test:eh106": "tsx scripts/verify-eh106-writer-boundary.ts && tsx scripts/verify-eh106-acceptance-batch.ts && tsx scripts/verify-eh106-consumer-cutover.ts && tsx scripts/verify-registry-v2-runtime-cutover.ts && tsx scripts/verify-registry-v2-candidate-corpus-runner.ts && tsx scripts/registry-v2-candidate-corpus.ts --check && tsx scripts/verify-cbc-measurement-regression-runner.ts",
     "test:eh106-writer": "tsx scripts/verify-eh106-writer-boundary.ts && tsx scripts/verify-eh106-acceptance-batch.ts",
     "test:eh106-consumer": "tsx scripts/verify-eh106-consumer-cutover.ts",
     "test:eh106-db": "supabase test db --local supabase/tests/eh106_atomic_observation_normalization_writer.sql",
@@ -34,7 +35,7 @@
     "test:registry-v2-candidate-corpus": "tsx scripts/verify-registry-v2-candidate-corpus-runner.ts",
     "check:registry-v2-candidate-corpus": "tsx scripts/registry-v2-candidate-corpus.ts --check",
     "report:registry-v2-candidate-corpus": "tsx scripts/registry-v2-candidate-corpus.ts --report",
-    "verify:registry": "tsx scripts/verify-biomarkers-runner.ts && tsx scripts/verify-measurement-registry-runner.ts && tsx scripts/verify-observation-identity-runner.ts && tsx scripts/verify-observation-provenance-runner.ts && tsx scripts/verify-registry-v1-baseline-runner.ts && tsx scripts/registry-v1-baseline.ts --check && tsx scripts/verify-registry-v2-runtime-cutover.ts && tsx scripts/verify-no-registry-v1-runtime-imports.ts && tsx scripts/verify-no-observations-biomarker-key.ts && tsx scripts/verify-registry-v2-candidate-corpus-runner.ts && tsx scripts/registry-v2-candidate-corpus.ts --check && tsx scripts/verify-no-legacy-promotion-rpc.ts"
+    "verify:registry": "tsx scripts/verify-biomarkers-runner.ts && tsx scripts/verify-measurement-registry-runner.ts && tsx scripts/verify-observation-identity-runner.ts && tsx scripts/verify-observation-provenance-runner.ts && tsx scripts/verify-registry-v1-baseline-runner.ts && tsx scripts/registry-v1-baseline.ts --check && tsx scripts/verify-registry-v2-runtime-cutover.ts && tsx scripts/verify-no-registry-v1-runtime-imports.ts && tsx scripts/verify-no-observations-biomarker-key.ts && tsx scripts/verify-registry-v2-candidate-corpus-runner.ts && tsx scripts/registry-v2-candidate-corpus.ts --check && tsx scripts/verify-no-legacy-promotion-rpc.ts && tsx scripts/verify-cbc-measurement-regression-runner.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.0",

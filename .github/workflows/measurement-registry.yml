@@ -35,6 +35,8 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
       - name: Validate Registry 2.0 candidate-release evidence
         run: pnpm check:registry-v2-candidate-corpus
+      - name: Verify CBC measurement regression suite
+        run: pnpm test:cbc-regression
       - name: Publish Registry 2.0 candidate-release evidence
         run: |
           mkdir -p .artifacts

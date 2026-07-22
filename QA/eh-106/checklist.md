@@ -205,8 +205,8 @@ conflict. It does not duplicate the observation or change unrelated results.
   and `corepack pnpm test:eh105` passed.
 - [x] `corepack pnpm typecheck` and the production `corepack pnpm build` passed.
 - [x] Candidate evidence is launchable: 44 rows, input hash
-  `0f5787d47810be2912afd868ac033e1cb6604613306a2aea416baa84f9282c32`,
-  manifest hash `3ec5806b50290b078e71a4048dc45367070d98a5235504d55b5e1a28b7344ead`.
+  `b4489a7cae9ab40cef27e308f1fe64fb45eca55cfe612d806a5c4370e0116b13`,
+  manifest hash `a092449de73056b17b600dc6b9d2e5e141509ab362cb6e32ad73f8104045d754`.
 - [ ] `corepack pnpm test:eh106-db` could not run locally because the Docker
   CLI is unavailable (`supabase --version` is `2.109.0`). The CI `database`
   job now runs it in a Docker-enabled environment; its fixture covers
