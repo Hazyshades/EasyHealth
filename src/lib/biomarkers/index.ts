@@ -100,3 +100,14 @@ export {
   type MeasurementRegistryChange,
   type MeasurementCatalogManifestRelease,
 } from "./measurement-registry-release";
+
+export {
+  CBC_MEASUREMENT_REGRESSION_FIXTURES,
+  CBC_REGRESSION_FAMILIES,
+  listMissingCbcRegressionFamilies,
+  runCbcMeasurementRegressionSuite,
+  type CbcFixtureFailure,
+  type CbcRegressionFamily,
+  type CbcRegressionFixture,
+  type CbcRegressionReport,
+} from "./cbc-measurement-regression";
