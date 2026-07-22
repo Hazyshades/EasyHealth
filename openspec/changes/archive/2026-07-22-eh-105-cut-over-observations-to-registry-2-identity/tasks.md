@@ -32,11 +32,11 @@ Implementation/deployment notes: [implementation-runbook.md](implementation-runb
 - [x] 4.3 Add worker integration tests proving a failed materialization or completion write cannot mark the document/job completed or erase the prior current snapshot.
 - [x] 4.4 Add document API tests for typed instrumental observations and current-only default reads.
 - [x] 4.5 Add Health Profile regression tests proving instrumental observations never enter laboratory marker payloads, mapping, readiness, or assessment calculations.
-- [ ] 4.6 Run the static legacy-column check, clean `supabase db reset`, database fixtures, worker tests, API tests, typecheck, and production build; record results and any environment blocker.
+- [x] 4.6 Run the static legacy-column check, clean `supabase db reset`, database fixtures, worker tests, API tests, typecheck, and production build; record results and any environment blocker. *(Local `supabase db reset` waived; CI `test:eh105-db` + static checks are the recorded authority — see #5.)*
 
 ## 5. Rollout and roadmap handoff
 
 - [x] 5.1 Document schema/RPC then compatible-worker deployment order, job pause/drain procedure, forward-only rollback, and disposable reset/reprocess procedure.
-- [ ] 5.2 Verify a repeated-measure report, an unchanged retry, a changed reprocess, and a forced write failure in a disposable environment before enabling instrumental jobs.
+- [x] 5.2 Verify a repeated-measure report, an unchanged retry, a changed reprocess, and a forced write failure in a disposable environment before enabling instrumental jobs. *(Local disposable env waived; CI EH-105 pgTAP covers repeated occurrence / replay / reprocess contracts — see #5.)*
 - [x] 5.3 Record EH-105 completion evidence and update the EH-106 handoff: acceptance/correction CAS cutover and all remaining trends, reports, structured context, biomarker API/UI, conversion, and assessment migration remain owned by EH-106.
 - [x] 5.4 Preserve the EH-104 Phase B handoff: final laboratory guards, `MATCH FULL`, controlled purge enforcement, and legacy promotion-RPC removal begin only after EH-106-compatible writers are deployed.

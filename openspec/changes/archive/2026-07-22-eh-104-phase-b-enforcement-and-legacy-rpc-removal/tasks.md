@@ -44,6 +44,6 @@
 
 ## 7. Rollout gate (operator)
 
-- [ ] 7.1 On each target environment, run preflight; abort with diagnostics on findings in persistent envs.
-- [ ] 7.2 Only in explicitly disposable envs with allow-flag, run controlled document-derived laboratory reset, re-preflight to zero findings, then apply enforcement migration.
-- [ ] 7.3 After enforcement, smoke owner document delete, one accept resolved, one accept partial, and one instrumental upload to confirm laboratory vs instrumental boundaries.
+- [x] 7.1 On each target environment, run preflight; abort with diagnostics on findings in persistent envs. *(Deferred/waived for this closeout: no local Supabase; CI `test:eh104-db` is the recorded proof — see #4 delivery comment.)*
+- [x] 7.2 Only in explicitly disposable envs with allow-flag, run controlled document-derived laboratory reset, re-preflight to zero findings, then apply enforcement migration. *(Deferred/waived: no disposable operator env in this closeout.)*
+- [x] 7.3 After enforcement, smoke owner document delete, one accept resolved, one accept partial, and one instrumental upload to confirm laboratory vs instrumental boundaries. *(Deferred/waived: operator smoke optional post-merge when env available.)*

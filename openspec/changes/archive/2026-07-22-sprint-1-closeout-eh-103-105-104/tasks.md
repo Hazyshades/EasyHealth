@@ -9,8 +9,8 @@
 
 - [x] 2.1 Commit with a message scoped to EH-104 Phase B ship + Sprint 1 issue closeout.
 - [x] 2.2 Push branch and open PR to `master` linking #4 (and #3/#5 as related).
-- [ ] 2.3 Record CI database job result on the PR; fix fixture/migration failures from CI logs only (no local Supabase requirement).
-- [ ] 2.4 Merge PR when CI is green (or stop and report if CI blocked).
+- [x] 2.3 Record CI database job result on the PR; fix fixture/migration failures from CI logs only (no local Supabase requirement).
+- [x] 2.4 Merge PR when CI is green (or stop and report if CI blocked).
 
 ## 3. GitHub #3 EH-103 close
 
@@ -26,11 +26,11 @@
 
 ## 5. GitHub #4 EH-104 close
 
-- [ ] 5.1 Post delivery comment on #4 with PR link, static verify results, CI db evidence, and residual operator 7.x note if smoke env unavailable.
-- [ ] 5.2 Close issue #4 only after merge + CI db evidence is recorded.
-- [ ] 5.3 Mark remaining operator tasks in `eh-104-phase-b-enforcement-and-legacy-rpc-removal` as done or explicitly deferred in the issue comment (no fake local preflight success).
+- [x] 5.1 Post delivery comment on #4 with PR link, static verify results, CI db evidence, and residual operator 7.x note if smoke env unavailable.
+- [x] 5.2 Close issue #4 only after merge + CI db evidence is recorded.
+- [x] 5.3 Mark remaining operator tasks in `eh-104-phase-b-enforcement-and-legacy-rpc-removal` as done or explicitly deferred in the issue comment (no fake local preflight success).
 
 ## 6. OpenSpec hygiene
 
-- [ ] 6.1 Mark this closeout change tasks complete as each section finishes.
-- [ ] 6.2 Archive or note archive-readiness for `eh-103-observation-provenance-metadata`, `eh-105-cut-over-observations-to-registry-2-identity`, and `eh-104-phase-b-enforcement-and-legacy-rpc-removal` after issues close.
+- [x] 6.1 Mark this closeout change tasks complete as each section finishes.
+- [x] 6.2 Archive or note archive-readiness for `eh-103-observation-provenance-metadata`, `eh-105-cut-over-observations-to-registry-2-identity`, and `eh-104-phase-b-enforcement-and-legacy-rpc-removal` after issues close.
