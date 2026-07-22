@@ -561,6 +561,12 @@ select is(
   'projection-mismatch failure rolls back without an implicit repair'
 );
 
+-- Restore the intentional divergence fixture so later preflight checks residual
+-- integrity from purge/writer paths only.
+update public.observations
+set resolution_status = 'partial'
+where id = '00000000-0000-0000-0000-000000000030';
+
 -- ── purge ────────────────────────────────────────────────────────────────────
 
 -- Complete the purge document pair before purge so MATCH FULL is satisfied.
