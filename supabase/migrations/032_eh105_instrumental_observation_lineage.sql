@@ -128,6 +128,7 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+#variable_conflict use_column
 declare
   v_document public.documents%rowtype;
   v_job public.document_processing_jobs%rowtype;
