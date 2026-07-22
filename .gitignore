@@ -54,7 +54,6 @@ hackathon.md
 mvp_steps.md
 mvp_steps.md
 hachakton.md
-.next/
 
 .cursor/
 /worker/.env
@@ -76,3 +75,5 @@ hachakton.md
 #db
 supabase/.temp
 
+# test_ruseluts
+test_ruseluts
