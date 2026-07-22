@@ -1,6 +1,6 @@
 # EH-105: Registry 2.0 observation identity cut-over
 
-**Roadmap status:** In progress  
+**Roadmap status:** Delivered — issue closeout 2026-07-22 (local db waived; CI is database authority)  
 **Build / environment:** `________`  
 **Test run date:** `________`  
 **Tester:** `________`
@@ -128,3 +128,11 @@ erased, and a successful retry restores a consistent document.
   context, and UI is owned by EH-106 or later roadmap work.
 - EH-104 Phase B enforcement and acceptance/correction CAS cut-over are not
   part of EH-105.
+
+## Closeout evidence (2026-07-22)
+
+- OpenSpec change `eh-105-cut-over-observations-to-registry-2-identity` implementation tasks are complete except local disposable db smoke.
+- Tasks 4.6 / 5.2 local `supabase db reset` + pgTAP/smoke are **waived on developer workstations without Docker**.
+- Database authority: CI `database` job runs `pnpm test:eh105-db` (and related EH-104/EH-106 db contracts on the Phase B PR).
+- Static checks such as `pnpm test:eh105` / `check:no-observations-biomarker-key` remain the local no-Docker gate when needed.
+- Manual UI checks above remain unmarked until a tester executes them.

@@ -20,6 +20,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm check:registry-v2-cutover
+      - run: pnpm check:no-legacy-promotion-rpc
       - run: pnpm verify:registry
         env:
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
@@ -74,6 +75,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Start local Supabase services
         run: supabase db start
+      - name: Run EH-104 Phase B database contract
+        run: pnpm test:eh104-db
+      - name: Run EH-105 instrumental lineage database contract
+        run: pnpm test:eh105-db
       - name: Run EH-106 atomic writer database contract
         run: pnpm test:eh106-db
       - name: Stop local Supabase services

@@ -18,6 +18,7 @@ import {
 } from "@/lib/documents/normalization-review";
 import { reviewDataErrorMessage } from "@/lib/documents/biomarker-review-state";
 import { isWorkerOffline } from "@/lib/documents/worker-health";
+import { purgeDocumentDerivedLaboratoryLineage } from "@/lib/documents/laboratory-lineage-purge";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -264,6 +265,15 @@ export async function DELETE(_req: Request, context: RouteContext) {
   if (error) return error;
 
   const supabase = createAdminClient();
+
+  try {
+    await purgeDocumentDerivedLaboratoryLineage(id);
+  } catch (purgeError) {
+    const message =
+      purgeError instanceof Error ? purgeError.message : "Laboratory lineage purge failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+
   const paths = new Set<string>([doc!.storage_path]);
   if (doc!.original_storage_path) paths.add(doc!.original_storage_path);
   if (doc!.thumbnail_storage_path) paths.add(doc!.thumbnail_storage_path);
