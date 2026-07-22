@@ -14,22 +14,51 @@ export type LegacyBodySystemId = "vitamins";
 
 export type ScoreRole = "core" | "extended" | "display";
 
-export type ResolverResult = "resolved" | "ambiguous" | "unmapped";
+export type ResolverResult = "resolved" | "ambiguous" | "partial" | "unmapped";
 
-export type VerificationStatus = "pending" | "user_verified" | "manually_corrected";
+export type VerificationStatus =
+  | "pending"
+  | "auto_verified"
+  | "user_verified"
+  | "manually_corrected";
+
+export type VerificationActorType = "system" | "user";
 
 export type AssessmentCompatibility = "compatible" | "display_only" | "incompatible";
 
 export type AnalyteKey = string;
 export type MeasurementDefinitionKey = string;
 export type NormalizedUnitKey = string;
+export type MeasurementMaturity = "provisional" | "reviewed" | "retired";
+/** Provenance for Registry 2.0 definition data used by the runtime resolver. */
+export type RegistrySourceKind = "registry_v2_review" | "sample_fixture";
+export type AnalyteStatus = "active" | "deprecated";
+export type SpecimenKey = "serum" | "plasma" | "whole_blood" | "urine" | "unspecified";
+export type MeasurementPropertyKey = "cell_count" | "percentage" | "segmented_percentage" | "band_percentage" | "distribution_width_cv" | "distribution_width_sd" | "substance_concentration" | "catalytic_activity_concentration" | "presence" | "unspecified";
+export type MeasurementScaleKey = "quantitative" | "ordinal" | "nominal" | "unspecified";
+export type MeasurementTimingKey = "point_in_time" | "fasting" | "unspecified";
+export type MeasurementMethodKey = "automated" | "dipstick" | "unspecified";
+export type MeasurementValueKind = "numeric" | "qualitative" | "ordinal" | "unspecified";
+
+export type Analyte = { key: AnalyteKey; displayName: string; aliases: readonly string[]; status: AnalyteStatus };
+export type MeasurementIdentity = {
+  analyteKey: AnalyteKey;
+  specimen: SpecimenKey;
+  property: MeasurementPropertyKey;
+  scale: MeasurementScaleKey;
+  timing: MeasurementTimingKey;
+  method: MeasurementMethodKey;
+  valueKind: MeasurementValueKind;
+};
 
 export type UnitDimension =
   | "ratio"
   | "cell_concentration"
   | "volume"
   | "mass_concentration"
-  | "molar_concentration";
+  | "molar_concentration"
+  | "catalytic_activity_concentration"
+  | "arbitrary";
 
 /** @deprecated Use `UnitDimension`; retained for registry call-site compatibility. */
 export type UnitToken = UnitDimension | "unknown";
@@ -43,6 +72,27 @@ export type MeasurementAlias = {
   matchType: "exact" | "normalized" | "ocr_variant";
   locale?: string;
   laboratory?: string;
+  approvalStatus?: "reviewed" | "provisional";
+  fixtureRefs?: readonly string[];
+};
+
+export type AssessmentBinding = {
+  assessmentInputKey: string;
+  compatibility: AssessmentCompatibility;
+  status: "reviewed" | "provisional";
+  /** Registry 2.0-owned assessment metadata. Present on every reviewed binding. */
+  system?: BodySystemId;
+  scoreRole?: ScoreRole;
+  coversConfidence?: boolean;
+  /** Alternatives that satisfy the same readiness requirement share this id. */
+  readinessGroup?: string;
+  /** At most one usable marker in a contribution group affects a state score. */
+  contributionGroup?: string;
+};
+
+export type MeasurementSourceProvenance = {
+  kind: RegistrySourceKind;
+  sourceRecordKey: string;
 };
 
 export type MeasurementUnitPolicy = {
@@ -88,6 +138,8 @@ export type ResolutionReasonCode =
   | "section_support"
   | "neighbour_support"
   | "reference_shape_support"
+  | "specimen_missing"
+  | "modifier_missing"
   | "manual_selection"
   | "candidate_not_selected";
 
@@ -103,6 +155,7 @@ export type CandidateEvidence = {
   candidateKey: MeasurementDefinitionKey;
   accepted: readonly ResolutionEvidence[];
   rejected: readonly ResolutionEvidence[];
+  missingAxes: readonly ("specimen" | "modifier" | "timing" | "method" | "value_kind")[];
   score: number | null;
 };
 
@@ -111,18 +164,28 @@ export type MappingConfidenceBand = "high" | "medium" | "low";
 export type MeasurementDefinition = {
   key: MeasurementDefinitionKey;
   analyteKey: AnalyteKey;
+  maturity: MeasurementMaturity;
+  sourceProvenance: MeasurementSourceProvenance;
+  specimen: SpecimenKey;
+  property: MeasurementPropertyKey;
+  scale: MeasurementScaleKey;
+  timing: MeasurementTimingKey;
+  method: MeasurementMethodKey;
+  valueKind: MeasurementValueKind;
   displayName: string;
-  canonicalKey: string | null;
   aliases: readonly MeasurementAlias[];
   unitPolicy: MeasurementUnitPolicy;
+  /** Display-only conversion rule reviewed with this concrete definition. */
+  conversion?: ConversionRule | null;
   allowedSpecimens?: string[];
   requiredModifiers?: string[];
-  assessmentCompatibility: AssessmentCompatibility;
+  assessmentBindings: readonly AssessmentBinding[];
 };
 
 export type MeasurementResolutionInput = {
   rawLabel: string;
   rawUnit?: string | null;
+  rawValueText?: string | null;
   specimen?: string | null;
   modifier?: string | null;
   section?: string | null;
@@ -130,19 +193,22 @@ export type MeasurementResolutionInput = {
   referenceLow?: number | null;
   referenceHigh?: number | null;
   extractionConfidence?: number | null;
+  valueKind?: MeasurementValueKind | null;
   proposedKey?: string | null;
 };
 
 export type MeasurementResolution = {
   result: ResolverResult;
   measurementDefinitionKey: string | null;
-  canonicalKey: string | null;
+  analyteKey: string | null;
   mappingConfidence: number;
   mappingConfidenceBand: MappingConfidenceBand;
   unit: NormalizedMeasurementUnit;
   /** @deprecated Use `unit.dimension`; retained for callers built on Registry 2.0 draft types. */
   unitToken: UnitToken;
   candidateKeys: string[];
+  missingAxes: readonly ("specimen" | "modifier" | "timing" | "method" | "value_kind")[];
+  conflicts: readonly ResolutionReasonCode[];
   candidateEvidence: readonly CandidateEvidence[];
   reasons: readonly ResolutionReasonCode[];
 };

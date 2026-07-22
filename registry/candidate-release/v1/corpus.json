@@ -1,0 +1,509 @@
+{
+  "schemaVersion": "1",
+  "candidate": {
+    "id": "registry-v2-launch-corpus-2026-07-20",
+    "registryRelease": "registry-2.0-candidate"
+  },
+  "requiredRowCount": 44,
+  "rows": [
+    {
+      "id": "total-protein",
+      "documentId": "chemistry-en-west",
+      "panel": "biochemistry",
+      "family": "proteins",
+      "rawLabel": "Total protein",
+      "rawUnit": "g/L",
+      "rawValueText": "67",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "glucose",
+      "documentId": "chemistry-en-west",
+      "panel": "biochemistry",
+      "family": "glucose",
+      "rawLabel": "Glucose",
+      "rawUnit": "mmol/L",
+      "rawValueText": "5.3",
+      "valueKind": "numeric",
+      "specimen": "serum",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "glucose_serum"
+      }
+    },
+    {
+      "id": "total-bilirubin",
+      "documentId": "chemistry-en-west",
+      "panel": "biochemistry",
+      "family": "bilirubin",
+      "rawLabel": "Total bilirubin",
+      "rawUnit": "umol/L",
+      "rawValueText": "11",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "direct-bilirubin",
+      "documentId": "chemistry-en-west",
+      "panel": "biochemistry",
+      "family": "bilirubin",
+      "rawLabel": "Direct bilirubin",
+      "rawUnit": "umol/L",
+      "rawValueText": "2",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "alt",
+      "documentId": "chemistry-en-west",
+      "panel": "biochemistry",
+      "family": "liver-enzymes",
+      "rawLabel": "ALT (alanine aminotransferase)",
+      "rawUnit": "U/L",
+      "rawValueText": "24",
+      "valueKind": "numeric",
+      "expected": {
+        "classification": "partial",
+        "manualCorrection": {
+          "selectedDefinitionKey": "alt_serum_catalytic_activity",
+          "reviewStatus": "reviewed",
+          "note": "The fixture records a reviewed manual choice; the pure corpus runner does not write it."
+        }
+      }
+    },
+    {
+      "id": "ast",
+      "documentId": "chemistry-en-west",
+      "panel": "biochemistry",
+      "family": "liver-enzymes",
+      "rawLabel": "AST (aspartate aminotransferase)",
+      "rawUnit": "U/L",
+      "rawValueText": "20",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "crp",
+      "documentId": "chemistry-en-west",
+      "panel": "inflammation",
+      "family": "inflammation",
+      "rawLabel": "C-reactive protein, quantitative",
+      "rawUnit": "mg/L",
+      "rawValueText": "1.2",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "aso",
+      "documentId": "chemistry-en-west",
+      "panel": "inflammation",
+      "family": "infection-serology",
+      "rawLabel": "Antistreptolysin-O (ASO)",
+      "rawUnit": "IU/mL",
+      "rawValueText": "86",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "rbc",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "red-cell",
+      "rawLabel": "Red blood cells (RBC)",
+      "rawUnit": "x10^12/L",
+      "rawValueText": "4.8",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "hgb",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "red-cell",
+      "rawLabel": "Hemoglobin (HGB)",
+      "rawUnit": "g/L",
+      "rawValueText": "142",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "hct",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "red-cell",
+      "rawLabel": "Hematocrit (HCT)",
+      "rawUnit": "%",
+      "rawValueText": "41",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "mcv",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "red-cell",
+      "rawLabel": "Mean corpuscular volume (MCV)",
+      "rawUnit": "fL",
+      "rawValueText": "89",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "mch",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "red-cell",
+      "rawLabel": "Mean corpuscular hemoglobin (MCH)",
+      "rawUnit": "pg",
+      "rawValueText": "31",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "mchc",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "red-cell",
+      "rawLabel": "Mean corpuscular hemoglobin concentration (MCHC)",
+      "rawUnit": "g/L",
+      "rawValueText": "342",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "rdw",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "red-cell",
+      "rawLabel": "Red cell distribution width (RDW)",
+      "rawUnit": "%",
+      "rawValueText": "13.1",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "plt",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "platelets",
+      "rawLabel": "Platelets (PLT)",
+      "rawUnit": "x10^9/L",
+      "rawValueText": "245",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "mpv",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "platelets",
+      "rawLabel": "Mean platelet volume (MPV)",
+      "rawUnit": "fL",
+      "rawValueText": "9.8",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "pdw",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "platelets",
+      "rawLabel": "Platelet distribution width (PDW)",
+      "rawUnit": "%",
+      "rawValueText": "15.6",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "pct",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "platelets",
+      "rawLabel": "Plateletcrit (PCT)",
+      "rawUnit": "%",
+      "rawValueText": "0.24",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "wbc",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "white-cell",
+      "rawLabel": "White blood cells (WBC)",
+      "rawUnit": "x10^9/L",
+      "rawValueText": "6.1",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "neu-percent",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "white-cell-differential",
+      "rawLabel": "Neutrophils (NEU%)",
+      "rawUnit": "%",
+      "rawValueText": "54",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "neu-abs",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "white-cell-differential",
+      "rawLabel": "Neutrophils, absolute (NEU)",
+      "rawUnit": "x10^9/L",
+      "rawValueText": "3.3",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "lymf-percent",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "white-cell-differential",
+      "rawLabel": "Lymphocytes (LYMF%)",
+      "rawUnit": "%",
+      "rawValueText": "34",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "lymf-abs",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "white-cell-differential",
+      "rawLabel": "Lymphocytes, absolute (LYMF)",
+      "rawUnit": "x10^9/L",
+      "rawValueText": "2.1",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "mon-percent",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "white-cell-differential",
+      "rawLabel": "Monocytes (MON%)",
+      "rawUnit": "%",
+      "rawValueText": "7",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "mon-abs",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "white-cell-differential",
+      "rawLabel": "Monocytes, absolute (MON)",
+      "rawUnit": "x10^9/L",
+      "rawValueText": "0.4",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "eos-percent",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "white-cell-differential",
+      "rawLabel": "Eosinophils (EOS%)",
+      "rawUnit": "%",
+      "rawValueText": "3",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "eos-abs",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "white-cell-differential",
+      "rawLabel": "Eosinophils, absolute (EOS)",
+      "rawUnit": "x10^9/L",
+      "rawValueText": "0.2",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "bas-percent",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "white-cell-differential",
+      "rawLabel": "Basophils (BAS%)",
+      "rawUnit": "%",
+      "rawValueText": "1",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "bas-abs",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "white-cell-differential",
+      "rawLabel": "Basophils, absolute (BAS)",
+      "rawUnit": "x10^9/L",
+      "rawValueText": "0.1",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "esr",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "inflammation",
+      "rawLabel": "ESR, Westergren automated",
+      "rawUnit": "mm/hour",
+      "rawValueText": "8",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "segmented",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "white-cell-differential",
+      "rawLabel": "Segmented neutrophils",
+      "rawUnit": "%",
+      "rawValueText": "49",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "band",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "white-cell-differential",
+      "rawLabel": "Band neutrophils",
+      "rawUnit": "%",
+      "rawValueText": "2",
+      "valueKind": "numeric",
+      "specimen": "whole_blood",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "band_neutrophils_percent"
+      }
+    },
+    {
+      "id": "lymph-manual",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "white-cell-differential",
+      "rawLabel": "Lymphocytes, manual differential",
+      "rawUnit": "%",
+      "rawValueText": "33",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "mon-manual",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "white-cell-differential",
+      "rawLabel": "Monocytes, manual differential",
+      "rawUnit": "%",
+      "rawValueText": "7",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "eos-manual",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "white-cell-differential",
+      "rawLabel": "Eosinophils, manual differential",
+      "rawUnit": "%",
+      "rawValueText": "3",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "giardia",
+      "documentId": "specialty-en-central",
+      "panel": "serology",
+      "family": "parasitology",
+      "rawLabel": "Giardia antibodies, total",
+      "rawUnit": "positivity coefficient",
+      "rawValueText": "0.4",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "ascaris",
+      "documentId": "specialty-en-central",
+      "panel": "serology",
+      "family": "parasitology",
+      "rawLabel": "Ascaris IgG antibodies",
+      "rawUnit": "titer",
+      "rawValueText": "negative",
+      "valueKind": "qualitative",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "toxocara",
+      "documentId": "specialty-ru-central",
+      "panel": "serology",
+      "family": "parasitology",
+      "rawLabel": "anti-Toxocara IgG, qualitative ELISA",
+      "rawUnit": null,
+      "rawValueText": "negative",
+      "valueKind": "qualitative",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "opisthorchis",
+      "documentId": "specialty-ru-central",
+      "panel": "serology",
+      "family": "parasitology",
+      "rawLabel": "anti-Opisthorchis felineus IgG, qualitative ELISA",
+      "rawUnit": null,
+      "rawValueText": "negative",
+      "valueKind": "qualitative",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "echinococcus",
+      "documentId": "specialty-ru-central",
+      "panel": "serology",
+      "family": "parasitology",
+      "rawLabel": "anti-Echinococcus IgG, qualitative ELISA",
+      "rawUnit": null,
+      "rawValueText": "negative",
+      "valueKind": "qualitative",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "trichinella",
+      "documentId": "specialty-ru-central",
+      "panel": "serology",
+      "family": "parasitology",
+      "rawLabel": "anti-Trichinella sp. IgG, qualitative ELISA",
+      "rawUnit": null,
+      "rawValueText": "negative",
+      "valueKind": "qualitative",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "total-ige",
+      "documentId": "specialty-en-central",
+      "panel": "serology",
+      "family": "allergy",
+      "rawLabel": "Total IgE",
+      "rawUnit": "IU/mL",
+      "rawValueText": "39",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "ecp",
+      "documentId": "specialty-ru-central",
+      "panel": "serology",
+      "family": "allergy",
+      "rawLabel": "Eosinophilic cationic protein (ECP)",
+      "rawUnit": "ng/mL",
+      "rawValueText": "11",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    }
+  ]
+}

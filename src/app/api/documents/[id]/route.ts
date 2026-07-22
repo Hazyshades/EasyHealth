@@ -16,14 +16,13 @@ import {
   buildNormalizationReview,
   type NormalizationRevisionSummary,
 } from "@/lib/documents/normalization-review";
+import { reviewDataErrorMessage } from "@/lib/documents/biomarker-review-state";
+import { isWorkerOffline } from "@/lib/documents/worker-health";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 const EXTRACTED_BIOMARKER_SELECT =
-  "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, source_page, source_text, confidence, status, processing_version, extraction_model, specimen, modifier, reported_alt_value, reported_alt_unit, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, resolver_evidence, registry_version, registry_manifest_digest, resolver_version, normalization_schema_version, verification_status, created_at";
-
-const OBSERVATION_SELECT =
-  "id, biomarker_key, name, value, unit, ref_low, ref_high, observed_at, source_extracted_biomarker_id";
+  "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, source_page, source_text, confidence, status, processing_version, extraction_model, specimen, modifier, reported_alt_value, reported_alt_unit, raw_value_text, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, resolver_evidence, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, verification_status, created_at";
 
 async function safeSignedUrl(storagePath: string | null | undefined) {
   if (!storagePath) return null;
@@ -46,6 +45,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
   const supabase = createAdminClient();
   const documentType = normalizeDocumentType(doc!.document_type) ?? "lab_result";
+  const processingStatus = resolveDisplayProcessingStatus(doc!);
   const pageParam = Number.parseInt(req.nextUrl.searchParams.get("page") ?? "1", 10);
   const requestedPage =
     Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
@@ -53,12 +53,12 @@ export async function GET(req: NextRequest, context: RouteContext) {
   const [
     pagesResult,
     extractedResult,
-    observationsResult,
     findingsResult,
     clinicalNoteResult,
     prescriptionResult,
     referralResult,
     fileSigned,
+    heartbeatResult,
   ] = await Promise.all([
     supabase
       .from("document_pages")
@@ -72,12 +72,6 @@ export async function GET(req: NextRequest, context: RouteContext) {
       .eq("profile_id", profileId)
       .eq("is_current", true)
       .order("biomarker_name", { ascending: true }),
-    supabase
-      .from("observations")
-      .select(OBSERVATION_SELECT)
-      .eq("profile_id", profileId)
-      .eq("document_id", id)
-      .order("name", { ascending: true }),
     documentType === "instrumental_report"
       ? supabase
           .from("document_extracted_findings")
@@ -110,7 +104,25 @@ export async function GET(req: NextRequest, context: RouteContext) {
           .maybeSingle()
       : Promise.resolve({ data: null }),
     safeSignedUrl(getOriginalPath(doc!)),
+    processingStatus === "processing"
+      ? supabase
+          .from("worker_heartbeats")
+          .select("last_seen")
+          .order("last_seen", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ]);
+
+  if (heartbeatResult.error) {
+    console.error("Failed to load document worker heartbeat", {
+      documentId: id,
+      message: heartbeatResult.error.message,
+    });
+  }
+  const workerOffline =
+    processingStatus === "processing" &&
+    isWorkerOffline(heartbeatResult.data?.last_seen);
 
   const pageRows = pagesResult.data ?? [];
   const pages = pageRows.map((p) => ({
@@ -125,13 +137,20 @@ export async function GET(req: NextRequest, context: RouteContext) {
     ? await safeSignedUrl(pageMatch.preview_storage_path)
     : null;
 
-  const extractedItems = extractedResult.data ?? [];
+  const reviewDataError = reviewDataErrorMessage(extractedResult.error);
+  if (extractedResult.error) {
+    console.error("Failed to load extracted biomarkers", {
+      documentId: id,
+      message: extractedResult.error.message,
+    });
+  }
+  const extractedItems = extractedResult.error ? [] : (extractedResult.data ?? []);
   const extractedIds = extractedItems.map((item) => item.id);
   const revisionsResult = extractedIds.length
     ? await supabase
         .from("observation_normalization_revisions")
         .select(
-          "id, extracted_biomarker_id, measurement_definition_key, canonical_biomarker_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, registry_version, resolver_version, normalization_schema_version, created_at"
+          "id, extracted_biomarker_id, analyte_key, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, catalog_manifest_version, resolver_version, normalization_version, created_at"
         )
         .in("extracted_biomarker_id", extractedIds)
         .order("created_at", { ascending: false })
@@ -151,7 +170,6 @@ export async function GET(req: NextRequest, context: RouteContext) {
     ),
   }));
   const extractedCount = enrichedExtractedItems.length;
-
   const file =
     fileSigned != null
       ? {
@@ -184,7 +202,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
       mime_type: doc!.mime_type,
       file_kind: doc!.file_kind,
       page_count: doc!.page_count,
-      processing_status: resolveDisplayProcessingStatus(doc!),
+      processing_status: processingStatus,
       processing_error: doc!.processing_error ?? doc!.error_message,
       processing_version: doc!.processing_version,
       extraction_model: doc!.extraction_model,
@@ -199,13 +217,14 @@ export async function GET(req: NextRequest, context: RouteContext) {
       type_mismatch_reason: doc!.type_mismatch_reason ?? null,
       suggested_document_type: doc!.detected_document_type ?? null,
     },
+    workerOffline,
     pages,
     instrumental_findings: findingsResult.data ?? [],
     clinical_note: clinicalNoteResult.data ?? null,
     prescription: prescriptionResult.data ?? null,
     referral: referralResult.data ?? null,
     extracted_biomarkers: enrichedExtractedItems,
-    observations: observationsResult.data ?? [],
+    review_data_error: reviewDataError,
     file,
     current_page,
   });

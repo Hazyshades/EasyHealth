@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1",
+  "id": "specialty-en-central",
+  "language": "en",
+  "laboratory": "central-serology",
+  "panels": ["serology"],
+  "specialtyRows": true,
+  "deidentified": true,
+  "rawRows": [
+    { "rawLabel": "Ascaris IgG antibodies", "rawUnit": "titer", "rawValueText": "negative", "valueKind": "qualitative" },
+    { "rawLabel": "Total IgE", "rawUnit": "IU/mL", "rawValueText": "39", "valueKind": "numeric" }
+  ]
+}

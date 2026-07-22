@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1",
+  "id": "chemistry-en-west",
+  "language": "en",
+  "laboratory": "westfield-diagnostics",
+  "panels": ["biochemistry", "inflammation"],
+  "specialtyRows": false,
+  "deidentified": true,
+  "rawRows": [
+    { "rawLabel": "ALT (alanine aminotransferase)", "rawUnit": "U/L", "rawValueText": "24", "valueKind": "numeric" },
+    { "rawLabel": "Glucose", "rawUnit": "mmol/L", "rawValueText": "5.3", "valueKind": "numeric" }
+  ]
+}

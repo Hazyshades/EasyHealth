@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { getProfileById } from "@/lib/auth/profile";
-import { presentObservation, resolveCanonicalKey } from "@/lib/biomarkers";
+import { presentObservation } from "@/lib/biomarkers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildHealthProfile, type HealthProfileSource } from "@/lib/health-systems";
 import {
   buildDocumentStructuredContext,
   hashStructuredContext,
 } from "@/lib/documents/structured-context";
+import {
+  isLaboratoryObservation,
+  projectActiveRegistryV2LaboratoryBinding,
+  type RegistryV2NormalizationRevisionReadBoundary,
+} from "@/lib/documents/observation-read-boundaries";
 import { getOrCreateHolisticSynthesis } from "@/lib/holistic-synthesis";
 
 export async function GET() {
@@ -30,9 +35,12 @@ export async function GET() {
       supabase
         .from("observations")
         .select(
-          "biomarker_key, name, value, unit, ref_low, ref_high, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier"
+          "measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier, normalization_revision:observation_normalization_revisions!observations_normalization_revision_fk(resolver_result, measurement_definition_key, is_active)"
         )
-        .eq("profile_id", profileId),
+        .eq("profile_id", profileId)
+        // EH-105: Health Profile remains a laboratory-only assessment boundary.
+        // EH-106 owns typed instrumental presentation and consumer migration.
+        .eq("observation_kind", "lab"),
       supabase
         .from("documents")
         .select("id, original_filename, observed_at, lab_name, document_type, document_summary, processing_status, status")
@@ -65,12 +73,29 @@ export async function GET() {
   const completedDocumentIds = new Set(sources.map((source) => source.id));
   const scopedObservations = (observations ?? []).filter(
     (observation) =>
-      observation.document_id == null || completedDocumentIds.has(observation.document_id)
+      isLaboratoryObservation(observation) &&
+      (observation.document_id == null || completedDocumentIds.has(observation.document_id))
   );
 
   const profile = buildHealthProfile(
-    scopedObservations.map((o) => {
-      const key = resolveCanonicalKey(o.biomarker_key, o.name ?? "");
+    scopedObservations.flatMap<Parameters<typeof buildHealthProfile>[0][number]>((o) => {
+      const binding = projectActiveRegistryV2LaboratoryBinding(
+        o,
+        o.normalization_revision as
+          | RegistryV2NormalizationRevisionReadBoundary
+          | RegistryV2NormalizationRevisionReadBoundary[]
+          | null
+      );
+      const measurementDefinitionKey = binding.measurementDefinitionKey;
+      const definition = binding.measurementDefinition;
+      if (!binding.registryBindingReady || !measurementDefinitionKey || !definition) {
+        return [];
+      }
+      const key = definition.assessmentBindings.find((assessmentBinding) =>
+        assessmentBinding.status === "reviewed" &&
+        assessmentBinding.compatibility === "compatible"
+      )?.assessmentInputKey;
+      if (!key) return [];
       const valueKind =
         o.value_kind === "qualitative" ||
         o.value_kind === "ordinal" ||
@@ -81,8 +106,9 @@ export async function GET() {
       const numericValue = o.value != null ? Number(o.value) : null;
 
       if (valueKind !== "numeric" || numericValue == null) {
-        return {
+        return [{
           biomarker_key: key,
+          measurement_definition_key: measurementDefinitionKey,
           name: o.name,
           value: null,
           unit: o.unit ?? "",
@@ -90,19 +116,18 @@ export async function GET() {
           ref_high: o.ref_high != null ? Number(o.ref_high) : null,
           observed_at: o.observed_at,
           document_id: o.document_id,
-          observation_kind:
-            o.observation_kind === "instrumental" ? "instrumental" : "lab",
+          observation_kind: "lab",
           value_kind: valueKind,
           value_text: o.value_text ?? null,
           ordinal: o.ordinal != null ? Number(o.ordinal) : null,
           specimen: o.specimen ?? "unspecified",
           modifier: o.modifier ?? "none",
-        };
+        }];
       }
 
       const display = presentObservation(
         {
-          biomarker_key: key,
+          measurement_definition_key: measurementDefinitionKey,
           value: numericValue,
           unit: o.unit ?? "",
           ref_low: o.ref_low != null ? Number(o.ref_low) : null,
@@ -110,8 +135,9 @@ export async function GET() {
         },
         labUnitSystem
       );
-      return {
+      return [{
         biomarker_key: key,
+        measurement_definition_key: measurementDefinitionKey,
         name: o.name,
         value: display.value,
         unit: display.unit,
@@ -119,8 +145,7 @@ export async function GET() {
         ref_high: display.ref_high,
         observed_at: o.observed_at,
         document_id: o.document_id,
-        observation_kind:
-          o.observation_kind === "instrumental" ? "instrumental" : "lab",
+        observation_kind: "lab",
         value_kind: "numeric" as const,
         value_text: o.value_text ?? String(display.value),
         ordinal: null,
@@ -130,7 +155,7 @@ export async function GET() {
         conversion_note: display.conversion_note,
         original_value: display.original_value,
         original_unit: display.original_unit,
-      };
+      }];
     }),
     sources
   );

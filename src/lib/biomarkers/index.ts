@@ -5,6 +5,18 @@ export type {
   MeasurementUnitPolicy,
   NormalizedMeasurementUnit,
   AnalyteKey,
+  Analyte,
+  MeasurementMaturity,
+  MeasurementValueKind,
+  RegistrySourceKind,
+  AssessmentBinding,
+  MeasurementSourceProvenance,
+  MeasurementIdentity,
+  SpecimenKey,
+  MeasurementPropertyKey,
+  MeasurementScaleKey,
+  MeasurementTimingKey,
+  MeasurementMethodKey,
   MeasurementDefinitionKey,
   NormalizedUnitKey,
   UnitDimension,
@@ -16,6 +28,7 @@ export type {
   MeasurementResolutionInput,
   ResolverResult,
   VerificationStatus,
+  VerificationActorType,
   AssessmentCompatibility,
   UnitToken,
   BodySystemId,
@@ -29,29 +42,7 @@ export type {
   SystemScoreability,
 } from "./types";
 
-export {
-  BIOMARKER_DEFINITIONS,
-  BODY_SYSTEM_LABELS,
-  NAMED_BODY_SYSTEMS,
-  NON_SCOREABLE_SYSTEMS,
-  SCOREABILITY_BY_SYSTEM,
-  SCORE_CONTRIBUTION_GROUPS,
-  SCORE_REQUIRED_GROUPS,
-  buildMarkerToSystemMap,
-  getBiomarkerDefinition,
-  getScoreRole,
-  listCoreKeysForSystem,
-  listCoverageKeysForSystem,
-  listKeysForSystem,
-} from "./catalog";
-
-export {
-  ALIAS_MAP,
-  normalizeBiomarkerKey,
-  normalizeBiomarkerKeyToken,
-  resolveCanonicalKey,
-  snakeCaseToken,
-} from "./normalize";
+export { normalizeBiomarkerKeyToken, snakeCaseToken } from "./normalize";
 
 export { presentObservation, presentObservations, type NativeObservation } from "./units";
 
@@ -75,26 +66,37 @@ export {
 
 export {
   MEASUREMENT_DEFINITIONS,
-  MEASUREMENT_REGISTRY_VERSION,
+  CURATED_MEASUREMENT_DEFINITIONS,
+  ANALYTES,
+  MEASUREMENT_CATALOG_MANIFEST_VERSION,
   MEASUREMENT_RESOLVER_VERSION,
-  MEASUREMENT_NORMALIZATION_SCHEMA_VERSION,
+  MEASUREMENT_NORMALIZATION_VERSION,
+  OBSERVATION_PROVENANCE_SCHEMA_VERSION,
   getMeasurementDefinition,
+  getAnalyte,
+  getMeasurementIdentity,
   getMeasurementDefinitionsForAnalyte,
   getMeasurementConversionPolicy,
+  getReviewedAssessmentBinding,
+  getReviewedScoreContributionGroups,
+  getReviewedScoreReadinessGroups,
+  listReviewedCoverageKeys,
   normalizeMeasurementUnit,
   normalizeUnitToken,
   resolveMeasurementDefinition,
   validateMeasurementRegistry,
 } from "./measurement-resolution";
 
+export { SAMPLE_NEWEST_LAUNCH_FIXTURES, buildLaunchCoverageReport, type LaunchResolverFixture } from "./launch-fixtures";
+
 export {
-  MEASUREMENT_REGISTRY_DIGEST,
-  MEASUREMENT_REGISTRY_RELEASE,
-  buildMeasurementRegistryRelease,
+  MEASUREMENT_CATALOG_MANIFEST_DIGEST,
+  MEASUREMENT_CATALOG_MANIFEST_RELEASE,
+  buildMeasurementCatalogManifestRelease,
   classifyMeasurementDefinitionChange,
   digestMeasurementRegistryManifest,
   serializeMeasurementRegistryManifest,
   type MappingChangeClassification,
   type MeasurementRegistryChange,
-  type MeasurementRegistryRelease,
+  type MeasurementCatalogManifestRelease,
 } from "./measurement-registry-release";

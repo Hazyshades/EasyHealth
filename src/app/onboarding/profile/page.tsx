@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { resolveProfileIdentity } from "@/lib/display-name";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const OAUTH_PREFILL_KEY = "eh_oauth_prefill_name";
 
@@ -41,7 +42,9 @@ export default function OnboardingProfilePage() {
         if (data.first_name) setFirstName(data.first_name);
         if (data.last_name) setLastName(data.last_name);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load profile"))
+      .catch((e) =>
+        setError(e instanceof Error ? e.message : "Failed to load profile"),
+      )
       .finally(() => setLoading(false));
   }, [router]);
 
@@ -80,7 +83,15 @@ export default function OnboardingProfilePage() {
   }
 
   if (loading) {
-    return <p className="text-center text-sm text-[var(--eh-text-secondary)]">Loading…</p>;
+    return (
+      <div className="space-y-5">
+        <Skeleton className="mx-auto h-8 w-3/4" />
+        <Skeleton className="mx-auto h-4 w-2/3" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-11 w-full" />
+      </div>
+    );
   }
 
   return (
@@ -94,7 +105,10 @@ export default function OnboardingProfilePage() {
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-5">
         <div className="space-y-2">
-          <label htmlFor="first-name" className="text-sm font-medium text-[var(--eh-text-primary)]">
+          <label
+            htmlFor="first-name"
+            className="text-sm font-medium text-[var(--eh-text-primary)]"
+          >
             First name <span className="text-red-500">*</span>
           </label>
           <Input
@@ -108,7 +122,10 @@ export default function OnboardingProfilePage() {
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="last-name" className="text-sm font-medium text-[var(--eh-text-primary)]">
+          <label
+            htmlFor="last-name"
+            className="text-sm font-medium text-[var(--eh-text-primary)]"
+          >
             Last name
           </label>
           <Input
@@ -126,7 +143,7 @@ export default function OnboardingProfilePage() {
           type="submit"
           disabled={saving || !firstName.trim()}
           size="lg"
-          className="h-11 w-full rounded-xl border-0 bg-[#2563eb] font-semibold text-white shadow-sm hover:bg-[#1d4ed8] disabled:bg-[#93c5fd] disabled:text-white disabled:opacity-100"
+          className="h-11 w-full rounded-xl border-0 bg-[var(--eh-brand)] font-semibold text-white shadow-sm hover:bg-[var(--eh-brand)]/90 disabled:bg-[var(--eh-brand)]/50 disabled:text-white disabled:opacity-100"
         >
           {saving ? "Saving…" : "Complete registration"}
         </Button>

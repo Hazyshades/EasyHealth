@@ -22,11 +22,11 @@ export function SurfaceCard({
   return (
     <div
       className={cn(
-        "rounded-[18px] border border-[var(--eh-border)] bg-white shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(15,23,42,0.08)]",
+        "rounded-[16px] border border-[var(--eh-border)] bg-white",
         paddingMap[padding],
         hoverable &&
-          "transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(15,23,42,0.08),0_16px_32px_-12px_rgba(15,23,42,0.12)]",
-        className
+          "transition-colors duration-200 ease-out hover:border-[var(--eh-text-muted)]",
+        className,
       )}
       {...props}
     >

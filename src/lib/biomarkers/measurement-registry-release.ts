@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import {
   MEASUREMENT_DEFINITIONS,
-  MEASUREMENT_NORMALIZATION_SCHEMA_VERSION,
-  MEASUREMENT_REGISTRY_VERSION,
+  ANALYTES,
+  MEASUREMENT_NORMALIZATION_VERSION,
+  MEASUREMENT_CATALOG_MANIFEST_VERSION,
   MEASUREMENT_RESOLVER_VERSION,
 } from "./measurement-resolution";
 import type { MeasurementDefinition } from "./types";
@@ -19,10 +20,10 @@ export type MeasurementRegistryChange = {
   reason: string;
 };
 
-export type MeasurementRegistryRelease = {
-  registryVersion: string;
+export type MeasurementCatalogManifestRelease = {
+  catalogManifestVersion: string;
   resolverVersion: string;
-  normalizationSchemaVersion: string;
+  normalizationVersion: string;
   manifestDigest: string;
   changelog: string[];
   changedDefinitions: MeasurementRegistryChange[];
@@ -45,7 +46,14 @@ function manifestDefinition(definition: MeasurementDefinition) {
   return {
     key: definition.key,
     analyteKey: definition.analyteKey,
-    canonicalKey: definition.canonicalKey,
+    maturity: definition.maturity,
+    sourceProvenance: definition.sourceProvenance,
+    specimen: definition.specimen,
+    property: definition.property,
+    scale: definition.scale,
+    timing: definition.timing,
+    method: definition.method,
+    valueKind: definition.valueKind,
     aliases: definition.aliases.map((alias) => ({
       value: alias.value,
       normalizedValue: alias.normalizedValue,
@@ -57,7 +65,7 @@ function manifestDefinition(definition: MeasurementDefinition) {
     unitPolicy: definition.unitPolicy,
     allowedSpecimens: definition.allowedSpecimens ?? [],
     requiredModifiers: definition.requiredModifiers ?? [],
-    assessmentCompatibility: definition.assessmentCompatibility,
+    assessmentBindings: definition.assessmentBindings,
   };
 }
 
@@ -65,6 +73,8 @@ export function serializeMeasurementRegistryManifest(
   definitions: readonly MeasurementDefinition[] = MEASUREMENT_DEFINITIONS
 ): string {
   return stableValue({
+    registryModel: "launch-catalog-v2",
+    analytes: ANALYTES,
     definitions: definitions.map(manifestDefinition),
   });
 }
@@ -85,8 +95,15 @@ export function classifyMeasurementDefinitionChange(
 
   const identityChanged =
     previous.analyteKey !== next.analyteKey ||
-    previous.canonicalKey !== next.canonicalKey ||
-    previous.assessmentCompatibility !== next.assessmentCompatibility ||
+    previous.maturity !== next.maturity ||
+    stableValue(previous.sourceProvenance) !== stableValue(next.sourceProvenance) ||
+    previous.specimen !== next.specimen ||
+    previous.property !== next.property ||
+    previous.scale !== next.scale ||
+    previous.timing !== next.timing ||
+    previous.method !== next.method ||
+    previous.valueKind !== next.valueKind ||
+    stableValue(previous.assessmentBindings) !== stableValue(next.assessmentBindings) ||
     stableValue(previous.unitPolicy) !== stableValue(next.unitPolicy) ||
     stableValue(previous.allowedSpecimens ?? []) !== stableValue(next.allowedSpecimens ?? []) ||
     stableValue(previous.requiredModifiers ?? []) !== stableValue(next.requiredModifiers ?? []);
@@ -111,16 +128,16 @@ export function classifyMeasurementDefinitionChange(
   };
 }
 
-export function buildMeasurementRegistryRelease(options?: {
+export function buildMeasurementCatalogManifestRelease(options?: {
   previousDefinitions?: readonly MeasurementDefinition[];
   changelog?: string[];
-  regressionFixtures?: MeasurementRegistryRelease["regressionFixtures"];
-}): MeasurementRegistryRelease {
+  regressionFixtures?: MeasurementCatalogManifestRelease["regressionFixtures"];
+}): MeasurementCatalogManifestRelease {
   const previousByKey = new Map(options?.previousDefinitions?.map((definition) => [definition.key, definition]));
   return {
-    registryVersion: MEASUREMENT_REGISTRY_VERSION,
+    catalogManifestVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,
     resolverVersion: MEASUREMENT_RESOLVER_VERSION,
-    normalizationSchemaVersion: MEASUREMENT_NORMALIZATION_SCHEMA_VERSION,
+    normalizationVersion: MEASUREMENT_NORMALIZATION_VERSION,
     manifestDigest: digestMeasurementRegistryManifest(),
     changelog: options?.changelog ?? ["Registry 2.1 measurement governance baseline"],
     changedDefinitions: MEASUREMENT_DEFINITIONS.map((definition) =>
@@ -132,5 +149,5 @@ export function buildMeasurementRegistryRelease(options?: {
   };
 }
 
-export const MEASUREMENT_REGISTRY_DIGEST = digestMeasurementRegistryManifest();
-export const MEASUREMENT_REGISTRY_RELEASE = buildMeasurementRegistryRelease();
+export const MEASUREMENT_CATALOG_MANIFEST_DIGEST = digestMeasurementRegistryManifest();
+export const MEASUREMENT_CATALOG_MANIFEST_RELEASE = buildMeasurementCatalogManifestRelease();

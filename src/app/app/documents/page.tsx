@@ -22,6 +22,7 @@ import {
   type FloatingFilterValues,
 } from "@/components/ui/floating-filter-menu";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { DocumentType } from "@/lib/health-systems";
 import { DOCUMENT_TYPE_LABELS } from "@/lib/health-systems";
 import {
@@ -69,7 +70,9 @@ function displayStatus(doc: Document): string {
   return doc.processing_status || doc.status;
 }
 
-function statusVariant(status: string): "success" | "warning" | "error" | "neutral" {
+function statusVariant(
+  status: string,
+): "success" | "warning" | "error" | "neutral" {
   if (status === "completed" || status === "ready") return "success";
   if (status === "failed") return "error";
   if (status === "needs_review") return "warning";
@@ -88,10 +91,7 @@ function DocumentThumb({
   thumbnailExpiresIn?: number | null;
 }) {
   const cacheKey = thumbnailCacheKey(documentId);
-  const initial =
-    thumbnailUrl ||
-    getCachedSignedUrl(cacheKey) ||
-    null;
+  const initial = thumbnailUrl || getCachedSignedUrl(cacheKey) || null;
 
   const [url, setUrl] = useState<string | null>(initial);
 
@@ -146,7 +146,10 @@ function DocumentThumb({
   );
 }
 
-function countActiveFilters(filters: FloatingFilterValues, search: string): number {
+function countActiveFilters(
+  filters: FloatingFilterValues,
+  search: string,
+): number {
   let count = search.trim() ? 1 : 0;
   if (filters.keyword.trim()) count++;
   if (filters.date) count++;
@@ -158,21 +161,43 @@ function countActiveFilters(filters: FloatingFilterValues, search: string): numb
   return count;
 }
 
-function applyClientFilters(docs: Document[], search: string, filters: FloatingFilterValues) {
+function applyClientFilters(
+  docs: Document[],
+  search: string,
+  filters: FloatingFilterValues,
+) {
   const q = (search || filters.keyword).trim().toLowerCase();
   return docs.filter((doc) => {
     const status = displayStatus(doc);
-    if (filters.status !== "all" && status !== filters.status && doc.status !== filters.status) {
+    if (
+      filters.status !== "all" &&
+      status !== filters.status &&
+      doc.status !== filters.status
+    ) {
       return false;
     }
-    if (filters.documentType !== "all" && doc.document_type !== filters.documentType) return false;
-    if (filters.date && doc.observed_at && !doc.observed_at.startsWith(filters.date)) return false;
+    if (
+      filters.documentType !== "all" &&
+      doc.document_type !== filters.documentType
+    )
+      return false;
+    if (
+      filters.date &&
+      doc.observed_at &&
+      !doc.observed_at.startsWith(filters.date)
+    )
+      return false;
     if (filters.provider.trim()) {
       const provider = (doc.lab_name ?? "").toLowerCase();
-      if (!provider.includes(filters.provider.trim().toLowerCase())) return false;
+      if (!provider.includes(filters.provider.trim().toLowerCase()))
+        return false;
     }
     if (q) {
-      const haystack = [doc.original_filename, doc.lab_name ?? "", doc.document_type]
+      const haystack = [
+        doc.original_filename,
+        doc.lab_name ?? "",
+        doc.document_type,
+      ]
         .join(" ")
         .toLowerCase();
       if (!haystack.includes(q)) return false;
@@ -182,34 +207,41 @@ function applyClientFilters(docs: Document[], search: string, filters: FloatingF
 }
 
 export default function DocumentsPage() {
-  const [activeTab, setActiveTab] = useState<DocumentType | "dicom">("lab_result");
+  const [activeTab, setActiveTab] = useState<DocumentType | "dicom">(
+    "lab_result",
+  );
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState<FloatingFilterValues>(EMPTY_FLOATING_FILTERS);
+  const [filters, setFilters] = useState<FloatingFilterValues>(
+    EMPTY_FLOATING_FILTERS,
+  );
 
-  const loadDocuments = useCallback((opts?: { soft?: boolean }) => {
-    const soft = Boolean(opts?.soft);
-    if (!soft) setLoading(true);
-    return fetch(`/api/documents?type=${activeTab}`)
-      .then((r) => r.json())
-      .then((data) => {
-        const docs = (data.documents ?? []) as Document[];
-        for (const doc of docs) {
-          if (doc.thumbnail_url && doc.thumbnail_expires_in) {
-            setCachedSignedUrl(
-              thumbnailCacheKey(doc.id),
-              doc.thumbnail_url,
-              doc.thumbnail_expires_in
-            );
+  const loadDocuments = useCallback(
+    (opts?: { soft?: boolean }) => {
+      const soft = Boolean(opts?.soft);
+      if (!soft) setLoading(true);
+      return fetch(`/api/documents?type=${activeTab}`)
+        .then((r) => r.json())
+        .then((data) => {
+          const docs = (data.documents ?? []) as Document[];
+          for (const doc of docs) {
+            if (doc.thumbnail_url && doc.thumbnail_expires_in) {
+              setCachedSignedUrl(
+                thumbnailCacheKey(doc.id),
+                doc.thumbnail_url,
+                doc.thumbnail_expires_in,
+              );
+            }
           }
-        }
-        setDocuments(docs);
-      })
-      .finally(() => {
-        if (!soft) setLoading(false);
-      });
-  }, [activeTab]);
+          setDocuments(docs);
+        })
+        .finally(() => {
+          if (!soft) setLoading(false);
+        });
+    },
+    [activeTab],
+  );
 
   useEffect(() => {
     if (activeTab === "dicom") {
@@ -222,7 +254,7 @@ export default function DocumentsPage() {
 
   const hasProcessing = useMemo(
     () => documents.some((d) => displayStatus(d) === "processing"),
-    [documents]
+    [documents],
   );
 
   useEffect(() => {
@@ -235,7 +267,7 @@ export default function DocumentsPage() {
 
   const filteredDocuments = useMemo(
     () => applyClientFilters(documents, search, filters),
-    [documents, search, filters]
+    [documents, search, filters],
   );
 
   const activeFilterCount = countActiveFilters(filters, search);
@@ -251,7 +283,10 @@ export default function DocumentsPage() {
         subtitle="Upload and browse your medical records"
         actions={
           activeTab !== "dicom" && UPLOAD_LINKS[activeTab] ? (
-            <Button asChild className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
+            <Button
+              asChild
+              className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90"
+            >
               <Link href={UPLOAD_LINKS[activeTab]!}>
                 <Upload className="size-4" aria-hidden />
                 Upload document
@@ -292,13 +327,24 @@ export default function DocumentsPage() {
 
       {activeTab === "dicom" ? (
         <SurfaceCard padding="lg" className="border-dashed text-center">
-          <h2 className="font-semibold text-[var(--eh-text-primary)]">DICOM viewer coming soon</h2>
+          <h2 className="font-semibold text-[var(--eh-text-primary)]">
+            DICOM viewer coming soon
+          </h2>
           <p className="mt-2 text-sm text-[var(--eh-text-secondary)]">
-            Medical images (DICOM) upload and viewer are not available in this release.
+            Medical images (DICOM) upload and viewer are not available in this
+            release.
           </p>
         </SurfaceCard>
       ) : loading ? (
-        <p className="text-sm text-[var(--eh-text-secondary)]">Loading documents…</p>
+        <SurfaceCard padding="lg" className="space-y-4">
+          <Skeleton className="h-5 w-48" />
+          <div className="space-y-3">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </SurfaceCard>
       ) : filteredDocuments.length === 0 ? (
         <SurfaceCard padding="lg" className="text-center">
           <p className="text-sm text-[var(--eh-text-secondary)]">
@@ -307,11 +353,20 @@ export default function DocumentsPage() {
               : "No documents match your filters."}
           </p>
           {documents.length === 0 && UPLOAD_LINKS[activeTab as DocumentType] ? (
-            <Button asChild className="mt-4 rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
-              <Link href={UPLOAD_LINKS[activeTab as DocumentType]!}>Upload document</Link>
+            <Button
+              asChild
+              className="mt-4 rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90"
+            >
+              <Link href={UPLOAD_LINKS[activeTab as DocumentType]!}>
+                Upload document
+              </Link>
             </Button>
           ) : (
-            <Button variant="outline" className="mt-4 rounded-xl" onClick={clearFilters}>
+            <Button
+              variant="outline"
+              className="mt-4 rounded-xl"
+              onClick={clearFilters}
+            >
               Clear filters
             </Button>
           )}
@@ -334,7 +389,10 @@ export default function DocumentsPage() {
               </DataTableHead>
               <DataTableBody>
                 {filteredDocuments.map((doc) => (
-                  <DataTableRow key={doc.id} className="cursor-pointer hover:bg-slate-50">
+                  <DataTableRow
+                    key={doc.id}
+                    className="cursor-pointer hover:bg-slate-50"
+                  >
                     <DataTableCell>
                       <Link href={`/app/documents/${doc.id}`} className="block">
                         <DocumentThumb
@@ -346,13 +404,18 @@ export default function DocumentsPage() {
                       </Link>
                     </DataTableCell>
                     <DataTableCell className="font-medium">
-                      <Link href={`/app/documents/${doc.id}`} className="hover:text-[var(--eh-brand)]">
+                      <Link
+                        href={`/app/documents/${doc.id}`}
+                        className="hover:text-[var(--eh-brand)]"
+                      >
                         {doc.original_filename}
                       </Link>
                     </DataTableCell>
                     <DataTableCell>
                       <StatusChip variant="neutral">
-                        {DOCUMENT_TYPE_LABELS[doc.document_type as DocumentType] ?? doc.document_type}
+                        {DOCUMENT_TYPE_LABELS[
+                          doc.document_type as DocumentType
+                        ] ?? doc.document_type}
                       </StatusChip>
                     </DataTableCell>
                     <DataTableCell className="text-[var(--eh-text-secondary)]">
@@ -376,7 +439,10 @@ export default function DocumentsPage() {
             {filteredDocuments.map((doc) => (
               <li key={doc.id}>
                 <Link href={`/app/documents/${doc.id}`}>
-                  <SurfaceCard padding="sm" className="transition hover:border-[var(--eh-brand)]">
+                  <SurfaceCard
+                    padding="sm"
+                    className="transition hover:border-[var(--eh-brand)]"
+                  >
                     <div className="flex items-start gap-3">
                       <DocumentThumb
                         documentId={doc.id}
@@ -392,9 +458,12 @@ export default function DocumentsPage() {
                           {doc.lab_name ?? "Unknown lab"}
                           {doc.observed_at ? ` · ${doc.observed_at}` : ""}
                         </p>
-                        {(doc.status === "failed" || displayStatus(doc) === "failed") &&
+                        {(doc.status === "failed" ||
+                          displayStatus(doc) === "failed") &&
                           doc.error_message && (
-                            <p className="mt-2 text-xs text-red-600">{doc.error_message}</p>
+                            <p className="mt-2 text-xs text-red-600">
+                              {doc.error_message}
+                            </p>
                           )}
                       </div>
                       <StatusChip variant={statusVariant(displayStatus(doc))}>

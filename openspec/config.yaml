@@ -1,0 +1,23 @@
+schema: spec-driven
+
+context: |
+  EasyHealth — EN-first wellness/PHR web app (Next.js, Supabase, Nebius Factory and Vercel AI SDK).
+
+  OpenSpec is organized by product domain under openspec/domains/:
+  - auth-shell: app shell, onboarding, account, dashboard widgets
+  - documents: upload, worker pipeline, typed extraction, viewer
+  - health-profile: body map, biomarkers, holistic synthesis
+  - reports: educational multi-source reports
+  - payments: x402 payment recovery
+  - agent-api: paid agent endpoints (hackathon)
+  - ai-config: per-profile LLM provider
+
+  Main specs remain flat in openspec/specs/<capability>/spec.md for CLI compatibility.
+  Archived changes live under openspec/changes/archive/<domain>/.
+
+rules:
+  proposal:
+    - Reference the target domain (auth-shell, documents, etc.)
+    - List affected capability spec IDs from openspec/specs/
+  tasks:
+    - Group tasks by domain when a change spans multiple areas

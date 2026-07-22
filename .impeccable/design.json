@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-15T00:00:00.000Z",
+  "title": "Design System: EasyHealth",
+  "extensions": {
+    "colorMeta": {
+      "foreground": { "role": "neutral", "displayName": "Ink Near-Black", "canonical": "oklch(0.145 0 0)", "tonalRamp": ["#222222", "#3c3c3c", "#575757", "#717171", "#8b8b8b", "#a5a5a5", "#c0c0c0", "#dadada", "#f5f5f5"] },
+      "background": { "role": "neutral", "displayName": "Pure White", "canonical": "oklch(1 0 0)", "tonalRamp": ["#ffffff"] },
+      "primary": { "role": "neutral", "displayName": "UI Near-Black", "canonical": "oklch(0.205 0 0)", "tonalRamp": ["#343434", "#4d4d4d", "#666666", "#808080", "#999999", "#b3b3b3", "#cccccc", "#e5e5e5", "#ffffff"] },
+      "primary-foreground": { "role": "neutral", "displayName": "Off-White", "canonical": "oklch(0.985 0 0)", "tonalRamp": ["#f7f7f7", "#ffffff"] },
+      "muted": { "role": "neutral", "displayName": "Soft Gray", "canonical": "oklch(0.97 0 0)", "tonalRamp": ["#f5f7fa", "#f7f7f7"] },
+      "muted-foreground": { "role": "neutral", "displayName": "Secondary Gray", "canonical": "oklch(0.556 0 0)", "tonalRamp": ["#7f8792", "#949494"] },
+      "border": { "role": "neutral", "displayName": "Hairline Gray", "canonical": "oklch(0.922 0 0)", "tonalRamp": ["#e5e5e5"] },
+      "ring": { "role": "neutral", "displayName": "Focus Gray", "canonical": "oklch(0.708 0 0)", "tonalRamp": ["#a6a6a6"] },
+      "destructive": { "role": "semantic", "displayName": "Caution Red", "canonical": "oklch(0.577 0.245 27.325)", "tonalRamp": ["#c9372d", "#d9534f", "#e0665c"] },
+      "canvas": { "role": "neutral", "displayName": "App Canvas", "canonical": "#f8fafc" },
+      "page-bg": { "role": "neutral", "displayName": "Health Tint Page", "canonical": "#eaf8fc" },
+      "brand": { "role": "primary", "displayName": "Soft Indigo", "canonical": "#4f46e5", "tonalRamp": ["#4f46e5", "#6b63ea", "#8780ef", "#eef2ff"] },
+      "brand-soft": { "role": "primary", "displayName": "Indigo Tint", "canonical": "#eef2ff" },
+      "health": { "role": "accent", "displayName": "Health Teal", "canonical": "#008c84", "tonalRamp": ["#006f69", "#008c84", "#00a99c", "#dff5f2"] },
+      "text-primary": { "role": "neutral", "displayName": "Slate Ink", "canonical": "#0f172a" },
+      "text-secondary": { "role": "neutral", "displayName": "Slate Secondary", "canonical": "#64748b" },
+      "text-muted": { "role": "neutral", "displayName": "Slate Muted", "canonical": "#94a3b8" },
+      "chip-green-bg": { "role": "semantic", "displayName": "Positive Tint", "canonical": "#eaf8ef" },
+      "chip-green-text": { "role": "semantic", "displayName": "Positive Ink", "canonical": "#1e7a4d" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Large dashboard or welcome headings (rarely used)." },
+      "headline": { "displayName": "Headline", "purpose": "Page titles in TopBar and major section headers." },
+      "title": { "displayName": "Title", "purpose": "PageHeader titles and small section leads." },
+      "body": { "displayName": "Body", "purpose": "Paragraphs, card copy, descriptions. Capped at 65–75ch." },
+      "label": { "displayName": "Label", "purpose": "Uppercase table headers, filter labels, captions." }
+    },
+    "shadows": [
+      { "name": "card", "value": "0 1px 3px rgba(15,23,42,0.04), 0 8px 24px -8px rgba(15,23,42,0.08)", "purpose": "SurfaceCard default." },
+      { "name": "card-hover", "value": "0 4px 12px rgba(15,23,42,0.08), 0 16px 32px -12px rgba(15,23,42,0.12)", "purpose": "SurfaceCard hover lift." },
+      { "name": "nav-active", "value": "0 10px 22px rgba(79,70,229,0.24)", "purpose": "Active nav item glow." },
+      { "name": "menu", "value": "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)", "purpose": "Dropdown and select menus." }
+    ],
+    "motion": [
+      { "name": "ease-strong", "value": "cubic-bezier(0.23, 1, 0.32, 1)", "purpose": "Primary strong ease-out for hovers and reveals." },
+      { "name": "ease-out", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Default UI transitions." },
+      { "name": "duration-fast", "value": "150ms", "purpose": "Color and border transitions." },
+      { "name": "duration-normal", "value": "200ms", "purpose": "Transform, shadow, and opacity transitions." }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "767px" },
+      { "name": "tablet", "value": "1099px" },
+      { "name": "desktop", "value": "1100px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Default action button with near-black fill and white text.",
+      "html": "<button class=\"eh-btn-primary\">Upload document</button>",
+      "css": ".eh-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 8px 16px; font-family: var(--font-figtree); font-size: 0.875rem; font-weight: 500; color: oklch(0.985 0 0); background: oklch(0.205 0 0); border: none; border-radius: 8px; box-shadow: 0 1px 2px rgba(15,23,42,0.05); cursor: pointer; transition: background 150ms cubic-bezier(0.4, 0, 0.2, 1); outline: none; } .eh-btn-primary:hover { background: oklch(0.205 0 0 / 0.9); } .eh-btn-primary:focus-visible { box-shadow: 0 0 0 3px oklch(0.708 0 0 / 0.5); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary action button with border and optional icon.",
+      "html": "<button class=\"eh-btn-outline\">Filters</button>",
+      "css": ".eh-btn-outline { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 8px 16px; font-family: var(--font-figtree); font-size: 0.875rem; font-weight: 500; color: #64748b; background: #ffffff; border: 1px solid #e5eaf0; border-radius: 14px; box-shadow: 0 1px 2px rgba(15,23,42,0.04); cursor: pointer; transition: background 150ms, border-color 150ms; outline: none; } .eh-btn-outline:hover { background: #f1f5f9; border-color: #cbd5e1; } .eh-btn-outline:focus-visible { box-shadow: 0 0 0 3px rgba(79,70,229,0.2); }"
+    },
+    {
+      "name": "SurfaceCard",
+      "kind": "card",
+      "refersTo": "surface-card",
+      "description": "Default content container with a subtle lift.",
+      "html": "<div class=\"eh-surface-card\">Card content</div>",
+      "css": ".eh-surface-card { padding: 24px; font-family: var(--font-figtree); color: #0f172a; background: #ffffff; border: 1px solid #e5eaf0; border-radius: 16px; box-shadow: 0 1px 3px rgba(15,23,42,0.04), 0 8px 24px -8px rgba(15,23,42,0.08); transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 200ms; } .eh-surface-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(15,23,42,0.08), 0 16px 32px -12px rgba(15,23,42,0.12); }"
+    },
+    {
+      "name": "NavItem",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Main navigation item for the persistent sidebar.",
+      "html": "<a href=\"#\" class=\"eh-nav-item eh-nav-item--active\"><span class=\"eh-nav-icon\">♥</span><span class=\"eh-nav-label\">Dashboard</span></a>",
+      "css": ".eh-nav-item { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px; font-family: var(--font-figtree); font-size: 0.875rem; font-weight: 500; color: #475569; text-decoration: none; border-radius: 14px; transition: color 150ms, background 150ms; outline: none; } .eh-nav-item:hover { background: #f1f5f9; color: #0f172a; } .eh-nav-item--active { background: #4f46e5; color: #ffffff; box-shadow: 0 10px 22px rgba(79,70,229,0.24); } .eh-nav-item:focus-visible { box-shadow: 0 0 0 2px #4f46e5, 0 0 0 4px #ffffff; } .eh-nav-icon { display: inline-flex; width: 20px; height: 20px; }"
+    },
+    {
+      "name": "SearchInput",
+      "kind": "input",
+      "refersTo": "search-input",
+      "description": "App-specific search input with embedded icon.",
+      "html": "<div class=\"eh-search\"><svg class=\"eh-search__icon\" viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"11\" cy=\"11\" r=\"8\"></circle><path d=\"m21 21-4.3-4.3\"></path></svg><input type=\"search\" class=\"eh-search__input\" placeholder=\"Search…\" /></div>",
+      "css": ".eh-search { position: relative; display: flex; align-items: center; width: 100%; height: 40px; font-family: var(--font-figtree); } .eh-search__icon { position: absolute; left: 12px; width: 16px; height: 16px; color: #94a3b8; pointer-events: none; } .eh-search__input { width: 100%; height: 100%; padding: 0 12px 0 36px; font-size: 0.875rem; color: #0f172a; background: #ffffff; border: 1px solid #e5eaf0; border-radius: 14px; outline: none; transition: border-color 150ms, box-shadow 150ms; } .eh-search__input::placeholder { color: #94a3b8; } .eh-search__input:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.2); }"
+    },
+    {
+      "name": "DataTable",
+      "kind": "card",
+      "refersTo": "data-table",
+      "description": "Default table container for lists of documents, reports, or biomarkers.",
+      "html": "<div class=\"eh-table-wrap\"><table class=\"eh-table\"><thead><tr><th>Date</th><th>Document</th><th>Status</th></tr></thead><tbody><tr><td>Jul 14</td><td>Lab report</td><td>Completed</td></tr></tbody></table></div>",
+      "css": ".eh-table-wrap { overflow-x: auto; background: #ffffff; border: 1px solid #e5eaf0; border-radius: 14px; box-shadow: 0 1px 2px rgba(15,23,42,0.04); } .eh-table { width: 100%; min-width: 640px; font-family: var(--font-figtree); font-size: 0.875rem; text-align: left; border-collapse: collapse; } .eh-table thead { background: #f8fafc; border-bottom: 1px solid #eef2f7; } .eh-table th { padding: 12px 16px; font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; } .eh-table tbody { border-top: none; } .eh-table td { padding: 14px 16px; color: #0f172a; border-bottom: 1px solid #eef2f7; } .eh-table tr { transition: background 150ms; } .eh-table tr:hover { background: rgba(248,250,252,0.8); }"
+    },
+    {
+      "name": "StatusChip",
+      "kind": "chip",
+      "refersTo": "status-chip",
+      "description": "Small status pill with text and contextual color.",
+      "html": "<span class=\"eh-chip eh-chip--success\">Completed</span>",
+      "css": ".eh-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; font-family: var(--font-figtree); font-size: 0.75rem; font-weight: 500; line-height: 1.25; border: 1px solid #e5eaf0; border-radius: 9999px; background: #ffffff; color: #64748b; } .eh-chip--success { background: #eaf8ef; color: #1e7a4d; border-color: #a7f3d0; } .eh-chip--warning { background: #fffbeb; color: #92400e; border-color: #fde68a; } .eh-chip--error { background: #fef2f2; color: #b91c1c; border-color: #fecaca; } .eh-chip--info { background: #f0f9ff; color: #075985; border-color: #bae6fd; }"
+    },
+    {
+      "name": "FilterChip",
+      "kind": "chip",
+      "refersTo": "filter-chip",
+      "description": "Toggle pill for filtering lists and charts.",
+      "html": "<button class=\"eh-filter-chip eh-filter-chip--active\">Normal</button>",
+      "css": ".eh-filter-chip { display: inline-flex; align-items: center; padding: 6px 14px; font-family: var(--font-figtree); font-size: 0.875rem; font-weight: 500; color: #64748b; background: #ffffff; border: 1px solid #e5eaf0; border-radius: 9999px; cursor: pointer; transition: color 150ms, background 150ms, border-color 150ms; outline: none; } .eh-filter-chip:hover { background: #f8fafc; border-color: #cbd5e1; color: #0f172a; } .eh-filter-chip--active { color: #4f46e5; background: #eef2ff; border-color: #4f46e5; } .eh-filter-chip:focus-visible { box-shadow: 0 0 0 2px #4f46e5, 0 0 0 4px #ffffff; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Calm Record",
+    "overview": "EasyHealth is a task-first personal health record. The interface reads as a quiet, well-lit workspace: white surfaces, a restrained indigo accent, and teal health signals that only appear when they carry meaning. The goal is to remove noise so users can review labs, documents, and summaries without anxiety. Motion is short and reactive, not theatrical. Density is moderate — enough to act, not so much that medical data feels overwhelming.",
+    "keyCharacteristics": [
+      "One sans-serif family (Figtree) carries every UI surface.",
+      "Color strategy is restrained: indigo is the primary action color; teal signals health context; neutrals dominate.",
+      "Surfaces are mostly flat; shadows are used sparingly and structurally.",
+      "Rounded corners are modest — buttons and inputs stay near-rectangular, while chips and status pills are fully rounded.",
+      "Motion is 150–250 ms, transform/opacity only, with a strong ease-out curve."
+    ],
+    "rules": [
+      { "name": "The One Accent Rule", "body": "Indigo is the only action accent. Use it on ≤10% of any screen. Teal and green are health-context colors, not decoration.", "section": "colors" },
+      { "name": "The 65ch Rule", "body": "Body paragraphs, disclaimers, and explanatory copy are capped at 65–75ch.", "section": "typography" },
+      { "name": "The One-or-the-Other Rule", "body": "A card at rest may have a border OR a small structural shadow, not a 1px border plus a wide diffuse shadow.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use Figtree for every label, button, heading, and body string; Geist Mono only for code, identifiers, or timestamps.",
+      "Do reserve indigo for primary actions and current selection; it should never become the dominant screen color.",
+      "Do pair status colors with text and/or shape so meaning survives for color-blind users.",
+      "Do use focus-visible rings for every interactive control.",
+      "Do support prefers-reduced-motion for any custom animations."
+    ],
+    "donts": [
+      "Don't use side-stripe borders (border-left/right ≥ 2px) as accent on cards, alerts, or list items.",
+      "Don't use gradient text (background-clip: text) or gradient buttons for decoration.",
+      "Don't use glassmorphism or backdrop blur as a default card style.",
+      "Don't pair a 1px border on cards with a wide diffuse shadow (blur ≥ 16px).",
+      "Don't exceed 16px corner radius on cards/sections.",
+      "Don't rely on color alone to communicate result status — always add text and shape context."
+    ]
+  }
+}

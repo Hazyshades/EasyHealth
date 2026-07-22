@@ -48,23 +48,32 @@ xmcp-env.d.ts
 
 #scpecs
 /docs/
-openspec/
+openspec/domains/
+openspec/specs/
 hackathon.md
 mvp_steps.md
 mvp_steps.md
 hachakton.md
-.next/
 
 .cursor/
 /worker/.env
 /worker/node_modules    
 
 /oh-my-pi
-/roadmap
 
-#agents
-.agents/
+# agents
+# Keep local agent state untracked, but version the shared roadmap QA skill.
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/roadmap-qa-checklists/
+!.agents/skills/roadmap-qa-checklists/**
 
 #data
 /biomarkers/
 
+#db
+supabase/.temp
+
+# test_ruseluts
+test_ruseluts

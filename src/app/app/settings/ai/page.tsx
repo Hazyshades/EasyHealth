@@ -5,6 +5,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AI_PROVIDER_HINTS,
   AI_PROVIDER_IDS,
@@ -21,7 +22,10 @@ type ProfileResponse = {
   nebius_quality_available: boolean;
 };
 
-function isProviderAvailable(provider: AiProviderId, availability: ProfileResponse): boolean {
+function isProviderAvailable(
+  provider: AiProviderId,
+  availability: ProfileResponse,
+): boolean {
   if (provider === "openai") return availability.openai_available;
   if (provider === "deepseek") return availability.deepseek_available;
   if (provider === "owl_alpha") return availability.owl_alpha_available;
@@ -30,8 +34,10 @@ function isProviderAvailable(provider: AiProviderId, availability: ProfileRespon
 }
 
 function providerUnavailableHint(provider: AiProviderId): string {
-  if (provider === "deepseek") return "DeepSeek is not configured on this server.";
-  if (provider === "owl_alpha") return "Tencent Hy3 (OpenRouter) is not configured on this server.";
+  if (provider === "deepseek")
+    return "DeepSeek is not configured on this server.";
+  if (provider === "owl_alpha")
+    return "Tencent Hy3 (OpenRouter) is not configured on this server.";
   if (provider === "nebius_fast" || provider === "nebius_quality") {
     return "Nebius is not configured on this server.";
   }
@@ -66,7 +72,9 @@ export default function AiSettingsPage() {
         setAiProvider(data.ai_provider);
         setAvailability(data);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load AI settings"))
+      .catch((e) =>
+        setError(e instanceof Error ? e.message : "Failed to load AI settings"),
+      )
       .finally(() => setLoading(false));
   }, []);
 
@@ -97,12 +105,30 @@ export default function AiSettingsPage() {
   }
 
   if (loading) {
-    return <p className="text-sm text-[var(--eh-text-secondary)]">Loading AI settings…</p>;
+    return (
+      <div className="space-y-6 pb-8">
+        <PageHeader
+          title="AI provider"
+          subtitle="Choose which model EasyHealth uses for extraction and reports"
+          compact
+        />
+        <SurfaceCard className="space-y-4 p-5">
+          <Skeleton className="h-4 w-full" />
+          <div className="space-y-3">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+          <Skeleton className="h-10 w-24" />
+        </SurfaceCard>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6 pb-8">
       <PageHeader
+        title="AI provider"
         subtitle="Choose which model EasyHealth uses for extraction and reports"
         compact
         actions={
@@ -114,11 +140,14 @@ export default function AiSettingsPage() {
 
       <SurfaceCard className="space-y-5 p-5">
         <p className="text-sm text-[var(--eh-text-secondary)]">
-          Processing uses the app&apos;s secure server keys. You do not need to enter an API key.
+          Processing uses the app&apos;s secure server keys. You do not need to
+          enter an API key.
         </p>
 
         <fieldset className="space-y-3">
-          <legend className="text-sm font-semibold text-[var(--eh-text-primary)]">Provider</legend>
+          <legend className="text-sm font-semibold text-[var(--eh-text-primary)]">
+            Provider
+          </legend>
           {AI_PROVIDER_IDS.map((provider) => {
             const disabled = !isProviderAvailable(provider, availability);
             return (
@@ -160,7 +189,9 @@ export default function AiSettingsPage() {
         </fieldset>
 
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        {message ? <p className="text-sm text-[var(--eh-brand)]">{message}</p> : null}
+        {message ? (
+          <p className="text-sm text-[var(--eh-brand)]">{message}</p>
+        ) : null}
 
         <Button
           onClick={() => void handleSave()}

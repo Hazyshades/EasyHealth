@@ -3,57 +3,24 @@ import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertDocumentOwner } from "@/lib/documents/access";
 import {
-  getBiomarkerDefinition,
-  inferModifier,
-  inferSpecimen,
-  normalizeBiomarkerKey,
-  parseLabValueCell,
-} from "@/lib/biomarkers";
-import { parseReferenceRange } from "@/lib/schemas/biomarkers";
-import {
   compatibleManualDefinitions,
-  createManualCorrection,
-  createManualReversal,
   getActiveNormalizationRevision,
-  promoteNormalizationRevision,
 } from "@/lib/documents/normalization-revisions";
+import {
+  buildManualCorrectionResolution,
+  measurementInputFromWriterRow,
+  ObservationNormalizationWriterError,
+  type ExtractedBiomarkerWriterRow,
+  writeExtractedBiomarkerNormalization,
+} from "@/lib/documents/observation-normalization-writer";
 import {
   buildNormalizationReview,
   type NormalizationRevisionSummary,
 } from "@/lib/documents/normalization-review";
-import { recordMeasurementShadowEvent } from "@/lib/documents/measurement-shadow";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-type ExtractedBiomarkerRow = {
-  id: string;
-  biomarker_key: string | null;
-  biomarker_name: string;
-  raw_name: string | null;
-  value_numeric: number | string | null;
-  value_text: string | null;
-  value_kind: string | null;
-  ordinal: number | null;
-  unit: string | null;
-  raw_unit: string | null;
-  reference_range: string | null;
-  raw_reference_range: string | null;
-  section_context: string | null;
-  confidence: number | null;
-  specimen: string | null;
-  modifier: string | null;
-  source_page: number | null;
-  source_text: string | null;
-  bounding_box?: unknown;
-  reported_alt_value: number | null;
-  reported_alt_unit: string | null;
-};
-
-function finite(value: number | string | null): number | null {
-  if (value == null) return null;
-  const parsed = typeof value === "number" ? value : Number.parseFloat(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
+type ExtractedBiomarkerRow = ExtractedBiomarkerWriterRow;
 
 export async function GET(_req: Request, context: RouteContext) {
   const profileId = await getSessionProfileId();
@@ -69,7 +36,7 @@ export async function GET(_req: Request, context: RouteContext) {
   const { data: items, error: listError } = await supabase
     .from("document_extracted_biomarkers")
     .select(
-      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, source_page, source_text, confidence, status, processing_version, extraction_model, specimen, modifier, reported_alt_value, reported_alt_unit, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, resolver_evidence, registry_version, registry_manifest_digest, resolver_version, normalization_schema_version, verification_status, created_at"
+      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, source_page, source_text, confidence, status, processing_version, extraction_model, specimen, modifier, reported_alt_value, reported_alt_unit, raw_value_text, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, resolver_evidence, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, verification_status, created_at"
     )
     .eq("document_id", id)
     .eq("profile_id", profileId)
@@ -86,7 +53,7 @@ export async function GET(_req: Request, context: RouteContext) {
     ? await supabase
         .from("observation_normalization_revisions")
         .select(
-          "id, extracted_biomarker_id, measurement_definition_key, canonical_biomarker_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, registry_version, resolver_version, normalization_schema_version, created_at"
+          "id, extracted_biomarker_id, analyte_key, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, catalog_manifest_version, resolver_version, normalization_version, created_at"
         )
         .in("extracted_biomarker_id", ids)
         .order("created_at", { ascending: false })
@@ -134,7 +101,7 @@ export async function PATCH(req: Request, context: RouteContext) {
   const { data, error: extractedError } = await supabase
     .from("document_extracted_biomarkers")
     .select(
-      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, confidence, specimen, modifier, source_page, source_text, bounding_box, reported_alt_value, reported_alt_unit"
+      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, confidence, specimen, modifier, source_page, source_text, bounding_box, reported_alt_value, reported_alt_unit, raw_value_text, processing_version"
     )
     .eq("id", body.extractedBiomarkerId)
     .eq("document_id", id)
@@ -145,126 +112,74 @@ export async function PATCH(req: Request, context: RouteContext) {
   if (!data) return NextResponse.json({ error: "Extracted biomarker not found" }, { status: 404 });
   const row = data as ExtractedBiomarkerRow;
 
-  const legacyKey = normalizeBiomarkerKey(row.biomarker_key ?? "", row.biomarker_name);
-  const legacyDefinition = getBiomarkerDefinition(legacyKey);
-  const specimen = inferSpecimen(legacyKey, row.biomarker_name, row.specimen ?? legacyDefinition?.specimen ?? null);
-  const modifier = inferModifier(legacyKey, row.biomarker_name, row.modifier ?? null);
-  const { ref_low, ref_high } = parseReferenceRange(row.reference_range ?? row.raw_reference_range);
-  const input = {
-    rawLabel: row.raw_name ?? row.biomarker_name,
-    rawUnit: row.raw_unit ?? row.unit,
-    specimen,
-    modifier,
-    section: row.section_context,
-    referenceLow: ref_low,
-    referenceHigh: ref_high,
-    extractionConfidence: row.confidence,
-    proposedKey: row.biomarker_key,
-  };
   const activeRevision = await getActiveNormalizationRevision(row.id);
-  const revisionResult =
-    body.action === "undo"
-      ? body.revertToRevisionId && activeRevision
-        ? await createManualReversal({
-            extractedBiomarkerId: row.id,
-            input,
-            revertToRevisionId: body.revertToRevisionId,
-            activeRevisionId: activeRevision.id,
-            actorId: profileId,
-          })
-        : null
-      : body.measurementDefinitionKey
-        ? await createManualCorrection({
-            extractedBiomarkerId: row.id,
-            input,
-            selectedDefinitionKey: body.measurementDefinitionKey,
-            actorId: profileId,
-            correctionReason: body.correctionReason ?? null,
-            supersedesRevisionId: activeRevision?.id ?? null,
-          })
-        : null;
-  if (!revisionResult) {
+  if (body.action === "undo" && (!body.revertToRevisionId || !activeRevision)) {
     return NextResponse.json({ error: "A compatible definition and active revision are required" }, { status: 400 });
   }
-  if (!revisionResult.resolution.canonicalKey || !revisionResult.resolution.measurementDefinitionKey) {
-    return NextResponse.json({ error: "This compatible definition has no supported observation identity" }, { status: 409 });
-  }
 
-  let value = finite(row.value_numeric);
-  let valueText = row.value_text?.trim() || null;
-  let valueKind = (row.value_kind as "numeric" | "qualitative" | "ordinal" | "text" | null) ?? null;
-  let ordinal = row.ordinal ?? null;
-  if (value == null && valueText) {
-    const parsed = parseLabValueCell(valueText);
-    if (parsed) {
-      value = parsed.value;
-      valueText = parsed.value_text;
-      valueKind = parsed.value_kind;
-      ordinal = parsed.ordinal;
+  let selectedDefinitionKey = body.measurementDefinitionKey;
+  let reversalOfRevisionId: string | null = null;
+  let correctionReason = body.correctionReason ?? null;
+
+  if (body.action === "undo") {
+    const { data: revertRevision, error: revertError } = await supabase
+      .from("observation_normalization_revisions")
+      .select("id, measurement_definition_key")
+      .eq("id", body.revertToRevisionId!)
+      .eq("extracted_biomarker_id", row.id)
+      .maybeSingle();
+    if (revertError) return NextResponse.json({ error: revertError.message }, { status: 500 });
+    if (!revertRevision?.measurement_definition_key) {
+      return NextResponse.json(
+        { error: "The selected revision cannot be restored as a manual mapping" },
+        { status: 400 }
+      );
     }
-  }
-  if (value != null) {
-    valueKind = valueKind ?? "numeric";
-    valueText = valueText ?? String(value);
-  }
-  if (valueKind === "numeric" && value == null) {
-    return NextResponse.json({ error: "Numeric observation has no usable value" }, { status: 422 });
-  }
-  if (valueKind !== "numeric" && !valueText) {
-    return NextResponse.json({ error: "Qualitative observation has no usable value" }, { status: 422 });
+    selectedDefinitionKey = revertRevision.measurement_definition_key;
+    reversalOfRevisionId = revertRevision.id;
+    correctionReason = "Manual correction reverted";
   }
 
-  const { data: observation, error: upsertError } = await supabase
-    .from("observations")
-    .upsert(
-      {
-        profile_id: profileId,
-        document_id: id,
-        biomarker_key: revisionResult.resolution.canonicalKey,
-        measurement_definition_key: revisionResult.resolution.measurementDefinitionKey,
-        name: row.biomarker_name,
-        value,
-        value_kind: valueKind ?? "text",
-        value_text: valueText,
-        ordinal,
-        unit: row.unit ?? "",
-        ref_low,
-        ref_high,
-        observed_at: doc!.observed_at ?? new Date().toISOString().slice(0, 10),
-        specimen,
-        modifier,
-        raw_name: row.raw_name ?? row.biomarker_name,
-        source_page: row.source_page,
-        source_text: row.source_text,
-        bounding_box: row.bounding_box,
-        confidence: row.confidence,
-        reported_alt_value: row.reported_alt_value,
-        reported_alt_unit: row.reported_alt_unit,
-        source_extracted_biomarker_id: row.id,
-      },
-      { onConflict: "profile_id,biomarker_key,observed_at,specimen,modifier" }
-    )
-    .select("id")
-    .single();
-  if (upsertError) return NextResponse.json({ error: upsertError.message }, { status: 500 });
-  await promoteNormalizationRevision({ revisionId: revisionResult.revision.id, observationId: observation.id, actorId: profileId });
-  const { error: statusError } = await supabase
-    .from("document_extracted_biomarkers")
-    .update({ status: "accepted", verification_status: "manually_corrected" })
-    .eq("id", row.id);
-  if (statusError) return NextResponse.json({ error: statusError.message }, { status: 500 });
-  await recordMeasurementShadowEvent({
-    profileId,
-    documentId: id,
-    extractedBiomarkerId: row.id,
-    eventType: "manual_correction",
-    legacyBiomarkerKey: legacyKey,
-    resolution: revisionResult.resolution,
-    context: { specimen, modifier, raw_unit: row.raw_unit ?? row.unit },
-  });
+  if (!selectedDefinitionKey) {
+    return NextResponse.json({ error: "A compatible definition is required" }, { status: 400 });
+  }
 
-  return NextResponse.json({
-    revision: revisionResult.revision,
-    compatibleDefinitionKeys: compatibleManualDefinitions(input).map((definition) => definition.key),
-  });
+  try {
+    const input = measurementInputFromWriterRow(row);
+    const resolution = buildManualCorrectionResolution({
+      input,
+      selectedDefinitionKey,
+    });
+    const writerResult = await writeExtractedBiomarkerNormalization({
+      profileId,
+      documentId: id,
+      observedAt: doc!.observed_at ?? new Date().toISOString().slice(0, 10),
+      row,
+      actorId: profileId,
+      writeKind: "correction",
+      resolution,
+      expectedActiveRevision: activeRevision,
+      correctionReason,
+      reversalOfRevisionId,
+      supersedesRevisionId: activeRevision?.id ?? null,
+    });
+    return NextResponse.json({
+      revision: writerResult,
+      compatibleDefinitionKeys: compatibleManualDefinitions(input).map((definition) => definition.key),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Normalization writer failed";
+    const isClientError = error instanceof ObservationNormalizationWriterError;
+    const isConflict = [
+      "stale_revision_conflict",
+      "observation_source_mismatch",
+      "observation_source_owner_mismatch",
+      "active_revision_projection_mismatch",
+      "revision_observation_binding_conflict",
+    ].includes(message);
+    return NextResponse.json(
+      { error: message },
+      { status: isClientError ? error.status : isConflict ? 409 : 500 }
+    );
+  }
 }

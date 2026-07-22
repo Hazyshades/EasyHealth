@@ -35,10 +35,6 @@ export function useAuth() {
   return ctx;
 }
 
-/** @deprecated Use useAuth */
-export function useWallet() {
-  return useAuth();
-}
 
 async function loadProfileIdentity(): Promise<{
   firstName: string | null;

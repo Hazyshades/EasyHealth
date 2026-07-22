@@ -16,7 +16,11 @@ import {
 type Observation = {
   id: string;
   name: string;
-  biomarker_key: string;
+  measurement_definition_key: string | null;
+  analyte_key: string | null;
+  resolution_status: string | null;
+  verification_status?: string | null;
+  registry_binding_ready?: boolean;
   value: number | null;
   unit: string;
   ref_low: number | null;
@@ -48,6 +52,18 @@ function displayValue(o: Observation): string {
 }
 
 function biomarkerStatus(o: Observation): StatusInfo {
+  if (!o.registry_binding_ready) {
+    if (o.resolution_status === "partial") {
+      return { label: "Mapping pending", variant: "info" };
+    }
+    if (o.resolution_status === "ambiguous") {
+      return { label: "Mapping ambiguous", variant: "warning" };
+    }
+    if (o.resolution_status === "unmapped") {
+      return { label: "Unmapped", variant: "neutral" };
+    }
+    return { label: "Needs review", variant: "warning" };
+  }
   if (o.value_kind && o.value_kind !== "numeric") {
     return { label: "Text result", variant: "neutral" };
   }

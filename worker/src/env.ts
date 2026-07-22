@@ -21,6 +21,11 @@ function optionalBool(name: string, defaultValue: boolean): boolean {
   return raw === "1" || raw.toLowerCase() === "true";
 }
 
+function optionalPositiveInt(name: string, defaultValue: number): number {
+  const parsed = Number(optional(name));
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : defaultValue;
+}
+
 export const workerEnv = {
   supabaseUrl: required("NEXT_PUBLIC_SUPABASE_URL"),
   supabaseServiceKey: required("SUPABASE_SERVICE_ROLE_KEY"),
@@ -36,5 +41,10 @@ export const workerEnv = {
   nebiusRegion: optional("NEBIUS_REGION") ?? "eu-north1",
   nebiusFastFlavorSuffix: optional("NEBIUS_FAST_FLAVOR_SUFFIX") ?? "-fast",
   allowCrossProviderFallback: optionalBool("ALLOW_CROSS_PROVIDER_FALLBACK", false),
+  instanceId: optional("WORKER_INSTANCE_ID") ?? "document-worker",
   pollIntervalMs: Number(process.env.WORKER_POLL_INTERVAL_MS ?? "5000"),
+  staleJobMaxAgeMs: optionalPositiveInt(
+    "STALE_JOB_MAX_AGE_MS",
+    10 * 60_000,
+  ),
 };

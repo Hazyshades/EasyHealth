@@ -41,6 +41,15 @@ import {
   computeTypeMismatch,
 } from "../../src/lib/documents/type-classification.js";
 import { normalizeDocumentType, type DocumentType } from "../../src/lib/health-systems.js";
+import type {
+  InstrumentalMeasureMaterializationInput,
+  ReplaceDocumentInstrumentalObservationsArgs,
+} from "../../src/lib/documents/instrumental-measure-lineage.js";
+import {
+  canonicalInstrumentalSnapshotHash,
+  validateInstrumentalMeasures,
+} from "./instrumental-materialization.js";
+import { finalizeDocumentProcessing } from "./document-completion.js";
 import { modelIdForStage, resolveModelForStage, type AiProviderId } from "./ai.js";
 import {
   makePipelineTrace,
@@ -68,6 +77,20 @@ type DocumentRow = {
   document_type: string;
 };
 
+type SupabaseMutationResult = {
+  error: { message: string } | null;
+};
+
+function requireMutationSuccess<T extends SupabaseMutationResult>(
+  result: T,
+  operation: string
+): T {
+  if (result.error) {
+    throw new Error(`${operation}: ${result.error.message}`);
+  }
+  return result;
+}
+
 async function uploadToLabDocuments(
   storagePath: string,
   body: Buffer | string,
@@ -82,8 +105,8 @@ async function uploadToLabDocuments(
   }
 }
 
-async function failJob(job: JobRow, documentId: string, message: string) {
-  await supabase
+export async function failJob(job: Pick<JobRow, "id">, documentId: string, message: string) {
+  const jobResult = await supabase
     .from("document_processing_jobs")
     .update({
       status: "failed",
@@ -92,7 +115,7 @@ async function failJob(job: JobRow, documentId: string, message: string) {
     })
     .eq("id", job.id);
 
-  await supabase
+  const documentResult = await supabase
     .from("documents")
     .update({
       processing_status: "failed",
@@ -100,6 +123,14 @@ async function failJob(job: JobRow, documentId: string, message: string) {
       processing_error: message,
     })
     .eq("id", documentId);
+
+  const failures = [
+    jobResult.error ? `job failure status: ${jobResult.error.message}` : null,
+    documentResult.error ? `document failure status: ${documentResult.error.message}` : null,
+  ].filter((failure): failure is string => Boolean(failure));
+  if (failures.length > 0) {
+    throw new Error(failures.join("; "));
+  }
 }
 
 async function runTextOrImageExtraction<T>(
@@ -140,45 +171,78 @@ async function clearPriorExtractions(documentId: string, documentType: string) {
   if (documentType === "lab_result") {
     // Keep immutable extracted evidence and its append-only normalization audit trail.
     // The next extraction rows use the default `is_current = true` value.
-    await supabase
+    requireMutationSuccess(await supabase
       .from("document_extracted_biomarkers")
       .update({ is_current: false, superseded_at: new Date().toISOString() })
       .eq("document_id", documentId)
-      .eq("is_current", true);
+      .eq("is_current", true), "supersede prior laboratory extractions");
   } else {
-    await supabase.from("document_extracted_biomarkers").delete().eq("document_id", documentId);
-    await supabase.from("observations").delete().eq("document_id", documentId);
+    requireMutationSuccess(
+      await supabase.from("document_extracted_biomarkers").delete().eq("document_id", documentId),
+      "clear prior extracted biomarkers"
+    );
+    // EH-105 owns instrumental replacement in a single database transaction.
+    // Deleting observations here would erase the prior current source snapshot
+    // before its replacement has been safely materialized.
+    if (documentType !== "instrumental_report") {
+      requireMutationSuccess(
+        await supabase.from("observations").delete().eq("document_id", documentId),
+        "clear prior non-instrumental observations"
+      );
+    }
   }
-  await supabase.from("document_extracted_findings").delete().eq("document_id", documentId);
-  await supabase.from("document_extracted_clinical_notes").delete().eq("document_id", documentId);
-  await supabase.from("document_extracted_prescriptions").delete().eq("document_id", documentId);
-  await supabase.from("document_extracted_referrals").delete().eq("document_id", documentId);
-  await supabase.from("document_pages").delete().eq("document_id", documentId);
+  requireMutationSuccess(
+    await supabase.from("document_extracted_findings").delete().eq("document_id", documentId),
+    "clear prior extracted findings"
+  );
+  requireMutationSuccess(
+    await supabase.from("document_extracted_clinical_notes").delete().eq("document_id", documentId),
+    "clear prior extracted clinical notes"
+  );
+  requireMutationSuccess(
+    await supabase.from("document_extracted_prescriptions").delete().eq("document_id", documentId),
+    "clear prior extracted prescriptions"
+  );
+  requireMutationSuccess(
+    await supabase.from("document_extracted_referrals").delete().eq("document_id", documentId),
+    "clear prior extracted referrals"
+  );
+  requireMutationSuccess(
+    await supabase.from("document_pages").delete().eq("document_id", documentId),
+    "clear prior document pages"
+  );
 }
 
-async function insertInstrumentalObservations(
-  profileId: string,
+async function materializeInstrumentalObservations(
   documentId: string,
+  jobId: string,
   studyDate: string | null,
-  measures: Array<{ key: string; name: string; value: number; unit: string }>
+  modality: string | null,
+  bodyRegion: string | null,
+  extractionModel: string | null,
+  measures: InstrumentalMeasureMaterializationInput[]
 ) {
-  if (measures.length === 0) return;
-
   const observedAt = studyDate ?? new Date().toISOString().slice(0, 10);
-
-  await supabase.from("observations").insert(
-    measures.map((measure) => ({
-      profile_id: profileId,
-      document_id: documentId,
-      biomarker_key: measure.key,
-      name: measure.name,
-      value: measure.value,
-      unit: measure.unit,
-      ref_low: null,
-      ref_high: null,
-      observed_at: observedAt,
-      observation_kind: "instrumental",
-    }))
+  const validMeasures = validateInstrumentalMeasures(measures);
+  const payload: ReplaceDocumentInstrumentalObservationsArgs = {
+    p_document_id: documentId,
+    p_job_id: jobId,
+    p_snapshot_hash: canonicalInstrumentalSnapshotHash(
+      observedAt,
+      modality,
+      bodyRegion,
+      validMeasures
+    ),
+    p_study_date: observedAt,
+    p_modality: modality,
+    p_body_region: bodyRegion,
+    p_processing_version: DOCUMENT_PROCESSING_VERSION,
+    p_extraction_model: extractionModel,
+    p_measures: validMeasures,
+  };
+  requireMutationSuccess(
+    await supabase.rpc("replace_document_instrumental_observations", payload),
+    "materialize instrumental observations"
   );
 }
 
@@ -205,7 +269,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
       ? "application/pdf"
       : "image/jpeg");
 
-  await supabase
+  requireMutationSuccess(await supabase
     .from("documents")
     .update({
       processing_status: "processing",
@@ -214,7 +278,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
       type_mismatch_reason: null,
       detected_document_type: null,
     })
-    .eq("id", doc.id);
+    .eq("id", doc.id), "mark document processing");
 
   await clearPriorExtractions(doc.id, documentType);
 
@@ -273,16 +337,19 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
       );
     }
 
-    await supabase.from("document_pages").insert({
-      document_id: documentId,
-      profile_id: profileId,
-      page_number: page.pageNumber,
-      width: page.width,
-      height: page.height,
-      preview_storage_path: previewPath,
-      ocr_text: page.pageNumber === 1 && ocrText ? ocrText.slice(0, 50000) : null,
-      ocr_json_storage_path: ocrJsonPath,
-    });
+    requireMutationSuccess(
+      await supabase.from("document_pages").insert({
+        document_id: documentId,
+        profile_id: profileId,
+        page_number: page.pageNumber,
+        width: page.width,
+        height: page.height,
+        preview_storage_path: previewPath,
+        ocr_text: page.pageNumber === 1 && ocrText ? ocrText.slice(0, 50000) : null,
+        ocr_json_storage_path: ocrJsonPath,
+      }),
+      "write document page"
+    );
   }
 
   const { data: profile } = await supabase
@@ -347,56 +414,59 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
       labName = extraction.lab_name;
 
       if (extraction.biomarkers.length > 0) {
-        await supabase.from("document_extracted_biomarkers").insert(
-          extraction.biomarkers.map((b) => {
-            const anyB = b as {
-              key: string;
-              name: string;
-              value: number | null;
-              value_text?: string | null;
-              value_kind?: string | null;
-              ordinal?: number | null;
-              unit: string;
-              ref_low?: number | null;
-              ref_high?: number | null;
-              source_page?: number | null;
-              source_text?: string | null;
-              confidence?: number | null;
-              specimen?: string | null;
-              modifier?: string | null;
-              reported_alt_value?: number | null;
-              reported_alt_unit?: string | null;
-            };
-            return {
-              document_id: documentId,
-              profile_id: profileId,
-              biomarker_key: anyB.key,
-              biomarker_name: anyB.name,
-              raw_name: anyB.name,
-              value_numeric: anyB.value,
-              value_text: anyB.value_text ?? (anyB.value != null ? String(anyB.value) : null),
-              value_kind: anyB.value_kind ?? (anyB.value != null ? "numeric" : "text"),
-              ordinal: anyB.ordinal ?? null,
-              unit: anyB.unit,
-              raw_unit: anyB.unit,
-              raw_value_text: anyB.value_text ?? (anyB.value != null ? String(anyB.value) : null),
-              reference_range: formatReferenceRange(anyB.ref_low ?? null, anyB.ref_high ?? null),
-              raw_reference_range: formatReferenceRange(anyB.ref_low ?? null, anyB.ref_high ?? null),
-              section_context: null,
-              source_page: anyB.source_page ?? 1,
-              source_text: anyB.source_text,
-              confidence: anyB.confidence,
-              specimen: anyB.specimen ?? null,
-              modifier: anyB.modifier ?? null,
-              reported_alt_value: anyB.reported_alt_value ?? null,
-              reported_alt_unit: anyB.reported_alt_unit ?? null,
-              extraction_method: "llm",
-              processing_version: DOCUMENT_PROCESSING_VERSION,
-              extraction_model: extractionModel,
-              status: "needs_review",
-              is_current: true,
-            };
-          })
+        requireMutationSuccess(
+          await supabase.from("document_extracted_biomarkers").insert(
+            extraction.biomarkers.map((b) => {
+              const anyB = b as {
+                key: string;
+                name: string;
+                value: number | null;
+                value_text?: string | null;
+                value_kind?: string | null;
+                ordinal?: number | null;
+                unit: string;
+                ref_low?: number | null;
+                ref_high?: number | null;
+                source_page?: number | null;
+                source_text?: string | null;
+                confidence?: number | null;
+                specimen?: string | null;
+                modifier?: string | null;
+                reported_alt_value?: number | null;
+                reported_alt_unit?: string | null;
+              };
+              return {
+                document_id: documentId,
+                profile_id: profileId,
+                biomarker_key: anyB.key,
+                biomarker_name: anyB.name,
+                raw_name: anyB.name,
+                value_numeric: anyB.value,
+                value_text: anyB.value_text ?? (anyB.value != null ? String(anyB.value) : null),
+                value_kind: anyB.value_kind ?? (anyB.value != null ? "numeric" : "text"),
+                ordinal: anyB.ordinal ?? null,
+                unit: anyB.unit,
+                raw_unit: anyB.unit,
+                raw_value_text: anyB.value_text ?? (anyB.value != null ? String(anyB.value) : null),
+                reference_range: formatReferenceRange(anyB.ref_low ?? null, anyB.ref_high ?? null),
+                raw_reference_range: formatReferenceRange(anyB.ref_low ?? null, anyB.ref_high ?? null),
+                section_context: null,
+                source_page: anyB.source_page ?? 1,
+                source_text: anyB.source_text,
+                confidence: anyB.confidence,
+                specimen: anyB.specimen ?? null,
+                modifier: anyB.modifier ?? null,
+                reported_alt_value: anyB.reported_alt_value ?? null,
+                reported_alt_unit: anyB.reported_alt_unit ?? null,
+                extraction_method: "llm",
+                processing_version: DOCUMENT_PROCESSING_VERSION,
+                extraction_model: extractionModel,
+                status: "needs_review",
+                is_current: true,
+              };
+            })
+          ),
+          "write extracted laboratory biomarkers"
         );
         processingStatus = "needs_review";
       }
@@ -430,44 +500,53 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
       modality = extraction.modality;
 
       if (extraction.findings.length > 0) {
-        await supabase.from("document_extracted_findings").insert(
-          extraction.findings.map((finding, index) => ({
+        requireMutationSuccess(
+          await supabase.from("document_extracted_findings").insert(
+            extraction.findings.map((finding, index) => ({
+              document_id: documentId,
+              profile_id: profileId,
+              modality: extraction.modality,
+              body_region: extraction.body_region,
+              finding_text: finding.finding_text,
+              impression: index === 0 ? extraction.impression : null,
+              source_page: finding.source_page ?? 1,
+              source_text: finding.source_text,
+              confidence: finding.confidence,
+              extraction_method: "llm",
+              processing_version: DOCUMENT_PROCESSING_VERSION,
+              extraction_model: extractionModel,
+              status: "accepted",
+            }))
+          ),
+          "write extracted instrumental findings"
+        );
+      } else if (extraction.impression) {
+        requireMutationSuccess(
+          await supabase.from("document_extracted_findings").insert({
             document_id: documentId,
             profile_id: profileId,
             modality: extraction.modality,
             body_region: extraction.body_region,
-            finding_text: finding.finding_text,
-            impression: index === 0 ? extraction.impression : null,
-            source_page: finding.source_page ?? 1,
-            source_text: finding.source_text,
-            confidence: finding.confidence,
+            finding_text: extraction.impression,
+            impression: extraction.impression,
+            source_page: 1,
+            confidence: 0.8,
             extraction_method: "llm",
             processing_version: DOCUMENT_PROCESSING_VERSION,
             extraction_model: extractionModel,
             status: "accepted",
-          }))
+          }),
+          "write extracted instrumental impression"
         );
-      } else if (extraction.impression) {
-        await supabase.from("document_extracted_findings").insert({
-          document_id: documentId,
-          profile_id: profileId,
-          modality: extraction.modality,
-          body_region: extraction.body_region,
-          finding_text: extraction.impression,
-          impression: extraction.impression,
-          source_page: 1,
-          confidence: 0.8,
-          extraction_method: "llm",
-          processing_version: DOCUMENT_PROCESSING_VERSION,
-          extraction_model: extractionModel,
-          status: "accepted",
-        });
       }
 
-      await insertInstrumentalObservations(
-        profileId,
+      await materializeInstrumentalObservations(
         documentId,
+        job.id,
         extraction.study_date,
+        extraction.modality,
+        extraction.body_region,
+        extractionModel,
         extraction.numeric_measures
       );
 
@@ -657,39 +736,52 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
     return "failed";
   }
 
-  await supabase
-    .from("documents")
-    .update({
-      processing_status: processingStatus,
-      status: processingStatus === "ready" ? "completed" : "processing",
-      page_count: pages.length,
-      thumbnail_storage_path: thumbPath,
-      processing_version: DOCUMENT_PROCESSING_VERSION,
-      extraction_model: extractionModel,
-      processed_at: new Date().toISOString(),
-      lab_name: labName,
-      observed_at: observedAt,
-      modality,
-      document_summary: documentSummary,
-      ocr_status: ocrText ? "completed" : "skipped",
-      extraction_status: "completed",
-      detected_document_type: detectedDocumentType,
-      type_mismatch_warning: typeMismatchWarning,
-      type_mismatch_reason: typeMismatchReason,
-    })
-    .eq("id", documentId);
-
-  await supabase.from("profile_health_synthesis").delete().eq("profile_id", profileId);
+  const completionOutcome = await finalizeDocumentProcessing({
+    async writeDocumentCompletion() {
+      requireMutationSuccess(await supabase
+        .from("documents")
+        .update({
+          processing_status: processingStatus,
+          status: processingStatus === "ready" ? "completed" : "processing",
+          page_count: pages.length,
+          thumbnail_storage_path: thumbPath,
+          processing_version: DOCUMENT_PROCESSING_VERSION,
+          extraction_model: extractionModel,
+          processed_at: new Date().toISOString(),
+          lab_name: labName,
+          observed_at: observedAt,
+          modality,
+          document_summary: documentSummary,
+          ocr_status: ocrText ? "completed" : "skipped",
+          extraction_status: "completed",
+          detected_document_type: detectedDocumentType,
+          type_mismatch_warning: typeMismatchWarning,
+          type_mismatch_reason: typeMismatchReason,
+        })
+        .eq("id", documentId), "complete document processing");
+    },
+    async invalidateHealthSynthesis() {
+      requireMutationSuccess(
+        await supabase.from("profile_health_synthesis").delete().eq("profile_id", profileId),
+        "invalidate health synthesis"
+      );
+    },
+    async writeJobCompletion() {
+      requireMutationSuccess(await supabase
+        .from("document_processing_jobs")
+        .update({
+          status: "completed",
+          finished_at: new Date().toISOString(),
+        })
+        .eq("id", job.id), "complete document processing job");
+    },
+    async writeFailure(message) {
+      await failJob(job, doc.id, message);
+    },
+  });
+  if (completionOutcome === "failed") return "failed";
 
   void structuredPayload;
-
-  await supabase
-    .from("document_processing_jobs")
-    .update({
-      status: "completed",
-      finished_at: new Date().toISOString(),
-    })
-    .eq("id", job.id);
 
   return "completed";
 }

@@ -15,7 +15,15 @@ export async function ensureLabDocumentsBucket(supabase: SupabaseClient) {
   const { error: createError } = await supabase.storage.createBucket(LAB_DOCUMENTS_BUCKET, {
     public: false,
     fileSizeLimit: 10 * 1024 * 1024,
-    allowedMimeTypes: ["application/pdf", "image/jpeg", "image/png", "image/jpg"],
+    allowedMimeTypes: [
+      "application/pdf",
+      "image/jpeg",
+      "image/png",
+      "image/jpg",
+      "image/webp",
+      "text/plain",
+      "application/json",
+    ],
   });
 
   if (createError && !createError.message.toLowerCase().includes("already exists")) {

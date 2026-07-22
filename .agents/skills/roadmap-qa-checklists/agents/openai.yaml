@@ -1,0 +1,4 @@
+interface:
+  display_name: "Roadmap QA Checklists"
+  short_description: "Create clear, tester-friendly roadmap QA checks"
+  default_prompt: "Use $roadmap-qa-checklists to create or update QA checklists for an EH roadmap item."

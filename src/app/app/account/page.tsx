@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type ProfileResponse = {
   id: string;
@@ -41,7 +42,9 @@ export default function AccountPage() {
         return res.json();
       })
       .then(setProfile)
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load account"))
+      .catch((e) =>
+        setError(e instanceof Error ? e.message : "Failed to load account"),
+      )
       .finally(() => setLoading(false));
   }, []);
 
@@ -79,7 +82,26 @@ export default function AccountPage() {
   }
 
   if (loading) {
-    return <p className="text-sm text-[var(--eh-text-secondary)]">Loading account…</p>;
+    return (
+      <div className="space-y-6 pb-8">
+        <PageHeader
+          title="Account"
+          subtitle="Manage your account details"
+          compact
+        />
+        <SurfaceCard className="space-y-4 p-5">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <Skeleton className="h-10 w-24" />
+        </SurfaceCard>
+        <SurfaceCard className="space-y-3 p-5">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-2/3" />
+        </SurfaceCard>
+      </div>
+    );
   }
 
   if (error && !profile) {
@@ -87,14 +109,21 @@ export default function AccountPage() {
   }
 
   if (!profile) {
-    return <p className="text-sm text-red-600">Unable to load account information.</p>;
+    return (
+      <p className="text-sm text-red-600">
+        Unable to load account information.
+      </p>
+    );
   }
 
   const hasFirstName = Boolean(profile.display_name?.trim());
 
   return (
     <div className="space-y-6 pb-8">
-      <PageHeader subtitle="Sign-in details for your EasyHealth account" compact />
+      <PageHeader
+        subtitle="Sign-in details for your EasyHealth account"
+        compact
+      />
 
       <SurfaceCard className="space-y-4 p-5">
         <div>
@@ -127,7 +156,9 @@ export default function AccountPage() {
           {saveMessage ? (
             <p className="mt-2 text-sm text-[var(--eh-brand)]">{saveMessage}</p>
           ) : null}
-          {error && profile ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
+          {error && profile ? (
+            <p className="mt-2 text-sm text-red-600">{error}</p>
+          ) : null}
         </div>
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-[var(--eh-text-muted)]">

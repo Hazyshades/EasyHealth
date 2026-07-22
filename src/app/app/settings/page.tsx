@@ -5,11 +5,13 @@ import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type LabUnitSystem = "us" | "si";
 
 export default function SettingsPage() {
   const [labUnitSystem, setLabUnitSystem] = useState<LabUnitSystem>("si");
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +26,8 @@ export default function SettingsPage() {
       })
       .catch(() => {
         /* keep default */
-      });
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   async function saveLabUnits(next: LabUnitSystem) {
@@ -48,16 +51,45 @@ export default function SettingsPage() {
     }
   }
 
+  if (loading) {
+    return (
+      <div className="space-y-6 pb-8">
+        <PageHeader
+          title="Settings"
+          subtitle="Manage your EasyHealth preferences"
+          compact
+        />
+        <SurfaceCard className="space-y-4 p-5">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-10 w-40" />
+        </SurfaceCard>
+        <SurfaceCard className="space-y-4 p-5">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-10 w-48" />
+        </SurfaceCard>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-8">
-      <PageHeader subtitle="Manage your EasyHealth preferences" compact />
+      <PageHeader
+        title="Settings"
+        subtitle="Manage your EasyHealth preferences"
+        compact
+      />
 
       <SurfaceCard className="space-y-4 p-5">
         <div>
-          <p className="text-sm font-semibold text-[var(--eh-text-primary)]">Lab units</p>
+          <p className="text-sm font-semibold text-[var(--eh-text-primary)]">
+            Lab units
+          </p>
           <p className="mt-1 text-sm text-[var(--eh-text-secondary)]">
-            Choose how biomarker values are displayed. Stored lab results are never rewritten —
-            only the on-screen presentation changes (US conventional vs SI).
+            Choose how biomarker values are displayed. Stored lab results are
+            never rewritten — only the on-screen presentation changes (US
+            conventional vs SI).
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -100,13 +132,18 @@ export default function SettingsPage() {
 
       <SurfaceCard className="space-y-4 p-5">
         <div>
-          <p className="text-sm font-semibold text-[var(--eh-text-primary)]">AI Settings</p>
+          <p className="text-sm font-semibold text-[var(--eh-text-primary)]">
+            AI Settings
+          </p>
           <p className="mt-1 text-sm text-[var(--eh-text-secondary)]">
-            Choose whether EasyHealth uses ChatGPT, DeepSeek, or Tencent Hy3 for document
-            extraction and reports.
+            Choose whether EasyHealth uses ChatGPT, DeepSeek, or Tencent Hy3 for
+            document extraction and reports.
           </p>
         </div>
-        <Button asChild className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
+        <Button
+          asChild
+          className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90"
+        >
           <Link href="/app/settings/ai">Open AI Settings</Link>
         </Button>
       </SurfaceCard>
