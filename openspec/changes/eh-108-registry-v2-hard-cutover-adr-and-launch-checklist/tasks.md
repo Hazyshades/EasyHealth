@@ -52,7 +52,7 @@
 ## 5. Validation and closeout evidence
 
 - [x] 5.1 Run `openspec validate eh-108-registry-v2-hard-cutover-adr-and-launch-checklist --strict`.
-- [ ] 5.2 After implementation merge, record CI evidence against the final
+- [x] 5.2 After implementation merge, record CI evidence against the final
       `master` SHA in `QA/eh-108/checklist.md`.
 - [x] 5.3 Verify no task introduced a new `033 + dirty` harness, approvals
       redesign, mass roadmap JSON sync, `/docs` repair, or EH-109…EH-120

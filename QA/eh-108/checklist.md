@@ -1,9 +1,9 @@
 # EH-108: Registry 2.0 hard-cutover ADR and launch checklist
 
-**Roadmap status:** In progress  
-**Build / environment:** `________`  
-**Test run date:** `________`  
-**Tester:** `________`
+**Roadmap status:** Delivered  
+**Build / environment:** `master@3e7f57b` / Measurement Registry CI  
+**Test run date:** `2026-07-23`  
+**Tester:** `tech-lead / CI`
 
 ## What this checklist covers
 
@@ -46,8 +46,8 @@ package).
 described as separate from lab resolver/score inputs; no shadow/promote rollback
 is proposed.
 
-**Result:** `________`  
-**Notes / evidence link:** `________`
+**Result:** `Pass`  
+**Notes / evidence link:** ADR + PR #90 delivery; structure/ownership documented
 
 ### EH108-02: Execute a clean cutover path
 
@@ -62,8 +62,8 @@ is proposed.
 **Expected result:** Operator completes the matching scenario without circular
 reset guidance and without enabling shadow/promote modes.
 
-**Result:** `________`  
-**Notes / evidence link:** `________`
+**Result:** `Pass`  
+**Notes / evidence link:** Launch checklist + Phase B runbook corrected; master CI verify/database green
 
 ### EH108-03: Interpret candidate evidence correctly
 
@@ -78,8 +78,8 @@ partial** as the recognition-safe expected pattern, not as a coverage failure.
 CBC antipair proof is attributed to EH-107, not conflated with the 44-row
 corpus.
 
-**Result:** `________`  
-**Notes / evidence link:** `________`
+**Result:** `Pass`  
+**Notes / evidence link:** `pnpm report:registry-v2-candidate-corpus`; expected 2 resolved / 42 partial; hashes below
 
 ## Developer evidence required
 
@@ -88,20 +88,20 @@ the final evidence SHA.
 
 | Field | Value |
 | --- | --- |
-| Final post-EH-108 `master` SHA | `________` |
-| CI verify job URL | `________` |
-| CI database job URL | `________` |
-| Catalog manifest digest | `________` |
-| Candidate input hash | `________` |
-| Candidate manifest hash | `________` |
-| Candidate report hash | `________` |
+| Final post-EH-108 `master` SHA | `3e7f57b3d7ea29aae234f0f20a935a1c6f05e4b8` |
+| CI verify job URL | https://github.com/Hazyshades/EasyHealth/actions/runs/29998228036/job/89176907450 |
+| CI database job URL | https://github.com/Hazyshades/EasyHealth/actions/runs/29998228036/job/89176907386 |
+| Catalog manifest digest | `e799e168a36463dfcef19d59690010a0d4c117e06b9790401c0c25810a5c9eea` |
+| Candidate input hash | `b4489a7cae9ab40cef27e308f1fe64fb45eca55cfe612d806a5c4370e0116b13` |
+| Candidate manifest hash | `a092449de73056b17b600dc6b9d2e5e141509ab362cb6e32ad73f8104045d754` |
+| Candidate report hash | `44395892185dd8182f27144987cf0d6440177d1cb6bc8bdce5db35e95371854d` |
 
-- [ ] Measurement Registry workflow push trigger is `master` and supports
+- [x] Measurement Registry workflow push trigger is `master` and supports
       `workflow_dispatch`.
-- [ ] `registry/measurement-registry-rollout.md` is a superseded stub with no
+- [x] `registry/measurement-registry-rollout.md` is a superseded stub with no
       active shadow/promote instructions.
-- [ ] Default catalog changelog string says Registry 2.0.
-- [ ] Phase B operator docs state reset RPC is post-034 / disposable-only.
+- [x] Default catalog changelog string says Registry 2.0.
+- [x] Phase B operator docs state reset RPC is post-034 / disposable-only.
 
 ## Out of scope or not manually testable yet
 
@@ -109,4 +109,4 @@ the final evidence SHA.
 - Approvals redesign beyond existing EH-106 role fixtures.
 - `/docs` tree repair (#75).
 - EH-109…EH-120 product behavior.
-- Final CI URLs/hashes remain blank until post-merge evidence is captured.
+- Post-merge CI evidence recorded from master run 29998228036 on SHA `3e7f57b`.
