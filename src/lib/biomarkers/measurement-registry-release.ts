@@ -139,7 +139,7 @@ export function buildMeasurementCatalogManifestRelease(options?: {
     resolverVersion: MEASUREMENT_RESOLVER_VERSION,
     normalizationVersion: MEASUREMENT_NORMALIZATION_VERSION,
     manifestDigest: digestMeasurementRegistryManifest(),
-    changelog: options?.changelog ?? ["Registry 2.1 measurement governance baseline"],
+    changelog: options?.changelog ?? ["Registry 2.0 measurement governance baseline"],
     changedDefinitions: MEASUREMENT_DEFINITIONS.map((definition) =>
       classifyMeasurementDefinitionChange(previousByKey.get(definition.key), definition)
     ),
