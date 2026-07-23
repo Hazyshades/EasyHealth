@@ -1,24 +1,25 @@
 ## Why
 
-Sprint 1 currently has contradictory EH-104 task/status records across an active change, an archived Phase B change, a backup directory, and QA evidence, while four post-audit production blockers remain unresolved. A canonical requirement baseline must be declared before remediation starts, but final delivery evidence must not be written until implementation, target preflight, and smoke actually pass.
+Sprint 1 has contradictory EH-104 task/status records across an active change, archived Phase B/closeout artifacts, a backup directory, and QA evidence, while four post-audit production blockers remain unresolved. A canonical requirement baseline and pending-gate ledger must be declared before remediation begins, but final delivery evidence must not be written until implementation, target preflight, and production smoke actually pass.
 
 ## What Changes
 
-- Declare `openspec/changes/eh-104-separate-resolver-outcomes-from-verification-status` as the canonical EH-104 requirement baseline for remediation planning.
-- Treat the archived EH-104 Phase B and Sprint 1 closeout changes as historical implementation/waiver evidence only, not authoritative proof of current production readiness.
-- Treat `eh-104-separate-resolver-outcomes-from-verification-status - backup` as non-canonical pending reference review and later removal/archive; its task state never drives release status.
-- Split reconciliation into two stages:
-  - early baseline declaration and pending-gate inventory before any implementation;
-  - late evidence/status reconciliation only after remediation PRs 1–4, strict validation, target database preflight, and manual production smoke.
-- Add one Sprint 1 release-gate record linking the FK hotfix, atomic instrumental publication, durable deletion, strict provenance, CI, migration/preflight evidence, and manual QA.
-- Keep every unavailable or unexecuted check explicitly pending; never translate CI coverage or a waiver into a manual/target-environment pass.
-- Reconcile and archive/remove duplicate OpenSpec artifacts only after reference checks, then update QA and formal Sprint 1 status from observed evidence.
+- Split reconciliation into two merge stages:
+  - **Stage A now:** declare `openspec/changes/eh-104-separate-resolver-outcomes-from-verification-status` the canonical EH-104 requirement baseline; label archived Phase B/closeout artifacts historical; label `- backup` non-canonical; publish the corrected dependency DAG and every unexecuted gate as pending.
+  - **Stage B last:** add attributable implementation/CI/target/manual evidence, reconcile canonical tasks/status, remove/archive the backup after reference migration, and update formal Sprint 1 closure only after every mandatory gate passes.
+- Record the corrected remediation DAG: FK compatibility and atomic publication may start independently; durable deletion requires atomic publication; strict provenance requires durable deletion; final reconciliation requires all four remediation PRs plus target preflight, schema-cache verification, concurrency/failure suites, and manual production smoke.
+- Keep PR 1's compatibility alias removal in a separate later cleanup change/PR; do not place an executable drop migration in the hotfix package.
+- Define stable release gate ids and typed statuses (`pending`, `passed`, `failed`, `deferred`, `not_applicable`) with environment, build/commit, executor, timestamp, action, expected/observed result, and evidence link.
+- Separate CI/developer, target-database, and manual product-interface evidence. A waiver, green CI, or deferred check never satisfies a mandatory target/manual gate.
+- Keep EH-109 and EH-110 independently startable. Keep EH-112, production release, and formal Sprint 1 closure blocked until the remediation and production gates pass.
+- Inventory and migrate every repository, issue, QA, roadmap, and archive reference before removing the non-canonical backup.
+- Update QA only with observed safe tester/product-interface evidence; keep database, migration, grants, concurrency, failure injection, storage, and cleanup assertions in developer evidence.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `sprint-one-release-governance`: Canonical baseline selection, pending-gate representation, evidence provenance, and formal closeout criteria for the post-audit Sprint 1 release.
+- `sprint-one-release-governance`: Canonical requirement ownership, corrected remediation dependencies, typed release evidence, and formal closeout criteria.
 
 ### Modified Capabilities
 
@@ -27,7 +28,7 @@ Sprint 1 currently has contradictory EH-104 task/status records across an active
 ## Impact
 
 - **Domains:** roadmap governance and QA, with links to documents, health-profile, and reports remediation.
-- **OpenSpec:** one canonical EH-104 baseline, historical evidence classification, and duplicate cleanup.
+- **OpenSpec:** one canonical EH-104 baseline, historical/non-canonical classification, corrected DAG, and reference-safe duplicate cleanup.
 - **QA:** separate manual tester evidence from database/developer evidence; preserve pending states accurately.
-- **Delivery:** the baseline declaration is planning-time context now. Final evidence/status edits and formal closure merge last, after PRs 1–4 plus target preflight and smoke.
-- **Non-goal:** this change cannot waive, simulate, or retroactively mark any production gate as passed.
+- **Delivery:** Stage A merges before remediation. Stage B merges last, after PRs 1–4 plus target preflight and smoke.
+- **Non-goal:** this change cannot waive, simulate, or retroactively mark any production gate passed.

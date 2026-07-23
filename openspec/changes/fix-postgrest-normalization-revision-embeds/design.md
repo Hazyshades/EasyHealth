@@ -18,6 +18,7 @@ Schema and application deployments are independent. Merely changing the five str
 - Change response DTOs, laboratory eligibility, or revision projection policy.
 - Make the obsolete single-column FK authoritative again.
 - Keep duplicate constraints permanently.
+- Create or merge the alias-drop migration before cutover evidence exists.
 
 ## Decisions
 
@@ -34,7 +35,7 @@ Renaming the composite constraint back to the old name was rejected because it p
 | Migration 034 already applied; new FK only | Apply alias bridge → reload cache → prove old reader recovers → deploy new-hint code → prove five reads | No new code before bridge; do not remove alias while an old instance exists |
 | Migration 034 not applied; old FK only | Pause affected API traffic → apply 034 and alias bridge in one controlled migration window → reload cache → prove old reader still works → resume → deploy new-hint code | Do not expose the intermediate 034-only state to old application instances |
 
-The cleanup migration that removes the alias is not applied until every target environment and application instance uses the new hint.
+The bridge remains after this change completes. Once every target environment and application instance uses the new hint, a separate follow-up OpenSpec change and PR may create, validate, and deploy the alias-drop migration. Keeping an unapplied drop file in the active migration chain was rejected because a later migration runner could execute it without the required instance inventory.
 
 ### 3. Treat schema-cache reload as part of deployment
 
@@ -51,4 +52,4 @@ A static check rejects the old hint in active runtime code after code cutover bu
 - **[Temporary duplicate FK adds write-check overhead]** → Keep the interval short and use identical columns so no semantic divergence is possible.
 - **[Traffic reaches the 034-only gap in a pending environment]** → Require an affected-API maintenance gate around 034 plus bridge application.
 - **[Schema cache remains stale]** → Make live embedded-read evidence a rollout gate, not an optional smoke.
-- **[Alias removed while old code still runs]** → Require an environment/instance inventory and separate cleanup deployment.
+- **[Alias remains longer than intended]** → Record a follow-up owner and cutover evidence, but create the removal migration only in that later change.

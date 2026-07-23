@@ -1,52 +1,66 @@
-## 1. Database lifecycle and queue
+## 1. Retained-data, storage, and consumer inventory
 
-- [ ] 1.1 Add document deletion lifecycle and monotonic write-generation fields with guards against revival from `deleting`.
-- [ ] 1.2 Add retained non-PHI `document_deletion_operations` as the sole transactional outbox/queue with claim lease, retry, error, evidence, and retention fields.
-- [ ] 1.3 Add generation-bound job lease/heartbeat/cancellation fields and storage-write intent schema with server-generated registered paths.
-- [ ] 1.4 Add indexes, fixed-search-path functions, RLS/grants, and constraints for one operation, lease ownership, operation retention after hard purge, and no client mutation.
+- [ ] 1.1 Inventory every document-derived database table/FK/cascade, service-role reader, signed-URL path, mutation/finalizer, and persisted report/synthesis consumer.
+- [ ] 1.2 Inventory generation-0 storage from document path columns, page preview/OCR columns, recursive legacy `${profileId}/${documentId}` prefixes, nested objects, and bucket pagination behavior.
+- [ ] 1.3 Preflight retained `reports` into exact-source and source-unknown groups; verify content/summary PHI and define whole-report invalidation/purge.
+- [ ] 1.4 Preflight `profile_health_synthesis`, `ai_invocations`, measurement-resolution/audit tables, and every retained metadata column; fail closed if a proposed non-PHI receipt/metadata row contains payload.
+- [ ] 1.5 Inventory every deployed worker version and keep deletion disabled until all unfenced storage/finalization workers can be paused and drained.
 
-## 2. Tombstone and API boundaries
+## 2. Shared lease and storage-intent extension
 
-- [ ] 2.1 Implement the owner-scoped idempotent tombstone RPC that locks the document, increments generation, requests job cancellation, and inserts/returns one operation.
-- [ ] 2.2 Change `DELETE /api/documents/:id` to return `202 Accepted` with operation id/status and never final success before cleanup.
-- [ ] 2.3 Add owner-scoped deletion-operation status API that remains available after document purge without exposing PHI.
-- [ ] 2.4 Deny/exclude deleting documents across list/detail/file/page/thumbnail/signed-URL/reprocess/mutation/publication paths and evict client signed-URL cache when deletion is observed.
-- [ ] 2.5 Document the bounded residual behavior of already issued 900-second signed URLs and avoid any immediate-revocation claim.
+- [ ] 2.1 Extend PR 2 `document_processing_attempts` with random lease token, expiry, heartbeat, cancellation request, and guarded release; do not add another attempt/generation authority.
+- [ ] 2.2 Add service-only atomic lease/heartbeat/release/cancellation transitions that validate job/document/profile/attempt/generation ownership.
+- [ ] 2.3 Add storage-write intents with attempt, lease token, generation, server-generated path, operation kind, start/deadline/completion/recovery state, and no client path authority.
+- [ ] 2.4 Update every document storage write to register before upload, enforce bounded request time, post-check document/lease/generation, record completion, and leave failed cleanup recoverable.
+- [ ] 2.5 Add generation-scoped path builders for future artifacts and preserve explicit generation-0 inventory for legacy objects.
 
-## 3. Processing worker fencing
+## 3. Database lifecycle and authoritative operation queue
 
-- [ ] 3.1 Change job claim/reclaim to issue and heartbeat random lease tokens bound to document generation.
-- [ ] 3.2 Validate lease token, generation, active document, and cancellation state on every database mutation and atomic publication finalizer.
-- [ ] 3.3 Register every storage write before upload with bounded deadline and generation-scoped path; add post-upload fence check and recoverable cleanup behavior.
-- [ ] 3.4 Make workers stop, reconcile intents, and release leases when cancellation or generation mismatch is observed.
-- [ ] 3.5 Add rollout inventory/gate that pauses claims and drains or terminates every legacy unfenced worker before tombstone deletion is enabled.
+- [ ] 3.1 Add document lifecycle state compatible with existing processing status and monotonic deletion transitions.
+- [ ] 3.2 Add retained non-PHI `document_deletion_operations` as the sole transactional outbox/queue/status/receipt with claim lease, retry/error/evidence, retention, and no cascading document FK.
+- [ ] 3.3 Implement the owner-scoped idempotent tombstone RPC that locks the document, increments shared write generation, requests cancellation, invalidates reports/synthesis, inserts one operation, and returns its id/status.
+- [ ] 3.4 Add indexes, constraints, fixed search paths, ownership checks, RLS/grants, and revoke PUBLIC/anon/authenticated cleanup/finalizer execution and direct lifecycle mutation.
+- [ ] 3.5 Implement service-only skip-locked operation claim, guarded transition, retry/backoff, lease takeover, and safe status serialization.
 
-## 4. Idempotent storage cleanup
+## 4. Cross-domain tombstone visibility and derivative retention
 
-- [ ] 4.1 Implement transactional operation claims and explicit queued/waiting/cleaning/verifying/retryable/completed transitions.
-- [ ] 4.2 Wait for old-generation lease release/expiry, intent completion/takeover, and the bounded request quiescence interval before purge.
-- [ ] 4.3 Purge registered paths and every paginated nested object under every document generation; treat not-found as success and record real errors.
-- [ ] 4.4 Require repeated complete stable-empty listings separated by the consistency interval; restart purge if a late object appears.
-- [ ] 4.5 Persist non-PHI storage manifest/evidence digests and retry schedule without retaining filenames, raw paths, or clinical data.
+- [ ] 4.1 Deny/exclude deleting documents in document list/detail/file/page/thumbnail/reprocess/mutation and signed-URL minting paths.
+- [ ] 4.2 Exclude deleting-document observations and sources in Biomarkers and Health Profile service-role queries before normalization/projection.
+- [ ] 4.3 Add report actual-source-set and source-known/invalidation fields; backfill explicit document ids and mark `document_ids = NULL` reports source-unknown without invented sources.
+- [ ] 4.4 Revalidate report sources at eligibility/load/commit; tombstone exact-source reports containing the document and conservatively invalidate every source-unknown report for that profile.
+- [ ] 4.5 Make report list/detail/structured-context hide invalidated reports and make final purge delete each whole invalidated report, including multi-source content/summary.
+- [ ] 4.6 Invalidate/remove `profile_health_synthesis` in the tombstone transaction and make regeneration/loaders use active sources only.
+- [ ] 4.7 Define `ai_invocations` linkage clearing versus purge from populated preflight and explicitly purge every other document-derived extraction, revision, shadow, and audit row.
 
-## 5. Transactional final purge
+## 5. Storage cleanup and final database purge
 
-- [ ] 5.1 Implement document-first deterministic final-purge locking shared with atomic publication and revalidate generation, operation, writer quiescence, and storage proof.
-- [ ] 5.2 Hard-purge prepared/current/superseded document publications, observations, extraction/derived rows, jobs/intents, and document in one transaction according to retention policy.
-- [ ] 5.3 Mark the independent deletion receipt completed in the same final transaction and preserve owner status access after document removal.
-- [ ] 5.4 Remove the legacy lineage-nulling purge path and temporary provenance authorization after every delete caller uses final hard purge.
+- [ ] 5.1 Implement writer quiescence using cancellation state, attempt leases, unresolved storage intents, bounded request deadlines, and the documented stability interval.
+- [ ] 5.2 Implement complete paginated recursive storage inventory/removal for every registered generation and all generation-0 paths/prefixes; treat not-found as idempotent success.
+- [ ] 5.3 Require at least two complete empty listings separated by the stability interval and restart purge/verification when a late object appears.
+- [ ] 5.4 Implement the final transaction with deterministic document-first lock order, evidence/generation/writer revalidation, direct observation/lineage and derivative deletion, document deletion, and independent receipt completion.
+- [ ] 5.5 Remove the legacy lineage-nulling purge function and `easyhealth.purge_lineage` authority only when the direct-delete finalizer and all callers are deployed.
+- [ ] 5.6 Add cleanup receipt retention/expiry and monitoring without retaining filename, raw path, extracted text, clinical value, generated narrative, or document content.
 
-## 6. Concurrency, failure, and role verification
+## 6. API and worker cutover
 
-- [ ] 6.1 Add real two-session tests for delete versus finalize/reprocess, competing DELETE, competing cleanup claims, lease expiry/takeover, and cleanup versus intent completion.
-- [ ] 6.2 Inject failure at every tombstone, claim, listing, removal, verification, and final database purge step; prove retry convergence and no false completion.
-- [ ] 6.3 Add multi-page/nested storage fixtures, late-object-after-empty behavior, old-generation artifacts, not-found idempotency, and stable-empty timing tests.
-- [ ] 6.4 Add negative grants/ownership tests for tombstone, operation polling, queue claims, lease/intents, final purge, and retained receipts.
-- [ ] 6.5 Add API regressions for 202/status behavior, access denial after tombstone, repeated DELETE, cached URL handling, and non-PHI responses.
+- [ ] 6.1 Change `DELETE /api/documents/:id` to call tombstone/enqueue and return `202 Accepted` with safe operation status; repeated DELETE returns the same operation.
+- [ ] 6.2 Add owner-scoped deletion-operation status and ensure cross-profile requests return 403/404 without identity or PHI leakage.
+- [ ] 6.3 Deploy lease-aware processing workers and cleanup workers with shared document-first lock order; pause/drain all legacy workers before enabling DELETE.
+- [ ] 6.4 Ensure cached application reads are evicted after tombstone and document the existing 900-second residual signed-URL behavior without claiming synchronous revocation.
 
-## 7. Rollout and QA
+## 7. Verification
 
-- [ ] 7.1 Confirm atomic instrumental publication is deployed, then pause/drain legacy workers and deploy lease-aware processing/cleanup workers before enabling the DELETE route.
-- [ ] 7.2 Run target smoke for active-writer deletion, paginated storage, retryable storage error, late upload, final purge, and retained operation status.
-- [ ] 7.3 Update `QA/eh-104/checklist.md` with safe owner deletion/status checks and separate developer evidence; do not mark signed-URL expiry or cleanup smoke passed unless observed.
-- [ ] 7.4 Record production cleanup monitoring, retry ownership, alert thresholds, and the completed removal of the temporary provenance purge exception.
+- [ ] 7.1 Add pgTAP for tombstone idempotency, generation increment, operation uniqueness/survival, report/synthesis invalidation, grants, owner isolation, and direct final purge rollback.
+- [ ] 7.2 Add populated migration tests for explicit and NULL report scopes, observability payload fail-closed behavior, generation-0 paths, nested legacy objects, and all delete cascades.
+- [ ] 7.3 Add real two-session tests for delete versus finalization, delete versus report generation, cleanup versus storage-intent completion, competing cleanup claims, lease expiry/takeover, and repeated DELETE.
+- [ ] 7.4 Add storage adapter integration tests for pagination, nested prefixes, partial failures, not-found retry, late object after first empty listing, and repeated stable-empty verification.
+- [ ] 7.5 Add API integration for list/detail/file/page/thumbnail/reprocess/mutation denial, no new signed URL, Biomarkers/Health Profile exclusion, report invalidation, synthesis invalidation, operation status, and owner isolation.
+- [ ] 7.6 Inject failure after every tombstone, cleanup transition, storage page/remove, verification, and final-purge mutation; prove no false completion or damaged active document.
+
+## 8. Rollout and QA
+
+- [ ] 8.1 Confirm atomic instrumental publication is deployed, then pause/drain legacy workers, run retained database/storage/report/observability preflight, and abort on unclassified PHI or paths.
+- [ ] 8.2 Deploy additive schema/read filters and lease-aware workers before enabling the tombstone route and cleanup claims.
+- [ ] 8.3 Run target smoke for active-worker cancellation, late upload, paginated/nested storage, retryable storage error, report/synthesis hiding, cross-profile denial, signed-URL residual behavior, and final receipt.
+- [ ] 8.4 Update `QA/eh-104/checklist.md` with safe owner deletion/status checks and separate developer evidence; do not mark TTL expiry, storage absence, or cleanup smoke passed unless observed.
+- [ ] 8.5 Record monitoring, retry ownership, receipt retention, removal of the temporary provenance purge exception, and production cleanup evidence before Sprint 1 closure.

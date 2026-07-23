@@ -9,7 +9,7 @@ Migration `034_eh104_phase_b_enforcement.sql` replaces the PostgREST relationshi
 - Define separate rollout procedures for environments where migration 034 is already applied and where it is still pending; neither procedure permits new code against the old-only schema or old code against the new-only schema.
 - Require PostgREST schema-cache reload evidence after relationship changes.
 - Add real migrated PostgREST/API integration coverage for every affected read path in both supported transition states, plus a static ban on the removed runtime hint after cutover.
-- Retain the compatibility alias until every application instance and target environment runs the new hint; remove it in a later explicitly gated migration.
+- Retain the compatibility alias until every application instance and target environment runs the new hint. Alias removal belongs to a separate follow-up change and migration after cutover evidence; this change does not create an executable alias-drop migration.
 
 ## Capabilities
 
@@ -25,6 +25,6 @@ Migration `034_eh104_phase_b_enforcement.sql` replaces the PostgREST relationshi
 
 - **Domains:** documents, health-profile, reports.
 - **Runtime:** five Supabase/PostgREST select strings.
-- **Database:** a temporary compatibility constraint and later gated cleanup migration; no data rewrite.
+- **Database:** one temporary compatibility constraint; no data rewrite and no alias-drop migration in this change.
 - **Delivery:** this PR merges and deploys before EH-105 remediation or any production release. EH-109 and EH-110 may continue independently.
 - **CI:** requires live PostgREST integration tests after migrations, not mocked query-builder tests.

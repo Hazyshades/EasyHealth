@@ -40,13 +40,28 @@ The system MUST store immutable instrumental content separately from publication
 - **THEN** the abandoned publication remains terminal
 - **AND** a new prepared publication references the reusable immutable content
 
+### Requirement: Publication authority belongs to one processing attempt and generation
+
+Every prepared publication MUST reference the retained `processing_attempt_id` that created it and the attempt's captured document write generation. A later attempt may reuse immutable content but MUST create its own publication event; it cannot revive or finalize another attempt's prepared event.
+
+#### Scenario: Retry receives a new attempt
+
+- **WHEN** a failed or reclaimed job is claimed again
+- **THEN** the new `processing_attempt_id` may reference matching immutable content
+- **AND** the previous attempt's prepared publication remains terminal or cleanup-eligible, not transferable
+
+#### Scenario: Generation differs
+
+- **WHEN** prepare or finalize observes a document generation different from the attempt's captured generation
+- **THEN** publication is rejected without changing current content
+
 ### Requirement: Same-hash behavior is state-specific and idempotent
 
 The prepare/finalize boundary MUST distinguish same-attempt retry, another live preparation, committed current retry, superseded content, and abandoned publication. Hash equality alone MUST NOT authorize a state transition.
 
 #### Scenario: Same prepared attempt retries
 
-- **WHEN** the same processing-attempt token retries preparation with exact payload
+- **WHEN** the same processing attempt retries preparation with exact payload
 - **THEN** the same prepared publication id is returned without duplicate rows
 
 #### Scenario: Another live attempt owns the preparation
@@ -56,12 +71,12 @@ The prepare/finalize boundary MUST distinguish same-attempt retry, another live 
 
 #### Scenario: Finalizer response is retried
 
-- **WHEN** the committed attempt repeats finalize with the same snapshot and completion payload
+- **WHEN** the committed attempt repeats finalize with the same snapshot and publication/completion digest
 - **THEN** the committed publication result is returned without another publication transition
 
 ### Requirement: Canonical snapshot hashing is versioned and database verified
 
-Canonicalization SHALL include every persisted immutable measure, finding, impression, and extraction-context field with explicit nulls and deterministic ordering. It SHALL exclude database ids, timestamps, job ids, publication state, and generated summary. The database SHALL compute and verify the authoritative SHA-256 digest.
+Canonicalization SHALL include every persisted immutable measure, finding, impression, and extraction-context field with explicit nulls and deterministic ordering. It SHALL exclude database ids, timestamps, job ids, processing-attempt ids, publication state, and generated summary. The database SHALL compute and verify the authoritative SHA-256 digest.
 
 #### Scenario: Array order differs but occurrences are identical
 

@@ -19,9 +19,9 @@
 - [ ] 3.3 Prove the 034-pending-to-transition and 034-applied-to-transition paths, including schema-cache reload failure/success.
 - [ ] 3.4 Wire the live PostgREST suite and static hint check into CI before deployment.
 
-## 4. Rollout and cleanup gate
+## 4. Rollout and follow-up ownership
 
 - [ ] 4.1 Deploy the bridge before new code according to the target-state matrix and record environment/cache/read evidence.
-- [ ] 4.2 Inventory every application instance and target environment before alias removal.
-- [ ] 4.3 Prepare the separately gated cleanup migration, but do not apply it while any old-hint instance remains.
+- [ ] 4.2 Inventory every application instance and target environment and record the owner and acceptance gates for a separate alias-removal change.
+- [ ] 4.3 Confirm this change contains no executable alias-drop migration and that removal will be proposed only after complete cutover evidence.
 - [ ] 4.4 Run target-environment smoke for all five consumers and record the FK hotfix release evidence.

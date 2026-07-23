@@ -2,7 +2,7 @@
 
 ### Requirement: Instrumental findings staging table
 
-The system SHALL persist instrumental findings and impression as immutable children of one instrumental snapshot-content version, linked to the source document/profile and carrying deterministic source locator or ordinal, modality/body region, source page/text, confidence, extraction metadata, and prepared/publication visibility. Document-only linkage SHALL NOT determine current visibility.
+The system SHALL persist instrumental findings and impression as immutable children of one instrumental snapshot-content version, linked to the source document/profile and carrying deterministic source locator or ordinal, modality/body region, source page/text, confidence, extraction metadata, and prepared/publication visibility. Document-only linkage or accepted status SHALL NOT determine current visibility.
 
 #### Scenario: Finding row is prepared
 
@@ -37,6 +37,22 @@ Instrumental findings SHALL require no user acceptance action but SHALL become a
 - **THEN** biomarker rows remain `needs_review` until the user accepts them through the existing flow
 
 ## ADDED Requirements
+
+### Requirement: Legacy findings relation is current-only during cutover
+
+While old readers exist, `document_extracted_findings` MUST retain its existing read columns and MUST return only findings belonging to the authoritative current publication. Immutable historical findings SHALL live behind the versioned content relation; old workers MUST NOT write through the compatibility relation.
+
+#### Scenario: Historical accepted findings exist
+
+- **WHEN** current, superseded, and prepared publications all have findings with accepted publication semantics
+- **THEN** an old reader querying `document_extracted_findings` receives only the current publication's rows
+- **AND** no status-only query can mix versions
+
+#### Scenario: Findings migration occurs
+
+- **WHEN** the physical legacy table is converted to versioned storage plus a compatibility relation
+- **THEN** old instrumental workers have already been drained
+- **AND** document detail, report eligibility, and structured context retain their current findings until reader cutover
 
 ### Requirement: Structured readers use the authoritative current publication
 

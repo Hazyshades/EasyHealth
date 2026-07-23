@@ -2,16 +2,17 @@
 
 ### Requirement: Observation ownership, kind, and source identity are immutable
 
-`profile_id`, `document_id`, and `observation_kind` MUST be immutable for every observation. `source_extracted_biomarker_id` MUST be immutable for laboratory observations and `source_instrumental_measure_id` MUST be immutable for instrumental observations. A source change requires a new source/observation path.
+`profile_id`, `document_id`, and `observation_kind` MUST be immutable for every observation. `source_extracted_biomarker_id` MUST be present and immutable for laboratory observations while `source_instrumental_measure_id` is null. `source_instrumental_measure_id` MUST be present and immutable for instrumental observations while `source_extracted_biomarker_id` is null. Any additional observation kind MUST have an explicit database-enforced source policy. A source change requires a new source/observation lifecycle.
 
 #### Scenario: Laboratory source is replaced
 
-- **WHEN** runtime code attempts to change or clear `source_extracted_biomarker_id`
-- **THEN** the database rejects the mutation except for the temporary exact controlled-purge transition
+- **WHEN** runtime code attempts to change, clear, or fill `source_extracted_biomarker_id`
+- **THEN** the database rejects the mutation
+- **AND** the only deletion exception is direct row deletion by the durable finalizer
 
 #### Scenario: Instrumental source is replaced
 
-- **WHEN** runtime code attempts to change or clear `source_instrumental_measure_id`
+- **WHEN** runtime code attempts to change, clear, or fill `source_instrumental_measure_id`
 - **THEN** the database rejects the mutation
 
 #### Scenario: Observation is reassigned
@@ -21,51 +22,44 @@
 
 ### Requirement: Active normalization projection remains separately mutable
 
-`normalization_revision_id`, `measurement_definition_key`, `analyte_key`, and `resolution_status` SHALL remain mutable only through the EH-104/EH-106 atomic projection writer, while immutable ownership/source provenance remains unchanged and same-source constraints pass.
+`normalization_revision_id`, `measurement_definition_key`, `analyte_key`, and `resolution_status` SHALL remain outside identity/provenance immutability but may be changed only by the constrained projection writer after locking and validating the observation, owner/source, expected state, and authoritative same-source revision.
 
-#### Scenario: Valid active revision changes
+#### Scenario: Strict provenance is deployed
 
-- **WHEN** the authorized atomic writer promotes a new same-source revision
-- **THEN** it may update the active projection fields in one transaction
-- **AND** no immutable source/provenance field changes
+- **WHEN** the EH-106 writer creates or updates the active projection through the constrained function
+- **THEN** the four projection columns may change consistently
+- **AND** no ownership, source identity, raw evidence, or version provenance changes
 
-#### Scenario: Projection update attempts source reattachment
+#### Scenario: Caller supplies arbitrary projection values
 
-- **WHEN** a projection write also changes the extracted source or document ownership
-- **THEN** the transaction is rejected
+- **WHEN** a caller attempts direct table update or a writer payload not derived from authoritative revision state
+- **THEN** permission or validation rejects it
 
-### Requirement: Temporary purge authorization is not caller forgeable
+### Requirement: Writer authority is database-enforced
 
-The laboratory lineage-clearing exception MUST NOT trust a caller-settable GUC or generic service-role mutation context. Any interim authorization MUST be private, transaction/backend/operation/row/transition scoped, inaccessible to runtime roles, and usable only by the exact controlled document purge operation.
+Runtime roles SHALL have no direct insert/update/delete privilege on observations. Source-specific creation, constrained projection, and durable final deletion functions SHALL each validate owner/source/version state and SHALL NOT expose arbitrary observation-column mutation.
 
-#### Scenario: Caller sets the historical purge GUC
+#### Scenario: Compromised service client attempts identity mutation
 
-- **WHEN** service-role code sets `easyhealth.purge_lineage=on` and directly updates protected lineage
-- **THEN** the trigger rejects the update because the GUC has no authority
+- **WHEN** service role issues direct SQL/PostgREST update against `observations`
+- **THEN** the database denies the operation before trigger policy becomes the only defense
 
-#### Scenario: Caller fabricates private authorization
+#### Scenario: Writer function receives cross-owner source
 
-- **WHEN** service, authenticated, or anonymous code attempts to insert/read private authorization or invoke arbitrary-field mutation
-- **THEN** permission is denied
+- **WHEN** a service-only writer is called with observation and source/revision rows from different profile or document ownership
+- **THEN** the function rejects the call atomically
 
-#### Scenario: Exact controlled purge runs during transition
+### Requirement: Strict provenance ships after durable deletion
 
-- **WHEN** the controlled purge locks one document and authorizes the exact paired lineage-clearing transition for its expected rows
-- **THEN** only those before/after digests are accepted
-- **AND** every other protected-field change is rejected
+Strict identity enforcement MUST be deployed only after document deletion no longer clears `document_id` or source/revision columns on surviving observations. The strict change MUST remove the temporary purge GUC and lineage-nulling path.
 
-### Requirement: Temporary purge authorization has an explicit retirement owner
+#### Scenario: Deployment preflight finds legacy purge caller
 
-The strict-provenance change MUST mark the private lineage-clearing authorization and legacy purge as temporary, document that durable deletion owns their removal, and expose no reusable runtime provenance-mutation API. Strict-provenance implementation and deployment do not depend on durable deletion being complete.
+- **WHEN** application, worker, route, or database function still calls the old purge RPC or sets its GUC
+- **THEN** strict rollout aborts
 
-#### Scenario: Strict provenance ships before durable deletion
+#### Scenario: Durable deletion later removes a document
 
-- **WHEN** strict provenance is deployed while the existing document purge still requires paired lineage clearing
-- **THEN** only the private exact controlled transition remains available
-- **AND** the durable-deletion change carries the removal task and Sprint 1 closure remains blocked until removal is evidenced
-
-#### Scenario: Durable deletion later cuts over
-
-- **WHEN** all document deletion callers use tombstone cleanup and transactional final purge
-- **THEN** durable deletion removes the temporary authorization objects and lineage-nulling path
-- **AND** strict provenance has no runtime bypass
+- **WHEN** all callers use tombstone cleanup and transactional final purge
+- **THEN** direct row deletion removes observations without mutating immutable identity
+- **AND** no provenance bypass exists

@@ -1,43 +1,47 @@
-## 1. Field and writer inventory
+## 1. Exact field, source, and writer inventory
 
-- [ ] 1.1 Inventory every observation INSERT/UPDATE/RPC path and classify document-lab, instrumental, and non-document-lab source policy.
-- [ ] 1.2 Encode the exact common immutable field set and source-specific lineage sets in one maintained database/application contract.
-- [ ] 1.3 Confirm EH-104/EH-106 mutable projection fields remain outside the provenance trigger and retain same-source enforcement.
-- [ ] 1.4 Inventory direct service-role table grants/callers that could currently set the purge GUC or update provenance.
+- [ ] 1.1 Inventory every observation INSERT/UPDATE/DELETE caller, RPC, trigger, direct role privilege, projection path, migration helper, and document purge caller.
+- [ ] 1.2 Encode one maintained common immutable field set and source-specific laboratory, instrumental, and any other observation-kind source policies in database/application contracts.
+- [ ] 1.3 Confirm the only mutable observation projection fields are `normalization_revision_id`, `measurement_definition_key`, `analyte_key`, and `resolution_status`.
+- [ ] 1.4 Prove durable deletion directly deletes observations and inventory/remove every caller of the legacy purge RPC and `easyhealth.purge_lineage` before strict rollout.
 
-## 2. Populated preflight and controlled backfill
+## 2. Exclusive constrained writer boundary
 
-- [ ] 2.1 Add retained-data preflight grouped by source type, protected field, authoritative evidence availability, owner, and writer/version.
-- [ ] 2.2 Define an explicit reviewed backfill manifest with observation ids, expected old-row digests/nulls, exact target values, and evidence source.
-- [ ] 2.3 Implement the migration-only backfill procedure with fixed search path, no runtime grants, exact expected-state checks, auditable results, and post-use revoke/drop.
-- [ ] 2.4 Add populated fixtures for approved, repeated, non-null, cross-owner/source, stale-digest, unmanifested, and partially invalid backfill batches.
+- [ ] 2.1 Harden the EH-106 laboratory writer with fixed search path, explicit owner/document/source/version validation, and exact creation column authority.
+- [ ] 2.2 Harden atomic instrumental publication functions with fixed search path, attempt/generation/source/version validation, and exact creation/publication authority.
+- [ ] 2.3 Replace broad projection mutation with one constrained writer that locks observation/revision, validates expected source/state, derives the four projection fields, and accepts no arbitrary column payload.
+- [ ] 2.4 Restrict durable deletion observation DELETE authority to its fixed-search-path finalizer after tombstone/storage/writer proof.
+- [ ] 2.5 Revoke direct `INSERT`, `UPDATE`, and `DELETE` on observations from `service_role`, `authenticated`, `anon`, and `PUBLIC`; retain only required SELECT and exact service-only function execute grants.
 
-## 3. Strict enforcement and purge security
+## 3. Populated preflight and reviewed backfill
 
-- [ ] 3.1 Replace every `OLD IS NOT NULL` provenance predicate with strict `NEW IS DISTINCT FROM OLD` enforcement for common and source-specific fields.
-- [ ] 3.2 Add source-type INSERT guards for mandatory laboratory writer provenance, instrumental source lineage, and non-document rows that cannot later acquire document lineage.
-- [ ] 3.3 Replace `easyhealth.purge_lineage` authority with private transaction/backend/operation/row/transition-scoped authorization owned by a no-login role.
-- [ ] 3.4 Restrict the interim controlled purge to exact locked document rows and paired lineage clearing; deny arbitrary fields and direct authorization access.
-- [ ] 3.5 Mark the private purge path temporary and hand its removal gate to durable deletion final-purge cutover without making this change depend on that later implementation.
+- [ ] 3.1 Add retained-data preflight grouped by source type, protected field/null pattern, owner/document, authoritative source/version availability, and writer/version.
+- [ ] 3.2 Generate a target-specific reviewed manifest with observation ids, expected protected old-row digests/nulls, exact target values, authoritative evidence ids/digest, owner, reviewer, and backfill version.
+- [ ] 3.3 Implement a private fixed-search-path migration-only procedure that locks all targets, validates every manifest row before writing, commits atomically, and treats only exact already-applied rows as idempotent.
+- [ ] 3.4 Reject missing, drifted, cross-owner, source-mismatched, unavailable-evidence, or differently changed rows without partial backfill; route only explicitly disposable data to reset/reprocess.
+- [ ] 3.5 Revoke/drop the procedure and manifest staging table after attributable target application evidence; leave no runtime grant.
 
-## 4. Writer alignment
+## 4. Strict database enforcement
 
-- [ ] 4.1 Update laboratory writers to provide final mandatory provenance at INSERT and fail rather than enrich later.
-- [ ] 4.2 Confirm instrumental preparation supplies immutable source-measure evidence and never attaches laboratory lineage/catalog projection.
-- [ ] 4.3 Confirm non-document laboratory writers intentionally set or omit provenance at INSERT and never convert the row to document-derived.
-- [ ] 4.4 Remove any runtime provenance backfill/enrichment call path and keep equal idempotent retries valid.
+- [ ] 4.1 Replace the trigger with `NEW.field IS DISTINCT FROM OLD.field` checks for every common and source-specific immutable field.
+- [ ] 4.2 Add source-kind constraints/validation requiring laboratory extracted-biomarker lineage and instrumental source-measure lineage while rejecting invalid cross-source combinations.
+- [ ] 4.3 Keep the four active normalization projection fields outside the immutability trigger and prove the constrained writer maintains same-source consistency.
+- [ ] 4.4 Remove the caller-settable purge GUC branch, legacy lineage-nulling purge function/path, and any service-role direct fallback.
 
-## 5. Database and security verification
+## 5. Integration and security verification
 
-- [ ] 5.1 Add pgTAP for `NULL → value`, `value → NULL`, changed value, equal value, and both-null retry across every protected field group.
-- [ ] 5.2 Add source-policy tests for mandatory document-lab provenance, instrumental lineage, non-document null policy, kind/owner/source mutation, and valid EH-106 projection changes.
-- [ ] 5.3 Add role/grant negatives proving PUBLIC, anon, authenticated, and ordinary service-role code cannot invoke backfill, forge GUC/private authorization, or mutate protected fields.
-- [ ] 5.4 Add controlled-purge tests for exact allowed transition, wrong document/row/digest/backend/transaction, extra field mutation, repeated use, and partial failure rollback.
-- [ ] 5.5 Restore a real observation-provenance database integration runner and wire populated migration plus pgTAP suites into CI.
+- [ ] 5.1 Replace the missing provenance runner target with a real populated-migration database integration runner and wire it plus pgTAP suites into CI.
+- [ ] 5.2 Test every immutable field for null→value, value→null, changed value, and equal retry across laboratory, instrumental, and any supported non-document source type.
+- [ ] 5.3 Test laboratory/instrumental creation success and required-source/version negatives through their real service functions.
+- [ ] 5.4 Test valid EH-106 projection changes plus cross-owner, wrong-source, stale expected-state, and arbitrary-value rejection.
+- [ ] 5.5 Test direct service_role/anon/authenticated insert/update/delete denial and exact function-execute grant negatives.
+- [ ] 5.6 Test manifest success, equal rerun, drift/absence/cross-owner/evidence mismatch, whole-transaction rollback, and post-use helper removal.
+- [ ] 5.7 Test durable document final deletion with strict trigger/privileges enabled and prove no surviving row has cleared identity/lineage.
 
 ## 6. Rollout and evidence
 
-- [ ] 6.1 Run target retained-data preflight; abort or apply only the reviewed controlled backfill before enabling strict trigger enforcement.
-- [ ] 6.2 Deploy writer-compatible code and strict migration in the documented order, then smoke laboratory, instrumental, non-document, equal-retry, and rejected-mutation paths.
-- [ ] 6.3 Update `QA/eh-103/checklist.md` with separate tester-facing behavior and developer database/security evidence without marking unavailable checks passed.
-- [ ] 6.4 Record the temporary purge authorization, durable-deletion removal owner, and still-pending no-runtime-bypass Sprint 1 gate without claiming later removal evidence.
+- [ ] 6.1 Verify durable deletion production evidence, pause observation writers, and run retained-data/writer/purge preflight; abort on unknown callers or unavailable mandatory source/version evidence.
+- [ ] 6.2 Deploy writer-compatible functions/code, reviewed manifest backfill, strict trigger/constraints, table-privilege revocation, and purge-path removal in the documented maintenance sequence.
+- [ ] 6.3 Reload PostgREST schema cache and smoke laboratory creation/projection, instrumental publication, equal retry, direct-role denial, non-document policy, and durable deletion.
+- [ ] 6.4 Update `QA/eh-103/checklist.md` with separate tester-facing behavior and developer database/security evidence; mark only observed checks passed.
+- [ ] 6.5 Record target manifest attribution, helper removal, purge-GUC removal, role grants, strict migration evidence, and the no-runtime-bypass Sprint 1 gate.

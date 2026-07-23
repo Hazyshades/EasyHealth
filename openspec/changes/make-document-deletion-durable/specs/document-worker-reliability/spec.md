@@ -1,8 +1,8 @@
 ## ADDED Requirements
 
-### Requirement: Processing workers hold generation-fenced leases
+### Requirement: Processing workers hold generation-fenced leases on shared attempts
 
-A processing worker MUST claim a job with a random lease token, document write generation, expiry, and heartbeat. Every database mutation and finalization MUST validate the active lease token, unchanged generation, and non-deleting document state.
+Each active processing attempt SHALL use the retained processing-attempt id created by atomic claim and add a random lease token, captured document generation, expiry, and heartbeat. Every database mutation and publication finalization MUST validate the active lease token, unchanged generation, and non-deleting document state.
 
 #### Scenario: Deletion tombstones an active document
 
@@ -12,47 +12,38 @@ A processing worker MUST claim a job with a random lease token, document write g
 
 #### Scenario: Stale worker resumes
 
-- **WHEN** a worker resumes after its lease expired or job was reclaimed
-- **THEN** its mutation/finalization token is rejected without changing document or publication state
+- **WHEN** a worker resumes after its lease expired or a new attempt owns the job
+- **THEN** its database mutations are rejected
+- **AND** any registered object path remains discoverable by cleanup
 
 ### Requirement: Storage writes are registered and recoverable
 
-Before uploading, a worker MUST register a generation-scoped storage-write intent with lease token, server-generated path, start time, and bounded deadline. It MUST perform a post-upload fence check and record completion; failed post-check cleanup remains recoverable by the deletion worker.
+Before uploading, a worker MUST register a generation-scoped storage-write intent with lease token, server-generated path, start time, and bounded request deadline. It MUST perform a post-upload document/lease/generation check and record completion. A failed post-check or crashed request SHALL remain recoverable by the deletion operation.
 
-#### Scenario: Tombstone occurs during upload
+#### Scenario: Upload finishes after tombstone
 
-- **WHEN** upload began under a valid old-generation intent and deletion tombstones the document before upload completes
-- **THEN** the worker cannot publish the artifact
-- **AND** its registered path remains discoverable for cleanup
+- **WHEN** a storage request initiated before tombstone completes afterward
+- **THEN** its post-check cannot authorize database publication
+- **AND** cleanup discovers and removes the registered path before final completion
 
-#### Scenario: Worker crashes after object creation
+#### Scenario: Worker crashes during upload
 
-- **WHEN** the object exists but the worker did not complete its intent
-- **THEN** expiry/takeover logic makes the intent eligible for deletion cleanup
+- **WHEN** the intent remains incomplete past its bounded request/lease deadline
+- **THEN** cleanup can claim recovery and purge its path without trusting the dead worker
 
-### Requirement: Cleanup waits for writer quiescence
+### Requirement: Legacy workers are drained before deletion enablement
 
-Deletion cleanup MUST NOT declare storage stable until all prior-generation leases are released/expired, all intents are terminal or takeover-eligible, the maximum bounded storage-request interval has passed, and repeated paginated listings remain empty across the stability interval.
-
-#### Scenario: In-flight request may still complete
-
-- **WHEN** the last old-generation lease has just expired but its registered request deadline/quiescence interval has not elapsed
-- **THEN** cleanup stays `waiting_for_writers`
-- **AND** does not mark storage verified
-
-### Requirement: Legacy unfenced workers are drained before enablement
-
-The deletion API MUST NOT enable tombstone cleanup while any deployed worker can write storage without leases/intents. Rollout SHALL pause job claims, drain or terminate legacy workers, deploy fencing-aware workers, and prove lease behavior before enabling asynchronous deletion.
+The deletion feature MUST remain disabled while any deployed worker can write storage or finalize database state without shared attempt id, lease token, generation validation, and storage-write intent registration.
 
 #### Scenario: Legacy worker inventory is non-empty
 
 - **WHEN** rollout detects an active old worker version
-- **THEN** the deletion feature remains disabled
-- **AND** production cleanup does not start
+- **THEN** production cleanup does not start
+- **AND** the rollout pauses/drains or terminates that worker before enabling DELETE
 
 ### Requirement: Deletion concurrency is verified with real sessions
 
-The database suite MUST use separate concurrent sessions to cover delete versus finalize, cleanup versus storage-intent completion, competing cleanup claims, lease expiry/takeover, and repeated DELETE.
+The database suite MUST use separate concurrent sessions to cover deletion versus finalization, cleanup versus storage-intent completion, competing cleanup claims, lease expiry/takeover, repeated DELETE, and late object appearance.
 
 #### Scenario: Delete races atomic finalization
 
@@ -60,3 +51,9 @@ The database suite MUST use separate concurrent sessions to cover delete versus 
 - **THEN** document-first locking produces one serial outcome
 - **AND** either publication commits before tombstone or deletion fences it completely
 - **AND** no mixed completed-and-deleting state commits
+
+#### Scenario: Cleanup lease holder crashes
+
+- **WHEN** a cleanup worker stops after claiming an operation
+- **THEN** another worker can take over only after the bounded lease expires
+- **AND** state/evidence guards prevent skipped storage or database steps

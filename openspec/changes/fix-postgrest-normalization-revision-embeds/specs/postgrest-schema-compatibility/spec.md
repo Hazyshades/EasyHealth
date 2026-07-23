@@ -32,17 +32,17 @@ The deployment gate MUST execute real PostgREST relationship embedding after mig
 - **WHEN** a relationship migration is applied but PostgREST has not observed it
 - **THEN** the rollout remains blocked until cache reload and embedded-read evidence succeed
 
-### Requirement: Compatibility alias removal is separately gated
+### Requirement: Compatibility alias removal is a separate change
 
-The old relationship alias MUST remain until every target environment and live application instance uses the new hint. Its removal MUST be a separate migration action backed by instance/environment inventory and a static runtime scan.
+The old relationship alias MUST remain until every target environment and live application instance uses the new hint. This change MUST NOT add an executable alias-drop migration; removal MUST be implemented by a separate follow-up change backed by instance/environment inventory, a static runtime scan, and target read evidence.
 
 #### Scenario: An old application instance still exists
 
 - **WHEN** deployment inventory finds any instance using `observations_normalization_revision_fk`
-- **THEN** the compatibility alias is not removed
+- **THEN** no alias-removal change is approved or deployed
 
 #### Scenario: Cutover is complete
 
 - **WHEN** all instances use the new hint and all five reads pass in every target environment
-- **THEN** the cleanup migration may remove the old alias
+- **THEN** a separate cleanup change may add and deploy the migration that removes the old alias
 - **AND** active runtime code contains no old hint

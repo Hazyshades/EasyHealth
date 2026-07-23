@@ -1,80 +1,127 @@
 ## Context
 
-`enforce_observation_provenance_write_once()` currently rejects a field change only when the old value is non-null. That permits runtime enrichment from null, despite EH-103 requiring a new observation/revision path for different source or processing provenance. Migration 034 also lets a caller forge purge context by setting `easyhealth.purge_lineage=on`.
+`enforce_observation_provenance_write_once()` currently rejects a protected-field change only when the old value is non-null. That permits runtime enrichment from null despite EH-103 requiring a new observation/revision path for different source or processing provenance.
 
-Observation normalization projection is intentionally mutable under EH-104/EH-106 and must not be confused with source provenance. Instrumental raw evidence is primarily held in `document_extracted_instrumental_measures`, while laboratory evidence is copied onto `observations`.
+Migration 034 retains this behavior and adds `easyhealth.purge_lineage=on`, a caller-settable session switch that temporarily clears source/revision lineage during document purge. Durable document deletion now precedes this change and deletes observations directly before deleting the document, so no runtime provenance exception is needed.
+
+Observation normalization projection is intentionally mutable under EH-104/EH-106 and must not be confused with source provenance. Instrumental raw evidence is primarily held by immutable snapshot content/source rows, while laboratory evidence is copied onto observations. Runtime roles currently have broad service-role table authority, so a strict trigger alone does not provide least privilege.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- Enumerate and enforce the immutable fields for each existing observation source type.
-- Reject every distinct post-INSERT provenance transition, including null completion.
-- Preserve equal idempotent retries and the legitimate mutable normalization projection.
-- Backfill retained nulls only through audited migration machinery.
-- Replace the forgeable GUC bypass and give its temporary lifecycle an owner.
+- Enforce the exact immutable contract for every source type, including null completion.
+- Preserve equal idempotent retries and the narrowly mutable normalization projection.
+- Make database writer functions, not trusted caller convention, the exclusive observation write boundary.
+- Backfill retained nulls only through attributable, drift-checked, target-specific migration machinery.
+- Remove both the forgeable purge GUC and the legacy lineage-nulling purge.
+- Prove behavior with populated data, real roles, real writers, and durable final deletion.
 
 **Non-Goals:**
 
-- Make normalization projection fields immutable.
-- Infer missing provenance during runtime updates.
-- Introduce a new observation kind or EH-115 explanation model.
+- Infer missing provenance during normal application execution.
+- Make normalization projection immutable.
+- Grant service role a generic arbitrary-field update/delete function.
+- Allow null source lineage when a required source row/version does not exist.
+- Deploy before durable deletion direct-purges observations.
 
 ## Decisions
 
-### 1. Define the immutable field sets explicitly
+### 1. Maintain one exact immutable-field contract
 
-**Common observation identity/provenance, all source types:**
+A shared database/application contract defines common immutable columns:
 
-`profile_id`, `document_id`, `observation_kind`, `raw_name`, `raw_value_text`, `raw_reference_text`, `raw_unit`, `source_page`, `source_text`, `bounding_box`, `confidence`, `extraction_version`, `provenance_schema_version`, `catalog_manifest_version`, `catalog_manifest_digest`, `resolver_version`, and `normalization_version`.
+- ownership/identity: `profile_id`, `document_id`, `observation_kind`;
+- raw evidence: `raw_name`, `raw_value_text`, `raw_reference_text`, `raw_unit`, `source_page`, `source_text`, `bounding_box`, `confidence`;
+- version provenance: `extraction_version`, `provenance_schema_version`, `catalog_manifest_version`, `catalog_manifest_digest`, `resolver_version`, `normalization_version`.
 
-A trigger rejects `NEW.field IS DISTINCT FROM OLD.field` for each field. Nullable values may be null at INSERT but remain null thereafter. Database-managed `id` and `created_at` are also immutable through grants/defaults but are not caller provenance inputs.
+Source-specific identity is also immutable:
 
-**Document-derived laboratory observation:**
+- laboratory: `source_extracted_biomarker_id` is required and immutable; `source_instrumental_measure_id` is null;
+- instrumental: `source_instrumental_measure_id` is required and immutable; `source_extracted_biomarker_id` is null;
+- any supported non-document/non-lab kind: an explicit source policy defines required/null source fields before deployment.
 
-- `document_id`, `source_extracted_biomarker_id`, `raw_name`, `provenance_schema_version`, `extraction_version`, catalog manifest version/digest, resolver version, and normalization version are present at the atomic writer boundary.
-- Raw value/reference/unit and page/snippet/bounding-box/confidence are stored when source extraction provides them; missing optional evidence remains null.
-- `source_extracted_biomarker_id` is immutable.
-- `normalization_revision_id`, `measurement_definition_key`, `analyte_key`, and `resolution_status` are the mutable active projection and are excluded from this trigger. At rest, EH-104 still requires the source/revision same-source pair.
+The database compares each immutable column using `NEW.field IS DISTINCT FROM OLD.field`. Therefore null completion, clearing, and changed non-null values all fail; equal retries pass.
 
-**Document-derived instrumental observation:**
+### 2. Keep normalization projection separate and bounded
 
-- `document_id`, `observation_kind='instrumental'`, and `source_instrumental_measure_id` are required by the source-lineage contract and immutable.
-- Both laboratory lineage columns and laboratory catalog/resolver projection fields remain null.
-- The referenced instrumental measure is authoritative for `raw_name`, `raw_value_text`, `raw_unit`, `observed_at`, `source_locator`, `occurrence_index`, source context, processing/model versions, and snapshot content/hash; those source fields are immutable through the snapshot-content contract.
-- Any provenance copies present on the observation are frozen by the common set.
+Only these observation columns remain mutable for EH-104/EH-106 projection:
 
-**Non-document laboratory observation:**
+- `normalization_revision_id`;
+- `measurement_definition_key`;
+- `analyte_key`;
+- `resolution_status`.
 
-- `document_id`, laboratory source ids, and document-extraction version fields may be null according to the insertion contract.
-- Any supplied common provenance is final at INSERT; the row cannot later be converted into a document-derived observation by filling lineage/version fields.
+A constrained SECURITY DEFINER writer accepts observation identity, expected source/revision state, and requested authoritative revision id/action. It locks the observation/revision, verifies owner/source and same-source constraints, derives the projection fields from authoritative revision rows, and updates only the four listed columns. It does not accept arbitrary JSON or caller-supplied values for arbitrary columns.
 
-### 2. Validate source policy at INSERT
+All other observation mutation must create/delete through source-specific lifecycle functions.
 
-Insert guards reject cross-type lineage, instrumental observations without their source, document-derived laboratory writes missing mandatory writer-boundary provenance, and attempts to attach document provenance later. Equal upsert retries compare the complete immutable set.
+### 3. Make functions the exclusive runtime mutation authority
 
-The policy is enforced in database writers as well as application validation so service-role code cannot bypass it with a direct table update.
+After all callers are migrated:
 
-### 3. Keep projection mutation separate
+- revoke direct `INSERT`, `UPDATE`, and `DELETE` on `public.observations` from `service_role`, `authenticated`, `anon`, and `PUBLIC`;
+- retain SELECT only where existing server reads require it;
+- permit observation writes only through fixed-search-path SECURITY DEFINER functions with explicit ownership/source/version checks;
+- keep function ownership in the migration/admin role and grant execute only to `service_role` for the exact runtime functions;
+- revoke execute from `PUBLIC`, `anon`, and `authenticated`.
 
-The strict trigger does not block the EH-106 atomic writer from changing `normalization_revision_id`, `measurement_definition_key`, `analyte_key`, or `resolution_status`, provided immutable source identity remains unchanged and the composite same-source constraint passes.
+The allowed runtime authorities are:
 
-### 4. Use preflight plus a migration-only backfill
+- the EH-106 atomic laboratory source/revision/observation writer for laboratory creation;
+- the atomic instrumental prepare/finalizer writer for instrumental creation/publication;
+- the constrained normalization projection writer for the four mutable columns;
+- the durable deletion finalizer for direct observation deletion after storage proof.
 
-Preflight reports each existing null by source type, field, document, writer/version, and whether an authoritative source exists. Retained environments abort strict enforcement until every approved target has an explicit migration decision.
+No generic direct table fallback or broad observation mutation function remains.
 
-A migration-only security-definer procedure accepts a fixed manifest of observation ids, expected old-row digests, exact field values, and evidence source. It updates only rows that still match the expected null state, emits result evidence, has no `service_role`/client grant, and is revoked/dropped after the migration. Repeated, broadened, non-null, cross-owner, or unmanifested updates fail.
+### 4. Remove runtime purge exceptions
 
-### 5. Replace GUC bypass with exact private authorization
+The strict migration drops the lineage-nulling purge function/path and removes all use of `easyhealth.purge_lineage`. The provenance trigger contains no session-setting bypass. Durable deletion's fixed-search-path finalizer directly deletes observations before the document row, avoiding the `ON DELETE SET NULL` identity mutation.
 
-A private schema owned by a no-login migration/function owner records transaction-, backend-, operation-, observation-, and exact-transition-scoped authorization. Generic `service_role`, `PUBLIC`, `anon`, and `authenticated` cannot read, insert, or manufacture it. The controlled purge entry point can authorize only the exact paired lineage-clearing transition for locked rows of one document; the trigger compares the expected before/after digest and rejects every other field change.
+Preflight fails if any application/worker/function still calls the old purge RPC or sets the GUC.
 
-This is an interim compatibility mechanism, not a reusable mutation API. The durable deletion change owns removal of the authorization table/path and the lineage-nulling purge once final deletion directly removes derived observations.
+### 5. Backfill through a target-specific exact manifest
+
+Retained nulls are grouped by source type, protected field, document/profile, authoritative evidence availability, and writer/version. No inference query directly updates observations.
+
+For each approved target environment, an immutable manifest records:
+
+- observation id and owner/source type;
+- digest of the exact expected old protected fields (including nulls);
+- exact target values;
+- authoritative evidence ids/digest;
+- review owner, timestamp, and backfill version.
+
+A private migration-only procedure with fixed search path:
+
+1. locks all manifest target observations in deterministic id order;
+2. verifies row ownership/source and old-row digest for every row;
+3. verifies authoritative source/revision evidence;
+4. verifies every target value equals the reviewed manifest;
+5. writes all rows in one transaction and emits aggregate/result evidence;
+6. treats an exact already-applied row as idempotent success;
+7. aborts the whole run for an absent, drifted, cross-owner, source-mismatched, or already differently changed row.
+
+The procedure is never granted to runtime roles. After target application/evidence, execute is revoked and the procedure/manifest staging table is dropped in the same release sequence or an explicitly gated immediate cleanup migration.
+
+### 6. Order rollout to avoid unsafe intervals
+
+1. Deploy durable deletion and prove direct final purge.
+2. Inventory all observation writers and revoke candidates.
+3. Run retained-data preflight and review the target manifest.
+4. Deploy writer-compatible functions/code before or in the same maintenance window as table privilege revocation and strict trigger.
+5. Execute the reviewed manifest, enable strict trigger, revoke direct table mutation, remove old purge/GUC, and reload PostgREST schema cache.
+6. Smoke laboratory, instrumental, non-document (if present), equal retry, projection update, direct-role denial, and durable deletion.
+
+If required laboratory/instrumental lineage/version evidence is unavailable, preflight aborts or explicitly routes disposable data to reset/reprocess; runtime immutability is never weakened.
 
 ## Risks / Trade-offs
 
-- **[Existing writers rely on null completion]** → Inventory every INSERT/UPDATE path and fail preflight before enabling the strict trigger.
-- **[Mandatory laboratory version field is unavailable]** → Reject the write or create a source/revision path; do not weaken runtime immutability.
-- **[Private purge authorization becomes permanent]** → Mark its owner/removal condition explicitly in durable deletion tasks and release gates.
-- **[Projection updates are accidentally blocked]** → Keep the mutable field list explicit and cover EH-106 writer success in pgTAP.
-- **[Service role calls a dangerous generic function]** → Expose only document-scoped exact purge behavior; never grant direct authorization-table or arbitrary-field access.
+- **[Existing writer relies on direct table access]** → Complete source/RPC inventory and role-negative tests before revocation.
+- **[Strict writer accidentally blocks projection]** → Keep the mutable list explicit and cover EH-106 projection success in pgTAP/API integration.
+- **[SECURITY DEFINER becomes broad authority]** → Fixed search path, private ownership, typed inputs, row locks, owner/source checks, and no arbitrary field payload.
+- **[Backfill manifest is stale]** → Exact old-row digest/evidence checks abort the whole transaction; regenerate/review rather than force.
+- **[Private migration helper becomes permanent]** → No runtime grants and an explicit drop/revoke gate in deployment evidence.
+- **[Direct document deletion triggers identity mutation]** → Durable finalizer deletes observations first; strict provenance deploys only after that path is proven.
+- **[No valid required source/version exists]** → Reject retained migration or reset disposable data; do not create synthetic provenance.
