@@ -5,9 +5,14 @@
  *   EH104_PHASE_B_DISPOSABLE=1
  *   EH104_PHASE_B_ALLOW_RESET=1
  *
+ * Migration `034` must already exist: this script calls
+ * `eh104_phase_b_reset_document_derived_laboratory_lineage`, which is created
+ * by that migration. For a Fresh disposable bootstrap, use `supabase db reset`
+ * instead of calling this script to create 034.
+ *
  * Does not invent semantic repairs. After success, run:
  *   pnpm preflight:eh104
- * and apply the Phase B enforcement migration only when preflight is clean.
+ * and continue only when preflight is clean.
  */
 import { createAdminClient } from "../src/lib/supabase/admin";
 

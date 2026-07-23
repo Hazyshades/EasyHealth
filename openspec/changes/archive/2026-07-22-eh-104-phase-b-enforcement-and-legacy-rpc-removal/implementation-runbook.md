@@ -34,21 +34,39 @@ Half-links are illegal at commit/rest. They are not a supported durable state.
 
 ## Operator gate
 
+Choose the environment class first. The Phase B reset RPC is created by
+migration `034_eh104_phase_b_enforcement.sql`; it is **not** a pre-034 bootstrap
+tool. Canonical operator steps also live in
+`registry/launch-cutover-checklist.md`.
+
+### Fresh / disposable bootstrap
+
+1. Stop jobs.
+2. Run `supabase db reset` so migrations `001`–`034` apply together.
+3. Deploy compatible web + worker.
+4. Run `pnpm preflight:eh104` and continue only when clean.
+
+### Retained / persistent
+
 ```
 pnpm preflight:eh104
 ```
 
-- exit 0 → apply/verify enforcement migration on that database
+- exit 0 → apply/verify enforcement migration on that database if needed
 - exit 1 on persistent/retained data → **ABORT** (no mutation, no enforcement)
-- disposable only:
+
+### Disposable lineage reset only after 034 exists
+
+Only on an explicitly disposable environment, and only after migration `034`
+exists:
 
 ```
 EH104_PHASE_B_DISPOSABLE=1 EH104_PHASE_B_ALLOW_RESET=1 pnpm reset:eh104-phase-b
 pnpm preflight:eh104   # must be clean
 ```
 
-Then deploy migration `034_eh104_phase_b_enforcement.sql` if not already applied
-via normal migration flow.
+Then verify migration `034_eh104_phase_b_enforcement.sql` is present via the
+normal migration path.
 
 ## Post-enforcement smoke
 
