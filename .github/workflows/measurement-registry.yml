@@ -22,6 +22,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm check:registry-v2-cutover
       - run: pnpm check:no-legacy-promotion-rpc
+      - run: pnpm check:postgrest-embed-hints
       - run: pnpm verify:registry
         env:
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
@@ -82,6 +83,8 @@ jobs:
         run: pnpm test:eh105-db
       - name: Run EH-106 atomic writer database contract
         run: pnpm test:eh106-db
+      - name: Run PostgREST revision embed alias contract
+        run: pnpm test:postgrest-alias-db
       - name: Stop local Supabase services
         if: always()
         run: supabase stop --no-backup
