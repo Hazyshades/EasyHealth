@@ -12,12 +12,13 @@ Before remediation implementation begins, the system of record MUST identify `eh
 
 ### Requirement: Baseline declaration and release reconciliation are separate merge stages
 
-Stage A MUST merge before remediation and MUST declare canonical/historical/non-canonical ownership, the corrected dependency DAG, a pending release ledger, and production/Sprint 1 `No-Go`. Stage B MUST merge last and MAY add final evidence/status only after runtime PRs 1–4 and every mandatory target/QA gate have observed results.
+Stage A MUST merge before remediation in `reconcile-sprint-one-openspec-and-qa` and MUST declare canonical/historical/non-canonical ownership, the corrected dependency DAG, a pending release ledger, and production/Sprint 1 `No-Go`. Final evidence/status reconciliation MUST occur only in the separate future change `reconcile-sprint-one-release-evidence` after runtime PRs 1–4 and every mandatory target/QA gate have observed results.
 
 #### Scenario: Stage A merges
 
 - **WHEN** no remediation implementation or target smoke has yet passed
 - **THEN** canonical ownership and pending gates are recorded
+- **AND** formal Sprint 1 closure remains No-Go
 - **AND** no implementation, production, or manual gate is marked passed
 - **AND** the reconciliation change remains incomplete
 
@@ -105,4 +106,25 @@ Formal Sprint 1 production/closure status MUST remain No-Go unless PRs 1–4 and
 #### Scenario: All mandatory gates pass
 
 - **WHEN** evidence review finds every mandatory gate passed with valid attribution and no PHI/broken links/DAG violations
-- **THEN** Stage B may reconcile canonical tasks, update roadmap/release records, and close Sprint 1
+- **THEN** Stage B reconciles canonical tasks, updates roadmap/release records, and closes Sprint 1
+
+
+### Requirement: Stage B is a separate OpenSpec change
+
+Stage A MUST NOT perform final evidence attachment, canonical task closure, backup deletion, or formal Sprint 1 Go conversion. Those actions MUST live only in `reconcile-sprint-one-release-evidence` after every mandatory gate has attributable passed evidence.
+
+#### Scenario: Stage A merges while remediation is unfinished
+
+- **WHEN** Stage A is merged and PRs 1–4 are not all evidenced as passed
+- **THEN** production/Sprint 1 status remains No-Go
+- **AND** no Stage B evidence fields are marked passed in this change
+
+### Requirement: Repository hygiene for Stage A artifacts
+
+Stage A MUST delete the accidental empty `$env` file and MUST treat `.papercuts.jsonl` as a permanent tracked non-PHI process-friction ledger that is never used as release evidence and never stores secrets, credentials, or clinical data.
+
+#### Scenario: Process note is recorded
+
+- **WHEN** an agent records a papercut
+- **THEN** the entry contains only non-PHI process/tooling text
+- **AND** the Sprint 1 gate ledger remains the only Go/No-Go evidence source

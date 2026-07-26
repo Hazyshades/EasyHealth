@@ -11,8 +11,10 @@
 - [ ] 2.1 Extend PR 2 `document_processing_attempts` with random lease token, expiry, heartbeat, cancellation request, and guarded release; do not add another attempt/generation authority.
 - [ ] 2.2 Add service-only atomic lease/heartbeat/release/cancellation transitions that validate job/document/profile/attempt/generation ownership.
 - [ ] 2.3 Add storage-write intents with attempt, lease token, generation, server-generated path, operation kind, start/deadline/completion/recovery state, and no client path authority.
-- [ ] 2.4 Update every document storage write to register before upload, enforce bounded request time, post-check document/lease/generation, record completion, and leave failed cleanup recoverable.
-- [ ] 2.5 Add generation-scoped path builders for future artifacts and preserve explicit generation-0 inventory for legacy objects.
+- [ ] 2.4 Add capability-minting and completion RPCs that return a one-time path-bound signed upload token only for an active non-tombstoned intent and reject stale/expired/cancelled/prior-generation callers.
+- [ ] 2.5 Update every document storage write to mint a capability, upload only through that capability (never unrestricted service-role Storage upload), enforce bounded request time, post-check fence, record completion, and leave failed cleanup recoverable.
+- [ ] 2.6 Remove worker reliance on service-role Storage create/upload credentials; keep only DB RPC access plus the minted upload capability for object creation.
+- [ ] 2.7 Add generation-scoped path builders for future artifacts and preserve explicit generation-0 inventory for legacy objects.
 
 ## 3. Database lifecycle and authoritative operation queue
 
@@ -27,10 +29,13 @@
 - [ ] 4.1 Deny/exclude deleting documents in document list/detail/file/page/thumbnail/reprocess/mutation and signed-URL minting paths.
 - [ ] 4.2 Exclude deleting-document observations and sources in Biomarkers and Health Profile service-role queries before normalization/projection.
 - [ ] 4.3 Add report actual-source-set and source-known/invalidation fields; backfill explicit document ids and mark `document_ids = NULL` reports source-unknown without invented sources.
-- [ ] 4.4 Revalidate report sources at eligibility/load/commit; tombstone exact-source reports containing the document and conservatively invalidate every source-unknown report for that profile.
-- [ ] 4.5 Make report list/detail/structured-context hide invalidated reports and make final purge delete each whole invalidated report, including multi-source content/summary.
-- [ ] 4.6 Invalidate/remove `profile_health_synthesis` in the tombstone transaction and make regeneration/loaders use active sources only.
-- [ ] 4.7 Define `ai_invocations` linkage clearing versus purge from populated preflight and explicitly purge every other document-derived extraction, revision, shadow, and audit row.
+- [ ] 4.4 Implement the atomic report writer with sorted document locks, exact source ids, captured write-generation revalidation at commit, and revoke direct runtime DML on `reports`.
+- [ ] 4.5 Revalidate report sources at eligibility/load/commit; tombstone exact-source reports containing the document and conservatively invalidate every source-unknown report for that profile.
+- [ ] 4.6 Make report list/detail/structured-context hide invalidated reports and make final purge delete each whole invalidated report, including multi-source content/summary.
+- [ ] 4.7 Implement the atomic holistic-synthesis writer with sorted document locks, exact source ids/generations, commit-time tombstone checks, and revoke direct runtime DML on `profile_health_synthesis`.
+- [ ] 4.8 Invalidate/remove `profile_health_synthesis` in the tombstone transaction and make regeneration/loaders use active sources only.
+- [ ] 4.9 Restrict `ai_invocations.error_code` to the allowlisted non-PHI codes, stop persisting `error.message`, and conservatively purge/redact legacy profile-level report/synthesis rows with `document_id IS NULL`.
+- [ ] 4.10 Define document-linked `ai_invocations` clearing versus purge from populated preflight and explicitly purge every other document-derived extraction, revision, shadow, and audit row.
 
 ## 5. Storage cleanup and final database purge
 
@@ -52,10 +57,11 @@
 
 - [ ] 7.1 Add pgTAP for tombstone idempotency, generation increment, operation uniqueness/survival, report/synthesis invalidation, grants, owner isolation, and direct final purge rollback.
 - [ ] 7.2 Add populated migration tests for explicit and NULL report scopes, observability payload fail-closed behavior, generation-0 paths, nested legacy objects, and all delete cascades.
-- [ ] 7.3 Add real two-session tests for delete versus finalization, delete versus report generation, cleanup versus storage-intent completion, competing cleanup claims, lease expiry/takeover, and repeated DELETE.
+- [ ] 7.3 Add real two-session tests for delete versus finalization, delete versus report/synthesis persist, stale signed-upload after tombstone, cleanup versus storage-intent completion, competing cleanup claims, lease expiry/takeover, and repeated DELETE.
 - [ ] 7.4 Add storage adapter integration tests for pagination, nested prefixes, partial failures, not-found retry, late object after first empty listing, and repeated stable-empty verification.
 - [ ] 7.5 Add API integration for list/detail/file/page/thumbnail/reprocess/mutation denial, no new signed URL, Biomarkers/Health Profile exclusion, report invalidation, synthesis invalidation, operation status, and owner isolation.
 - [ ] 7.6 Inject failure after every tombstone, cleanup transition, storage page/remove, verification, and final-purge mutation; prove no false completion or damaged active document.
+- [ ] 7.7 Add negative tests proving unrestricted service-role Storage upload is unused by workers and direct report/synthesis table writes are denied.
 
 ## 8. Rollout and QA
 

@@ -82,3 +82,14 @@ During transition, the system MUST preserve `document_extracted_findings` as a c
 
 - **WHEN** deployment inventory finds a worker that writes `document_extracted_findings` directly or uses the legacy replacement RPC
 - **THEN** the migration/cutover remains blocked until that worker is drained or terminated
+
+
+### Requirement: Finalizer updates document current projections atomically
+
+Atomic instrumental finalization MUST update `documents.document_summary`, `documents.observed_at`, `documents.modality`, `documents.lab_name`, `documents.processing_version`, and `documents.extraction_model` in the same transaction as the current-publication pointer so those columns remain equal to the committed current publication.
+
+#### Scenario: Projection write fails
+
+- **WHEN** any document projection update fails during finalization
+- **THEN** the entire finalizer transaction rolls back
+- **AND** previous current projections remain visible

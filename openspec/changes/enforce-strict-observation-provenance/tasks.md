@@ -1,7 +1,7 @@
 ## 1. Exact field, source, and writer inventory
 
 - [ ] 1.1 Inventory every observation INSERT/UPDATE/DELETE caller, RPC, trigger, direct role privilege, projection path, migration helper, and document purge caller.
-- [ ] 1.2 Encode one maintained common immutable field set and source-specific laboratory, instrumental, and any other observation-kind source policies in database/application contracts.
+- [ ] 1.2 Encode the full required/nullable/forbidden matrix for every protected field by `lab` and `instrumental`, plus any other observation-kind source policy, in database/application contracts.
 - [ ] 1.3 Confirm the only mutable observation projection fields are `normalization_revision_id`, `measurement_definition_key`, `analyte_key`, and `resolution_status`.
 - [ ] 1.4 Prove durable deletion directly deletes observations and inventory/remove every caller of the legacy purge RPC and `easyhealth.purge_lineage` before strict rollout.
 
@@ -11,7 +11,8 @@
 - [ ] 2.2 Harden atomic instrumental publication functions with fixed search path, attempt/generation/source/version validation, and exact creation/publication authority.
 - [ ] 2.3 Replace broad projection mutation with one constrained writer that locks observation/revision, validates expected source/state, derives the four projection fields, and accepts no arbitrary column payload.
 - [ ] 2.4 Restrict durable deletion observation DELETE authority to its fixed-search-path finalizer after tombstone/storage/writer proof.
-- [ ] 2.5 Revoke direct `INSERT`, `UPDATE`, and `DELETE` on observations from `service_role`, `authenticated`, `anon`, and `PUBLIC`; retain only required SELECT and exact service-only function execute grants.
+- [ ] 2.5 Revoke direct `INSERT`, `UPDATE`, and `DELETE` on observations and on authoritative revision/source tables (`observation_normalization_revisions`, `document_extracted_biomarkers`, `document_extracted_instrumental_measures`, versioned instrumental content/findings) from `service_role`, `authenticated`, `anon`, and `PUBLIC`; retain only required SELECT and exact service-only function execute grants.
+- [ ] 2.6 Replace `observations_instrumental_source_owner_fk` `ON DELETE CASCADE` with `ON DELETE RESTRICT` (or equivalent) and inventory every cascade-capable parent path that can mutate observations indirectly.
 
 ## 3. Populated preflight and reviewed backfill
 
@@ -24,7 +25,7 @@
 ## 4. Strict database enforcement
 
 - [ ] 4.1 Replace the trigger with `NEW.field IS DISTINCT FROM OLD.field` checks for every common and source-specific immutable field.
-- [ ] 4.2 Add source-kind constraints/validation requiring laboratory extracted-biomarker lineage and instrumental source-measure lineage while rejecting invalid cross-source combinations.
+- [ ] 4.2 Add source-kind constraints/validation implementing the full lab/instrumental required/nullable/forbidden matrix and rejecting invalid cross-source combinations.
 - [ ] 4.3 Keep the four active normalization projection fields outside the immutability trigger and prove the constrained writer maintains same-source consistency.
 - [ ] 4.4 Remove the caller-settable purge GUC branch, legacy lineage-nulling purge function/path, and any service-role direct fallback.
 
@@ -34,9 +35,10 @@
 - [ ] 5.2 Test every immutable field for null→value, value→null, changed value, and equal retry across laboratory, instrumental, and any supported non-document source type.
 - [ ] 5.3 Test laboratory/instrumental creation success and required-source/version negatives through their real service functions.
 - [ ] 5.4 Test valid EH-106 projection changes plus cross-owner, wrong-source, stale expected-state, and arbitrary-value rejection.
-- [ ] 5.5 Test direct service_role/anon/authenticated insert/update/delete denial and exact function-execute grant negatives.
+- [ ] 5.5 Test direct service_role/anon/authenticated insert/update/delete denial on observations and authoritative revision/source tables, plus exact function-execute grant negatives.
 - [ ] 5.6 Test manifest success, equal rerun, drift/absence/cross-owner/evidence mismatch, whole-transaction rollback, and post-use helper removal.
 - [ ] 5.7 Test durable document final deletion with strict trigger/privileges enabled and prove no surviving row has cleared identity/lineage.
+- [ ] 5.8 Test indirect observation mutation/deletion attempts through instrumental measure, extracted biomarker, revision, document, and profile parent paths and prove RESTRICT/finalizer-only behavior.
 
 ## 6. Rollout and evidence
 

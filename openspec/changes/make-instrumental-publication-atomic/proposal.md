@@ -6,7 +6,7 @@ EH-105 publishes a replacement instrumental snapshot before summary generation a
 
 - Separate immutable instrumental snapshot content from publication attempts/history and the document's current-publication pointer.
 - Introduce an inactive prepared publication that owns versioned findings and impression; normal readers continue to see only the previous current publication.
-- Add a current-only `document_extracted_findings` compatibility relation with the existing reader shape while immutable versioned findings move behind the publication pointer, so old readers cannot mix historical accepted rows during rollout.
+- Add a current-only `security_invoker` view named `document_extracted_findings` `document_extracted_findings` compatibility relation with the existing reader shape while immutable versioned findings move behind the publication pointer, so old readers cannot mix historical accepted rows during rollout.
 - Generate summary outside the database for one exact immutable `prepared_snapshot_id`, canonicalization version, and snapshot hash.
 - Finalize publication in one transaction that validates ownership and the active processing attempt, publishes measures/findings/impression/summary, supersedes the prior publication, advances the current pointer, completes the document/job, and invalidates synthesis.
 - Introduce the shared processing-attempt foundation: `documents.write_generation` with legacy value `0`, retained per-claim `document_processing_attempts`, and an atomic claim RPC. Prepare/finalize bind to `processing_attempt_id + write_generation`; durable deletion later extends the same attempts with lease token, expiry, heartbeat, cancellation, and storage intents.

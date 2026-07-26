@@ -27,21 +27,40 @@ Observation normalization projection is intentionally mutable under EH-104/EH-10
 
 ## Decisions
 
-### 1. Maintain one exact immutable-field contract
+### 1. Maintain one exact immutable-field and nullability matrix
 
-A shared database/application contract defines common immutable columns:
+Every protected field has one of three creation statuses per observation kind: **required**, **nullable** (may be null at INSERT and forever), or **forbidden** (MUST be null). After INSERT, every field below is immutable under `NEW.field IS DISTINCT FROM OLD.field`.
 
-- ownership/identity: `profile_id`, `document_id`, `observation_kind`;
-- raw evidence: `raw_name`, `raw_value_text`, `raw_reference_text`, `raw_unit`, `source_page`, `source_text`, `bounding_box`, `confidence`;
-- version provenance: `extraction_version`, `provenance_schema_version`, `catalog_manifest_version`, `catalog_manifest_digest`, `resolver_version`, `normalization_version`.
+| Field | `lab` | `instrumental` |
+| --- | --- | --- |
+| `profile_id` | required | required |
+| `document_id` | required | required |
+| `observation_kind` | required (`lab`) | required (`instrumental`) |
+| `source_extracted_biomarker_id` | required | forbidden |
+| `source_instrumental_measure_id` | forbidden | required |
+| `raw_name` | required | required |
+| `raw_value_text` | nullable | nullable |
+| `raw_reference_text` | nullable | forbidden |
+| `raw_unit` | nullable | nullable |
+| `source_page` | nullable | nullable |
+| `source_text` | nullable | nullable |
+| `bounding_box` | nullable | nullable |
+| `confidence` | nullable | nullable |
+| `extraction_version` | required | required |
+| `provenance_schema_version` | required | required |
+| `catalog_manifest_version` | required | forbidden |
+| `catalog_manifest_digest` | required | forbidden |
+| `resolver_version` | required | forbidden |
+| `normalization_version` | required | forbidden |
 
-Source-specific identity is also immutable:
+Notes:
 
-- laboratory: `source_extracted_biomarker_id` is required and immutable; `source_instrumental_measure_id` is null;
-- instrumental: `source_instrumental_measure_id` is required and immutable; `source_extracted_biomarker_id` is null;
-- any supported non-document/non-lab kind: an explicit source policy defines required/null source fields before deployment.
-
-The database compares each immutable column using `NEW.field IS DISTINCT FROM OLD.field`. Therefore null completion, clearing, and changed non-null values all fail; equal retries pass.
+- Laboratory raw unit/reference/value text may be null for unitless or qualitative printed results, but once set they cannot change.
+- Instrumental observations MUST NOT carry laboratory catalog/resolver/normalization provenance columns; those remain null and immutable.
+- Instrumental raw reference text is forbidden because instrumental measures do not use lab reference ranges on the observation row.
+- Any future non-document/non-lab kind MUST publish the same matrix before runtime writes are enabled.
+- Constraints/check constraints encode required/forbidden nullness at INSERT; the write-once trigger encodes immutability thereafter.
+- Equal idempotent retries pass only when every protected field is not distinct from the stored value.
 
 ### 2. Keep normalization projection separate and bounded
 
@@ -56,24 +75,36 @@ A constrained SECURITY DEFINER writer accepts observation identity, expected sou
 
 All other observation mutation must create/delete through source-specific lifecycle functions.
 
-### 3. Make functions the exclusive runtime mutation authority
+### 3. Make functions the exclusive runtime mutation authority for observations and authoritative sources
 
 After all callers are migrated:
 
 - revoke direct `INSERT`, `UPDATE`, and `DELETE` on `public.observations` from `service_role`, `authenticated`, `anon`, and `PUBLIC`;
+- revoke direct `INSERT`, `UPDATE`, and `DELETE` on authoritative source/revision tables that can mutate observation identity indirectly:
+  - `public.observation_normalization_revisions`
+  - `public.document_extracted_biomarkers`
+  - `public.document_extracted_instrumental_measures`
+  - versioned instrumental content/findings tables owned by atomic publication
 - retain SELECT only where existing server reads require it;
-- permit observation writes only through fixed-search-path SECURITY DEFINER functions with explicit ownership/source/version checks;
+- permit writes only through fixed-search-path SECURITY DEFINER functions with explicit ownership/source/version checks;
 - keep function ownership in the migration/admin role and grant execute only to `service_role` for the exact runtime functions;
 - revoke execute from `PUBLIC`, `anon`, and `authenticated`.
 
 The allowed runtime authorities are:
 
-- the EH-106 atomic laboratory source/revision/observation writer for laboratory creation;
-- the atomic instrumental prepare/finalizer writer for instrumental creation/publication;
-- the constrained normalization projection writer for the four mutable columns;
-- the durable deletion finalizer for direct observation deletion after storage proof.
+- the EH-106 atomic laboratory source/revision/observation writer for laboratory creation and revision append/activation;
+- the atomic instrumental prepare/finalizer writer for instrumental source/content/observation creation/publication;
+- the constrained normalization projection writer for the four mutable observation columns;
+- the durable deletion finalizer for direct observation and source/revision deletion after storage proof.
 
-No generic direct table fallback or broad observation mutation function remains.
+No generic direct table fallback or broad observation/source/revision mutation function remains.
+
+Cascade-capable parent paths MUST NOT silently delete or mutate observations outside those writers:
+
+- replace `observations_instrumental_source_owner_fk ... ON DELETE CASCADE` with `ON DELETE RESTRICT` (or equivalent deny), so deleting an instrumental measure cannot implicitly delete observations;
+- inventory and lock down every parent FK from profile/document/source/revision that can cascade into observations or clear protected lineage;
+- durable deletion deletes children explicitly in deterministic order inside its finalizer;
+- negative tests attempt indirect observation mutation/deletion through source, revision, document, and profile parents and expect denial or explicit finalizer-only success.
 
 ### 4. Remove runtime purge exceptions
 
@@ -119,6 +150,9 @@ If required laboratory/instrumental lineage/version evidence is unavailable, pre
 ## Risks / Trade-offs
 
 - **[Existing writer relies on direct table access]** → Complete source/RPC inventory and role-negative tests before revocation.
+- **[Revision/source table DML bypasses observation revocation]** → Revoke authoritative source/revision DML and route through the same exclusive writers.
+- **[ON DELETE CASCADE deletes observations indirectly]** → Switch instrumental source FK to RESTRICT and add parent-path negative tests.
+- **[Nullability matrix disagrees with writers]** → Encode one shared matrix in constraints, trigger tests, and writer validation.
 - **[Strict writer accidentally blocks projection]** → Keep the mutable list explicit and cover EH-106 projection success in pgTAP/API integration.
 - **[SECURITY DEFINER becomes broad authority]** → Fixed search path, private ownership, typed inputs, row locks, owner/source checks, and no arbitrary field payload.
 - **[Backfill manifest is stale]** → Exact old-row digest/evidence checks abort the whole transaction; regenerate/review rather than force.

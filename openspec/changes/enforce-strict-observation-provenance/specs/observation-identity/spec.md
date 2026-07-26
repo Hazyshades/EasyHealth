@@ -63,3 +63,14 @@ Strict identity enforcement MUST be deployed only after document deletion no lon
 - **WHEN** all callers use tombstone cleanup and transactional final purge
 - **THEN** direct row deletion removes observations without mutating immutable identity
 - **AND** no provenance bypass exists
+
+
+### Requirement: Observation identity respects the provenance nullability matrix
+
+Observation identity creation MUST satisfy the lab/instrumental required/nullable/forbidden provenance matrix before an observation id becomes durable. Identity retries MUST NOT complete forbidden or previously null protected fields in place.
+
+#### Scenario: Identity retry tries to complete null raw evidence
+
+- **WHEN** an existing observation has null nullable raw evidence and a retry supplies a non-null value for that field
+- **THEN** the identity writer rejects in-place completion
+- **AND** a new source/observation path is required for different evidence

@@ -38,9 +38,9 @@ Instrumental findings SHALL require no user acceptance action but SHALL become a
 
 ## ADDED Requirements
 
-### Requirement: Legacy findings relation is current-only during cutover
+### Requirement: Legacy findings relation is a current-only security-invoker view
 
-While old readers exist, `document_extracted_findings` MUST retain its existing read columns and MUST return only findings belonging to the authoritative current publication. Immutable historical findings SHALL live behind the versioned content relation; old workers MUST NOT write through the compatibility relation.
+While old readers exist, the system MUST rename physical findings storage to `document_extracted_finding_versions` linked by `snapshot_content_id` and MUST recreate `document_extracted_findings` as a PostgreSQL view `WITH (security_invoker = true)` that projects the legacy columns from the authoritative current-publication pointer only. The view MUST grant `SELECT` only to `service_role`, MUST revoke DML on the view and versioned table from runtime roles, and MUST preserve cross-profile isolation through pointer ownership keys.
 
 #### Scenario: Historical accepted findings exist
 
@@ -50,9 +50,29 @@ While old readers exist, `document_extracted_findings` MUST retain its existing 
 
 #### Scenario: Findings migration occurs
 
-- **WHEN** the physical legacy table is converted to versioned storage plus a compatibility relation
+- **WHEN** the physical legacy table is renamed and replaced by the security-invoker view
 - **THEN** old instrumental workers have already been drained
 - **AND** document detail, report eligibility, and structured context retain their current findings until reader cutover
+
+#### Scenario: Cross-profile isolation through the view
+
+- **WHEN** a service query or PostgREST request asks for findings of profile A
+- **THEN** no finding belonging only to profile B's current publication is returned
+- **AND** direct DML against the compatibility view is denied
+
+### Requirement: Document-level current projections equal the current publication
+
+At finalizer commit the document columns `document_summary`, `observed_at`, `modality`, `lab_name`, `processing_version`, and `extraction_model` MUST equal the authoritative current publication content/summary, and legacy measure `is_current` flags plus the findings view MUST equal that same current content. Any finalizer failure MUST leave every projection unchanged.
+
+#### Scenario: Finalizer commits a replacement
+
+- **WHEN** atomic finalization publishes content B over content A
+- **THEN** all six document projections, measure `is_current` flags, and findings-view rows equal publication B after commit
+
+#### Scenario: Finalizer rolls back
+
+- **WHEN** any finalizer step fails after preparing content B
+- **THEN** all six document projections and compatibility reads continue to equal publication A
 
 ### Requirement: Structured readers use the authoritative current publication
 

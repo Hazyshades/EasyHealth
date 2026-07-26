@@ -91,15 +91,79 @@ It validates exact content/summary/completion binding, supersedes the prior publ
 
 Only fixed-search-path claim, prepare, finalizer, attempt-transition, and cleanup functions are executable by `service_role`; `PUBLIC`, `anon`, and `authenticated` receive no execution or direct state-mutation grants. Functions validate document/profile/job/attempt ownership internally.
 
-### 6. Preserve old findings readers with a current-only relation
+### 6. Replace findings storage with an exact current-only security-invoker view
 
-Rollout pauses and drains old instrumental workers before the physical findings table changes. The migration moves/backfills instrumental findings into an immutable versioned relation linked to snapshot content, then preserves the existing PostgREST name `document_extracted_findings` as a read-compatible current-only view or equivalent projection with the columns old readers expect.
+Exact cutover decision (not "view or equivalent"):
 
-The compatibility relation resolves through the authoritative current pointer, so accepted historical, prepared, superseded, and abandoned findings never appear to old document-detail, report-eligibility, or structured-context readers. Old workers are not allowed to write through the compatibility relation; the replacement worker writes only through prepare/finalize RPCs.
+1. Pause/drain old instrumental workers.
+2. Rename the physical table `public.document_extracted_findings` → `public.document_extracted_finding_versions`.
+3. Add `snapshot_content_id uuid not null` (FK to immutable snapshot content, `ON DELETE RESTRICT`), keep `document_id`/`profile_id`, and drop any uniqueness that implied one current row set by document alone. Historical/prepared/superseded rows live only in this versioned table.
+4. Recreate `public.document_extracted_findings` as a PostgreSQL view with `WITH (security_invoker = true)` that projects the legacy PostgREST shape from the authoritative current pointer only.
 
-The finalizer keeps legacy instrumental-measure `is_current` projections equivalent to the pointer for old observation readers. New readers cut over behind equivalence checks. Compatibility projections and the old replacement RPC are removed only in a later gated cleanup after worker/reader inventory passes.
+Logical view definition:
 
-### 7. Backfill populated databases without inventing history
+```sql
+create view public.document_extracted_findings
+with (security_invoker = true)
+as
+select
+  v.id,
+  v.document_id,
+  v.profile_id,
+  v.modality,
+  v.body_region,
+  v.finding_text,
+  v.impression,
+  v.source_page,
+  v.source_text,
+  v.confidence,
+  v.extraction_method,
+  v.processing_version,
+  v.extraction_model,
+  'accepted'::text as status,
+  v.created_at
+from public.document_instrumental_current_publication cp
+join public.document_extracted_finding_versions v
+  on v.snapshot_content_id = cp.snapshot_content_id
+ and v.document_id = cp.document_id
+ and v.profile_id = cp.profile_id;
+```
+
+(`document_instrumental_current_publication` is the authoritative one-current pointer relation introduced by this change; exact table name may follow migration naming, but the join keys above are mandatory.)
+
+Security, grants, and isolation:
+
+- Underlying `document_extracted_finding_versions` keeps RLS enabled.
+- The view uses `security_invoker = true`, so PostgREST/service callers do not inherit owner bypass; privileges and RLS of the invoker apply to the underlying tables.
+- Grant `SELECT` on the view to `service_role` only. Revoke `INSERT`/`UPDATE`/`DELETE` on the view from `PUBLIC`, `anon`, `authenticated`, and `service_role`.
+- Revoke direct DML on `document_extracted_finding_versions` from runtime roles; only prepare/finalize SECURITY DEFINER functions write versions.
+- Profile isolation is enforced by `profile_id`/`document_id` equality through the current pointer. Service-role reads still MUST filter by the authenticated owner in application queries; pgTAP proves a cross-profile current pointer cannot surface another profile's findings through the view.
+- PostgREST shape remains the existing resource name `document_extracted_findings` with the projected columns above. No new embed hint is required for current readers.
+
+Old workers MUST NOT write through the compatibility view. Replacement workers write only through prepare/finalize RPCs into versioned storage.
+
+### 7. Keep every document-level current projection equal to the current publication
+
+At finalizer commit, these document columns MUST equal the authoritative current publication and MUST roll back with it:
+
+| Document projection | Equality source on current publication |
+| --- | --- |
+| `document_summary` | publication-attempt summary text/hash |
+| `observed_at` | immutable content study/observed date |
+| `modality` | immutable content modality |
+| `lab_name` | immutable content provider/facility label used for instrumental/lab display |
+| `processing_version` | immutable content processing version |
+| `extraction_model` | immutable content extraction model |
+
+Additionally:
+
+- legacy instrumental-measure `is_current` flags MUST equal the current pointer's content membership;
+- `document_extracted_findings` view rows MUST equal the current content's findings;
+- no prepared/superseded/abandoned child may appear in any of the above projections.
+
+New readers cut over behind equivalence checks comparing pointer-backed reads to these projections. Compatibility projections and the old replacement RPC are removed only in a later gated cleanup after worker/reader inventory passes.
+
+### 8. Backfill populated databases without inventing history
 
 Preflight classifies every instrumental document by source hash, current-row cardinality, ownership, observation linkage, job state, attachable current findings/summary, and generation-0 attempt state.
 
@@ -110,7 +174,7 @@ Preflight classifies every instrumental document by source hash, current-row car
 - Existing jobs/claims are quiesced; retained current state receives generation `0` and only provable attempt linkage.
 - Ambiguous retained data aborts. Explicitly disposable environments may reset and reprocess through a separately guarded path.
 
-### 8. Clean orphan preparations conservatively
+### 9. Clean orphan preparations conservatively
 
 Before durable deletion adds leases, cleanup may abandon a prepared publication only after its processing attempt is terminal and no finalizer can still own it. After the lease extension, lease expiry is additional evidence but never a substitute for deterministic lock/state validation. Cleanup never deletes immutable content referenced by current, superseded, or retained audit history. Repeated cleanup is idempotent.
 
@@ -119,7 +183,9 @@ Before durable deletion adds leases, cleanup may abandon a prepared publication 
 - **[More rows for unchanged reprocessing]** → Publication history is intentionally separate from deduplicated content and provides the required audit trail.
 - **[Worker and DB hashes diverge]** → DB is authoritative; golden fixtures and caller-hash rejection expose drift.
 - **[Legacy findings cannot be assigned historically]** → Attach only provable current data and record the limitation instead of fabricating lineage.
-- **[Old worker writes to the compatibility view]** → Pause/drain old workers before migration and resume only the RPC-based worker.
+- **[Old worker writes to the compatibility view]** → Pause/drain old workers before migration, revoke DML on the view/versioned table, and resume only the RPC-based worker.
+- **[security_invoker view still leaks across profiles]** → Join through owner-scoped current pointer keys and add cross-profile negative tests for the view and PostgREST resource.
+- **[Document projections drift from current publication]** → Finalizer updates summary/date/modality/lab_name/processing_version/extraction_model in the same transaction as the pointer; equivalence suite fails closed on drift.
 - **[Attempt and deletion leases diverge]** → PR 2 owns the base attempt/generation schema; durable deletion only extends it.
 - **[Deadlock with deletion/finalization]** → Both operations lock the document first and follow the shared order.
 - **[Prepared rows accumulate after crashes]** → Terminal-attempt cleanup abandons publications while retaining shared immutable content.

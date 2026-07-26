@@ -26,25 +26,27 @@ Planning needs one baseline and corrected DAG now. Release status must wait for 
 
 ## Decisions
 
-### 1. Split this change into Stage A and Stage B
+### 1. Keep Stage A in this change; put Stage B in a separate future change
 
-**Stage A merges before remediation:**
+**This change is Stage A only and merges before remediation:**
 
 - add an audit notice to the canonical EH-104 active change;
 - label archived Phase B/closeout as historical evidence;
 - label the `- backup` directory non-canonical without deleting it;
 - publish the corrected dependency DAG;
 - create the release ledger with every unexecuted mandatory gate `pending`;
-- preserve production/Sprint 1 `No-Go`.
+- preserve production/Sprint 1 `No-Go`;
+- delete accidental empty `$env`;
+- declare `.papercuts.jsonl` policy.
 
-**Stage B merges last:**
+**Stage B is the separate OpenSpec change `reconcile-sprint-one-release-evidence` and merges last:**
 
 - attach attributable implementation, CI, target, and manual evidence;
 - reconcile canonical EH-104 task/status only from that evidence;
 - migrate references and remove/archive the backup after strict validation;
 - update roadmap/issue/release closure only when all mandatory gates are passed.
 
-Stage A and Stage B may be delivered as separate commits/PRs from this one OpenSpec change. Stage A completion does not make the change or Sprint 1 complete.
+Stage A completion does not make Sprint 1 complete and MUST NOT edit final evidence/status fields.
 
 ### 2. Use the corrected dependency graph
 
@@ -60,10 +62,10 @@ EH-109 / EH-110 ---------------- independently startable       │ │
 all PRs + retained-DB preflight + concurrency/failure suites + production smoke
                                                                |
                                                                v
-PR 5B final evidence/status reconciliation -> Sprint 1 closure / production / EH-112
+PR 5B (`reconcile-sprint-one-release-evidence`) final evidence/status reconciliation -> Sprint 1 closure / production / EH-112
 ```
 
-PR 1 and PR 2 may start independently. PR 3 waits for PR 2 because deletion extends the same processing attempts/write generation and must fence prepared/current publication. PR 4 waits for PR 3 because strict immutable `document_id` is incompatible with lineage-nulling purge and requires direct row deletion. PR 5A happens now; PR 5B happens last.
+PR 1 and PR 2 may start independently. PR 3 waits for PR 2 because deletion extends the same processing attempts/write generation and must fence prepared/current publication. PR 4 waits for PR 3 because strict immutable `document_id` is incompatible with lineage-nulling purge and requires direct row deletion. PR 5A happens now in this change; PR 5B is the separate future change and happens last.
 
 PR 1's alias-drop migration is outside PR 1 and requires a later separately gated cleanup change after complete application/cache cutover evidence.
 
@@ -119,4 +121,5 @@ EH-109 and EH-110 can proceed independently because they do not depend on remedi
 - **[Historical archive is mistaken for current truth]** → Label it historical and link the superseding remediation/ledger.
 - **[Backup removal breaks references]** → Inventory repository, issue, QA, roadmap, and archive links before removal.
 - **[Pressure to close after green CI only]** → Mandatory target and manual gates have independent ids and cannot inherit CI status.
-- **[One reconciliation change spans time]** → Explicit Stage A/Stage B commits preserve ordering without pretending Stage A is final.
+- **[One reconciliation change spans time]** → Stage B lives in a separate OpenSpec change/PR; this Stage A change cannot close Sprint 1.
+- **[`.papercuts.jsonl` mistaken for release evidence]** → Explicit non-PHI process-ledger policy; gate ledger remains authoritative for Go/No-Go.

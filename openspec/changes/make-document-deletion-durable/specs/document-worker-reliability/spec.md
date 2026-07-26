@@ -57,3 +57,14 @@ The database suite MUST use separate concurrent sessions to cover deletion versu
 - **WHEN** a cleanup worker stops after claiming an operation
 - **THEN** another worker can take over only after the bounded lease expires
 - **AND** state/evidence guards prevent skipped storage or database steps
+
+
+### Requirement: Workers create storage objects only through minted upload capabilities
+
+Lease-aware document workers MUST register a storage-write intent and upload exclusively through the one-time path-bound signed capability returned by the intent RPC. Workers MUST NOT call Storage upload APIs with an unrestricted service-role key.
+
+#### Scenario: Worker loses its lease before capability mint
+
+- **WHEN** the attempt lease is expired or cancellation is requested
+- **THEN** the capability-minting RPC rejects the request
+- **AND** no new object is created for that document generation

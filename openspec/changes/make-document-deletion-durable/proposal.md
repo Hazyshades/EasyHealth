@@ -6,6 +6,9 @@ Document deletion currently commits laboratory lineage purge before unchecked st
 
 - Replace synchronous destructive deletion with a tombstone transaction that marks the document `deleting`, increments the shared write generation introduced by atomic publication, blocks new direct and cross-domain reads/signed URLs/mutations, cancels jobs, and inserts one authoritative deletion operation/queue row before returning `202 Accepted`.
 - Extend the shared `document_processing_attempts` model with generation-fenced lease token, expiry, heartbeat, cancellation, and registered storage-write intents. Do not create a second attempt or generation authority.
+- Replace unrestricted worker service-role Storage uploads with one-time path-bound signed upload capabilities minted only after a registered storage-write intent.
+- Persist reports and holistic synthesis only through atomic DB writers that lock source documents in sorted id order and revalidate source ids/generations at commit.
+- Restrict `ai_invocations.error_code` to allowlisted non-PHI codes and conservatively purge/redact legacy profile-level report/synthesis rows with `document_id IS NULL`.
 - Require generation-scoped storage paths, bounded write timeouts, lease expiry/release, a quiescence interval, paginated purge, and repeated stable-empty verification before final database purge.
 - Inventory and purge generation `0`: every legacy storage column, page preview/OCR path, arbitrary legacy document prefix, nested object, and later registered generation path.
 - Make the deletion operation itself the transactional outbox and authoritative queue; do not maintain a second queue whose state can diverge.

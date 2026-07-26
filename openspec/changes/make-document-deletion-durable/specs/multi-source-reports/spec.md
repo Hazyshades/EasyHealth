@@ -50,3 +50,19 @@ Eligibility, source loading, prompt/context construction, persistence, and final
 - **WHEN** a selected source is tombstoned during report generation
 - **THEN** generation cannot commit a new report containing its content
 - **AND** no summary preview or persisted narrative is exposed
+
+
+### Requirement: Report persistence is atomic and deletion-race safe
+
+Reports MUST be persisted only through a service-only fixed-search-path database writer that locks every exact source document in sorted UUID order, revalidates owner/active/not-deleting state and captured write generations at commit, and rejects persistence when any source was tombstoned or generation-drifted during generation. Direct `INSERT`/`UPDATE`/`DELETE` on `reports` MUST be revoked from runtime roles.
+
+#### Scenario: Tombstone occurs between context load and report insert
+
+- **WHEN** report generation loaded sources, then one source document is tombstoned before persist
+- **THEN** the report writer rejects the insert
+- **AND** no report row containing that source's PHI is committed
+
+#### Scenario: Direct report insert is attempted
+
+- **WHEN** service role issues a direct insert into `reports`
+- **THEN** permission is denied

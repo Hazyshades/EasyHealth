@@ -95,3 +95,36 @@ Deletion claim/finalize functions MUST be service-only with fixed search paths a
 
 - **WHEN** a caller from another profile requests the deletion operation
 - **THEN** the API returns 403 or 404 without revealing document identity, storage paths, or cleanup details
+
+
+### Requirement: Storage object creation uses a constrained upload capability
+
+Document workers MUST NOT create Storage objects with an unrestricted service-role key. Object creation MUST use a one-time signed upload capability minted by a fixed-search-path database function only after a storage-write intent is registered for an active non-tombstoned attempt/generation and exact server-generated path. A stale, expired, cancelled, or prior-generation worker MUST be unable to upload an unregistered object.
+
+#### Scenario: Stale worker attempts upload after tombstone
+
+- **WHEN** a worker with an expired/cancelled attempt or prior write generation requests an upload capability or uploads to a path
+- **THEN** capability minting is denied or the upload is not accepted for an unregistered path
+- **AND** deletion cleanup does not observe a durable unregistered object for that document
+
+#### Scenario: Valid worker uploads through minted capability
+
+- **WHEN** an active lease-aware attempt registers an intent and receives a path-bound signed capability
+- **THEN** it can upload only to that registered path before the capability TTL expires
+- **AND** completion RPC marks the intent complete only after fence revalidation
+
+### Requirement: ai_invocations retain only allowlisted non-PHI error codes
+
+`ai_invocations.error_code` MUST contain only an allowlisted non-PHI code and MUST NEVER store raw exception messages, filenames, prompts, responses, or clinical text. Legacy profile-level report/synthesis invocations with `document_id IS NULL` MUST be conservatively purged or redacted for the profile at tombstone unless exact source linkage proves the deleted document was not used.
+
+#### Scenario: LLM failure is logged
+
+- **WHEN** a provider call fails with a raw exception message
+- **THEN** the logger stores an allowlisted `error_code` only
+- **AND** the raw message is not persisted in `ai_invocations`
+
+#### Scenario: Profile-level synthesis invocation lacks document linkage
+
+- **WHEN** a document is tombstoned and profile-level report/synthesis `ai_invocations` rows have `document_id IS NULL` without exact source ids
+- **THEN** those rows are purged or redacted with the deletion operation
+- **AND** they are not retained as proof-free audit metadata

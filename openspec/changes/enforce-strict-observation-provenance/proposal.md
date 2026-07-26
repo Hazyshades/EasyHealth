@@ -15,6 +15,9 @@ Strict provenance cannot safely deploy before document deletion changes from lin
 - Add target-specific, manifest-driven, migration-only backfill for retained null provenance. The manifest records exact ids, old-row digests/null state, exact expected values, provenance source, owner, and writer/version. The private procedure is one-shot, idempotent for equal retry, aborts atomically on drift, has no runtime grant, and is revoked/dropped after use.
 - Replace the missing integration runner with real populated-migration plus pgTAP/role suites covering every source type, all null/value mutation matrices, equal retry, projection success, direct privilege negatives, and durable-delete success.
 
+- Publish the full required/nullable/forbidden matrix for every protected observation field by `lab` and `instrumental`.
+- Protect authoritative revision/source tables and cascade-capable parent paths so observation immutability cannot be bypassed by indirect DML or `ON DELETE CASCADE`.
+
 ## Capabilities
 
 ### New Capabilities

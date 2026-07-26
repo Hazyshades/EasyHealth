@@ -18,10 +18,11 @@
 
 - [ ] 3.1 Implement retained-database preflight for ownership, hash groups, current cardinality, observation linkage, job/attempt state, attachable findings/summary, and generation-0 backfill.
 - [ ] 3.2 Backfill provable measure groups as `legacy-v1` content/publications and attach only provable current findings/summary without fabricating history or attempt identity.
-- [ ] 3.3 Pause/drain old instrumental workers, migrate the physical findings storage to immutable content, and preserve `document_extracted_findings` as a current-only read-compatible relation.
-- [ ] 3.4 Add a transition projection that keeps legacy measure `is_current` fields equivalent to the authoritative pointer while old readers exist.
+- [ ] 3.3 Pause/drain old instrumental workers, rename physical findings to `document_extracted_finding_versions` with `snapshot_content_id`, and recreate `document_extracted_findings` as a `security_invoker=true` current-only view with SELECT-only grants and DML revocation.
+- [ ] 3.4 Add transition projections that keep legacy measure `is_current` and document columns `document_summary`, `observed_at`, `modality`, `lab_name`, `processing_version`, and `extraction_model` equal to the authoritative current publication while old readers exist.
 - [ ] 3.5 Add an explicitly guarded disposable reset/reprocess path and abort retained migration on ambiguous rows.
 - [ ] 3.6 Add populated fixtures for clean, ambiguous, mixed-current, missing-link, source-unknown findings, active-attempt, and `A → B → A` histories.
+- [ ] 3.7 Add pgTAP/PostgREST proofs for view column shape, cross-profile isolation, denied view DML, and security_invoker privilege behavior.
 
 ## 4. Prepare and atomic finalize RPCs
 
@@ -36,7 +37,7 @@
 - [ ] 5.1 Change instrumental extraction to use its processing attempt and prepare measures/findings/impression as one immutable content version before summary generation.
 - [ ] 5.2 Bind generated summary and completion payload to the exact prepared id/version/hash/attempt and invoke only the atomic finalizer for success.
 - [ ] 5.3 Ensure summary, prepare, and finalize failures follow guarded retry/failure policy without publishing prepared content or superseding prior current content.
-- [ ] 5.4 Prove old document-detail, report-eligibility, and structured-context findings readers remain current-only through the compatibility relation.
+- [ ] 5.4 Prove old document-detail, report-eligibility, and structured-context findings readers remain current-only through the security-invoker view and that document-level projections stay equal to the current publication.
 - [ ] 5.5 Cut document detail, document observations, reports, and structured context to the current-publication pointer with transition equivalence checks.
 - [ ] 5.6 Remove the legacy publish-on-materialize RPC and row-level reader authority only after worker/reader inventory proves cutover; defer compatibility-relation removal to a later cleanup.
 
@@ -48,7 +49,7 @@
 - [ ] 6.4 Add real two-session tests for competing claim/prepare/finalize, cleanup versus finalize, stale attempt, and current-pointer serialization.
 - [ ] 6.5 Add role/grant negative tests for direct attempt/publication/content mutation and claim/prepare/finalize/cleanup execution.
 - [ ] 6.6 Inject failure after every finalize step and prove full rollback plus idempotent retry.
-- [ ] 6.7 Add reader/API regressions proving the compatibility relation and new pointer never leak prepared, superseded, or abandoned children and switch coherent content at commit.
+- [ ] 6.7 Add reader/API regressions proving the compatibility view, document projections, and new pointer never leak prepared, superseded, or abandoned children and switch coherent content at commit.
 
 ## 7. Rollout and QA
 
