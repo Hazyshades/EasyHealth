@@ -24,13 +24,19 @@ Persisted holistic synthesis MUST be invalidated in the same transaction that to
 
 ### Requirement: Holistic synthesis persistence is atomic and deletion-race safe
 
-`profile_health_synthesis` MUST be upserted only through a service-only fixed-search-path database writer that locks the synthesis row and every exact source document in sorted UUID order, revalidates active/not-deleting state and captured write generations at commit, and rejects persistence after tombstone or generation drift. Direct table DML MUST be revoked from runtime roles.
+`profile_health_synthesis` MUST be upserted only through a service-only fixed-search-path database writer that locks in the global DAG — every exact source document in sorted UUID order, then the synthesis row — revalidates active/not-deleting state and captured content-epoch write generations at commit, and rejects persistence after tombstone or republish/reprocess generation drift. Direct table DML MUST be revoked from runtime roles.
 
 #### Scenario: Tombstone occurs between synthesis generation and upsert
 
 - **WHEN** synthesis text was generated from sources and one source is tombstoned before upsert
 - **THEN** the synthesis writer rejects the upsert
 - **AND** no cache row retaining that source's PHI remains
+
+#### Scenario: Republish occurs between synthesis generation and upsert
+
+- **WHEN** synthesis text was generated from sources and one source advances `write_generation` through successful finalize/republish before upsert
+- **THEN** the synthesis writer rejects the upsert
+- **AND** no cache row retaining the stale pre-republish context remains
 
 #### Scenario: Direct synthesis upsert is attempted
 

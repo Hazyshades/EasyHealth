@@ -18,12 +18,18 @@ Job claim MUST be one database transaction that locks an eligible job/document, 
 
 ### Requirement: Instrumental finalization uses deterministic ownership and lock order
 
-Prepare and finalize RPCs MUST validate document, profile, job, processing-attempt id, and captured write generation internally and SHALL lock document, active job, active attempt, current pointer, target preparation, content children, and synthesis in the documented deterministic order.
+Prepare and finalize RPCs MUST validate document, profile, job, processing-attempt id, and captured write generation internally, MUST enforce composite ownership equality on every content/publication/pointer child write, and SHALL lock document, active job, active attempt, current pointer, target preparation, content children, and synthesis in the shared global DAG (documents → jobs/attempts/publication → synthesis → reports). Successful current-publication advancement MUST increment content-epoch `write_generation` once; idempotent replay MUST NOT.
 
 #### Scenario: Prepared publication belongs to another document
 
 - **WHEN** a service caller attempts to finalize a prepared publication under a different document, profile, job, or attempt
 - **THEN** the database rejects the call before any state transition
+
+#### Scenario: Child row uses mismatched composite ownership
+
+- **WHEN** prepare attempts to insert a measure/finding/publication child whose parent uuid exists but `(profile_id, document_id)` do not match
+- **THEN** the composite foreign key rejects the write
+- **AND** no publication pointer advances
 
 #### Scenario: Two sessions finalize concurrently
 

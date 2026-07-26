@@ -9,10 +9,11 @@ EH-105 publishes a replacement instrumental snapshot before summary generation a
 - Add a current-only `security_invoker` view named `document_extracted_findings` `document_extracted_findings` compatibility relation with the existing reader shape while immutable versioned findings move behind the publication pointer, so old readers cannot mix historical accepted rows during rollout.
 - Generate summary outside the database for one exact immutable `prepared_snapshot_id`, canonicalization version, and snapshot hash.
 - Finalize publication in one transaction that validates ownership and the active processing attempt, publishes measures/findings/impression/summary, supersedes the prior publication, advances the current pointer, completes the document/job, and invalidates synthesis.
-- Introduce the shared processing-attempt foundation: `documents.write_generation` with legacy value `0`, retained per-claim `document_processing_attempts`, and an atomic claim RPC. Prepare/finalize bind to `processing_attempt_id + write_generation`; durable deletion later extends the same attempts with lease token, expiry, heartbeat, cancellation, and storage intents.
+- Introduce the shared processing-attempt foundation: content-epoch `documents.write_generation` with legacy value `0` (incremented on successful current-publication finalize/republish/reprocess and later on tombstone), retained per-claim `document_processing_attempts`, and an atomic claim RPC. Prepare/finalize bind to `processing_attempt_id + write_generation`; durable deletion later extends the same attempts with lease token, expiry, heartbeat, cancellation, and storage intents.
 - Define same-hash behavior for `PREPARED`, `CURRENT`, `SUPERSEDED`, and `ABANDONED`, including `A → B → A`, exact retry, stale worker, and concurrent finalizer cases.
-- Define a versioned canonical payload and hash algorithm, with database-side canonicalization/digest verification and exact-payload conflict rejection.
-- Add populated-database preflight/backfill for existing EH-105 snapshots, findings, summaries, and attempt/generation state; add service-only grants, ownership guards, and a deterministic lock order shared with durable deletion.
+- Define a versioned canonical payload and hash algorithm that includes `facility_name`, with database-side canonicalization/digest verification and exact-payload conflict rejection; document `lab_name` projects from current content.`facility_name`.
+- Enforce composite ownership FKs (`unique (id, profile_id, document_id)` parents + matching child FKs) for snapshot content, finding/measure children, publication history, current pointer, and processing attempts.
+- Add populated-database preflight/backfill for existing EH-105 snapshots, findings, summaries, and attempt/generation state; add service-only grants, ownership guards, and the global lock DAG shared with durable deletion and report/synthesis writers.
 - Add orphan-prepared cleanup that cannot remove content or publication history still eligible for retry or audit.
 
 ## Capabilities
@@ -34,6 +35,6 @@ EH-105 publishes a replacement instrumental snapshot before summary generation a
 - **Database:** additive snapshot-content, publication-history/current-pointer, processing-attempt, generation-0, preparation, hash-version, compatibility-view, and cleanup metadata; populated backfill and later legacy-path retirement.
 - **Worker:** claim creates a unique processing attempt; extraction prepares an inactive version, summarizes it, then invokes one service-only finalizer.
 - **Readers:** existing findings readers remain safe through a current-only compatibility relation, then cut over to the authoritative current-publication pointer.
-- **Dependency ownership:** this change owns `processing_attempt_id` and base `write_generation`; durable deletion extends the same contract rather than creating a second lease model.
+- **Dependency ownership:** this change owns `processing_attempt_id` and content-epoch `write_generation` increments on successful current publication; durable deletion extends the same contract (tombstone also increments) rather than creating a second lease/generation model.
 - **Delivery:** may be designed in parallel with the FK hotfix but must merge before durable deletion and before Sprint 1 production closure.
 - **Verification:** pgTAP, worker integration, populated migration fixtures, two-session concurrency tests, role/grant negatives, compatibility-reader tests, and failure injection at every finalizer step.

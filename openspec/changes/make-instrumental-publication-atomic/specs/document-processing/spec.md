@@ -12,7 +12,7 @@ The `documents` table SHALL track `processing_status` with values exposed to UI:
 #### Scenario: Instrumental pipeline completes
 
 - **WHEN** summary generation has completed for an exact prepared instrumental publication
-- **THEN** one transaction publishes that version, supersedes the prior current publication, writes its summary, completes the document, completes the job and attempt, and invalidates health synthesis
+- **THEN** one transaction publishes that version, supersedes the prior current publication, advances content-epoch `write_generation`, writes its summary, completes the document, completes the job and attempt, and invalidates health synthesis
 
 #### Scenario: Pipeline fails
 
@@ -37,6 +37,22 @@ The system MUST create one retained `document_processing_attempts` row for every
 - **WHEN** a previous attempt calls prepare or finalize after a new attempt owns the job
 - **THEN** its `processing_attempt_id` is rejected
 - **AND** it cannot mutate publication, document, job, or current-pointer state
+
+### Requirement: Write generation is a content epoch advanced by successful current publication
+
+`documents.write_generation` MUST advance by exactly one in the same transaction as a successful finalizer commit that newly advances the authoritative current publication, including republish, reprocess, and `A → B → A`. Idempotent replay of an already-committed finalizer result MUST NOT increment again. Prepare, failed finalize, and abandoned preparation MUST NOT increment. Durable deletion later increments the same field on tombstone.
+
+#### Scenario: Finalizer publishes a replacement snapshot
+
+- **WHEN** finalize successfully advances the current publication from content A to content B
+- **THEN** `documents.write_generation` increases by one in that transaction
+- **AND** later report/synthesis writers that captured the prior generation fail closed on revalidation
+
+#### Scenario: Finalizer replay is idempotent
+
+- **WHEN** the same committed attempt retries finalize with the same publication/completion digest
+- **THEN** the committed result is returned
+- **AND** `write_generation` is not incremented a second time
 
 ### Requirement: Instrumental findings and summary share the publication commit
 
@@ -86,7 +102,7 @@ During transition, the system MUST preserve `document_extracted_findings` as a c
 
 ### Requirement: Finalizer updates document current projections atomically
 
-Atomic instrumental finalization MUST update `documents.document_summary`, `documents.observed_at`, `documents.modality`, `documents.lab_name`, `documents.processing_version`, and `documents.extraction_model` in the same transaction as the current-publication pointer so those columns remain equal to the committed current publication.
+Atomic instrumental finalization MUST update `documents.document_summary`, `documents.observed_at`, `documents.modality`, `documents.lab_name` (from current content.`facility_name`), `documents.processing_version`, and `documents.extraction_model` in the same transaction as the current-publication pointer so those columns remain equal to the committed current publication.
 
 #### Scenario: Projection write fails
 

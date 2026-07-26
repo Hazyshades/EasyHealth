@@ -15,9 +15,9 @@ Current processing jobs expose only a mutable attempt count. Publication needs a
 - Keep measures, findings, and impression invisible until one atomic finalizer publishes them with summary and completion state.
 - Preserve immutable content while recording every publication transition, including `A → B → A`.
 - Keep old findings readers current-only throughout a controlled worker/reader cutover.
-- Define the shared processing-attempt and generation foundation that durable deletion later extends.
+- Define the shared processing-attempt and content-epoch `write_generation` foundation that durable deletion later extends and that report/synthesis writers use to detect republish during LLM latency.
 - Define deterministic hash, populated migration, retry, stale-worker, concurrency, and orphan behavior.
-- Share document-first locking and ownership rules with durable deletion.
+- Share the global lock DAG with durable deletion and report/synthesis writers: documents → jobs/attempts/publication → synthesis → reports.
 
 **Non-Goals:**
 
@@ -33,9 +33,9 @@ Current processing jobs expose only a mutable attempt count. Publication needs a
 
 Introduce these logical entities (exact names may follow migration conventions):
 
-- **snapshot content**: document/profile ownership, canonicalization version, canonical payload, hash, and immutable child measures/findings/impression; unique by `(document_id, canonicalization_version, snapshot_hash)`;
-- **publication attempt**: processing attempt id, content id, state (`prepared`, `current`, `superseded`, `abandoned`), summary, completion-payload digest, and transition timestamps;
-- **current pointer**: exactly one authoritative current publication per document.
+- **snapshot content**: document/profile ownership, canonicalization version, canonical payload (including `facility_name`), hash, and immutable child measures/findings/impression; unique by `(document_id, canonicalization_version, snapshot_hash)` and also `unique (id, profile_id, document_id)` for composite ownership FKs;
+- **publication attempt**: processing attempt id, content id, state (`prepared`, `current`, `superseded`, `abandoned`), summary, completion-payload digest, and transition timestamps; owns `(profile_id, document_id)` matching its content;
+- **current pointer**: exactly one authoritative current publication per document, keyed by document and carrying matching `(profile_id, document_id, snapshot_content_id)`.
 
 `prepared → current` and `prepared → abandoned` are allowed. `current → superseded` is allowed. `superseded` and `abandoned` are terminal. Content has no publication state and is never mutated.
 
@@ -59,25 +59,55 @@ For `A → B → A`, publication 1 references content A and becomes superseded, 
 Canonicalization version `eh105.instrumental-snapshot.v2` includes:
 
 - extraction schema, processing, and model versions;
-- study date, modality, and body region;
+- study date, modality, body region, and `facility_name` (provider/facility display label; may be null when absent on the source document);
 - every persisted immutable measure field, with explicit nulls and deterministic order by source locator plus occurrence;
 - every persisted immutable finding/impression field, with explicit source locator/ordinal and deterministic order.
+
+`facility_name` is part of immutable content and therefore part of the hash. Changing only the facility label produces a new content version. Document projection `documents.lab_name` equals current content.`facility_name` (null stays null).
 
 It excludes document/profile ids because uniqueness is already document-scoped, database ids, job/attempt ids, timestamps, publication state, and summary.
 
 The prepare RPC accepts structured payload and an optional caller digest, constructs the canonical JSONB with ordered arrays, computes SHA-256 with `pgcrypto`, and rejects a mismatched caller digest. Exact reuse compares stored canonical payload as well as version/hash; hash equality alone is never trusted. Cross-language golden fixtures prove worker and database representations agree.
 
-### 4. Introduce one retained processing attempt per claim
+### 4. Enforce composite ownership FKs for every publication entity
 
-This change introduces `documents.write_generation bigint not null default 0` and `document_processing_attempts`. Every atomic claim creates a new attempt row containing at least id, job/document/profile ownership, attempt number, captured write generation, lifecycle state, claim timestamp, and terminal timestamp. One partial constraint permits only one active attempt for a job/document according to the existing one-active-job policy.
+Follow the EH-105 instrumental measure pattern (`unique (id, profile_id, document_id)` + composite child FKs). Single-uuid parent FKs alone are insufficient because a child could attach a valid parent id under a mismatched profile/document.
 
-The worker receives `processing_attempt_id`; prepare, finalize, attempt failure/requeue, and orphan cleanup validate it against the active job and captured generation. A reclaimed or retried job receives a new attempt id, so the old worker cannot publish. A new attempt may reuse immutable content but creates its own publication event.
+Exact ownership matrix:
 
-Durable deletion reuses these rows and adds random lease token, expiry, heartbeat, cancellation, and storage-write-intent semantics. It increments the same `documents.write_generation` on tombstone. It must not introduce another attempt/lease table or a competing generation field.
+| Child | Parent | FK columns | Parent uniqueness required | ON DELETE |
+| --- | --- | --- | --- | --- |
+| snapshot content | `documents` / `profiles` | `document_id`, `profile_id` | existing document/profile PKs | `RESTRICT` or finalizer-only explicit delete (no silent cascade into observations) |
+| snapshot content | — | — | `unique (id, profile_id, document_id)` | — |
+| finding versions | snapshot content | `(snapshot_content_id, profile_id, document_id)` | content `unique (id, profile_id, document_id)` | `RESTRICT` |
+| measures (content children) | snapshot content | `(snapshot_content_id, profile_id, document_id)` | same | `RESTRICT` |
+| publication attempt/history | snapshot content | `(snapshot_content_id, profile_id, document_id)` | same | `RESTRICT` |
+| publication attempt/history | processing attempt / document | attempt id + matching `profile_id`/`document_id` | attempt ownership unique | `RESTRICT` |
+| current pointer | publication / content | `(publication_id or snapshot_content_id, profile_id, document_id)` | matching parent composite unique | `RESTRICT` |
+| processing attempts | document/profile/job | `document_id`, `profile_id`, `job_id` with matching ownership checks | one-active-attempt partial unique | no client cascade authority |
 
-### 5. Finalize in one transaction
+Writers MUST insert children with the same `(profile_id, document_id)` as the locked parent. pgTAP negatives MUST attempt cross-profile/cross-document attachment through a valid parent uuid and expect FK/check rejection.
 
-The finalizer validates and locks in this order:
+### 5. Introduce one retained processing attempt and a content-epoch write generation
+
+
+This change introduces `documents.write_generation bigint not null default 0` and `document_processing_attempts`. `write_generation` is a **content epoch**, not a deletion-only counter:
+
+- claim captures the current epoch on the attempt row;
+- a successful finalizer commit that advances the authoritative current publication MUST increment `write_generation` by exactly one in the same transaction (covers first publish, republish, reprocess, and `A → B → A`);
+- idempotent finalizer replay of an already-committed attempt MUST NOT increment again;
+- prepare, failed finalize, abandoned preparation, and equal no-op retries MUST NOT increment;
+- durable deletion later increments the same field on tombstone.
+
+Every atomic claim creates a new attempt row containing at least id, job/document/profile ownership, attempt number, captured write generation, lifecycle state, claim timestamp, and terminal timestamp. One partial constraint permits only one active attempt for a job/document according to the existing one-active-job policy.
+
+The worker receives `processing_attempt_id`; prepare, finalize, attempt failure/requeue, and orphan cleanup validate it against the active job and captured generation. A reclaimed or retried job receives a new attempt id, so the old worker cannot publish. A new attempt may reuse immutable content but creates its own publication event and, on successful current advancement, a new content epoch.
+
+Durable deletion reuses these rows and adds random lease token, expiry, heartbeat, cancellation, and storage-write-intent semantics. It must not introduce another attempt/lease table or a competing generation field.
+
+### 6. Finalize in one transaction
+
+The finalizer validates and locks in the shared global DAG (aligned with durable deletion / report / synthesis writers):
 
 1. document;
 2. active processing job;
@@ -85,19 +115,21 @@ The finalizer validates and locks in this order:
 4. current-publication pointer;
 5. target prepared publication;
 6. content and child rows in stable id order;
-7. synthesis row.
+7. `profile_health_synthesis` row when invalidated.
 
-It validates exact content/summary/completion binding, supersedes the prior publication, marks the target current, advances the pointer, updates compatibility projections, writes summary and document completion, completes the job/attempt, and invalidates synthesis. Any injected failure rolls back every step.
+It does not lock `reports` unless a future extension requires it; report writers lock reports after synthesis under the same DAG.
+
+It validates exact content/summary/completion binding, supersedes the prior publication, marks the target current, advances the pointer, increments `documents.write_generation` by one when this commit newly advances the current publication, updates compatibility projections, writes summary and document completion, completes the job/attempt, and invalidates synthesis. Idempotent replay of an already-committed finalizer result returns success without a second generation increment. Any injected failure rolls back every step, including the generation increment.
 
 Only fixed-search-path claim, prepare, finalizer, attempt-transition, and cleanup functions are executable by `service_role`; `PUBLIC`, `anon`, and `authenticated` receive no execution or direct state-mutation grants. Functions validate document/profile/job/attempt ownership internally.
 
-### 6. Replace findings storage with an exact current-only security-invoker view
+### 7. Replace findings storage with an exact current-only security-invoker view
 
 Exact cutover decision (not "view or equivalent"):
 
 1. Pause/drain old instrumental workers.
 2. Rename the physical table `public.document_extracted_findings` → `public.document_extracted_finding_versions`.
-3. Add `snapshot_content_id uuid not null` (FK to immutable snapshot content, `ON DELETE RESTRICT`), keep `document_id`/`profile_id`, and drop any uniqueness that implied one current row set by document alone. Historical/prepared/superseded rows live only in this versioned table.
+3. Add composite ownership to finding versions: `unique (id, profile_id, document_id)` if needed for downstream FKs, and `foreign key (snapshot_content_id, profile_id, document_id) references snapshot_content (id, profile_id, document_id) ON DELETE RESTRICT`. Keep `document_id`/`profile_id` on every version row and drop any uniqueness that implied one current row set by document alone. Historical/prepared/superseded rows live only in this versioned table.
 4. Recreate `public.document_extracted_findings` as a PostgreSQL view with `WITH (security_invoker = true)` that projects the legacy PostgREST shape from the authoritative current pointer only.
 
 Logical view definition:
@@ -142,7 +174,7 @@ Security, grants, and isolation:
 
 Old workers MUST NOT write through the compatibility view. Replacement workers write only through prepare/finalize RPCs into versioned storage.
 
-### 7. Keep every document-level current projection equal to the current publication
+### 8. Keep every document-level current projection equal to the current publication
 
 At finalizer commit, these document columns MUST equal the authoritative current publication and MUST roll back with it:
 
@@ -151,7 +183,7 @@ At finalizer commit, these document columns MUST equal the authoritative current
 | `document_summary` | publication-attempt summary text/hash |
 | `observed_at` | immutable content study/observed date |
 | `modality` | immutable content modality |
-| `lab_name` | immutable content provider/facility label used for instrumental/lab display |
+| `lab_name` | immutable content `facility_name` (null when content.facility_name is null) |
 | `processing_version` | immutable content processing version |
 | `extraction_model` | immutable content extraction model |
 
@@ -163,7 +195,7 @@ Additionally:
 
 New readers cut over behind equivalence checks comparing pointer-backed reads to these projections. Compatibility projections and the old replacement RPC are removed only in a later gated cleanup after worker/reader inventory passes.
 
-### 8. Backfill populated databases without inventing history
+### 9. Backfill populated databases without inventing history
 
 Preflight classifies every instrumental document by source hash, current-row cardinality, ownership, observation linkage, job state, attachable current findings/summary, and generation-0 attempt state.
 
@@ -174,7 +206,7 @@ Preflight classifies every instrumental document by source hash, current-row car
 - Existing jobs/claims are quiesced; retained current state receives generation `0` and only provable attempt linkage.
 - Ambiguous retained data aborts. Explicitly disposable environments may reset and reprocess through a separately guarded path.
 
-### 9. Clean orphan preparations conservatively
+### 10. Clean orphan preparations conservatively
 
 Before durable deletion adds leases, cleanup may abandon a prepared publication only after its processing attempt is terminal and no finalizer can still own it. After the lease extension, lease expiry is additional evidence but never a substitute for deterministic lock/state validation. Cleanup never deletes immutable content referenced by current, superseded, or retained audit history. Repeated cleanup is idempotent.
 
@@ -187,5 +219,8 @@ Before durable deletion adds leases, cleanup may abandon a prepared publication 
 - **[security_invoker view still leaks across profiles]** → Join through owner-scoped current pointer keys and add cross-profile negative tests for the view and PostgREST resource.
 - **[Document projections drift from current publication]** → Finalizer updates summary/date/modality/lab_name/processing_version/extraction_model in the same transaction as the pointer; equivalence suite fails closed on drift.
 - **[Attempt and deletion leases diverge]** → PR 2 owns the base attempt/generation schema; durable deletion only extends it.
-- **[Deadlock with deletion/finalization]** → Both operations lock the document first and follow the shared order.
+- **[Deadlock with deletion/finalization/report/synthesis]** → All follow the same global DAG starting with documents.
+- **[Generation increments twice on idempotent finalize retry]** → Only a commit that newly advances current publication increments; replay returns the committed result without a second bump.
 - **[Prepared rows accumulate after crashes]** → Terminal-attempt cleanup abandons publications while retaining shared immutable content.
+- **[`lab_name` drifts from content]** → `facility_name` is in canonical v2/hash; finalizer copies content.facility_name into `documents.lab_name`; golden fixtures cover null and non-null facility changes as content changes.
+- **[Child attaches valid parent uuid under wrong profile/document]** → Composite ownership FKs reject the write; single-uuid parent FKs are not sufficient.

@@ -7,12 +7,13 @@
 
 ## 2. Exclusive constrained writer boundary
 
-- [ ] 2.1 Harden the EH-106 laboratory writer with fixed search path, explicit owner/document/source/version validation, and exact creation column authority.
+- [ ] 2.1 Harden/extend the EH-106 laboratory writer family as the exclusive lab authority: staging `document_extracted_biomarkers`, observation create with full provenance matrix, revision append/activation via `write_`/`promote_..._v2`, and document-scoped supersession/reprocess; fixed search path and owner/document/source/version checks; no second writer family.
 - [ ] 2.2 Harden atomic instrumental publication functions with fixed search path, attempt/generation/source/version validation, and exact creation/publication authority.
-- [ ] 2.3 Replace broad projection mutation with one constrained writer that locks observation/revision, validates expected source/state, derives the four projection fields, and accepts no arbitrary column payload.
-- [ ] 2.4 Restrict durable deletion observation DELETE authority to its fixed-search-path finalizer after tombstone/storage/writer proof.
+- [ ] 2.3 Keep projection mutation inside the constrained EH-106 promote path (or one equivalent writer) that locks observation/revision, validates expected source/state, derives only the four projection fields, and accepts no arbitrary column payload.
+- [ ] 2.4 Restrict durable deletion observation/source DELETE authority to its fixed-search-path finalizer after tombstone/storage/writer proof; finalizer deletes children explicitly and does not rely on FK cascade.
 - [ ] 2.5 Revoke direct `INSERT`, `UPDATE`, and `DELETE` on observations and on authoritative revision/source tables (`observation_normalization_revisions`, `document_extracted_biomarkers`, `document_extracted_instrumental_measures`, versioned instrumental content/findings) from `service_role`, `authenticated`, `anon`, and `PUBLIC`; retain only required SELECT and exact service-only function execute grants.
-- [ ] 2.6 Replace `observations_instrumental_source_owner_fk` `ON DELETE CASCADE` with `ON DELETE RESTRICT` (or equivalent) and inventory every cascade-capable parent path that can mutate observations indirectly.
+- [ ] 2.6 Apply the exact parent FK matrix: convert `observations` profile/document and instrumental-source FKs, extracted-biomarker profile/document FKs, revision→biomarker/observation FKs, and instrumental-measure profile/document FKs from CASCADE/SET NULL to `ON DELETE RESTRICT`/`NO ACTION`; keep already-RESTRICT/NO ACTION edges; inventory any remaining cascade/set-null edges that can clear identity.
+- [ ] 2.7 Migrate every worker/API direct laboratory biomarker/observation/revision writer onto the EH-106 family before DML revoke; preflight fails on unknown remaining direct writers.
 
 ## 3. Populated preflight and reviewed backfill
 
@@ -38,7 +39,8 @@
 - [ ] 5.5 Test direct service_role/anon/authenticated insert/update/delete denial on observations and authoritative revision/source tables, plus exact function-execute grant negatives.
 - [ ] 5.6 Test manifest success, equal rerun, drift/absence/cross-owner/evidence mismatch, whole-transaction rollback, and post-use helper removal.
 - [ ] 5.7 Test durable document final deletion with strict trigger/privileges enabled and prove no surviving row has cleared identity/lineage.
-- [ ] 5.8 Test indirect observation mutation/deletion attempts through instrumental measure, extracted biomarker, revision, document, and profile parent paths and prove RESTRICT/finalizer-only behavior.
+- [ ] 5.8 Test indirect observation mutation/deletion attempts through instrumental measure, extracted biomarker, revision, document, and profile parent paths and prove RESTRICT/finalizer-only behavior. for every edge in the FK matrix.
+- [ ] 5.9 Test laboratory lifecycle through the EH-106 family only: stage biomarkers, create observation, append/activate revision, supersede/reprocess, and prove direct table DML denial after revoke.
 
 ## 6. Rollout and evidence
 

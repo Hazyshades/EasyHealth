@@ -18,7 +18,7 @@ Each active processing attempt SHALL use the retained processing-attempt id crea
 
 ### Requirement: Storage writes are registered and recoverable
 
-Before uploading, a worker MUST register a generation-scoped storage-write intent with lease token, server-generated path, start time, and bounded request deadline. It MUST perform a post-upload document/lease/generation check and record completion. A failed post-check or crashed request SHALL remain recoverable by the deletion operation.
+Before uploading, a worker MUST register a generation-scoped storage-write intent with lease token, server-generated path, start time, and bounded request deadline, then upload only through the app broker ticket/late-exchange path. It MUST perform a post-upload document/lease/generation check and record completion. A failed post-check or crashed request SHALL remain recoverable by the deletion operation or orphan sweeper.
 
 #### Scenario: Upload finishes after tombstone
 
@@ -59,12 +59,18 @@ The database suite MUST use separate concurrent sessions to cover deletion versu
 - **AND** state/evidence guards prevent skipped storage or database steps
 
 
-### Requirement: Workers create storage objects only through minted upload capabilities
+### Requirement: Workers create storage objects only through the app upload broker
 
-Lease-aware document workers MUST register a storage-write intent and upload exclusively through the one-time path-bound signed capability returned by the intent RPC. Workers MUST NOT call Storage upload APIs with an unrestricted service-role key.
+Lease-aware document workers MUST register a storage-write intent with the database, obtain a one-time short-lived app ticket from the app upload broker, late-exchange that ticket for a Storage signed upload URL, and complete the intent after object presence verification. The intent RPC MUST NOT return a Storage signed upload URL. Workers MUST NOT call Storage upload APIs with an unrestricted service-role key.
 
-#### Scenario: Worker loses its lease before capability mint
+#### Scenario: Worker loses its lease before broker ticket mint
 
 - **WHEN** the attempt lease is expired or cancellation is requested
-- **THEN** the capability-minting RPC rejects the request
+- **THEN** intent registration or broker ticket minting rejects the request
 - **AND** no new object is created for that document generation
+
+#### Scenario: Worker attempts direct service-role Storage upload
+
+- **WHEN** a lease-aware worker process is configured without Storage create credentials
+- **THEN** it can still register intents and use the broker
+- **AND** it cannot create objects by calling Storage upload with a service-role key

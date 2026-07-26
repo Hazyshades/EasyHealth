@@ -54,13 +54,19 @@ Eligibility, source loading, prompt/context construction, persistence, and final
 
 ### Requirement: Report persistence is atomic and deletion-race safe
 
-Reports MUST be persisted only through a service-only fixed-search-path database writer that locks every exact source document in sorted UUID order, revalidates owner/active/not-deleting state and captured write generations at commit, and rejects persistence when any source was tombstoned or generation-drifted during generation. Direct `INSERT`/`UPDATE`/`DELETE` on `reports` MUST be revoked from runtime roles.
+Reports MUST be persisted only through a service-only fixed-search-path database writer that locks in the global DAG — every exact source document in sorted UUID order, then `profile_health_synthesis` when contended, then report keys — revalidates owner/active/not-deleting state and captured content-epoch write generations at commit, and rejects persistence when any source was tombstoned or republished/reprocessed under a newer write generation during generation. Direct `INSERT`/`UPDATE`/`DELETE` on `reports` MUST be revoked from runtime roles.
 
 #### Scenario: Tombstone occurs between context load and report insert
 
 - **WHEN** report generation loaded sources, then one source document is tombstoned before persist
 - **THEN** the report writer rejects the insert
 - **AND** no report row containing that source's PHI is committed
+
+#### Scenario: Republish occurs between context load and report insert
+
+- **WHEN** report generation loaded sources, then one source document successfully finalizes a new current publication and advances `write_generation` before persist
+- **THEN** the report writer rejects the insert
+- **AND** no report row derived from the stale pre-republish context is committed
 
 #### Scenario: Direct report insert is attempted
 

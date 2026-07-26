@@ -6,8 +6,9 @@ Document deletion currently commits laboratory lineage purge before unchecked st
 
 - Replace synchronous destructive deletion with a tombstone transaction that marks the document `deleting`, increments the shared write generation introduced by atomic publication, blocks new direct and cross-domain reads/signed URLs/mutations, cancels jobs, and inserts one authoritative deletion operation/queue row before returning `202 Accepted`.
 - Extend the shared `document_processing_attempts` model with generation-fenced lease token, expiry, heartbeat, cancellation, and registered storage-write intents. Do not create a second attempt or generation authority.
-- Replace unrestricted worker service-role Storage uploads with one-time path-bound signed upload capabilities minted only after a registered storage-write intent.
-- Persist reports and holistic synthesis only through atomic DB writers that lock source documents in sorted id order and revalidate source ids/generations at commit.
+- Replace unrestricted worker and owner service-role Storage uploads with an app upload broker: DB registers path-bound storage-write intents only; the broker mints short-lived one-time app tickets and late-exchanges them for Storage signed upload URLs.
+- Redesign initial `/api/upload` to document/intent-first with orphan sweeper recovery; never leave an uploaded object without a durable document/intent row.
+- Persist reports and holistic synthesis only through atomic DB writers that share one global lock DAG (`documents` sorted UUID → jobs/attempts/publication → `profile_health_synthesis` → `reports`) and revalidate content-epoch `write_generation` at commit (tombstone or successful republish/reprocess/finalize advances the epoch).
 - Restrict `ai_invocations.error_code` to allowlisted non-PHI codes and conservatively purge/redact legacy profile-level report/synthesis rows with `document_id IS NULL`.
 - Require generation-scoped storage paths, bounded write timeouts, lease expiry/release, a quiescence interval, paginated purge, and repeated stable-empty verification before final database purge.
 - Inventory and purge generation `0`: every legacy storage column, page preview/OCR path, arbitrary legacy document prefix, nested object, and later registered generation path.
@@ -42,5 +43,6 @@ Document deletion currently commits laboratory lineage purge before unchecked st
 - **API:** `DELETE /api/documents/:id` becomes asynchronous and exposes an owner-scoped operation status; all cross-domain readers honor tombstone visibility.
 - **Database:** document lifecycle, extensions to shared processing attempts, storage-write intents, report source/invalidation metadata, retained deletion operations, and deterministic final purge.
 - **Storage:** generation-0 plus generation-scoped object inventory, complete pagination, retryable purge, and stable-empty verification.
+- **Upload broker:** Next.js/Edge broker owns Storage create credentials; workers and owner upload never mint Storage URLs themselves or use unrestricted service-role object creation.
 - **Worker:** processing and cleanup workers share document-first lock order and generation fencing.
 - **Delivery:** depends on atomic instrumental publication and its processing-attempt/generation foundation; strict provenance follows this change. Production and Sprint 1 closure remain blocked until target-environment cleanup smoke passes.

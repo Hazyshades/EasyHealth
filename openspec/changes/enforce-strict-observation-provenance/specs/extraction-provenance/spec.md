@@ -93,7 +93,20 @@ Direct `INSERT`, `UPDATE`, and `DELETE` privileges on `observations` MUST be rev
 
 ### Requirement: Cascade-capable parents cannot silently mutate observations
 
-Foreign keys from observation source/parent rows MUST NOT implicitly delete or clear protected observation identity outside the durable deletion finalizer. In particular, `observations_instrumental_source_owner_fk` MUST use `ON DELETE RESTRICT` (or equivalent deny) rather than `ON DELETE CASCADE`, and negative tests MUST cover source, revision, document, and profile parent deletes.
+Foreign keys that can delete observations or clear protected lineage/source identity MUST use `ON DELETE RESTRICT` or `ON DELETE NO ACTION`. The required matrix includes at least:
+
+- `observations.profile_id` → `profiles` `RESTRICT` (from `CASCADE`);
+- `observations.document_id` → `documents` `RESTRICT` (from `SET NULL`);
+- `observations.source_extracted_biomarker_id` → `document_extracted_biomarkers` keep `RESTRICT`;
+- `observations (normalization_revision_id, source_extracted_biomarker_id)` → revisions keep `NO ACTION`/`RESTRICT`;
+- `observations (source_instrumental_measure_id, profile_id, document_id)` → instrumental measures `RESTRICT` (from `CASCADE`);
+- `document_extracted_biomarkers` profile/document FKs → `RESTRICT` (from `CASCADE`);
+- `observation_normalization_revisions.extracted_biomarker_id` → `RESTRICT` (from `CASCADE`);
+- `observation_normalization_revisions.observation_id` → `RESTRICT`/`NO ACTION` (from `SET NULL`);
+- `document_extracted_instrumental_measures` profile/document FKs → `RESTRICT` (from `CASCADE`);
+- PR2 composite ownership FKs remain `RESTRICT`.
+
+Durable deletion MUST delete children explicitly through its constrained finalizer after storage proof. Negative tests MUST cover profile, document, extracted biomarker, instrumental measure, and revision parent deletes.
 
 #### Scenario: Instrumental measure delete is attempted while observations exist
 
@@ -101,11 +114,40 @@ Foreign keys from observation source/parent rows MUST NOT implicitly delete or c
 - **THEN** the delete is rejected
 - **AND** the observations remain unchanged
 
+#### Scenario: Document delete is attempted while observations exist
+
+- **WHEN** a caller deletes a `documents` row that still has observations outside the durable deletion finalizer
+- **THEN** the delete is rejected by `ON DELETE RESTRICT`
+- **AND** no observation `document_id` is cleared
+
+#### Scenario: Extracted biomarker delete is attempted while revisions or observations exist
+
+- **WHEN** a caller deletes a `document_extracted_biomarkers` row referenced by observations or revisions
+- **THEN** the delete is rejected
+- **AND** protected lineage remains intact
+
 #### Scenario: Durable finalizer deletes in explicit order
 
 - **WHEN** durable deletion has verified storage absence and runs final purge
 - **THEN** it deletes observations and source/revision rows explicitly through its constrained finalizer
 - **AND** no surviving observation has cleared lineage
+
+### Requirement: Laboratory writes use the extended EH-106 exclusive writer family
+
+Laboratory staging of `document_extracted_biomarkers`, observation creation, revision append/activation, and document-scoped supersession/reprocess MUST go only through the hardened EH-106 writer family (`write_observation_normalization_revision_v2`, `promote_observation_normalization_revision_v2`, and the staging/reprocess RPCs extended from that family). PR4 MUST NOT introduce a second laboratory writer family. After DML revoke, direct table writes to biomarkers/revisions/laboratory observations MUST fail.
+
+#### Scenario: Worker stages biomarkers through the EH-106 family
+
+- **WHEN** laboratory extraction persists extracted biomarkers for an owned active document
+- **THEN** it calls the service-only staging RPC in the EH-106 family
+- **AND** direct `INSERT` into `document_extracted_biomarkers` is denied after revoke
+
+#### Scenario: Laboratory reprocess supersedes without in-place identity mutation
+
+- **WHEN** a document is laboratory-reprocessed
+- **THEN** the reprocess RPC supersedes prior extracted biomarkers/active projections and creates the replacement set through the EH-106 family
+- **AND** protected fields on existing observations are not updated in place
+- **AND** child cleanup does not rely on `ON DELETE CASCADE`
 
 ### Requirement: Retained null provenance is backfilled only from an exact manifest
 

@@ -2,7 +2,7 @@
 
 ### Requirement: Instrumental findings staging table
 
-The system SHALL persist instrumental findings and impression as immutable children of one instrumental snapshot-content version, linked to the source document/profile and carrying deterministic source locator or ordinal, modality/body region, source page/text, confidence, extraction metadata, and prepared/publication visibility. Document-only linkage or accepted status SHALL NOT determine current visibility.
+The system SHALL persist instrumental findings and impression as immutable children of one instrumental snapshot-content version, linked by composite ownership `(snapshot_content_id, profile_id, document_id)` and carrying deterministic source locator or ordinal, modality/body region, source page/text, confidence, extraction metadata, and prepared/publication visibility. Document-only linkage or accepted status SHALL NOT determine current visibility.
 
 #### Scenario: Finding row is prepared
 
@@ -40,7 +40,7 @@ Instrumental findings SHALL require no user acceptance action but SHALL become a
 
 ### Requirement: Legacy findings relation is a current-only security-invoker view
 
-While old readers exist, the system MUST rename physical findings storage to `document_extracted_finding_versions` linked by `snapshot_content_id` and MUST recreate `document_extracted_findings` as a PostgreSQL view `WITH (security_invoker = true)` that projects the legacy columns from the authoritative current-publication pointer only. The view MUST grant `SELECT` only to `service_role`, MUST revoke DML on the view and versioned table from runtime roles, and MUST preserve cross-profile isolation through pointer ownership keys.
+While old readers exist, the system MUST rename physical findings storage to `document_extracted_finding_versions` linked by composite ownership FK `(snapshot_content_id, profile_id, document_id)` with `ON DELETE RESTRICT` and MUST recreate `document_extracted_findings` as a PostgreSQL view `WITH (security_invoker = true)` that projects the legacy columns from the authoritative current-publication pointer only. The view MUST grant `SELECT` only to `service_role`, MUST revoke DML on the view and versioned table from runtime roles, and MUST preserve cross-profile isolation through pointer ownership keys.
 
 #### Scenario: Historical accepted findings exist
 
@@ -62,12 +62,19 @@ While old readers exist, the system MUST rename physical findings storage to `do
 
 ### Requirement: Document-level current projections equal the current publication
 
-At finalizer commit the document columns `document_summary`, `observed_at`, `modality`, `lab_name`, `processing_version`, and `extraction_model` MUST equal the authoritative current publication content/summary, and legacy measure `is_current` flags plus the findings view MUST equal that same current content. Any finalizer failure MUST leave every projection unchanged.
+At finalizer commit the document columns `document_summary`, `observed_at`, `modality`, `lab_name` (equal to current content.`facility_name`), `processing_version`, and `extraction_model` MUST equal the authoritative current publication content/summary, and legacy measure `is_current` flags plus the findings view MUST equal that same current content. Any finalizer failure MUST leave every projection unchanged.
 
 #### Scenario: Finalizer commits a replacement
 
 - **WHEN** atomic finalization publishes content B over content A
 - **THEN** all six document projections, measure `is_current` flags, and findings-view rows equal publication B after commit
+
+
+#### Scenario: Facility label projects into lab_name
+
+- **WHEN** current immutable content has `facility_name = 'City Imaging'`
+- **THEN** `documents.lab_name` equals `City Imaging` after finalizer commit
+- **AND** a later content version with different `facility_name` updates `lab_name` only in that finalizer transaction
 
 #### Scenario: Finalizer rolls back
 

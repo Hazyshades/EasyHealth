@@ -6,7 +6,7 @@ Current signed URLs have a 900-second TTL. Once issued they are not individually
 
 Deletion also crosses database domains. `reports.content` and `summary_preview` can contain source PHI while `reports.document_ids = NULL` loses the actual historical source set. `profile_health_synthesis.synthesis_text` can retain deleted-document content. Observations and extraction rows remain physically present during asynchronous storage cleanup and therefore require tombstone-aware read boundaries.
 
-Atomic instrumental publication precedes this change and owns `documents.write_generation` plus retained `document_processing_attempts`. Deletion extends those primitives; it does not replace them.
+Atomic instrumental publication precedes this change and owns `documents.write_generation` plus retained `document_processing_attempts`. `write_generation` is a **content epoch**: PR 2 increments it on every successful finalizer commit that advances the current publication (including republish/reprocess/`A → B → A`); this change also increments it on tombstone. Idempotent finalizer replay of an already-committed attempt does not increment again. Deletion extends those primitives; it does not replace them or invent a second generation field.
 
 ## Goals / Non-Goals
 
@@ -14,15 +14,20 @@ Atomic instrumental publication precedes this change and owns `documents.write_g
 
 - Return `202 Accepted` only after a durable tombstone and deletion operation exist.
 - Prevent direct and cross-domain access after tombstone.
-- Fence already-running lease-aware workers with leases plus constrained signed upload capabilities instead of unrestricted service-role Storage uploads.
+- Fence already-running lease-aware workers with leases plus a constrained app upload broker instead of unrestricted service-role Storage uploads.
+- Replace the impossible “DB RPC returns a Storage signed upload URL” contract with an app-ticket + late-exchange broker that respects Supabase’s fixed ~2h `createSignedUploadUrl` TTL.
+- Make initial owner upload document-row/intent-first with orphan recovery, not object-before-row.
 - Purge every generation-0 and future storage path with pagination and stable-empty verification.
 - Define atomic report/synthesis writers, exact retention behavior, and allowlisted non-PHI ai_invocations policy.
+- Enforce one global lock DAG shared by deletion, publication finalization, and report/synthesis writers: documents (sorted UUID) → jobs/attempts/intents/publication → profile_health_synthesis → reports → deletion receipt.
+- Treat `write_generation` as a content epoch: advanced by successful current-publication finalize/republish/reprocess (PR 2) and by tombstone (this change).
 - Retain an owner-queryable, non-PHI operation receipt after document hard purge.
 
 **Non-Goals:**
 
 - Claim object storage participates in a PostgreSQL transaction.
-- Promise that a previously issued signed URL is synchronously revoked before its object is removed.
+- Claim PostgreSQL can mint Supabase Storage signed upload URLs or override Storage’s fixed ~2h upload-URL TTL.
+- Promise that a previously issued signed download URL is synchronously revoked before its object is removed.
 - Rewrite a multi-document report to remove one source while preserving its generated narrative.
 - Preserve document-derived clinical data after the requested hard purge.
 - Support unfenced legacy workers during rollout.
@@ -52,28 +57,105 @@ The owner deletion RPC locks the document, returns the existing operation for an
 
 All mutation/finalization RPCs validate the document generation and reject a tombstoned document. The deletion migration and route remain disabled until all document, Biomarkers, Health Profile, Reports, and structured-context readers exclude deleting documents and invalidated derivatives.
 
-### 3. Extend the shared attempt model with leases and a constrained upload capability
+### 3. Extend the shared attempt model with leases and an app upload broker
 
 A worker claim continues to create the PR 2 `document_processing_attempts` row and additionally receives a random lease token, expiry, and heartbeat obligation bound to the captured generation. Every database mutation validates `(processing_attempt_id, lease_token, write_generation, not deleting)`.
 
-Direct service-role Storage upload is removed from document workers. Upload capability is minted only after a storage-write intent is registered:
+#### 3.1 Why a broker exists
 
-1. Worker calls a fixed-search-path SECURITY DEFINER RPC with attempt id, lease token, generation, and operation kind.
-2. The RPC locks the document/attempt, rejects tombstoned/cancelled/expired/stale generations, server-generates the exact generation-scoped object path, inserts the intent (`pending`), and returns a **one-time signed upload capability** bound to that exact bucket/path/content-type and a short TTL ≤ the intent deadline.
-3. The worker uploads only through that signed capability. It never uses the unrestricted service-role key for object creation.
-4. After upload, the worker calls a completion RPC that verifies object presence at the registered path, re-checks the fence, and marks the intent `completed`. Fence failure triggers immediate remove-best-effort and leaves the intent recoverable by deletion cleanup.
+PostgreSQL SECURITY DEFINER functions cannot mint Supabase Storage signed upload URLs. Supabase JS `createSignedUploadUrl()` has a **fixed ~2 hour TTL** and does not accept `expiresIn`. Therefore this change MUST NOT require “DB RPC returns a short-TTL Storage signed upload URL.”
 
-A stale, expired, cancelled, or prior-generation worker cannot mint a capability and cannot upload an unregistered path even if it still holds an old service credential for DB access. Cleanup listing/removal uses a separate service-only storage maintenance path that cannot create objects outside registered deletion inventories.
+Chosen architecture:
 
-Tombstone prevents new intents and capability minting. Cleanup cannot pass `waiting_for_writers` until:
+1. **Database** owns fencing and path authority only.
+2. **App upload broker** (Next.js API route or Edge Function in the existing app trust boundary) owns the Storage secret and capability minting.
+3. **Short-lived one-time app tickets** provide the application TTL fence.
+4. **Late exchange** mints the Storage signed upload URL only immediately before bytes are sent.
+
+Rejected alternatives:
+
+- Worker-local signer: keeps Storage create credentials on every worker and weakens least privilege.
+- Accept bare 2h Storage URLs as the fence: forces deletion `waiting_for_writers` ≥ 2h after every capability.
+- Always proxy bytes through the broker: workable, but unnecessary if late exchange keeps Storage URL minting inside the broker and consumes the app ticket first.
+
+#### 3.2 Exact upload capability flow
+
+Direct service-role Storage object creation is removed from document workers and from owner `/api/upload`. Object creation uses this sequence only:
+
+```
+caller (worker or owner upload)
+        │
+        ▼
+DB RPC register_storage_write_intent
+  - locks document/attempt (worker) or creates/locks document row (initial upload)
+  - rejects tombstoned/cancelled/expired/stale generation
+  - server-generates exact bucket/path/content-type
+  - inserts intent row: pending, intent_id, path, generation, deadline
+  - returns intent_id + path metadata only (NO Storage URL)
+        │
+        ▼
+App broker POST /api/storage/upload-ticket (name may follow repo convention)
+  - authenticates owner session OR worker attempt/lease token
+  - revalidates intent fence via DB
+  - issues one-time app ticket TTL ≤ min(intent deadline, 120s)
+  - binds ticket to intent_id, bucket, path, content-type, generation, caller
+        │
+        ▼
+App broker POST /api/storage/upload-exchange
+  - consumes app ticket exactly once
+  - revalidates intent still pending/active/non-tombstoned
+  - only then calls Storage createSignedUploadUrl for the exact registered path
+  - returns the Storage upload URL for immediate use
+        │
+        ▼
+caller uploads bytes to Storage URL
+        │
+        ▼
+DB RPC complete_storage_write_intent
+  - verifies object presence at registered path
+  - re-checks fence
+  - marks intent completed
+```
+
+Rules:
+
+- The DB never returns a Storage signed upload URL.
+- The app ticket is the short-TTL, one-time capability. Ticket reuse/expiry fails closed.
+- The Storage signed upload URL is an implementation detail of late exchange. Fence and deletion quiescence are keyed off intent state, app-ticket expiry/consumption, and a bounded post-exchange upload window (≤ intent deadline), **not** off Storage’s residual 2h URL lifetime.
+- If exchange succeeds but completion fails, the registered path is remove-best-effort and remains recoverable by deletion/orphan cleanup.
+- Cleanup listing/removal uses a separate service-only storage maintenance path that cannot create objects outside registered deletion inventories.
+
+#### 3.3 Initial owner upload is document/intent-first
+
+Current `/api/upload` uploads the object, then inserts the document row. If insert fails, Storage retains an orphan outside deletion inventory.
+
+Required lifecycle:
+
+1. Authenticate owner and validate file metadata.
+2. Allocate `document_id` and create the document row (or an equivalent durable pre-upload reservation) in generation `0` with server-chosen original path, without claiming the object already exists.
+3. Register a storage-write intent for that exact original path.
+4. Mint app ticket → late-exchange → upload through the broker.
+5. Complete the intent only after object presence verification.
+6. Enqueue processing only after intent completion.
+7. On any failure before completion: mark document/upload failed or delete the incomplete document reservation, and enqueue orphan cleanup for the registered path.
+
+An orphan sweeper MUST periodically:
+
+- remove Storage objects for expired/failed intents whose completion never happened;
+- remove or finalize incomplete document reservations with no completed original-object intent;
+- ignore completed intents and active non-expired tickets still inside their bounded window.
+
+#### 3.4 Writer quiescence after tombstone
+
+Tombstone prevents new intents and app-ticket minting/exchange. Cleanup cannot pass `waiting_for_writers` until:
 
 - every prior-generation processing lease is released or expired;
-- every registered write intent is completed or takeover-eligible;
-- the maximum bounded storage request duration has elapsed after the last unresolved intent/lease;
-- no compatible worker can still publish through a valid finalizer token;
-- no unexpired signed upload capability remains for the document/generation.
+- every registered write intent is completed, failed/terminal, or takeover-eligible;
+- every unexpired app ticket for the document/generation is expired or consumed;
+- the bounded post-exchange upload window after the last consumed ticket has elapsed;
+- no compatible worker can still publish through a valid finalizer token.
 
-This fences already-running lease-aware workers. Rollout must pause and drain old workers that still call `storage.upload` with the service key before the tombstone API is enabled.
+This fences already-running lease-aware workers without waiting a blanket 2 hours for every Storage URL. Rollout must pause and drain old workers/routes that still call `storage.upload` with the service key before the tombstone API is enabled.
 
 ### 4. Inventory generation 0 and every future storage path
 
@@ -96,11 +178,20 @@ Listing follows every nested prefix and storage page without fixed first-page as
 
 New reports MUST be inserted only by a fixed-search-path SECURITY DEFINER writer (for example `persist_owner_report`). Direct `INSERT`/`UPDATE`/`DELETE` on `public.reports` are revoked from `service_role`, `authenticated`, `anon`, and `PUBLIC`.
 
+**Global lock DAG (mandatory for every writer in this change and PR 2):**
+
+1. source `documents` in sorted UUID order;
+2. jobs / processing attempts / storage intents in id order when touched;
+3. publication pointer / content children in id order when touched;
+4. `profile_health_synthesis` for the profile when touched;
+5. `reports` rows / report contention keys when touched;
+6. deletion operation / receipt when touched.
+
 Writer contract:
 
 1. Accept owner/profile, requested scope, exact non-null `source_document_ids`, per-document `write_generation` snapshot captured before LLM work, title/type/detail flags, and generated content/summary.
-2. Lock every source document row in sorted UUID order, then lock the profile synthesis/report contention keys needed for the write.
-3. At commit, revalidate each source id is owned, active/not deleting, and still at the captured write generation; reject if any source was tombstoned or republished under a new generation.
+2. Lock only in the global DAG: every source document (sorted UUID), then `profile_health_synthesis` if contended, then the report write keys. Never lock synthesis or reports before documents.
+3. At commit, revalidate each source id is owned, active/not deleting, and still at the captured write generation; reject if any source was tombstoned **or** advanced to a newer content epoch by successful republish/reprocess/finalize during LLM latency.
 4. Persist both requested scope and the exact `source_document_ids` used to generate `content`/`summary_preview`.
 5. Existing reports with explicit `document_ids` backfill that exact source set. Existing `document_ids = NULL` reports are marked `source_scope_known = false` rather than assigned invented sources.
 
@@ -120,8 +211,8 @@ The final database transaction deletes those invalidated report rows. Deletion-v
 Writer contract:
 
 1. Accept profile id, exact sorted `source_document_ids`, per-document write generations captured before LLM work, input hash, model metadata, and synthesis text.
-2. Lock the synthesis row and every source document in sorted UUID order.
-3. At commit, revalidate each source is owned, active/not deleting, and still at the captured write generation; reject if tombstone or generation drift occurred during LLM latency.
+2. Lock only in the global DAG: every source document in sorted UUID order, then the `profile_health_synthesis` row. Never lock synthesis before documents.
+3. At commit, revalidate each source is owned, active/not deleting, and still at the captured write generation; reject if tombstone or content-epoch drift (successful republish/reprocess/finalize) occurred during LLM latency.
 4. Upsert only after those checks pass.
 
 The tombstone transaction removes or invalidates `profile_health_synthesis` for the profile. Regeneration uses only active documents; a cached synthesis containing the deleting document is never served. Deletion-versus-synthesis races are covered by two-session tests that tombstone between context load and upsert.
@@ -148,15 +239,16 @@ After tombstone, APIs never mint or return a new document, page, or thumbnail UR
 
 ### 9. Purge database data only after storage proof
 
-After stable-empty verification, one final transaction locks in this order:
+After stable-empty verification, one final transaction locks in the global DAG:
 
 1. document;
-2. deletion operation;
-3. jobs, processing attempts/leases, and write intents in id order;
-4. prepared/current publication pointer and history in id order;
-5. observations, normalization/extraction/audit rows, invalidated reports, and other derived rows in deterministic table/id order;
-6. document;
-7. retained independent deletion receipt completion.
+2. jobs, processing attempts/leases, and write intents in id order;
+3. prepared/current publication pointer and history in id order;
+4. `profile_health_synthesis` when present;
+5. invalidated reports and other derived rows in deterministic table/id order;
+6. observations, normalization/extraction/audit rows in deterministic table/id order;
+7. deletion operation / retained independent receipt;
+8. document hard delete last among PHI rows, then receipt completion.
 
 It revalidates generation, tombstone state, no live writers, and storage-verification evidence; then hard-purges derived rows and the document and marks the independent operation receipt completed. Failure rolls back the database purge and leaves the operation retryable.
 
@@ -170,12 +262,20 @@ Repeated owner DELETE returns the same operation. Cleanup claims are leased. Eac
 
 - **[Previously issued URL remains temporarily valid]** → Bound exposure by the existing 900-second TTL and start object removal immediately; do not report completion early.
 - **[Storage upload finishes after a first empty listing]** → Registered intents, quiescence, generation prefixes, and repeated stable-empty listings prevent final completion.
-- **[Legacy worker ignores fences]** → Pause/drain it during rollout before enabling the new DELETE contract; revoke service-role Storage create/upload from worker runtime credentials.
-- **[Signed upload capability is stolen or reused]** → One-time path-bound TTL token minted only for a registered intent; completion RPC rejects path/generation mismatch.
+- **[Legacy worker/route ignores fences]** → Pause/drain old workers and `/api/upload` before enabling the new DELETE contract; revoke service-role Storage create/upload from worker runtime credentials; force all object creation through the broker.
+- **[App ticket or exchanged Storage URL is stolen or reused]** → One-time short-TTL app ticket; exchange consumes it; completion RPC rejects path/generation mismatch; orphan sweeper removes incomplete registered paths.
+- **[Storage URL still valid ~2h after exchange]** → Do not key quiescence on Storage TTL; key it on ticket consumption + bounded post-exchange window + intent completion/failure; treat late objects via registered-path cleanup and stable-empty verification.
+- **[Initial upload fails after document reservation]** → Document/intent-first lifecycle plus orphan sweeper removes reservation and registered object; processing is not enqueued until intent completion.
 - **[Report/synthesis LLM finishes after tombstone]** → DB writers revalidate sorted document locks and write generations at commit and reject the persist.
 - **[ai_invocations stores error.message PHI]** → Allowlisted codes only; CI grep and logger tests forbid raw message persistence.
 - **[Source-unknown reports are over-invalidated]** → Prefer privacy-safe deletion to retaining narrative that may contain deleted-document PHI.
 - **[Cross-domain reader misses tombstone filtering]** → Inventory and test every service-role consumer before enabling the route.
 - **[Observability metadata later gains payload fields]** → Retention preflight fails closed and final purge includes those rows.
 - **[Operation receipt retains PHI]** → Store identifiers/state/digests only; prohibit filename, extracted text, raw path, or clinical payload.
-- **[Deletion and finalization deadlock]** → Both lock document first and use the shared order.
+- **[Deletion and finalization deadlock]** → Every writer follows the same global DAG: documents (sorted) → jobs/attempts/intents/publication → synthesis → reports → deletion receipt.
+- **[Report/synthesis miss a republish during LLM latency]** → Content-epoch `write_generation` advances on successful finalize/republish/reprocess as well as tombstone; commit-time generation revalidation rejects the stale persist.
+
+## Open Questions
+
+- Exact Next.js route vs Edge Function hosting for the broker endpoints (same-process Next API is acceptable if secrets stay server-only).
+- Whether initial-upload document reservation is the final `documents` row in a pre-ready state or a separate reservation table that promotes on intent completion. Prefer the final `documents` row if existing status machine can represent “upload pending.”

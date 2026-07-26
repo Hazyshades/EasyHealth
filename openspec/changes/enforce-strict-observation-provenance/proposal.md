@@ -16,7 +16,8 @@ Strict provenance cannot safely deploy before document deletion changes from lin
 - Replace the missing integration runner with real populated-migration plus pgTAP/role suites covering every source type, all null/value mutation matrices, equal retry, projection success, direct privilege negatives, and durable-delete success.
 
 - Publish the full required/nullable/forbidden matrix for every protected observation field by `lab` and `instrumental`.
-- Protect authoritative revision/source tables and cascade-capable parent paths so observation immutability cannot be bypassed by indirect DML or `ON DELETE CASCADE`.
+- Publish the exact parent FK action matrix for profile/document/source/revision/measure edges and convert cascade/set-null identity paths to `ON DELETE RESTRICT`/`NO ACTION`; durable deletion remains the only explicit child deleter.
+- Harden/extend the existing EH-106 laboratory writer into the exclusive laboratory lifecycle authority covering staging extracted biomarkers, observation create, revision append/activation, and supersession/reprocess (no second writer family).
 
 ## Capabilities
 
@@ -32,7 +33,7 @@ Strict provenance cannot safely deploy before document deletion changes from lin
 
 - **Domain:** documents.
 - **Database:** trigger replacement, runtime table-privilege revocation, constrained writer functions, target-specific migration manifest/procedure, and removal of the temporary purge bypass.
-- **Writers:** EH-106 laboratory writer, atomic instrumental finalizer, normalization projection writer, and durable deletion finalizer become the only observation mutation authorities.
+- **Writers:** the extended EH-106 laboratory writer family (stage/create/revise/reprocess), atomic instrumental finalizer, constrained projection writer, and durable deletion finalizer become the only observation/source mutation authorities; parent FKs deny silent cascades.
 - **Security:** service-role possession alone cannot issue arbitrary observation inserts/updates/deletes; function inputs and database source/owner checks bound every write.
 - **Verification:** populated migration, pgTAP, direct-role negatives, equal retry, writer success, and durable-delete integration run in CI and target preflight/smoke.
 - **Delivery:** depends on durable document deletion. This change is required before production/Sprint 1 closure and must record removal of both temporary purge paths.

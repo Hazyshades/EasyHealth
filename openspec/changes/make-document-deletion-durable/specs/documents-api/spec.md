@@ -47,3 +47,20 @@ The owner status response MUST include only operation identifier, coarse state, 
 - **WHEN** an owner queries a completed retained deletion operation after the document row is gone
 - **THEN** the API returns the non-PHI completion receipt
 - **AND** document content is unavailable
+
+### Requirement: Initial owner upload no longer writes Storage before the document row
+
+`POST /api/upload` MUST create the document reservation and storage-write intent before object creation, upload only through the app upload broker, and enqueue processing only after intent completion. It MUST NOT upload an object and then insert the document row as separate unlinked steps.
+
+#### Scenario: Upload request is accepted
+
+- **WHEN** an authenticated owner uploads a valid PDF/JPEG/PNG
+- **THEN** a document reservation and registered intent exist before Storage object creation
+- **AND** the response is returned only after intent completion or a failed-closed cleanup path
+
+#### Scenario: Partial upload failure
+
+- **WHEN** broker exchange, Storage object creation, or intent completion fails
+- **THEN** the API does not leave a successful document processing enrollment
+- **AND** orphan cleanup owns any registered path
+

@@ -1,25 +1,26 @@
 ## 1. Processing-attempt and generation foundation
 
-- [ ] 1.1 Add `documents.write_generation` with retained legacy value `0` and monotonic constraints compatible with later deletion fencing.
+- [ ] 1.1 Add content-epoch `documents.write_generation` with retained legacy value `0`, monotonic constraints, increment on successful current-publication finalize, no increment on idempotent replay, and compatibility with later tombstone increment.
 - [ ] 1.2 Add retained `document_processing_attempts` with job/document/profile ownership, attempt number, captured generation, lifecycle/timestamps, and one-active-attempt constraints.
 - [ ] 1.3 Replace client select-then-update claim with one fixed-search-path atomic claim RPC that creates and returns `processing_attempt_id`.
 - [ ] 1.4 Update guarded retry, failure, reclaim, and completion transitions so every new claim has a new attempt and stale attempts cannot mutate job/document state.
-- [ ] 1.5 Document the extension boundary: durable deletion adds lease token/expiry/heartbeat/cancellation/intents to these attempts and reuses the same write generation.
+- [ ] 1.5 Document the extension boundary: durable deletion adds lease token/expiry/heartbeat/cancellation/intents to these attempts and increments the same content-epoch write generation on tombstone.
 
 ## 2. Canonical content and publication state
 
-- [ ] 2.1 Define the immutable v2 canonical payload field list, null/numeric/string rules, array ordering, and SHA-256 version prefix in shared types and golden fixtures.
+- [ ] 2.1 Define the immutable v2 canonical payload field list including `facility_name` (nullable), null/numeric/string rules, array ordering, and SHA-256 version prefix in shared types and golden fixtures; prove facility-only changes alter the hash.
 - [ ] 2.2 Add database canonicalization/digest computation and reject caller hash or exact-payload mismatches.
 - [ ] 2.3 Add snapshot-content, publication-history, and authoritative current-pointer schema with terminal-state and one-current constraints.
 - [ ] 2.4 Link measures, findings, and impression to immutable content and bind summary/publication/completion digests to processing-attempt-owned publication events.
-- [ ] 2.5 Add indexes and ownership constraints for document/version/hash reuse, attempt ownership, state cleanup, and current-reader lookup.
+- [ ] 2.5 Add indexes and composite ownership constraints: every snapshot-content/publication/pointer/attempt/child table carries matching `profile_id`/`document_id`; parents expose `unique (id, profile_id, document_id)`; children use composite FKs with `ON DELETE RESTRICT`; add cross-owner negative fixtures.
+- [ ] 2.6 Map document projection `lab_name` to content.`facility_name` and include facility null/non-null cases in prepare/finalize equivalence tests.
 
 ## 3. Populated migration and compatibility reader bridge
 
 - [ ] 3.1 Implement retained-database preflight for ownership, hash groups, current cardinality, observation linkage, job/attempt state, attachable findings/summary, and generation-0 backfill.
 - [ ] 3.2 Backfill provable measure groups as `legacy-v1` content/publications and attach only provable current findings/summary without fabricating history or attempt identity.
 - [ ] 3.3 Pause/drain old instrumental workers, rename physical findings to `document_extracted_finding_versions` with `snapshot_content_id`, and recreate `document_extracted_findings` as a `security_invoker=true` current-only view with SELECT-only grants and DML revocation.
-- [ ] 3.4 Add transition projections that keep legacy measure `is_current` and document columns `document_summary`, `observed_at`, `modality`, `lab_name`, `processing_version`, and `extraction_model` equal to the authoritative current publication while old readers exist.
+- [ ] 3.4 Add transition projections that keep legacy measure `is_current` and document columns `document_summary`, `observed_at`, `modality`, `lab_name` (= content.`facility_name`), `processing_version`, and `extraction_model` equal to the authoritative current publication while old readers exist.
 - [ ] 3.5 Add an explicitly guarded disposable reset/reprocess path and abort retained migration on ambiguous rows.
 - [ ] 3.6 Add populated fixtures for clean, ambiguous, mixed-current, missing-link, source-unknown findings, active-attempt, and `A → B → A` histories.
 - [ ] 3.7 Add pgTAP/PostgREST proofs for view column shape, cross-profile isolation, denied view DML, and security_invoker privilege behavior.
@@ -27,8 +28,8 @@
 ## 4. Prepare and atomic finalize RPCs
 
 - [ ] 4.1 Implement service-only prepare with attempt/generation ownership validation, DB hash verification, exact-payload reuse, and full same-hash state matrix.
-- [ ] 4.2 Implement atomic finalize with document-first deterministic lock order, attempt/generation and prepared-summary binding, publication/current-pointer transitions, compatibility projections, document/job/attempt completion, and synthesis invalidation.
-- [ ] 4.3 Implement exact idempotent finalizer replay and reject divergent publication/completion digest, stale attempt, cross-owner, terminal-job, and generation mismatch calls.
+- [ ] 4.2 Implement atomic finalize with the global lock DAG, attempt/generation and prepared-summary binding, publication/current-pointer transitions, content-epoch `write_generation` increment when current advances, compatibility projections, document/job/attempt completion, and synthesis invalidation.
+- [ ] 4.3 Implement exact idempotent finalizer replay without a second `write_generation` increment, and reject divergent publication/completion digest, stale attempt, cross-owner, terminal-job, and generation mismatch calls.
 - [ ] 4.4 Implement conservative orphan-preparation abandonment with terminal-attempt and lock checks; leave lease-expiry extension to durable deletion.
 - [ ] 4.5 Fix function search paths and revoke direct state mutation/execute from PUBLIC, anon, and authenticated; grant only required service operations.
 
@@ -43,9 +44,9 @@
 
 ## 6. Database and worker verification
 
-- [ ] 6.1 Add pgTAP for atomic claim, unique attempts, generation capture, stale-attempt rejection, and guarded retry/reclaim.
+- [ ] 6.1 Add pgTAP for atomic claim, unique attempts, generation capture, successful-finalize generation increment, idempotent-replay non-increment, stale-attempt rejection, and guarded retry/reclaim.
 - [ ] 6.2 Add pgTAP for PREPARED, CURRENT, SUPERSEDED, and ABANDONED same-hash behavior, including unchanged replay and `A → B → A`.
-- [ ] 6.3 Add DB/worker golden tests for v1/v2 canonicalization, field changes, reordered arrays, hash conflict, and exact-payload comparison.
+- [ ] 6.3 Add DB/worker golden tests for v1/v2 canonicalization (including `facility_name`), field changes, reordered arrays, hash conflict, exact-payload comparison, and composite FK cross-owner rejection.
 - [ ] 6.4 Add real two-session tests for competing claim/prepare/finalize, cleanup versus finalize, stale attempt, and current-pointer serialization.
 - [ ] 6.5 Add role/grant negative tests for direct attempt/publication/content mutation and claim/prepare/finalize/cleanup execution.
 - [ ] 6.6 Inject failure after every finalize step and prove full rollback plus idempotent retry.

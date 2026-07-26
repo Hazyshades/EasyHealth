@@ -97,23 +97,48 @@ Deletion claim/finalize functions MUST be service-only with fixed search paths a
 - **THEN** the API returns 403 or 404 without revealing document identity, storage paths, or cleanup details
 
 
-### Requirement: Storage object creation uses a constrained upload capability
+### Requirement: Storage object creation uses an app upload broker
 
-Document workers MUST NOT create Storage objects with an unrestricted service-role key. Object creation MUST use a one-time signed upload capability minted by a fixed-search-path database function only after a storage-write intent is registered for an active non-tombstoned attempt/generation and exact server-generated path. A stale, expired, cancelled, or prior-generation worker MUST be unable to upload an unregistered object.
+Document workers and owner upload routes MUST NOT create Storage objects with an unrestricted service-role key. The database MUST register a storage-write intent with server-generated bucket/path/content-type and MUST NOT return a Storage signed upload URL. An app upload broker MUST mint a one-time short-lived app ticket only after revalidating an active non-tombstoned intent, and MUST late-exchange that ticket for a Storage signed upload URL only at upload time. Fence and deletion quiescence MUST key off intent state, app-ticket expiry/consumption, and a bounded post-exchange window, not Storage’s residual ~2h upload-URL lifetime. A stale, expired, cancelled, or prior-generation caller MUST be unable to obtain a ticket, exchange, or complete an unregistered path.
 
 #### Scenario: Stale worker attempts upload after tombstone
 
-- **WHEN** a worker with an expired/cancelled attempt or prior write generation requests an upload capability or uploads to a path
-- **THEN** capability minting is denied or the upload is not accepted for an unregistered path
+- **WHEN** a worker with an expired/cancelled attempt or prior write generation requests a broker ticket, exchange, or upload for a path
+- **THEN** ticket minting or exchange is denied
 - **AND** deletion cleanup does not observe a durable unregistered object for that document
 
-#### Scenario: Valid worker uploads through minted capability
+#### Scenario: Valid worker uploads through broker late exchange
 
-- **WHEN** an active lease-aware attempt registers an intent and receives a path-bound signed capability
-- **THEN** it can upload only to that registered path before the capability TTL expires
-- **AND** completion RPC marks the intent complete only after fence revalidation
+- **WHEN** an active lease-aware attempt registers an intent and receives a one-time app ticket
+- **THEN** late exchange consumes the ticket and returns a Storage upload URL for the registered path only
+- **AND** completion RPC marks the intent complete only after object presence and fence revalidation
+
+#### Scenario: App ticket is reused or expired
+
+- **WHEN** a caller presents an already-consumed or expired app ticket to exchange
+- **THEN** the broker rejects the exchange
+- **AND** no new Storage signed upload URL is minted
+
+### Requirement: Initial owner upload is document and intent first
+
+Owner document upload MUST create a durable document reservation and register a storage-write intent for the server-chosen original path before any Storage object is created. Processing MUST be enqueued only after intent completion verifies object presence. If upload or completion fails, the system MUST fail the reservation closed and recover the registered path through orphan cleanup rather than leaving an object without a document/intent row.
+
+#### Scenario: Owner upload succeeds
+
+- **WHEN** an authenticated owner uploads a supported file
+- **THEN** the API creates the document/intent first
+- **AND** bytes are written only through the app upload broker
+- **AND** processing is enqueued only after intent completion
+
+#### Scenario: Document insert would previously fail after storage upload
+
+- **WHEN** object creation or intent completion fails after a document reservation exists
+- **THEN** the reservation is marked failed or removed
+- **AND** orphan cleanup removes any registered object for that intent
+- **AND** no processing job is enqueued as if upload succeeded
 
 ### Requirement: ai_invocations retain only allowlisted non-PHI error codes
+
 
 `ai_invocations.error_code` MUST contain only an allowlisted non-PHI code and MUST NEVER store raw exception messages, filenames, prompts, responses, or clinical text. Legacy profile-level report/synthesis invocations with `document_id IS NULL` MUST be conservatively purged or redacted for the profile at tombstone unless exact source linkage proves the deleted document was not used.
 

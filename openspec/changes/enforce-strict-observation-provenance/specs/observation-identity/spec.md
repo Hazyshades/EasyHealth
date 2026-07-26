@@ -37,17 +37,23 @@
 
 ### Requirement: Writer authority is database-enforced
 
-Runtime roles SHALL have no direct insert/update/delete privilege on observations. Source-specific creation, constrained projection, and durable final deletion functions SHALL each validate owner/source/version state and SHALL NOT expose arbitrary observation-column mutation.
+Observation and authoritative source/revision mutation MUST occur only through fixed-search-path service-only writers: the extended EH-106 laboratory family (stage biomarkers, create observation, append/activate revision, supersede/reprocess), the instrumental prepare/finalizer, the constrained projection writer, and the durable deletion finalizer. Direct table DML and non-service execute grants MUST be denied.
 
-#### Scenario: Compromised service client attempts identity mutation
+#### Scenario: Direct observation update is attempted
 
-- **WHEN** service role issues direct SQL/PostgREST update against `observations`
-- **THEN** the database denies the operation before trigger policy becomes the only defense
+- **WHEN** service role issues a direct update against a protected observation column
+- **THEN** permission is denied
 
 #### Scenario: Writer function receives cross-owner source
 
 - **WHEN** a service-only writer is called with observation and source/revision rows from different profile or document ownership
 - **THEN** the function rejects the call atomically
+
+#### Scenario: Laboratory staging bypasses the EH-106 family
+
+- **WHEN** a caller inserts into `document_extracted_biomarkers` directly after revoke
+- **THEN** permission is denied
+- **AND** only the EH-106 staging/reprocess RPCs can create laboratory extraction rows
 
 ### Requirement: Strict provenance ships after durable deletion
 

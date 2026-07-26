@@ -76,15 +76,36 @@ The prepare/finalize boundary MUST distinguish same-attempt retry, another live 
 
 ### Requirement: Canonical snapshot hashing is versioned and database verified
 
-Canonicalization SHALL include every persisted immutable measure, finding, impression, and extraction-context field with explicit nulls and deterministic ordering. It SHALL exclude database ids, timestamps, job ids, processing-attempt ids, publication state, and generated summary. The database SHALL compute and verify the authoritative SHA-256 digest.
+Canonicalization SHALL include every persisted immutable measure, finding, impression, and extraction-context field with explicit nulls and deterministic ordering, including nullable `facility_name`. It SHALL exclude database ids, timestamps, job ids, processing-attempt ids, publication state, and generated summary. The database SHALL compute and verify the authoritative SHA-256 digest. Changing only `facility_name` MUST produce a new content hash/version.
 
 #### Scenario: Array order differs but occurrences are identical
 
 - **WHEN** the same measures/findings arrive in a different input array order
 - **THEN** deterministic source locator and occurrence ordering produces the same canonical payload and hash
 
+#### Scenario: Facility label changes
+
+- **WHEN** measures/findings are otherwise identical but `facility_name` differs
+- **THEN** canonicalization produces a different hash and a new immutable content version
+- **AND** document `lab_name` later projects from the newly current content.`facility_name`
+
 #### Scenario: Canonicalization rules change
 
 - **WHEN** serialization or included fields change
 - **THEN** a new canonicalization version is required
 - **AND** hashes from different versions are never treated as identical content
+
+### Requirement: Publication entities use composite ownership foreign keys
+
+Snapshot content, content children (measures/findings/impression), publication history, the current pointer, and processing attempts MUST carry matching `profile_id`/`document_id` and MUST use composite ownership foreign keys against parents that expose `unique (id, profile_id, document_id)`. A child MUST NOT attach to a parent uuid under a mismatched profile or document. Parent deletes MUST use `ON DELETE RESTRICT` (or equivalent deny) outside the durable deletion finalizer.
+
+#### Scenario: Finding version points at content with mismatched profile
+
+- **WHEN** prepare inserts a finding version whose `snapshot_content_id` exists but `profile_id`/`document_id` do not match that content row
+- **THEN** the composite foreign key rejects the insert
+- **AND** no partial publication state remains
+
+#### Scenario: Current pointer references foreign-owned content
+
+- **WHEN** a current-pointer write supplies a valid content id owned by another profile/document
+- **THEN** the write is rejected by composite ownership constraints

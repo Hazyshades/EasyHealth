@@ -13,6 +13,8 @@ Observation normalization projection is intentionally mutable under EH-104/EH-10
 - Enforce the exact immutable contract for every source type, including null completion.
 - Preserve equal idempotent retries and the narrowly mutable normalization projection.
 - Make database writer functions, not trusted caller convention, the exclusive observation write boundary.
+- Publish an exact parent FK action matrix and convert cascade/set-null identity paths to `ON DELETE RESTRICT` (or equivalent deny), with durable deletion as the only explicit child deleter.
+- Harden/extend the existing EH-106 laboratory writer into the exclusive lab lifecycle authority: staging extracted biomarkers, observation create, revision append/activation, and supersession/reprocess.
 - Backfill retained nulls only through attributable, drift-checked, target-specific migration machinery.
 - Remove both the forgeable purge GUC and the legacy lineage-nulling purge.
 - Prove behavior with populated data, real roles, real writers, and durable final deletion.
@@ -92,19 +94,49 @@ After all callers are migrated:
 
 The allowed runtime authorities are:
 
-- the EH-106 atomic laboratory source/revision/observation writer for laboratory creation and revision append/activation;
+- the **EH-106 laboratory writer family** (hardened/extended, not replaced) as the exclusive laboratory authority for:
+  1. staging/persisting `document_extracted_biomarkers` for a document/job;
+  2. creating laboratory observations with the full required provenance matrix;
+  3. appending and activating normalization revisions (`write_observation_normalization_revision_v2` / `promote_observation_normalization_revision_v2`);
+  4. supersession/reprocess of laboratory extraction for a document (explicitly supersede prior extracted biomarkers/active projections and create the replacement set; never mutate protected observation identity in place);
 - the atomic instrumental prepare/finalizer writer for instrumental source/content/observation creation/publication;
-- the constrained normalization projection writer for the four mutable observation columns;
+- the constrained normalization projection writer for the four mutable observation columns (may be the EH-106 promote path itself when it only derives the four projection fields);
 - the durable deletion finalizer for direct observation and source/revision deletion after storage proof.
 
-No generic direct table fallback or broad observation/source/revision mutation function remains.
+No second laboratory writer family is introduced. No generic direct table fallback or broad observation/source/revision mutation function remains. Worker/API code MUST stop inserting/updating `document_extracted_biomarkers`, `observation_normalization_revisions`, and laboratory `observations` directly once revoke DML lands.
 
-Cascade-capable parent paths MUST NOT silently delete or mutate observations outside those writers:
+### 3.1 Exact parent FK action matrix (RESTRICT everywhere except explicit finalizer deletes)
 
-- replace `observations_instrumental_source_owner_fk ... ON DELETE CASCADE` with `ON DELETE RESTRICT` (or equivalent deny), so deleting an instrumental measure cannot implicitly delete observations;
-- inventory and lock down every parent FK from profile/document/source/revision that can cascade into observations or clear protected lineage;
-- durable deletion deletes children explicitly in deterministic order inside its finalizer;
-- negative tests attempt indirect observation mutation/deletion through source, revision, document, and profile parents and expect denial or explicit finalizer-only success.
+Policy: every FK that can delete observations or clear protected lineage/source identity MUST use `ON DELETE RESTRICT` or `ON DELETE NO ACTION` (deny). Cascades and `SET NULL` on those edges are forbidden. Durable deletion deletes children explicitly in deterministic order inside its finalizer; FK deny is the safety net, not the deletion mechanism.
+
+| Child | FK / columns | Parent | Current (approx.) | Required action |
+| --- | --- | --- | --- | --- |
+| `observations` | `profile_id` | `profiles(id)` | `CASCADE` | `RESTRICT` |
+| `observations` | `document_id` | `documents(id)` | `SET NULL` | `RESTRICT` (and `document_id` remains NOT NULL under strict provenance) |
+| `observations` | `source_extracted_biomarker_id` | `document_extracted_biomarkers(id)` | `RESTRICT` (034) | keep `RESTRICT` |
+| `observations` | `normalization_revision_id, source_extracted_biomarker_id` | `observation_normalization_revisions(id, extracted_biomarker_id)` | `NO ACTION` (034) | keep `NO ACTION`/`RESTRICT` |
+| `observations` | `source_instrumental_measure_id, profile_id, document_id` | `document_extracted_instrumental_measures(id, profile_id, document_id)` | `CASCADE` (032) | `RESTRICT` |
+| `document_extracted_biomarkers` | `profile_id` | `profiles(id)` | `CASCADE` | `RESTRICT` |
+| `document_extracted_biomarkers` | `document_id` | `documents(id)` | `CASCADE` | `RESTRICT` |
+| `observation_normalization_revisions` | `extracted_biomarker_id` | `document_extracted_biomarkers(id)` | `CASCADE` | `RESTRICT` |
+| `observation_normalization_revisions` | `observation_id` | `observations(id)` | `SET NULL` | `RESTRICT`/`NO ACTION` |
+| `document_extracted_instrumental_measures` | `profile_id` / `document_id` | `profiles` / `documents` | `CASCADE` | `RESTRICT` |
+| PR2 snapshot content children / findings versions / current pointer | composite ownership FKs | snapshot content / document / profile | as specified in PR2 | keep `RESTRICT`; no cascade into identity |
+
+Non-identity audit/shadow tables (for example `measurement_resolution_shadow_events`) MAY retain inventoried cascade/set-null behavior only when populated preflight proves they cannot clear or delete protected observation identity; otherwise they also move to `RESTRICT` and explicit finalizer deletes.
+
+Negative tests MUST attempt parent deletes through profile, document, extracted biomarker, instrumental measure, and revision paths while child observations/source rows exist and expect denial. Only the durable deletion finalizer succeeds after storage proof.
+
+### 3.2 Laboratory exclusive writer lifecycle (EH-106 extended)
+
+Harden the existing EH-106 surface rather than inventing a parallel writer:
+
+1. **Stage biomarkers** — service-only RPC(s) insert/replace staging `document_extracted_biomarkers` for an owned active document/job with fixed search path and owner checks; no client-chosen ids that break ownership.
+2. **Create observation** — same writer family creates the laboratory observation with the required/nullable/forbidden matrix and immutable source link; equal idempotent retry allowed.
+3. **Append/activate revision** — continue to use `write_observation_normalization_revision_v2` and `promote_observation_normalization_revision_v2` as the sole revision/projection authority; projection updates only the four mutable columns.
+4. **Supersede/reprocess** — explicit document-scoped laboratory reprocess RPC supersedes prior extracted biomarkers / active projections and stages the replacement set; it MUST NOT update protected fields on existing observations in place and MUST NOT rely on `ON DELETE CASCADE` to clear children.
+
+Before DML revoke, inventory every worker/API caller of direct biomarker/observation/revision writes and migrate them onto this family. Preflight fails if an unknown direct writer remains.
 
 ### 4. Remove runtime purge exceptions
 
@@ -151,7 +183,8 @@ If required laboratory/instrumental lineage/version evidence is unavailable, pre
 
 - **[Existing writer relies on direct table access]** → Complete source/RPC inventory and role-negative tests before revocation.
 - **[Revision/source table DML bypasses observation revocation]** → Revoke authoritative source/revision DML and route through the same exclusive writers.
-- **[ON DELETE CASCADE deletes observations indirectly]** → Switch instrumental source FK to RESTRICT and add parent-path negative tests.
+- **[ON DELETE CASCADE / SET NULL clears observation identity indirectly]** → Convert the full parent FK matrix to RESTRICT/NO ACTION; durable finalizer deletes explicitly; add parent-path negatives for profile/document/source/revision.
+- **[Lab pipeline breaks after DML revoke]** → Extend EH-106 into the exclusive staging/create/revision/reprocess family and migrate every caller before revoke.
 - **[Nullability matrix disagrees with writers]** → Encode one shared matrix in constraints, trigger tests, and writer validation.
 - **[Strict writer accidentally blocks projection]** → Keep the mutable list explicit and cover EH-106 projection success in pgTAP/API integration.
 - **[SECURITY DEFINER becomes broad authority]** → Fixed search path, private ownership, typed inputs, row locks, owner/source checks, and no arbitrary field payload.
