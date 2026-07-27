@@ -19,6 +19,7 @@ import {
 import { reviewDataErrorMessage } from "@/lib/documents/biomarker-review-state";
 import { isWorkerOffline } from "@/lib/documents/worker-health";
 import { purgeDocumentDerivedLaboratoryLineage } from "@/lib/documents/laboratory-lineage-purge";
+import { purgeDocumentInstrumentalPublicationState } from "@/lib/documents/instrumental-publication-purge";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -271,6 +272,16 @@ export async function DELETE(_req: Request, context: RouteContext) {
   } catch (purgeError) {
     const message =
       purgeError instanceof Error ? purgeError.message : "Laboratory lineage purge failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+
+  try {
+    await purgeDocumentInstrumentalPublicationState(id);
+  } catch (purgeError) {
+    const message =
+      purgeError instanceof Error
+        ? purgeError.message
+        : "Instrumental publication purge failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 

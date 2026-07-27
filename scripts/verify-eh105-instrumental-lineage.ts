@@ -6,9 +6,9 @@ import {
   isLaboratoryObservation,
 } from "../src/lib/documents/observation-read-boundaries";
 import {
-  canonicalInstrumentalSnapshotHash,
-  validateInstrumentalMeasures,
-} from "../worker/src/instrumental-materialization";
+  instrumentalSnapshotDigest,
+  normalizeInstrumentalSnapshot,
+} from "../src/lib/documents/instrumental-publication";
 
 const extraction = parseInstrumentalExtraction({
   facility_name: "Example clinic",
@@ -55,36 +55,65 @@ assert.deepEqual(
   ["ef", "ef"]
 );
 
-const validMeasures = validateInstrumentalMeasures(extraction.numeric_measures);
-const firstHash = canonicalInstrumentalSnapshotHash(
-  "2026-07-19",
-  "ECG",
-  "heart",
-  validMeasures
-);
-const reorderedHash = canonicalInstrumentalSnapshotHash(
-  "2026-07-19",
-  "ECG",
-  "heart",
-  [...validMeasures].reverse()
+const baseSnapshotInput = {
+  study_date: "2026-07-19",
+  modality: "ECG",
+  body_region: "heart",
+  facility_name: extraction.facility_name,
+  impression: extraction.impression,
+  processing_version: "test-v1",
+  extraction_model: "test-model",
+  findings: extraction.findings,
+};
+
+const firstSnapshot = normalizeInstrumentalSnapshot({
+  ...baseSnapshotInput,
+  measures: extraction.numeric_measures,
+});
+const firstHash = instrumentalSnapshotDigest(firstSnapshot);
+const reorderedHash = instrumentalSnapshotDigest(
+  normalizeInstrumentalSnapshot({
+    ...baseSnapshotInput,
+    measures: [...extraction.numeric_measures].reverse(),
+  })
 );
 assert.equal(firstHash, reorderedHash, "snapshot fingerprint is order-independent");
 
-const changedMeasures = validMeasures.map((measure, index) =>
+const changedMeasures = extraction.numeric_measures.map((measure, index) =>
   index === 0 ? { ...measure, value: 56, raw_value_text: "56%" } : measure
 );
 assert.notEqual(
   firstHash,
-  canonicalInstrumentalSnapshotHash("2026-07-19", "ECG", "heart", changedMeasures),
+  instrumentalSnapshotDigest(
+    normalizeInstrumentalSnapshot({ ...baseSnapshotInput, measures: changedMeasures })
+  ),
   "changed source evidence receives a new snapshot fingerprint"
+);
+
+assert.notEqual(
+  firstHash,
+  instrumentalSnapshotDigest(
+    normalizeInstrumentalSnapshot({
+      ...baseSnapshotInput,
+      facility_name: "Another clinic",
+      measures: extraction.numeric_measures,
+    })
+  ),
+  "facility-only change produces a new content version hash"
 );
 
 assert.throws(
   () =>
-    validateInstrumentalMeasures([
-      validMeasures[0],
-      { ...validMeasures[1], occurrence_index: validMeasures[0].occurrence_index },
-    ]),
+    normalizeInstrumentalSnapshot({
+      ...baseSnapshotInput,
+      measures: [
+        extraction.numeric_measures[0],
+        {
+          ...extraction.numeric_measures[1],
+          occurrence_index: extraction.numeric_measures[0].occurrence_index,
+        },
+      ],
+    }),
   /duplicate source locator occurrences/
 );
 

@@ -36,23 +36,8 @@ export type DocumentExtractedInstrumentalMeasure =
     created_at: string;
   };
 
-export type ReplaceDocumentInstrumentalObservationsArgs = {
-  p_document_id: string;
-  p_job_id: string;
-  p_snapshot_hash: string;
-  p_study_date: string;
-  p_modality: string | null;
-  p_body_region: string | null;
-  p_processing_version: string;
-  p_extraction_model: string | null;
-  p_measures: InstrumentalMeasureMaterializationInput[];
-};
-
-export type ReplaceDocumentInstrumentalObservationsRow = {
-  source_instrumental_measure_id: string;
-  observation_id: string;
-  was_replayed: boolean;
-};
+// PR2: the EH-105 replace_document_instrumental_observations RPC is removed.
+// Publication contracts live in ./instrumental-publication.ts.
 
 export type InstrumentalObservationDto = {
   id: string;
