@@ -13,6 +13,28 @@ type JobRow = {
   profile_id: string;
   attempts: number;
   max_attempts: number;
+  processing_attempt_id: string;
+};
+
+type ClaimedJobRow = {
+  job_id: string;
+  document_id: string;
+  profile_id: string;
+  attempts: number;
+  max_attempts: number;
+  processing_attempt_id: string;
+  attempt_number: number;
+  captured_write_generation: number;
+};
+
+type StaleJobQueryRow = {
+  id: string;
+  document_id: string;
+  profile_id: string;
+  attempts: number;
+  max_attempts: number;
+  started_at: string | null;
+  document_processing_attempts: Array<{ id: string; state: string }> | null;
 };
 
 async function claimJob(): Promise<JobRow | null> {
@@ -28,38 +50,35 @@ async function claimJob(): Promise<JobRow | null> {
     return null;
   }
 
-  for (const job of (jobs ?? []) as JobRow[]) {
-    const { data: activeJob, error: activeJobError } = await supabase
-      .from("document_processing_jobs")
-      .select("id")
-      .eq("document_id", job.document_id)
-      .eq("status", "processing")
-      .neq("id", job.id)
-      .limit(1);
+  // Untyped supabase client: assert the selected candidate shape once.
+  const candidates = (jobs ?? []) as Array<{ id: string }>;
+  for (const job of candidates) {
+    // Atomic claim: one transaction locks the document and job, creates the
+    // retained processing attempt, and returns its identity. Losing a race
+    // returns no row instead of an error.
+    const { data, error: claimError } = await supabase.rpc(
+      "claim_document_processing_job",
+      { p_job_id: job.id },
+    );
 
-    if (activeJobError) {
-      console.error("Active job guard error:", activeJobError.message);
+    if (claimError) {
+      console.error("Job claim error:", claimError.message);
       continue;
     }
-    if ((activeJob ?? []).length > 0) continue;
+    const rows = (Array.isArray(data) ? data : [data]) as Array<
+      ClaimedJobRow | null | undefined
+    >;
+    const claimed = rows[0];
+    if (!claimed?.processing_attempt_id) continue;
 
-    const { data: locked, error: lockError } = await supabase
-      .from("document_processing_jobs")
-      .update({
-        status: "processing",
-        started_at: new Date().toISOString(),
-        attempts: job.attempts + 1,
-      })
-      .eq("id", job.id)
-      .eq("status", "queued")
-      .select("id, document_id, profile_id, attempts, max_attempts")
-      .maybeSingle();
-
-    if (lockError) {
-      console.error("Job claim error:", lockError.message);
-      continue;
-    }
-    if (locked) return locked as JobRow;
+    return {
+      id: claimed.job_id,
+      document_id: claimed.document_id,
+      profile_id: claimed.profile_id,
+      attempts: claimed.attempts,
+      max_attempts: claimed.max_attempts,
+      processing_attempt_id: claimed.processing_attempt_id,
+    };
   }
 
   return null;
@@ -79,17 +98,18 @@ async function processJob(job: JobRow) {
     console.error(`Job ${job.id} failed:`, message);
 
     if (job.attempts >= job.max_attempts) {
-      await failJob(job, job.document_id, message);
+      await failJob(job, message);
     } else {
-      await supabase
-        .from("document_processing_jobs")
-        .update({
-          status: "queued",
-          error: message,
-          started_at: null,
-          finished_at: null,
-        })
-        .eq("id", job.id);
+      const { error: requeueError } = await supabase.rpc(
+        "requeue_document_processing_attempt",
+        {
+          p_attempt_id: job.processing_attempt_id,
+          p_message: message,
+        },
+      );
+      if (requeueError) {
+        console.error("Job requeue error:", requeueError.message);
+      }
     }
   }
 }
@@ -112,29 +132,30 @@ async function reclaimStaleProcessingJobs() {
         const { data, error } = await supabase
           .from("document_processing_jobs")
           .select(
-            "id, document_id, profile_id, attempts, max_attempts, started_at",
+            "id, document_id, profile_id, attempts, max_attempts, started_at, document_processing_attempts(id, state)",
           )
           .eq("status", "processing")
+          .eq("document_processing_attempts.state", "active")
           .lt("started_at", cutoffIso)
           .order("started_at", { ascending: true });
         if (error) throw new Error(`Stale job query failed: ${error.message}`);
-        return (data ?? []) as ReclaimableJob[];
+        // Untyped supabase client: assert the selected row shape once.
+        const rows = (data ?? []) as StaleJobQueryRow[];
+        return rows.map((row) => ({
+          id: row.id,
+          document_id: row.document_id,
+          profile_id: row.profile_id,
+          attempts: row.attempts,
+          max_attempts: row.max_attempts,
+          started_at: row.started_at,
+          processing_attempt_id: row.document_processing_attempts?.[0]?.id ?? null,
+        }));
       },
       async requeue(job, message) {
-        const { error } = await supabase
-          .from("document_processing_jobs")
-          .update({
-            status: "queued",
-            error: message,
-            started_at: null,
-            finished_at: null,
-          })
-          .eq("id", job.id)
-          .eq("status", "processing");
-        if (error) throw new Error(`Stale job requeue failed: ${error.message}`);
+        await reclaimAttempt(job, message, false);
       },
       async fail(job, message) {
-        await failJob(job, job.document_id, message);
+        await reclaimAttempt(job, message, true);
       },
     },
     {
@@ -147,6 +168,27 @@ async function reclaimStaleProcessingJobs() {
     console.warn(
       `Reclaimed stale jobs: ${summary.requeued} requeued, ${summary.failed} failed`,
     );
+  }
+}
+
+async function reclaimAttempt(
+  job: ReclaimableJob,
+  message: string,
+  fail: boolean,
+) {
+  if (!job.processing_attempt_id) {
+    console.error(
+      `Stale processing job ${job.id} has no active attempt; leaving it for manual review`,
+    );
+    return;
+  }
+  const { error } = await supabase.rpc("reclaim_document_processing_attempt", {
+    p_attempt_id: job.processing_attempt_id,
+    p_message: message,
+    p_fail: fail,
+  });
+  if (error) {
+    throw new Error(`Stale attempt reclaim failed: ${error.message}`);
   }
 }
 
