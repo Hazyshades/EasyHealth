@@ -54,14 +54,7 @@ function manifestDefinition(definition: MeasurementDefinition) {
     timing: definition.timing,
     method: definition.method,
     valueKind: definition.valueKind,
-    aliases: definition.aliases.map((alias) => ({
-      value: alias.value,
-      normalizedValue: alias.normalizedValue,
-      source: alias.source,
-      matchType: alias.matchType,
-      locale: alias.locale ?? null,
-      laboratory: alias.laboratory ?? null,
-    })),
+    aliases: definition.aliases,
     unitPolicy: definition.unitPolicy,
     allowedSpecimens: definition.allowedSpecimens ?? [],
     requiredModifiers: definition.requiredModifiers ?? [],
@@ -73,7 +66,7 @@ export function serializeMeasurementRegistryManifest(
   definitions: readonly MeasurementDefinition[] = MEASUREMENT_DEFINITIONS
 ): string {
   return stableValue({
-    registryModel: "launch-catalog-v2",
+    registryModel: "launch-catalog-v2-alias-authority",
     analytes: ANALYTES,
     definitions: definitions.map(manifestDefinition),
   });
@@ -115,10 +108,24 @@ export function classifyMeasurementDefinitionChange(
     };
   }
   if (stableValue(previous.aliases) !== stableValue(next.aliases)) {
+    const previousReviewed = new Map(previous.aliases
+      .filter((alias) => alias.lifecycle === "active" && alias.matchAuthority === "reviewed_resolution")
+      .map((alias) => [alias.key, alias]));
+    const nextReviewed = new Map(next.aliases
+      .filter((alias) => alias.lifecycle === "active" && alias.matchAuthority === "reviewed_resolution")
+      .map((alias) => [alias.key, alias]));
+    const removedOrBroadened = [...previousReviewed.values()].some((alias) => {
+      const replacement = nextReviewed.get(alias.key);
+      return !replacement ||
+        replacement.value !== alias.value ||
+        replacement.matchType !== alias.matchType ||
+        replacement.laboratory !== alias.laboratory ||
+        replacement.matchAuthority !== alias.matchAuthority;
+    });
     return {
       definitionKey: next.key,
-      classification: "review_required",
-      reason: "Alias policy changed",
+      classification: removedOrBroadened ? "breaking" : "review_required",
+      reason: removedOrBroadened ? "Reviewed alias admission changed" : "Alias authority policy changed",
     };
   }
   return {

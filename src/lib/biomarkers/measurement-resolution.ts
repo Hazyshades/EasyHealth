@@ -1,12 +1,14 @@
 import { snakeCaseToken } from "./normalize";
 import type {
+  AliasDefinition,
+  AliasSource,
   Analyte,
   AssessmentBinding,
   BodySystemId,
   CandidateEvidence,
   ConversionRule,
   MappingConfidenceBand,
-  MeasurementAlias,
+  MatchedAlias,
   MeasurementDefinition,
   MeasurementResolution,
   MeasurementResolutionInput,
@@ -93,17 +95,24 @@ const HBA1C_CONVERSION: ConversionRule = { type: "formula", formula: "hba1c_ngsp
 const BUN_UREA_CONVERSION: ConversionRule = { type: "formula", formula: "bun_urea", conventionalUnit: "mg/dL", siUnit: "mmol/L" };
 const ENZYME_DISPLAY_ONLY: ConversionRule = { type: "none", reason: "Catalytic activity has no reviewed US/SI mass conversion." };
 
+type AliasSeed = {
+  value: string;
+  normalizedValue: string;
+  source: AliasSource;
+  approvalStatus: "reviewed" | "provisional";
+  fixtureRefs?: readonly string[];
+};
+
 function aliases(
   values: readonly string[],
-  source: MeasurementAlias["source"],
+  source: AliasSource,
   approvalStatus: "reviewed" | "provisional",
   fixtureRefs?: readonly string[]
-): MeasurementAlias[] {
+): AliasSeed[] {
   return [...new Set(values)].map((value) => ({
     value,
     normalizedValue: snakeCaseToken(value),
     source,
-    matchType: "normalized",
     approvalStatus,
     ...(fixtureRefs ? { fixtureRefs } : {}),
   }));
@@ -120,8 +129,8 @@ type RuntimeBinding = {
 
 type ReviewedDefinitionInput = Omit<
   MeasurementDefinition,
-  "maturity" | "sourceProvenance" | "assessmentBindings"
-> & { binding?: RuntimeBinding };
+  "maturity" | "sourceProvenance" | "assessmentBindings" | "aliases"
+> & { aliases: readonly AliasSeed[]; binding?: RuntimeBinding };
 
 function reviewed({ binding, ...record }: ReviewedDefinitionInput): MeasurementDefinition {
   const assessmentBindings: AssessmentBinding[] = binding
@@ -137,10 +146,21 @@ function reviewed({ binding, ...record }: ReviewedDefinitionInput): MeasurementD
       }]
     : [];
 
+  const sourceProvenance = { kind: "registry_v2_review" as const, sourceRecordKey: `registry-2.0:${record.key}` };
   return {
     ...record,
+    aliases: record.aliases.map((alias, index): AliasDefinition => ({
+      ...alias,
+      key: `${record.key}:registry:${index + 1}`,
+      measurementDefinitionKey: record.key,
+      matchType: "normalized",
+      matchAuthority: "reviewed_resolution",
+      lifecycle: "active",
+      provenance: sourceProvenance,
+      reviewReference: "registry-2.0-launch-review",
+    })),
     maturity: "reviewed",
-    sourceProvenance: { kind: "registry_v2_review", sourceRecordKey: `registry-2.0:${record.key}` },
+    sourceProvenance,
     conversion: record.conversion ?? null,
     assessmentBindings,
   };
@@ -222,24 +242,46 @@ const SAMPLE_FIXTURES: readonly [string, string, "numeric" | "qualitative"][] = 
   ["monocytes_percent", "Monocytes (MON%)", "numeric"], ["monocytes_abs", "Monocytes, absolute (MON)", "numeric"], ["eosinophils_percent", "Eosinophils (EOS%)", "numeric"], ["eosinophils_abs", "Eosinophils, absolute (EOS)", "numeric"], ["basophils_percent", "Basophils (BAS%)", "numeric"], ["basophils_abs", "Basophils, absolute (BAS)", "numeric"], ["esr", "ESR, Westergren automated", "numeric"], ["segmented_neutrophils", "Segmented neutrophils", "numeric"], ["band_neutrophils", "Band neutrophils", "numeric"], ["lymphocytes_manual", "Lymphocytes, manual differential", "numeric"], ["monocytes_manual", "Monocytes, manual differential", "numeric"], ["eosinophils_manual", "Eosinophils, manual differential", "numeric"],
   ["giardia_antibodies_total", "Giardia antibodies, total", "numeric"], ["ascaris_igg", "Ascaris IgG antibodies", "qualitative"], ["toxocara_igg", "anti-Toxocara IgG, qualitative ELISA", "qualitative"], ["opisthorchis_felineus_igg", "anti-Opisthorchis felineus IgG, qualitative ELISA", "qualitative"], ["echinococcus_igg", "anti-Echinococcus IgG, qualitative ELISA", "qualitative"], ["trichinella_igg", "anti-Trichinella sp. IgG, qualitative ELISA", "qualitative"], ["total_ige", "Total IgE", "numeric"], ["eosinophilic_cationic_protein", "Eosinophilic cationic protein (ECP)", "numeric"],
 ];
+export const SAMPLE_NEWEST_LAUNCH_CORPUS = {
+  id: "sample_newest.pdf",
+  owner: "registry-release",
+  deIdentified: true,
+  fixtures: SAMPLE_FIXTURES.map(([key, label]) => ({
+    id: `sample-newest:${key}`,
+    rawLabel: label,
+    authorizedAliasKeys: [`sample_${key}:fixture:1`, `sample_${key}:fixture:2`],
+  })),
+} as const;
 
-const SAMPLE_FIXTURE_DEFINITIONS: readonly MeasurementDefinition[] = SAMPLE_FIXTURES.map(([key, label, valueKind]) => ({
-  key: `sample_${key}`,
-  analyteKey: key,
-  displayName: label,
-  maturity: "provisional",
-  sourceProvenance: { kind: "sample_fixture", sourceRecordKey: "sample_newest.pdf" },
-  specimen: "unspecified",
-  property: "unspecified",
-  scale: valueKind === "qualitative" ? "nominal" : "quantitative",
-  timing: "unspecified",
-  method: "unspecified",
-  valueKind,
-  aliases: aliases([label, key], "fixture", "provisional", ["sample_newest.pdf"]),
-  unitPolicy: DISPLAY_POLICY,
-  conversion: null,
-  assessmentBindings: [],
-}));
+const SAMPLE_FIXTURE_DEFINITIONS: readonly MeasurementDefinition[] = SAMPLE_FIXTURES.map(([key, label, valueKind]) => {
+  const definitionKey = `sample_${key}`;
+  const sourceProvenance = { kind: "sample_fixture" as const, sourceRecordKey: "sample_newest.pdf" };
+  return {
+    key: definitionKey,
+    analyteKey: key,
+    displayName: label,
+    maturity: "provisional",
+    sourceProvenance,
+    specimen: "unspecified",
+    property: "unspecified",
+    scale: valueKind === "qualitative" ? "nominal" : "quantitative",
+    timing: "unspecified",
+    method: "unspecified",
+    valueKind,
+    aliases: aliases([label, key], "fixture", "provisional", ["sample_newest.pdf"]).map((alias, index): AliasDefinition => ({
+      ...alias,
+      key: `${definitionKey}:fixture:${index + 1}`,
+      measurementDefinitionKey: definitionKey,
+      matchType: "normalized",
+      matchAuthority: "recognition_only",
+      lifecycle: "active",
+      provenance: sourceProvenance,
+    })),
+    unitPolicy: DISPLAY_POLICY,
+    conversion: null,
+    assessmentBindings: [],
+  };
+});
 
 /** Only reviewed Registry 2.0 definitions are eligible for concrete runtime behavior. */
 export const CURATED_MEASUREMENT_DEFINITIONS = REVIEWED_DEFINITIONS;
@@ -394,8 +436,49 @@ function evidence(code: ResolutionReasonCode, source: ResolutionEvidence["source
   return { code, source, strength, ...(observed ? { observed } : {}), ...(expected ? { expected } : {}) };
 }
 
-function matches(definition: MeasurementDefinition, label: string) {
-  return definition.key === label || definition.aliases.some((alias) => alias.normalizedValue === label);
+function canonicalLabel(value: string): string {
+  return value.normalize("NFKC").trim();
+}
+
+function damerauLevenshtein(left: string, right: string): number {
+  const table = Array.from({ length: left.length + 1 }, (_, row) =>
+    Array.from({ length: right.length + 1 }, (_, column) => row === 0 ? column : column === 0 ? row : 0)
+  );
+  for (let row = 1; row <= left.length; row++) {
+    for (let column = 1; column <= right.length; column++) {
+      const cost = left[row - 1] === right[column - 1] ? 0 : 1;
+      table[row]![column] = Math.min(
+        table[row - 1]![column]! + 1,
+        table[row]![column - 1]! + 1,
+        table[row - 1]![column - 1]! + cost,
+        row > 1 && column > 1 && left[row - 1] === right[column - 2] && left[row - 2] === right[column - 1]
+          ? table[row - 2]![column - 2]! + cost
+          : Number.MAX_SAFE_INTEGER
+      );
+    }
+  }
+  return table[left.length]![right.length]!;
+}
+
+function aliasMatches(alias: AliasDefinition, rawLabel: string, normalizedLabel: string, laboratory: string | null | undefined): boolean {
+  if (alias.lifecycle !== "active" || (alias.laboratory && alias.laboratory !== laboratory)) return false;
+  if (alias.matchType === "exact") return canonicalLabel(alias.value) === canonicalLabel(rawLabel);
+  if (alias.matchType === "normalized" || alias.matchType === "ocr_variant") return alias.normalizedValue === normalizedLabel;
+  return normalizedLabel.length >= 5 &&
+    alias.maxNormalizedEditDistance !== undefined &&
+    damerauLevenshtein(alias.normalizedValue, normalizedLabel) <= alias.maxNormalizedEditDistance;
+}
+
+export function findAliasAdmissions(
+  input: Pick<MeasurementResolutionInput, "rawLabel" | "laboratory">,
+  definitions: readonly MeasurementDefinition[] = MEASUREMENT_DEFINITIONS
+): Array<{ definition: MeasurementDefinition; alias: MatchedAlias }> {
+  const normalizedLabel = snakeCaseToken(input.rawLabel);
+  return definitions.flatMap((definition) =>
+    definition.aliases
+      .filter((alias) => aliasMatches(alias, input.rawLabel, normalizedLabel, input.laboratory))
+      .map((alias): { definition: MeasurementDefinition; alias: MatchedAlias } => ({ definition, alias }))
+  );
 }
 
 function normalizedSpecimen(value: string | null | undefined) {
@@ -403,8 +486,9 @@ function normalizedSpecimen(value: string | null | undefined) {
   return ["serum", "plasma", "whole_blood", "urine"].includes(normalized) ? normalized : "unspecified";
 }
 
-function candidateEvidence(definition: MeasurementDefinition, input: MeasurementResolutionInput, label: string, unit: NormalizedMeasurementUnit): CandidateEvidence {
-  const accepted: ResolutionEvidence[] = [evidence(definition.key === label ? "definition_key_match" : "alias_normalized_match", "label", "strong", definition.displayName)];
+function candidateEvidence(definition: MeasurementDefinition, alias: MatchedAlias, input: MeasurementResolutionInput, unit: NormalizedMeasurementUnit): CandidateEvidence {
+  const code: ResolutionReasonCode = alias.matchType === "exact" ? "alias_exact_match" : alias.matchType === "ocr_variant" ? "alias_ocr_variant_match" : alias.matchType === "bounded_fuzzy" ? "alias_bounded_fuzzy_match" : "alias_normalized_match";
+  const accepted: ResolutionEvidence[] = [evidence(code, "label", "strong", alias.value)];
   const rejected: ResolutionEvidence[] = [];
   const missingAxes: Array<"specimen" | "modifier" | "timing" | "method" | "value_kind"> = [];
   if (unit.normalizedUnit && definition.unitPolicy.dimensions.length) {
@@ -438,22 +522,24 @@ function candidateEvidence(definition: MeasurementDefinition, input: Measurement
   }
   if (definition.valueKind !== "unspecified" && input.valueKind && input.valueKind !== definition.valueKind) missingAxes.push("value_kind");
   const score = rejected.length ? null : accepted.reduce((sum, item) => sum + (item.strength === "strong" ? 2 : 1), 0);
-  return { candidateKey: definition.key, accepted, rejected, missingAxes, score };
+  return { candidateKey: definition.key, matchedAlias: alias, accepted, rejected, missingAxes, score };
 }
 
 /** Resolve raw evidence against reviewed Registry 2.0 definitions only. */
 export function resolveMeasurementDefinition(input: MeasurementResolutionInput): MeasurementResolution {
-  const label = snakeCaseToken(input.rawLabel);
-  const proposed = snakeCaseToken(input.proposedKey ?? "");
-  const matched = MEASUREMENT_DEFINITIONS.filter((definition) => matches(definition, label) || (!label && proposed && matches(definition, proposed)));
+  const admissions = findAliasAdmissions(input);
   const unit = normalizeMeasurementUnit(input.rawUnit);
-  const evidenceByCandidate = matched.map((definition) => candidateEvidence(definition, input, label || proposed, unit));
+  const evidenceByCandidate = admissions.map(({ definition, alias }) => candidateEvidence(definition, alias, input, unit));
   const compatible = evidenceByCandidate.filter((candidate) => candidate.rejected.length === 0);
   const concrete = compatible.filter((candidate) => {
     const definition = getMeasurementDefinition(candidate.candidateKey)!;
-    return definition.maturity === "reviewed" && definition.sourceProvenance.kind === "registry_v2_review" && candidate.missingAxes.length === 0;
+    return definition.maturity === "reviewed" &&
+      definition.sourceProvenance.kind === "registry_v2_review" &&
+      candidate.matchedAlias.matchAuthority === "reviewed_resolution" &&
+      candidate.matchedAlias.approvalStatus === "reviewed" &&
+      candidate.missingAxes.length === 0;
   });
-  const result = concrete.length === 1 ? "resolved" : concrete.length > 1 ? "ambiguous" : matched.length ? "partial" : "unmapped";
+  const result = concrete.length === 1 ? "resolved" : concrete.length > 1 ? "ambiguous" : admissions.length ? "partial" : "unmapped";
   const selected = concrete.length === 1 ? getMeasurementDefinition(concrete[0].candidateKey) : undefined;
   const analytes = new Set((compatible.length ? compatible : evidenceByCandidate).map((candidate) => getMeasurementDefinition(candidate.candidateKey)?.analyteKey).filter((key): key is string => Boolean(key)));
   const reasons = [...new Set(evidenceByCandidate.flatMap((candidate) => [...candidate.accepted, ...candidate.rejected].map((item) => item.code)))];
@@ -470,6 +556,7 @@ export function validateMeasurementRegistry(definitions: readonly MeasurementDef
   const warnings: string[] = [];
   const keys = new Set<string>();
   const reviewedIdentities = new Map<string, string>();
+  const aliasKeys = new Set<string>();
   for (const definition of definitions) {
     if (keys.has(definition.key)) errors.push(`Duplicate measurement definition key: ${definition.key}`);
     keys.add(definition.key);
@@ -485,6 +572,19 @@ export function validateMeasurementRegistry(definitions: readonly MeasurementDef
           errors.push(`Reviewed assessment binding lacks runtime metadata: ${definition.key}`);
         }
       }
+    }
+    for (const alias of definition.aliases) {
+      if (aliasKeys.has(alias.key)) errors.push(`Duplicate alias key: ${alias.key}`);
+      aliasKeys.add(alias.key);
+      if (alias.measurementDefinitionKey !== definition.key) errors.push(`Alias owner mismatch: ${alias.key}`);
+      if (!alias.provenance?.sourceRecordKey) errors.push(`Alias lacks provenance: ${alias.key}`);
+      if (alias.source === "fixture" && !alias.fixtureRefs?.length) errors.push(`Fixture alias lacks fixture reference: ${alias.key}`);
+      if (alias.matchType === "bounded_fuzzy" && (
+        alias.matchAuthority !== "reviewed_resolution" ||
+        alias.approvalStatus !== "reviewed" ||
+        alias.lifecycle !== "active" ||
+        alias.maxNormalizedEditDistance === undefined
+      )) errors.push(`Bounded fuzzy alias lacks reviewed active authority: ${alias.key}`);
     }
     if (definition.unitPolicy.dimensions.length && !definition.unitPolicy.acceptedUnits.length) errors.push(`Unit policy has dimensions but no units: ${definition.key}`);
   }

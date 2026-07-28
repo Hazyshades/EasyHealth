@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import {
   MEASUREMENT_CATALOG_MANIFEST_DIGEST,
   MEASUREMENT_DEFINITIONS,
+  classifyMeasurementDefinitionChange,
   digestMeasurementRegistryManifest,
+  findAliasAdmissions,
   normalizeMeasurementUnit,
   resolveMeasurementDefinition,
   serializeMeasurementRegistryManifest,
@@ -21,6 +23,40 @@ assert.match(readFileSync("supabase/migrations/025_registry_v2_hard_cutover.sql"
 assert.equal(digestMeasurementRegistryManifest([...MEASUREMENT_DEFINITIONS].reverse()), MEASUREMENT_CATALOG_MANIFEST_DIGEST);
 assert.ok(serializeMeasurementRegistryManifest(MEASUREMENT_DEFINITIONS).includes("assessmentBindings"));
 assert.deepEqual(normalizeMeasurementUnit("U/L"), { raw: "U/L", normalizedUnit: "u/l", dimension: "catalytic_activity_concentration" });
+assert.ok(serializeMeasurementRegistryManifest(MEASUREMENT_DEFINITIONS).includes("matchAuthority"));
+assert.ok(MEASUREMENT_DEFINITIONS.every((definition) =>
+  definition.aliases.every((alias) => alias.key && alias.measurementDefinitionKey === definition.key && alias.provenance.sourceRecordKey)
+));
+assert.ok(findAliasAdmissions({ rawLabel: "Glucose", laboratory: null }).some(({ alias }) => alias.matchAuthority === "reviewed_resolution"));
+const glucose = MEASUREMENT_DEFINITIONS.find((definition) => definition.key === "glucose_serum")!;
+const deprecatedGlucose = { ...glucose, aliases: glucose.aliases.map((alias) => ({ ...alias, lifecycle: "deprecated" as const })) };
+assert.equal(validateMeasurementRegistry([deprecatedGlucose]).valid, true);
+assert.equal(resolveMeasurementDefinition({ rawLabel: "Not a known laboratory marker" }).candidateEvidence.length, 0);
+assert.equal(classifyMeasurementDefinitionChange(glucose, deprecatedGlucose).classification, "breaking");
+const fuzzyDefinition = {
+  ...glucose,
+  aliases: [{
+    ...glucose.aliases[0]!,
+    key: "test:fuzzy",
+    value: "Glucose",
+    normalizedValue: "glucose",
+    matchType: "bounded_fuzzy" as const,
+    maxNormalizedEditDistance: 1 as const,
+  }],
+};
+assert.equal(findAliasAdmissions({ rawLabel: "Glocose", laboratory: null }, [fuzzyDefinition]).length, 1);
+assert.equal(findAliasAdmissions({ rawLabel: "Gloxxse", laboratory: null }, [fuzzyDefinition]).length, 0);
+const scopedDefinition = {
+  ...glucose,
+  aliases: [{ ...glucose.aliases[0]!, key: "test:scoped", laboratory: "lab-a" }],
+};
+assert.equal(findAliasAdmissions({ rawLabel: "Glucose", laboratory: "lab-b" }, [scopedDefinition]).length, 0);
+assert.equal(findAliasAdmissions({ rawLabel: "Glucose", laboratory: null }, [deprecatedGlucose]).length, 0);
+const invalidFuzzy = {
+  ...fuzzyDefinition,
+  aliases: [{ ...fuzzyDefinition.aliases[0]!, key: "test:invalid-fuzzy", matchAuthority: "recognition_only" as const }],
+};
+assert.equal(validateMeasurementRegistry([invalidFuzzy]).valid, false);
 
 for (const enzyme of ["alt", "ast", "alp", "ggt"] as const) {
   const resolved = resolveMeasurementDefinition({ rawLabel: enzyme, rawUnit: "U/L", specimen: "serum", valueKind: "numeric" });
