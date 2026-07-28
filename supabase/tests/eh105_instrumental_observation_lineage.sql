@@ -1,6 +1,6 @@
 begin;
 
-select plan(18);
+select plan(16);
 
 select ok(
   to_regclass('public.document_extracted_instrumental_measures') is not null,
