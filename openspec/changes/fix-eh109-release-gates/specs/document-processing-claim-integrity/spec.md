@@ -11,9 +11,16 @@ The service-only `claim_document_processing_job(uuid)` RPC SHALL qualify every p
 - **WHEN** the service role calls the RPC for a document that already has an active attempt
 - **THEN** the RPC SHALL return no claim without surfacing a constraint or ambiguity error
 
-### Requirement: Repair migration SHALL preserve the claim contract
-The ambiguity repair SHALL be delivered as an additive migration after the deployed processing-attempt migration. It SHALL replace only the function definition and preserve its signature, security-definer boundary, fixed search path, document-to-job-to-attempt lock order, ownership checks, attempt numbering, and returned fields.
+### Requirement: Publication preparation SQL SHALL be unambiguous
+The service-only `prepare_instrumental_publication(uuid, uuid, uuid, jsonb, text)` RPC SHALL qualify snapshot-content and publication columns that conflict with its `RETURNS TABLE` output names. Preparing a valid instrumental snapshot MUST NOT raise an ambiguous-column error.
+
+#### Scenario: Valid instrumental publication is prepared
+- **WHEN** the service role prepares a valid snapshot for an active owned processing attempt
+- **THEN** the RPC SHALL create or reuse its content and prepared publication without an ambiguous-column exception
+
+### Requirement: Repair migration SHALL preserve both RPC contracts
+The ambiguity repair SHALL be delivered as one additive migration after the deployed processing-attempt and instrumental-publication migrations. It SHALL replace only the two function definitions and preserve their signatures, security-definer boundaries, fixed search paths, lock order, ownership checks, state transitions, attempt/content identity, and returned fields.
 
 #### Scenario: Existing deployment receives the repair
-- **WHEN** the repair migration runs after the original processing-attempt migration
-- **THEN** the corrected function SHALL replace the prior definition without rewriting processing data or changing caller contracts
+- **WHEN** the repair migration runs after the original processing-attempt and instrumental-publication migrations
+- **THEN** the corrected functions SHALL replace the prior definitions without rewriting processing data or changing caller contracts

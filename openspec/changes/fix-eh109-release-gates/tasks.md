@@ -11,10 +11,12 @@
 - [x] 2.2 Qualify processing-attempt column references while preserving the function signature, grants, fixed search path, lock order, ownership checks, state transition, attempt creation, and returned fields.
 - [x] 2.3 Add or extend database regression coverage for a successful claim and the existing-active-attempt no-claim path.
 - [ ] 2.4 Run the EH-105 database fixture against a reset local Supabase stack when available.
+- [x] 2.5 Replace `prepare_instrumental_publication` in migration 038 with table aliases for every query column that collides with a `RETURNS TABLE` output name.
 
 ## 3. Release verification and merge
 
 - [x] 3.1 Run `pnpm verify:registry`, `pnpm typecheck`, `openspec validate fix-eh109-release-gates --type change --strict`, and all focused resolver/document tests.
 - [x] 3.2 Commit and push the repair artifacts and implementation to PR #94 without staging unrelated local files.
+- [x] 3.2a Commit and push the publication-preparation ambiguity repair and updated change artifacts.
 - [ ] 3.3 Confirm every required GitHub check is green, then merge PR #94 into `master`.
 - [ ] 3.4 Record the merge commit and final CI evidence on issues #9 and #10 and ensure their final state is closed.

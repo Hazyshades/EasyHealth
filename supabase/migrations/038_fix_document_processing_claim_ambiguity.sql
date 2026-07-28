@@ -102,3 +102,396 @@ $$;
 
 revoke all on function public.claim_document_processing_job(uuid) from public, anon, authenticated;
 grant execute on function public.claim_document_processing_job(uuid) to service_role;
+
+-- EH-105 repair: qualify table columns that collide with the prepare RPC's
+-- RETURNS TABLE output names. The remaining function body is copied verbatim
+-- from migration 037 so upgraded and freshly reset databases share a contract.
+
+create or replace function public.prepare_instrumental_publication(
+  p_document_id uuid,
+  p_job_id uuid,
+  p_processing_attempt_id uuid,
+  p_snapshot jsonb,
+  p_caller_digest text default null
+)
+returns table (
+  publication_id uuid,
+  snapshot_content_id uuid,
+  canonicalization_version text,
+  snapshot_hash text,
+  content_reused boolean,
+  publication_reused boolean
+)
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_document public.documents%rowtype;
+  v_job public.document_processing_jobs%rowtype;
+  v_attempt public.document_processing_attempts%rowtype;
+  v_canonical jsonb;
+  v_hash text;
+  v_content public.document_instrumental_snapshot_contents%rowtype;
+  v_publication public.document_instrumental_publications%rowtype;
+  v_content_reused boolean := false;
+  v_measure jsonb;
+  v_finding jsonb;
+  v_source_id uuid;
+  v_source public.document_extracted_instrumental_measures%rowtype;
+  v_observation public.observations%rowtype;
+  v_ordinal integer := 0;
+  v_study_date date;
+begin
+  -- Lock DAG: documents -> jobs/attempts -> publication/content rows.
+  select * into v_document
+  from public.documents
+  where id = p_document_id
+  for update;
+
+  if v_document.id is null then
+    raise exception using message = 'instrumental_document_not_found';
+  end if;
+  if v_document.document_type is distinct from 'instrumental_report' then
+    raise exception using message = 'instrumental_document_type_mismatch';
+  end if;
+
+  select * into v_job
+  from public.document_processing_jobs
+  where id = p_job_id
+  for update;
+
+  if v_job.id is null then
+    raise exception using message = 'instrumental_job_not_found';
+  end if;
+  if v_job.document_id is distinct from v_document.id
+    or v_job.profile_id is distinct from v_document.profile_id then
+    raise exception using message = 'instrumental_job_document_profile_mismatch';
+  end if;
+  if v_job.status is distinct from 'processing' then
+    raise exception using message = 'instrumental_job_not_processing';
+  end if;
+
+  select * into v_attempt
+  from public.document_processing_attempts
+  where id = p_processing_attempt_id
+  for update;
+
+  if v_attempt.id is null
+    or v_attempt.job_id is distinct from v_job.id
+    or v_attempt.document_id is distinct from v_document.id
+    or v_attempt.profile_id is distinct from v_document.profile_id then
+    raise exception using message = 'processing_attempt_ownership_mismatch';
+  end if;
+  if v_attempt.state is distinct from 'active' then
+    raise exception using message = 'processing_attempt_not_active';
+  end if;
+  if v_attempt.captured_write_generation is distinct from v_document.write_generation then
+    raise exception using message = 'processing_attempt_generation_mismatch';
+  end if;
+
+  perform public.pr2_validate_instrumental_snapshot(p_snapshot);
+  v_canonical := public.pr2_canonical_instrumental_snapshot(p_snapshot);
+  v_hash := public.pr2_instrumental_snapshot_hash(v_canonical);
+  v_study_date := (p_snapshot ->> 'study_date')::date;
+
+  if p_caller_digest is not null and p_caller_digest is distinct from v_hash then
+    raise exception using message = 'instrumental_snapshot_digest_mismatch';
+  end if;
+
+  -- Serialize content decisions for this document.
+  perform 1
+  from public.document_instrumental_snapshot_contents as locked_content
+  where locked_content.document_id = v_document.id
+  order by locked_content.id
+  for update;
+
+  select candidate_content.* into v_content
+  from public.document_instrumental_snapshot_contents as candidate_content
+  where candidate_content.document_id = v_document.id
+    and candidate_content.canonicalization_version = 'eh105.instrumental-snapshot.v2'
+    and candidate_content.snapshot_hash = v_hash;
+
+  if v_content.id is not null then
+    -- Hash equality alone is never trusted: require exact canonical bytes.
+    if v_content.canonical_payload::text is distinct from v_canonical::text then
+      raise exception using message = 'instrumental_snapshot_payload_conflict';
+    end if;
+    v_content_reused := true;
+  else
+    insert into public.document_instrumental_snapshot_contents (
+      document_id,
+      profile_id,
+      canonicalization_version,
+      snapshot_hash,
+      canonical_payload,
+      study_date,
+      modality,
+      body_region,
+      facility_name,
+      impression,
+      processing_version,
+      extraction_model
+    )
+    values (
+      v_document.id,
+      v_document.profile_id,
+      'eh105.instrumental-snapshot.v2',
+      v_hash,
+      v_canonical,
+      v_study_date,
+      p_snapshot ->> 'modality',
+      p_snapshot ->> 'body_region',
+      p_snapshot ->> 'facility_name',
+      p_snapshot ->> 'impression',
+      p_snapshot ->> 'processing_version',
+      p_snapshot ->> 'extraction_model'
+    )
+    returning * into v_content;
+
+    -- Immutable source occurrences and observation identity are created with
+    -- the content, but stay invisible: is_current flips only at finalize.
+    for v_measure in select value from jsonb_array_elements(p_snapshot -> 'measures')
+    loop
+      insert into public.document_extracted_instrumental_measures (
+        document_id,
+        profile_id,
+        processing_job_id,
+        snapshot_content_id,
+        key_hint,
+        name,
+        raw_name,
+        value,
+        raw_value_text,
+        unit,
+        raw_unit,
+        observed_at,
+        source_page,
+        source_text,
+        source_locator,
+        occurrence_index,
+        bounding_box,
+        confidence,
+        modality,
+        body_region,
+        processing_version,
+        extraction_model,
+        snapshot_hash,
+        is_current,
+        superseded_at
+      )
+      values (
+        v_document.id,
+        v_document.profile_id,
+        v_job.id,
+        v_content.id,
+        v_measure ->> 'key_hint',
+        v_measure ->> 'name',
+        v_measure ->> 'raw_name',
+        (v_measure ->> 'value')::numeric,
+        v_measure ->> 'raw_value_text',
+        v_measure ->> 'unit',
+        v_measure ->> 'raw_unit',
+        v_study_date,
+        (v_measure ->> 'source_page')::integer,
+        v_measure ->> 'source_text',
+        v_measure ->> 'source_locator',
+        (v_measure ->> 'occurrence_index')::integer,
+        case when jsonb_typeof(v_measure -> 'bounding_box') = 'object' then v_measure -> 'bounding_box' end,
+        (v_measure ->> 'confidence')::numeric,
+        p_snapshot ->> 'modality',
+        p_snapshot ->> 'body_region',
+        p_snapshot ->> 'processing_version',
+        p_snapshot ->> 'extraction_model',
+        v_hash,
+        false,
+        null
+      )
+      returning id into v_source_id;
+
+      insert into public.observations (
+        profile_id,
+        document_id,
+        source_instrumental_measure_id,
+        name,
+        value,
+        value_kind,
+        value_text,
+        unit,
+        raw_name,
+        raw_value_text,
+        raw_unit,
+        ref_low,
+        ref_high,
+        observed_at,
+        source_page,
+        source_text,
+        bounding_box,
+        confidence,
+        extraction_version,
+        observation_kind
+      )
+      values (
+        v_document.profile_id,
+        v_document.id,
+        v_source_id,
+        v_measure ->> 'name',
+        (v_measure ->> 'value')::numeric,
+        'numeric',
+        v_measure ->> 'raw_value_text',
+        v_measure ->> 'unit',
+        v_measure ->> 'raw_name',
+        v_measure ->> 'raw_value_text',
+        v_measure ->> 'raw_unit',
+        null,
+        null,
+        v_study_date,
+        (v_measure ->> 'source_page')::integer,
+        v_measure ->> 'source_text',
+        case when jsonb_typeof(v_measure -> 'bounding_box') = 'object' then v_measure -> 'bounding_box' end,
+        (v_measure ->> 'confidence')::numeric,
+        p_snapshot ->> 'processing_version',
+        'instrumental'
+      );
+    end loop;
+
+    -- Immutable finding versions in canonical order; the content-level
+    -- impression is mirrored onto ordinal 0 for the compatibility shape.
+    for v_finding in
+      select value
+      from jsonb_array_elements(p_snapshot -> 'findings') as f(value)
+      order by (f.value ->> 'finding_text') collate "C",
+        (f.value ->> 'source_page')::integer nulls first,
+        (f.value ->> 'source_text') collate "C" nulls first,
+        (f.value ->> 'confidence') collate "C" nulls first
+    loop
+      insert into public.document_extracted_finding_versions (
+        document_id,
+        profile_id,
+        snapshot_content_id,
+        ordinal,
+        modality,
+        body_region,
+        finding_text,
+        impression,
+        source_page,
+        source_text,
+        confidence,
+        extraction_method,
+        processing_version,
+        extraction_model,
+        status
+      )
+      values (
+        v_document.id,
+        v_document.profile_id,
+        v_content.id,
+        v_ordinal,
+        p_snapshot ->> 'modality',
+        p_snapshot ->> 'body_region',
+        v_finding ->> 'finding_text',
+        case when v_ordinal = 0 then p_snapshot ->> 'impression' end,
+        (v_finding ->> 'source_page')::integer,
+        v_finding ->> 'source_text',
+        (v_finding ->> 'confidence')::numeric,
+        'llm',
+        p_snapshot ->> 'processing_version',
+        p_snapshot ->> 'extraction_model',
+        'accepted'
+      );
+      v_ordinal := v_ordinal + 1;
+    end loop;
+
+    if v_ordinal = 0 and p_snapshot ->> 'impression' is not null then
+      insert into public.document_extracted_finding_versions (
+        document_id,
+        profile_id,
+        snapshot_content_id,
+        ordinal,
+        modality,
+        body_region,
+        finding_text,
+        impression,
+        source_page,
+        source_text,
+        confidence,
+        extraction_method,
+        processing_version,
+        extraction_model,
+        status
+      )
+      values (
+        v_document.id,
+        v_document.profile_id,
+        v_content.id,
+        0,
+        p_snapshot ->> 'modality',
+        p_snapshot ->> 'body_region',
+        p_snapshot ->> 'impression',
+        p_snapshot ->> 'impression',
+        null,
+        null,
+        null,
+        'llm',
+        p_snapshot ->> 'processing_version',
+        p_snapshot ->> 'extraction_model',
+        'accepted'
+      );
+    end if;
+  end if;
+
+  -- Same-hash behavior is publication-state specific.
+  select prepared_publication.* into v_publication
+  from public.document_instrumental_publications as prepared_publication
+  where prepared_publication.document_id = v_document.id
+    and prepared_publication.snapshot_content_id = v_content.id
+    and prepared_publication.state = 'prepared'
+    and prepared_publication.processing_attempt_id = v_attempt.id;
+
+  if v_publication.id is not null then
+    return query select
+      v_publication.id, v_content.id, v_content.canonicalization_version,
+      v_content.snapshot_hash, v_content_reused, true;
+    return;
+  end if;
+
+  -- Another live attempt owning a preparation is impossible under the
+  -- one-active-attempt rule, but reject deterministically as defense.
+  if exists (
+    select 1
+    from public.document_instrumental_publications p
+    join public.document_processing_attempts a on a.id = p.processing_attempt_id
+    where p.document_id = v_document.id
+      and p.state = 'prepared'
+      and a.state = 'active'
+      and a.id is distinct from v_attempt.id
+  ) then
+    raise exception using message = 'instrumental_preparation_concurrent';
+  end if;
+
+  insert into public.document_instrumental_publications (
+    document_id,
+    profile_id,
+    snapshot_content_id,
+    processing_attempt_id,
+    captured_write_generation,
+    state
+  )
+  values (
+    v_document.id,
+    v_document.profile_id,
+    v_content.id,
+    v_attempt.id,
+    v_attempt.captured_write_generation,
+    'prepared'
+  )
+  returning * into v_publication;
+
+  return query select
+    v_publication.id, v_content.id, v_content.canonicalization_version,
+    v_content.snapshot_hash, v_content_reused, false;
+end;
+$$;
+
+revoke all on function public.prepare_instrumental_publication(uuid, uuid, uuid, jsonb, text) from public, anon, authenticated;
+grant execute on function public.prepare_instrumental_publication(uuid, uuid, uuid, jsonb, text) to service_role;
