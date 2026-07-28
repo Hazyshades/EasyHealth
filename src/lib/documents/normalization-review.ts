@@ -67,6 +67,7 @@ export function buildNormalizationReview(
     mappingConfidenceBand: resolution.mappingConfidenceBand,
     unit: resolution.unit,
     candidateEvidence: resolution.candidateEvidence,
+    decisionTrace: resolution.decisionTrace,
     manualOptions: compatibleManualDefinitions(input)
       .map((definition) => ({
         key: definition.key,

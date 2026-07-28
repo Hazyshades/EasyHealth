@@ -24,7 +24,7 @@ import type {
 } from "./types";
 
 export const MEASUREMENT_CATALOG_MANIFEST_VERSION = "2026-07-20.0";
-export const MEASUREMENT_RESOLVER_VERSION = "5";
+export const MEASUREMENT_RESOLVER_VERSION = "6";
 export const MEASUREMENT_NORMALIZATION_VERSION = "4";
 /** Observation provenance schema version, assigned by the persistence layer (not copied from extraction). */
 export const OBSERVATION_PROVENANCE_SCHEMA_VERSION = "1";
@@ -432,8 +432,8 @@ export function listReviewedCoverageKeys(system: BodySystemId): readonly string[
   )];
 }
 
-function evidence(code: ResolutionReasonCode, source: ResolutionEvidence["source"], strength: ResolutionEvidence["strength"], observed?: string, expected?: readonly string[]): ResolutionEvidence {
-  return { code, source, strength, ...(observed ? { observed } : {}), ...(expected ? { expected } : {}) };
+function evidence(code: ResolutionReasonCode, source: ResolutionEvidence["source"], strength: ResolutionEvidence["strength"], score: number, observed?: string, expected?: readonly string[]): ResolutionEvidence {
+  return { code, source, strength, score, ...(observed ? { observed } : {}), ...(expected ? { expected } : {}) };
 }
 
 function canonicalLabel(value: string): string {
@@ -441,21 +441,10 @@ function canonicalLabel(value: string): string {
 }
 
 function damerauLevenshtein(left: string, right: string): number {
-  const table = Array.from({ length: left.length + 1 }, (_, row) =>
-    Array.from({ length: right.length + 1 }, (_, column) => row === 0 ? column : column === 0 ? row : 0)
-  );
-  for (let row = 1; row <= left.length; row++) {
-    for (let column = 1; column <= right.length; column++) {
-      const cost = left[row - 1] === right[column - 1] ? 0 : 1;
-      table[row]![column] = Math.min(
-        table[row - 1]![column]! + 1,
-        table[row]![column - 1]! + 1,
-        table[row - 1]![column - 1]! + cost,
-        row > 1 && column > 1 && left[row - 1] === right[column - 2] && left[row - 2] === right[column - 1]
-          ? table[row - 2]![column - 2]! + cost
-          : Number.MAX_SAFE_INTEGER
-      );
-    }
+  const table = Array.from({ length: left.length + 1 }, (_, row) => Array.from({ length: right.length + 1 }, (_, column) => row === 0 ? column : column === 0 ? row : 0));
+  for (let row = 1; row <= left.length; row++) for (let column = 1; column <= right.length; column++) {
+    const cost = left[row - 1] === right[column - 1] ? 0 : 1;
+    table[row]![column] = Math.min(table[row - 1]![column]! + 1, table[row]![column - 1]! + 1, table[row - 1]![column - 1]! + cost, row > 1 && column > 1 && left[row - 1] === right[column - 2] && left[row - 2] === right[column - 1] ? table[row - 2]![column - 2]! + cost : Number.MAX_SAFE_INTEGER);
   }
   return table[left.length]![right.length]!;
 }
@@ -464,21 +453,12 @@ function aliasMatches(alias: AliasDefinition, rawLabel: string, normalizedLabel:
   if (alias.lifecycle !== "active" || (alias.laboratory && alias.laboratory !== laboratory)) return false;
   if (alias.matchType === "exact") return canonicalLabel(alias.value) === canonicalLabel(rawLabel);
   if (alias.matchType === "normalized" || alias.matchType === "ocr_variant") return alias.normalizedValue === normalizedLabel;
-  return normalizedLabel.length >= 5 &&
-    alias.maxNormalizedEditDistance !== undefined &&
-    damerauLevenshtein(alias.normalizedValue, normalizedLabel) <= alias.maxNormalizedEditDistance;
+  return normalizedLabel.length >= 5 && alias.maxNormalizedEditDistance !== undefined && damerauLevenshtein(alias.normalizedValue, normalizedLabel) <= alias.maxNormalizedEditDistance;
 }
 
-export function findAliasAdmissions(
-  input: Pick<MeasurementResolutionInput, "rawLabel" | "laboratory">,
-  definitions: readonly MeasurementDefinition[] = MEASUREMENT_DEFINITIONS
-): Array<{ definition: MeasurementDefinition; alias: MatchedAlias }> {
+export function findAliasAdmissions(input: Pick<MeasurementResolutionInput, "rawLabel" | "laboratory">, definitions: readonly MeasurementDefinition[] = MEASUREMENT_DEFINITIONS): Array<{ definition: MeasurementDefinition; alias: MatchedAlias }> {
   const normalizedLabel = snakeCaseToken(input.rawLabel);
-  return definitions.flatMap((definition) =>
-    definition.aliases
-      .filter((alias) => aliasMatches(alias, input.rawLabel, normalizedLabel, input.laboratory))
-      .map((alias): { definition: MeasurementDefinition; alias: MatchedAlias } => ({ definition, alias }))
-  );
+  return definitions.flatMap((definition) => definition.aliases.filter((alias) => aliasMatches(alias, input.rawLabel, normalizedLabel, input.laboratory)).map((alias) => ({ definition, alias })));
 }
 
 function normalizedSpecimen(value: string | null | undefined) {
@@ -487,66 +467,67 @@ function normalizedSpecimen(value: string | null | undefined) {
 }
 
 function candidateEvidence(definition: MeasurementDefinition, alias: MatchedAlias, input: MeasurementResolutionInput, unit: NormalizedMeasurementUnit): CandidateEvidence {
-  const code: ResolutionReasonCode = alias.matchType === "exact" ? "alias_exact_match" : alias.matchType === "ocr_variant" ? "alias_ocr_variant_match" : alias.matchType === "bounded_fuzzy" ? "alias_bounded_fuzzy_match" : "alias_normalized_match";
-  const accepted: ResolutionEvidence[] = [evidence(code, "label", "strong", alias.value)];
+  const label: readonly [ResolutionReasonCode, number] = alias.matchType === "exact" ? ["alias_exact_match", 40] : alias.matchType === "bounded_fuzzy" ? ["alias_bounded_fuzzy_match", 28] : alias.matchType === "ocr_variant" ? ["alias_ocr_variant_match", 28] : ["alias_normalized_match", 36];
+  const accepted: ResolutionEvidence[] = [evidence(label[0], "label", "strong", label[1], alias.value)];
   const rejected: ResolutionEvidence[] = [];
   const missingAxes: Array<"specimen" | "modifier" | "timing" | "method" | "value_kind"> = [];
+  const conflict = (code: ResolutionReasonCode, source: ResolutionEvidence["source"], observed: string, expected: readonly string[]) => rejected.push(evidence(code, source, "hard", 0, observed, expected));
+  if (definition.valueKind !== "unspecified" && input.valueKind) {
+    if (input.valueKind !== definition.valueKind) conflict("value_kind_conflict", "label", input.valueKind, [definition.valueKind]);
+    else accepted.push(evidence("value_kind_compatible", "label", "strong", 15, input.valueKind));
+  }
   if (unit.normalizedUnit && definition.unitPolicy.dimensions.length) {
-    if (!unit.dimension || !definition.unitPolicy.dimensions.includes(unit.dimension)) rejected.push(evidence("unit_dimension_conflict", "unit", "hard", unit.normalizedUnit, definition.unitPolicy.dimensions));
-    else if (!definition.unitPolicy.acceptedUnits.includes(unit.normalizedUnit)) rejected.push(evidence("unit_not_accepted", "unit", "hard", unit.normalizedUnit, definition.unitPolicy.acceptedUnits));
-    else accepted.push(evidence("unit_compatible", "unit", "strong", unit.normalizedUnit));
-  } else if (!unit.normalizedUnit) {
-    accepted.push(evidence("unit_missing", "unit", "weak"));
+    if (!unit.dimension || !definition.unitPolicy.dimensions.includes(unit.dimension)) conflict("unit_dimension_conflict", "unit", unit.normalizedUnit, definition.unitPolicy.dimensions);
+    else if (!definition.unitPolicy.acceptedUnits.includes(unit.normalizedUnit)) conflict("unit_not_accepted", "unit", unit.normalizedUnit, definition.unitPolicy.acceptedUnits);
+    else accepted.push(evidence("unit_compatible", "unit", "strong", 15, unit.normalizedUnit));
   }
   const specimen = normalizedSpecimen(input.specimen);
   if (definition.specimen !== "unspecified") {
-    if (specimen === "unspecified") {
-      missingAxes.push("specimen");
-      accepted.push(evidence("specimen_missing", "specimen", "weak"));
-    } else if (specimen !== definition.specimen) {
-      rejected.push(evidence("specimen_conflict", "specimen", "hard", specimen, [definition.specimen]));
-    } else {
-      accepted.push(evidence("specimen_compatible", "specimen", "strong", specimen));
-    }
+    if (specimen === "unspecified") missingAxes.push("specimen");
+    else if (specimen !== definition.specimen) conflict("specimen_conflict", "specimen", specimen, [definition.specimen]);
+    else accepted.push(evidence("specimen_compatible", "specimen", "strong", 10, specimen));
   }
   if (definition.requiredModifiers?.length) {
     const modifier = snakeCaseToken(input.modifier ?? "");
-    if (!modifier) {
-      missingAxes.push("modifier");
-      accepted.push(evidence("modifier_missing", "modifier", "weak"));
-    } else if (!definition.requiredModifiers.includes(modifier)) {
-      rejected.push(evidence("modifier_conflict", "modifier", "hard", modifier, definition.requiredModifiers));
-    } else {
-      accepted.push(evidence("modifier_compatible", "modifier", "strong", modifier));
-    }
+    if (!modifier) missingAxes.push("modifier");
+    else if (!definition.requiredModifiers.includes(modifier)) conflict("modifier_conflict", "modifier", modifier, definition.requiredModifiers);
+    else accepted.push(evidence("modifier_compatible", "modifier", "strong", 5, modifier));
   }
-  if (definition.valueKind !== "unspecified" && input.valueKind && input.valueKind !== definition.valueKind) missingAxes.push("value_kind");
-  const score = rejected.length ? null : accepted.reduce((sum, item) => sum + (item.strength === "strong" ? 2 : 1), 0);
-  return { candidateKey: definition.key, matchedAlias: alias, accepted, rejected, missingAxes, score };
+  for (const [axis, value, expected, compatible, conflictCode, missingCode] of [["timing", input.timing, definition.timing, "timing_compatible", "timing_conflict", "timing_missing"], ["method", input.method, definition.method, "method_compatible", "method_conflict", "method_missing"]] as const) {
+    if (expected === "unspecified" || expected === "point_in_time" || expected === "automated") continue;
+    if (!value || value === "unspecified") { missingAxes.push(axis); accepted.push(evidence(missingCode, axis === "timing" ? "section" : "label", "weak", 0)); }
+    else if (value !== expected) conflict(conflictCode, axis === "timing" ? "section" : "label", value, [expected]);
+    else accepted.push(evidence(compatible, axis === "timing" ? "section" : "label", "strong", 5, value));
+  }
+  if (input.section) accepted.push(evidence("section_support", "section", "weak", 3, input.section));
+  if (input.neighbourLabels?.length) accepted.push(evidence("neighbour_support", "neighbour", "weak", 3));
+  if (input.referenceLow != null || input.referenceHigh != null) accepted.push(evidence("reference_shape_support", "reference", "weak", 2));
+  const score = rejected.length ? null : accepted.reduce((sum, item) => sum + item.score, 0);
+  return { candidateKey: definition.key, matchedAlias: alias, accepted, rejected, missingAxes, score, eligible: false };
 }
 
-/** Resolve raw evidence against reviewed Registry 2.0 definitions only. */
+/** Resolve raw evidence against authorized Registry 2.0 candidates. */
 export function resolveMeasurementDefinition(input: MeasurementResolutionInput): MeasurementResolution {
-  const admissions = findAliasAdmissions(input);
   const unit = normalizeMeasurementUnit(input.rawUnit);
-  const evidenceByCandidate = admissions.map(({ definition, alias }) => candidateEvidence(definition, alias, input, unit));
-  const compatible = evidenceByCandidate.filter((candidate) => candidate.rejected.length === 0);
-  const concrete = compatible.filter((candidate) => {
-    const definition = getMeasurementDefinition(candidate.candidateKey)!;
-    return definition.maturity === "reviewed" &&
-      definition.sourceProvenance.kind === "registry_v2_review" &&
-      candidate.matchedAlias.matchAuthority === "reviewed_resolution" &&
-      candidate.matchedAlias.approvalStatus === "reviewed" &&
-      candidate.missingAxes.length === 0;
-  });
-  const result = concrete.length === 1 ? "resolved" : concrete.length > 1 ? "ambiguous" : admissions.length ? "partial" : "unmapped";
-  const selected = concrete.length === 1 ? getMeasurementDefinition(concrete[0].candidateKey) : undefined;
-  const analytes = new Set((compatible.length ? compatible : evidenceByCandidate).map((candidate) => getMeasurementDefinition(candidate.candidateKey)?.analyteKey).filter((key): key is string => Boolean(key)));
-  const reasons = [...new Set(evidenceByCandidate.flatMap((candidate) => [...candidate.accepted, ...candidate.rejected].map((item) => item.code)))];
-  const missingAxes = [...new Set(evidenceByCandidate.flatMap((candidate) => candidate.missingAxes))];
-  const conflicts = [...new Set(evidenceByCandidate.flatMap((candidate) => candidate.rejected.map((item) => item.code)))];
-  const confidence: { value: number; band: MappingConfidenceBand } = result === "resolved" ? { value: 0.95, band: "high" } : result === "partial" ? { value: 0.7, band: "medium" } : { value: 0, band: "low" };
-  return { result, measurementDefinitionKey: selected?.key ?? null, analyteKey: analytes.size === 1 ? [...analytes][0] : selected?.analyteKey ?? null, mappingConfidence: confidence.value, mappingConfidenceBand: confidence.band, unit, unitToken: unit.dimension ?? "unknown", candidateKeys: (compatible.length ? compatible : evidenceByCandidate).map((candidate) => candidate.candidateKey), missingAxes, conflicts, candidateEvidence: evidenceByCandidate, reasons };
+  const byDefinition = new Map<string, CandidateEvidence>();
+  for (const { definition, alias } of findAliasAdmissions(input)) {
+    const candidate = candidateEvidence(definition, alias, input, unit);
+    const current = byDefinition.get(candidate.candidateKey);
+    if (!current || (candidate.score ?? -1) > (current.score ?? -1)) byDefinition.set(candidate.candidateKey, candidate);
+  }
+  const candidates = [...byDefinition.values()].sort((a, b) => a.candidateKey.localeCompare(b.candidateKey));
+  const ranked = candidates.filter((candidate) => candidate.score !== null).sort((a, b) => (b.score! - a.score!) || a.candidateKey.localeCompare(b.candidateKey));
+  const admissible = ranked.filter((candidate) => { const definition = getMeasurementDefinition(candidate.candidateKey)!; return definition.maturity === "reviewed" && definition.sourceProvenance.kind === "registry_v2_review" && candidate.matchedAlias.matchAuthority === "reviewed_resolution" && candidate.matchedAlias.approvalStatus === "reviewed" && !candidate.missingAxes.length && candidate.score! >= 55; });
+  const winner = admissible[0];
+  const runnerUp = admissible[1];
+  const resolved = !!winner && (!runnerUp || winner.score! - runnerUp.score! >= 5);
+  const result = resolved ? "resolved" : admissible.length > 1 ? "ambiguous" : candidates.length ? "partial" : "unmapped";
+  const selected = resolved ? getMeasurementDefinition(winner!.candidateKey) : undefined;
+  const confidence = result === "unmapped" ? 0 : Math.min(0.99, (winner ?? ranked[0])?.score! / 100 || 0);
+  const band: MappingConfidenceBand = confidence >= .85 ? "high" : confidence >= .6 ? "medium" : "low";
+  const evidenceByCandidate = candidates.map((candidate) => ({ ...candidate, eligible: admissible.some(({ candidateKey }) => candidateKey === candidate.candidateKey) }));
+  const analytes = new Set(ranked.map((candidate) => getMeasurementDefinition(candidate.candidateKey)?.analyteKey).filter((key): key is string => Boolean(key)));
+  return { result, measurementDefinitionKey: selected?.key ?? null, analyteKey: selected?.analyteKey ?? (analytes.size === 1 ? [...analytes][0] : null), mappingConfidence: confidence, mappingConfidenceBand: band, unit, unitToken: unit.dimension ?? "unknown", candidateKeys: ranked.map(({ candidateKey }) => candidateKey), missingAxes: [...new Set(candidates.flatMap(({ missingAxes }) => missingAxes))], conflicts: [...new Set(candidates.flatMap(({ rejected }) => rejected.map(({ code }) => code)))], candidateEvidence: evidenceByCandidate, reasons: [...new Set(candidates.flatMap(({ accepted, rejected }) => [...accepted, ...rejected].map(({ code }) => code)))], decisionTrace: { version: 1, selectedCandidateKey: selected?.key ?? null, runnerUpCandidateKey: runnerUp?.candidateKey ?? null, outcome: result, confidence, candidates: evidenceByCandidate } };
 }
 
 export type MeasurementRegistryValidation = { valid: boolean; errors: string[]; warnings: string[] };

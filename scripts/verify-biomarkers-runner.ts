@@ -67,5 +67,16 @@ assert.notEqual(observationIdentityKey("creatinine", "serum", "none"), observati
 
 const ocrArtifact = buildPageOcrArtifact({ engine: "pdf-text", page_number: 1, full_text: "Glucose 90" });
 assert.equal(isPageOcrArtifact(ocrArtifact), true);
+const evidenceInput = { rawLabel: "ALT", rawUnit: "U/L", specimen: "serum", valueKind: "numeric" as const };
+const evidenceResolution = resolveMeasurementDefinition(evidenceInput);
+assert.equal(evidenceResolution.result, "resolved");
+assert.equal(evidenceResolution.decisionTrace.version, 1);
+assert.equal(evidenceResolution.decisionTrace.selectedCandidateKey, evidenceResolution.measurementDefinitionKey);
+assert.deepEqual(resolveMeasurementDefinition(evidenceInput), evidenceResolution);
+
+const valueKindConflict = resolveMeasurementDefinition({ ...evidenceInput, valueKind: "qualitative" as const });
+assert.equal(valueKindConflict.result, "partial");
+assert.ok(valueKindConflict.conflicts.includes("value_kind_conflict"));
+assert.equal(resolveMeasurementDefinition({ rawLabel: "", proposedKey: "alt_serum_catalytic_activity" }).result, "unmapped");
 
 console.log("verify-biomarkers: all checks passed");
