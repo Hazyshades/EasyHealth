@@ -41,14 +41,16 @@ import {
   computeTypeMismatch,
 } from "../../src/lib/documents/type-classification.js";
 import { normalizeDocumentType, type DocumentType } from "../../src/lib/health-systems.js";
-import type {
-  InstrumentalMeasureMaterializationInput,
-  ReplaceDocumentInstrumentalObservationsArgs,
-} from "../../src/lib/documents/instrumental-measure-lineage.js";
 import {
-  canonicalInstrumentalSnapshotHash,
-  validateInstrumentalMeasures,
-} from "./instrumental-materialization.js";
+  instrumentalSnapshotDigest,
+  normalizeInstrumentalSnapshot,
+  type FinalizeInstrumentalPublicationArgs,
+  type FinalizeInstrumentalPublicationRow,
+  type InstrumentalPublicationCompletion,
+  type InstrumentalSnapshotInput,
+  type PrepareInstrumentalPublicationArgs,
+  type PrepareInstrumentalPublicationRow,
+} from "../../src/lib/documents/instrumental-publication.js";
 import { finalizeDocumentProcessing } from "./document-completion.js";
 import { modelIdForStage, resolveModelForStage, type AiProviderId } from "./ai.js";
 import {
@@ -65,6 +67,7 @@ type JobRow = {
   profile_id: string;
   attempts: number;
   max_attempts: number;
+  processing_attempt_id: string;
 };
 
 type DocumentRow = {
@@ -105,31 +108,16 @@ async function uploadToLabDocuments(
   }
 }
 
-export async function failJob(job: Pick<JobRow, "id">, documentId: string, message: string) {
-  const jobResult = await supabase
-    .from("document_processing_jobs")
-    .update({
-      status: "failed",
-      error: message,
-      finished_at: new Date().toISOString(),
-    })
-    .eq("id", job.id);
-
-  const documentResult = await supabase
-    .from("documents")
-    .update({
-      processing_status: "failed",
-      status: "failed",
-      processing_error: message,
-    })
-    .eq("id", documentId);
-
-  const failures = [
-    jobResult.error ? `job failure status: ${jobResult.error.message}` : null,
-    documentResult.error ? `document failure status: ${documentResult.error.message}` : null,
-  ].filter((failure): failure is string => Boolean(failure));
-  if (failures.length > 0) {
-    throw new Error(failures.join("; "));
+export async function failJob(
+  job: Pick<JobRow, "processing_attempt_id">,
+  message: string
+) {
+  const { error } = await supabase.rpc("fail_document_processing_attempt", {
+    p_attempt_id: job.processing_attempt_id,
+    p_message: message,
+  });
+  if (error) {
+    throw new Error(`fail document processing attempt: ${error.message}`);
   }
 }
 
@@ -192,10 +180,6 @@ async function clearPriorExtractions(documentId: string, documentType: string) {
     }
   }
   requireMutationSuccess(
-    await supabase.from("document_extracted_findings").delete().eq("document_id", documentId),
-    "clear prior extracted findings"
-  );
-  requireMutationSuccess(
     await supabase.from("document_extracted_clinical_notes").delete().eq("document_id", documentId),
     "clear prior extracted clinical notes"
   );
@@ -213,37 +197,60 @@ async function clearPriorExtractions(documentId: string, documentType: string) {
   );
 }
 
-async function materializeInstrumentalObservations(
+async function prepareInstrumentalPublicationRpc(
+  job: JobRow,
   documentId: string,
-  jobId: string,
-  studyDate: string | null,
-  modality: string | null,
-  bodyRegion: string | null,
-  extractionModel: string | null,
-  measures: InstrumentalMeasureMaterializationInput[]
-) {
-  const observedAt = studyDate ?? new Date().toISOString().slice(0, 10);
-  const validMeasures = validateInstrumentalMeasures(measures);
-  const payload: ReplaceDocumentInstrumentalObservationsArgs = {
+  snapshot: InstrumentalSnapshotInput
+): Promise<PrepareInstrumentalPublicationRow> {
+  const args: PrepareInstrumentalPublicationArgs = {
     p_document_id: documentId,
-    p_job_id: jobId,
-    p_snapshot_hash: canonicalInstrumentalSnapshotHash(
-      observedAt,
-      modality,
-      bodyRegion,
-      validMeasures
-    ),
-    p_study_date: observedAt,
-    p_modality: modality,
-    p_body_region: bodyRegion,
-    p_processing_version: DOCUMENT_PROCESSING_VERSION,
-    p_extraction_model: extractionModel,
-    p_measures: validMeasures,
+    p_job_id: job.id,
+    p_processing_attempt_id: job.processing_attempt_id,
+    p_snapshot: snapshot,
+    p_caller_digest: instrumentalSnapshotDigest(snapshot),
   };
-  requireMutationSuccess(
-    await supabase.rpc("replace_document_instrumental_observations", payload),
-    "materialize instrumental observations"
-  );
+  const { data, error } = await supabase.rpc("prepare_instrumental_publication", args);
+  if (error) {
+    throw new Error(`prepare instrumental publication: ${error.message}`);
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | PrepareInstrumentalPublicationRow
+    | undefined;
+  if (!row?.publication_id) {
+    throw new Error("prepare instrumental publication returned no row");
+  }
+  return row;
+}
+
+async function finalizeInstrumentalPublicationRpc(
+  job: JobRow,
+  documentId: string,
+  prepared: PrepareInstrumentalPublicationRow,
+  summaryText: string | null,
+  completion: InstrumentalPublicationCompletion
+): Promise<FinalizeInstrumentalPublicationRow> {
+  const args: FinalizeInstrumentalPublicationArgs = {
+    p_document_id: documentId,
+    p_job_id: job.id,
+    p_processing_attempt_id: job.processing_attempt_id,
+    p_publication_id: prepared.publication_id,
+    p_snapshot_content_id: prepared.snapshot_content_id,
+    p_canonicalization_version: prepared.canonicalization_version,
+    p_snapshot_hash: prepared.snapshot_hash,
+    p_summary_text: summaryText,
+    p_completion: completion,
+  };
+  const { data, error } = await supabase.rpc("finalize_instrumental_publication", args);
+  if (error) {
+    throw new Error(`finalize instrumental publication: ${error.message}`);
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | FinalizeInstrumentalPublicationRow
+    | undefined;
+  if (!row?.publication_id) {
+    throw new Error("finalize instrumental publication returned no row");
+  }
+  return row;
 }
 
 export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> {
@@ -256,7 +263,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
     .single();
 
   if (docError || !document) {
-    await failJob(job, job.document_id, docError?.message ?? "Document not found");
+    await failJob(job, docError?.message ?? "Document not found");
     return "failed";
   }
 
@@ -287,7 +294,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
     .download(storagePath);
 
   if (downloadError || !fileData) {
-    await failJob(job, doc.id, downloadError?.message ?? "Download failed");
+    await failJob(job, downloadError?.message ?? "Download failed");
     return "failed";
   }
 
@@ -300,7 +307,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
     pages = await generatePagePreviews(buffer, mimeType, doc.original_filename);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Preview generation failed";
-    await failJob(job, doc.id, message);
+    await failJob(job, message);
     return "failed";
   }
 
@@ -499,56 +506,23 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
       labName = extraction.facility_name;
       modality = extraction.modality;
 
-      if (extraction.findings.length > 0) {
-        requireMutationSuccess(
-          await supabase.from("document_extracted_findings").insert(
-            extraction.findings.map((finding, index) => ({
-              document_id: documentId,
-              profile_id: profileId,
-              modality: extraction.modality,
-              body_region: extraction.body_region,
-              finding_text: finding.finding_text,
-              impression: index === 0 ? extraction.impression : null,
-              source_page: finding.source_page ?? 1,
-              source_text: finding.source_text,
-              confidence: finding.confidence,
-              extraction_method: "llm",
-              processing_version: DOCUMENT_PROCESSING_VERSION,
-              extraction_model: extractionModel,
-              status: "accepted",
-            }))
-          ),
-          "write extracted instrumental findings"
-        );
-      } else if (extraction.impression) {
-        requireMutationSuccess(
-          await supabase.from("document_extracted_findings").insert({
-            document_id: documentId,
-            profile_id: profileId,
-            modality: extraction.modality,
-            body_region: extraction.body_region,
-            finding_text: extraction.impression,
-            impression: extraction.impression,
-            source_page: 1,
-            confidence: 0.8,
-            extraction_method: "llm",
-            processing_version: DOCUMENT_PROCESSING_VERSION,
-            extraction_model: extractionModel,
-            status: "accepted",
-          }),
-          "write extracted instrumental impression"
-        );
-      }
+      // Stage the immutable snapshot (measures, findings, impression) as an
+      // inactive prepared publication; readers keep seeing the prior current
+      // version until the finalizer commits.
+      const snapshot = normalizeInstrumentalSnapshot({
+        study_date:
+          extraction.study_date ?? new Date().toISOString().slice(0, 10),
+        modality: extraction.modality,
+        body_region: extraction.body_region,
+        facility_name: extraction.facility_name,
+        impression: extraction.impression,
+        processing_version: DOCUMENT_PROCESSING_VERSION,
+        extraction_model: extractionModel,
+        measures: extraction.numeric_measures,
+        findings: extraction.findings,
+      });
 
-      await materializeInstrumentalObservations(
-        documentId,
-        job.id,
-        extraction.study_date,
-        extraction.modality,
-        extraction.body_region,
-        extractionModel,
-        extraction.numeric_measures
-      );
+      const prepared = await prepareInstrumentalPublicationRpc(job, documentId, snapshot);
 
       const summaryModel = resolveModelForStage(provider, "summarize");
       const summaryCtx = makePipelineTrace(provider, profileId, documentId, "summarize");
@@ -559,6 +533,21 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         doc.original_filename,
         summaryCtx
       );
+
+      // One transaction: publish measures/findings/impression/summary,
+      // supersede the prior publication, advance write_generation, complete
+      // the document/job/attempt, and invalidate synthesis.
+      await finalizeInstrumentalPublicationRpc(job, documentId, prepared, documentSummary, {
+        page_count: pages.length,
+        thumbnail_storage_path: thumbPath,
+        ocr_status: ocrText ? "completed" : "skipped",
+        extraction_status: "completed",
+        detected_document_type: detectedDocumentType,
+        type_mismatch_warning: typeMismatchWarning,
+        type_mismatch_reason: typeMismatchReason,
+      });
+
+      return "completed";
     } else if (documentType === "consultation_note") {
       const { result: extraction, modelId } = await runTextOrImageExtraction(
         ocrText,
@@ -732,22 +721,20 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Extraction failed";
-    await failJob(job, doc.id, message);
+    await failJob(job, message);
     return "failed";
   }
 
   const completionOutcome = await finalizeDocumentProcessing({
-    async writeDocumentCompletion() {
-      requireMutationSuccess(await supabase
-        .from("documents")
-        .update({
+    async complete() {
+      const { error } = await supabase.rpc("complete_document_processing_attempt", {
+        p_attempt_id: job.processing_attempt_id,
+        p_document: {
           processing_status: processingStatus,
-          status: processingStatus === "ready" ? "completed" : "processing",
           page_count: pages.length,
           thumbnail_storage_path: thumbPath,
           processing_version: DOCUMENT_PROCESSING_VERSION,
           extraction_model: extractionModel,
-          processed_at: new Date().toISOString(),
           lab_name: labName,
           observed_at: observedAt,
           modality,
@@ -757,26 +744,14 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
           detected_document_type: detectedDocumentType,
           type_mismatch_warning: typeMismatchWarning,
           type_mismatch_reason: typeMismatchReason,
-        })
-        .eq("id", documentId), "complete document processing");
-    },
-    async invalidateHealthSynthesis() {
-      requireMutationSuccess(
-        await supabase.from("profile_health_synthesis").delete().eq("profile_id", profileId),
-        "invalidate health synthesis"
-      );
-    },
-    async writeJobCompletion() {
-      requireMutationSuccess(await supabase
-        .from("document_processing_jobs")
-        .update({
-          status: "completed",
-          finished_at: new Date().toISOString(),
-        })
-        .eq("id", job.id), "complete document processing job");
+        },
+      });
+      if (error) {
+        throw new Error(`complete document processing: ${error.message}`);
+      }
     },
     async writeFailure(message) {
-      await failJob(job, doc.id, message);
+      await failJob(job, message);
     },
   });
   if (completionOutcome === "failed") return "failed";

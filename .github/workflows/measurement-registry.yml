@@ -3,7 +3,8 @@ name: Measurement Registry
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [master]
+  workflow_dispatch:
 
 jobs:
   verify:
@@ -20,6 +21,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm check:registry-v2-cutover
+      - run: pnpm check:no-legacy-promotion-rpc
+      - run: pnpm check:postgrest-embed-hints
       - run: pnpm verify:registry
         env:
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
@@ -34,6 +37,8 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
       - name: Validate Registry 2.0 candidate-release evidence
         run: pnpm check:registry-v2-candidate-corpus
+      - name: Verify CBC measurement regression suite
+        run: pnpm test:cbc-regression
       - name: Publish Registry 2.0 candidate-release evidence
         run: |
           mkdir -p .artifacts
@@ -72,8 +77,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Start local Supabase services
         run: supabase db start
+      - name: Run EH-104 Phase B database contract
+        run: pnpm test:eh104-db
+      - name: Run EH-105 instrumental lineage database contract
+        run: pnpm test:eh105-db
       - name: Run EH-106 atomic writer database contract
         run: pnpm test:eh106-db
+      - name: Run PostgREST revision embed alias contract
+        run: pnpm test:postgrest-alias-db
       - name: Stop local Supabase services
         if: always()
         run: supabase stop --no-backup

@@ -35,7 +35,7 @@ export async function GET() {
       supabase
         .from("observations")
         .select(
-          "measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier, normalization_revision:observation_normalization_revisions!observations_normalization_revision_fk(resolver_result, measurement_definition_key, is_active)"
+          "measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier, normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, measurement_definition_key, is_active)"
         )
         .eq("profile_id", profileId)
         // EH-105: Health Profile remains a laboratory-only assessment boundary.

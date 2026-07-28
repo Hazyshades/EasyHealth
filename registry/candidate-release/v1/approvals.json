@@ -7,7 +7,7 @@
       "role": "registry-safety-reviewer",
       "approvedBy": "Registry Safety Reviewer",
       "status": "approved",
-      "candidateInputHash": "0f5787d47810be2912afd868ac033e1cb6604613306a2aea416baa84f9282c32",
+      "candidateInputHash": "b4489a7cae9ab40cef27e308f1fe64fb45eca55cfe612d806a5c4370e0116b13",
       "note": "Reviewed the negative fixtures and false-concrete-resolution report for this candidate input."
     },
     {
@@ -16,7 +16,7 @@
       "role": "assessment-owner",
       "approvedBy": "Assessment Owner",
       "status": "approved",
-      "candidateInputHash": "0f5787d47810be2912afd868ac033e1cb6604613306a2aea416baa84f9282c32",
+      "candidateInputHash": "b4489a7cae9ab40cef27e308f1fe64fb45eca55cfe612d806a5c4370e0116b13",
       "bindingKey": "alt_serum_catalytic_activity",
       "note": "Approved the reviewed ALT serum manual-correction assessment binding for this candidate input."
     },
@@ -26,7 +26,7 @@
       "role": "assessment-owner",
       "approvedBy": "Assessment Owner",
       "status": "approved",
-      "candidateInputHash": "0f5787d47810be2912afd868ac033e1cb6604613306a2aea416baa84f9282c32",
+      "candidateInputHash": "b4489a7cae9ab40cef27e308f1fe64fb45eca55cfe612d806a5c4370e0116b13",
       "bindingKey": "glucose_serum",
       "note": "Approved the reviewed glucose serum assessment binding for this candidate input."
     },
@@ -36,7 +36,7 @@
       "role": "release-manager",
       "approvedBy": "Release Manager",
       "status": "approved",
-      "candidateInputHash": "0f5787d47810be2912afd868ac033e1cb6604613306a2aea416baa84f9282c32",
+      "candidateInputHash": "b4489a7cae9ab40cef27e308f1fe64fb45eca55cfe612d806a5c4370e0116b13",
       "note": "Approved the candidate release gate after threshold and evidence review."
     }
   ]

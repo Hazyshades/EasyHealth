@@ -86,8 +86,8 @@ create unique index if not exists observations_source_instrumental_measure_uniqu
 
 -- Existing disposable development data can contain pre-EH-105 instrumental
 -- rows without source lineage. NOT VALID preserves migration compatibility
--- while enforcing the contract for every new write; reset/reprocess is the
--- supported path for those legacy rows.
+-- while enforcing the contract for every new write.
+-- reset/reprocess is the supported path for those legacy rows.
 alter table public.observations
   drop constraint if exists observations_instrumental_lineage_check;
 
@@ -128,6 +128,7 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+#variable_conflict use_column
 declare
   v_document public.documents%rowtype;
   v_job public.document_processing_jobs%rowtype;
@@ -142,6 +143,7 @@ declare
   v_occurrence_index integer;
   v_source_page integer;
   v_confidence numeric;
+  v_bounding_box jsonb;
 begin
   if p_snapshot_hash is null or p_snapshot_hash !~ '^[0-9a-f]{64}$' then
     raise exception using message = 'invalid_instrumental_snapshot_hash';
@@ -279,6 +281,12 @@ begin
         then (v_measure ->> 'confidence')::numeric
       else null
     end;
+    -- Keep CASE out of IF conditions: PL/pgSQL treats CASE THEN as IF THEN.
+    v_bounding_box := case
+      when jsonb_typeof(v_measure -> 'bounding_box') = 'object'
+        then v_measure -> 'bounding_box'
+      else null
+    end;
     v_source_id := null;
 
     insert into public.document_extracted_instrumental_measures (
@@ -323,7 +331,7 @@ begin
       nullif(btrim(v_measure ->> 'source_text'), ''),
       v_source_locator,
       v_occurrence_index,
-      case when jsonb_typeof(v_measure -> 'bounding_box') = 'object' then v_measure -> 'bounding_box' else null end,
+      v_bounding_box,
       v_confidence,
       nullif(btrim(p_modality), ''),
       nullif(btrim(p_body_region), ''),
@@ -357,7 +365,7 @@ begin
         or v_source.observed_at is distinct from p_study_date
         or v_source.source_page is distinct from v_source_page
         or v_source.source_text is distinct from nullif(btrim(v_measure ->> 'source_text'), '')
-        or v_source.bounding_box is distinct from case when jsonb_typeof(v_measure -> 'bounding_box') = 'object' then v_measure -> 'bounding_box' else null end
+        or v_source.bounding_box is distinct from v_bounding_box
         or v_source.confidence is distinct from v_confidence
         or v_source.modality is distinct from nullif(btrim(p_modality), '')
         or v_source.body_region is distinct from nullif(btrim(p_body_region), '')
@@ -408,7 +416,7 @@ begin
       p_study_date,
       v_source_page,
       nullif(btrim(v_measure ->> 'source_text'), ''),
-      case when jsonb_typeof(v_measure -> 'bounding_box') = 'object' then v_measure -> 'bounding_box' else null end,
+      v_bounding_box,
       v_confidence,
       nullif(btrim(p_processing_version), ''),
       'instrumental'
