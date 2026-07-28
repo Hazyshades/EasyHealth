@@ -65,16 +65,40 @@ export type UnitToken = UnitDimension | "unknown";
 
 export type MissingUnitPolicy = "reject" | "ambiguous" | "display_only";
 
-export type MeasurementAlias = {
+export type AliasSource = "canonical" | "registry" | "laboratory" | "fixture";
+export type AliasMatchType = "exact" | "normalized" | "ocr_variant" | "bounded_fuzzy";
+export type AliasMatchAuthority = "recognition_only" | "reviewed_resolution";
+export type AliasApprovalStatus = "reviewed" | "provisional";
+export type AliasLifecycle = "active" | "deprecated";
+
+export type AliasDefinition = {
+  key: string;
+  measurementDefinitionKey: MeasurementDefinitionKey;
   value: string;
   normalizedValue: string;
-  source: "canonical" | "registry" | "laboratory" | "fixture";
-  matchType: "exact" | "normalized" | "ocr_variant";
+  source: AliasSource;
+  matchType: AliasMatchType;
+  matchAuthority: AliasMatchAuthority;
+  approvalStatus: AliasApprovalStatus;
+  lifecycle: AliasLifecycle;
+  provenance: MeasurementSourceProvenance;
+  reviewReference?: string;
+  maxNormalizedEditDistance?: 1 | 2;
   locale?: string;
   laboratory?: string;
-  approvalStatus?: "reviewed" | "provisional";
   fixtureRefs?: readonly string[];
 };
+
+export type MatchedAlias = Pick<
+  AliasDefinition,
+  | "key"
+  | "measurementDefinitionKey"
+  | "matchType"
+  | "matchAuthority"
+  | "approvalStatus"
+  | "lifecycle"
+  | "provenance"
+> & { value: string; normalizedValue: string };
 
 export type AssessmentBinding = {
   assessmentInputKey: string;
@@ -126,6 +150,7 @@ export type ResolutionReasonCode =
   | "alias_exact_match"
   | "alias_normalized_match"
   | "alias_ocr_variant_match"
+  | "alias_bounded_fuzzy_match"
   | "proposed_key_match"
   | "unit_compatible"
   | "unit_dimension_conflict"
@@ -153,6 +178,7 @@ export type ResolutionEvidence = {
 
 export type CandidateEvidence = {
   candidateKey: MeasurementDefinitionKey;
+  matchedAlias: MatchedAlias;
   accepted: readonly ResolutionEvidence[];
   rejected: readonly ResolutionEvidence[];
   missingAxes: readonly ("specimen" | "modifier" | "timing" | "method" | "value_kind")[];
@@ -173,7 +199,7 @@ export type MeasurementDefinition = {
   method: MeasurementMethodKey;
   valueKind: MeasurementValueKind;
   displayName: string;
-  aliases: readonly MeasurementAlias[];
+  aliases: readonly AliasDefinition[];
   unitPolicy: MeasurementUnitPolicy;
   /** Display-only conversion rule reviewed with this concrete definition. */
   conversion?: ConversionRule | null;
@@ -195,6 +221,7 @@ export type MeasurementResolutionInput = {
   extractionConfidence?: number | null;
   valueKind?: MeasurementValueKind | null;
   proposedKey?: string | null;
+  laboratory?: string | null;
 };
 
 export type MeasurementResolution = {
