@@ -19,10 +19,8 @@ import {
   withDisclaimer,
 } from "@/lib/reports";
 import { buildDocumentStructuredContext } from "@/lib/documents/structured-context";
-import {
-  projectActiveRegistryV2LaboratoryBinding,
-  type RegistryV2NormalizationRevisionReadBoundary,
-} from "@/lib/documents/observation-read-boundaries";
+import type { RegistryV2NormalizationRevisionReadBoundary } from "@/lib/documents/observation-read-boundaries";
+import { projectLaboratoryOutcome } from "@/lib/documents/incomplete-laboratory-outcomes";
 
 function sanitizeSearchTerm(value: string): string {
   return value.replace(/[%_,]/g, "").trim();
@@ -159,7 +157,7 @@ export async function POST(req: NextRequest) {
   const { data: observations, error: obsError } = await supabase
     .from("observations")
     .select(
-      "name, analyte_key, measurement_definition_key, resolution_status, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, observation_kind, documents(original_filename, observed_at), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, is_active, resolver_evidence)"
+      "name, analyte_key, measurement_definition_key, resolution_status, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, observation_kind, documents(original_filename, observed_at), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence)"
     )
     .eq("profile_id", profileId)
     .in("document_id", scopeIds)
@@ -172,26 +170,29 @@ export async function POST(req: NextRequest) {
 
   const context = buildMultiSourceReportContext(
     structured,
-    (observations ?? []).map((o) => {
-      const binding = projectActiveRegistryV2LaboratoryBinding(
-        o,
-        o.normalization_revision as
+    (observations ?? []).flatMap((o) => {
+      const outcome = projectLaboratoryOutcome({
+        observation: o,
+        relation: o.normalization_revision as
           | RegistryV2NormalizationRevisionReadBoundary
           | RegistryV2NormalizationRevisionReadBoundary[]
-          | null
-      );
+          | null,
+      });
+      if (!outcome.resolutionDetails.eligibility.reportEligible) return [];
+
       const numericValue = o.value != null ? Number(o.value) : null;
       const document = Array.isArray(o.documents)
         ? o.documents[0] ?? null
         : o.documents ?? null;
 
-      return {
+      return [{
         name: o.name,
-        analyte_key: o.analyte_key ?? null,
-        measurement_definition_key: binding.measurementDefinitionKey,
-        resolution_status: binding.resolutionStatus,
-        verification_status: binding.verificationStatus,
-        registry_binding_ready: binding.registryBindingReady,
+        analyte_key: outcome.analyteKey,
+        measurement_definition_key: outcome.measurementDefinitionKey,
+        resolution_status: outcome.outcome,
+        verification_status: outcome.verificationStatus,
+        registry_binding_ready: outcome.registryBindingReady,
+        report_eligible: outcome.resolutionDetails.eligibility.reportEligible,
         value_kind: o.value_kind ?? "numeric",
         value_text:
           o.value_text ??
@@ -206,8 +207,11 @@ export async function POST(req: NextRequest) {
         ref_low: o.ref_low != null ? Number(o.ref_low) : null,
         ref_high: o.ref_high != null ? Number(o.ref_high) : null,
         observed_at: o.observed_at,
-        documents: document as { original_filename: string; observed_at: string | null } | null,
-      };
+        documents: document as {
+          original_filename: string;
+          observed_at: string | null;
+        } | null,
+      }];
     }),
     abnormal_only
   );

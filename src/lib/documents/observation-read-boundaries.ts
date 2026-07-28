@@ -24,12 +24,23 @@ export type RegistryV2NormalizationRevisionReadBoundary = {
   resolver_result?: string | null;
   verification_status?: string | null;
   measurement_definition_key?: string | null;
+  mapping_confidence?: number | null;
+  mapping_confidence_band?: string | null;
+  catalog_manifest_version?: string | null;
+  resolver_version?: string | null;
+  normalization_version?: string | null;
   is_active?: boolean | null;
   resolver_evidence?: {
     version?: number;
     compatibilityPolicyVersion?: string;
     selectedCandidateKey?: string | null;
     outcome?: string | null;
+    candidates?: readonly {
+      accepted?: readonly { code?: string }[];
+      missing?: readonly { code?: string }[];
+      rejected?: readonly { code?: string }[];
+      missingAxes?: readonly string[];
+    }[];
   } | null;
 };
 
@@ -39,7 +50,7 @@ export type RegistryV2LaboratoryBindingSource =
 export function getActiveRegistryV2NormalizationRevision(
   relation:
     | RegistryV2NormalizationRevisionReadBoundary
-    | RegistryV2NormalizationRevisionReadBoundary[]
+    | readonly RegistryV2NormalizationRevisionReadBoundary[]
     | null
     | undefined
 ): RegistryV2NormalizationRevisionReadBoundary | null {
@@ -61,7 +72,7 @@ export function projectActiveRegistryV2LaboratoryBinding(
   observation: RegistryV2LaboratoryBindingSource,
   relation:
     | RegistryV2NormalizationRevisionReadBoundary
-    | RegistryV2NormalizationRevisionReadBoundary[]
+    | readonly RegistryV2NormalizationRevisionReadBoundary[]
     | null
     | undefined
 ) {

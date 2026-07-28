@@ -5,6 +5,8 @@ import type {
 } from "@/lib/biomarkers";
 import { parseReferenceRange } from "@/lib/schemas/biomarkers";
 import { compatibleManualDefinitions } from "./normalization-revisions";
+import { projectLaboratoryOutcome } from "./incomplete-laboratory-outcomes";
+import type { RegistryV2NormalizationRevisionReadBoundary } from "./observation-read-boundaries";
 
 type ExtractedReviewRow = {
   id: string;
@@ -23,21 +25,21 @@ type ExtractedReviewRow = {
   modifier?: string | null;
 };
 
-export type NormalizationRevisionSummary = {
-  id: string;
-  extracted_biomarker_id: string;
-  measurement_definition_key: string | null;
-  analyte_key: string | null;
-  resolver_result: string;
-  mapping_confidence: number;
-  mapping_confidence_band: string | null;
-  verification_status: VerificationStatus;
-  is_active: boolean;
-  catalog_manifest_version: string;
-  resolver_version: string;
-  normalization_version: string;
-  created_at: string;
-};
+export type NormalizationRevisionSummary =
+  RegistryV2NormalizationRevisionReadBoundary & {
+    id: string;
+    extracted_biomarker_id: string;
+    analyte_key: string | null;
+    resolver_result: string;
+    mapping_confidence: number;
+    mapping_confidence_band: string | null;
+    verification_status: VerificationStatus;
+    is_active: boolean;
+    catalog_manifest_version: string;
+    resolver_version: string;
+    normalization_version: string;
+    created_at: string;
+  };
 
 export function measurementInputFromExtracted(
   row: ExtractedReviewRow
@@ -64,22 +66,38 @@ export function measurementInputFromExtracted(
 }
 
 export function buildNormalizationReview(
-  row: ExtractedReviewRow,
+  row: ExtractedReviewRow & {
+    measurement_definition_key?: string | null;
+    resolver_result?: string | null;
+  },
   revisions: readonly NormalizationRevisionSummary[]
 ) {
   const input = measurementInputFromExtracted(row);
-  const resolution = resolveMeasurementDefinition(input);
+  const preview = resolveMeasurementDefinition(input);
+  const outcome = projectLaboratoryOutcome({
+    observation: {
+      observation_kind: "lab",
+      measurement_definition_key: row.measurement_definition_key ?? null,
+      resolution_status: row.resolver_result ?? null,
+    },
+    relation: revisions,
+    preview,
+  });
+
   return {
-    result: resolution.result,
-    candidateDefinitionKey: resolution.measurementDefinitionKey,
-    analyteKey: resolution.analyteKey,
-    missingAxes: resolution.missingAxes,
-    conflicts: resolution.conflicts,
-    mappingConfidence: resolution.mappingConfidence,
-    mappingConfidenceBand: resolution.mappingConfidenceBand,
-    unit: resolution.unit,
-    candidateEvidence: resolution.candidateEvidence,
-    decisionTrace: resolution.decisionTrace,
+    result: outcome.outcome ?? preview.result,
+    candidateDefinitionKey: outcome.measurementDefinitionKey,
+    analyteKey: outcome.analyteKey,
+    missingAxes: outcome.resolutionDetails.missingAxes,
+    conflicts: outcome.resolutionDetails.conflictCodes,
+    mappingConfidence:
+      outcome.resolutionDetails.mappingConfidence ?? preview.mappingConfidence,
+    mappingConfidenceBand:
+      outcome.resolutionDetails.mappingConfidenceBand ??
+      preview.mappingConfidenceBand,
+    unit: preview.unit,
+    resolutionDetails: outcome.resolutionDetails,
+    registryBindingReady: outcome.registryBindingReady,
     manualOptions: compatibleManualDefinitions(input)
       .map((definition) => ({
         key: definition.key,
