@@ -9,7 +9,12 @@ export type PromotionDecision =
 export function compatibleManualDefinitions(input: MeasurementResolutionInput) {
   const resolution = resolveMeasurementDefinition(input);
   return resolution.candidateEvidence
-    .filter((candidate) => candidate.rejected.length === 0)
+    .filter(
+      (candidate) =>
+        candidate.selectable &&
+        candidate.rejected.length === 0 &&
+        candidate.missingAxes.length === 0
+    )
     .map((candidate) => getMeasurementDefinition(candidate.candidateKey))
     .filter((definition): definition is NonNullable<typeof definition> => definition?.maturity === "reviewed");
 }
@@ -43,6 +48,13 @@ export function decideAutomaticPromotion(options: {
   const selected = options.resolution.candidateEvidence.find(
     (candidate) => candidate.candidateKey === options.resolution.measurementDefinitionKey
   );
-  if (!selected || selected.rejected.length > 0) return { allowed: false, reason: "hard_conflict" };
+  if (
+    !selected ||
+    !selected.selectable ||
+    selected.rejected.length > 0 ||
+    selected.missingAxes.length > 0
+  ) {
+    return { allowed: false, reason: "hard_conflict_or_missing_axis" };
+  }
   return { allowed: true, reason: "approved" };
 }

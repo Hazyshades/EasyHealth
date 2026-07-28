@@ -198,7 +198,7 @@ export async function buildDocumentStructuredContext(
     supabase
       .from("observations")
       .select(
-        "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, document_id, documents(original_filename), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, is_active)"
+        "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, document_id, documents(original_filename), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, is_active, resolver_evidence)"
       )
       .eq("profile_id", profileId)
       .in("document_id", eligibleIds)

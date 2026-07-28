@@ -6,6 +6,8 @@ import type {
   AssessmentBinding,
   BodySystemId,
   CandidateEvidence,
+  ClinicalCompatibilityAxis,
+  CompatibilityEvidenceResult,
   ConversionRule,
   MappingConfidenceBand,
   MatchedAlias,
@@ -13,19 +15,22 @@ import type {
   MeasurementResolution,
   MeasurementResolutionInput,
   MeasurementUnitPolicy,
+  MeasurementValueKind,
   NormalizedMeasurementUnit,
   ResolutionEvidence,
   ResolutionReasonCode,
   ScoreContributionGroup,
   ScoreRequiredGroup,
   ScoreRole,
+  SpecimenKey,
   UnitDimension,
   UnitToken,
 } from "./types";
 
-export const MEASUREMENT_CATALOG_MANIFEST_VERSION = "2026-07-20.0";
-export const MEASUREMENT_RESOLVER_VERSION = "6";
-export const MEASUREMENT_NORMALIZATION_VERSION = "4";
+export const MEASUREMENT_CATALOG_MANIFEST_VERSION = "2026-07-28.0";
+export const MEASUREMENT_RESOLVER_VERSION = "7";
+export const MEASUREMENT_NORMALIZATION_VERSION = "5";
+export const MEASUREMENT_COMPATIBILITY_POLICY_VERSION = "1";
 /** Observation provenance schema version, assigned by the persistence layer (not copied from extraction). */
 export const OBSERVATION_PROVENANCE_SCHEMA_VERSION = "1";
 
@@ -177,58 +182,58 @@ function assessment(
 
 const REVIEWED_DEFINITIONS: readonly MeasurementDefinition[] = [
   // Metabolic
-  reviewed({ key: "glucose_serum", analyteKey: "glucose", displayName: "Glucose, serum", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["glucose", "blood_glucose", "serum_glucose"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, allowedSpecimens: ["serum"], conversion: GLUCOSE_CONVERSION, binding: assessment("metabolic", "glucose", "core", { coversConfidence: true, contributionGroup: "glycemia" }) }),
-  reviewed({ key: "glucose_plasma", analyteKey: "glucose", displayName: "Glucose, plasma", specimen: "plasma", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["glucose", "blood_glucose", "plasma_glucose"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, allowedSpecimens: ["plasma"], conversion: GLUCOSE_CONVERSION, binding: assessment("metabolic", "glucose", "core", { coversConfidence: true, contributionGroup: "glycemia" }) }),
-  reviewed({ key: "glucose_whole_blood", analyteKey: "glucose", displayName: "Glucose, whole blood", specimen: "whole_blood", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["whole_blood_glucose"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, allowedSpecimens: ["whole_blood"], conversion: GLUCOSE_CONVERSION, binding: assessment("metabolic", "glucose", "core", { coversConfidence: true, contributionGroup: "glycemia" }) }),
-  reviewed({ key: "fasting_glucose", analyteKey: "glucose", displayName: "Fasting glucose", specimen: "plasma", property: "substance_concentration", scale: "quantitative", timing: "fasting", method: "automated", valueKind: "numeric", aliases: aliases(["fasting_glucose", "fpg"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, allowedSpecimens: ["plasma"], requiredModifiers: ["fasting"], conversion: GLUCOSE_CONVERSION, binding: assessment("metabolic", "fasting_glucose", "core", { coversConfidence: true, readinessGroup: "glycemia", contributionGroup: "glycemia" }) }),
-  reviewed({ key: "hba1c_whole_blood", analyteKey: "hba1c", displayName: "Hemoglobin A1c", specimen: "whole_blood", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["hba1c", "hb_a1c", "glycated_hemoglobin"], "registry", "reviewed"), unitPolicy: HBA1C_POLICY, allowedSpecimens: ["whole_blood"], conversion: HBA1C_CONVERSION, binding: assessment("metabolic", "hba1c", "core", { coversConfidence: true, readinessGroup: "glycemia", contributionGroup: "glycemia" }) }),
+  reviewed({ key: "glucose_serum", analyteKey: "glucose", displayName: "Glucose, serum", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["glucose", "blood_glucose", "serum_glucose"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, conversion: GLUCOSE_CONVERSION, binding: assessment("metabolic", "glucose", "core", { coversConfidence: true, contributionGroup: "glycemia" }) }),
+  reviewed({ key: "glucose_plasma", analyteKey: "glucose", displayName: "Glucose, plasma", specimen: "plasma", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["glucose", "blood_glucose", "plasma_glucose"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, conversion: GLUCOSE_CONVERSION, binding: assessment("metabolic", "glucose", "core", { coversConfidence: true, contributionGroup: "glycemia" }) }),
+  reviewed({ key: "glucose_whole_blood", analyteKey: "glucose", displayName: "Glucose, whole blood", specimen: "whole_blood", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["whole_blood_glucose"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, conversion: GLUCOSE_CONVERSION, binding: assessment("metabolic", "glucose", "core", { coversConfidence: true, contributionGroup: "glycemia" }) }),
+  reviewed({ key: "fasting_glucose", analyteKey: "glucose", displayName: "Fasting glucose", specimen: "plasma", property: "substance_concentration", scale: "quantitative", timing: "fasting", method: "automated", valueKind: "numeric", aliases: aliases(["fasting_glucose", "fpg"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, requiredModifiers: ["fasting"], conversion: GLUCOSE_CONVERSION, binding: assessment("metabolic", "fasting_glucose", "core", { coversConfidence: true, readinessGroup: "glycemia", contributionGroup: "glycemia" }) }),
+  reviewed({ key: "hba1c_whole_blood", analyteKey: "hba1c", displayName: "Hemoglobin A1c", specimen: "whole_blood", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["hba1c", "hb_a1c", "glycated_hemoglobin"], "registry", "reviewed"), unitPolicy: HBA1C_POLICY, conversion: HBA1C_CONVERSION, binding: assessment("metabolic", "hba1c", "core", { coversConfidence: true, readinessGroup: "glycemia", contributionGroup: "glycemia" }) }),
 
   // Cardiovascular
-  reviewed({ key: "ldl_serum", analyteKey: "ldl", displayName: "LDL cholesterol", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["ldl", "ldl_c", "ldl_cholesterol"], "registry", "reviewed"), unitPolicy: LIPID_POLICY, allowedSpecimens: ["serum"], conversion: CHOLESTEROL_CONVERSION, binding: assessment("cardiovascular", "ldl", "core", { coversConfidence: true, readinessGroup: "atherogenic_cholesterol", contributionGroup: "atherogenic_cholesterol" }) }),
-  reviewed({ key: "non_hdl_cholesterol_serum", analyteKey: "non_hdl_cholesterol", displayName: "Non-HDL cholesterol", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["non_hdl", "non_hdl_c", "non_hdl_cholesterol"], "registry", "reviewed"), unitPolicy: LIPID_POLICY, allowedSpecimens: ["serum"], conversion: CHOLESTEROL_CONVERSION, binding: assessment("cardiovascular", "non_hdl_cholesterol", "core", { coversConfidence: true, readinessGroup: "atherogenic_cholesterol", contributionGroup: "atherogenic_cholesterol" }) }),
-  reviewed({ key: "hdl_serum", analyteKey: "hdl", displayName: "HDL cholesterol", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["hdl", "hdl_c", "hdl_cholesterol"], "registry", "reviewed"), unitPolicy: LIPID_POLICY, allowedSpecimens: ["serum"], conversion: CHOLESTEROL_CONVERSION, binding: assessment("cardiovascular", "hdl", "core", { coversConfidence: true, readinessGroup: "hdl", contributionGroup: "hdl" }) }),
-  reviewed({ key: "triglycerides_serum", analyteKey: "triglycerides", displayName: "Triglycerides", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["triglycerides", "tg", "trig"], "registry", "reviewed"), unitPolicy: LIPID_POLICY, allowedSpecimens: ["serum"], conversion: TRIGLYCERIDE_CONVERSION, binding: assessment("cardiovascular", "triglycerides", "core", { coversConfidence: true, readinessGroup: "triglycerides", contributionGroup: "triglycerides" }) }),
-  reviewed({ key: "total_cholesterol_serum", analyteKey: "total_cholesterol", displayName: "Total cholesterol", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["total_cholesterol", "cholesterol_total", "tc", "chol"], "registry", "reviewed"), unitPolicy: LIPID_POLICY, allowedSpecimens: ["serum"], conversion: CHOLESTEROL_CONVERSION, binding: assessment("cardiovascular", "total_cholesterol", "extended", { contributionGroup: "total_cholesterol" }) }),
+  reviewed({ key: "ldl_serum", analyteKey: "ldl", displayName: "LDL cholesterol", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["ldl", "ldl_c", "ldl_cholesterol"], "registry", "reviewed"), unitPolicy: LIPID_POLICY, conversion: CHOLESTEROL_CONVERSION, binding: assessment("cardiovascular", "ldl", "core", { coversConfidence: true, readinessGroup: "atherogenic_cholesterol", contributionGroup: "atherogenic_cholesterol" }) }),
+  reviewed({ key: "non_hdl_cholesterol_serum", analyteKey: "non_hdl_cholesterol", displayName: "Non-HDL cholesterol", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["non_hdl", "non_hdl_c", "non_hdl_cholesterol"], "registry", "reviewed"), unitPolicy: LIPID_POLICY, conversion: CHOLESTEROL_CONVERSION, binding: assessment("cardiovascular", "non_hdl_cholesterol", "core", { coversConfidence: true, readinessGroup: "atherogenic_cholesterol", contributionGroup: "atherogenic_cholesterol" }) }),
+  reviewed({ key: "hdl_serum", analyteKey: "hdl", displayName: "HDL cholesterol", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["hdl", "hdl_c", "hdl_cholesterol"], "registry", "reviewed"), unitPolicy: LIPID_POLICY, conversion: CHOLESTEROL_CONVERSION, binding: assessment("cardiovascular", "hdl", "core", { coversConfidence: true, readinessGroup: "hdl", contributionGroup: "hdl" }) }),
+  reviewed({ key: "triglycerides_serum", analyteKey: "triglycerides", displayName: "Triglycerides", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["triglycerides", "tg", "trig"], "registry", "reviewed"), unitPolicy: LIPID_POLICY, conversion: TRIGLYCERIDE_CONVERSION, binding: assessment("cardiovascular", "triglycerides", "core", { coversConfidence: true, readinessGroup: "triglycerides", contributionGroup: "triglycerides" }) }),
+  reviewed({ key: "total_cholesterol_serum", analyteKey: "total_cholesterol", displayName: "Total cholesterol", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["total_cholesterol", "cholesterol_total", "tc", "chol"], "registry", "reviewed"), unitPolicy: LIPID_POLICY, conversion: CHOLESTEROL_CONVERSION, binding: assessment("cardiovascular", "total_cholesterol", "extended", { contributionGroup: "total_cholesterol" }) }),
 
   // Thyroid
-  reviewed({ key: "tsh_serum", analyteKey: "tsh", displayName: "Thyroid stimulating hormone", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["tsh", "thyroid_stimulating_hormone"], "registry", "reviewed"), unitPolicy: TSH_POLICY, allowedSpecimens: ["serum"], binding: assessment("thyroid", "tsh", "core", { coversConfidence: true, readinessGroup: "tsh", contributionGroup: "tsh" }) }),
-  reviewed({ key: "free_t4_serum", analyteKey: "free_t4", displayName: "Free thyroxine", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["free_t4", "free_thyroxine", "ft4"], "registry", "reviewed"), unitPolicy: FREE_T4_POLICY, allowedSpecimens: ["serum"], binding: assessment("thyroid", "free_t4", "core", { coversConfidence: true, readinessGroup: "free_t4", contributionGroup: "free_t4" }) }),
+  reviewed({ key: "tsh_serum", analyteKey: "tsh", displayName: "Thyroid stimulating hormone", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["tsh", "thyroid_stimulating_hormone"], "registry", "reviewed"), unitPolicy: TSH_POLICY, binding: assessment("thyroid", "tsh", "core", { coversConfidence: true, readinessGroup: "tsh", contributionGroup: "tsh" }) }),
+  reviewed({ key: "free_t4_serum", analyteKey: "free_t4", displayName: "Free thyroxine", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["free_t4", "free_thyroxine", "ft4"], "registry", "reviewed"), unitPolicy: FREE_T4_POLICY, binding: assessment("thyroid", "free_t4", "core", { coversConfidence: true, readinessGroup: "free_t4", contributionGroup: "free_t4" }) }),
 
   // Liver
-  ...(["alt", "ast", "alp", "ggt"] as const).flatMap((analyteKey) => (["serum", "plasma"] as const).map((specimen) => reviewed({ key: `${analyteKey}_${specimen}_catalytic_activity`, analyteKey, displayName: `${analyteKey.toUpperCase()}, ${specimen} catalytic activity`, specimen, property: "catalytic_activity_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases([analyteKey, ...(analyteKey === "alt" ? ["alanine_aminotransferase", "ALT (alanine aminotransferase)"] : analyteKey === "ast" ? ["aspartate_aminotransferase", "AST (aspartate aminotransferase)"] : [])], "registry", "reviewed"), unitPolicy: ENZYME_POLICY, allowedSpecimens: [specimen], conversion: ENZYME_DISPLAY_ONLY, binding: assessment("liver", analyteKey, analyteKey === "ggt" ? "extended" : "core", { coversConfidence: analyteKey !== "ggt", ...(analyteKey !== "ggt" ? { readinessGroup: analyteKey } : {}), contributionGroup: analyteKey }) }))),
-  reviewed({ key: "bilirubin_serum", analyteKey: "bilirubin", displayName: "Total bilirubin", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["bilirubin", "total_bilirubin"], "registry", "reviewed"), unitPolicy: BILIRUBIN_POLICY, allowedSpecimens: ["serum"], conversion: BILIRUBIN_CONVERSION, binding: assessment("liver", "bilirubin", "core", { coversConfidence: true, readinessGroup: "bilirubin", contributionGroup: "bilirubin" }) }),
-  reviewed({ key: "albumin_serum", analyteKey: "albumin", displayName: "Albumin", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["albumin", "serum_albumin"], "registry", "reviewed"), unitPolicy: PROTEIN_POLICY, allowedSpecimens: ["serum"], conversion: PROTEIN_CONVERSION, binding: assessment("liver", "albumin", "core", { coversConfidence: true, readinessGroup: "albumin", contributionGroup: "albumin" }) }),
+  ...(["alt", "ast", "alp", "ggt"] as const).flatMap((analyteKey) => (["serum", "plasma"] as const).map((specimen) => reviewed({ key: `${analyteKey}_${specimen}_catalytic_activity`, analyteKey, displayName: `${analyteKey.toUpperCase()}, ${specimen} catalytic activity`, specimen, property: "catalytic_activity_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases([analyteKey, ...(analyteKey === "alt" ? ["alanine_aminotransferase", "ALT (alanine aminotransferase)"] : analyteKey === "ast" ? ["aspartate_aminotransferase", "AST (aspartate aminotransferase)"] : [])], "registry", "reviewed"), unitPolicy: ENZYME_POLICY, conversion: ENZYME_DISPLAY_ONLY, binding: assessment("liver", analyteKey, analyteKey === "ggt" ? "extended" : "core", { coversConfidence: analyteKey !== "ggt", ...(analyteKey !== "ggt" ? { readinessGroup: analyteKey } : {}), contributionGroup: analyteKey }) }))),
+  reviewed({ key: "bilirubin_serum", analyteKey: "bilirubin", displayName: "Total bilirubin", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["bilirubin", "total_bilirubin"], "registry", "reviewed"), unitPolicy: BILIRUBIN_POLICY, conversion: BILIRUBIN_CONVERSION, binding: assessment("liver", "bilirubin", "core", { coversConfidence: true, readinessGroup: "bilirubin", contributionGroup: "bilirubin" }) }),
+  reviewed({ key: "albumin_serum", analyteKey: "albumin", displayName: "Albumin", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["albumin", "serum_albumin"], "registry", "reviewed"), unitPolicy: PROTEIN_POLICY, conversion: PROTEIN_CONVERSION, binding: assessment("liver", "albumin", "core", { coversConfidence: true, readinessGroup: "albumin", contributionGroup: "albumin" }) }),
 
   // Kidney
   reviewed({ key: "egfr", analyteKey: "egfr", displayName: "Estimated glomerular filtration rate", specimen: "unspecified", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["egfr", "e_gfr", "estimated_gfr"], "registry", "reviewed"), unitPolicy: EGFR_POLICY, binding: assessment("kidney", "egfr", "core", { coversConfidence: true, readinessGroup: "filtration", contributionGroup: "filtration" }) }),
-  reviewed({ key: "creatinine_serum", analyteKey: "creatinine", displayName: "Creatinine", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["creatinine", "serum_creatinine"], "registry", "reviewed"), unitPolicy: CREATININE_POLICY, allowedSpecimens: ["serum"], conversion: CREATININE_CONVERSION, binding: assessment("kidney", "creatinine", "core", { coversConfidence: true, readinessGroup: "filtration", contributionGroup: "filtration" }) }),
-  reviewed({ key: "uacr_urine", analyteKey: "uacr", displayName: "Urine albumin to creatinine ratio", specimen: "urine", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["uacr", "urine_albumin_creatinine_ratio"], "registry", "reviewed"), unitPolicy: UACR_POLICY, allowedSpecimens: ["urine"], binding: assessment("kidney", "uacr", "core", { coversConfidence: true, readinessGroup: "albuminuria", contributionGroup: "albuminuria" }) }),
-  reviewed({ key: "bun_serum", analyteKey: "bun", displayName: "Blood urea nitrogen", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["bun", "blood_urea_nitrogen"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, allowedSpecimens: ["serum"], conversion: BUN_UREA_CONVERSION, binding: assessment("kidney", "bun", "extended", { contributionGroup: "nitrogen_waste" }) }),
-  reviewed({ key: "urea_serum", analyteKey: "urea", displayName: "Urea", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["urea"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, allowedSpecimens: ["serum"], conversion: BUN_UREA_CONVERSION, binding: assessment("kidney", "urea", "extended", { contributionGroup: "nitrogen_waste" }) }),
-  ...(["sodium", "potassium", "chloride", "bicarbonate", "calcium"] as const).map((analyteKey) => reviewed({ key: `${analyteKey}_serum`, analyteKey, displayName: analyteKey === "bicarbonate" ? "Bicarbonate" : analyteKey[0]!.toUpperCase() + analyteKey.slice(1), specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases([analyteKey, ...(analyteKey === "sodium" ? ["na"] : analyteKey === "potassium" ? ["k"] : analyteKey === "chloride" ? ["cl"] : analyteKey === "bicarbonate" ? ["co2", "carbon_dioxide"] : analyteKey === "calcium" ? ["ca"] : [])], "registry", "reviewed"), unitPolicy: ELECTROLYTE_POLICY, allowedSpecimens: ["serum"], binding: assessment("kidney", analyteKey, "extended", { contributionGroup: analyteKey === "bicarbonate" ? "acid_base" : analyteKey }) })),
+  reviewed({ key: "creatinine_serum", analyteKey: "creatinine", displayName: "Creatinine", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["creatinine", "serum_creatinine"], "registry", "reviewed"), unitPolicy: CREATININE_POLICY, conversion: CREATININE_CONVERSION, binding: assessment("kidney", "creatinine", "core", { coversConfidence: true, readinessGroup: "filtration", contributionGroup: "filtration" }) }),
+  reviewed({ key: "uacr_urine", analyteKey: "uacr", displayName: "Urine albumin to creatinine ratio", specimen: "urine", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["uacr", "urine_albumin_creatinine_ratio"], "registry", "reviewed"), unitPolicy: UACR_POLICY, binding: assessment("kidney", "uacr", "core", { coversConfidence: true, readinessGroup: "albuminuria", contributionGroup: "albuminuria" }) }),
+  reviewed({ key: "bun_serum", analyteKey: "bun", displayName: "Blood urea nitrogen", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["bun", "blood_urea_nitrogen"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, conversion: BUN_UREA_CONVERSION, binding: assessment("kidney", "bun", "extended", { contributionGroup: "nitrogen_waste" }) }),
+  reviewed({ key: "urea_serum", analyteKey: "urea", displayName: "Urea", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["urea"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, conversion: BUN_UREA_CONVERSION, binding: assessment("kidney", "urea", "extended", { contributionGroup: "nitrogen_waste" }) }),
+  ...(["sodium", "potassium", "chloride", "bicarbonate", "calcium"] as const).map((analyteKey) => reviewed({ key: `${analyteKey}_serum`, analyteKey, displayName: analyteKey === "bicarbonate" ? "Bicarbonate" : analyteKey[0]!.toUpperCase() + analyteKey.slice(1), specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases([analyteKey, ...(analyteKey === "sodium" ? ["na"] : analyteKey === "potassium" ? ["k"] : analyteKey === "chloride" ? ["cl"] : analyteKey === "bicarbonate" ? ["co2", "carbon_dioxide"] : analyteKey === "calcium" ? ["ca"] : [])], "registry", "reviewed"), unitPolicy: ELECTROLYTE_POLICY, binding: assessment("kidney", analyteKey, "extended", { contributionGroup: analyteKey === "bicarbonate" ? "acid_base" : analyteKey }) })),
 
   // Blood
-  reviewed({ key: "hemoglobin_whole_blood", analyteKey: "hemoglobin", displayName: "Hemoglobin", specimen: "whole_blood", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["hemoglobin", "hgb", "hb"], "registry", "reviewed"), unitPolicy: PROTEIN_POLICY, allowedSpecimens: ["whole_blood"], conversion: PROTEIN_CONVERSION, binding: assessment("blood", "hemoglobin", "core", { coversConfidence: true, readinessGroup: "red_cell_mass", contributionGroup: "red_cell_mass" }) }),
-  reviewed({ key: "hematocrit_whole_blood", analyteKey: "hematocrit", displayName: "Hematocrit", specimen: "whole_blood", property: "percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["hematocrit", "hct"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY, allowedSpecimens: ["whole_blood"], binding: assessment("blood", "hematocrit", "core", { coversConfidence: true, readinessGroup: "red_cell_mass", contributionGroup: "red_cell_mass" }) }),
-  reviewed({ key: "rbc_whole_blood", analyteKey: "rbc", displayName: "Red blood cell count", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["rbc", "red_blood_cells"], "registry", "reviewed"), unitPolicy: CELL_POLICY, allowedSpecimens: ["whole_blood"], binding: assessment("blood", "rbc", "extended", { contributionGroup: "red_cell_mass" }) }),
-  reviewed({ key: "wbc_whole_blood", analyteKey: "wbc", displayName: "White blood cell count", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["wbc", "white_blood_cells"], "registry", "reviewed"), unitPolicy: CELL_POLICY, allowedSpecimens: ["whole_blood"], binding: assessment("blood", "wbc", "core", { coversConfidence: true, readinessGroup: "white_cells", contributionGroup: "white_cells" }) }),
-  reviewed({ key: "platelets_whole_blood", analyteKey: "platelets", displayName: "Platelet count", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["platelets", "plt"], "registry", "reviewed"), unitPolicy: CELL_POLICY, allowedSpecimens: ["whole_blood"], binding: assessment("blood", "platelets", "core", { coversConfidence: true, readinessGroup: "platelets", contributionGroup: "platelets" }) }),
-  reviewed({ key: "mcv_whole_blood", analyteKey: "mcv", displayName: "Mean corpuscular volume", specimen: "whole_blood", property: "distribution_width_sd", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["mcv", "mean_corpuscular_volume"], "registry", "reviewed"), unitPolicy: VOLUME_POLICY, allowedSpecimens: ["whole_blood"], binding: assessment("blood", "mcv", "core", { coversConfidence: true, readinessGroup: "red_cell_size", contributionGroup: "red_cell_size" }) }),
-  reviewed({ key: "rdw_cv", analyteKey: "red_cell_distribution_width", displayName: "RDW-CV", specimen: "whole_blood", property: "distribution_width_cv", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["rdw", "rdw_cv", "rdw-cv"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY, allowedSpecimens: ["whole_blood"], binding: assessment("blood", "rdw", "extended", { contributionGroup: "red_cell_variation" }) }),
-  reviewed({ key: "rdw_sd", analyteKey: "red_cell_distribution_width", displayName: "RDW-SD", specimen: "whole_blood", property: "distribution_width_sd", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["rdw", "rdw_sd", "rdw-sd"], "registry", "reviewed"), unitPolicy: VOLUME_POLICY, allowedSpecimens: ["whole_blood"], binding: assessment("blood", "rdw", "extended", { contributionGroup: "red_cell_variation" }) }),
-  reviewed({ key: "neutrophils_percent", analyteKey: "neutrophils", displayName: "Neutrophils, percent", specimen: "whole_blood", property: "percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["neutrophils", "neutrophils_percent", "neu%", "neu_percent"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY, allowedSpecimens: ["whole_blood"] }),
-  reviewed({ key: "neutrophils_abs", analyteKey: "neutrophils", displayName: "Neutrophils, absolute", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["neutrophils", "neutrophils_absolute", "neutrophils_abs", "absolute_neutrophil_count", "neu"], "registry", "reviewed"), unitPolicy: CELL_POLICY, allowedSpecimens: ["whole_blood"] }),
-  reviewed({ key: "lymphocytes_percent", analyteKey: "lymphocytes", displayName: "Lymphocytes, percent", specimen: "whole_blood", property: "percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["lymphocytes", "lymphocytes_percent", "lymf%", "lym_percent"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY, allowedSpecimens: ["whole_blood"] }),
-  reviewed({ key: "lymphocytes_abs", analyteKey: "lymphocytes", displayName: "Lymphocytes, absolute", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["lymphocytes_absolute", "lymphocytes_abs", "absolute_lymphocyte_count", "lymf"], "registry", "reviewed"), unitPolicy: CELL_POLICY, allowedSpecimens: ["whole_blood"] }),
-  reviewed({ key: "reticulocytes_percent", analyteKey: "reticulocytes", displayName: "Reticulocytes, percent", specimen: "whole_blood", property: "percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["reticulocytes_percent", "retic_percent"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY, allowedSpecimens: ["whole_blood"] }),
-  reviewed({ key: "reticulocytes_abs", analyteKey: "reticulocytes", displayName: "Reticulocytes, absolute", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["reticulocytes_abs", "absolute_reticulocyte_count"], "registry", "reviewed"), unitPolicy: CELL_POLICY, allowedSpecimens: ["whole_blood"] }),
-  reviewed({ key: "band_neutrophils_percent", analyteKey: "neutrophils", displayName: "Band neutrophils, percent", specimen: "whole_blood", property: "band_percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["band_neutrophils", "band_neutrophils_percent"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY, allowedSpecimens: ["whole_blood"] }),
+  reviewed({ key: "hemoglobin_whole_blood", analyteKey: "hemoglobin", displayName: "Hemoglobin", specimen: "whole_blood", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["hemoglobin", "hgb", "hb"], "registry", "reviewed"), unitPolicy: PROTEIN_POLICY, conversion: PROTEIN_CONVERSION, binding: assessment("blood", "hemoglobin", "core", { coversConfidence: true, readinessGroup: "red_cell_mass", contributionGroup: "red_cell_mass" }) }),
+  reviewed({ key: "hematocrit_whole_blood", analyteKey: "hematocrit", displayName: "Hematocrit", specimen: "whole_blood", property: "percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["hematocrit", "hct"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY, binding: assessment("blood", "hematocrit", "core", { coversConfidence: true, readinessGroup: "red_cell_mass", contributionGroup: "red_cell_mass" }) }),
+  reviewed({ key: "rbc_whole_blood", analyteKey: "rbc", displayName: "Red blood cell count", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["rbc", "red_blood_cells"], "registry", "reviewed"), unitPolicy: CELL_POLICY, binding: assessment("blood", "rbc", "extended", { contributionGroup: "red_cell_mass" }) }),
+  reviewed({ key: "wbc_whole_blood", analyteKey: "wbc", displayName: "White blood cell count", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["wbc", "white_blood_cells"], "registry", "reviewed"), unitPolicy: CELL_POLICY, binding: assessment("blood", "wbc", "core", { coversConfidence: true, readinessGroup: "white_cells", contributionGroup: "white_cells" }) }),
+  reviewed({ key: "platelets_whole_blood", analyteKey: "platelets", displayName: "Platelet count", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["platelets", "plt"], "registry", "reviewed"), unitPolicy: CELL_POLICY, binding: assessment("blood", "platelets", "core", { coversConfidence: true, readinessGroup: "platelets", contributionGroup: "platelets" }) }),
+  reviewed({ key: "mcv_whole_blood", analyteKey: "mcv", displayName: "Mean corpuscular volume", specimen: "whole_blood", property: "distribution_width_sd", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["mcv", "mean_corpuscular_volume"], "registry", "reviewed"), unitPolicy: VOLUME_POLICY, binding: assessment("blood", "mcv", "core", { coversConfidence: true, readinessGroup: "red_cell_size", contributionGroup: "red_cell_size" }) }),
+  reviewed({ key: "rdw_cv", analyteKey: "red_cell_distribution_width", displayName: "RDW-CV", specimen: "whole_blood", property: "distribution_width_cv", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["rdw", "rdw_cv", "rdw-cv"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY, binding: assessment("blood", "rdw", "extended", { contributionGroup: "red_cell_variation" }) }),
+  reviewed({ key: "rdw_sd", analyteKey: "red_cell_distribution_width", displayName: "RDW-SD", specimen: "whole_blood", property: "distribution_width_sd", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["rdw", "rdw_sd", "rdw-sd"], "registry", "reviewed"), unitPolicy: VOLUME_POLICY, binding: assessment("blood", "rdw", "extended", { contributionGroup: "red_cell_variation" }) }),
+  reviewed({ key: "neutrophils_percent", analyteKey: "neutrophils", displayName: "Neutrophils, percent", specimen: "whole_blood", property: "percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["neutrophils", "neutrophils_percent", "neu%", "neu_percent"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY }),
+  reviewed({ key: "neutrophils_abs", analyteKey: "neutrophils", displayName: "Neutrophils, absolute", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["neutrophils", "neutrophils_absolute", "neutrophils_abs", "absolute_neutrophil_count", "neu"], "registry", "reviewed"), unitPolicy: CELL_POLICY }),
+  reviewed({ key: "lymphocytes_percent", analyteKey: "lymphocytes", displayName: "Lymphocytes, percent", specimen: "whole_blood", property: "percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["lymphocytes", "lymphocytes_percent", "lymf%", "lym_percent"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY }),
+  reviewed({ key: "lymphocytes_abs", analyteKey: "lymphocytes", displayName: "Lymphocytes, absolute", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["lymphocytes_absolute", "lymphocytes_abs", "absolute_lymphocyte_count", "lymf"], "registry", "reviewed"), unitPolicy: CELL_POLICY }),
+  reviewed({ key: "reticulocytes_percent", analyteKey: "reticulocytes", displayName: "Reticulocytes, percent", specimen: "whole_blood", property: "percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["reticulocytes_percent", "retic_percent"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY }),
+  reviewed({ key: "reticulocytes_abs", analyteKey: "reticulocytes", displayName: "Reticulocytes, absolute", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["reticulocytes_abs", "absolute_reticulocyte_count"], "registry", "reviewed"), unitPolicy: CELL_POLICY }),
+  reviewed({ key: "band_neutrophils_percent", analyteKey: "neutrophils", displayName: "Band neutrophils, percent", specimen: "whole_blood", property: "band_percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["band_neutrophils", "band_neutrophils_percent"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY }),
 
   // Nutrients and inflammation
-  reviewed({ key: "vitamin_d_serum", analyteKey: "vitamin_d", displayName: "25-hydroxy vitamin D", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["vitamin_d", "25_oh_vitamin_d", "25_oh_d"], "registry", "reviewed"), unitPolicy: VITAMIN_D_POLICY, allowedSpecimens: ["serum"], conversion: VITAMIN_D_CONVERSION, binding: assessment("nutrients", "vitamin_d", "core", { coversConfidence: true, readinessGroup: "vitamin_d", contributionGroup: "vitamin_d" }) }),
-  reviewed({ key: "b12_serum", analyteKey: "b12", displayName: "Vitamin B12", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["b12", "vitamin_b12", "cobalamin"], "registry", "reviewed"), unitPolicy: B12_POLICY, allowedSpecimens: ["serum"], binding: assessment("nutrients", "b12", "core", { coversConfidence: true, readinessGroup: "b12", contributionGroup: "b12" }) }),
-  reviewed({ key: "folate_serum", analyteKey: "folate", displayName: "Folate", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["folate", "folic_acid"], "registry", "reviewed"), unitPolicy: B12_POLICY, allowedSpecimens: ["serum"], binding: assessment("nutrients", "folate", "core", { coversConfidence: true, readinessGroup: "folate", contributionGroup: "folate" }) }),
-  reviewed({ key: "crp_serum", analyteKey: "crp", displayName: "C-reactive protein", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["crp", "c_reactive_protein"], "registry", "reviewed"), unitPolicy: { dimensions: ["mass_concentration"], acceptedUnits: ["mg/l"], canonicalUnit: "mg/l", conversionPolicyRef: null, missingUnitPolicy: "ambiguous" }, allowedSpecimens: ["serum"], binding: assessment("inflammation", "crp", "display", { coversConfidence: true }) }),
+  reviewed({ key: "vitamin_d_serum", analyteKey: "vitamin_d", displayName: "25-hydroxy vitamin D", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["vitamin_d", "25_oh_vitamin_d", "25_oh_d"], "registry", "reviewed"), unitPolicy: VITAMIN_D_POLICY, conversion: VITAMIN_D_CONVERSION, binding: assessment("nutrients", "vitamin_d", "core", { coversConfidence: true, readinessGroup: "vitamin_d", contributionGroup: "vitamin_d" }) }),
+  reviewed({ key: "b12_serum", analyteKey: "b12", displayName: "Vitamin B12", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["b12", "vitamin_b12", "cobalamin"], "registry", "reviewed"), unitPolicy: B12_POLICY, binding: assessment("nutrients", "b12", "core", { coversConfidence: true, readinessGroup: "b12", contributionGroup: "b12" }) }),
+  reviewed({ key: "folate_serum", analyteKey: "folate", displayName: "Folate", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["folate", "folic_acid"], "registry", "reviewed"), unitPolicy: B12_POLICY, binding: assessment("nutrients", "folate", "core", { coversConfidence: true, readinessGroup: "folate", contributionGroup: "folate" }) }),
+  reviewed({ key: "crp_serum", analyteKey: "crp", displayName: "C-reactive protein", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["crp", "c_reactive_protein"], "registry", "reviewed"), unitPolicy: { dimensions: ["mass_concentration"], acceptedUnits: ["mg/l"], canonicalUnit: "mg/l", conversionPolicyRef: null, missingUnitPolicy: "ambiguous" }, binding: assessment("inflammation", "crp", "display", { coversConfidence: true }) }),
 ];
 
 /**
@@ -342,11 +347,6 @@ export function getMeasurementDefinitionsForAnalyte(analyteKey: string): readonl
   return MEASUREMENT_DEFINITIONS.filter((definition) => definition.analyteKey === analyteKey);
 }
 
-/** Returns conversion metadata only for a reviewed, concrete Registry 2.0 definition key. */
-export function getMeasurementConversionPolicy(key: string): ConversionRule | null {
-  const definition = getMeasurementDefinition(key);
-  return definition?.maturity === "reviewed" ? definition.conversion ?? null : null;
-}
 
 export type ReviewedAssessmentBinding = {
   definition: MeasurementDefinition;
@@ -461,73 +461,316 @@ export function findAliasAdmissions(input: Pick<MeasurementResolutionInput, "raw
   return definitions.flatMap((definition) => definition.aliases.filter((alias) => aliasMatches(alias, input.rawLabel, normalizedLabel, input.laboratory)).map((alias) => ({ definition, alias })));
 }
 
-function normalizedSpecimen(value: string | null | undefined) {
-  const normalized = snakeCaseToken(value ?? "");
-  return ["serum", "plasma", "whole_blood", "urine"].includes(normalized) ? normalized : "unspecified";
+const SUPPORTED_SPECIMENS: readonly Exclude<SpecimenKey, "unspecified">[] = [
+  "serum",
+  "plasma",
+  "whole_blood",
+  "urine",
+];
+
+export function evaluateUnitCompatibility(
+  policy: MeasurementUnitPolicy,
+  unit: NormalizedMeasurementUnit
+): CompatibilityEvidenceResult {
+  if (!unit.normalizedUnit) {
+    if (policy.missingUnitPolicy === "display_only") {
+      return {
+        disposition: "compatible",
+        evidence: evidence("unit_not_required", "unit", "weak", 0, undefined, ["display_only"]),
+        selectable: true,
+      };
+    }
+    return {
+      disposition: "missing",
+      evidence: evidence("unit_missing", "unit", "weak", 0, undefined, [policy.missingUnitPolicy]),
+      missingAxis: "unit",
+      selectable: policy.missingUnitPolicy !== "reject",
+    };
+  }
+  if (policy.missingUnitPolicy === "display_only") {
+    return {
+      disposition: "compatible",
+      evidence: evidence("unit_not_required", "unit", "weak", 0, unit.normalizedUnit, ["display_only"]),
+      selectable: true,
+    };
+  }
+  if (!unit.dimension) {
+    return {
+      disposition: "conflict",
+      evidence: evidence("unit_unsupported", "unit", "hard", 0, unit.normalizedUnit, policy.acceptedUnits),
+      selectable: false,
+    };
+  }
+  if (!policy.dimensions.includes(unit.dimension)) {
+    return {
+      disposition: "conflict",
+      evidence: evidence("unit_dimension_conflict", "unit", "hard", 0, unit.normalizedUnit, policy.dimensions),
+      selectable: false,
+    };
+  }
+  if (!policy.acceptedUnits.includes(unit.normalizedUnit)) {
+    return {
+      disposition: "conflict",
+      evidence: evidence("unit_not_accepted", "unit", "hard", 0, unit.normalizedUnit, policy.acceptedUnits),
+      selectable: false,
+    };
+  }
+  return {
+    disposition: "compatible",
+    evidence: evidence("unit_compatible", "unit", "strong", 15, unit.normalizedUnit, policy.acceptedUnits),
+    selectable: true,
+  };
 }
 
-function candidateEvidence(definition: MeasurementDefinition, alias: MatchedAlias, input: MeasurementResolutionInput, unit: NormalizedMeasurementUnit): CandidateEvidence {
-  const label: readonly [ResolutionReasonCode, number] = alias.matchType === "exact" ? ["alias_exact_match", 40] : alias.matchType === "bounded_fuzzy" ? ["alias_bounded_fuzzy_match", 28] : alias.matchType === "ocr_variant" ? ["alias_ocr_variant_match", 28] : ["alias_normalized_match", 36];
-  const accepted: ResolutionEvidence[] = [evidence(label[0], "label", "strong", label[1], alias.value)];
+export function evaluateValueKindCompatibility(
+  expected: MeasurementValueKind,
+  observed: MeasurementValueKind | null | undefined
+): CompatibilityEvidenceResult | null {
+  if (expected === "unspecified") return null;
+  if (!observed || observed === "unspecified") {
+    return {
+      disposition: "missing",
+      evidence: evidence("value_kind_missing", "value_kind", "weak", 0, undefined, [expected]),
+      missingAxis: "value_kind",
+      selectable: true,
+    };
+  }
+  const compatible =
+    observed === expected ||
+    ((expected === "qualitative" || expected === "ordinal") &&
+      (observed === "qualitative" || observed === "ordinal"));
+  return compatible
+    ? {
+        disposition: "compatible",
+        evidence: evidence("value_kind_compatible", "value_kind", "strong", 15, observed, [expected]),
+        selectable: true,
+      }
+    : {
+        disposition: "conflict",
+        evidence: evidence("value_kind_conflict", "value_kind", "hard", 0, observed, [expected]),
+        selectable: false,
+      };
+}
+
+export function evaluateSpecimenCompatibility(
+  expected: SpecimenKey,
+  observed: string | null | undefined
+): CompatibilityEvidenceResult | null {
+  if (expected === "unspecified") return null;
+  const normalized = snakeCaseToken(observed ?? "");
+  if (!normalized || normalized === "unspecified") {
+    return {
+      disposition: "missing",
+      evidence: evidence("specimen_missing", "specimen", "weak", 0, undefined, [expected]),
+      missingAxis: "specimen",
+      selectable: true,
+    };
+  }
+  if (!SUPPORTED_SPECIMENS.includes(normalized as Exclude<SpecimenKey, "unspecified">)) {
+    return {
+      disposition: "conflict",
+      evidence: evidence("specimen_unsupported", "specimen", "hard", 0, normalized, SUPPORTED_SPECIMENS),
+      selectable: false,
+    };
+  }
+  return normalized === expected
+    ? {
+        disposition: "compatible",
+        evidence: evidence("specimen_compatible", "specimen", "strong", 10, normalized, [expected]),
+        selectable: true,
+      }
+    : {
+        disposition: "conflict",
+        evidence: evidence("specimen_conflict", "specimen", "hard", 0, normalized, [expected]),
+        selectable: false,
+      };
+}
+
+function candidateEvidence(
+  definition: MeasurementDefinition,
+  alias: MatchedAlias,
+  input: MeasurementResolutionInput,
+  unit: NormalizedMeasurementUnit
+): CandidateEvidence {
+  const label: readonly [ResolutionReasonCode, number] =
+    alias.matchType === "exact"
+      ? ["alias_exact_match", 40]
+      : alias.matchType === "bounded_fuzzy"
+        ? ["alias_bounded_fuzzy_match", 28]
+        : alias.matchType === "ocr_variant"
+          ? ["alias_ocr_variant_match", 28]
+          : ["alias_normalized_match", 36];
+  const accepted: ResolutionEvidence[] = [
+    evidence(label[0], "label", "strong", label[1], alias.value),
+  ];
+  const missing: ResolutionEvidence[] = [];
   const rejected: ResolutionEvidence[] = [];
-  const missingAxes: Array<"specimen" | "modifier" | "timing" | "method" | "value_kind"> = [];
-  const conflict = (code: ResolutionReasonCode, source: ResolutionEvidence["source"], observed: string, expected: readonly string[]) => rejected.push(evidence(code, source, "hard", 0, observed, expected));
-  if (definition.valueKind !== "unspecified" && input.valueKind) {
-    if (input.valueKind !== definition.valueKind) conflict("value_kind_conflict", "label", input.valueKind, [definition.valueKind]);
-    else accepted.push(evidence("value_kind_compatible", "label", "strong", 15, input.valueKind));
-  }
-  if (unit.normalizedUnit && definition.unitPolicy.dimensions.length) {
-    if (!unit.dimension || !definition.unitPolicy.dimensions.includes(unit.dimension)) conflict("unit_dimension_conflict", "unit", unit.normalizedUnit, definition.unitPolicy.dimensions);
-    else if (!definition.unitPolicy.acceptedUnits.includes(unit.normalizedUnit)) conflict("unit_not_accepted", "unit", unit.normalizedUnit, definition.unitPolicy.acceptedUnits);
-    else accepted.push(evidence("unit_compatible", "unit", "strong", 15, unit.normalizedUnit));
-  }
-  const specimen = normalizedSpecimen(input.specimen);
-  if (definition.specimen !== "unspecified") {
-    if (specimen === "unspecified") missingAxes.push("specimen");
-    else if (specimen !== definition.specimen) conflict("specimen_conflict", "specimen", specimen, [definition.specimen]);
-    else accepted.push(evidence("specimen_compatible", "specimen", "strong", 10, specimen));
-  }
+  const missingAxes: ClinicalCompatibilityAxis[] = [];
+  let selectable = true;
+  const applyCompatibility = (result: CompatibilityEvidenceResult | null) => {
+    if (!result) return;
+    selectable &&= result.selectable;
+    if (result.disposition === "compatible") accepted.push(result.evidence);
+    if (result.disposition === "missing") {
+      missing.push(result.evidence);
+      if (result.missingAxis) missingAxes.push(result.missingAxis);
+    }
+    if (result.disposition === "conflict") rejected.push(result.evidence);
+  };
+  const conflict = (
+    code: ResolutionReasonCode,
+    source: ResolutionEvidence["source"],
+    observed: string,
+    expected: readonly string[]
+  ) => {
+    selectable = false;
+    rejected.push(evidence(code, source, "hard", 0, observed, expected));
+  };
+
+  applyCompatibility(evaluateValueKindCompatibility(definition.valueKind, input.valueKind));
+  applyCompatibility(evaluateUnitCompatibility(definition.unitPolicy, unit));
+  applyCompatibility(evaluateSpecimenCompatibility(definition.specimen, input.specimen));
+
   if (definition.requiredModifiers?.length) {
     const modifier = snakeCaseToken(input.modifier ?? "");
-    if (!modifier) missingAxes.push("modifier");
-    else if (!definition.requiredModifiers.includes(modifier)) conflict("modifier_conflict", "modifier", modifier, definition.requiredModifiers);
-    else accepted.push(evidence("modifier_compatible", "modifier", "strong", 5, modifier));
+    if (!modifier || modifier === "none") {
+      missingAxes.push("modifier");
+      missing.push(evidence("modifier_missing", "modifier", "weak", 0, undefined, definition.requiredModifiers));
+    } else if (!definition.requiredModifiers.includes(modifier)) {
+      conflict("modifier_conflict", "modifier", modifier, definition.requiredModifiers);
+    } else {
+      accepted.push(evidence("modifier_compatible", "modifier", "strong", 5, modifier));
+    }
   }
-  for (const [axis, value, expected, compatible, conflictCode, missingCode] of [["timing", input.timing, definition.timing, "timing_compatible", "timing_conflict", "timing_missing"], ["method", input.method, definition.method, "method_compatible", "method_conflict", "method_missing"]] as const) {
+  for (const [axis, value, expected, compatible, conflictCode, missingCode] of [
+    ["timing", input.timing, definition.timing, "timing_compatible", "timing_conflict", "timing_missing"],
+    ["method", input.method, definition.method, "method_compatible", "method_conflict", "method_missing"],
+  ] as const) {
     if (expected === "unspecified" || expected === "point_in_time" || expected === "automated") continue;
-    if (!value || value === "unspecified") { missingAxes.push(axis); accepted.push(evidence(missingCode, axis === "timing" ? "section" : "label", "weak", 0)); }
-    else if (value !== expected) conflict(conflictCode, axis === "timing" ? "section" : "label", value, [expected]);
-    else accepted.push(evidence(compatible, axis === "timing" ? "section" : "label", "strong", 5, value));
+    if (!value || value === "unspecified") {
+      missingAxes.push(axis);
+      missing.push(evidence(missingCode, axis === "timing" ? "section" : "label", "weak", 0, undefined, [expected]));
+    } else if (value !== expected) {
+      conflict(conflictCode, axis === "timing" ? "section" : "label", value, [expected]);
+    } else {
+      accepted.push(evidence(compatible, axis === "timing" ? "section" : "label", "strong", 5, value));
+    }
   }
   if (input.section) accepted.push(evidence("section_support", "section", "weak", 3, input.section));
   if (input.neighbourLabels?.length) accepted.push(evidence("neighbour_support", "neighbour", "weak", 3));
-  if (input.referenceLow != null || input.referenceHigh != null) accepted.push(evidence("reference_shape_support", "reference", "weak", 2));
-  const score = rejected.length ? null : accepted.reduce((sum, item) => sum + item.score, 0);
-  return { candidateKey: definition.key, matchedAlias: alias, accepted, rejected, missingAxes, score, eligible: false };
+  if (input.referenceLow != null || input.referenceHigh != null) {
+    accepted.push(evidence("reference_shape_support", "reference", "weak", 2));
+  }
+  const score = selectable ? accepted.reduce((sum, item) => sum + item.score, 0) : null;
+  return {
+    candidateKey: definition.key,
+    matchedAlias: alias,
+    accepted,
+    missing,
+    rejected,
+    missingAxes,
+    score,
+    selectable,
+    eligible: false,
+  };
 }
 
 /** Resolve raw evidence against authorized Registry 2.0 candidates. */
-export function resolveMeasurementDefinition(input: MeasurementResolutionInput): MeasurementResolution {
+export function resolveMeasurementDefinition(
+  input: MeasurementResolutionInput,
+  definitions: readonly MeasurementDefinition[] = MEASUREMENT_DEFINITIONS
+): MeasurementResolution {
   const unit = normalizeMeasurementUnit(input.rawUnit);
+  const definitionByKey = new Map(
+    definitions.map((definition) => [definition.key, definition])
+  );
   const byDefinition = new Map<string, CandidateEvidence>();
-  for (const { definition, alias } of findAliasAdmissions(input)) {
+  for (const { definition, alias } of findAliasAdmissions(input, definitions)) {
     const candidate = candidateEvidence(definition, alias, input, unit);
     const current = byDefinition.get(candidate.candidateKey);
-    if (!current || (candidate.score ?? -1) > (current.score ?? -1)) byDefinition.set(candidate.candidateKey, candidate);
+    if (!current || (candidate.score ?? -1) > (current.score ?? -1)) {
+      byDefinition.set(candidate.candidateKey, candidate);
+    }
   }
-  const candidates = [...byDefinition.values()].sort((a, b) => a.candidateKey.localeCompare(b.candidateKey));
-  const ranked = candidates.filter((candidate) => candidate.score !== null).sort((a, b) => (b.score! - a.score!) || a.candidateKey.localeCompare(b.candidateKey));
-  const admissible = ranked.filter((candidate) => { const definition = getMeasurementDefinition(candidate.candidateKey)!; return definition.maturity === "reviewed" && definition.sourceProvenance.kind === "registry_v2_review" && candidate.matchedAlias.matchAuthority === "reviewed_resolution" && candidate.matchedAlias.approvalStatus === "reviewed" && !candidate.missingAxes.length && candidate.score! >= 55; });
+  const candidates = [...byDefinition.values()].sort((a, b) =>
+    a.candidateKey.localeCompare(b.candidateKey)
+  );
+  const ranked = candidates
+    .filter((candidate) => candidate.selectable && candidate.score !== null)
+    .sort((a, b) => (b.score! - a.score!) || a.candidateKey.localeCompare(b.candidateKey));
+  const admissible = ranked.filter((candidate) => {
+    const definition = definitionByKey.get(candidate.candidateKey)!;
+    return (
+      definition.maturity === "reviewed" &&
+      definition.sourceProvenance.kind === "registry_v2_review" &&
+      candidate.matchedAlias.matchAuthority === "reviewed_resolution" &&
+      candidate.matchedAlias.approvalStatus === "reviewed" &&
+      candidate.missingAxes.length === 0 &&
+      candidate.score! >= 55
+    );
+  });
   const winner = admissible[0];
   const runnerUp = admissible[1];
   const resolved = !!winner && (!runnerUp || winner.score! - runnerUp.score! >= 5);
-  const result = resolved ? "resolved" : admissible.length > 1 ? "ambiguous" : candidates.length ? "partial" : "unmapped";
-  const selected = resolved ? getMeasurementDefinition(winner!.candidateKey) : undefined;
-  const confidence = result === "unmapped" ? 0 : Math.min(0.99, (winner ?? ranked[0])?.score! / 100 || 0);
-  const band: MappingConfidenceBand = confidence >= .85 ? "high" : confidence >= .6 ? "medium" : "low";
-  const evidenceByCandidate = candidates.map((candidate) => ({ ...candidate, eligible: admissible.some(({ candidateKey }) => candidateKey === candidate.candidateKey) }));
-  const analytes = new Set(ranked.map((candidate) => getMeasurementDefinition(candidate.candidateKey)?.analyteKey).filter((key): key is string => Boolean(key)));
-  return { result, measurementDefinitionKey: selected?.key ?? null, analyteKey: selected?.analyteKey ?? (analytes.size === 1 ? [...analytes][0] : null), mappingConfidence: confidence, mappingConfidenceBand: band, unit, unitToken: unit.dimension ?? "unknown", candidateKeys: ranked.map(({ candidateKey }) => candidateKey), missingAxes: [...new Set(candidates.flatMap(({ missingAxes }) => missingAxes))], conflicts: [...new Set(candidates.flatMap(({ rejected }) => rejected.map(({ code }) => code)))], candidateEvidence: evidenceByCandidate, reasons: [...new Set(candidates.flatMap(({ accepted, rejected }) => [...accepted, ...rejected].map(({ code }) => code)))], decisionTrace: { version: 1, selectedCandidateKey: selected?.key ?? null, runnerUpCandidateKey: runnerUp?.candidateKey ?? null, outcome: result, confidence, candidates: evidenceByCandidate } };
+  const result = resolved
+    ? "resolved"
+    : admissible.length > 1
+      ? "ambiguous"
+      : candidates.length
+        ? "partial"
+        : "unmapped";
+  const selected = resolved ? definitionByKey.get(winner!.candidateKey) : undefined;
+  const confidence =
+    result === "unmapped"
+      ? 0
+      : Math.min(0.99, ((winner ?? ranked[0])?.score ?? 0) / 100);
+  const band: MappingConfidenceBand =
+    confidence >= 0.85 ? "high" : confidence >= 0.6 ? "medium" : "low";
+  const evidenceByCandidate = candidates.map((candidate) => ({
+    ...candidate,
+    eligible: admissible.some(
+      ({ candidateKey }) => candidateKey === candidate.candidateKey
+    ),
+  }));
+  const analytes = new Set(
+    ranked
+      .map((candidate) => definitionByKey.get(candidate.candidateKey)?.analyteKey)
+      .filter((key): key is string => Boolean(key))
+  );
+  return {
+    result,
+    measurementDefinitionKey: selected?.key ?? null,
+    analyteKey:
+      selected?.analyteKey ?? (analytes.size === 1 ? [...analytes][0] : null),
+    mappingConfidence: confidence,
+    mappingConfidenceBand: band,
+    unit,
+    unitToken: unit.dimension ?? "unknown",
+    candidateKeys: ranked.map(({ candidateKey }) => candidateKey),
+    missingAxes: [...new Set(candidates.flatMap(({ missingAxes }) => missingAxes))],
+    conflicts: [
+      ...new Set(
+        candidates.flatMap(({ rejected }) => rejected.map(({ code }) => code))
+      ),
+    ],
+    candidateEvidence: evidenceByCandidate,
+    reasons: [
+      ...new Set(
+        candidates.flatMap(({ accepted, missing, rejected }) =>
+          [...accepted, ...missing, ...rejected].map(({ code }) => code)
+        )
+      ),
+    ],
+    decisionTrace: {
+      version: 2,
+      compatibilityPolicyVersion: MEASUREMENT_COMPATIBILITY_POLICY_VERSION,
+      selectedCandidateKey: selected?.key ?? null,
+      runnerUpCandidateKey: runnerUp?.candidateKey ?? null,
+      outcome: result,
+      confidence,
+      candidates: evidenceByCandidate,
+    },
+  };
 }
 
 export type MeasurementRegistryValidation = { valid: boolean; errors: string[]; warnings: string[] };
@@ -567,7 +810,33 @@ export function validateMeasurementRegistry(definitions: readonly MeasurementDef
         alias.maxNormalizedEditDistance === undefined
       )) errors.push(`Bounded fuzzy alias lacks reviewed active authority: ${alias.key}`);
     }
-    if (definition.unitPolicy.dimensions.length && !definition.unitPolicy.acceptedUnits.length) errors.push(`Unit policy has dimensions but no units: ${definition.key}`);
+    const { unitPolicy } = definition;
+    if (unitPolicy.missingUnitPolicy === "display_only") {
+      if (
+        unitPolicy.dimensions.length ||
+        unitPolicy.acceptedUnits.length ||
+        unitPolicy.canonicalUnit !== null ||
+        unitPolicy.conversionPolicyRef !== null
+      ) {
+        errors.push(`Display-only unit policy contains numeric metadata: ${definition.key}`);
+      }
+      if (definition.maturity === "reviewed" && definition.valueKind === "numeric") {
+        errors.push(`Reviewed numeric definition uses display-only unit policy: ${definition.key}`);
+      }
+    } else {
+      if (!unitPolicy.dimensions.length || !unitPolicy.acceptedUnits.length) {
+        errors.push(`Numeric unit policy lacks dimensions or accepted units: ${definition.key}`);
+      }
+      if (!unitPolicy.canonicalUnit || !unitPolicy.acceptedUnits.includes(unitPolicy.canonicalUnit)) {
+        errors.push(`Numeric unit policy canonical unit is not accepted: ${definition.key}`);
+      }
+      if (
+        definition.maturity === "reviewed" &&
+        (definition.valueKind === "qualitative" || definition.valueKind === "ordinal")
+      ) {
+        errors.push(`Reviewed non-numeric definition uses numeric unit policy: ${definition.key}`);
+      }
+    }
   }
   if (!definitions.some((definition) => definition.maturity === "reviewed")) warnings.push("No reviewed Registry 2.0 definitions are available");
   return { valid: errors.length === 0, errors, warnings };

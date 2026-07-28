@@ -35,7 +35,7 @@ export async function GET() {
       supabase
         .from("observations")
         .select(
-          "measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier, normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, measurement_definition_key, is_active)"
+          "measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier, normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, measurement_definition_key, is_active, resolver_evidence)"
         )
         .eq("profile_id", profileId)
         // EH-105: Health Profile remains a laboratory-only assessment boundary.
@@ -88,6 +88,7 @@ export async function GET() {
       );
       const measurementDefinitionKey = binding.measurementDefinitionKey;
       const definition = binding.measurementDefinition;
+      const resolvedMeasurementBinding = binding.resolvedMeasurementBinding;
       if (!binding.registryBindingReady || !measurementDefinitionKey || !definition) {
         return [];
       }
@@ -127,7 +128,7 @@ export async function GET() {
 
       const display = presentObservation(
         {
-          measurement_definition_key: measurementDefinitionKey,
+          resolved_measurement_binding: resolvedMeasurementBinding,
           value: numericValue,
           unit: o.unit ?? "",
           ref_low: o.ref_low != null ? Number(o.ref_low) : null,

@@ -1,4 +1,5 @@
 import { getMeasurementDefinition } from "@/lib/biomarkers";
+import type { ResolvedReviewedMeasurementBinding } from "@/lib/biomarkers";
 
 type InstrumentalSourceRelation = { is_current?: boolean | null } | null;
 
@@ -24,6 +25,12 @@ export type RegistryV2NormalizationRevisionReadBoundary = {
   verification_status?: string | null;
   measurement_definition_key?: string | null;
   is_active?: boolean | null;
+  resolver_evidence?: {
+    version?: number;
+    compatibilityPolicyVersion?: string;
+    selectedCandidateKey?: string | null;
+    outcome?: string | null;
+  } | null;
 };
 
 export type RegistryV2LaboratoryBindingSource =
@@ -59,29 +66,42 @@ export function projectActiveRegistryV2LaboratoryBinding(
     | undefined
 ) {
   const activeRevision = getActiveRegistryV2NormalizationRevision(relation);
-  const measurementDefinitionKey = activeRevision
-    ? activeRevision.measurement_definition_key ?? null
-    : observation.measurement_definition_key ?? null;
-  const resolutionStatus = activeRevision
-    ? activeRevision.resolver_result ?? null
-    : observation.resolution_status ?? null;
-  const measurementDefinition = measurementDefinitionKey
-    ? getMeasurementDefinition(measurementDefinitionKey)
+  const revisionDefinitionKey = activeRevision?.measurement_definition_key ?? null;
+  const resolutionStatus = activeRevision?.resolver_result ?? null;
+  const selectedCandidateKey =
+    activeRevision?.resolver_evidence?.selectedCandidateKey ?? null;
+  const measurementDefinition = revisionDefinitionKey
+    ? getMeasurementDefinition(revisionDefinitionKey)
     : undefined;
   const registryBindingReady =
     isLaboratoryObservation(observation) &&
     activeRevision?.is_active === true &&
     resolutionStatus === "resolved" &&
+    activeRevision.resolver_evidence?.outcome === "resolved" &&
+    revisionDefinitionKey !== null &&
+    revisionDefinitionKey === selectedCandidateKey &&
     measurementDefinition?.maturity === "reviewed" &&
     measurementDefinition.sourceProvenance.kind === "registry_v2_review";
+  const measurementDefinitionKey = registryBindingReady
+    ? revisionDefinitionKey
+    : null;
+  const resolvedMeasurementBinding: ResolvedReviewedMeasurementBinding | null =
+    registryBindingReady && measurementDefinition?.conversion
+      ? {
+          measurementDefinitionKey: revisionDefinitionKey,
+          analyteKey: measurementDefinition.analyteKey,
+          conversion: measurementDefinition.conversion,
+        }
+      : null;
 
   return {
     activeRevision,
     measurementDefinitionKey,
-    measurementDefinition,
+    measurementDefinition: registryBindingReady ? measurementDefinition : undefined,
     resolutionStatus,
     verificationStatus: activeRevision?.verification_status ?? null,
     registryBindingReady,
+    resolvedMeasurementBinding,
   };
 }
 
@@ -99,20 +119,4 @@ export function isLaboratoryObservation(
   observation: Pick<DocumentObservationReadBoundary, "observation_kind">
 ): boolean {
   return observation.observation_kind === "lab";
-}
-
-/**
- * A concrete laboratory value has a resolved Registry 2.0 definition. Callers
- * still need to verify the definition's reviewed maturity before using it for
- * conversion, scoring, or other clinical semantics.
- */
-export function hasResolvedLaboratoryDefinition(
-  observation: LaboratoryObservationReadBoundary
-): boolean {
-  return (
-    isLaboratoryObservation(observation) &&
-    observation.resolution_status === "resolved" &&
-    typeof observation.measurement_definition_key === "string" &&
-    observation.measurement_definition_key.length > 0
-  );
 }
