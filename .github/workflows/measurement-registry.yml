@@ -85,6 +85,8 @@ jobs:
         run: pnpm test:eh106-db
       - name: Run PostgREST revision embed alias contract
         run: pnpm test:postgrest-alias-db
+      - name: Run EH-111 clinical compatibility database contract
+        run: pnpm test:eh111-db
       - name: Stop local Supabase services
         if: always()
         run: supabase stop --no-backup
