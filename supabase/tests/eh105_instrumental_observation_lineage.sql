@@ -1,6 +1,6 @@
 begin;
 
-select plan(18);
+select plan(16);
 
 select ok(
   to_regclass('public.document_extracted_instrumental_measures') is not null,
@@ -196,7 +196,7 @@ create temporary table eh105_claim_b as
 select * from public.claim_document_processing_job('10000000-0000-0000-0000-000000000021');
 
 select throws_ok(
-  $$$
+  $$
     select * from public.prepare_instrumental_publication(
       '10000000-0000-0000-0000-000000000010',
       '10000000-0000-0000-0000-000000000021',
@@ -211,7 +211,7 @@ select throws_ok(
 );
 
 select throws_ok(
-  $$$
+  $$
     select public.pr2_reset_instrumental_publication_state(false);
   $$,
   'P0001',

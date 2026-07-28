@@ -65,16 +65,40 @@ export type UnitToken = UnitDimension | "unknown";
 
 export type MissingUnitPolicy = "reject" | "ambiguous" | "display_only";
 
-export type MeasurementAlias = {
+export type AliasSource = "canonical" | "registry" | "laboratory" | "fixture";
+export type AliasMatchType = "exact" | "normalized" | "ocr_variant" | "bounded_fuzzy";
+export type AliasMatchAuthority = "recognition_only" | "reviewed_resolution";
+export type AliasApprovalStatus = "reviewed" | "provisional";
+export type AliasLifecycle = "active" | "deprecated";
+
+export type AliasDefinition = {
+  key: string;
+  measurementDefinitionKey: MeasurementDefinitionKey;
   value: string;
   normalizedValue: string;
-  source: "canonical" | "registry" | "laboratory" | "fixture";
-  matchType: "exact" | "normalized" | "ocr_variant";
+  source: AliasSource;
+  matchType: AliasMatchType;
+  matchAuthority: AliasMatchAuthority;
+  approvalStatus: AliasApprovalStatus;
+  lifecycle: AliasLifecycle;
+  provenance: MeasurementSourceProvenance;
+  reviewReference?: string;
+  maxNormalizedEditDistance?: 1 | 2;
   locale?: string;
   laboratory?: string;
-  approvalStatus?: "reviewed" | "provisional";
   fixtureRefs?: readonly string[];
 };
+
+export type MatchedAlias = Pick<
+  AliasDefinition,
+  | "key"
+  | "measurementDefinitionKey"
+  | "matchType"
+  | "matchAuthority"
+  | "approvalStatus"
+  | "lifecycle"
+  | "provenance"
+> & { value: string; normalizedValue: string };
 
 export type AssessmentBinding = {
   assessmentInputKey: string;
@@ -126,6 +150,7 @@ export type ResolutionReasonCode =
   | "alias_exact_match"
   | "alias_normalized_match"
   | "alias_ocr_variant_match"
+  | "alias_bounded_fuzzy_match"
   | "proposed_key_match"
   | "unit_compatible"
   | "unit_dimension_conflict"
@@ -141,22 +166,42 @@ export type ResolutionReasonCode =
   | "specimen_missing"
   | "modifier_missing"
   | "manual_selection"
+  | "value_kind_compatible"
+  | "value_kind_conflict"
+  | "timing_compatible"
+  | "timing_conflict"
+  | "timing_missing"
+  | "method_compatible"
+  | "method_conflict"
+  | "method_missing"
   | "candidate_not_selected";
 
 export type ResolutionEvidence = {
   code: ResolutionReasonCode;
   source: ResolutionEvidenceSource;
   strength: ResolutionEvidenceStrength;
+  score: number;
   observed?: string;
   expected?: readonly string[];
 };
 
 export type CandidateEvidence = {
   candidateKey: MeasurementDefinitionKey;
+  matchedAlias: MatchedAlias;
   accepted: readonly ResolutionEvidence[];
   rejected: readonly ResolutionEvidence[];
   missingAxes: readonly ("specimen" | "modifier" | "timing" | "method" | "value_kind")[];
   score: number | null;
+  eligible: boolean;
+};
+
+export type ResolverDecisionTrace = {
+  version: 1;
+  selectedCandidateKey: MeasurementDefinitionKey | null;
+  runnerUpCandidateKey: MeasurementDefinitionKey | null;
+  outcome: ResolverResult;
+  confidence: number;
+  candidates: readonly CandidateEvidence[];
 };
 
 export type MappingConfidenceBand = "high" | "medium" | "low";
@@ -173,7 +218,7 @@ export type MeasurementDefinition = {
   method: MeasurementMethodKey;
   valueKind: MeasurementValueKind;
   displayName: string;
-  aliases: readonly MeasurementAlias[];
+  aliases: readonly AliasDefinition[];
   unitPolicy: MeasurementUnitPolicy;
   /** Display-only conversion rule reviewed with this concrete definition. */
   conversion?: ConversionRule | null;
@@ -195,6 +240,9 @@ export type MeasurementResolutionInput = {
   extractionConfidence?: number | null;
   valueKind?: MeasurementValueKind | null;
   proposedKey?: string | null;
+  timing?: MeasurementTimingKey | null;
+  method?: MeasurementMethodKey | null;
+  laboratory?: string | null;
 };
 
 export type MeasurementResolution = {
@@ -211,6 +259,7 @@ export type MeasurementResolution = {
   conflicts: readonly ResolutionReasonCode[];
   candidateEvidence: readonly CandidateEvidence[];
   reasons: readonly ResolutionReasonCode[];
+  decisionTrace: ResolverDecisionTrace;
 };
 
 export type NamedBodySystemId = Exclude<BodySystemId, "general">;

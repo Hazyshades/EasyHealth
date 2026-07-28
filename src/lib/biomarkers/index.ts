@@ -1,7 +1,13 @@
 export type {
   BiomarkerDefinition,
   MeasurementDefinition,
-  MeasurementAlias,
+  AliasDefinition,
+  AliasApprovalStatus,
+  AliasLifecycle,
+  AliasMatchAuthority,
+  AliasMatchType,
+  AliasSource,
+  MatchedAlias,
   MeasurementUnitPolicy,
   NormalizedMeasurementUnit,
   AnalyteKey,
@@ -66,6 +72,7 @@ export {
 
 export {
   MEASUREMENT_DEFINITIONS,
+  SAMPLE_NEWEST_LAUNCH_CORPUS,
   CURATED_MEASUREMENT_DEFINITIONS,
   ANALYTES,
   MEASUREMENT_CATALOG_MANIFEST_VERSION,
@@ -84,6 +91,7 @@ export {
   normalizeMeasurementUnit,
   normalizeUnitToken,
   resolveMeasurementDefinition,
+  findAliasAdmissions,
   validateMeasurementRegistry,
 } from "./measurement-resolution";
 

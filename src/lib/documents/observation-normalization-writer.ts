@@ -180,7 +180,7 @@ export function buildManualCorrectionResolution(options: {
             ...candidate,
             accepted: [
               ...candidate.accepted,
-              { code: "manual_selection", source: "manual", strength: "strong" },
+              { code: "manual_selection", source: "manual", strength: "strong", score: 0 },
             ],
           }
         : candidate
@@ -191,9 +191,16 @@ export function buildManualCorrectionResolution(options: {
     result: "resolved",
     measurementDefinitionKey: definition.key,
     analyteKey: definition.analyteKey,
-    mappingConfidence: 0.95,
-    mappingConfidenceBand: "high",
+    mappingConfidence: Math.min(0.99, (selectedCandidate.score ?? 0) / 100),
+    mappingConfidenceBand: (selectedCandidate.score ?? 0) / 100 >= 0.85 ? "high" : (selectedCandidate.score ?? 0) / 100 >= 0.6 ? "medium" : "low",
     candidateEvidence,
+    decisionTrace: {
+      ...baseResolution.decisionTrace,
+      selectedCandidateKey: definition.key,
+      outcome: "resolved",
+      confidence: Math.min(0.99, (selectedCandidate.score ?? 0) / 100),
+      candidates: candidateEvidence,
+    },
   };
 }
 
@@ -246,7 +253,7 @@ function buildResolutionPayload(
     resolver_result: resolution.result,
     mapping_confidence: resolution.mappingConfidence,
     mapping_confidence_band: resolution.mappingConfidenceBand,
-    resolver_evidence: resolution.candidateEvidence,
+    resolver_evidence: resolution.decisionTrace,
     normalized_unit: resolution.unit.normalizedUnit,
     unit_dimension: resolution.unit.dimension,
     catalog_manifest_version: MEASUREMENT_CATALOG_MANIFEST_VERSION,

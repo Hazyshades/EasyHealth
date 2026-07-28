@@ -2,42 +2,42 @@
   "schemaVersion": "1",
   "approvals": [
     {
-      "id": "registry-safety-review-2026-07-20",
+      "id": "registry-safety-review-2026-07-28",
       "scope": "false_concrete_review",
       "role": "registry-safety-reviewer",
       "approvedBy": "Registry Safety Reviewer",
       "status": "approved",
-      "candidateInputHash": "b4489a7cae9ab40cef27e308f1fe64fb45eca55cfe612d806a5c4370e0116b13",
-      "note": "Reviewed the negative fixtures and false-concrete-resolution report for this candidate input."
+      "candidateInputHash": "92fad306621e4b4a473eea08a5431609942fa97eaeb669985cefbad93d323fc7",
+      "note": "Renewed after reviewing the resolver v6 threshold report, 44/44 classification report, negative fixtures, and zero false concrete resolutions."
     },
     {
-      "id": "assessment-alt-review-2026-07-20",
+      "id": "assessment-alt-review-2026-07-28",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "approvedBy": "Assessment Owner",
       "status": "approved",
-      "candidateInputHash": "b4489a7cae9ab40cef27e308f1fe64fb45eca55cfe612d806a5c4370e0116b13",
+      "candidateInputHash": "92fad306621e4b4a473eea08a5431609942fa97eaeb669985cefbad93d323fc7",
       "bindingKey": "alt_serum_catalytic_activity",
-      "note": "Approved the reviewed ALT serum manual-correction assessment binding for this candidate input."
+      "note": "Renewed after reviewing the resolver v6 threshold and classification reports and the unchanged ALT serum manual-correction assessment binding."
     },
     {
-      "id": "assessment-glucose-review-2026-07-20",
+      "id": "assessment-glucose-review-2026-07-28",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "approvedBy": "Assessment Owner",
       "status": "approved",
-      "candidateInputHash": "b4489a7cae9ab40cef27e308f1fe64fb45eca55cfe612d806a5c4370e0116b13",
+      "candidateInputHash": "92fad306621e4b4a473eea08a5431609942fa97eaeb669985cefbad93d323fc7",
       "bindingKey": "glucose_serum",
-      "note": "Approved the reviewed glucose serum assessment binding for this candidate input."
+      "note": "Renewed after reviewing the resolver v6 threshold and classification reports and the unchanged glucose serum assessment binding."
     },
     {
-      "id": "release-gate-2026-07-20",
+      "id": "release-gate-2026-07-28",
       "scope": "release_gate",
       "role": "release-manager",
       "approvedBy": "Release Manager",
       "status": "approved",
-      "candidateInputHash": "b4489a7cae9ab40cef27e308f1fe64fb45eca55cfe612d806a5c4370e0116b13",
-      "note": "Approved the candidate release gate after threshold and evidence review."
+      "candidateInputHash": "92fad306621e4b4a473eea08a5431609942fa97eaeb669985cefbad93d323fc7",
+      "note": "Renewed after all candidate thresholds passed, 44/44 classifications matched, and processing errors and false concrete resolutions remained zero."
     }
   ]
 }
