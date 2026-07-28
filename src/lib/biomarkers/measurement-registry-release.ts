@@ -5,6 +5,7 @@ import {
   MEASUREMENT_NORMALIZATION_VERSION,
   MEASUREMENT_CATALOG_MANIFEST_VERSION,
   MEASUREMENT_RESOLVER_VERSION,
+  MEASUREMENT_COMPATIBILITY_POLICY_VERSION,
 } from "./measurement-resolution";
 import type { MeasurementDefinition } from "./types";
 
@@ -24,6 +25,7 @@ export type MeasurementCatalogManifestRelease = {
   catalogManifestVersion: string;
   resolverVersion: string;
   normalizationVersion: string;
+  compatibilityPolicyVersion: string;
   manifestDigest: string;
   changelog: string[];
   changedDefinitions: MeasurementRegistryChange[];
@@ -56,7 +58,6 @@ function manifestDefinition(definition: MeasurementDefinition) {
     valueKind: definition.valueKind,
     aliases: definition.aliases,
     unitPolicy: definition.unitPolicy,
-    allowedSpecimens: definition.allowedSpecimens ?? [],
     requiredModifiers: definition.requiredModifiers ?? [],
     assessmentBindings: definition.assessmentBindings,
   };
@@ -98,7 +99,6 @@ export function classifyMeasurementDefinitionChange(
     previous.valueKind !== next.valueKind ||
     stableValue(previous.assessmentBindings) !== stableValue(next.assessmentBindings) ||
     stableValue(previous.unitPolicy) !== stableValue(next.unitPolicy) ||
-    stableValue(previous.allowedSpecimens ?? []) !== stableValue(next.allowedSpecimens ?? []) ||
     stableValue(previous.requiredModifiers ?? []) !== stableValue(next.requiredModifiers ?? []);
   if (identityChanged) {
     return {
@@ -145,8 +145,9 @@ export function buildMeasurementCatalogManifestRelease(options?: {
     catalogManifestVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,
     resolverVersion: MEASUREMENT_RESOLVER_VERSION,
     normalizationVersion: MEASUREMENT_NORMALIZATION_VERSION,
+    compatibilityPolicyVersion: MEASUREMENT_COMPATIBILITY_POLICY_VERSION,
     manifestDigest: digestMeasurementRegistryManifest(),
-    changelog: options?.changelog ?? ["Registry 2.0 measurement governance baseline"],
+    changelog: options?.changelog ?? ["EH-111 clinical compatibility policy cutover"],
     changedDefinitions: MEASUREMENT_DEFINITIONS.map((definition) =>
       classifyMeasurementDefinitionChange(previousByKey.get(definition.key), definition)
     ),

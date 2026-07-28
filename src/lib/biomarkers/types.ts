@@ -64,6 +64,14 @@ export type UnitDimension =
 export type UnitToken = UnitDimension | "unknown";
 
 export type MissingUnitPolicy = "reject" | "ambiguous" | "display_only";
+export type ClinicalCompatibilityAxis =
+  | "unit"
+  | "specimen"
+  | "modifier"
+  | "timing"
+  | "method"
+  | "value_kind";
+export type CompatibilityDisposition = "compatible" | "missing" | "conflict";
 
 export type AliasSource = "canonical" | "registry" | "laboratory" | "fixture";
 export type AliasMatchType = "exact" | "normalized" | "ocr_variant" | "bounded_fuzzy";
@@ -137,6 +145,7 @@ export type ResolutionEvidenceSource =
   | "label"
   | "unit"
   | "specimen"
+  | "value_kind"
   | "modifier"
   | "section"
   | "neighbour"
@@ -153,11 +162,14 @@ export type ResolutionReasonCode =
   | "alias_bounded_fuzzy_match"
   | "proposed_key_match"
   | "unit_compatible"
+  | "unit_not_required"
   | "unit_dimension_conflict"
   | "unit_not_accepted"
+  | "unit_unsupported"
   | "unit_missing"
   | "specimen_compatible"
   | "specimen_conflict"
+  | "specimen_unsupported"
   | "modifier_compatible"
   | "modifier_conflict"
   | "section_support"
@@ -168,6 +180,7 @@ export type ResolutionReasonCode =
   | "manual_selection"
   | "value_kind_compatible"
   | "value_kind_conflict"
+  | "value_kind_missing"
   | "timing_compatible"
   | "timing_conflict"
   | "timing_missing"
@@ -184,19 +197,28 @@ export type ResolutionEvidence = {
   observed?: string;
   expected?: readonly string[];
 };
+export type CompatibilityEvidenceResult = {
+  disposition: CompatibilityDisposition;
+  evidence: ResolutionEvidence;
+  missingAxis?: ClinicalCompatibilityAxis;
+  selectable: boolean;
+};
 
 export type CandidateEvidence = {
   candidateKey: MeasurementDefinitionKey;
   matchedAlias: MatchedAlias;
   accepted: readonly ResolutionEvidence[];
+  missing: readonly ResolutionEvidence[];
   rejected: readonly ResolutionEvidence[];
-  missingAxes: readonly ("specimen" | "modifier" | "timing" | "method" | "value_kind")[];
+  missingAxes: readonly ClinicalCompatibilityAxis[];
   score: number | null;
+  selectable: boolean;
   eligible: boolean;
 };
 
 export type ResolverDecisionTrace = {
-  version: 1;
+  version: 2;
+  compatibilityPolicyVersion: string;
   selectedCandidateKey: MeasurementDefinitionKey | null;
   runnerUpCandidateKey: MeasurementDefinitionKey | null;
   outcome: ResolverResult;
@@ -222,7 +244,6 @@ export type MeasurementDefinition = {
   unitPolicy: MeasurementUnitPolicy;
   /** Display-only conversion rule reviewed with this concrete definition. */
   conversion?: ConversionRule | null;
-  allowedSpecimens?: string[];
   requiredModifiers?: string[];
   assessmentBindings: readonly AssessmentBinding[];
 };
@@ -255,7 +276,7 @@ export type MeasurementResolution = {
   /** @deprecated Use `unit.dimension`; retained for callers built on Registry 2.0 draft types. */
   unitToken: UnitToken;
   candidateKeys: string[];
-  missingAxes: readonly ("specimen" | "modifier" | "timing" | "method" | "value_kind")[];
+  missingAxes: readonly ClinicalCompatibilityAxis[];
   conflicts: readonly ResolutionReasonCode[];
   candidateEvidence: readonly CandidateEvidence[];
   reasons: readonly ResolutionReasonCode[];
@@ -302,6 +323,11 @@ export type ConversionRule =
       type: "none";
       reason: string;
     };
+export type ResolvedReviewedMeasurementBinding = Readonly<{
+  measurementDefinitionKey: MeasurementDefinitionKey;
+  analyteKey: AnalyteKey;
+  conversion: ConversionRule;
+}>;
 
 export type BiomarkerDefinition = {
   key: string;

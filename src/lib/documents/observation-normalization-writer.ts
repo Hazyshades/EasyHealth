@@ -132,14 +132,19 @@ export function measurementInputFromWriterRow(
   return {
     rawLabel: row.raw_name ?? row.biomarker_name,
     rawUnit: row.raw_unit ?? row.unit,
-    specimen: row.specimen ?? "unspecified",
-    modifier: row.modifier ?? "none",
+    specimen: row.specimen ?? null,
+    modifier: row.modifier ?? null,
     section: row.section_context ?? null,
     referenceLow: ref_low,
     referenceHigh: ref_high,
     extractionConfidence: row.confidence ?? null,
     proposedKey: row.biomarker_key,
-    valueKind: measurementValueKind(parsedValue.valueKind),
+    valueKind:
+      parsedValue.valueKind === "numeric" ||
+      parsedValue.valueKind === "qualitative" ||
+      parsedValue.valueKind === "ordinal"
+        ? parsedValue.valueKind
+        : null,
     rawValueText: row.raw_value_text ?? null,
   };
 }
@@ -166,7 +171,9 @@ export function buildManualCorrectionResolution(options: {
     !definition ||
     definition.maturity !== "reviewed" ||
     !selectedCandidate ||
-    selectedCandidate.rejected.length > 0
+    !selectedCandidate.selectable ||
+    selectedCandidate.rejected.length > 0 ||
+    selectedCandidate.missingAxes.length > 0
   ) {
     throw new ObservationNormalizationWriterError(
       "Selected measurement definition is incompatible with the extracted evidence"
@@ -242,7 +249,7 @@ function buildObservationPayload(options: {
   };
 }
 
-function buildResolutionPayload(
+export function buildNormalizationResolutionPayload(
   input: MeasurementResolutionInput,
   resolution: MeasurementResolution
 ) {
@@ -349,7 +356,7 @@ export async function writeExtractedBiomarkerNormalization(options: {
         value: parsedValue,
         referenceRange,
       }),
-      p_resolution: buildResolutionPayload(input, resolution),
+      p_resolution: buildNormalizationResolutionPayload(input, resolution),
       p_write_kind: options.writeKind,
       p_actor_id: options.actorId,
       p_request_hash: requestHash,

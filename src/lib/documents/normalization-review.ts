@@ -1,5 +1,8 @@
 import { resolveMeasurementDefinition } from "@/lib/biomarkers";
-import type { VerificationStatus } from "@/lib/biomarkers";
+import type {
+  MeasurementResolutionInput,
+  VerificationStatus,
+} from "@/lib/biomarkers";
 import { parseReferenceRange } from "@/lib/schemas/biomarkers";
 import { compatibleManualDefinitions } from "./normalization-revisions";
 
@@ -13,6 +16,7 @@ type ExtractedReviewRow = {
   reference_range?: string | null;
   raw_reference_range?: string | null;
   raw_value_text?: string | null;
+  value_kind?: string | null;
   section_context?: string | null;
   confidence?: number | null;
   specimen?: string | null;
@@ -35,11 +39,19 @@ export type NormalizationRevisionSummary = {
   created_at: string;
 };
 
-export function measurementInputFromExtracted(row: ExtractedReviewRow) {
+export function measurementInputFromExtracted(
+  row: ExtractedReviewRow
+): MeasurementResolutionInput {
   const { ref_low, ref_high } = parseReferenceRange(row.reference_range ?? row.raw_reference_range ?? null);
   return {
     rawLabel: row.raw_name ?? row.biomarker_name,
     rawUnit: row.raw_unit ?? row.unit ?? null,
+    valueKind:
+      row.value_kind === "numeric" ||
+      row.value_kind === "qualitative" ||
+      row.value_kind === "ordinal"
+        ? row.value_kind
+        : null,
     specimen: row.specimen ?? null,
     modifier: row.modifier ?? null,
     section: row.section_context ?? null,

@@ -13,12 +13,33 @@ import {
   validateMeasurementRegistry,
 } from "../src/lib/biomarkers";
 import { buildHealthProfile, computeSystemStateScore, getSystemForMarker } from "../src/lib/health-systems";
+import { projectActiveRegistryV2LaboratoryBinding } from "../src/lib/documents/observation-read-boundaries";
 
 function approx(actual: number, expected: number, epsilon = 0.05) {
   assert.ok(Math.abs(actual - expected) < epsilon, `expected ${actual} ≈ ${expected}`);
 }
+function resolvedBinding(measurementDefinitionKey: string) {
+  const binding = projectActiveRegistryV2LaboratoryBinding(
+    {
+      observation_kind: "lab",
+      measurement_definition_key: measurementDefinitionKey,
+      resolution_status: "resolved",
+    },
+    {
+      resolver_result: "resolved",
+      measurement_definition_key: measurementDefinitionKey,
+      is_active: true,
+      resolver_evidence: {
+        selectedCandidateKey: measurementDefinitionKey,
+        outcome: "resolved",
+      },
+    }
+  ).resolvedMeasurementBinding;
+  assert.ok(binding);
+  return binding;
+}
 
-const neutrophilPercent = resolveMeasurementDefinition({ rawLabel: "Neutrophils", rawUnit: "%", specimen: "whole_blood" });
+const neutrophilPercent = resolveMeasurementDefinition({ rawLabel: "Neutrophils", rawUnit: "%", specimen: "whole_blood", valueKind: "numeric" });
 assert.equal(neutrophilPercent.result, "resolved");
 assert.equal(neutrophilPercent.measurementDefinitionKey, "neutrophils_percent");
 assert.equal(resolveMeasurementDefinition({ rawLabel: "Neutrophils" }).result, "partial");
@@ -38,14 +59,14 @@ assert.equal(getSystemForMarker("sodium"), "kidney");
 assert.equal(getSystemForMarker("unknown_raw_key"), "general");
 
 const glucoseSi = presentObservation(
-  { measurement_definition_key: "glucose_serum", value: 90, unit: "mg/dL", ref_low: 70, ref_high: 99 },
+  { resolved_measurement_binding: resolvedBinding("glucose_serum"), value: 90, unit: "mg/dL", ref_low: 70, ref_high: 99 },
   "si"
 );
 assert.equal(glucoseSi.converted, true);
 approx(glucoseSi.value, 90 * 0.0555);
 
 const ldlSi = presentObservation(
-  { measurement_definition_key: "ldl_serum", value: 100, unit: "mg/dL", ref_low: null, ref_high: null },
+  { resolved_measurement_binding: resolvedBinding("ldl_serum"), value: 100, unit: "mg/dL", ref_low: null, ref_high: null },
   "si"
 );
 approx(ldlSi.value, 100 * 0.0259);
@@ -70,7 +91,7 @@ assert.equal(isPageOcrArtifact(ocrArtifact), true);
 const evidenceInput = { rawLabel: "ALT", rawUnit: "U/L", specimen: "serum", valueKind: "numeric" as const };
 const evidenceResolution = resolveMeasurementDefinition(evidenceInput);
 assert.equal(evidenceResolution.result, "resolved");
-assert.equal(evidenceResolution.decisionTrace.version, 1);
+assert.equal(evidenceResolution.decisionTrace.version, 2);
 assert.equal(evidenceResolution.decisionTrace.selectedCandidateKey, evidenceResolution.measurementDefinitionKey);
 assert.deepEqual(resolveMeasurementDefinition(evidenceInput), evidenceResolution);
 

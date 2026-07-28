@@ -52,7 +52,7 @@ export async function GET() {
     const { data: observations, error: observationsError } = await supabase
       .from("observations")
       .select(
-        "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, value_kind, value_text, ordinal, specimen, modifier, documents(id, original_filename), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, is_active)"
+        "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, value_kind, value_text, ordinal, specimen, modifier, documents(id, original_filename), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, is_active, resolver_evidence)"
       )
       .eq("profile_id", profileId)
       .eq("observation_kind", "lab")
@@ -73,6 +73,7 @@ export async function GET() {
         resolutionStatus,
         verificationStatus,
         registryBindingReady,
+        resolvedMeasurementBinding,
       } = binding;
       const valueKind = row.value_kind ?? "numeric";
       const numericValue = row.value != null ? Number(row.value) : null;
@@ -94,11 +95,11 @@ export async function GET() {
         registryBindingReady &&
         valueKind === "numeric" &&
         numericValue != null &&
-        definitionKey
+        resolvedMeasurementBinding
       ) {
         display = presentObservation(
           {
-            measurement_definition_key: definitionKey,
+            resolved_measurement_binding: resolvedMeasurementBinding,
             value: numericValue,
             unit: row.unit ?? "",
             ref_low: row.ref_low != null ? Number(row.ref_low) : null,
