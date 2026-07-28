@@ -18,8 +18,15 @@ The service-only `prepare_instrumental_publication(uuid, uuid, uuid, jsonb, text
 - **WHEN** the service role prepares a valid snapshot for an active owned processing attempt
 - **THEN** the RPC SHALL create or reuse its content and prepared publication without an ambiguous-column exception
 
-### Requirement: Repair migration SHALL preserve both RPC contracts
-The ambiguity repair SHALL be delivered as one additive migration after the deployed processing-attempt and instrumental-publication migrations. It SHALL replace only the two function definitions and preserve their signatures, security-definer boundaries, fixed search paths, lock order, ownership checks, state transitions, attempt/content identity, and returned fields.
+### Requirement: Publication finalization SQL SHALL be unambiguous
+The service-only `finalize_instrumental_publication(uuid, uuid, uuid, uuid, uuid, text, text, text, jsonb)` RPC SHALL qualify document columns that conflict with its `RETURNS TABLE` output names. Finalizing a valid prepared publication MUST NOT raise an ambiguous-column error.
+
+#### Scenario: Valid instrumental publication is finalized
+- **WHEN** the service role finalizes a valid prepared publication for its active owned processing attempt
+- **THEN** the RPC SHALL atomically publish it and advance document `write_generation` exactly once without an ambiguous-column exception
+
+### Requirement: Repair migration SHALL preserve all repaired RPC contracts
+The ambiguity repair SHALL be delivered as one additive migration after the deployed processing-attempt and instrumental-publication migrations. It SHALL replace only the three affected function definitions and preserve their signatures, security-definer boundaries, fixed search paths, lock order, ownership checks, state transitions, attempt/content identity, and returned fields.
 
 #### Scenario: Existing deployment receives the repair
 - **WHEN** the repair migration runs after the original processing-attempt and instrumental-publication migrations

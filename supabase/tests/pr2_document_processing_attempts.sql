@@ -76,7 +76,7 @@ select * from public.claim_document_processing_job('20000000-0000-0000-0000-0000
 select is((select attempt_number from pr2_claim2), 2, 'new claim allocates a new attempt number');
 
 select throws_ok(
-  $$$
+  $$
     select public.fail_document_processing_attempt(
       (select processing_attempt_id from pr2_claim1),
       'stale'
