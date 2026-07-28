@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { measurementMappingGuidance, measurementMappingLabel, resolveBiomarkerPanelMode, resolveBiomarkerReviewAction, reviewDataErrorMessage, validateObservationFallbackConfirmation } from "../src/lib/documents/biomarker-review-state";
-assert.equal(measurementMappingLabel("partial", "medium"), "Recognized measurement - details pending");
-assert.equal(measurementMappingLabel("unmapped", "low"), "Unmapped measurement");
-assert.equal(measurementMappingLabel("resolved", "high"), "Resolved measurement - high mapping confidence");
-assert.equal(measurementMappingGuidance("partial"), "The report does not contain enough evidence for one precise measurement. You can still accept the raw result.");
-assert.equal(measurementMappingGuidance("resolved"), null);
+assert.equal(measurementMappingLabel("partial", "medium"), "More details needed");
+assert.equal(measurementMappingLabel("unmapped", "low"), "Measurement not recognized");
+assert.equal(measurementMappingLabel("resolved", "high"), "Matched measurement");
+assert.match(measurementMappingGuidance("partial"), /required context is missing/);
+assert.match(measurementMappingGuidance("resolved"), /not medical certainty/);
 assert.equal(resolveBiomarkerPanelMode({ extractedCount: 0, observationCount: 3 }), "observations-fallback");
 assert.equal(resolveBiomarkerReviewAction({ mode: "extracted-review", documentStatus: "needs_review", reviewableExtractedCount: 2 }), "accept-extracted");
 assert.equal(reviewDataErrorMessage({ message: "query failed" }), "Biomarker review data could not be loaded.");

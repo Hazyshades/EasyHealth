@@ -36,10 +36,12 @@ import {
 import {
   measurementMappingGuidance,
   measurementMappingLabel,
+  measurementReasonLabel,
   resolveBiomarkerPanelMode,
   resolveBiomarkerReviewAction,
 } from "@/lib/documents/biomarker-review-state";
 import type { VerificationStatus } from "@/lib/biomarkers";
+import type { LaboratoryResolutionDetails } from "@/lib/documents/incomplete-laboratory-outcomes";
 
 type DocumentMeta = {
   id: string;
@@ -97,6 +99,8 @@ type Observation = {
   resolution_status: string | null;
   resolver_result?: string | null;
   verification_status?: string | null;
+  registry_binding_ready?: boolean;
+  resolution_details?: LaboratoryResolutionDetails;
   name: string;
   value: number | string | null;
   value_kind?: string | null;
@@ -127,11 +131,8 @@ type ExtractedBiomarker = {
     analyteKey: string | null;
     mappingConfidence: number;
     mappingConfidenceBand: "high" | "medium" | "low";
-    candidateEvidence: Array<{
-      candidateKey: string;
-      accepted: Array<{ code: string }>;
-      rejected: Array<{ code: string }>;
-    }>;
+    resolutionDetails: LaboratoryResolutionDetails;
+    registryBindingReady: boolean;
     manualOptions: Array<{
       key: string;
       displayName: string;
@@ -655,6 +656,16 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
         item.status === "needs_review" || item.status === "pending_review",
     ).length,
   });
+  const hasIncompleteLaboratoryOutcomes =
+    extracted.some(
+      (item) =>
+        item.normalization && item.normalization.result !== "resolved"
+    ) ||
+    observations.some(
+      (item) =>
+        (item.resolver_result ?? item.resolution_status) !== null &&
+        (item.resolver_result ?? item.resolution_status) !== "resolved"
+    );
 
   const panelTitle =
     documentType === "lab_result"
@@ -980,6 +991,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                   </Button>
                 </div>
               ) : biomarkerPanelMode === "extracted-review" ? (
+                <div>
                 <ul className="max-h-[520px] space-y-2 overflow-y-auto">
                   {extracted.map((b) => {
                     const reviewable =
@@ -1049,72 +1061,66 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                         {normalization && (
                           <div className="mt-2 border-t border-slate-100 pt-2 text-xs text-[var(--eh-text-secondary)]">
                             <p className="font-medium text-[var(--eh-text-primary)]">
-                              {normalization.result === "partial"
-                                ? `${b.biomarker_name} recognized`
-                                : measurementMappingLabel(
-                                    normalization.result,
-                                    normalization.mappingConfidenceBand,
-                                  )}
+                              {measurementMappingLabel(
+                                normalization.result,
+                                normalization.mappingConfidenceBand,
+                              )}
                             </p>
-                            {measurementMappingGuidance(
-                              normalization.result,
-                            ) && (
-                              <p className="mt-1 leading-relaxed">
-                                {measurementMappingGuidance(
-                                  normalization.result,
-                                )}
-                              </p>
-                            )}
+                            <p className="mt-1 leading-relaxed">
+                              {measurementMappingGuidance(normalization.result)}
+                            </p>
                             <details className="mt-2">
                               <summary className="cursor-pointer text-[var(--eh-text-muted)] hover:text-[var(--eh-text-secondary)]">
                                 Technical details
                               </summary>
                               <p className="mt-2">
                                 Mapping confidence describes classification
-                                evidence, not a medical result.
+                                evidence, not medical certainty.
                               </p>
                               <p className="mt-1">
-                                Active revision:{" "}
-                                {normalization.activeRevision
-                                  ?.measurement_definition_key ?? "none"}
-                                {normalization.activeRevision
-                                  ? ` (${normalization.activeRevision.verification_status})`
+                                State: {normalization.resolutionDetails.source}
+                                {normalization.resolutionDetails.verificationStatus
+                                  ? ` · ${normalization.resolutionDetails.verificationStatus}`
+                                  : ""}
+                                {normalization.resolutionDetails.mappingConfidence !=
+                                null
+                                  ? ` · ${Math.round(normalization.resolutionDetails.mappingConfidence * 100)}% confidence`
                                   : ""}
                               </p>
-                              <ul className="mt-2 space-y-1">
-                                {normalization.candidateEvidence.map(
-                                  (candidate) => (
-                                    <li key={candidate.candidateKey}>
-                                      <span className="font-medium">
-                                        {candidate.candidateKey}
-                                      </span>
-                                      {candidate.accepted.length
-                                        ? ` · supports: ${candidate.accepted.map((item) => item.code).join(", ")}`
-                                        : ""}
-                                      {candidate.rejected.length
-                                        ? ` · rejects: ${candidate.rejected.map((item) => item.code).join(", ")}`
-                                        : ""}
-                                    </li>
-                                  ),
-                                )}
-                              </ul>
+                              {normalization.resolutionDetails.missingAxes.length >
+                                0 && (
+                                <p className="mt-1">
+                                  Missing: {normalization.resolutionDetails.missingAxes
+                                    .map(measurementReasonLabel)
+                                    .join(", ")}
+                                </p>
+                              )}
+                              {normalization.resolutionDetails.conflictCodes.length >
+                                0 && (
+                                <p className="mt-1">
+                                  Conflicts: {normalization.resolutionDetails.conflictCodes
+                                    .map(measurementReasonLabel)
+                                    .join(", ")}
+                                </p>
+                              )}
+                              {normalization.resolutionDetails.supportCodes.length >
+                                0 && (
+                                <p className="mt-1">
+                                  Supporting evidence: {normalization.resolutionDetails.supportCodes
+                                    .map(measurementReasonLabel)
+                                    .join(", ")}
+                                </p>
+                              )}
+                              <p className="mt-1">
+                                Candidates considered: {normalization.resolutionDetails.candidateCount}
+                              </p>
                               <p className="mt-2 text-[var(--eh-text-muted)]">
-                                Catalog/resolver:{" "}
-                                {normalization.activeRevision?.id
-                                  ? (normalization.revisions.find(
-                                      (revision) =>
-                                        revision.id ===
-                                        normalization.activeRevision?.id,
-                                    )?.catalog_manifest_version ?? "unknown")
-                                  : "pending"}
+                                Catalog/resolver: {normalization.resolutionDetails.versions.catalog ?? "pending"}
                                 {" / "}
-                                {normalization.activeRevision?.id
-                                  ? (normalization.revisions.find(
-                                      (revision) =>
-                                        revision.id ===
-                                        normalization.activeRevision?.id,
-                                    )?.resolver_version ?? "unknown")
-                                  : "pending"}
+                                {normalization.resolutionDetails.versions.resolver ?? "pending"}
+                                {normalization.resolutionDetails.versions.compatibilityPolicy
+                                  ? ` · policy ${normalization.resolutionDetails.versions.compatibilityPolicy}`
+                                  : ""}
                               </p>
                               {normalization.manualOptions.length > 0 && (
                                 <div className="mt-3 flex flex-wrap gap-2">
@@ -1188,6 +1194,18 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                     );
                   })}
                 </ul>
+                  {hasIncompleteLaboratoryOutcomes && (
+                    <Button
+                      variant="outline"
+                      className="mt-3 w-full rounded-xl"
+                      disabled={reprocessing}
+                      onClick={() => handleReprocess()}
+                    >
+                      <RotateCcw className="size-4" aria-hidden />
+                      {reprocessing ? "Reprocessing…" : "Reprocess document"}
+                    </Button>
+                  )}
+                </div>
               ) : biomarkerPanelMode === "observations-fallback" ? (
                 <div>
                   {doc.processing_status === "needs_review" && (
@@ -1197,7 +1215,15 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                     </p>
                   )}
                   <ul className="max-h-[520px] space-y-2 overflow-y-auto">
-                    {observations.map((o) => (
+                    {observations.map((o) => {
+                      const outcome = (o.resolver_result ??
+                        o.resolution_status) as
+                        | "resolved"
+                        | "ambiguous"
+                        | "partial"
+                        | "unmapped"
+                        | null;
+                      return (
                       <li
                         key={o.id}
                         className="rounded-xl border border-slate-200 bg-white p-3"
@@ -1214,17 +1240,65 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                         <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
                           {o.observed_at}
                         </p>
-                        {(o.resolver_result ?? o.resolution_status) && (
-                          <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
-                            Mapping: {o.resolver_result ?? o.resolution_status}
-                            {o.verification_status
-                              ? ` · ${o.verification_status}`
-                              : ""}
-                          </p>
+                        {outcome && (
+                          <div className="mt-2 border-t border-slate-100 pt-2 text-xs text-[var(--eh-text-secondary)]">
+                            <p className="font-medium text-[var(--eh-text-primary)]">
+                              {measurementMappingLabel(
+                                outcome,
+                                o.resolution_details?.mappingConfidenceBand ??
+                                  "low",
+                              )}
+                            </p>
+                            <p className="mt-1 leading-relaxed">
+                              {measurementMappingGuidance(outcome)}
+                            </p>
+                            {o.resolution_details && (
+                              <details className="mt-2">
+                                <summary className="cursor-pointer text-[var(--eh-text-muted)]">
+                                  Technical details
+                                </summary>
+                                <p className="mt-2">
+                                  State: {o.resolution_details.source}
+                                  {o.verification_status
+                                    ? ` · ${o.verification_status}`
+                                    : ""}
+                                </p>
+                                {o.resolution_details.missingAxes.length > 0 && (
+                                  <p className="mt-1">
+                                    Missing: {o.resolution_details.missingAxes
+                                      .map(measurementReasonLabel)
+                                      .join(", ")}
+                                  </p>
+                                )}
+                                {o.resolution_details.conflictCodes.length > 0 && (
+                                  <p className="mt-1">
+                                    Conflicts: {o.resolution_details.conflictCodes
+                                      .map(measurementReasonLabel)
+                                      .join(", ")}
+                                  </p>
+                                )}
+                                <p className="mt-1">
+                                  Candidates considered: {o.resolution_details.candidateCount}
+                                </p>
+                              </details>
+                            )}
+                          </div>
                         )}
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
+                  {hasIncompleteLaboratoryOutcomes && (
+                    <Button
+                      variant="outline"
+                      className="mt-3 w-full rounded-xl"
+                      disabled={reprocessing}
+                      onClick={() => handleReprocess()}
+                    >
+                      <RotateCcw className="size-4" aria-hidden />
+                      {reprocessing ? "Reprocessing…" : "Reprocess document"}
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div>

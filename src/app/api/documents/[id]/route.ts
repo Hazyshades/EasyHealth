@@ -152,7 +152,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
     ? await supabase
         .from("observation_normalization_revisions")
         .select(
-          "id, extracted_biomarker_id, analyte_key, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, catalog_manifest_version, resolver_version, normalization_version, created_at"
+          "id, extracted_biomarker_id, analyte_key, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, resolver_evidence, catalog_manifest_version, resolver_version, normalization_version, created_at"
         )
         .in("extracted_biomarker_id", extractedIds)
         .order("created_at", { ascending: false })

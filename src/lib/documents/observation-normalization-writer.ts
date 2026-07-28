@@ -23,6 +23,10 @@ import {
   getActiveNormalizationRevision,
   type NormalizationRevision,
 } from "./normalization-revisions";
+import {
+  buildResolutionOutcomeMetric,
+  emitResolutionOutcomeMetricForWrite,
+} from "./incomplete-laboratory-outcomes";
 
 export type ExtractedBiomarkerWriterRow = {
   id: string;
@@ -376,12 +380,22 @@ export async function writeExtractedBiomarkerNormalization(options: {
   if (!result?.observation_id || !result.revision_id) {
     throw new Error("Normalization writer returned no promoted observation revision");
   }
+  const wasReused = Boolean(result.was_reused);
+  emitResolutionOutcomeMetricForWrite({
+    wasReused,
+    metric: buildResolutionOutcomeMetric({
+      resolution,
+      writeKind: options.writeKind,
+      resolverVersion: MEASUREMENT_RESOLVER_VERSION,
+      catalogVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,
+    }),
+  });
 
   return {
     observationId: String(result.observation_id),
     revisionId: String(result.revision_id),
     verificationStatus: result.verification_status as ObservationNormalizationWriterResult["verificationStatus"],
     resolverResult: result.resolver_result as MeasurementResolution["result"],
-    wasReused: Boolean(result.was_reused),
+    wasReused,
   };
 }

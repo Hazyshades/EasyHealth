@@ -6,6 +6,7 @@ import {
   projectActiveRegistryV2LaboratoryBinding,
   type RegistryV2NormalizationRevisionReadBoundary,
 } from "@/lib/documents/observation-read-boundaries";
+import { projectLaboratoryOutcome } from "@/lib/documents/incomplete-laboratory-outcomes";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type BiomarkerObservation = {
@@ -26,6 +27,12 @@ type BiomarkerObservation = {
   ordinal: number | null;
   specimen: string | null;
   modifier: string | null;
+  raw_name: string | null;
+  raw_value_text: string | null;
+  raw_unit: string | null;
+  raw_reference_text: string | null;
+  source_page: number | null;
+  source_text: string | null;
   documents: { id: string; original_filename: string } | { id: string; original_filename: string }[] | null;
   normalization_revision:
     | RegistryV2NormalizationRevisionReadBoundary
@@ -52,7 +59,7 @@ export async function GET() {
     const { data: observations, error: observationsError } = await supabase
       .from("observations")
       .select(
-        "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, value_kind, value_text, ordinal, specimen, modifier, documents(id, original_filename), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, is_active, resolver_evidence)"
+        "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, raw_name, raw_value_text, raw_unit, raw_reference_text, source_page, source_text, ref_low, ref_high, observed_at, document_id, value_kind, value_text, ordinal, specimen, modifier, documents(id, original_filename), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence)"
       )
       .eq("profile_id", profileId)
       .eq("observation_kind", "lab")
@@ -64,17 +71,15 @@ export async function GET() {
 
     const presented = ((observations ?? []) as BiomarkerObservation[]).map(
       ({ normalization_revision, documents, ...row }) => {
+      const outcome = projectLaboratoryOutcome({
+        observation: row,
+        relation: normalization_revision,
+      });
       const binding = projectActiveRegistryV2LaboratoryBinding(
         row,
         normalization_revision
       );
-      const {
-        measurementDefinitionKey: definitionKey,
-        resolutionStatus,
-        verificationStatus,
-        registryBindingReady,
-        resolvedMeasurementBinding,
-      } = binding;
+      const { registryBindingReady, resolvedMeasurementBinding } = binding;
       const valueKind = row.value_kind ?? "numeric";
       const numericValue = row.value != null ? Number(row.value) : null;
 
@@ -113,14 +118,21 @@ export async function GET() {
         ...row,
         documents: firstDocument(documents),
         observation_kind: "lab" as const,
-        measurement_definition_key: definitionKey,
-        analyte_key: row.analyte_key ?? null,
-        resolution_status: resolutionStatus,
-        verification_status: verificationStatus,
-        registry_binding_ready: registryBindingReady,
+        measurement_definition_key: outcome.measurementDefinitionKey,
+        analyte_key: outcome.analyteKey,
+        resolution_status: outcome.outcome,
+        verification_status: outcome.verificationStatus,
+        registry_binding_ready: outcome.registryBindingReady,
+        resolution_details: outcome.resolutionDetails,
+        trend_eligible: outcome.resolutionDetails.eligibility.trendEligible,
+        conversion_eligible:
+          outcome.resolutionDetails.eligibility.conversionEligible,
+        assessment_eligible:
+          outcome.resolutionDetails.eligibility.assessmentEligible,
         value: valueKind === "numeric" ? display.value : null,
         value_kind: valueKind,
-        value_text: row.value_text ?? (numericValue != null ? String(numericValue) : null),
+        value_text:
+          row.value_text ?? (numericValue != null ? String(numericValue) : null),
         ordinal: row.ordinal ?? null,
         specimen: row.specimen ?? "unspecified",
         modifier: row.modifier ?? "none",
