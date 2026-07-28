@@ -1,6 +1,6 @@
 begin;
 
-select plan(12);
+select plan(13);
 
 insert into public.profiles (id, email)
 values ('20000000-0000-0000-0000-000000000001', 'pr2-attempts@example.test');
@@ -34,12 +34,21 @@ select is((select count(*)::integer from pr2_claim1), 1, 'atomic claim creates o
 select is((select attempt_number from pr2_claim1), 1, 'first claim attempt_number is 1');
 select is((select captured_write_generation from pr2_claim1), 0::bigint, 'claim captures write_generation');
 
--- Second claim while active/processing returns no row.
+-- Exercise the active-attempt guard with a queued job. Without the repair
+-- migration, this call raises an ambiguous document_id error.
+update public.document_processing_jobs
+set status = 'queued'
+where id = '20000000-0000-0000-0000-000000000020';
+
 select is(
   (select count(*)::integer from public.claim_document_processing_job('20000000-0000-0000-0000-000000000020')),
   0,
-  'second claim loses the race cleanly'
+  'existing active attempt prevents a second claim cleanly'
 );
+
+update public.document_processing_jobs
+set status = 'processing'
+where id = '20000000-0000-0000-0000-000000000020';
 
 select lives_ok(
   $$
