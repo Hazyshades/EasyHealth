@@ -1,4 +1,5 @@
 import { snakeCaseToken } from "./normalize";
+import { z } from "zod";
 import type {
   AliasDefinition,
   AliasSource,
@@ -19,6 +20,10 @@ import type {
   NormalizedMeasurementUnit,
   ResolutionEvidence,
   ResolutionReasonCode,
+  ResolverDecisionKind,
+  PersistedResolverDecisionTrace,
+  PersistedResolverDecisionTraceCandidate,
+  ResolverTraceSchemaVersion,
   ScoreContributionGroup,
   ScoreRequiredGroup,
   ScoreRole,
@@ -33,6 +38,8 @@ export const MEASUREMENT_NORMALIZATION_VERSION = "5";
 export const MEASUREMENT_COMPATIBILITY_POLICY_VERSION = "1";
 /** Observation provenance schema version, assigned by the persistence layer (not copied from extraction). */
 export const OBSERVATION_PROVENANCE_SCHEMA_VERSION = "1";
+
+export const RESOLVER_DECISION_TRACE_SCHEMA_VERSION: ResolverTraceSchemaVersion = "1";
 
 const PERCENT_POLICY: MeasurementUnitPolicy = {
   dimensions: ["ratio"], acceptedUnits: ["%"], canonicalUnit: "%", conversionPolicyRef: null, missingUnitPolicy: "ambiguous",
@@ -771,6 +778,249 @@ export function resolveMeasurementDefinition(
       candidates: evidenceByCandidate,
     },
   };
+}
+
+const TRACE_REASON_CODES: Record<ResolutionReasonCode, true> = {
+  definition_key_match: true,
+  alias_exact_match: true,
+  alias_normalized_match: true,
+  alias_ocr_variant_match: true,
+  alias_bounded_fuzzy_match: true,
+  proposed_key_match: true,
+  unit_compatible: true,
+  unit_not_required: true,
+  unit_dimension_conflict: true,
+  unit_not_accepted: true,
+  unit_unsupported: true,
+  unit_missing: true,
+  specimen_compatible: true,
+  specimen_conflict: true,
+  specimen_unsupported: true,
+  modifier_compatible: true,
+  modifier_conflict: true,
+  section_support: true,
+  neighbour_support: true,
+  reference_shape_support: true,
+  specimen_missing: true,
+  modifier_missing: true,
+  manual_selection: true,
+  value_kind_compatible: true,
+  value_kind_conflict: true,
+  value_kind_missing: true,
+  timing_compatible: true,
+  timing_conflict: true,
+  timing_missing: true,
+  method_compatible: true,
+  method_conflict: true,
+  method_missing: true,
+  candidate_not_selected: true,
+};
+const TRACE_MISSING_AXES: Record<ClinicalCompatibilityAxis, true> = {
+  unit: true,
+  specimen: true,
+  modifier: true,
+  timing: true,
+  method: true,
+  value_kind: true,
+};
+const TRACE_STRENGTHS = { hard: true, strong: true, weak: true } as const;
+const TRACE_MATURITIES = { provisional: true, reviewed: true, retired: true } as const;
+const TRACE_DECISION_KINDS: Record<ResolverDecisionKind, true> = {
+  single_reviewed_candidate: true,
+  multiple_reviewed_candidates: true,
+  recognized_incomplete: true,
+  no_matching_candidate: true,
+  manual_selection: true,
+};
+const TRACE_IDENTIFIER = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
+const TRACE_VERSION = /^[A-Za-z0-9._:-]{1,128}$/;
+const TRACE_HASH = /^[0-9a-f]{64}$/;
+const TRACE_OUTCOMES = ["resolved", "ambiguous", "partial", "unmapped"] as const;
+
+export type BuildPersistedResolverDecisionTraceOptions = {
+  inputEvidenceHash: string;
+  catalogManifestVersion: string;
+  catalogManifestDigest: string;
+  resolverVersion: string;
+};
+
+function sortedUnique<T extends string>(values: readonly T[]): T[] {
+  return [...new Set(values)].sort();
+}
+
+function isCanonicalStringList(values: readonly string[]) {
+  return values.every((value, index) => index === 0 || values[index - 1]! < value);
+}
+
+const traceEvidenceSchema = z
+  .object({
+    code: z.string().refine((code) => Object.hasOwn(TRACE_REASON_CODES, code)),
+    strength: z.string().refine((strength) => Object.hasOwn(TRACE_STRENGTHS, strength)),
+  })
+  .strict();
+const traceCandidateSchema = z
+  .object({
+    candidateKey: z.string().regex(TRACE_IDENTIFIER),
+    maturity: z.string().refine((maturity) => Object.hasOwn(TRACE_MATURITIES, maturity)),
+    score: z.number().finite().nonnegative().nullable(),
+    accepted: z.array(traceEvidenceSchema),
+    rejected: z.array(traceEvidenceSchema),
+    missingAxes: z.array(z.string().refine((axis) => Object.hasOwn(TRACE_MISSING_AXES, axis))),
+    conflicts: z.array(z.string().refine((code) => Object.hasOwn(TRACE_REASON_CODES, code))),
+  })
+  .strict()
+  .superRefine((candidate, context) => {
+    const accepted = candidate.accepted.map((item) => `${item.code}:${item.strength}`);
+    const rejected = candidate.rejected.map((item) => `${item.code}:${item.strength}`);
+    const expectedConflicts = sortedUnique(
+      candidate.rejected
+        .filter((item) => item.strength === "hard")
+        .map((item) => item.code)
+    );
+    if (!isCanonicalStringList(accepted)) {
+      context.addIssue({ code: "custom", message: "Accepted trace evidence must be canonical" });
+    }
+    if (!isCanonicalStringList(rejected)) {
+      context.addIssue({ code: "custom", message: "Rejected trace evidence must be canonical" });
+    }
+    if (!isCanonicalStringList(candidate.missingAxes)) {
+      context.addIssue({ code: "custom", message: "Missing axes must be canonical" });
+    }
+    if (
+      !isCanonicalStringList(candidate.conflicts) ||
+      JSON.stringify(candidate.conflicts) !== JSON.stringify(expectedConflicts)
+    ) {
+      context.addIssue({ code: "custom", message: "Candidate conflicts must be canonical hard rejections" });
+    }
+  });
+const resolverDecisionTraceSchema = z
+  .object({
+    schemaVersion: z.literal(RESOLVER_DECISION_TRACE_SCHEMA_VERSION),
+    outcome: z.enum(TRACE_OUTCOMES),
+    decisionKind: z.string().refine((kind) => Object.hasOwn(TRACE_DECISION_KINDS, kind)),
+    inputEvidenceHash: z.string().regex(TRACE_HASH),
+    catalogManifestVersion: z.string().regex(TRACE_VERSION),
+    catalogManifestDigest: z.string().regex(TRACE_VERSION),
+    resolverVersion: z.string().regex(TRACE_VERSION),
+    winningCandidateKey: z.string().regex(TRACE_IDENTIFIER).nullable(),
+    candidates: z.array(traceCandidateSchema),
+    missingAxes: z.array(z.string().refine((axis) => Object.hasOwn(TRACE_MISSING_AXES, axis))),
+    conflicts: z.array(z.string().refine((code) => Object.hasOwn(TRACE_REASON_CODES, code))),
+  })
+  .strict();
+
+function traceDecisionKind(resolution: MeasurementResolution): ResolverDecisionKind {
+  if (
+    resolution.result === "resolved" &&
+    resolution.candidateEvidence.some((candidate) =>
+      candidate.accepted.some((evidenceItem) => evidenceItem.code === "manual_selection")
+    )
+  ) {
+    return "manual_selection";
+  }
+  if (resolution.result === "resolved") return "single_reviewed_candidate";
+  if (resolution.result === "ambiguous") return "multiple_reviewed_candidates";
+  if (resolution.result === "partial") return "recognized_incomplete";
+  return "no_matching_candidate";
+}
+
+/**
+ * Produces the privacy-safe, canonical explanation stored with a normalization
+ * revision. Raw resolver input and evidence observations are intentionally not
+ * represented in this trace.
+ */
+export function buildPersistedResolverDecisionTrace(
+  resolution: MeasurementResolution,
+  options: BuildPersistedResolverDecisionTraceOptions
+): PersistedResolverDecisionTrace {
+  const candidates: PersistedResolverDecisionTraceCandidate[] = resolution.candidateEvidence
+    .map((candidate) => {
+      const definition = getMeasurementDefinition(candidate.candidateKey);
+      if (!definition) {
+        throw new Error(`Cannot trace an unknown measurement definition: ${candidate.candidateKey}`);
+      }
+      const rejected = candidate.rejected
+        .map(({ code, strength }) => ({ code, strength }))
+        .sort((left, right) =>
+          left.code === right.code
+            ? left.strength.localeCompare(right.strength)
+            : left.code.localeCompare(right.code)
+        );
+      return {
+        candidateKey: candidate.candidateKey,
+        maturity: definition.maturity,
+        score: candidate.score,
+        accepted: candidate.accepted
+          .map(({ code, strength }) => ({ code, strength }))
+          .sort((left, right) =>
+            left.code === right.code
+              ? left.strength.localeCompare(right.strength)
+              : left.code.localeCompare(right.code)
+          ),
+        rejected,
+        missingAxes: sortedUnique(candidate.missingAxes),
+        conflicts: sortedUnique(
+          rejected
+            .filter((evidenceItem) => evidenceItem.strength === "hard")
+            .map((evidenceItem) => evidenceItem.code)
+        ),
+      };
+    })
+    .sort((left, right) => left.candidateKey.localeCompare(right.candidateKey));
+  const trace: PersistedResolverDecisionTrace = {
+    schemaVersion: RESOLVER_DECISION_TRACE_SCHEMA_VERSION,
+    outcome: resolution.result,
+    decisionKind: traceDecisionKind(resolution),
+    inputEvidenceHash: options.inputEvidenceHash,
+    catalogManifestVersion: options.catalogManifestVersion,
+    catalogManifestDigest: options.catalogManifestDigest,
+    resolverVersion: options.resolverVersion,
+    winningCandidateKey:
+      resolution.result === "resolved" ? resolution.measurementDefinitionKey : null,
+    candidates,
+    missingAxes: sortedUnique(candidates.flatMap((candidate) => candidate.missingAxes)),
+    conflicts: sortedUnique(candidates.flatMap((candidate) => candidate.conflicts)),
+  };
+  if (!isPersistedResolverDecisionTrace(trace)) {
+    throw new Error("Resolver decision trace is not canonical");
+  }
+  return trace;
+}
+
+/** Validates the persisted allowlisted schema before a trace is written or read. */
+export function isPersistedResolverDecisionTrace(value: unknown): value is PersistedResolverDecisionTrace {
+  const parsed = resolverDecisionTraceSchema.safeParse(value);
+  if (!parsed.success) return false;
+  const trace = parsed.data;
+  const candidateKeys = trace.candidates.map((candidate) => candidate.candidateKey);
+  const expectedMissingAxes = sortedUnique(
+    trace.candidates.flatMap((candidate) => candidate.missingAxes)
+  );
+  const expectedConflicts = sortedUnique(
+    trace.candidates.flatMap((candidate) => candidate.conflicts)
+  );
+  const decisionMatchesOutcome =
+    (trace.outcome === "resolved" &&
+      (trace.decisionKind === "single_reviewed_candidate" || trace.decisionKind === "manual_selection") &&
+      trace.winningCandidateKey !== null) ||
+    (trace.outcome === "ambiguous" &&
+      trace.decisionKind === "multiple_reviewed_candidates" &&
+      trace.winningCandidateKey === null) ||
+    (trace.outcome === "partial" &&
+      trace.decisionKind === "recognized_incomplete" &&
+      trace.winningCandidateKey === null) ||
+    (trace.outcome === "unmapped" &&
+      trace.decisionKind === "no_matching_candidate" &&
+      trace.winningCandidateKey === null);
+  return (
+    decisionMatchesOutcome &&
+    isCanonicalStringList(candidateKeys) &&
+    (trace.winningCandidateKey === null || candidateKeys.includes(trace.winningCandidateKey)) &&
+    isCanonicalStringList(trace.missingAxes) &&
+    isCanonicalStringList(trace.conflicts) &&
+    JSON.stringify(trace.missingAxes) === JSON.stringify(expectedMissingAxes) &&
+    JSON.stringify(trace.conflicts) === JSON.stringify(expectedConflicts)
+  );
 }
 
 export type MeasurementRegistryValidation = { valid: boolean; errors: string[]; warnings: string[] };

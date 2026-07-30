@@ -133,6 +133,36 @@ type ExtractedBiomarker = {
     mappingConfidenceBand: "high" | "medium" | "low";
     resolutionDetails: LaboratoryResolutionDetails;
     registryBindingReady: boolean;
+    missingAxes: string[];
+    conflicts: string[];
+    decisionTrace: {
+      availability: "persisted" | "preview" | "legacy_unavailable";
+      trace: {
+        schemaVersion: "1";
+        outcome: "resolved" | "ambiguous" | "partial" | "unmapped";
+        decisionKind: string;
+        catalogManifestVersion: string;
+        catalogManifestDigest: string;
+        resolverVersion: string;
+        winningCandidateKey: string | null;
+        candidates: Array<{
+          candidateKey: string;
+          maturity: "provisional" | "reviewed" | "retired";
+          score: number | null;
+          accepted: Array<{ code: string; strength: string }>;
+          rejected: Array<{ code: string; strength: string }>;
+          missingAxes: string[];
+          conflicts: string[];
+        }>;
+        missingAxes: string[];
+        conflicts: string[];
+      } | null;
+    };
+    previewCandidateEvidence: Array<{
+      candidateKey: string;
+      accepted: Array<{ code: string }>;
+      rejected: Array<{ code: string }>;
+    }>;
     manualOptions: Array<{
       key: string;
       displayName: string;
@@ -1077,6 +1107,23 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                                 Mapping confidence describes classification
                                 evidence, not medical certainty.
                               </p>
+                              {normalization.decisionTrace.availability ===
+                              "persisted" ? (
+                                <p className="mt-1">
+                                  Recorded decision for this revision.
+                                </p>
+                              ) : normalization.decisionTrace.availability ===
+                                "preview" ? (
+                                <p className="mt-1">
+                                  Current preview only — it has not been saved
+                                  as a decision.
+                                </p>
+                              ) : (
+                                <p className="mt-1">
+                                  Decision trace unavailable for this historical
+                                  revision.
+                                </p>
+                              )}
                               <p className="mt-1">
                                 State: {normalization.resolutionDetails.source}
                                 {normalization.resolutionDetails.verificationStatus
@@ -1122,6 +1169,88 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                                   ? ` · policy ${normalization.resolutionDetails.versions.compatibilityPolicy}`
                                   : ""}
                               </p>
+                              {normalization.decisionTrace.trace ? (
+                                <>
+                                  <p className="mt-2">
+                                    Decision:{" "}
+                                    {normalization.decisionTrace.trace.decisionKind}
+                                    {normalization.decisionTrace.trace
+                                      .winningCandidateKey
+                                      ? ` · selected ${normalization.decisionTrace.trace.winningCandidateKey}`
+                                      : ""}
+                                  </p>
+                                  <ul className="mt-2 space-y-1">
+                                    {normalization.decisionTrace.trace.candidates.map(
+                                      (candidate) => (
+                                        <li key={candidate.candidateKey}>
+                                          <span className="font-medium">
+                                            {candidate.candidateKey}
+                                          </span>
+                                          {` · ${candidate.maturity}`}
+                                          {candidate.score != null
+                                            ? ` · score ${candidate.score}`
+                                            : ""}
+                                          {candidate.accepted.length
+                                            ? ` · supports: ${candidate.accepted.map((item) => item.code).join(", ")}`
+                                            : ""}
+                                          {candidate.rejected.length
+                                            ? ` · rejects: ${candidate.rejected.map((item) => item.code).join(", ")}`
+                                            : ""}
+                                        </li>
+                                      ),
+                                    )}
+                                  </ul>
+                                  {normalization.decisionTrace.trace
+                                    .missingAxes.length > 0 && (
+                                    <p className="mt-2">
+                                      Missing details:{" "}
+                                      {normalization.decisionTrace.trace.missingAxes.join(
+                                        ", ",
+                                      )}
+                                    </p>
+                                  )}
+                                  {normalization.decisionTrace.trace.conflicts
+                                    .length > 0 && (
+                                    <p className="mt-1">
+                                      Conflicts:{" "}
+                                      {normalization.decisionTrace.trace.conflicts.join(
+                                        ", ",
+                                      )}
+                                    </p>
+                                  )}
+                                  <p className="mt-2 font-mono text-[var(--eh-text-muted)]">
+                                    Catalog/resolver:{" "}
+                                    {
+                                      normalization.decisionTrace.trace
+                                        .catalogManifestVersion
+                                    }
+                                    {" / "}
+                                    {
+                                      normalization.decisionTrace.trace
+                                        .resolverVersion
+                                    }
+                                  </p>
+                                </>
+                              ) : normalization.decisionTrace.availability ===
+                                "preview" ? (
+                                <ul className="mt-2 space-y-1">
+                                  {normalization.previewCandidateEvidence.map(
+                                    (candidate) => (
+                                      <li key={candidate.candidateKey}>
+                                        <span className="font-medium">
+                                          {candidate.candidateKey}
+                                        </span>
+                                        {candidate.accepted.length
+                                          ? ` · supports: ${candidate.accepted.map((item) => item.code).join(", ")}`
+                                          : ""}
+                                        {candidate.rejected.length
+                                          ? ` · rejects: ${candidate.rejected.map((item) => item.code).join(", ")}`
+                                          : ""}
+                                      </li>
+                                    ),
+                                  )}
+                                </ul>
+                              ) : null}
                               {normalization.manualOptions.length > 0 && (
                                 <div className="mt-3 flex flex-wrap gap-2">
                                   <select

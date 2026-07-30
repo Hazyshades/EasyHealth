@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   MEASUREMENT_CATALOG_MANIFEST_DIGEST,
+  buildPersistedResolverDecisionTrace,
+  isPersistedResolverDecisionTrace,
   MEASUREMENT_DEFINITIONS,
   classifyMeasurementDefinitionChange,
   digestMeasurementRegistryManifest,
@@ -83,5 +85,60 @@ const glucoseWithoutSpecimen = resolveMeasurementDefinition({ rawLabel: "Glucose
 assert.equal(glucoseWithoutSpecimen.result, "partial");
 assert.ok(glucoseWithoutSpecimen.missingAxes.includes("specimen"));
 assert.deepEqual(decideAutomaticPromotion({ resolution: altPartial, mappingClassification: "compatibility_preserving", qualityGateApproved: true }), { allowed: false, reason: "resolver_not_resolved" });
+
+const traceOptions = {
+  inputEvidenceHash: "a".repeat(64),
+  catalogManifestVersion: "eh115-test",
+  catalogManifestDigest: "eh115-test-digest",
+  resolverVersion: "eh115-test",
+};
+const resolvedTrace = buildPersistedResolverDecisionTrace(
+  resolveMeasurementDefinition({ rawLabel: "ALT (alanine aminotransferase)", rawUnit: "U/L", specimen: "serum", valueKind: "numeric" }),
+  traceOptions
+);
+assert.equal(resolvedTrace.outcome, "resolved");
+assert.equal(resolvedTrace.decisionKind, "single_reviewed_candidate");
+assert.equal(resolvedTrace.winningCandidateKey, "alt_serum_catalytic_activity");
+assert.equal(JSON.stringify(resolvedTrace).includes("ALT (alanine aminotransferase)"), false);
+
+const ambiguousTrace = buildPersistedResolverDecisionTrace(
+  {
+    ...resolveMeasurementDefinition({
+      rawLabel: "ALT",
+      rawUnit: "U/L",
+      specimen: "serum",
+      valueKind: "numeric",
+    }),
+    result: "ambiguous",
+    measurementDefinitionKey: null,
+    analyteKey: null,
+  },
+  traceOptions
+);
+assert.equal(ambiguousTrace.outcome, "ambiguous");
+assert.equal(ambiguousTrace.decisionKind, "multiple_reviewed_candidates");
+assert.equal(isPersistedResolverDecisionTrace(ambiguousTrace), true);
+const nonCanonicalTrace = {
+  ...ambiguousTrace,
+  candidates: [...ambiguousTrace.candidates].reverse(),
+};
+assert.equal(isPersistedResolverDecisionTrace(nonCanonicalTrace), false);
+
+const manualBaseResolution = resolveMeasurementDefinition({
+  rawLabel: "ALT",
+  rawUnit: "U/L",
+  specimen: "serum",
+  valueKind: "numeric",
+});
+const manualResolution = {
+  ...manualBaseResolution,
+  candidateEvidence: manualBaseResolution.candidateEvidence.map((candidate) => ({
+    ...candidate,
+    accepted: [...candidate.accepted, { code: "manual_selection" as const, source: "manual" as const, strength: "strong" as const, score: 3 }],
+  })),
+};
+assert.equal(buildPersistedResolverDecisionTrace(manualResolution, traceOptions).decisionKind, "manual_selection");
+assert.equal(buildPersistedResolverDecisionTrace(altPartial, traceOptions).decisionKind, "recognized_incomplete");
+assert.equal(buildPersistedResolverDecisionTrace(resolveMeasurementDefinition({ rawLabel: "Patient secret 42" }), traceOptions).decisionKind, "no_matching_candidate");
 
 console.log("verify-measurement-registry: all checks passed");

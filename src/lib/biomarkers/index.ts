@@ -40,6 +40,11 @@ export type {
   VerificationStatus,
   VerificationActorType,
   AssessmentCompatibility,
+  ResolverDecisionKind,
+  PersistedResolverDecisionTrace,
+  PersistedResolverDecisionTraceCandidate,
+  PersistedResolverDecisionTraceEvidence,
+  ResolverTraceSchemaVersion,
   UnitToken,
   BodySystemId,
   NamedBodySystemId,
@@ -100,6 +105,9 @@ export {
   evaluateSpecimenCompatibility,
   resolveMeasurementDefinition,
   findAliasAdmissions,
+  RESOLVER_DECISION_TRACE_SCHEMA_VERSION,
+  buildPersistedResolverDecisionTrace,
+  isPersistedResolverDecisionTrace,
   validateMeasurementRegistry,
 } from "./measurement-resolution";
 

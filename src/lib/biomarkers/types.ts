@@ -225,6 +225,43 @@ export type ResolverDecisionTrace = {
   confidence: number;
   candidates: readonly CandidateEvidence[];
 };
+export type ResolverTraceSchemaVersion = "1";
+
+export type ResolverDecisionKind =
+  | "single_reviewed_candidate"
+  | "multiple_reviewed_candidates"
+  | "recognized_incomplete"
+  | "no_matching_candidate"
+  | "manual_selection";
+
+export type PersistedResolverDecisionTraceEvidence = Pick<
+  ResolutionEvidence,
+  "code" | "strength"
+>;
+
+export type PersistedResolverDecisionTraceCandidate = {
+  candidateKey: MeasurementDefinitionKey;
+  maturity: MeasurementMaturity;
+  score: number | null;
+  accepted: readonly PersistedResolverDecisionTraceEvidence[];
+  rejected: readonly PersistedResolverDecisionTraceEvidence[];
+  missingAxes: readonly ClinicalCompatibilityAxis[];
+  conflicts: readonly ResolutionReasonCode[];
+};
+
+export type PersistedResolverDecisionTrace = {
+  schemaVersion: ResolverTraceSchemaVersion;
+  outcome: ResolverResult;
+  decisionKind: ResolverDecisionKind;
+  inputEvidenceHash: string;
+  catalogManifestVersion: string;
+  catalogManifestDigest: string;
+  resolverVersion: string;
+  winningCandidateKey: MeasurementDefinitionKey | null;
+  candidates: readonly PersistedResolverDecisionTraceCandidate[];
+  missingAxes: readonly ClinicalCompatibilityAxis[];
+  conflicts: readonly ResolutionReasonCode[];
+};
 
 export type MappingConfidenceBand = "high" | "medium" | "low";
 
