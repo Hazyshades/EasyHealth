@@ -1,6 +1,11 @@
-import { resolveMeasurementDefinition } from "@/lib/biomarkers";
+import {
+  getMeasurementDefinition,
+  isPersistedResolverDecisionTrace,
+  resolveMeasurementDefinition,
+} from "@/lib/biomarkers";
 import type {
   MeasurementResolutionInput,
+  PersistedResolverDecisionTrace,
   VerificationStatus,
 } from "@/lib/biomarkers";
 import { parseReferenceRange } from "@/lib/schemas/biomarkers";
@@ -29,6 +34,7 @@ export type NormalizationRevisionSummary =
   RegistryV2NormalizationRevisionReadBoundary & {
     id: string;
     extracted_biomarker_id: string;
+    measurement_definition_key: string | null;
     analyte_key: string | null;
     resolver_result: string;
     mapping_confidence: number;
@@ -38,8 +44,20 @@ export type NormalizationRevisionSummary =
     catalog_manifest_version: string;
     resolver_version: string;
     normalization_version: string;
+    resolver_decision_trace: unknown | null;
+    resolver_trace_schema_version: string | null;
     created_at: string;
   };
+
+export type DecisionTraceAvailability =
+  | "persisted"
+  | "preview"
+  | "legacy_unavailable";
+
+export type DecisionTraceReview = {
+  availability: DecisionTraceAvailability;
+  trace: PersistedResolverDecisionTrace | null;
+};
 
 export function measurementInputFromExtracted(
   row: ExtractedReviewRow
@@ -83,13 +101,33 @@ export function buildNormalizationReview(
     relation: revisions,
     preview,
   });
+  const activeRevision = revisions.find((revision) => revision.is_active) ?? null;
+  const persistedTrace =
+    activeRevision &&
+    activeRevision.resolver_trace_schema_version === "1" &&
+    isPersistedResolverDecisionTrace(activeRevision.resolver_decision_trace)
+      ? activeRevision.resolver_decision_trace
+      : null;
+  const decisionTrace: DecisionTraceReview = activeRevision
+    ? {
+        availability: persistedTrace ? "persisted" : "legacy_unavailable",
+        trace: persistedTrace,
+      }
+    : { availability: "preview", trace: null };
+  const traceCandidates = persistedTrace?.candidates ?? [];
+  const manualOptions = persistedTrace
+    ? traceCandidates
+        .filter((candidate) => candidate.maturity === "reviewed" && candidate.conflicts.length === 0)
+        .map((candidate) => getMeasurementDefinition(candidate.candidateKey))
+        .filter((definition): definition is NonNullable<typeof definition> => Boolean(definition))
+    : compatibleManualDefinitions(input);
 
   return {
     result: outcome.outcome ?? preview.result,
     candidateDefinitionKey: outcome.measurementDefinitionKey,
     analyteKey: outcome.analyteKey,
-    missingAxes: outcome.resolutionDetails.missingAxes,
-    conflicts: outcome.resolutionDetails.conflictCodes,
+    missingAxes: persistedTrace?.missingAxes ?? outcome.resolutionDetails.missingAxes,
+    conflicts: persistedTrace?.conflicts ?? outcome.resolutionDetails.conflictCodes,
     mappingConfidence:
       outcome.resolutionDetails.mappingConfidence ?? preview.mappingConfidence,
     mappingConfidenceBand:
@@ -98,15 +136,16 @@ export function buildNormalizationReview(
     unit: preview.unit,
     resolutionDetails: outcome.resolutionDetails,
     registryBindingReady: outcome.registryBindingReady,
-    manualOptions: compatibleManualDefinitions(input)
-      .map((definition) => ({
-        key: definition.key,
-        displayName: definition.displayName,
-        analyteKey: definition.analyteKey,
-        maturity: definition.maturity,
-        assessmentBindings: definition.assessmentBindings,
-      })),
-    activeRevision: revisions.find((revision) => revision.is_active) ?? null,
+    decisionTrace,
+    previewCandidateEvidence: activeRevision ? [] : preview.candidateEvidence,
+    manualOptions: manualOptions.map((definition) => ({
+      key: definition.key,
+      displayName: definition.displayName,
+      analyteKey: definition.analyteKey,
+      maturity: definition.maturity,
+      assessmentBindings: definition.assessmentBindings,
+    })),
+    activeRevision,
     revisions,
   };
 }

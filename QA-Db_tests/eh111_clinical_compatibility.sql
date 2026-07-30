@@ -16,9 +16,43 @@ $$;
 create function public.eh111_db_resolution_payload(p_result text, p_key text, p_analyte text, p_evidence jsonb)
 returns jsonb language sql immutable as $$
   select jsonb_build_object(
-    'input_evidence_hash', 'eh111-db-test-evidence', 'measurement_definition_key', p_key,
+    'input_evidence_hash', repeat('e', 64), 'measurement_definition_key', p_key,
     'analyte_key', p_analyte, 'resolver_result', p_result, 'mapping_confidence', 0.75,
     'mapping_confidence_band', 'medium', 'resolver_evidence', p_evidence,
+    'resolver_decision_trace', jsonb_build_object(
+      'schemaVersion', '1',
+      'outcome', p_result,
+      'decisionKind', case p_result
+        when 'resolved' then 'single_reviewed_candidate'
+        when 'ambiguous' then 'multiple_reviewed_candidates'
+        when 'partial' then 'recognized_incomplete'
+        else 'no_matching_candidate'
+      end,
+      'inputEvidenceHash', repeat('e', 64),
+      'catalogManifestVersion', '2026-07-28.0',
+      'catalogManifestDigest', 'eh111-db-test-digest',
+      'resolverVersion', '7',
+      'winningCandidateKey', case when p_result = 'resolved' then p_key else null end,
+      'candidates', case
+        when p_result = 'resolved' then jsonb_build_array(jsonb_build_object(
+          'candidateKey', p_key, 'maturity', 'reviewed', 'score', 75,
+          'accepted', '[]'::jsonb, 'rejected', '[]'::jsonb,
+          'missingAxes', '[]'::jsonb, 'conflicts', '[]'::jsonb
+        ))
+        when p_result = 'partial' then jsonb_build_array(jsonb_build_object(
+          'candidateKey', 'glucose_serum', 'maturity', 'reviewed', 'score', 75,
+          'accepted', '[]'::jsonb, 'rejected', '[]'::jsonb,
+          'missingAxes', '["specimen", "unit"]'::jsonb, 'conflicts', '[]'::jsonb
+        ))
+        else '[]'::jsonb
+      end,
+      'missingAxes', case
+        when p_result = 'partial' then '["specimen", "unit"]'::jsonb
+        else '[]'::jsonb
+      end,
+      'conflicts', '[]'::jsonb
+    ),
+    'resolver_trace_schema_version', '1',
     'normalized_unit', 'mg/dl', 'unit_dimension', 'mass_concentration',
     'catalog_manifest_version', '2026-07-28.0', 'catalog_manifest_digest', 'eh111-db-test-digest',
     'resolver_version', '7', 'normalization_version', '5'

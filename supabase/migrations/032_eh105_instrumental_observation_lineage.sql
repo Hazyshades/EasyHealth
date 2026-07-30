@@ -421,12 +421,12 @@ begin
       nullif(btrim(p_processing_version), ''),
       'instrumental'
     )
-    on conflict (source_instrumental_measure_id) where source_instrumental_measure_id is not null do nothing;
+    on conflict do nothing;
 
     select *
     into v_observation
-    from public.observations
-    where source_instrumental_measure_id = v_source_id
+    from public.observations as observation
+    where observation.source_instrumental_measure_id = v_source_id
     for update;
 
     if v_observation.id is null

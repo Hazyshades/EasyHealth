@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import {
+  buildPersistedResolverDecisionTrace,
   getMeasurementDefinition,
   MEASUREMENT_CATALOG_MANIFEST_RELEASE,
   MEASUREMENT_CATALOG_MANIFEST_VERSION,
@@ -15,6 +16,7 @@ import type {
   MeasurementResolution,
   MeasurementResolutionInput,
   MeasurementValueKind,
+  PersistedResolverDecisionTrace,
 } from "@/lib/biomarkers";
 import { parseReferenceRange } from "@/lib/schemas/biomarkers";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -257,14 +259,31 @@ export function buildNormalizationResolutionPayload(
   input: MeasurementResolutionInput,
   resolution: MeasurementResolution
 ) {
+  return buildResolutionPayload(
+    resolution,
+    buildPersistedResolverDecisionTrace(resolution, {
+      inputEvidenceHash: buildInputEvidenceHash(input),
+      catalogManifestVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,
+      catalogManifestDigest: MEASUREMENT_CATALOG_MANIFEST_RELEASE.manifestDigest,
+      resolverVersion: MEASUREMENT_RESOLVER_VERSION,
+    })
+  );
+}
+
+function buildResolutionPayload(
+  resolution: MeasurementResolution,
+  trace: PersistedResolverDecisionTrace
+) {
   return {
-    input_evidence_hash: buildInputEvidenceHash(input),
+    input_evidence_hash: trace.inputEvidenceHash,
     measurement_definition_key: resolution.measurementDefinitionKey,
     analyte_key: resolution.analyteKey,
     resolver_result: resolution.result,
     mapping_confidence: resolution.mappingConfidence,
     mapping_confidence_band: resolution.mappingConfidenceBand,
     resolver_evidence: resolution.decisionTrace,
+    resolver_decision_trace: trace,
+    resolver_trace_schema_version: trace.schemaVersion,
     normalized_unit: resolution.unit.normalizedUnit,
     unit_dimension: resolution.unit.dimension,
     catalog_manifest_version: MEASUREMENT_CATALOG_MANIFEST_VERSION,
@@ -277,8 +296,8 @@ export function buildNormalizationResolutionPayload(
 export function buildNormalizationWriterRequestHash(options: {
   actorId: string;
   extractedBiomarkerId: string;
-  input: MeasurementResolutionInput;
-  resolution: MeasurementResolution;
+  inputEvidenceHash: string;
+  decisionTrace: PersistedResolverDecisionTrace;
   writeKind: ObservationNormalizationWriteKind;
   mappingClassification: MappingChangeClassification;
   correctionReason?: string | null;
@@ -289,17 +308,8 @@ export function buildNormalizationWriterRequestHash(options: {
       JSON.stringify({
         actorId: options.actorId,
         extractedBiomarkerId: options.extractedBiomarkerId,
-        inputEvidenceHash: buildInputEvidenceHash(options.input),
-        result: options.resolution.result,
-        measurementDefinitionKey: options.resolution.measurementDefinitionKey,
-        analyteKey: options.resolution.analyteKey,
-        mappingConfidence: options.resolution.mappingConfidence,
-        mappingConfidenceBand: options.resolution.mappingConfidenceBand,
-        candidateEvidence: options.resolution.candidateEvidence,
-        catalogManifestVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,
-        catalogManifestDigest: MEASUREMENT_CATALOG_MANIFEST_RELEASE.manifestDigest,
-        resolverVersion: MEASUREMENT_RESOLVER_VERSION,
-        normalizationVersion: MEASUREMENT_NORMALIZATION_VERSION,
+        inputEvidenceHash: options.inputEvidenceHash,
+        decisionTrace: options.decisionTrace,
         writeKind: options.writeKind,
         mappingClassification: options.mappingClassification,
         correctionReason: options.correctionReason ?? null,
@@ -337,11 +347,18 @@ export async function writeExtractedBiomarkerNormalization(options: {
   const mappingClassification =
     options.mappingClassification ??
     (options.writeKind === "correction" ? "review_required" : "additive");
+  const inputEvidenceHash = buildInputEvidenceHash(input);
+  const decisionTrace = buildPersistedResolverDecisionTrace(resolution, {
+    inputEvidenceHash,
+    catalogManifestVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,
+    catalogManifestDigest: MEASUREMENT_CATALOG_MANIFEST_RELEASE.manifestDigest,
+    resolverVersion: MEASUREMENT_RESOLVER_VERSION,
+  });
   const requestHash = buildNormalizationWriterRequestHash({
     actorId: options.actorId,
     extractedBiomarkerId: options.row.id,
-    input,
-    resolution,
+    inputEvidenceHash,
+    decisionTrace,
     writeKind: options.writeKind,
     mappingClassification,
     correctionReason: options.correctionReason,
@@ -360,7 +377,7 @@ export async function writeExtractedBiomarkerNormalization(options: {
         value: parsedValue,
         referenceRange,
       }),
-      p_resolution: buildNormalizationResolutionPayload(input, resolution),
+      p_resolution: buildResolutionPayload(resolution, decisionTrace),
       p_write_kind: options.writeKind,
       p_actor_id: options.actorId,
       p_request_hash: requestHash,
