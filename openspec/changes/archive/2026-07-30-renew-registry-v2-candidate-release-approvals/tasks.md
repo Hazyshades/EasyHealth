@@ -13,6 +13,6 @@
 ## 3. Verification and merge
 
 - [x] 3.1 Run `pnpm verify:registry`, `pnpm typecheck`, and `openspec validate renew-registry-v2-candidate-release-approvals --strict`.
-- [ ] 3.2 Commit only the renewed approvals and this OpenSpec change, then push to `Hazyshades/issue-15-eh-115-persist` / PR #100.
-- [ ] 3.3 Confirm GitHub `verify` and `database` are green, then merge PR #100 into `master`.
-- [ ] 3.4 Move the Ease Health project item for issue #15 to `Done` after merge.
+- [x] 3.2 Commit only the renewed approvals and this OpenSpec change, then push to `Hazyshades/issue-15-eh-115-persist` / PR #100.
+- [x] 3.3 Confirm GitHub `verify` and `database` are green, then merge PR #100 into `master`.
+- [x] 3.4 Move the Ease Health project item for issue #15 to `Done` after merge.
