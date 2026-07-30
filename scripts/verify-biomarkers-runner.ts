@@ -44,7 +44,7 @@ assert.equal(neutrophilPercent.result, "resolved");
 assert.equal(neutrophilPercent.measurementDefinitionKey, "neutrophils_percent");
 assert.equal(resolveMeasurementDefinition({ rawLabel: "Neutrophils" }).result, "partial");
 assert.equal(resolveMeasurementDefinition({ rawLabel: "RDW", rawUnit: "fL" }).result, "partial");
-assert.equal(getMeasurementDefinitionsForAnalyte("glucose").length, 4);
+assert.equal(getMeasurementDefinitionsForAnalyte("glucose").length, 6);
 assert.ok(getAnalyte("neutrophils"));
 assert.equal(validateMeasurementRegistry().valid, true);
 assert.equal(MEASUREMENT_CATALOG_MANIFEST_DIGEST.length, 64);

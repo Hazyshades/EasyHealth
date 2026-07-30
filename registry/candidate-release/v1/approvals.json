@@ -2,42 +2,72 @@
   "schemaVersion": "1",
   "approvals": [
     {
-      "id": "registry-safety-review-2026-08-03-project-owner",
+      "id": "registry-safety-review-2026-07-30",
       "scope": "false_concrete_review",
       "role": "registry-safety-reviewer",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "ecd6b53479e846482a6f317a0d20544827e1a846e5eb4994d52acee58fa68c9f",
-      "note": "Project-owner approval after reviewing the candidate report for this exact hash: 44/44 expected classifications, all eight technical thresholds passed, and zero false concrete resolutions."
+      "candidateInputHash": "d10b6c0b2e7b3fe2451bc47fcd2c1c081709147f10b778b7557f559787649a25",
+      "note": "Approved under authorization bundle 019fae7b-02ca-7000-bf2a-6a2fa2e052ec after reviewing the negative fixtures and false-concrete-resolution report."
     },
     {
-      "id": "assessment-alt-review-2026-08-03-project-owner",
+      "id": "assessment-alt-review-2026-07-30",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "ecd6b53479e846482a6f317a0d20544827e1a846e5eb4994d52acee58fa68c9f",
+      "candidateInputHash": "d10b6c0b2e7b3fe2451bc47fcd2c1c081709147f10b778b7557f559787649a25",
       "bindingKey": "alt_serum_catalytic_activity",
-      "note": "Project-owner approval of the ALT serum catalytic-activity assessment binding after reviewing the threshold and classification report for this exact candidate hash."
+      "note": "Approved under authorization bundle 019fae7b-02ca-7000-bf2a-6a2fa2e052ec for the reviewed ALT serum manual-correction assessment binding."
     },
     {
-      "id": "assessment-glucose-review-2026-08-03-project-owner",
+      "id": "assessment-glucose-serum-review-2026-07-30",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "ecd6b53479e846482a6f317a0d20544827e1a846e5eb4994d52acee58fa68c9f",
+      "candidateInputHash": "d10b6c0b2e7b3fe2451bc47fcd2c1c081709147f10b778b7557f559787649a25",
       "bindingKey": "glucose_serum",
-      "note": "Project-owner approval of the glucose serum assessment binding after reviewing the threshold and classification report for this exact candidate hash."
+      "note": "Approved under authorization bundle 019fae7b-02ca-7000-bf2a-6a2fa2e052ec for the reviewed serum glucose assessment binding."
     },
     {
-      "id": "release-gate-2026-08-03-project-owner",
+      "id": "assessment-glucose-plasma-review-2026-07-30",
+      "scope": "score_affecting_binding",
+      "role": "assessment-owner",
+      "approvedBy": "Assessment Owner",
+      "status": "approved",
+      "candidateInputHash": "d10b6c0b2e7b3fe2451bc47fcd2c1c081709147f10b778b7557f559787649a25",
+      "bindingKey": "glucose_plasma",
+      "note": "Approved under authorization bundle 019fae7b-02ca-7000-bf2a-6a2fa2e052ec for the reviewed plasma glucose assessment binding."
+    },
+    {
+      "id": "assessment-glucose-whole-blood-review-2026-07-30",
+      "scope": "score_affecting_binding",
+      "role": "assessment-owner",
+      "approvedBy": "Assessment Owner",
+      "status": "approved",
+      "candidateInputHash": "d10b6c0b2e7b3fe2451bc47fcd2c1c081709147f10b778b7557f559787649a25",
+      "bindingKey": "glucose_whole_blood",
+      "note": "Approved under authorization bundle 019fae7b-02ca-7000-bf2a-6a2fa2e052ec for the reviewed whole-blood glucose assessment binding."
+    },
+    {
+      "id": "assessment-fasting-glucose-review-2026-07-30",
+      "scope": "score_affecting_binding",
+      "role": "assessment-owner",
+      "approvedBy": "Assessment Owner",
+      "status": "approved",
+      "candidateInputHash": "d10b6c0b2e7b3fe2451bc47fcd2c1c081709147f10b778b7557f559787649a25",
+      "bindingKey": "fasting_glucose",
+      "note": "Approved under authorization bundle 019fae7b-02ca-7000-bf2a-6a2fa2e052ec for the reviewed fasting glucose assessment binding."
+    },
+    {
+      "id": "release-gate-2026-07-30",
       "scope": "release_gate",
       "role": "release-manager",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "ecd6b53479e846482a6f317a0d20544827e1a846e5eb4994d52acee58fa68c9f",
-      "note": "Project-owner release approval after reviewing the exact candidate report: 44/44 required rows, all eight thresholds passed, and zero fixture, processing, false-concrete, or unclassified-row errors."
+      "candidateInputHash": "d10b6c0b2e7b3fe2451bc47fcd2c1c081709147f10b778b7557f559787649a25",
+      "note": "Approved under authorization bundle 019fae7b-02ca-7000-bf2a-6a2fa2e052ec after threshold and evidence review."
     }
   ]
 }

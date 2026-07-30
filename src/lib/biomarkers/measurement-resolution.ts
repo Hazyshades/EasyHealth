@@ -32,8 +32,8 @@ import type {
   UnitToken,
 } from "./types";
 
-export const MEASUREMENT_CATALOG_MANIFEST_VERSION = "2026-07-28.0";
-export const MEASUREMENT_RESOLVER_VERSION = "7";
+export const MEASUREMENT_CATALOG_MANIFEST_VERSION = "2026-08-03.0";
+export const MEASUREMENT_RESOLVER_VERSION = "8";
 export const MEASUREMENT_NORMALIZATION_VERSION = "5";
 export const MEASUREMENT_COMPATIBILITY_POLICY_VERSION = "1";
 /** Observation provenance schema version, assigned by the persistence layer (not copied from extraction). */
@@ -246,11 +246,13 @@ function assessment(
 
 const REVIEWED_DEFINITIONS: readonly MeasurementDefinition[] = [
   // Metabolic
-  reviewed({ key: "glucose_serum", analyteKey: "glucose", displayName: "Glucose, serum", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["glucose", "blood_glucose", "serum_glucose"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, conversion: GLUCOSE_CONVERSION, binding: assessment("metabolic", "glucose", "core", { coversConfidence: true, contributionGroup: "glycemia" }) }),
-  reviewed({ key: "glucose_plasma", analyteKey: "glucose", displayName: "Glucose, plasma", specimen: "plasma", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["glucose", "blood_glucose", "plasma_glucose"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, conversion: GLUCOSE_CONVERSION, binding: assessment("metabolic", "glucose", "core", { coversConfidence: true, contributionGroup: "glycemia" }) }),
-  reviewed({ key: "glucose_whole_blood", analyteKey: "glucose", displayName: "Glucose, whole blood", specimen: "whole_blood", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["whole_blood_glucose"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, conversion: GLUCOSE_CONVERSION, binding: assessment("metabolic", "glucose", "core", { coversConfidence: true, contributionGroup: "glycemia" }) }),
-  reviewed({ key: "fasting_glucose", analyteKey: "glucose", displayName: "Fasting glucose", specimen: "plasma", property: "substance_concentration", scale: "quantitative", timing: "fasting", method: "automated", valueKind: "numeric", aliases: aliases(["fasting_glucose", "fpg"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, requiredModifiers: ["fasting"], conversion: GLUCOSE_CONVERSION, binding: assessment("metabolic", "fasting_glucose", "core", { coversConfidence: true, readinessGroup: "glycemia", contributionGroup: "glycemia" }) }),
-  reviewed({ key: "hba1c_whole_blood", analyteKey: "hba1c", displayName: "Hemoglobin A1c", specimen: "whole_blood", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["hba1c", "hb_a1c", "glycated_hemoglobin"], "registry", "reviewed"), unitPolicy: HBA1C_POLICY, conversion: HBA1C_CONVERSION, binding: assessment("metabolic", "hba1c", "core", { coversConfidence: true, readinessGroup: "glycemia", contributionGroup: "glycemia" }) }),
+  reviewed({ key: "glucose_serum", analyteKey: "glucose", displayName: "Glucose, serum", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["glucose", "blood_glucose", "serum_glucose"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, allowedSpecimens: ["serum"], conversion: GLUCOSE_CONVERSION, binding: assessment("metabolic", "glucose", "core", { coversConfidence: true, contributionGroup: "glycemia" }) }),
+  reviewed({ key: "glucose_plasma", analyteKey: "glucose", displayName: "Glucose, plasma", specimen: "plasma", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["glucose", "blood_glucose", "plasma_glucose"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, allowedSpecimens: ["plasma"], conversion: GLUCOSE_CONVERSION, binding: assessment("metabolic", "glucose", "core", { coversConfidence: true, contributionGroup: "glycemia" }) }),
+  reviewed({ key: "glucose_whole_blood", analyteKey: "glucose", displayName: "Glucose, whole blood", specimen: "whole_blood", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["glucose", "blood_glucose", "whole_blood_glucose"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, allowedSpecimens: ["whole_blood"], conversion: GLUCOSE_CONVERSION, binding: assessment("metabolic", "glucose", "core", { coversConfidence: true, contributionGroup: "glycemia" }) }),
+  reviewed({ key: "fasting_glucose", analyteKey: "glucose", displayName: "Fasting glucose", specimen: "plasma", property: "substance_concentration", scale: "quantitative", timing: "fasting", method: "automated", valueKind: "numeric", aliases: aliases(["glucose", "fasting_glucose", "fpg"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, allowedSpecimens: ["plasma"], requiredModifiers: ["fasting"], conversion: GLUCOSE_CONVERSION, binding: assessment("metabolic", "fasting_glucose", "core", { coversConfidence: true, readinessGroup: "glycemia", contributionGroup: "glycemia" }) }),
+  reviewed({ key: "post_prandial_glucose_plasma", analyteKey: "glucose", displayName: "Post-prandial glucose, plasma", specimen: "plasma", property: "substance_concentration", scale: "quantitative", timing: "post_prandial", method: "automated", valueKind: "numeric", aliases: aliases(["glucose", "post_prandial_glucose", "postprandial_glucose", "ppg"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, allowedSpecimens: ["plasma"], requiredModifiers: ["post_prandial"], conversion: GLUCOSE_CONVERSION, binding: assessment("metabolic", "post_prandial_glucose", "display") }),
+  reviewed({ key: "glucose_urine_dipstick", analyteKey: "glucose", displayName: "Glucose, urine (dipstick)", specimen: "urine", property: "presence", scale: "nominal", timing: "point_in_time", method: "dipstick", valueKind: "qualitative", aliases: aliases(["glucose", "urine_glucose", "glucose_urine"], "registry", "reviewed"), unitPolicy: DISPLAY_POLICY, allowedSpecimens: ["urine"] }),
+  reviewed({ key: "hba1c_whole_blood", analyteKey: "hba1c", displayName: "Hemoglobin A1c", specimen: "whole_blood", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["hba1c", "hb_a1c", "glycated_hemoglobin"], "registry", "reviewed"), unitPolicy: HBA1C_POLICY, allowedSpecimens: ["whole_blood"], conversion: HBA1C_CONVERSION, binding: assessment("metabolic", "hba1c", "core", { coversConfidence: true, readinessGroup: "glycemia", contributionGroup: "glycemia" }) }),
 
   // Cardiovascular
   reviewed({ key: "ldl_serum", analyteKey: "ldl", displayName: "LDL cholesterol", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["ldl", "ldl_c", "ldl_cholesterol"], "registry", "reviewed"), unitPolicy: LIPID_POLICY, conversion: CHOLESTEROL_CONVERSION, binding: assessment("cardiovascular", "ldl", "core", { coversConfidence: true, readinessGroup: "atherogenic_cholesterol", contributionGroup: "atherogenic_cholesterol" }) }),
@@ -526,6 +528,12 @@ function canonicalLabel(value: string): string {
   return value.normalize("NFKC").trim();
 }
 
+function normalizedMealTimingModifier(value: string | null | undefined): "fasting" | "post_prandial" | null {
+  const modifier = snakeCaseToken(value ?? "");
+  if (modifier === "fasting") return "fasting";
+  return modifier === "post_prandial" || modifier === "postprandial" ? "post_prandial" : null;
+}
+
 function damerauLevenshtein(left: string, right: string): number {
   const table = Array.from({ length: left.length + 1 }, (_, row) => Array.from({ length: right.length + 1 }, (_, column) => row === 0 ? column : column === 0 ? row : 0));
   for (let row = 1; row <= left.length; row++) for (let column = 1; column <= right.length; column++) {
@@ -718,14 +726,20 @@ function candidateEvidence(
   applyCompatibility(evaluateSpecimenCompatibility(definition.specimen, input.specimen));
 
   if (definition.requiredModifiers?.length) {
-    const modifier = snakeCaseToken(input.modifier ?? "");
+    const modifier = normalizedMealTimingModifier(input.modifier) ?? snakeCaseToken(input.modifier ?? "");
     if (!modifier || modifier === "none") {
       missingAxes.push("modifier");
+      if (definition.timing !== "point_in_time" && definition.timing !== "unspecified") missingAxes.push("timing");
       missing.push(evidence("modifier_missing", "modifier", "weak", 0, undefined, definition.requiredModifiers));
     } else if (!definition.requiredModifiers.includes(modifier)) {
       conflict("modifier_conflict", "modifier", modifier, definition.requiredModifiers);
     } else {
       accepted.push(evidence("modifier_compatible", "modifier", "strong", 5, modifier));
+    }
+  } else {
+    const timingModifier = normalizedMealTimingModifier(input.modifier);
+    if (timingModifier && definition.timing !== timingModifier) {
+      rejected.push(evidence("modifier_conflict", "modifier", "hard", timingModifier, [definition.timing]));
     }
   }
   for (const [axis, value, expected, compatible, conflictCode, missingCode] of [
