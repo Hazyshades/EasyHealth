@@ -31,7 +31,9 @@
     "test:registry-v2-candidate-corpus": "tsx scripts/verify-registry-v2-candidate-corpus-runner.ts",
     "check:registry-v2-candidate-corpus": "tsx scripts/registry-v2-candidate-corpus.ts --check",
     "report:registry-v2-candidate-corpus": "tsx scripts/registry-v2-candidate-corpus.ts --report",
-    "verify:registry": "tsx scripts/verify-biomarkers-runner.ts && tsx scripts/verify-measurement-registry-runner.ts && tsx scripts/verify-observation-identity-runner.ts && tsx scripts/verify-observation-provenance-runner.ts && tsx scripts/verify-registry-v1-baseline-runner.ts && tsx scripts/registry-v1-baseline.ts --check && tsx scripts/verify-registry-v2-runtime-cutover.ts && tsx scripts/verify-no-registry-v1-runtime-imports.ts && tsx scripts/verify-no-observations-biomarker-key.ts && tsx scripts/verify-registry-v2-candidate-corpus-runner.ts && tsx scripts/registry-v2-candidate-corpus.ts --check"
+    "verify:registry": "tsx scripts/verify-biomarkers-runner.ts && tsx scripts/verify-measurement-registry-runner.ts && tsx scripts/verify-observation-identity-runner.ts && tsx scripts/verify-observation-provenance-runner.ts && tsx scripts/verify-registry-v1-baseline-runner.ts && tsx scripts/registry-v1-baseline.ts --check && tsx scripts/verify-registry-v2-runtime-cutover.ts && tsx scripts/verify-no-registry-v1-runtime-imports.ts && tsx scripts/verify-no-observations-biomarker-key.ts && tsx scripts/verify-registry-v2-candidate-corpus-runner.ts && tsx scripts/registry-v2-candidate-corpus.ts --check",
+    "test:eh113": "tsx scripts/verify-eh113-cbc-launch-catalog.ts",
+    "test:eh113-db": "supabase test db --local supabase/tests/eh113_cbc_method_evidence.sql"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.0",

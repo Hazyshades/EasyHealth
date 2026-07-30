@@ -35,7 +35,7 @@ export async function acceptExtractedBiomarkers(options: {
   const { data: rows, error: fetchError } = await supabase
     .from("document_extracted_biomarkers")
     .select(
-      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, status, source_page, source_text, bounding_box, confidence, specimen, modifier, reported_alt_value, reported_alt_unit, raw_value_text, processing_version"
+      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, status, source_page, source_text, bounding_box, confidence, specimen, modifier, method, reported_alt_value, reported_alt_unit, raw_value_text, processing_version"
     )
     .eq("document_id", options.documentId)
     .eq("profile_id", options.profileId)

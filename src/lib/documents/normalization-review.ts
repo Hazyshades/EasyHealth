@@ -17,6 +17,7 @@ type ExtractedReviewRow = {
   confidence?: number | null;
   specimen?: string | null;
   modifier?: string | null;
+  method?: string | null;
 };
 
 export type NormalizationRevisionSummary = {
@@ -42,6 +43,7 @@ export function measurementInputFromExtracted(row: ExtractedReviewRow) {
     rawUnit: row.raw_unit ?? row.unit ?? null,
     specimen: row.specimen ?? null,
     modifier: row.modifier ?? null,
+    method: row.method ?? null,
     section: row.section_context ?? null,
     referenceLow: ref_low,
     referenceHigh: ref_high,

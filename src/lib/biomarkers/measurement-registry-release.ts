@@ -65,6 +65,7 @@ function manifestDefinition(definition: MeasurementDefinition) {
     unitPolicy: definition.unitPolicy,
     allowedSpecimens: definition.allowedSpecimens ?? [],
     requiredModifiers: definition.requiredModifiers ?? [],
+    requiredMethods: definition.requiredMethods ?? [],
     assessmentBindings: definition.assessmentBindings,
   };
 }

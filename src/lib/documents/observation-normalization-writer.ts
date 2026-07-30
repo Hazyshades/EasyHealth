@@ -47,6 +47,7 @@ export type ExtractedBiomarkerWriterRow = {
   reported_alt_value: number | null;
   reported_alt_unit: string | null;
   raw_value_text: string | null;
+  method?: string | null;
   processing_version: string | null;
 };
 
@@ -134,6 +135,7 @@ export function measurementInputFromWriterRow(
     rawUnit: row.raw_unit ?? row.unit,
     specimen: row.specimen ?? "unspecified",
     modifier: row.modifier ?? "none",
+    method: row.method ?? null,
     section: row.section_context ?? null,
     referenceLow: ref_low,
     referenceHigh: ref_high,
