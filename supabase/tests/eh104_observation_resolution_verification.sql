@@ -655,13 +655,35 @@ select lives_ok(
         'provenance_schema_version', '1'
       ),
       jsonb_build_object(
-        'input_evidence_hash', 'eh104-phase-b-writer',
+        'input_evidence_hash', repeat('e', 64),
         'measurement_definition_key', 'alt_serum',
         'analyte_key', 'alt',
         'resolver_result', 'resolved',
         'mapping_confidence', 0.95,
         'mapping_confidence_band', 'high',
         'resolver_evidence', '[]'::jsonb,
+        'resolver_decision_trace', jsonb_build_object(
+          'schemaVersion', '1',
+          'outcome', 'resolved',
+          'decisionKind', 'single_reviewed_candidate',
+          'inputEvidenceHash', repeat('e', 64),
+          'catalogManifestVersion', 'eh104',
+          'catalogManifestDigest', 'eh104',
+          'resolverVersion', 'eh104',
+          'winningCandidateKey', 'alt_serum',
+          'candidates', jsonb_build_array(jsonb_build_object(
+            'candidateKey', 'alt_serum',
+            'maturity', 'reviewed',
+            'score', 100,
+            'accepted', '[]'::jsonb,
+            'rejected', '[]'::jsonb,
+            'missingAxes', '[]'::jsonb,
+            'conflicts', '[]'::jsonb
+          )),
+          'missingAxes', '[]'::jsonb,
+          'conflicts', '[]'::jsonb
+        ),
+        'resolver_trace_schema_version', '1',
         'normalized_unit', 'U/L',
         'unit_dimension', 'enzyme_activity',
         'catalog_manifest_version', 'eh104',
