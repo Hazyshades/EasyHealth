@@ -1,10 +1,8 @@
 import { createHash } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { DocumentType } from "@/lib/health-systems";
-import {
-  projectActiveRegistryV2LaboratoryBinding,
-  type RegistryV2NormalizationRevisionReadBoundary,
-} from "@/lib/documents/observation-read-boundaries";
+import type { RegistryV2NormalizationRevisionReadBoundary } from "@/lib/documents/observation-read-boundaries";
+import { projectLaboratoryOutcome } from "@/lib/documents/incomplete-laboratory-outcomes";
 
 export type StructuredBiomarkerContext = {
   biomarker: string;
@@ -13,6 +11,7 @@ export type StructuredBiomarkerContext = {
   resolution_status: string | null;
   verification_status: string | null;
   registry_binding_ready: boolean;
+  structured_context_eligible: true;
   value: number | null;
   value_kind: string;
   value_text: string | null;
@@ -198,7 +197,7 @@ export async function buildDocumentStructuredContext(
     supabase
       .from("observations")
       .select(
-        "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, document_id, documents(original_filename), normalization_revision:observation_normalization_revisions!observations_normalization_revision_fk(resolver_result, verification_status, measurement_definition_key, is_active)"
+        "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, document_id, documents(original_filename), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence)"
       )
       .eq("profile_id", profileId)
       .in("document_id", eligibleIds)
@@ -231,30 +230,40 @@ export async function buildDocumentStructuredContext(
   ]);
 
   for (const obs of observations ?? []) {
-    const binding = projectActiveRegistryV2LaboratoryBinding(
-      obs,
-      obs.normalization_revision as
+    const outcome = projectLaboratoryOutcome({
+      observation: obs,
+      relation: obs.normalization_revision as
         | RegistryV2NormalizationRevisionReadBoundary
         | RegistryV2NormalizationRevisionReadBoundary[]
-        | null
-    );
+        | null,
+    });
+    if (!outcome.resolutionDetails.eligibility.structuredContextEligible) {
+      continue;
+    }
+
     const numericValue = obs.value != null ? Number(obs.value) : null;
     biomarkers.push({
       biomarker: obs.name,
-      analyte_key: obs.analyte_key ?? null,
-      measurement_definition_key: binding.measurementDefinitionKey,
-      resolution_status: binding.resolutionStatus,
-      verification_status: binding.verificationStatus,
-      registry_binding_ready: binding.registryBindingReady,
-      value: numericValue != null && Number.isFinite(numericValue) ? numericValue : null,
+      analyte_key: outcome.analyteKey,
+      measurement_definition_key: outcome.measurementDefinitionKey,
+      resolution_status: outcome.outcome,
+      verification_status: outcome.verificationStatus,
+      registry_binding_ready: outcome.registryBindingReady,
+      structured_context_eligible: true,
+      value:
+        numericValue != null && Number.isFinite(numericValue)
+          ? numericValue
+          : null,
       value_kind: obs.value_kind ?? "numeric",
-      value_text: obs.value_text ?? (numericValue != null ? String(numericValue) : null),
+      value_text:
+        obs.value_text ?? (numericValue != null ? String(numericValue) : null),
       unit: obs.unit,
       ref_low: obs.ref_low != null ? Number(obs.ref_low) : null,
       ref_high: obs.ref_high != null ? Number(obs.ref_high) : null,
       observed_at: obs.observed_at,
       source:
-        (obs.documents as { original_filename?: string } | null)?.original_filename ?? "unknown",
+        (obs.documents as { original_filename?: string } | null)
+          ?.original_filename ?? "unknown",
     });
   }
 

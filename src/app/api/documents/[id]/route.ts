@@ -18,6 +18,8 @@ import {
 } from "@/lib/documents/normalization-review";
 import { reviewDataErrorMessage } from "@/lib/documents/biomarker-review-state";
 import { isWorkerOffline } from "@/lib/documents/worker-health";
+import { purgeDocumentDerivedLaboratoryLineage } from "@/lib/documents/laboratory-lineage-purge";
+import { purgeDocumentInstrumentalPublicationState } from "@/lib/documents/instrumental-publication-purge";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -150,7 +152,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
     ? await supabase
         .from("observation_normalization_revisions")
         .select(
-          "id, extracted_biomarker_id, analyte_key, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, catalog_manifest_version, resolver_version, normalization_version, created_at"
+          "id, extracted_biomarker_id, analyte_key, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, resolver_evidence, catalog_manifest_version, resolver_version, normalization_version, resolver_decision_trace, resolver_trace_schema_version, created_at"
         )
         .in("extracted_biomarker_id", extractedIds)
         .order("created_at", { ascending: false })
@@ -264,6 +266,25 @@ export async function DELETE(_req: Request, context: RouteContext) {
   if (error) return error;
 
   const supabase = createAdminClient();
+
+  try {
+    await purgeDocumentDerivedLaboratoryLineage(id);
+  } catch (purgeError) {
+    const message =
+      purgeError instanceof Error ? purgeError.message : "Laboratory lineage purge failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+
+  try {
+    await purgeDocumentInstrumentalPublicationState(id);
+  } catch (purgeError) {
+    const message =
+      purgeError instanceof Error
+        ? purgeError.message
+        : "Instrumental publication purge failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+
   const paths = new Set<string>([doc!.storage_path]);
   if (doc!.original_storage_path) paths.add(doc!.original_storage_path);
   if (doc!.thumbnail_storage_path) paths.add(doc!.thumbnail_storage_path);

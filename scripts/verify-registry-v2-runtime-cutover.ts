@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import {
   MEASUREMENT_CATALOG_MANIFEST_DIGEST,
   MEASUREMENT_DEFINITIONS,
-  getMeasurementConversionPolicy,
   getReviewedAssessmentBinding,
   presentObservation,
   resolveMeasurementDefinition,
   validateMeasurementRegistry,
 } from "../src/lib/biomarkers";
 import { buildHealthProfile, getSystemForMarker } from "../src/lib/health-systems";
+import { projectActiveRegistryV2LaboratoryBinding } from "../src/lib/documents/observation-read-boundaries";
 
 const validation = validateMeasurementRegistry();
 assert.equal(validation.valid, true, validation.errors.join("; "));
@@ -16,6 +16,23 @@ assert.ok(MEASUREMENT_DEFINITIONS.every((definition) =>
   definition.maturity !== "reviewed" || definition.sourceProvenance.kind === "registry_v2_review"
 ));
 assert.equal(MEASUREMENT_CATALOG_MANIFEST_DIGEST.length, 64);
+const glucoseBinding = projectActiveRegistryV2LaboratoryBinding(
+  {
+    observation_kind: "lab",
+    measurement_definition_key: "glucose_serum",
+    resolution_status: "resolved",
+  },
+  {
+    resolver_result: "resolved",
+    measurement_definition_key: "glucose_serum",
+    is_active: true,
+    resolver_evidence: {
+      selectedCandidateKey: "glucose_serum",
+      outcome: "resolved",
+    },
+  }
+).resolvedMeasurementBinding;
+assert.ok(glucoseBinding);
 
 const glucose = resolveMeasurementDefinition({
   rawLabel: "Glucose",
@@ -53,18 +70,18 @@ assert.equal(getReviewedAssessmentBinding("glucose_serum")?.binding.assessmentIn
 assert.equal(getReviewedAssessmentBinding("na"), null);
 
 const converted = presentObservation(
-  { measurement_definition_key: "glucose_serum", value: 90, unit: "mg/dL", ref_low: 70, ref_high: 99 },
+  { resolved_measurement_binding: glucoseBinding, value: 90, unit: "mg/dL", ref_low: 70, ref_high: 99 },
   "si"
 );
 assert.equal(converted.converted, true);
 assert.equal(converted.unit, "mmol/L");
-assert.equal(getMeasurementConversionPolicy("glucose_serum")?.type, "linear");
+assert.equal(glucoseBinding.conversion.type, "linear");
 
 const rawWithoutDefinition = presentObservation(
-  { biomarker_key: "glucose", value: 90, unit: "mg/dL", ref_low: 70, ref_high: 99 },
+  { value: 90, unit: "mg/dL", ref_low: 70, ref_high: 99 },
   "si"
 );
-assert.equal(rawWithoutDefinition.converted, false, "conversion must require a reviewed definition key");
+assert.equal(rawWithoutDefinition.converted, false, "conversion must require a resolved reviewed binding");
 
 const baseObservation = {
   biomarker_key: "glucose",

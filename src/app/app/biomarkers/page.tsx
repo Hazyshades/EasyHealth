@@ -27,6 +27,7 @@ type Observation = {
   resolution_status: string | null;
   verification_status?: string | null;
   registry_binding_ready?: boolean;
+  trend_eligible?: boolean;
   value: number | null;
   unit: string;
   ref_low: number | null;
@@ -89,10 +90,19 @@ export default function BiomarkersPage() {
           setLabUnitSystem(data.lab_unit_system);
         }
         setSelectedKey((prev) => {
-          if (prev && obs.some((o: Observation) => o.measurement_definition_key === prev)) return prev;
+          if (
+            prev &&
+            obs.some(
+              (o: Observation) =>
+                o.measurement_definition_key === prev &&
+                o.trend_eligible === true,
+            )
+          ) {
+            return prev;
+          }
           const resolved = obs.find(
             (o: Observation) =>
-              o.measurement_definition_key && o.registry_binding_ready
+              o.measurement_definition_key && o.trend_eligible === true,
           );
           return resolved?.measurement_definition_key ?? "";
         });
@@ -145,7 +155,7 @@ export default function BiomarkersPage() {
         ...new Set(
           observations
             .filter(
-              (o) => o.measurement_definition_key && o.registry_binding_ready
+              (o) => o.measurement_definition_key && o.trend_eligible === true,
             )
             .map((o) => o.measurement_definition_key as string)
         ),
@@ -158,7 +168,7 @@ export default function BiomarkersPage() {
 
   const selectedSeries = observations.filter(
     (o) =>
-      o.registry_binding_ready &&
+      o.trend_eligible === true &&
       o.measurement_definition_key === selectedKey
   );
   const chartData = selectedSeries

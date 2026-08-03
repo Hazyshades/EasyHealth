@@ -54,13 +54,13 @@ function displayValue(o: Observation): string {
 function biomarkerStatus(o: Observation): StatusInfo {
   if (!o.registry_binding_ready) {
     if (o.resolution_status === "partial") {
-      return { label: "Mapping pending", variant: "info" };
+      return { label: "More details needed", variant: "info" };
     }
     if (o.resolution_status === "ambiguous") {
-      return { label: "Mapping ambiguous", variant: "warning" };
+      return { label: "Multiple possible matches", variant: "warning" };
     }
     if (o.resolution_status === "unmapped") {
-      return { label: "Unmapped", variant: "neutral" };
+      return { label: "Measurement not recognized", variant: "neutral" };
     }
     return { label: "Needs review", variant: "warning" };
   }

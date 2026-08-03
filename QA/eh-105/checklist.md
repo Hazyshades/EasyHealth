@@ -1,6 +1,6 @@
 # EH-105: Registry 2.0 observation identity cut-over
 
-**Roadmap status:** In progress  
+**Roadmap status:** In progress — PR2 atomic publication corrective work (Sprint 1 remediation); production/Sprint 1 closure remains pending mandatory gates  
 **Build / environment:** `________`  
 **Test run date:** `________`  
 **Tester:** `________`
@@ -106,25 +106,90 @@ erased, and a successful retry restores a consistent document.
 **Result:** `Pass | Fail | Blocked | N/A`  
 **Notes / evidence link:** `________`
 
+### EH105-UI-06: Unchanged reprocess stays coherent
+
+**Precondition:** `INST-NORMAL` has finished processing and shows findings plus summary.
+
+1. Note the visible **Study findings** text and the document summary text.
+2. Note the provider/facility label shown on the document (lab/provider line).
+3. Select **Reprocess** without changing the source file.
+4. Wait for processing to finish, refresh, and reopen the document.
+
+**Expected result:** Findings, summary, and facility/provider label remain present and still belong together. The document does not complete with a new summary while old findings are missing, or with old findings while the summary is blank.
+
+**Result:** `Pass | Fail | Blocked | N/A`  
+**Notes / evidence link:** `________`
+
+### EH105-UI-07: Changed reprocess switches one coherent version
+
+**Precondition:** Controlled environment can feed a changed extraction for the same document (or upload a revised synthetic report and reprocess).
+
+1. Record the current findings text and summary for `INST-NORMAL` or `INST-REPEAT`.
+2. Trigger processing that produces different findings/summary for that document.
+3. Wait for completion, refresh, and reopen **Study findings**.
+
+**Expected result:** The newly visible findings and summary match each other. The interface must not mix the previous findings with the new summary (or the reverse).
+
+**Result:** `Pass | Fail | Blocked | N/A`  
+**Notes / evidence link:** `________`
+
+### EH105-UI-08: Failure before publish keeps the prior coherent version
+
+**Precondition:** Controlled environment for `INST-FAILURE` where processing fails after a prior successful version exists.
+
+1. Confirm `INST-NORMAL` (or an earlier successful run) shows findings and summary.
+2. Force a processing failure before the new version is published.
+3. Refresh the document page.
+
+**Expected result:** The document is not shown as successfully completed with the new version missing. Previously visible findings/summary remain coherent, or a recoverable failure/needs-review state is visible for retry.
+
+**Result:** `Pass | Fail | Blocked | N/A`  
+**Notes / evidence link:** `________`
+
 ## Developer evidence required
 
 - [ ] Supply the clean-database migration/reset and pgTAP results proving lab
   and instrumental lineage rules, including one source record per instrumental
   observation.
+- [ ] Supply PR2 pgTAP evidence (`pnpm test:eh105-db`, `pnpm test:pr2-db`) for
+  claim/attempt transitions, prepare/finalize same-hash matrix including
+  `A → B → A`, write_generation increment vs idempotent replay, grants, and
+  the security_invoker findings view.
 - [ ] Supply an integration scenario for `INST-REPEAT` that proves distinct
   occurrences stay distinct and repeated processing is idempotent.
-- [ ] Supply an integration scenario for `INST-FAILURE` proving a Supabase
-  write error blocks completion and preserves prior valid data.
+- [ ] Supply an integration scenario for `INST-FAILURE` proving a prepare or
+  finalize failure blocks completion and preserves the prior current
+  publication.
+- [ ] Supply disposable-reset guard evidence: `pnpm reset:eh105-pr2` refuses
+  without `EH105_PR2_DISPOSABLE` + `EH105_PR2_ALLOW_RESET`, and retained
+  preflight aborts ambiguous rows.
 - [ ] Supply the static scan/CI result showing active writers no longer use
   `observations.biomarker_key`, including maintenance scripts.
 - [ ] Supply API/read-boundary evidence that Health Profile reads laboratory
   observations only.
+- [ ] Local workstation note: if Docker/WSL is unavailable, database suites are
+  **Blocked** here and CI `database` remains the authority. Do not mark them
+  Pass locally without evidence.
 
 ## Out of scope or not manually testable yet
 
+- PR3 durable deletion leases/tombstones and PR4 strict observation
+  provenance are out of scope for this PR2 checklist.
 - The current UI does not show individual instrumental numeric source-measures;
   their stable identity is proven by the integration evidence above.
 - Full instrumental representation in Biomarkers trends, reports, structured
   context, and UI is owned by EH-106 or later roadmap work.
 - EH-104 Phase B enforcement and acceptance/correction CAS cut-over are not
   part of EH-105.
+
+## Closeout evidence
+
+- Original EH-105 cut-over landed earlier; this checklist now also covers PR2
+  (`make-instrumental-publication-atomic`) coherent publication behavior.
+- Production / Sprint 1 closure stays pending until PR2 mandatory gates pass:
+  migrations 036/037, worker cutover, pgTAP suites, and smoke evidence.
+- Local `supabase db reset` / `supabase test db` may be unavailable without
+  Docker/WSL; CI database jobs remain the authority in that case.
+- Static local gate: `pnpm test:eh105` (and related typechecks) can still run
+  without Docker.
+- Manual UI checks above remain unmarked until a tester executes them.

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import {
+  buildPersistedResolverDecisionTrace,
   getMeasurementDefinition,
   MEASUREMENT_CATALOG_MANIFEST_RELEASE,
   MEASUREMENT_CATALOG_MANIFEST_VERSION,
@@ -15,6 +16,7 @@ import type {
   MeasurementResolution,
   MeasurementResolutionInput,
   MeasurementValueKind,
+  PersistedResolverDecisionTrace,
 } from "@/lib/biomarkers";
 import { parseReferenceRange } from "@/lib/schemas/biomarkers";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -23,6 +25,10 @@ import {
   getActiveNormalizationRevision,
   type NormalizationRevision,
 } from "./normalization-revisions";
+import {
+  buildResolutionOutcomeMetric,
+  emitResolutionOutcomeMetricForWrite,
+} from "./incomplete-laboratory-outcomes";
 
 export type ExtractedBiomarkerWriterRow = {
   id: string;
@@ -133,15 +139,19 @@ export function measurementInputFromWriterRow(
   return {
     rawLabel: row.raw_name ?? row.biomarker_name,
     rawUnit: row.raw_unit ?? row.unit,
-    specimen: row.specimen ?? "unspecified",
-    modifier: row.modifier ?? "none",
-    method: row.method ?? null,
+    specimen: row.specimen ?? null,
+    modifier: row.modifier ?? null,
     section: row.section_context ?? null,
     referenceLow: ref_low,
     referenceHigh: ref_high,
     extractionConfidence: row.confidence ?? null,
     proposedKey: row.biomarker_key,
-    valueKind: measurementValueKind(parsedValue.valueKind),
+    valueKind:
+      parsedValue.valueKind === "numeric" ||
+      parsedValue.valueKind === "qualitative" ||
+      parsedValue.valueKind === "ordinal"
+        ? parsedValue.valueKind
+        : null,
     rawValueText: row.raw_value_text ?? null,
   };
 }
@@ -168,7 +178,9 @@ export function buildManualCorrectionResolution(options: {
     !definition ||
     definition.maturity !== "reviewed" ||
     !selectedCandidate ||
-    selectedCandidate.rejected.length > 0
+    !selectedCandidate.selectable ||
+    selectedCandidate.rejected.length > 0 ||
+    selectedCandidate.missingAxes.length > 0
   ) {
     throw new ObservationNormalizationWriterError(
       "Selected measurement definition is incompatible with the extracted evidence"
@@ -182,7 +194,7 @@ export function buildManualCorrectionResolution(options: {
             ...candidate,
             accepted: [
               ...candidate.accepted,
-              { code: "manual_selection", source: "manual", strength: "strong" },
+              { code: "manual_selection", source: "manual", strength: "strong", score: 0 },
             ],
           }
         : candidate
@@ -193,9 +205,16 @@ export function buildManualCorrectionResolution(options: {
     result: "resolved",
     measurementDefinitionKey: definition.key,
     analyteKey: definition.analyteKey,
-    mappingConfidence: 0.95,
-    mappingConfidenceBand: "high",
+    mappingConfidence: Math.min(0.99, (selectedCandidate.score ?? 0) / 100),
+    mappingConfidenceBand: (selectedCandidate.score ?? 0) / 100 >= 0.85 ? "high" : (selectedCandidate.score ?? 0) / 100 >= 0.6 ? "medium" : "low",
     candidateEvidence,
+    decisionTrace: {
+      ...baseResolution.decisionTrace,
+      selectedCandidateKey: definition.key,
+      outcome: "resolved",
+      confidence: Math.min(0.99, (selectedCandidate.score ?? 0) / 100),
+      candidates: candidateEvidence,
+    },
   };
 }
 
@@ -237,18 +256,35 @@ function buildObservationPayload(options: {
   };
 }
 
-function buildResolutionPayload(
+export function buildNormalizationResolutionPayload(
   input: MeasurementResolutionInput,
   resolution: MeasurementResolution
 ) {
+  return buildResolutionPayload(
+    resolution,
+    buildPersistedResolverDecisionTrace(resolution, {
+      inputEvidenceHash: buildInputEvidenceHash(input),
+      catalogManifestVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,
+      catalogManifestDigest: MEASUREMENT_CATALOG_MANIFEST_RELEASE.manifestDigest,
+      resolverVersion: MEASUREMENT_RESOLVER_VERSION,
+    })
+  );
+}
+
+function buildResolutionPayload(
+  resolution: MeasurementResolution,
+  trace: PersistedResolverDecisionTrace
+) {
   return {
-    input_evidence_hash: buildInputEvidenceHash(input),
+    input_evidence_hash: trace.inputEvidenceHash,
     measurement_definition_key: resolution.measurementDefinitionKey,
     analyte_key: resolution.analyteKey,
     resolver_result: resolution.result,
     mapping_confidence: resolution.mappingConfidence,
     mapping_confidence_band: resolution.mappingConfidenceBand,
-    resolver_evidence: resolution.candidateEvidence,
+    resolver_evidence: resolution.decisionTrace,
+    resolver_decision_trace: trace,
+    resolver_trace_schema_version: trace.schemaVersion,
     normalized_unit: resolution.unit.normalizedUnit,
     unit_dimension: resolution.unit.dimension,
     catalog_manifest_version: MEASUREMENT_CATALOG_MANIFEST_VERSION,
@@ -261,8 +297,8 @@ function buildResolutionPayload(
 export function buildNormalizationWriterRequestHash(options: {
   actorId: string;
   extractedBiomarkerId: string;
-  input: MeasurementResolutionInput;
-  resolution: MeasurementResolution;
+  inputEvidenceHash: string;
+  decisionTrace: PersistedResolverDecisionTrace;
   writeKind: ObservationNormalizationWriteKind;
   mappingClassification: MappingChangeClassification;
   correctionReason?: string | null;
@@ -273,17 +309,8 @@ export function buildNormalizationWriterRequestHash(options: {
       JSON.stringify({
         actorId: options.actorId,
         extractedBiomarkerId: options.extractedBiomarkerId,
-        inputEvidenceHash: buildInputEvidenceHash(options.input),
-        result: options.resolution.result,
-        measurementDefinitionKey: options.resolution.measurementDefinitionKey,
-        analyteKey: options.resolution.analyteKey,
-        mappingConfidence: options.resolution.mappingConfidence,
-        mappingConfidenceBand: options.resolution.mappingConfidenceBand,
-        candidateEvidence: options.resolution.candidateEvidence,
-        catalogManifestVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,
-        catalogManifestDigest: MEASUREMENT_CATALOG_MANIFEST_RELEASE.manifestDigest,
-        resolverVersion: MEASUREMENT_RESOLVER_VERSION,
-        normalizationVersion: MEASUREMENT_NORMALIZATION_VERSION,
+        inputEvidenceHash: options.inputEvidenceHash,
+        decisionTrace: options.decisionTrace,
         writeKind: options.writeKind,
         mappingClassification: options.mappingClassification,
         correctionReason: options.correctionReason ?? null,
@@ -321,11 +348,18 @@ export async function writeExtractedBiomarkerNormalization(options: {
   const mappingClassification =
     options.mappingClassification ??
     (options.writeKind === "correction" ? "review_required" : "additive");
+  const inputEvidenceHash = buildInputEvidenceHash(input);
+  const decisionTrace = buildPersistedResolverDecisionTrace(resolution, {
+    inputEvidenceHash,
+    catalogManifestVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,
+    catalogManifestDigest: MEASUREMENT_CATALOG_MANIFEST_RELEASE.manifestDigest,
+    resolverVersion: MEASUREMENT_RESOLVER_VERSION,
+  });
   const requestHash = buildNormalizationWriterRequestHash({
     actorId: options.actorId,
     extractedBiomarkerId: options.row.id,
-    input,
-    resolution,
+    inputEvidenceHash,
+    decisionTrace,
     writeKind: options.writeKind,
     mappingClassification,
     correctionReason: options.correctionReason,
@@ -344,7 +378,7 @@ export async function writeExtractedBiomarkerNormalization(options: {
         value: parsedValue,
         referenceRange,
       }),
-      p_resolution: buildResolutionPayload(input, resolution),
+      p_resolution: buildResolutionPayload(resolution, decisionTrace),
       p_write_kind: options.writeKind,
       p_actor_id: options.actorId,
       p_request_hash: requestHash,
@@ -364,12 +398,22 @@ export async function writeExtractedBiomarkerNormalization(options: {
   if (!result?.observation_id || !result.revision_id) {
     throw new Error("Normalization writer returned no promoted observation revision");
   }
+  const wasReused = Boolean(result.was_reused);
+  emitResolutionOutcomeMetricForWrite({
+    wasReused,
+    metric: buildResolutionOutcomeMetric({
+      resolution,
+      writeKind: options.writeKind,
+      resolverVersion: MEASUREMENT_RESOLVER_VERSION,
+      catalogVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,
+    }),
+  });
 
   return {
     observationId: String(result.observation_id),
     revisionId: String(result.revision_id),
     verificationStatus: result.verification_status as ObservationNormalizationWriterResult["verificationStatus"],
     resolverResult: result.resolver_result as MeasurementResolution["result"],
-    wasReused: Boolean(result.was_reused),
+    wasReused,
   };
 }

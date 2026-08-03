@@ -1,36 +1,15 @@
 import assert from "node:assert/strict";
 import {
-  hasResolvedLaboratoryDefinition,
   isLaboratoryObservation,
   projectActiveRegistryV2LaboratoryBinding,
 } from "../src/lib/documents/observation-read-boundaries";
 import { buildHealthProfile } from "../src/lib/health-systems";
 import { buildReportContext, isAbnormalObservation } from "../src/lib/reports";
+const resolverEvidence = (
+  selectedCandidateKey: string | null,
+  outcome: "resolved" | "partial" | "ambiguous" | "unmapped"
+) => ({ selectedCandidateKey, outcome });
 
-assert.equal(
-  hasResolvedLaboratoryDefinition({
-    observation_kind: "lab",
-    resolution_status: "resolved",
-    measurement_definition_key: "alt_serum_catalytic_activity",
-  }),
-  true
-);
-assert.equal(
-  hasResolvedLaboratoryDefinition({
-    observation_kind: "lab",
-    resolution_status: "partial",
-    measurement_definition_key: null,
-  }),
-  false
-);
-assert.equal(
-  hasResolvedLaboratoryDefinition({
-    observation_kind: "instrumental",
-    resolution_status: "resolved",
-    measurement_definition_key: "alt_serum_catalytic_activity",
-  }),
-  false
-);
 assert.equal(isLaboratoryObservation({ observation_kind: "instrumental" }), false);
 
 const reviewedResolved = projectActiveRegistryV2LaboratoryBinding(
@@ -44,6 +23,7 @@ const reviewedResolved = projectActiveRegistryV2LaboratoryBinding(
     resolver_result: "resolved",
     verification_status: "user_verified",
     measurement_definition_key: "alt_serum_catalytic_activity",
+    resolver_evidence: resolverEvidence("alt_serum_catalytic_activity", "resolved"),
   }
 );
 assert.equal(reviewedResolved.registryBindingReady, true);
@@ -62,6 +42,7 @@ for (const result of ["partial", "ambiguous", "unmapped"] as const) {
       resolver_result: result,
       verification_status: "pending",
       measurement_definition_key: null,
+      resolver_evidence: resolverEvidence(null, result),
     }
   );
   assert.equal(incomplete.resolutionStatus, result);
@@ -80,9 +61,12 @@ const provisional = projectActiveRegistryV2LaboratoryBinding(
     resolver_result: "resolved",
     verification_status: "pending",
     measurement_definition_key: "sample_alt_sample",
+    resolver_evidence: resolverEvidence("sample_alt_sample", "resolved"),
   }
 );
-assert.equal(provisional.measurementDefinition?.maturity, "provisional");
+assert.equal(provisional.measurementDefinition, undefined);
+assert.equal(provisional.measurementDefinitionKey, null);
+assert.equal(provisional.resolvedMeasurementBinding, null);
 assert.equal(provisional.registryBindingReady, false);
 
 const noActiveRevision = projectActiveRegistryV2LaboratoryBinding(
@@ -96,10 +80,11 @@ const noActiveRevision = projectActiveRegistryV2LaboratoryBinding(
     resolver_result: "resolved",
     verification_status: "user_verified",
     measurement_definition_key: "alt_serum_catalytic_activity",
+    resolver_evidence: resolverEvidence("alt_serum_catalytic_activity", "resolved"),
   }
 );
 assert.equal(noActiveRevision.activeRevision, null);
-assert.equal(noActiveRevision.measurementDefinitionKey, "alt_serum_catalytic_activity");
+assert.equal(noActiveRevision.measurementDefinitionKey, null);
 assert.equal(noActiveRevision.registryBindingReady, false);
 
 const activeRevisionWins = projectActiveRegistryV2LaboratoryBinding(
@@ -114,12 +99,14 @@ const activeRevisionWins = projectActiveRegistryV2LaboratoryBinding(
       resolver_result: "resolved",
       verification_status: "user_verified",
       measurement_definition_key: "alt_serum_catalytic_activity",
+      resolver_evidence: resolverEvidence("alt_serum_catalytic_activity", "resolved"),
     },
     {
       is_active: true,
       resolver_result: "partial",
       verification_status: "pending",
       measurement_definition_key: null,
+      resolver_evidence: resolverEvidence(null, "partial"),
     },
   ]
 );
@@ -138,6 +125,7 @@ const instrumental = projectActiveRegistryV2LaboratoryBinding(
     resolver_result: "resolved",
     verification_status: "user_verified",
     measurement_definition_key: "alt_serum_catalytic_activity",
+    resolver_evidence: resolverEvidence("alt_serum_catalytic_activity", "resolved"),
   }
 );
 assert.equal(instrumental.registryBindingReady, false);

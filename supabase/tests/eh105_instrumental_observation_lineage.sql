@@ -1,6 +1,6 @@
 begin;
 
-select plan(23);
+select plan(16);
 
 select ok(
   to_regclass('public.document_extracted_instrumental_measures') is not null,
@@ -19,41 +19,35 @@ select ok(
 );
 
 select ok(
-  exists (
-    select 1
-    from pg_indexes
-    where schemaname = 'public'
-      and tablename = 'observations'
-      and indexname = 'observations_source_instrumental_measure_unique'
-  ),
-  'instrumental observation source uniqueness index exists'
+  to_regprocedure('public.replace_document_instrumental_observations(uuid,uuid,text,date,text,text,text,text,jsonb)') is null,
+  'legacy publish-on-materialize RPC is removed'
 );
 
 select ok(
   has_function_privilege(
     'service_role',
-    'public.replace_document_instrumental_observations(uuid,uuid,text,date,text,text,text,text,jsonb)'::regprocedure,
+    'public.prepare_instrumental_publication(uuid,uuid,uuid,jsonb,text)'::regprocedure,
     'EXECUTE'
   ),
-  'service_role can execute instrumental replacement RPC'
+  'service_role can execute prepare_instrumental_publication'
 );
 
 select ok(
   not has_function_privilege(
     'anon',
-    'public.replace_document_instrumental_observations(uuid,uuid,text,date,text,text,text,text,jsonb)'::regprocedure,
+    'public.prepare_instrumental_publication(uuid,uuid,uuid,jsonb,text)'::regprocedure,
     'EXECUTE'
   ),
-  'anon cannot execute instrumental replacement RPC'
+  'anon cannot execute prepare_instrumental_publication'
 );
 
 select ok(
   not has_function_privilege(
     'authenticated',
-    'public.replace_document_instrumental_observations(uuid,uuid,text,date,text,text,text,text,jsonb)'::regprocedure,
+    'public.finalize_instrumental_publication(uuid,uuid,uuid,uuid,uuid,text,text,text,jsonb)'::regprocedure,
     'EXECUTE'
   ),
-  'authenticated cannot execute instrumental replacement RPC'
+  'authenticated cannot execute finalize_instrumental_publication'
 );
 
 insert into public.profiles (id, email)
@@ -68,274 +62,162 @@ values
 
 insert into public.document_processing_jobs (id, document_id, profile_id, job_type, status)
 values
-  ('10000000-0000-0000-0000-000000000020', '10000000-0000-0000-0000-000000000010', '10000000-0000-0000-0000-000000000001', 'extract', 'processing'),
-  ('10000000-0000-0000-0000-000000000021', '10000000-0000-0000-0000-000000000011', '10000000-0000-0000-0000-000000000002', 'extract', 'processing');
+  ('10000000-0000-0000-0000-000000000020', '10000000-0000-0000-0000-000000000010', '10000000-0000-0000-0000-000000000001', 'extract', 'queued'),
+  ('10000000-0000-0000-0000-000000000021', '10000000-0000-0000-0000-000000000011', '10000000-0000-0000-0000-000000000002', 'extract', 'queued');
 
-select lives_ok(
-  $$
-    select * from public.replace_document_instrumental_observations(
-      '10000000-0000-0000-0000-000000000010',
-      '10000000-0000-0000-0000-000000000020',
-      repeat('a', 64),
-      '2026-07-19',
-      'ECG',
-      'heart',
-      'eh105-test',
-      'test-model',
-      '[
-        {
-          "key_hint": "ef",
-          "name": "Ejection fraction",
-          "raw_name": "EF",
-          "value": 55,
-          "raw_value_text": "55%",
-          "unit": "%",
-          "raw_unit": "%",
-          "source_page": 1,
-          "source_text": "EF 55%",
-          "source_locator": "page:1|table:measurements|row:1",
-          "occurrence_index": 0,
-          "bounding_box": null,
-          "confidence": 0.95
-        },
-        {
-          "key_hint": "ef",
-          "name": "Ejection fraction",
-          "raw_name": "EF",
-          "value": 60,
-          "raw_value_text": "60%",
-          "unit": "%",
-          "raw_unit": "%",
-          "source_page": 1,
-          "source_text": "EF 60%",
-          "source_locator": "page:1|table:measurements|row:1",
-          "occurrence_index": 1,
-          "bounding_box": null,
-          "confidence": 0.95
-        }
-      ]'::jsonb
+create temporary table eh105_claim as
+select * from public.claim_document_processing_job('10000000-0000-0000-0000-000000000020');
+
+select is(
+  (select count(*)::integer from eh105_claim),
+  1,
+  'claim returns one attempt-owned job row'
+);
+
+create temporary table eh105_snapshot on commit drop as
+select jsonb_build_object(
+  'study_date', '2026-07-19',
+  'modality', 'ECG',
+  'body_region', 'heart',
+  'facility_name', 'Example clinic',
+  'impression', null,
+  'processing_version', 'eh105-test',
+  'extraction_model', 'test-model',
+  'measures', jsonb_build_array(
+    jsonb_build_object(
+      'key_hint', 'ef',
+      'name', 'Ejection fraction',
+      'raw_name', 'EF',
+      'value', 55,
+      'raw_value_text', '55%',
+      'unit', '%',
+      'raw_unit', '%',
+      'source_page', 1,
+      'source_text', 'EF 55%',
+      'source_locator', 'page:1|table:measurements|row:1',
+      'occurrence_index', 0,
+      'bounding_box', null,
+      'confidence', 0.95
+    ),
+    jsonb_build_object(
+      'key_hint', 'ef',
+      'name', 'Ejection fraction',
+      'raw_name', 'EF',
+      'value', 60,
+      'raw_value_text', '60%',
+      'unit', '%',
+      'raw_unit', '%',
+      'source_page', 1,
+      'source_text', 'EF 60%',
+      'source_locator', 'page:1|table:measurements|row:1',
+      'occurrence_index', 1,
+      'bounding_box', null,
+      'confidence', 0.94
     )
-  $$,
-  'first source snapshot materializes repeated equal-key occurrences'
+  ),
+  'findings', '[]'::jsonb
+) as payload;
+
+create temporary table eh105_prepared as
+select *
+from public.prepare_instrumental_publication(
+  '10000000-0000-0000-0000-000000000010',
+  '10000000-0000-0000-0000-000000000020',
+  (select processing_attempt_id from eh105_claim),
+  (select payload from eh105_snapshot),
+  null
+);
+
+select isnt(
+  (select publication_id from eh105_prepared),
+  null,
+  'prepare returns a publication id'
 );
 
 select is(
-  (
-    select count(*)::bigint
-    from public.document_extracted_instrumental_measures
-    where document_id = '10000000-0000-0000-0000-000000000010'
-      and snapshot_hash = repeat('a', 64)
-  ),
-  2::bigint,
-  'two repeated equal-key source occurrences are retained'
-);
-
-select is(
-  (
-    select count(*)::bigint
-    from public.observations
-    where document_id = '10000000-0000-0000-0000-000000000010'
-      and observation_kind = 'instrumental'
-  ),
-  2::bigint,
-  'one instrumental observation is materialized per source occurrence'
-);
-
-select ok(
-  not exists (
-    select 1
-    from public.observations
-    where document_id = '10000000-0000-0000-0000-000000000010'
-      and observation_kind = 'instrumental'
-      and (
-        source_instrumental_measure_id is null
-        or source_extracted_biomarker_id is not null
-        or normalization_revision_id is not null
-        or analyte_key is not null
-        or measurement_definition_key is not null
-      )
-  ),
-  'instrumental observations have only instrumental lineage'
+  (select count(*)::integer
+   from public.document_extracted_instrumental_measures
+   where document_id = '10000000-0000-0000-0000-000000000010'
+     and is_current),
+  0,
+  'prepared measures remain invisible to current readers'
 );
 
 select lives_ok(
   $$
-    select * from public.replace_document_instrumental_observations(
+    select * from public.finalize_instrumental_publication(
       '10000000-0000-0000-0000-000000000010',
       '10000000-0000-0000-0000-000000000020',
-      repeat('a', 64),
-      '2026-07-19', 'ECG', 'heart', 'eh105-test', 'test-model',
-      '[
-        {"key_hint":"ef","name":"Ejection fraction","raw_name":"EF","value":55,"raw_value_text":"55%","unit":"%","raw_unit":"%","source_page":1,"source_text":"EF 55%","source_locator":"page:1|table:measurements|row:1","occurrence_index":0,"bounding_box":null,"confidence":0.95},
-        {"key_hint":"ef","name":"Ejection fraction","raw_name":"EF","value":60,"raw_value_text":"60%","unit":"%","raw_unit":"%","source_page":1,"source_text":"EF 60%","source_locator":"page:1|table:measurements|row:1","occurrence_index":1,"bounding_box":null,"confidence":0.95}
-      ]'::jsonb
-    )
+      (select processing_attempt_id from eh105_claim),
+      (select publication_id from eh105_prepared),
+      (select snapshot_content_id from eh105_prepared),
+      (select canonicalization_version from eh105_prepared),
+      (select snapshot_hash from eh105_prepared),
+      'Summary A',
+      jsonb_build_object('processing_status', 'completed', 'page_count', 1)
+    );
   $$,
-  'unchanged snapshot replay succeeds'
+  'finalize publishes prepared content atomically'
 );
 
 select is(
-  (
-    select count(*)::bigint
-    from public.document_extracted_instrumental_measures
-    where document_id = '10000000-0000-0000-0000-000000000010'
-  ),
-  2::bigint,
-  'unchanged replay does not duplicate source rows'
+  (select count(*)::integer
+   from public.document_extracted_instrumental_measures
+   where document_id = '10000000-0000-0000-0000-000000000010'
+     and is_current),
+  2,
+  'finalize exposes both occurrence-distinct current measures'
 );
 
 select is(
-  (
-    select bool_and(was_replayed)
-    from public.replace_document_instrumental_observations(
-      '10000000-0000-0000-0000-000000000010',
-      '10000000-0000-0000-0000-000000000020',
-      repeat('a', 64),
-      '2026-07-19', 'ECG', 'heart', 'eh105-test', 'test-model',
-      '[
-        {"key_hint":"ef","name":"Ejection fraction","raw_name":"EF","value":55,"raw_value_text":"55%","unit":"%","raw_unit":"%","source_page":1,"source_text":"EF 55%","source_locator":"page:1|table:measurements|row:1","occurrence_index":0,"bounding_box":null,"confidence":0.95},
-        {"key_hint":"ef","name":"Ejection fraction","raw_name":"EF","value":60,"raw_value_text":"60%","unit":"%","raw_unit":"%","source_page":1,"source_text":"EF 60%","source_locator":"page:1|table:measurements|row:1","occurrence_index":1,"bounding_box":null,"confidence":0.95}
-      ]'::jsonb
-    )
-  ),
-  true,
-  'replay reports its idempotent result'
-);
-
-select lives_ok(
-  $$
-    select * from public.replace_document_instrumental_observations(
-      '10000000-0000-0000-0000-000000000010',
-      '10000000-0000-0000-0000-000000000020',
-      repeat('b', 64),
-      '2026-07-19', 'ECG', 'heart', 'eh105-test', 'test-model',
-      '[{"key_hint":"ef","name":"Ejection fraction","raw_name":"EF","value":58,"raw_value_text":"58%","unit":"%","raw_unit":"%","source_page":1,"source_text":"EF 58%","source_locator":"page:1|table:measurements|row:1","occurrence_index":0,"bounding_box":null,"confidence":0.95}]'::jsonb
-    )
-  $$,
-  'changed reprocess materializes a new snapshot'
+  (select count(*)::integer
+   from public.observations
+   where document_id = '10000000-0000-0000-0000-000000000010'
+     and observation_kind = 'instrumental'
+     and source_instrumental_measure_id is not null),
+  2,
+  'each current measure has one linked instrumental observation'
 );
 
 select is(
-  (
-    select count(*)::bigint
-    from public.document_extracted_instrumental_measures
-    where document_id = '10000000-0000-0000-0000-000000000010'
-      and snapshot_hash = repeat('a', 64)
-      and not is_current
-  ),
-  2::bigint,
-  'changed reprocess supersedes previous current source rows'
+  (select lab_name from public.documents where id = '10000000-0000-0000-0000-000000000010'),
+  'Example clinic',
+  'document lab_name projects from content facility_name'
 );
 
 select is(
-  (
-    select count(*)::bigint
-    from public.document_extracted_instrumental_measures
-    where document_id = '10000000-0000-0000-0000-000000000010'
-      and snapshot_hash = repeat('b', 64)
-      and is_current
-  ),
+  (select write_generation from public.documents where id = '10000000-0000-0000-0000-000000000010'),
   1::bigint,
-  'changed snapshot is the only current source set'
+  'successful finalize advances write_generation once'
 );
 
-select is(
-  (
-    select count(*)::bigint
-    from public.observations
-    where document_id = '10000000-0000-0000-0000-000000000010'
-      and observation_kind = 'instrumental'
-  ),
-  3::bigint,
-  'superseded observations remain auditable'
-);
+-- Cross-profile isolation: secondary profile claim/prepare cannot attach to primary content.
+create temporary table eh105_claim_b as
+select * from public.claim_document_processing_job('10000000-0000-0000-0000-000000000021');
 
 select throws_ok(
   $$
-    select * from public.replace_document_instrumental_observations(
-      '10000000-0000-0000-0000-000000000010',
-      '10000000-0000-0000-0000-000000000020',
-      repeat('b', 64),
-      '2026-07-19', 'ECG', 'heart', 'eh105-test', 'test-model',
-      '[{"key_hint":"ef","name":"Ejection fraction","raw_name":"EF","value":59,"raw_value_text":"59%","unit":"%","raw_unit":"%","source_page":1,"source_text":"EF 59%","source_locator":"page:1|table:measurements|row:1","occurrence_index":0,"bounding_box":null,"confidence":0.95}]'::jsonb
-    )
-  $$,
-  'P0001',
-  'instrumental_snapshot_payload_conflict',
-  'a snapshot fingerprint cannot be reused for different immutable source evidence'
-);
-
-select throws_ok(
-  $$
-    select * from public.replace_document_instrumental_observations(
-      '10000000-0000-0000-0000-000000000010',
-      '10000000-0000-0000-0000-000000000020',
-      repeat('c', 64),
-      '2026-07-19', 'ECG', 'heart', 'eh105-test', 'test-model',
-      '[
-        {"key_hint":"ef","name":"Ejection fraction","raw_name":"EF","value":57,"raw_value_text":"57%","unit":"%","raw_unit":"%","source_page":1,"source_text":"EF 57%","source_locator":"page:1|table:measurements|row:1","occurrence_index":0,"bounding_box":null,"confidence":0.95},
-        {"key_hint":"ef","name":"Ejection fraction","raw_name":"EF","value":59,"raw_value_text":"59%","unit":"%","raw_unit":"%","source_page":1,"source_text":"EF 59%","source_locator":"page:1|table:measurements|row:1","occurrence_index":0,"bounding_box":null,"confidence":0.95}
-      ]'::jsonb
-    )
-  $$,
-  'P0001',
-  'duplicate_instrumental_source_occurrence',
-  'duplicate source occurrences are rejected before replacement'
-);
-
-select is(
-  (
-    select count(*)::bigint
-    from public.document_extracted_instrumental_measures
-    where document_id = '10000000-0000-0000-0000-000000000010'
-      and snapshot_hash = repeat('b', 64)
-      and is_current
-  ),
-  1::bigint,
-  'failed replacement leaves the prior current snapshot intact'
-);
-
-select throws_ok(
-  $$
-    insert into public.observations (
-      profile_id, document_id, name, value, unit, observed_at, observation_kind
-    ) values (
-      '10000000-0000-0000-0000-000000000001',
-      '10000000-0000-0000-0000-000000000010',
-      'invalid instrumental', 1, 'mm', '2026-07-19', 'instrumental'
-    )
-  $$,
-  '23514',
-  'new row for relation "observations" violates check constraint "observations_instrumental_lineage_check"',
-  'new instrumental observations cannot omit source lineage'
-);
-
-select throws_ok(
-  $$
-    select * from public.replace_document_instrumental_observations(
+    select * from public.prepare_instrumental_publication(
       '10000000-0000-0000-0000-000000000010',
       '10000000-0000-0000-0000-000000000021',
-      repeat('d', 64),
-      '2026-07-19', 'ECG', 'heart', 'eh105-test', 'test-model',
-      '[{"key_hint":"ef","name":"Ejection fraction","raw_name":"EF","value":58,"raw_value_text":"58%","unit":"%","raw_unit":"%","source_page":1,"source_text":"EF 58%","source_locator":"page:1|table:measurements|row:1","occurrence_index":0,"bounding_box":null,"confidence":0.95}]'::jsonb
-    )
+      (select processing_attempt_id from eh105_claim_b),
+      (select payload from eh105_snapshot),
+      null
+    );
   $$,
   'P0001',
   'instrumental_job_document_profile_mismatch',
-  'cross-profile job cannot replace another document source snapshot'
+  'cross-owner prepare is rejected'
 );
 
-select is(
-  (
-    select count(*)::bigint
-    from public.document_extracted_instrumental_measures
-    where document_id = '10000000-0000-0000-0000-000000000010'
-      and snapshot_hash = repeat('d', 64)
-  ),
-  0::bigint,
-  'cross-profile rejection leaves no source rows'
+select throws_ok(
+  $$
+    select public.pr2_reset_instrumental_publication_state(false);
+  $$,
+  'P0001',
+  'pr2_reset_not_allowed',
+  'disposable reset rejects missing confirmation'
 );
 
 select * from finish();
-
 rollback;

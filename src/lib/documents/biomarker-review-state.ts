@@ -1,15 +1,42 @@
 export type BiomarkerPanelMode = "extracted-review" | "observations-fallback" | "review-error" | "empty";
 
-export function measurementMappingLabel(result: "resolved" | "ambiguous" | "partial" | "unmapped", confidenceBand: "high" | "medium" | "low"): string {
-  if (result === "partial") return "Recognized measurement - details pending";
-  if (result === "unmapped") return "Unmapped measurement";
-  if (result === "ambiguous") return "Ambiguous measurement mapping";
-  return `Resolved measurement - ${confidenceBand} mapping confidence`;
+export function measurementMappingLabel(
+  result: "resolved" | "ambiguous" | "partial" | "unmapped",
+  _confidenceBand: "high" | "medium" | "low"
+): string {
+  if (result === "resolved") return "Matched measurement";
+  if (result === "partial") return "More details needed";
+  if (result === "ambiguous") return "Multiple possible matches";
+  return "Measurement not recognized";
 }
 
-export function measurementMappingGuidance(result: "resolved" | "ambiguous" | "partial" | "unmapped"): string | null {
-  if (result !== "partial") return null;
-  return "The report does not contain enough evidence for one precise measurement. You can still accept the raw result.";
+export function measurementMappingGuidance(
+  result: "resolved" | "ambiguous" | "partial" | "unmapped"
+): string {
+  if (result === "resolved") {
+    return "Mapping confidence describes classification evidence, not medical certainty.";
+  }
+  if (result === "partial") {
+    return "The result is recognized, but required context is missing. The raw result remains available.";
+  }
+  if (result === "ambiguous") {
+    return "More than one reviewed measurement remains possible. No measurement was selected.";
+  }
+  return "The raw result is preserved, but no authorized Registry 2.0 measurement matched.";
+}
+
+const REASON_LABELS: Record<string, string> = {
+  unit_missing: "Unit is missing",
+  value_kind_missing: "Value type is missing",
+  specimen_missing: "Specimen is missing",
+  unit_unsupported: "Unit is not supported",
+  unit_conflict: "Unit is incompatible",
+  value_kind_conflict: "Value type is incompatible",
+  specimen_conflict: "Specimen is incompatible",
+};
+
+export function measurementReasonLabel(code: string): string {
+  return REASON_LABELS[code] ?? code.replaceAll("_", " ");
 }
 
 export function resolveBiomarkerPanelMode(options: { extractedCount: number; observationCount: number; reviewDataError?: string | null }): BiomarkerPanelMode {

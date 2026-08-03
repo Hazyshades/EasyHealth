@@ -1,21 +1,17 @@
-import { getMeasurementConversionPolicy, getMeasurementDefinition } from "./measurement-resolution";
-import type { LabUnitSystem, PresentedObservation } from "./types";
+import type {
+  LabUnitSystem,
+  PresentedObservation,
+  ResolvedReviewedMeasurementBinding,
+} from "./types";
 
 export type NativeObservation = {
-  measurement_definition_key?: string | null;
-  /** @deprecated Kept only for source-shape compatibility; it never selects a conversion rule. */
-  biomarker_key?: string | null;
+  resolved_measurement_binding?: ResolvedReviewedMeasurementBinding | null;
   value: number;
   unit: string;
   ref_low: number | null;
   ref_high: number | null;
 };
 
-function resolveDefinition(obs: NativeObservation) {
-  return obs.measurement_definition_key
-    ? getMeasurementDefinition(obs.measurement_definition_key)
-    : undefined;
-}
 
 function roundForUnit(value: number, unit: string, key: string): number {
   const u = unit.toLowerCase();
@@ -186,8 +182,8 @@ export function presentObservation(
   obs: NativeObservation,
   target: LabUnitSystem
 ): PresentedObservation {
-  const definition = resolveDefinition(obs);
-  const identityKey = definition?.analyteKey ?? "";
+  const binding = obs.resolved_measurement_binding ?? null;
+  const identityKey = binding?.analyteKey ?? "";
   const original = {
     value: obs.value,
     unit: obs.unit,
@@ -195,7 +191,7 @@ export function presentObservation(
     ref_high: obs.ref_high,
   };
 
-  const rule = definition ? getMeasurementConversionPolicy(definition.key) : null;
+  const rule = binding?.conversion ?? null;
 
   const base: PresentedObservation = {
     value: obs.value,

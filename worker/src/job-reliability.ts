@@ -5,6 +5,8 @@ export type ReclaimableJob = {
   attempts: number;
   max_attempts: number;
   started_at: string | null;
+  /** Active retained processing attempt owning the stale claim, when known. */
+  processing_attempt_id?: string | null;
 };
 
 export type StaleJobActions = {

@@ -2,42 +2,42 @@
   "schemaVersion": "1",
   "approvals": [
     {
-      "id": "registry-safety-review-2026-07-20",
+      "id": "registry-safety-review-2026-07-30-resolver-v7",
       "scope": "false_concrete_review",
       "role": "registry-safety-reviewer",
       "approvedBy": "Registry Safety Reviewer",
       "status": "approved",
-      "candidateInputHash": "0f5787d47810be2912afd868ac033e1cb6604613306a2aea416baa84f9282c32",
-      "note": "Reviewed the negative fixtures and false-concrete-resolution report for this candidate input."
+      "candidateInputHash": "97403a4b8a93c4a1dc65f2f4d994a431fd8311b2a9358ae1289c409194310232",
+      "note": "Renewed after reviewing the resolver v7 / catalog 2026-07-28.0 / normalization v5 threshold report for candidate-input hash 97403a4b8a93c4a1dc65f2f4d994a431fd8311b2a9358ae1289c409194310232, 44/44 classification matches, and zero false concrete resolutions."
     },
     {
-      "id": "assessment-alt-review-2026-07-20",
+      "id": "assessment-alt-review-2026-07-30-resolver-v7",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "approvedBy": "Assessment Owner",
       "status": "approved",
-      "candidateInputHash": "0f5787d47810be2912afd868ac033e1cb6604613306a2aea416baa84f9282c32",
+      "candidateInputHash": "97403a4b8a93c4a1dc65f2f4d994a431fd8311b2a9358ae1289c409194310232",
       "bindingKey": "alt_serum_catalytic_activity",
-      "note": "Approved the reviewed ALT serum manual-correction assessment binding for this candidate input."
+      "note": "Renewed after reviewing the resolver v7 threshold and classification reports for candidate-input hash 97403a4b8a93c4a1dc65f2f4d994a431fd8311b2a9358ae1289c409194310232 and the unchanged ALT serum manual-correction assessment binding."
     },
     {
-      "id": "assessment-glucose-review-2026-07-20",
+      "id": "assessment-glucose-review-2026-07-30-resolver-v7",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "approvedBy": "Assessment Owner",
       "status": "approved",
-      "candidateInputHash": "0f5787d47810be2912afd868ac033e1cb6604613306a2aea416baa84f9282c32",
+      "candidateInputHash": "97403a4b8a93c4a1dc65f2f4d994a431fd8311b2a9358ae1289c409194310232",
       "bindingKey": "glucose_serum",
-      "note": "Approved the reviewed glucose serum assessment binding for this candidate input."
+      "note": "Renewed after reviewing the resolver v7 threshold and classification reports for candidate-input hash 97403a4b8a93c4a1dc65f2f4d994a431fd8311b2a9358ae1289c409194310232 and the unchanged glucose serum assessment binding."
     },
     {
-      "id": "release-gate-2026-07-20",
+      "id": "release-gate-2026-07-30-resolver-v7",
       "scope": "release_gate",
       "role": "release-manager",
       "approvedBy": "Release Manager",
       "status": "approved",
-      "candidateInputHash": "0f5787d47810be2912afd868ac033e1cb6604613306a2aea416baa84f9282c32",
-      "note": "Approved the candidate release gate after threshold and evidence review."
+      "candidateInputHash": "97403a4b8a93c4a1dc65f2f4d994a431fd8311b2a9358ae1289c409194310232",
+      "note": "Renewed after all eight candidate thresholds passed, 44/44 classifications matched, processing errors and false concrete resolutions remained zero, and the reviewed report hash was 6bebf644c043325ef5252f6dac70a699496faca495f31449254c09f9841f2ccc for candidate-input hash 97403a4b8a93c4a1dc65f2f4d994a431fd8311b2a9358ae1289c409194310232."
     }
   ]
 }
