@@ -53,6 +53,7 @@ export type ExtractedBiomarkerWriterRow = {
   reported_alt_value: number | null;
   reported_alt_unit: string | null;
   raw_value_text: string | null;
+  method?: string | null;
   processing_version: string | null;
 };
 

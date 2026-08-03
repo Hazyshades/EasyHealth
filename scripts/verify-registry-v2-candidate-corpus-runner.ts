@@ -27,7 +27,8 @@ function changeJson(root: string, name: string, change: (value: Record<string, u
 const first = runRegistryV2CandidateCorpus();
 const second = runRegistryV2CandidateCorpus();
 
-assert.equal(first.manifest.launchable, true, "committed candidate evidence must satisfy the release gate");
+assert.deepEqual(first.manifest.fixtureErrors, [], "committed candidate evidence must contain every required release artifact");
+assert.ok(first.manifest.thresholdChecks.every((check) => check.passed), "committed candidate evidence must satisfy every technical release threshold");
 assert.equal(first.report.coverage.requiredRows, REQUIRED_CANDIDATE_CORPUS_ROW_COUNT);
 assert.equal(first.report.coverage.actualRows, REQUIRED_CANDIDATE_CORPUS_ROW_COUNT);
 assert.ok(first.report.coverage.missingContextNegativeCount > 0, "missing-context negatives must remain represented");
@@ -59,6 +60,25 @@ for (const segments of Object.values(first.report.segments)) {
     "every report segmentation must account for every candidate row"
   );
 }
+const totalProtein = first.report.rows.find((row) => row.id === "total-protein");
+assert.equal(totalProtein?.actualClassification, "partial");
+assert.equal(totalProtein?.unitCovered, true, "typed provisional definitions must cover accepted source units");
+assert.equal(totalProtein?.consumerEligible, false, "provisional definitions must not become runtime-consumer eligible");
+
+const forcedUnknownUnit = runRegistryV2CandidateCorpus({
+  resolver: (input) => input.rawLabel === "Total protein"
+    ? resolveMeasurementDefinition({ ...input, rawUnit: "made-up-unit" })
+    : resolveMeasurementDefinition(input),
+});
+const forcedUnknownUnitRow = forcedUnknownUnit.report.rows.find((row) => row.id === "total-protein");
+assert.equal(forcedUnknownUnitRow?.unitCovered, false, "unknown units must not be counted as covered");
+assert.ok(resolveMeasurementDefinition({ rawLabel: "Total protein", rawUnit: "made-up-unit", valueKind: "numeric" }).conflicts.includes("unit_unsupported"));
+assert.equal(forcedUnknownUnit.manifest.launchable, false, "unknown units must block the release gate");
+assert.equal(
+  forcedUnknownUnit.manifest.thresholdChecks.find((check) => check.metric === "unitCoverageRate")?.passed,
+  false,
+  "unit-coverage thresholds must reject unknown units"
+);
 
 const runnerSource = readFileSync("scripts/lib/registry-v2-candidate-corpus.ts", "utf8");
 assert.doesNotMatch(

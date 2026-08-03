@@ -106,6 +106,7 @@ const partialPayload = buildObservationUpsertPayload(
 assert.equal(partialPayload.measurement_definition_key, null);
 assert.equal(partialPayload.analyte_key, partial.analyteKey);
 assert.equal(partialPayload.resolution_status, "partial");
+assert.equal(partial.analyteKey, "alt", "recognized partial preserves its analyte-level identity");
 
 // ── unmapped: raw evidence retained, both semantic links null ──
 const unmapped = resolveMeasurementDefinition({ rawLabel: "Definitely_Not_A_Real_Biomarker_9f3c", rawUnit: "U/L" });

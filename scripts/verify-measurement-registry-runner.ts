@@ -7,6 +7,8 @@ import {
   MEASUREMENT_DEFINITIONS,
   classifyMeasurementDefinitionChange,
   digestMeasurementRegistryManifest,
+  getMeasurementConversionPolicy,
+  getMeasurementDefinition,
   findAliasAdmissions,
   normalizeMeasurementUnit,
   resolveMeasurementDefinition,
@@ -68,7 +70,8 @@ for (const enzyme of ["alt", "ast", "alp", "ggt"] as const) {
 
 const altPartial = resolveMeasurementDefinition({ rawLabel: "ALT (alanine aminotransferase)", rawUnit: "U/L", valueKind: "numeric" });
 assert.equal(altPartial.result, "partial");
-assert.equal(altPartial.analyteKey, null, "incomplete evidence must not infer a concrete analyte identity");
+assert.equal(altPartial.analyteKey, "alt", "recognized incomplete evidence preserves analyte-level identity without selecting a concrete definition");
+assert.equal(altPartial.measurementDefinitionKey, null, "incomplete evidence must not infer a concrete measurement definition");
 assert.ok(altPartial.missingAxes.includes("specimen"));
 assert.equal(acceptancePathForResolution(altPartial), "raw");
 
@@ -84,6 +87,51 @@ assert.ok(fastingWithoutModifier.missingAxes.includes("modifier"));
 const glucoseWithoutSpecimen = resolveMeasurementDefinition({ rawLabel: "Glucose", rawUnit: "mmol/L", valueKind: "numeric" });
 assert.equal(glucoseWithoutSpecimen.result, "partial");
 assert.ok(glucoseWithoutSpecimen.missingAxes.includes("specimen"));
+
+const typedLaunchRows = [
+  ["Total protein", "g/L", "numeric", "total_protein"],
+  ["Direct bilirubin", "umol/L", "numeric", "direct_bilirubin"],
+  ["Antistreptolysin-O (ASO)", "IU/mL", "numeric", "aso"],
+  ["ESR, Westergren automated", "mm/hour", "numeric", "esr"],
+  ["Giardia antibodies, total", "positivity coefficient", "numeric", "giardia_antibodies_total"],
+  ["Ascaris IgG antibodies", "titer", "qualitative", "ascaris_igg"],
+  ["Total IgE", "IU/mL", "numeric", "total_ige"],
+  ["Eosinophilic cationic protein (ECP)", "ng/mL", "numeric", "eosinophilic_cationic_protein"],
+] as const;
+for (const [rawLabel, rawUnit, valueKind, analyteKey] of typedLaunchRows) {
+  const resolution = resolveMeasurementDefinition({ rawLabel, rawUnit, valueKind });
+  assert.equal(resolution.result, "partial", `${rawLabel} must remain provisional`);
+  assert.equal(resolution.analyteKey, analyteKey);
+  assert.equal(resolution.measurementDefinitionKey, null);
+  assert.ok(resolution.reasons.includes("unit_compatible"), `${rawLabel} must accept its source unit`);
+  assert.ok(!resolution.conflicts.some((conflict) => conflict.startsWith("unit_")));
+}
+for (const [rawLabel, analyteKey] of [
+  ["anti-Toxocara IgG, qualitative ELISA", "toxocara_igg"],
+  ["anti-Opisthorchis felineus IgG, qualitative ELISA", "opisthorchis_felineus_igg"],
+  ["anti-Echinococcus IgG, qualitative ELISA", "echinococcus_igg"],
+  ["anti-Trichinella sp. IgG, qualitative ELISA", "trichinella_igg"],
+] as const) {
+  const resolution = resolveMeasurementDefinition({ rawLabel, rawUnit: null, valueKind: "qualitative" });
+  assert.equal(resolution.result, "partial");
+  assert.equal(resolution.analyteKey, analyteKey);
+  assert.equal(resolution.measurementDefinitionKey, null);
+}
+for (const key of ["total_protein_unspecified", "direct_bilirubin_unspecified", "aso_unspecified", "esr_westergren_automated", "giardia_antibodies_total", "ascaris_igg", "toxocara_igg", "opisthorchis_felineus_igg", "echinococcus_igg", "trichinella_igg", "total_ige_unspecified", "ecp_unspecified"]) {
+  assert.equal(getMeasurementDefinition(key)?.maturity, "provisional");
+  assert.deepEqual(getMeasurementDefinition(key)?.assessmentBindings, []);
+  assert.equal(getMeasurementConversionPolicy(key), null);
+}
+for (const [rawLabel, rawUnit] of [
+  ["Total bilirubin", "umol/L"],
+  ["ALT (alanine aminotransferase)", "U/L"],
+  ["AST (aspartate aminotransferase)", "U/L"],
+  ["C-reactive protein, quantitative", "mg/L"],
+] as const) {
+  const resolution = resolveMeasurementDefinition({ rawLabel, rawUnit, valueKind: "numeric" });
+  assert.equal(resolution.result, "partial");
+  assert.ok(!resolution.conflicts.includes("unit_not_accepted"), `${rawLabel} must not retain a shadow fixture conflict`);
+}
 assert.deepEqual(decideAutomaticPromotion({ resolution: altPartial, mappingClassification: "compatibility_preserving", qualityGateApproved: true }), { allowed: false, reason: "resolver_not_resolved" });
 
 const traceOptions = {

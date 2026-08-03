@@ -91,6 +91,7 @@ export {
   MEASUREMENT_COMPATIBILITY_POLICY_VERSION,
   OBSERVATION_PROVENANCE_SCHEMA_VERSION,
   getMeasurementDefinition,
+  getMeasurementConversionPolicy,
   getAnalyte,
   getMeasurementIdentity,
   getMeasurementDefinitionsForAnalyte,

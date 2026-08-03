@@ -41,6 +41,7 @@ export type CandidateCorpusRow = {
   valueKind: MeasurementValueKind;
   specimen?: string | null;
   modifier?: string | null;
+  method?: string | null;
   expected: {
     classification: ResolverResult;
     measurementDefinitionKey?: string | null;
@@ -152,6 +153,10 @@ export type CandidateCorpusReportRow = {
   laboratory: string;
   valueKind: MeasurementValueKind;
   contextAvailability: "provided" | "missing";
+  missingAxes: readonly string[];
+  aliasMatchTypes: readonly string[];
+  maturity: "reviewed" | "provisional" | "retired" | "none";
+  consumerEligible: boolean;
   rawEvidence: {
     label: string;
     unit: string | null;
@@ -230,6 +235,10 @@ export type CandidateCorpusReport = {
     laboratory: Record<string, CandidateCorpusSegment>;
     valueKind: Record<string, CandidateCorpusSegment>;
     contextAvailability: Record<string, CandidateCorpusSegment>;
+    evidenceAxis: Record<string, CandidateCorpusSegment>;
+    aliasMatchType: Record<string, CandidateCorpusSegment>;
+    maturity: Record<string, CandidateCorpusSegment>;
+    consumerEligibility: Record<string, CandidateCorpusSegment>;
   };
 };
 
@@ -374,12 +383,13 @@ function requiredStringArray(value: unknown, label: string, errors: string[]): s
   return value;
 }
 
-function rawEvidenceKey(row: Pick<CandidateCorpusRow, "rawLabel" | "rawUnit" | "rawValueText" | "valueKind">): string {
+function rawEvidenceKey(row: Pick<CandidateCorpusRow, "rawLabel" | "rawUnit" | "rawValueText" | "valueKind" | "method">): string {
   return canonicalJson({
     rawLabel: row.rawLabel,
     rawUnit: row.rawUnit,
     rawValueText: row.rawValueText,
     valueKind: row.valueKind,
+    method: row.method ?? null,
   });
 }
 
@@ -709,6 +719,7 @@ export function runRegistryV2CandidateCorpus(options: CandidateCorpusRunnerOptio
         rawValueText: row.rawValueText,
         specimen: row.specimen ?? null,
         modifier: row.modifier ?? null,
+        method: row.method ?? null,
         section: row.panel,
         valueKind: row.valueKind,
       });
@@ -736,7 +747,11 @@ export function runRegistryV2CandidateCorpus(options: CandidateCorpusRunnerOptio
       language: document.language,
       laboratory: document.laboratory,
       valueKind: row.valueKind,
-      contextAvailability: row.specimen || row.modifier ? "provided" : "missing",
+      contextAvailability: row.specimen || row.modifier || row.method ? "provided" : "missing",
+      missingAxes: resolution?.missingAxes ?? [],
+      aliasMatchTypes: [...new Set((resolution?.candidateEvidence ?? []).flatMap((candidate) => candidate.accepted.filter((item) => item.source === "label").map((item) => item.code)))].sort(),
+      maturity: definition?.maturity ?? "none",
+      consumerEligible: Boolean(resolution?.result === "resolved" && definition?.maturity === "reviewed" && definition.sourceProvenance.kind === "registry_v2_review"),
       rawEvidence: {
         label: row.rawLabel,
         unit: row.rawUnit,
@@ -751,7 +766,13 @@ export function runRegistryV2CandidateCorpus(options: CandidateCorpusRunnerOptio
       classificationMatches,
       falseConcreteResolution,
       aliasCovered: Boolean(resolution?.reasons.some((reason) => reason.startsWith("alias_") || reason === "definition_key_match")),
-      unitCovered: Boolean(resolution && !resolution.conflicts.some((conflict) => UNIT_CONFLICTS.has(conflict))),
+      unitCovered: Boolean(
+        resolution && (
+          row.rawUnit === null
+            ? row.valueKind === "qualitative" && resolution.candidateEvidence.some((candidate) => !candidate.rejected.some((item) => UNIT_CONFLICTS.has(item.code)))
+            : resolution.candidateEvidence.some((candidate) => candidate.accepted.some((item) => item.code === "unit_compatible"))
+        )
+      ),
       error,
       manualCorrection: row.expected.manualCorrection ?? null,
       assessmentBindings,
@@ -833,6 +854,10 @@ export function runRegistryV2CandidateCorpus(options: CandidateCorpusRunnerOptio
       laboratory: toSegments(reportRows, (row) => row.laboratory),
       valueKind: toSegments(reportRows, (row) => row.valueKind),
       contextAvailability: toSegments(reportRows, (row) => row.contextAvailability),
+      evidenceAxis: toSegments(reportRows, (row) => row.missingAxes.join(",") || "complete"),
+      aliasMatchType: toSegments(reportRows, (row) => row.aliasMatchTypes.join(",") || "none"),
+      maturity: toSegments(reportRows, (row) => row.maturity),
+      consumerEligibility: toSegments(reportRows, (row) => row.consumerEligible ? "eligible" : "ineligible"),
     },
   };
   const checks = thresholdChecks(report, loaded.policy);

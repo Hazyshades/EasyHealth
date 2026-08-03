@@ -47,6 +47,7 @@ const band = resolveMeasurementDefinition({
   rawLabel: "Band neutrophils",
   rawUnit: "%",
   specimen: "whole_blood",
+  method: "manual",
   valueKind: "numeric",
 });
 assert.equal(band.result, "resolved");
