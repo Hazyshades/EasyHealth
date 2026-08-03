@@ -766,7 +766,13 @@ export function runRegistryV2CandidateCorpus(options: CandidateCorpusRunnerOptio
       classificationMatches,
       falseConcreteResolution,
       aliasCovered: Boolean(resolution?.reasons.some((reason) => reason.startsWith("alias_") || reason === "definition_key_match")),
-      unitCovered: Boolean(resolution && !resolution.conflicts.some((conflict) => UNIT_CONFLICTS.has(conflict))),
+      unitCovered: Boolean(
+        resolution && (
+          row.rawUnit === null
+            ? row.valueKind === "qualitative" && resolution.candidateEvidence.some((candidate) => !candidate.rejected.some((item) => UNIT_CONFLICTS.has(item.code)))
+            : resolution.candidateEvidence.some((candidate) => candidate.accepted.some((item) => item.code === "unit_compatible"))
+        )
+      ),
       error,
       manualCorrection: row.expected.manualCorrection ?? null,
       assessmentBindings,

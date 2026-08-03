@@ -18,7 +18,7 @@ function approx(actual: number, expected: number, epsilon = 0.05) {
   assert.ok(Math.abs(actual - expected) < epsilon, `expected ${actual} ≈ ${expected}`);
 }
 
-const neutrophilPercent = resolveMeasurementDefinition({ rawLabel: "Neutrophils", rawUnit: "%", specimen: "whole_blood" });
+const neutrophilPercent = resolveMeasurementDefinition({ rawLabel: "Neutrophils", rawUnit: "%", specimen: "whole_blood", valueKind: "numeric" });
 assert.equal(neutrophilPercent.result, "resolved");
 assert.equal(neutrophilPercent.measurementDefinitionKey, "neutrophils_percent");
 assert.equal(resolveMeasurementDefinition({ rawLabel: "Neutrophils" }).result, "partial");

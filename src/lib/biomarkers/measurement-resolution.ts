@@ -88,6 +88,24 @@ const EGFR_POLICY: MeasurementUnitPolicy = {
 const DISPLAY_POLICY: MeasurementUnitPolicy = {
   dimensions: [], acceptedUnits: [], canonicalUnit: null, conversionPolicyRef: null, missingUnitPolicy: "display_only",
 };
+const TOTAL_IGE_POLICY: MeasurementUnitPolicy = {
+  dimensions: ["arbitrary"], acceptedUnits: ["iu/ml"], canonicalUnit: "iu/ml", conversionPolicyRef: null, missingUnitPolicy: "ambiguous",
+};
+const ASO_POLICY: MeasurementUnitPolicy = {
+  dimensions: ["arbitrary"], acceptedUnits: ["iu/ml"], canonicalUnit: "iu/ml", conversionPolicyRef: null, missingUnitPolicy: "ambiguous",
+};
+const ESR_POLICY: MeasurementUnitPolicy = {
+  dimensions: ["arbitrary"], acceptedUnits: ["mm/hour"], canonicalUnit: "mm/hour", conversionPolicyRef: null, missingUnitPolicy: "ambiguous",
+};
+const TITER_POLICY: MeasurementUnitPolicy = {
+  dimensions: ["arbitrary"], acceptedUnits: ["titer"], canonicalUnit: "titer", conversionPolicyRef: null, missingUnitPolicy: "ambiguous",
+};
+const POSITIVITY_COEFFICIENT_POLICY: MeasurementUnitPolicy = {
+  dimensions: ["arbitrary"], acceptedUnits: ["positivitycoefficient"], canonicalUnit: "positivitycoefficient", conversionPolicyRef: null, missingUnitPolicy: "ambiguous",
+};
+const ECP_POLICY: MeasurementUnitPolicy = {
+  dimensions: ["mass_concentration"], acceptedUnits: ["ng/ml"], canonicalUnit: "ng/ml", conversionPolicyRef: null, missingUnitPolicy: "ambiguous",
+};
 
 const CHOLESTEROL_CONVERSION: ConversionRule = { type: "linear", conventionalUnit: "mg/dL", siUnit: "mmol/L", factorCo: 0.0259, factorSi: 38.61 };
 const TRIGLYCERIDE_CONVERSION: ConversionRule = { type: "linear", conventionalUnit: "mg/dL", siUnit: "mmol/L", factorCo: 0.0113, factorSi: 88.5 };
@@ -168,6 +186,16 @@ function reviewed({ binding, ...record }: ReviewedDefinitionInput): MeasurementD
   };
 }
 
+function provisional(record: Omit<MeasurementDefinition, "maturity" | "sourceProvenance" | "assessmentBindings">): MeasurementDefinition {
+  return {
+    ...record,
+    maturity: "provisional",
+    sourceProvenance: { kind: "sample_fixture", sourceRecordKey: "sample_newest.pdf" },
+    conversion: record.conversion ?? null,
+    assessmentBindings: [],
+  };
+}
+
 function assessment(
   system: BodySystemId,
   assessmentInputKey: string,
@@ -243,53 +271,34 @@ const REVIEWED_DEFINITIONS: readonly MeasurementDefinition[] = [
   reviewed({ key: "vitamin_d_serum", analyteKey: "vitamin_d", displayName: "25-hydroxy vitamin D", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["vitamin_d", "25_oh_vitamin_d", "25_oh_d"], "registry", "reviewed"), unitPolicy: VITAMIN_D_POLICY, allowedSpecimens: ["serum"], conversion: VITAMIN_D_CONVERSION, binding: assessment("nutrients", "vitamin_d", "core", { coversConfidence: true, readinessGroup: "vitamin_d", contributionGroup: "vitamin_d" }) }),
   reviewed({ key: "b12_serum", analyteKey: "b12", displayName: "Vitamin B12", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["b12", "vitamin_b12", "cobalamin"], "registry", "reviewed"), unitPolicy: B12_POLICY, allowedSpecimens: ["serum"], binding: assessment("nutrients", "b12", "core", { coversConfidence: true, readinessGroup: "b12", contributionGroup: "b12" }) }),
   reviewed({ key: "folate_serum", analyteKey: "folate", displayName: "Folate", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["folate", "folic_acid"], "registry", "reviewed"), unitPolicy: B12_POLICY, allowedSpecimens: ["serum"], binding: assessment("nutrients", "folate", "core", { coversConfidence: true, readinessGroup: "folate", contributionGroup: "folate" }) }),
-  reviewed({ key: "crp_serum", analyteKey: "crp", displayName: "C-reactive protein", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["crp", "c_reactive_protein"], "registry", "reviewed"), unitPolicy: { dimensions: ["mass_concentration"], acceptedUnits: ["mg/l"], canonicalUnit: "mg/l", conversionPolicyRef: null, missingUnitPolicy: "ambiguous" }, allowedSpecimens: ["serum"], binding: assessment("inflammation", "crp", "display", { coversConfidence: true }) }),
+  reviewed({ key: "crp_serum", analyteKey: "crp", displayName: "C-reactive protein", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["crp", "c_reactive_protein", "C-reactive protein, quantitative"], "registry", "reviewed"), unitPolicy: { dimensions: ["mass_concentration"], acceptedUnits: ["mg/l"], canonicalUnit: "mg/l", conversionPolicyRef: null, missingUnitPolicy: "ambiguous" }, allowedSpecimens: ["serum"], binding: assessment("inflammation", "crp", "display", { coversConfidence: true }) }),
 ];
 
 /**
- * De-identified corpus labels remain provisional evidence records. They make
- * raw results recognisable without granting a concrete Registry 2.0 identity.
+ * Typed provisional launch definitions preserve recognised source evidence
+ * without promoting fixture-only semantics into reviewed runtime identities.
  */
-const SAMPLE_FIXTURES: readonly [string, string, "numeric" | "qualitative"][] = [
-  ["total_protein", "Total protein", "numeric"],
-  ["total_bilirubin", "Total bilirubin", "numeric"],
-  ["direct_bilirubin", "Direct bilirubin", "numeric"],
-  ["crp", "C-reactive protein, quantitative", "numeric"],
-  ["aso", "Antistreptolysin-O (ASO)", "numeric"],
-  ["alt_sample", "ALT (alanine aminotransferase)", "numeric"],
-  ["ast_sample", "AST (aspartate aminotransferase)", "numeric"],
-  ["esr", "ESR, Westergren automated", "numeric"],
-  ["giardia_antibodies_total", "Giardia antibodies, total", "numeric"],
-  ["ascaris_igg", "Ascaris IgG antibodies", "qualitative"],
-  ["toxocara_igg", "anti-Toxocara IgG, qualitative ELISA", "qualitative"],
-  ["opisthorchis_felineus_igg", "anti-Opisthorchis felineus IgG, qualitative ELISA", "qualitative"],
-  ["echinococcus_igg", "anti-Echinococcus IgG, qualitative ELISA", "qualitative"],
-  ["trichinella_igg", "anti-Trichinella sp. IgG, qualitative ELISA", "qualitative"],
-  ["total_ige", "Total IgE", "numeric"],
-  ["eosinophilic_cationic_protein", "Eosinophilic cationic protein (ECP)", "numeric"],
+const PROVISIONAL_LAUNCH_DEFINITIONS: readonly MeasurementDefinition[] = [
+  provisional({ key: "total_protein_unspecified", analyteKey: "total_protein", displayName: "Total protein", specimen: "unspecified", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "unspecified", valueKind: "numeric", aliases: aliases(["Total protein", "total_protein"], "fixture", "provisional", ["sample_newest.pdf"], { matchType: "exact" }), unitPolicy: PROTEIN_POLICY }),
+  provisional({ key: "direct_bilirubin_unspecified", analyteKey: "direct_bilirubin", displayName: "Direct bilirubin", specimen: "unspecified", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "unspecified", valueKind: "numeric", aliases: aliases(["Direct bilirubin", "direct_bilirubin", "conjugated_bilirubin"], "fixture", "provisional", ["sample_newest.pdf"], { matchType: "exact" }), unitPolicy: BILIRUBIN_POLICY }),
+  provisional({ key: "aso_unspecified", analyteKey: "aso", displayName: "Antistreptolysin-O (ASO)", specimen: "unspecified", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "unspecified", valueKind: "numeric", aliases: aliases(["Antistreptolysin-O (ASO)", "aso"], "fixture", "provisional", ["sample_newest.pdf"], { matchType: "exact" }), unitPolicy: ASO_POLICY }),
+  provisional({ key: "esr_westergren_automated", analyteKey: "esr", displayName: "ESR, Westergren automated", specimen: "unspecified", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["ESR, Westergren automated", "esr"], "fixture", "provisional", ["sample_newest.pdf"], { matchType: "exact" }), unitPolicy: ESR_POLICY }),
+  provisional({ key: "giardia_antibodies_total", analyteKey: "giardia_antibodies_total", displayName: "Giardia antibodies, total", specimen: "unspecified", property: "presence", scale: "quantitative", timing: "point_in_time", method: "unspecified", valueKind: "numeric", aliases: aliases(["Giardia antibodies, total", "giardia_antibodies_total"], "fixture", "provisional", ["sample_newest.pdf"], { matchType: "exact" }), unitPolicy: POSITIVITY_COEFFICIENT_POLICY }),
+  provisional({ key: "ascaris_igg", analyteKey: "ascaris_igg", displayName: "Ascaris IgG antibodies", specimen: "unspecified", property: "presence", scale: "nominal", timing: "point_in_time", method: "unspecified", valueKind: "qualitative", aliases: aliases(["Ascaris IgG antibodies", "ascaris_igg"], "fixture", "provisional", ["sample_newest.pdf"], { matchType: "exact" }), unitPolicy: TITER_POLICY }),
+  ...([
+    ["toxocara_igg", "anti-Toxocara IgG, qualitative ELISA"],
+    ["opisthorchis_felineus_igg", "anti-Opisthorchis felineus IgG, qualitative ELISA"],
+    ["echinococcus_igg", "anti-Echinococcus IgG, qualitative ELISA"],
+    ["trichinella_igg", "anti-Trichinella sp. IgG, qualitative ELISA"],
+  ] as const).map(([analyteKey, displayName]) => provisional({ key: analyteKey, analyteKey, displayName, specimen: "unspecified", property: "presence", scale: "nominal", timing: "point_in_time", method: "unspecified", valueKind: "qualitative", aliases: aliases([displayName, analyteKey], "fixture", "provisional", ["sample_newest.pdf"], { matchType: "exact" }), unitPolicy: DISPLAY_POLICY })),
+  provisional({ key: "total_ige_unspecified", analyteKey: "total_ige", displayName: "Total IgE", specimen: "unspecified", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "unspecified", valueKind: "numeric", aliases: aliases(["Total IgE", "total_ige"], "fixture", "provisional", ["sample_newest.pdf"], { matchType: "exact" }), unitPolicy: TOTAL_IGE_POLICY }),
+  provisional({ key: "ecp_unspecified", analyteKey: "eosinophilic_cationic_protein", displayName: "Eosinophilic cationic protein (ECP)", specimen: "unspecified", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "unspecified", valueKind: "numeric", aliases: aliases(["Eosinophilic cationic protein (ECP)", "eosinophilic_cationic_protein"], "fixture", "provisional", ["sample_newest.pdf"], { matchType: "exact" }), unitPolicy: ECP_POLICY }),
 ];
-
-const SAMPLE_FIXTURE_DEFINITIONS: readonly MeasurementDefinition[] = SAMPLE_FIXTURES.map(([key, label, valueKind]) => ({
-  key: `sample_${key}`,
-  analyteKey: key,
-  displayName: label,
-  maturity: "provisional",
-  sourceProvenance: { kind: "sample_fixture", sourceRecordKey: "sample_newest.pdf" },
-  specimen: "unspecified",
-  property: "unspecified",
-  scale: valueKind === "qualitative" ? "nominal" : "quantitative",
-  timing: "unspecified",
-  method: "unspecified",
-  valueKind,
-  aliases: aliases([label, key], "fixture", "provisional", ["sample_newest.pdf"]),
-  unitPolicy: DISPLAY_POLICY,
-  conversion: null,
-  assessmentBindings: [],
-}));
 
 /** Only reviewed Registry 2.0 definitions are eligible for concrete runtime behavior. */
 export const CURATED_MEASUREMENT_DEFINITIONS = REVIEWED_DEFINITIONS;
-export const MEASUREMENT_DEFINITIONS: readonly MeasurementDefinition[] = [...REVIEWED_DEFINITIONS, ...SAMPLE_FIXTURE_DEFINITIONS];
+export const MEASUREMENT_DEFINITIONS: readonly MeasurementDefinition[] = [...REVIEWED_DEFINITIONS, ...PROVISIONAL_LAUNCH_DEFINITIONS];
+
 
 export const ANALYTES: readonly Analyte[] = [...new Map(MEASUREMENT_DEFINITIONS.map((definition) => [
   definition.analyteKey,
