@@ -70,7 +70,8 @@ for (const enzyme of ["alt", "ast", "alp", "ggt"] as const) {
 
 const altPartial = resolveMeasurementDefinition({ rawLabel: "ALT (alanine aminotransferase)", rawUnit: "U/L", valueKind: "numeric" });
 assert.equal(altPartial.result, "partial");
-assert.equal(altPartial.analyteKey, null, "incomplete evidence must not infer a concrete analyte identity");
+assert.equal(altPartial.analyteKey, "alt", "recognized incomplete evidence preserves analyte-level identity without selecting a concrete definition");
+assert.equal(altPartial.measurementDefinitionKey, null, "incomplete evidence must not infer a concrete measurement definition");
 assert.ok(altPartial.missingAxes.includes("specimen"));
 assert.equal(acceptancePathForResolution(altPartial), "raw");
 

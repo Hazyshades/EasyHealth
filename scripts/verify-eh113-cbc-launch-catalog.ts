@@ -38,6 +38,7 @@ assert.ok(report.cbc.byAliasMatch.alias_exact_match > 0 || report.cbc.byAliasMat
 const partialNeutrophils = resolveMeasurementDefinition({ rawLabel: "NEU", rawUnit: "%", valueKind: "numeric" });
 assert.equal(partialNeutrophils.result, "partial");
 assert.equal(partialNeutrophils.measurementDefinitionKey, null);
+assert.equal(partialNeutrophils.analyteKey, "neutrophils", "recognized partial retains analyte-level identity");
 assert.ok(partialNeutrophils.candidateKeys.includes("neutrophils_percent"));
 
 const rbcResolved = resolveMeasurementDefinition({ rawLabel: "Red blood cells (RBC)", rawUnit: "x10^12/L", specimen: "whole_blood", valueKind: "numeric" });

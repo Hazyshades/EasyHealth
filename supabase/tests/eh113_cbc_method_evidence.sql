@@ -1,6 +1,6 @@
 begin;
 
-select plan(4);
+select plan(5);
 
 insert into public.profiles (id, email)
 values ('00000000-0000-0000-0000-000000001132', 'eh113-owner@example.test');
@@ -33,6 +33,14 @@ select lives_ok(
     values ('00000000-0000-0000-0000-000000001130', '00000000-0000-0000-0000-000000001131', '00000000-0000-0000-0000-000000001132', 'eh113_method_fixture', 'EH-113 method fixture', 'manual')
   $$,
   'manual differential method is accepted'
+);
+
+select lives_ok(
+  $$
+    insert into public.document_extracted_biomarkers (id, document_id, profile_id, biomarker_key, biomarker_name, method)
+    values ('00000000-0000-0000-0000-000000001134', '00000000-0000-0000-0000-000000001131', '00000000-0000-0000-0000-000000001132', 'eh113_automated_method_fixture', 'EH-113 automated method fixture', 'automated')
+  $$,
+  'automated method is accepted'
 );
 
 select throws_ok(
