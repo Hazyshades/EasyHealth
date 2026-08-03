@@ -47,6 +47,9 @@ const PERCENT_POLICY: MeasurementUnitPolicy = {
 const CELL_POLICY: MeasurementUnitPolicy = {
   dimensions: ["cell_concentration"], acceptedUnits: ["10^9/l", "10^3/ul"], canonicalUnit: "10^9/l", conversionPolicyRef: null, missingUnitPolicy: "ambiguous",
 };
+const RBC_POLICY: MeasurementUnitPolicy = {
+  dimensions: ["cell_concentration"], acceptedUnits: ["10^12/l"], canonicalUnit: "10^12/l", conversionPolicyRef: null, missingUnitPolicy: "ambiguous",
+};
 const VOLUME_POLICY: MeasurementUnitPolicy = {
   dimensions: ["volume"], acceptedUnits: ["fl"], canonicalUnit: "fl", conversionPolicyRef: null, missingUnitPolicy: "ambiguous",
 };
@@ -124,12 +127,14 @@ const VITAMIN_D_CONVERSION: ConversionRule = { type: "linear", conventionalUnit:
 const HBA1C_CONVERSION: ConversionRule = { type: "formula", formula: "hba1c_ngsp_ifcc", conventionalUnit: "%", siUnit: "mmol/mol" };
 const BUN_UREA_CONVERSION: ConversionRule = { type: "formula", formula: "bun_urea", conventionalUnit: "mg/dL", siUnit: "mmol/L" };
 const ENZYME_DISPLAY_ONLY: ConversionRule = { type: "none", reason: "Catalytic activity has no reviewed US/SI mass conversion." };
-
 type AliasSeed = {
   value: string;
   normalizedValue: string;
   source: AliasSource;
   approvalStatus: "reviewed" | "provisional";
+  matchType?: AliasDefinition["matchType"];
+  locale?: string;
+  laboratory?: string;
   fixtureRefs?: readonly string[];
 };
 
@@ -137,15 +142,29 @@ function aliases(
   values: readonly string[],
   source: AliasSource,
   approvalStatus: "reviewed" | "provisional",
-  fixtureRefs?: readonly string[]
+  fixtureRefs?: readonly string[],
+  metadata: Pick<AliasSeed, "matchType" | "locale" | "laboratory"> = {}
 ): AliasSeed[] {
   return [...new Set(values)].map((value) => ({
     value,
     normalizedValue: snakeCaseToken(value),
     source,
     approvalStatus,
+    ...metadata,
     ...(fixtureRefs ? { fixtureRefs } : {}),
   }));
+}
+
+function cbcAliases(
+  reviewedValues: readonly string[],
+  options: { fixtureValues?: readonly string[]; russianValues?: readonly string[]; ocrValues?: readonly string[] } = {}
+): AliasSeed[] {
+  return [
+    ...aliases(reviewedValues, "registry", "reviewed"),
+    ...aliases(options.fixtureValues ?? [], "fixture", "reviewed", ["eh-113-cbc"], { matchType: "exact" }),
+    ...aliases(options.russianValues ?? [], "laboratory", "reviewed", ["eh-113-cbc-ru"], { matchType: "normalized", locale: "ru", laboratory: "northern-diagnostics" }),
+    ...aliases(options.ocrValues ?? [], "fixture", "provisional", ["eh-113-cbc-ocr"], { matchType: "ocr_variant" }),
+  ];
 }
 
 type RuntimeBinding = {
@@ -181,9 +200,9 @@ function reviewed({ binding, ...record }: ReviewedDefinitionInput): MeasurementD
     ...record,
     aliases: record.aliases.map((alias, index): AliasDefinition => ({
       ...alias,
-      key: `${record.key}:registry:${index + 1}`,
+      key: `${record.key}:${alias.source}:${index + 1}`,
       measurementDefinitionKey: record.key,
-      matchType: "normalized",
+      matchType: alias.matchType ?? "normalized",
       matchAuthority: "reviewed_resolution",
       lifecycle: "active",
       provenance: sourceProvenance,
@@ -257,23 +276,18 @@ const REVIEWED_DEFINITIONS: readonly MeasurementDefinition[] = [
   reviewed({ key: "urea_serum", analyteKey: "urea", displayName: "Urea", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["urea"], "registry", "reviewed"), unitPolicy: GLUCOSE_POLICY, conversion: BUN_UREA_CONVERSION, binding: assessment("kidney", "urea", "extended", { contributionGroup: "nitrogen_waste" }) }),
   ...(["sodium", "potassium", "chloride", "bicarbonate", "calcium"] as const).map((analyteKey) => reviewed({ key: `${analyteKey}_serum`, analyteKey, displayName: analyteKey === "bicarbonate" ? "Bicarbonate" : analyteKey[0]!.toUpperCase() + analyteKey.slice(1), specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases([analyteKey, ...(analyteKey === "sodium" ? ["na"] : analyteKey === "potassium" ? ["k"] : analyteKey === "chloride" ? ["cl"] : analyteKey === "bicarbonate" ? ["co2", "carbon_dioxide"] : analyteKey === "calcium" ? ["ca"] : [])], "registry", "reviewed"), unitPolicy: ELECTROLYTE_POLICY, binding: assessment("kidney", analyteKey, "extended", { contributionGroup: analyteKey === "bicarbonate" ? "acid_base" : analyteKey }) })),
 
-  // Blood
-  reviewed({ key: "hemoglobin_whole_blood", analyteKey: "hemoglobin", displayName: "Hemoglobin", specimen: "whole_blood", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["hemoglobin", "hgb", "hb"], "registry", "reviewed"), unitPolicy: PROTEIN_POLICY, conversion: PROTEIN_CONVERSION, binding: assessment("blood", "hemoglobin", "core", { coversConfidence: true, readinessGroup: "red_cell_mass", contributionGroup: "red_cell_mass" }) }),
-  reviewed({ key: "hematocrit_whole_blood", analyteKey: "hematocrit", displayName: "Hematocrit", specimen: "whole_blood", property: "percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["hematocrit", "hct"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY, binding: assessment("blood", "hematocrit", "core", { coversConfidence: true, readinessGroup: "red_cell_mass", contributionGroup: "red_cell_mass" }) }),
-  reviewed({ key: "rbc_whole_blood", analyteKey: "rbc", displayName: "Red blood cell count", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["rbc", "red_blood_cells"], "registry", "reviewed"), unitPolicy: CELL_POLICY, binding: assessment("blood", "rbc", "extended", { contributionGroup: "red_cell_mass" }) }),
-  reviewed({ key: "wbc_whole_blood", analyteKey: "wbc", displayName: "White blood cell count", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["wbc", "white_blood_cells"], "registry", "reviewed"), unitPolicy: CELL_POLICY, binding: assessment("blood", "wbc", "core", { coversConfidence: true, readinessGroup: "white_cells", contributionGroup: "white_cells" }) }),
-  reviewed({ key: "platelets_whole_blood", analyteKey: "platelets", displayName: "Platelet count", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["platelets", "plt"], "registry", "reviewed"), unitPolicy: CELL_POLICY, binding: assessment("blood", "platelets", "core", { coversConfidence: true, readinessGroup: "platelets", contributionGroup: "platelets" }) }),
-  reviewed({ key: "mcv_whole_blood", analyteKey: "mcv", displayName: "Mean corpuscular volume", specimen: "whole_blood", property: "distribution_width_sd", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["mcv", "mean_corpuscular_volume"], "registry", "reviewed"), unitPolicy: VOLUME_POLICY, binding: assessment("blood", "mcv", "core", { coversConfidence: true, readinessGroup: "red_cell_size", contributionGroup: "red_cell_size" }) }),
-  reviewed({ key: "rdw_cv", analyteKey: "red_cell_distribution_width", displayName: "RDW-CV", specimen: "whole_blood", property: "distribution_width_cv", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["rdw", "rdw_cv", "rdw-cv"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY, binding: assessment("blood", "rdw", "extended", { contributionGroup: "red_cell_variation" }) }),
-  reviewed({ key: "rdw_sd", analyteKey: "red_cell_distribution_width", displayName: "RDW-SD", specimen: "whole_blood", property: "distribution_width_sd", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["rdw", "rdw_sd", "rdw-sd"], "registry", "reviewed"), unitPolicy: VOLUME_POLICY, binding: assessment("blood", "rdw", "extended", { contributionGroup: "red_cell_variation" }) }),
-  reviewed({ key: "neutrophils_percent", analyteKey: "neutrophils", displayName: "Neutrophils, percent", specimen: "whole_blood", property: "percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["neutrophils", "neutrophils_percent", "neu%", "neu_percent"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY }),
-  reviewed({ key: "neutrophils_abs", analyteKey: "neutrophils", displayName: "Neutrophils, absolute", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["neutrophils", "neutrophils_absolute", "neutrophils_abs", "absolute_neutrophil_count", "neu"], "registry", "reviewed"), unitPolicy: CELL_POLICY }),
-  reviewed({ key: "lymphocytes_percent", analyteKey: "lymphocytes", displayName: "Lymphocytes, percent", specimen: "whole_blood", property: "percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["lymphocytes", "lymphocytes_percent", "lymf%", "lym_percent"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY }),
-  reviewed({ key: "lymphocytes_abs", analyteKey: "lymphocytes", displayName: "Lymphocytes, absolute", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["lymphocytes_absolute", "lymphocytes_abs", "absolute_lymphocyte_count", "lymf"], "registry", "reviewed"), unitPolicy: CELL_POLICY }),
-  reviewed({ key: "reticulocytes_percent", analyteKey: "reticulocytes", displayName: "Reticulocytes, percent", specimen: "whole_blood", property: "percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["reticulocytes_percent", "retic_percent"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY }),
-  reviewed({ key: "reticulocytes_abs", analyteKey: "reticulocytes", displayName: "Reticulocytes, absolute", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["reticulocytes_abs", "absolute_reticulocyte_count"], "registry", "reviewed"), unitPolicy: CELL_POLICY }),
-  reviewed({ key: "band_neutrophils_percent", analyteKey: "neutrophils", displayName: "Band neutrophils, percent", specimen: "whole_blood", property: "band_percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["band_neutrophils", "band_neutrophils_percent"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY }),
-
+  // Blood and CBC launch catalog
+  reviewed({ key: "hemoglobin_whole_blood", analyteKey: "hemoglobin", displayName: "Hemoglobin", specimen: "whole_blood", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: cbcAliases(["hemoglobin", "hgb", "hb"], { fixtureValues: ["Hemoglobin (HGB)"], russianValues: ["Гемоглобин (HGB)"] }), unitPolicy: PROTEIN_POLICY, conversion: PROTEIN_CONVERSION, binding: assessment("blood", "hemoglobin", "core", { coversConfidence: true, readinessGroup: "red_cell_mass", contributionGroup: "red_cell_mass" }) }),
+  reviewed({ key: "hematocrit_whole_blood", analyteKey: "hematocrit", displayName: "Hematocrit", specimen: "whole_blood", property: "percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: cbcAliases(["hematocrit", "hct"], { fixtureValues: ["Hematocrit (HCT)"], russianValues: ["Гематокрит (HCT)"] }), unitPolicy: PERCENT_POLICY, binding: assessment("blood", "hematocrit", "core", { coversConfidence: true, readinessGroup: "red_cell_mass", contributionGroup: "red_cell_mass" }) }),
+  reviewed({ key: "rbc_whole_blood", analyteKey: "rbc", displayName: "Red blood cell count", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: cbcAliases(["rbc", "red_blood_cells"], { fixtureValues: ["Red blood cells (RBC)"], russianValues: ["Эритроциты (RBC)"] }), unitPolicy: RBC_POLICY, binding: assessment("blood", "rbc", "extended", { contributionGroup: "red_cell_mass" }) }),
+  reviewed({ key: "wbc_whole_blood", analyteKey: "wbc", displayName: "White blood cell count", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: cbcAliases(["wbc", "white_blood_cells"], { fixtureValues: ["White blood cells (WBC)"], russianValues: ["Лейкоциты (WBC)"] }), unitPolicy: CELL_POLICY, binding: assessment("blood", "wbc", "core", { coversConfidence: true, readinessGroup: "white_cells", contributionGroup: "white_cells" }) }),
+  reviewed({ key: "platelets_whole_blood", analyteKey: "platelets", displayName: "Platelet count", specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: cbcAliases(["platelets", "plt"], { fixtureValues: ["Platelets (PLT)"], russianValues: ["Тромбоциты (PLT)"] }), unitPolicy: CELL_POLICY, binding: assessment("blood", "platelets", "core", { coversConfidence: true, readinessGroup: "platelets", contributionGroup: "platelets" }) }),
+  ...([["mcv", "Mean corpuscular volume", "mean_cell_volume", VOLUME_POLICY, ["Mean corpuscular volume (MCV)"]], ["mch", "Mean corpuscular hemoglobin", "mass_per_cell", { dimensions: ["mass_per_cell"], acceptedUnits: ["pg"], canonicalUnit: "pg", conversionPolicyRef: null, missingUnitPolicy: "ambiguous" } as MeasurementUnitPolicy, ["Mean corpuscular hemoglobin (MCH)"]], ["mchc", "Mean corpuscular hemoglobin concentration", "substance_concentration", PROTEIN_POLICY, ["Mean corpuscular hemoglobin concentration (MCHC)"]], ["mpv", "Mean platelet volume", "mean_cell_volume", VOLUME_POLICY, ["Mean platelet volume (MPV)"]], ["pdw", "Platelet distribution width", "distribution_width_cv", PERCENT_POLICY, ["Platelet distribution width (PDW)"]], ["plateletcrit", "Plateletcrit", "percentage", PERCENT_POLICY, ["Plateletcrit (PCT)"]]] as const).map(([key, displayName, property, unitPolicy, fixtureValues]) => reviewed({ key: key === "plateletcrit" ? "plateletcrit_percent" : key === "pdw" ? "pdw_cv" : `${key}_whole_blood`, analyteKey: key, displayName, specimen: "whole_blood", property, scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: cbcAliases([key], { fixtureValues }), unitPolicy })),
+  reviewed({ key: "rdw_cv", analyteKey: "red_cell_distribution_width", displayName: "RDW-CV", specimen: "whole_blood", property: "distribution_width_cv", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: cbcAliases(["rdw", "rdw_cv", "rdw-cv"], { fixtureValues: ["Red cell distribution width (RDW)", "Red cell distribution width CV (RDW-CV)"] }), unitPolicy: PERCENT_POLICY, binding: assessment("blood", "rdw", "extended", { contributionGroup: "red_cell_variation" }) }),
+  reviewed({ key: "rdw_sd", analyteKey: "red_cell_distribution_width", displayName: "RDW-SD", specimen: "whole_blood", property: "distribution_width_sd", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: cbcAliases(["rdw", "rdw_sd", "rdw-sd"], { fixtureValues: ["Red cell distribution width SD (RDW-SD)"] }), unitPolicy: VOLUME_POLICY, binding: assessment("blood", "rdw", "extended", { contributionGroup: "red_cell_variation" }) }),
+  ...([["neutrophils", "NEU", "Нейтрофилы"], ["lymphocytes", "LYM", "Лимфоциты"], ["monocytes", "MON", "Моноциты"], ["eosinophils", "EOS", "Эозинофилы"], ["basophils", "BAS", "Базофилы"]] as const).flatMap(([key, abbreviation, russian]) => [reviewed({ key: `${key}_percent`, analyteKey: key, displayName: `${key}, percent`, specimen: "whole_blood", property: "percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: cbcAliases([key, `${key}_percent`, abbreviation, `${abbreviation}%`], { fixtureValues: [`${key[0]!.toUpperCase()}${key.slice(1)} (${abbreviation}%)`, ...(key === "lymphocytes" ? ["Lymphocytes (LYMF%)"] : [])], russianValues: [`${russian} (${abbreviation}%)`] }), unitPolicy: PERCENT_POLICY }), reviewed({ key: `${key}_abs`, analyteKey: key, displayName: `${key}, absolute`, specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: cbcAliases([`${key}_abs`, abbreviation], { fixtureValues: [`${key[0]!.toUpperCase()}${key.slice(1)}, absolute (${abbreviation})`, ...(key === "lymphocytes" ? ["Lymphocytes, absolute (LYMF)"] : [])], russianValues: [`${russian}, абс. (${abbreviation})`] }), unitPolicy: CELL_POLICY })]),
+  ...([["reticulocytes_percent", "reticulocytes", "percentage", PERCENT_POLICY, "Reticulocytes (RETIC%)"], ["reticulocytes_abs", "reticulocytes", "cell_count", CELL_POLICY, "Reticulocytes, absolute (RETIC)"], ["segmented_neutrophils_percent", "neutrophils", "segmented_percentage", PERCENT_POLICY, "Segmented neutrophils"], ["band_neutrophils_percent", "neutrophils", "band_percentage", PERCENT_POLICY, "Band neutrophils"]] as const).map(([key, analyteKey, property, unitPolicy, fixtureLabel]) => reviewed({ key, analyteKey, displayName: fixtureLabel, specimen: "whole_blood", property, scale: "quantitative", timing: "point_in_time", method: key.includes("neutrophils") ? "manual" : "automated", valueKind: "numeric", aliases: cbcAliases([key, analyteKey], { fixtureValues: [fixtureLabel] }), unitPolicy, ...(key.includes("neutrophils") ? { requiredMethods: ["manual"] } : {}) })),
+  ...(["lymphocytes", "monocytes", "eosinophils"] as const).map((analyteKey) => reviewed({ key: `${analyteKey}_manual_percent`, analyteKey, displayName: `${analyteKey}, manual differential`, specimen: "whole_blood", property: "percentage", scale: "quantitative", timing: "point_in_time", method: "manual", valueKind: "numeric", aliases: cbcAliases([`${analyteKey}_manual`, `${analyteKey}_manual_differential`], { fixtureValues: [`${analyteKey[0]!.toUpperCase()}${analyteKey.slice(1)}, manual differential`] }), unitPolicy: PERCENT_POLICY, requiredMethods: ["manual"] })),
   // Nutrients and inflammation
   reviewed({ key: "vitamin_d_serum", analyteKey: "vitamin_d", displayName: "25-hydroxy vitamin D", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["vitamin_d", "25_oh_vitamin_d", "25_oh_d"], "registry", "reviewed"), unitPolicy: VITAMIN_D_POLICY, conversion: VITAMIN_D_CONVERSION, binding: assessment("nutrients", "vitamin_d", "core", { coversConfidence: true, readinessGroup: "vitamin_d", contributionGroup: "vitamin_d" }) }),
   reviewed({ key: "b12_serum", analyteKey: "b12", displayName: "Vitamin B12", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["b12", "vitamin_b12", "cobalamin"], "registry", "reviewed"), unitPolicy: B12_POLICY, binding: assessment("nutrients", "b12", "core", { coversConfidence: true, readinessGroup: "b12", contributionGroup: "b12" }) }),
@@ -384,6 +398,7 @@ export function normalizeMeasurementUnit(rawUnit: string | null | undefined): No
   if (!unit) return { raw, normalizedUnit: null, dimension: null };
   if (["%", "percent", "mmol/mol"].includes(unit)) return { raw, normalizedUnit: unit === "percent" ? "%" : unit, dimension: "ratio" };
   if (["fl", "femtoliter", "femtolitre"].includes(unit)) return { raw, normalizedUnit: "fl", dimension: "volume" };
+  if (["pg", "picogram"].includes(unit)) return { raw, normalizedUnit: "pg", dimension: "mass_per_cell" };
   if (["10^9/l", "10^3/ul", "10^12/l"].includes(unit)) return { raw, normalizedUnit: unit, dimension: "cell_concentration" };
   if (["u/l", "iu/l"].includes(unit)) return { raw, normalizedUnit: "u/l", dimension: "catalytic_activity_concentration" };
   if (["mmol/l", "umol/l", "nmol/l", "pmol/l"].includes(unit)) return { raw, normalizedUnit: unit, dimension: "molar_concentration" };

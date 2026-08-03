@@ -3,6 +3,7 @@ import {
   SAMPLE_NEWEST_LAUNCH_FIXTURES,
   buildLaunchCoverageReport,
   getMeasurementConversionPolicy,
+  getMeasurementDefinition,
   getReviewedAssessmentBinding,
   resolveMeasurementDefinition,
 } from "../src/lib/biomarkers";
@@ -39,6 +40,20 @@ assert.equal(partialNeutrophils.result, "partial");
 assert.equal(partialNeutrophils.measurementDefinitionKey, null);
 assert.ok(partialNeutrophils.candidateKeys.includes("neutrophils_percent"));
 
+const rbcResolved = resolveMeasurementDefinition({ rawLabel: "Red blood cells (RBC)", rawUnit: "x10^12/L", specimen: "whole_blood", valueKind: "numeric" });
+assert.equal(rbcResolved.result, "resolved");
+assert.equal(rbcResolved.measurementDefinitionKey, "rbc_whole_blood");
+const rbcWrongUnit = resolveMeasurementDefinition({ rawLabel: "Red blood cells (RBC)", rawUnit: "x10^9/L", specimen: "whole_blood", valueKind: "numeric" });
+assert.equal(rbcWrongUnit.measurementDefinitionKey, null);
+assert.ok(rbcWrongUnit.conflicts.includes("unit_not_accepted"));
+assert.equal(resolveMeasurementDefinition({ rawLabel: "Red blood cells (RBC)", rawUnit: "x10^12/L", valueKind: "numeric" }).result, "partial");
+assert.equal(resolveMeasurementDefinition({ rawLabel: "Red blood cells (RBC)", rawUnit: "x10^12/L", specimen: "whole_blood", valueKind: "unspecified" }).result, "partial");
+assert.equal(resolveMeasurementDefinition({ rawLabel: "Red blood cells (RBC7)", rawUnit: "x10^12/L", specimen: "whole_blood", valueKind: "numeric" }).result, "unmapped");
+const sampleRbc = getMeasurementDefinition("sample_red_blood_cells")!;
+assert.equal(sampleRbc.maturity, "provisional");
+assert.deepEqual(sampleRbc.assessmentBindings, []);
+assert.equal(getMeasurementConversionPolicy(sampleRbc.key), null);
+
 const unsafeCandidateProjection = projectActiveRegistryV2LaboratoryBinding(
   { observation_kind: "lab", measurement_definition_key: "neutrophils_percent", resolution_status: "resolved" },
   { is_active: true, resolver_result: "partial", measurement_definition_key: "neutrophils_percent", verification_status: "pending" }
@@ -49,7 +64,7 @@ assert.equal(getReviewedAssessmentBinding(partialNeutrophils.measurementDefiniti
 
 const reviewedProjection = projectActiveRegistryV2LaboratoryBinding(
   { observation_kind: "lab", measurement_definition_key: "wbc_whole_blood", resolution_status: "resolved" },
-  { is_active: true, resolver_result: "resolved", measurement_definition_key: "wbc_whole_blood", verification_status: "auto_verified" }
+  { is_active: true, resolver_result: "resolved", measurement_definition_key: "wbc_whole_blood", verification_status: "auto_verified", resolver_evidence: { outcome: "resolved", selectedCandidateKey: "wbc_whole_blood" } }
 );
 assert.equal(reviewedProjection.registryBindingReady, true, "an active reviewed resolved CBC revision is consumer-safe");
 
