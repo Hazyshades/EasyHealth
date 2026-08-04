@@ -1,5 +1,0 @@
-schema: spec-driven
-created: 2026-08-04
-goal: Re-run partial, ambiguous, unmapped and resolved observations against the
-  deployed Registry 2.0 release while retaining raw evidence and prior
-  decisions.
