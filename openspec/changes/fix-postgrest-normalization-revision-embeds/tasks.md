@@ -16,12 +16,36 @@
 
 - [x] 3.1 Build a real migrated PostgREST fixture with owner, document, laboratory observation, extracted source, and active same-source revision.
 - [ ] 3.2 Prove all five read paths on the dual-constraint transition schema and assert unchanged projections.
+  - [ ] 3.2.a Define the deterministic fixture, environment, and expected assertion.
+  - [ ] 3.2.b Exercise the required positive and negative cases.
+  - [ ] 3.2.c Record results and resolve any divergence before parent completion.
+
 - [ ] 3.3 Prove the 034-pending-to-transition and 034-applied-to-transition paths, including schema-cache reload failure/success.
+  - [ ] 3.3.a Define the deterministic fixture, environment, and expected assertion.
+  - [ ] 3.3.b Exercise the required positive and negative cases.
+  - [ ] 3.3.c Record results and resolve any divergence before parent completion.
+
 - [x] 3.4 Wire the live PostgREST suite and static hint check into CI before deployment.
 
 ## 4. Rollout and follow-up ownership
 
 - [ ] 4.1 Deploy the bridge before new code according to the target-state matrix and record environment/cache/read evidence.
+  - [ ] 4.1.a Prepare the target environment, entry criteria, and rollback decision.
+  - [ ] 4.1.b Execute the stated operation within the declared safety gates.
+  - [ ] 4.1.c Capture attributable smoke, negative-case, and completion evidence.
+
 - [ ] 4.2 Inventory every application instance and target environment and record the owner and acceptance gates for a separate alias-removal change.
+  - [ ] 4.2.a Enumerate exact inputs, owners, and required evidence or failure classifications.
+  - [ ] 4.2.b Perform the stated review or preflight against the defined invariants.
+  - [ ] 4.2.c Publish attributable findings and block unresolved or unsafe results.
+
 - [ ] 4.3 Confirm this change contains no executable alias-drop migration and that removal will be proposed only after complete cutover evidence.
+  - [ ] 4.3.a Enumerate exact inputs, owners, and required evidence or failure classifications.
+  - [ ] 4.3.b Perform the stated review or preflight against the defined invariants.
+  - [ ] 4.3.c Publish attributable findings and block unresolved or unsafe results.
+
 - [ ] 4.4 Run target-environment smoke for all five consumers and record the FK hotfix release evidence.
+  - [ ] 4.4.a Prepare the target environment, entry criteria, and rollback decision.
+  - [ ] 4.4.b Execute the stated operation within the declared safety gates.
+  - [ ] 4.4.c Capture attributable smoke, negative-case, and completion evidence.
+

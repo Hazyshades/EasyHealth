@@ -56,5 +56,9 @@
 
 - [x] 7.1 Pause/drain instrumental jobs, run populated preflight, choose retained abort or explicitly disposable reset, and apply attempt/content/compatibility migration and backfill.
 - [ ] 7.2 Deploy attempt-aware worker/readers, verify legacy/current-pointer equivalence, resume jobs, and record unchanged retry, changed reprocess, `A → B → A`, stale-attempt, and forced-failure smoke.
+  - [ ] 7.2.a Prepare the target environment, entry criteria, and rollback decision.
+  - [ ] 7.2.b Execute the stated operation within the declared safety gates.
+  - [ ] 7.2.c Capture attributable smoke, negative-case, and completion evidence.
+
 - [x] 7.3 Update `QA/eh-105/checklist.md` with tester-facing coherent-version checks and separate developer evidence; do not mark unavailable smoke passed.
 - [x] 7.4 Record the EH-105 2.5/4.3 corrective evidence and keep production/Sprint 1 closure pending until all mandatory gates pass.
