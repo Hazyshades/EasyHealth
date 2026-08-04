@@ -138,7 +138,7 @@ const glucoseVariants = [
   [{ rawLabel: "Glucose", rawUnit: "mg/dL", specimen: "whole_blood", valueKind: "numeric" }, "glucose_whole_blood"],
   [{ rawLabel: "FPG", rawUnit: "mmol/L", specimen: "plasma", modifier: "fasting", valueKind: "numeric" }, "fasting_glucose"],
   [{ rawLabel: "PPG", rawUnit: "mmol/L", specimen: "plasma", modifier: "postprandial", valueKind: "numeric" }, "post_prandial_glucose_plasma"],
-  [{ rawLabel: "Urine glucose", rawUnit: null, specimen: "urine", valueKind: "qualitative" }, "glucose_urine_dipstick"],
+  [{ rawLabel: "Urine glucose", rawUnit: null, specimen: "urine", method: "dipstick", valueKind: "qualitative" }, "glucose_urine_dipstick"],
 ] as const;
 for (const [input, key] of glucoseVariants) {
   const resolved = resolveMeasurementDefinition(input);

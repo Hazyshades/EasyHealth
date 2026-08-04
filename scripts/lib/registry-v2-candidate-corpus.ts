@@ -770,7 +770,10 @@ export function runRegistryV2CandidateCorpus(options: CandidateCorpusRunnerOptio
         resolution && (
           row.rawUnit === null
             ? row.valueKind === "qualitative" && resolution.candidateEvidence.some((candidate) => !candidate.rejected.some((item) => UNIT_CONFLICTS.has(item.code)))
-            : resolution.candidateEvidence.some((candidate) => candidate.accepted.some((item) => item.code === "unit_compatible"))
+            : resolution.candidateEvidence.some((candidate) =>
+                candidate.accepted.some((item) => item.code === "unit_compatible") ||
+                candidate.rejected.some((item) => UNIT_CONFLICTS.has(item.code))
+              )
         )
       ),
       error,

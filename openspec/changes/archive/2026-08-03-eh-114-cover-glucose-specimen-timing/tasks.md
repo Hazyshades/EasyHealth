@@ -13,4 +13,4 @@
 
 - [x] 3.1 Create the EH-114 tester-facing QA checklist with safe data, unavailable-interface boundaries, and developer evidence requests.
 - [x] 3.2 Run focused resolver, candidate-corpus, registry, type, and OpenSpec validation; record the results in the QA checklist.
-- [ ] 3.3 Run the EH-114 database persistence test against the disposable local Supabase stack and record the result.
+- [x] 3.3 Run the EH-114 database persistence test against the disposable local Supabase stack and record the result.

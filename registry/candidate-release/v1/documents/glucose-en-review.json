@@ -9,7 +9,7 @@
   "rawRows": [
     { "rawLabel": "Glucose", "rawUnit": "mmol/L", "rawValueText": "5.6", "valueKind": "numeric" },
     { "rawLabel": "Glucose", "rawUnit": "mg/dL", "rawValueText": "92", "valueKind": "numeric" },
-    { "rawLabel": "Urine glucose", "rawUnit": null, "rawValueText": "Positive", "valueKind": "qualitative" },
+    { "rawLabel": "Urine glucose", "rawUnit": null, "rawValueText": "Positive", "valueKind": "qualitative", "method": "dipstick" },
     { "rawLabel": "Fasting glucose", "rawUnit": "mmol/L", "rawValueText": "4.8", "valueKind": "numeric" },
     { "rawLabel": "Post-prandial glucose", "rawUnit": "mmol/L", "rawValueText": "6.9", "valueKind": "numeric" },
     { "rawLabel": "Glucose", "rawUnit": "mmol/L", "rawValueText": "5.1", "valueKind": "numeric" },

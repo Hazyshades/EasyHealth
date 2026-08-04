@@ -1,6 +1,6 @@
 # EH-114: Glucose specimen and timing identities
 
-**Roadmap status:** Implementation complete; manual QA and local database execution are pending
+**Roadmap status:** Automated verification complete; manual QA is pending
 **Build / environment:** `________`
 **Test run date:** `________`
 **Tester:** `________`
@@ -111,39 +111,35 @@ duplicate result or silently change specimen or timing.
   plasma, whole-blood, fasting, post-prandial, and urine-dipstick resolution;
   missing timing/specimen, conflicting modifiers, incompatible units, numeric
   conversion availability, and absence of a urine assessment binding.
-- [x] **Release owner and assessment owner:** Authorization bundle
-  `019fae7b-02ca-7000-bf2a-6a2fa2e052ec` approved the hash-bound registry
-  safety review, release gate, ALT manual correction, and
-  serum/plasma/whole-blood/fasting glucose score-affecting bindings for
-  candidate input `d10b6c0b2e7b3fe2451bc47fcd2c1c081709147f10b778b7557f559787649a25`.
-- [x] **Engineering:** `pnpm test:registry-v2-candidate-corpus` and
-  `pnpm check:registry-v2-candidate-corpus` passed: 52 rows, all expected
-  classifications, zero false-concrete resolutions, and a launchable manifest.
+- [x] **Project owner:** Explicitly re-approved the registry-safety,
+  release-gate, and score-affecting-binding approvals for exact candidate input
+  `32696937f0c95cc258514e45909ee0f0d5357b3dc2e048784116f5a0f2e81d6d`.
+- [x] **Engineering:** `corepack pnpm test:registry-v2-candidate-corpus` and
+  `corepack pnpm check:registry-v2-candidate-corpus` passed: 52 rows, all
+  thresholds passed, zero false-concrete resolutions, and a launchable manifest.
 - [x] **Engineering:** `pnpm test:biomarkers`, `pnpm verify:registry`,
   `pnpm typecheck`, and `openspec validate eh-114-cover-glucose-specimen-timing
   --strict` passed. `verify:registry` used non-secret placeholder environment
   values because its runtime import validates environment configuration.
-- [ ] **Database owner:** `pnpm test:eh114-db` exercises the v2 writer with
-  synthetic post-prandial plasma, qualitative urine-dipstick, and missing-timing
-  glucose inputs. It must pass on a disposable local or CI Supabase stack
-  before database execution is marked complete.
+- [x] **Database owner:** `corepack pnpm test:eh114-db` passed on 2026-08-03
+  after `supabase db reset --local`. It exercises the v2 writer with synthetic
+  post-prandial plasma, qualitative urine-dipstick, and missing-timing glucose
+  inputs; the test transaction rolls back.
 
-## Local verification record (2026-07-30)
+## Local verification record (2026-07-30 and 2026-08-03)
 
 - [x] `corepack pnpm test:biomarkers` and `corepack pnpm test:measurement-registry` passed.
 - [x] `corepack pnpm typecheck` passed.
 - [x] `openspec validate eh-114-cover-glucose-specimen-timing --strict` passed.
-- [x] Candidate report resolves all 52 expected rows with 100% raw, recognition,
-  expected-classification, alias, and unit coverage; it reports zero false
-  concrete resolutions and zero processing errors.
+- [x] Project-owner authorization was recorded for rebased candidate input
+  `32696937f0c95cc258514e45909ee0f0d5357b3dc2e048784116f5a0f2e81d6d`.
 - [x] `corepack pnpm test:registry-v2-candidate-corpus` and
-  `corepack pnpm check:registry-v2-candidate-corpus` passed with no approval
-  errors and a launchable 52-row manifest.
+  `corepack pnpm check:registry-v2-candidate-corpus` passed with a launchable
+  52-row manifest and zero approval errors.
 - [x] `corepack pnpm verify:registry` passed with non-secret placeholder
   environment values.
-- [ ] `corepack pnpm test:eh114-db` could not execute: this workspace exposes
-  the local database port, but the Supabase test runner cannot access Docker
-  Desktop and no `psql` client is installed for direct pgTAP execution.
+- [x] `corepack pnpm test:eh114-db` passed against the disposable local
+  Supabase stack after `supabase db reset --local` (7 pgTAP assertions).
 
 ## Out of scope or not manually testable yet
 

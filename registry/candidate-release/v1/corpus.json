@@ -74,6 +74,7 @@
       "rawValueText": "Positive",
       "valueKind": "qualitative",
       "specimen": "urine",
+      "method": "dipstick",
       "expected": {
         "classification": "resolved",
         "measurementDefinitionKey": "glucose_urine_dipstick"

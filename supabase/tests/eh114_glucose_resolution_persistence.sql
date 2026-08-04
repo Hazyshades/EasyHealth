@@ -53,7 +53,7 @@ language sql
 immutable
 as $$
   select jsonb_build_object(
-    'input_evidence_hash', 'eh114-test-evidence',
+    'input_evidence_hash', repeat('e', 64),
     'measurement_definition_key', p_measurement_definition_key,
     'analyte_key', p_analyte_key,
     'resolver_result', p_result,
@@ -62,10 +62,32 @@ as $$
     'resolver_evidence', '[]'::jsonb,
     'normalized_unit', p_normalized_unit,
     'unit_dimension', p_unit_dimension,
-    'catalog_manifest_version', '2026-07-30.0',
+    'catalog_manifest_version', '2026-08-03.0',
     'catalog_manifest_digest', 'eh114-test-digest',
-    'resolver_version', '6',
-    'normalization_version', '4'
+    'resolver_version', '8',
+    'normalization_version', '5',
+    'resolver_trace_schema_version', '1',
+    'resolver_decision_trace', jsonb_build_object(
+      'schemaVersion', '1',
+      'outcome', p_result,
+      'decisionKind', case when p_result = 'resolved' then 'single_reviewed_candidate' else 'recognized_incomplete' end,
+      'inputEvidenceHash', repeat('e', 64),
+      'catalogManifestVersion', '2026-08-03.0',
+      'catalogManifestDigest', 'eh114-test-digest',
+      'resolverVersion', '8',
+      'winningCandidateKey', case when p_result = 'resolved' then p_measurement_definition_key else null end,
+      'candidates', jsonb_build_array(jsonb_build_object(
+        'candidateKey', coalesce(p_measurement_definition_key, 'fasting_glucose'),
+        'maturity', 'reviewed',
+        'score', case when p_result = 'resolved' then 1.0 else null end,
+        'accepted', '[]'::jsonb,
+        'rejected', '[]'::jsonb,
+        'missingAxes', case when p_result = 'partial' then jsonb_build_array('modifier', 'timing') else '[]'::jsonb end,
+        'conflicts', '[]'::jsonb
+      )),
+      'missingAxes', case when p_result = 'partial' then jsonb_build_array('modifier', 'timing') else '[]'::jsonb end,
+      'conflicts', '[]'::jsonb
+    )
   );
 $$;
 
@@ -139,7 +161,7 @@ select ok(
     where source_extracted_biomarker_id = '00000000-0000-0000-0000-000000011422'
       and measurement_definition_key = 'glucose_urine_dipstick'
       and value_kind = 'qualitative'
-      and unit is null
+      and unit = ''
       and specimen = 'urine'
   ),
   'urine dipstick persistence remains qualitative and unitless'
@@ -165,9 +187,9 @@ select lives_ok(
 select ok(
   exists (
     select 1
-    from public.observations
-    where source_extracted_biomarker_id = '00000000-0000-0000-0000-000000011423'
-      and resolution_status = 'partial'
+    from public.observation_normalization_revisions
+    where extracted_biomarker_id = '00000000-0000-0000-0000-000000011423'
+      and resolver_result = 'partial'
       and measurement_definition_key is null
       and analyte_key is null
       and verification_status = 'pending'
