@@ -91,16 +91,39 @@
 - [ ] Run the populated-data preflight after EH-106 writer cutover and choose
   the approved persistent abort or explicitly disposable reset path; do not use
   `NOT VALID` as a staging mechanism.
+  - [ ] 7.1.a Prepare the target environment, entry criteria, and rollback decision.
+  - [ ] 7.1.b Execute the stated operation within the declared safety gates.
+  - [ ] 7.1.c Capture attributable smoke, negative-case, and completion evidence.
+
 - [ ] Enable INSERT and UPDATE actor/timestamp and verified-cross-axis guards,
   including the trusted Registry reviewed-maturity guard.
+  - [ ] 7.2.a Identify scope, prerequisites, owners, and measurable acceptance evidence.
+  - [ ] 7.2.b Execute the stated action through its approved boundary.
+  - [ ] 7.2.c Verify expected and failure behavior and record attributable evidence.
+
 - [ ] Add the final extracted resolver-result constraint after preflight proves
   compatible writers and retained data use the four-value domain.
+  - [ ] 7.3.a Define inputs, state transitions, authorization, and invariant boundaries.
+  - [ ] 7.3.b Implement the stated operation only at its designated authority boundary.
+  - [ ] 7.3.c Exercise focused success and failure cases and capture evidence.
+
 - [ ] Replace the standalone observation-to-revision FK with the full composite
   FK and `MATCH FULL` relation after no writer can commit a half-linked row.
+  - [ ] 7.4.a Map affected callers, data, compatibility constraints, and rollback boundary.
+  - [ ] 7.4.b Apply the stated cutover consistently to every in-scope path.
+  - [ ] 7.4.c Verify no legacy path or invalid state remains and record evidence.
+
 - [ ] Make revisions append-only, implement the controlled purge workflow, and
   add its direct-delete and purge fixtures.
+  - [ ] 7.5.a Identify scope, prerequisites, owners, and measurable acceptance evidence.
+  - [ ] 7.5.b Execute the stated action through its approved boundary.
+  - [ ] 7.5.c Verify expected and failure behavior and record attributable evidence.
+
 - [ ] Remove the legacy promotion RPC only after every acceptance and correction
   writer uses v2.
+  - [ ] 7.6.a Map affected callers, data, compatibility constraints, and rollback boundary.
+  - [ ] 7.6.b Apply the stated cutover consistently to every in-scope path.
+  - [ ] 7.6.c Verify no legacy path or invalid state remains and record evidence.
 
 ## 8. Validate
 
