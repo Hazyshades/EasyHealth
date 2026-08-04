@@ -1,9 +1,9 @@
 # EH-113: CBC launch catalog special cases
 
-**Roadmap status:** In progress
-**Build / environment:** `________`
-**Test run date:** `________`
-**Tester:** `________`
+**Roadmap status:** Done
+**Build / environment:** `master@5b1c08b` (PR #98) + launchable candidate after `3bec46b` (PR #99)
+**Test run date:** `2026-08-03` (EH-113 verification) / `2026-08-04` (release-gate recheck)
+**Tester:** Developer evidence only; manual UI checks remain unexecuted
 
 ## What this checklist covers
 
