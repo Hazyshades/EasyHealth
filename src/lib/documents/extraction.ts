@@ -38,6 +38,7 @@ export type PipelineBiomarker = {
   confidence: number | null;
   specimen: string;
   modifier: string;
+  method: string | null;
   reported_alt_value: number | null;
   reported_alt_unit: string | null;
 };
@@ -67,6 +68,7 @@ Shape:
       "confidence": number,
       "specimen": "serum" | "plasma" | "urine" | "whole_blood" | null,
       "modifier": string | null,
+      "method": "automated" | "manual" | null,
       "reported_alt_value": number | null,
       "reported_alt_unit": string | null
     }
@@ -80,6 +82,7 @@ Rules:
 - For qualitative results, put the text in "value" as a string (e.g. "Negative", "2+").
 - For quantitative results, put a number in "value".
 - If dual units are printed (e.g. 90 mg/dL / 5.0 mmol/L), store primary in value/unit and alternate in reported_alt_value/reported_alt_unit.
+- For CBC differentials, emit method only when the report explicitly states automated or manual; do not infer it from the analyte label.
 - EXCLUDE vital signs (blood pressure, pulse, respirations, temperature, SpO2).
 - EXCLUDE physical examination measurements and narrative clinical notes.
 - If the document is clearly not a laboratory report, return an empty biomarkers array.
@@ -140,6 +143,7 @@ function parsePipelineExtraction(raw: unknown): PipelineExtractionResult {
             : 0.85,
         specimen,
         modifier,
+        method: typeof row.method === "string" && ["automated", "manual"].includes(row.method.trim().toLowerCase()) ? row.method.trim().toLowerCase() : null,
         reported_alt_value:
           typeof row.reported_alt_value === "number" ? row.reported_alt_value : null,
         reported_alt_unit:
@@ -177,6 +181,7 @@ function parsePipelineExtraction(raw: unknown): PipelineExtractionResult {
           : 0.85,
       specimen,
       modifier,
+      method: typeof row.method === "string" && ["automated", "manual"].includes(row.method.trim().toLowerCase()) ? row.method.trim().toLowerCase() : null,
       reported_alt_value:
         typeof row.reported_alt_value === "number" ? row.reported_alt_value : null,
       reported_alt_unit:

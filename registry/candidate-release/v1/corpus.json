@@ -4,7 +4,7 @@
     "id": "registry-v2-launch-corpus-2026-07-20",
     "registryRelease": "registry-2.0-candidate"
   },
-  "requiredRowCount": 44,
+  "requiredRowCount": 52,
   "rows": [
     {
       "id": "total-protein",
@@ -15,7 +15,9 @@
       "rawUnit": "g/L",
       "rawValueText": "67",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "glucose",
@@ -33,6 +35,119 @@
       }
     },
     {
+      "id": "glucose-plasma",
+      "documentId": "glucose-en-review",
+      "panel": "biochemistry",
+      "family": "glucose",
+      "rawLabel": "Glucose",
+      "rawUnit": "mmol/L",
+      "rawValueText": "5.6",
+      "valueKind": "numeric",
+      "specimen": "plasma",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "glucose_plasma"
+      }
+    },
+    {
+      "id": "glucose-whole-blood",
+      "documentId": "glucose-en-review",
+      "panel": "biochemistry",
+      "family": "glucose",
+      "rawLabel": "Glucose",
+      "rawUnit": "mg/dL",
+      "rawValueText": "92",
+      "valueKind": "numeric",
+      "specimen": "whole_blood",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "glucose_whole_blood"
+      }
+    },
+    {
+      "id": "glucose-urine-dipstick",
+      "documentId": "glucose-en-review",
+      "panel": "biochemistry",
+      "family": "glucose",
+      "rawLabel": "Urine glucose",
+      "rawUnit": null,
+      "rawValueText": "Positive",
+      "valueKind": "qualitative",
+      "specimen": "urine",
+      "method": "dipstick",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "glucose_urine_dipstick"
+      }
+    },
+    {
+      "id": "glucose-fasting",
+      "documentId": "glucose-en-review",
+      "panel": "biochemistry",
+      "family": "glucose",
+      "rawLabel": "Fasting glucose",
+      "rawUnit": "mmol/L",
+      "rawValueText": "4.8",
+      "valueKind": "numeric",
+      "specimen": "plasma",
+      "modifier": "fasting",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "fasting_glucose"
+      }
+    },
+    {
+      "id": "glucose-post-prandial",
+      "documentId": "glucose-en-review",
+      "panel": "biochemistry",
+      "family": "glucose",
+      "rawLabel": "Post-prandial glucose",
+      "rawUnit": "mmol/L",
+      "rawValueText": "6.9",
+      "valueKind": "numeric",
+      "specimen": "plasma",
+      "modifier": "post_prandial",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "post_prandial_glucose_plasma"
+      }
+    },
+    {
+      "id": "glucose-missing-specimen",
+      "documentId": "glucose-en-review",
+      "panel": "biochemistry",
+      "family": "glucose",
+      "rawLabel": "Glucose",
+      "rawUnit": "mmol/L",
+      "rawValueText": "5.1",
+      "valueKind": "numeric",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "glucose-fasting-missing-timing",
+      "documentId": "glucose-en-review",
+      "panel": "biochemistry",
+      "family": "glucose",
+      "rawLabel": "Fasting glucose",
+      "rawUnit": "mmol/L",
+      "rawValueText": "4.7",
+      "valueKind": "numeric",
+      "specimen": "plasma",
+      "expected": { "classification": "partial" }
+    },
+    {
+      "id": "glucose-incompatible-unit",
+      "documentId": "glucose-en-review",
+      "panel": "biochemistry",
+      "family": "glucose",
+      "rawLabel": "Glucose",
+      "rawUnit": "%",
+      "rawValueText": "5.0",
+      "valueKind": "numeric",
+      "specimen": "serum",
+      "expected": { "classification": "partial" }
+    },
+    {
       "id": "total-bilirubin",
       "documentId": "chemistry-en-west",
       "panel": "biochemistry",
@@ -41,7 +156,9 @@
       "rawUnit": "umol/L",
       "rawValueText": "11",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "direct-bilirubin",
@@ -52,7 +169,9 @@
       "rawUnit": "umol/L",
       "rawValueText": "2",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "alt",
@@ -81,7 +200,9 @@
       "rawUnit": "U/L",
       "rawValueText": "20",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "crp",
@@ -92,7 +213,9 @@
       "rawUnit": "mg/L",
       "rawValueText": "1.2",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "aso",
@@ -103,7 +226,9 @@
       "rawUnit": "IU/mL",
       "rawValueText": "86",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "rbc",
@@ -114,7 +239,9 @@
       "rawUnit": "x10^12/L",
       "rawValueText": "4.8",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "hgb",
@@ -125,7 +252,9 @@
       "rawUnit": "g/L",
       "rawValueText": "142",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "hct",
@@ -136,7 +265,9 @@
       "rawUnit": "%",
       "rawValueText": "41",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "mcv",
@@ -147,7 +278,9 @@
       "rawUnit": "fL",
       "rawValueText": "89",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "mch",
@@ -158,7 +291,9 @@
       "rawUnit": "pg",
       "rawValueText": "31",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "mchc",
@@ -169,7 +304,9 @@
       "rawUnit": "g/L",
       "rawValueText": "342",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "rdw",
@@ -180,7 +317,9 @@
       "rawUnit": "%",
       "rawValueText": "13.1",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "plt",
@@ -191,7 +330,9 @@
       "rawUnit": "x10^9/L",
       "rawValueText": "245",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "mpv",
@@ -202,7 +343,9 @@
       "rawUnit": "fL",
       "rawValueText": "9.8",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "pdw",
@@ -213,7 +356,9 @@
       "rawUnit": "%",
       "rawValueText": "15.6",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "pct",
@@ -224,7 +369,9 @@
       "rawUnit": "%",
       "rawValueText": "0.24",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "wbc",
@@ -235,7 +382,9 @@
       "rawUnit": "x10^9/L",
       "rawValueText": "6.1",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "neu-percent",
@@ -246,7 +395,9 @@
       "rawUnit": "%",
       "rawValueText": "54",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "neu-abs",
@@ -257,7 +408,9 @@
       "rawUnit": "x10^9/L",
       "rawValueText": "3.3",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "lymf-percent",
@@ -268,7 +421,9 @@
       "rawUnit": "%",
       "rawValueText": "34",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "lymf-abs",
@@ -279,7 +434,9 @@
       "rawUnit": "x10^9/L",
       "rawValueText": "2.1",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "mon-percent",
@@ -290,7 +447,9 @@
       "rawUnit": "%",
       "rawValueText": "7",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "mon-abs",
@@ -301,7 +460,9 @@
       "rawUnit": "x10^9/L",
       "rawValueText": "0.4",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "eos-percent",
@@ -312,7 +473,9 @@
       "rawUnit": "%",
       "rawValueText": "3",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "eos-abs",
@@ -323,7 +486,9 @@
       "rawUnit": "x10^9/L",
       "rawValueText": "0.2",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "bas-percent",
@@ -334,7 +499,9 @@
       "rawUnit": "%",
       "rawValueText": "1",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "bas-abs",
@@ -345,7 +512,9 @@
       "rawUnit": "x10^9/L",
       "rawValueText": "0.1",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "esr",
@@ -356,7 +525,9 @@
       "rawUnit": "mm/hour",
       "rawValueText": "8",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "segmented",
@@ -367,7 +538,9 @@
       "rawUnit": "%",
       "rawValueText": "49",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "band",
@@ -382,7 +555,8 @@
       "expected": {
         "classification": "resolved",
         "measurementDefinitionKey": "band_neutrophils_percent"
-      }
+      },
+      "method": "manual"
     },
     {
       "id": "lymph-manual",
@@ -393,7 +567,9 @@
       "rawUnit": "%",
       "rawValueText": "33",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "mon-manual",
@@ -404,7 +580,9 @@
       "rawUnit": "%",
       "rawValueText": "7",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "eos-manual",
@@ -415,7 +593,9 @@
       "rawUnit": "%",
       "rawValueText": "3",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "giardia",
@@ -426,7 +606,9 @@
       "rawUnit": "positivity coefficient",
       "rawValueText": "0.4",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "ascaris",
@@ -437,7 +619,9 @@
       "rawUnit": "titer",
       "rawValueText": "negative",
       "valueKind": "qualitative",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "toxocara",
@@ -448,7 +632,9 @@
       "rawUnit": null,
       "rawValueText": "negative",
       "valueKind": "qualitative",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "opisthorchis",
@@ -459,7 +645,9 @@
       "rawUnit": null,
       "rawValueText": "negative",
       "valueKind": "qualitative",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "echinococcus",
@@ -470,7 +658,9 @@
       "rawUnit": null,
       "rawValueText": "negative",
       "valueKind": "qualitative",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "trichinella",
@@ -481,7 +671,9 @@
       "rawUnit": null,
       "rawValueText": "negative",
       "valueKind": "qualitative",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "total-ige",
@@ -492,7 +684,9 @@
       "rawUnit": "IU/mL",
       "rawValueText": "39",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "ecp",
@@ -503,7 +697,9 @@
       "rawUnit": "ng/mL",
       "rawValueText": "11",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     }
   ]
 }

@@ -2,8 +2,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   MEASUREMENT_CATALOG_MANIFEST_DIGEST,
+  buildPersistedResolverDecisionTrace,
+  isPersistedResolverDecisionTrace,
   MEASUREMENT_DEFINITIONS,
+  classifyMeasurementDefinitionChange,
   digestMeasurementRegistryManifest,
+  getMeasurementConversionPolicy,
+  getMeasurementDefinition,
+  findAliasAdmissions,
   normalizeMeasurementUnit,
   resolveMeasurementDefinition,
   serializeMeasurementRegistryManifest,
@@ -21,6 +27,40 @@ assert.match(readFileSync("supabase/migrations/025_registry_v2_hard_cutover.sql"
 assert.equal(digestMeasurementRegistryManifest([...MEASUREMENT_DEFINITIONS].reverse()), MEASUREMENT_CATALOG_MANIFEST_DIGEST);
 assert.ok(serializeMeasurementRegistryManifest(MEASUREMENT_DEFINITIONS).includes("assessmentBindings"));
 assert.deepEqual(normalizeMeasurementUnit("U/L"), { raw: "U/L", normalizedUnit: "u/l", dimension: "catalytic_activity_concentration" });
+assert.ok(serializeMeasurementRegistryManifest(MEASUREMENT_DEFINITIONS).includes("matchAuthority"));
+assert.ok(MEASUREMENT_DEFINITIONS.every((definition) =>
+  definition.aliases.every((alias) => alias.key && alias.measurementDefinitionKey === definition.key && alias.provenance.sourceRecordKey)
+));
+assert.ok(findAliasAdmissions({ rawLabel: "Glucose", laboratory: null }).some(({ alias }) => alias.matchAuthority === "reviewed_resolution"));
+const glucose = MEASUREMENT_DEFINITIONS.find((definition) => definition.key === "glucose_serum")!;
+const deprecatedGlucose = { ...glucose, aliases: glucose.aliases.map((alias) => ({ ...alias, lifecycle: "deprecated" as const })) };
+assert.equal(validateMeasurementRegistry([deprecatedGlucose]).valid, true);
+assert.equal(resolveMeasurementDefinition({ rawLabel: "Not a known laboratory marker" }).candidateEvidence.length, 0);
+assert.equal(classifyMeasurementDefinitionChange(glucose, deprecatedGlucose).classification, "breaking");
+const fuzzyDefinition = {
+  ...glucose,
+  aliases: [{
+    ...glucose.aliases[0]!,
+    key: "test:fuzzy",
+    value: "Glucose",
+    normalizedValue: "glucose",
+    matchType: "bounded_fuzzy" as const,
+    maxNormalizedEditDistance: 1 as const,
+  }],
+};
+assert.equal(findAliasAdmissions({ rawLabel: "Glocose", laboratory: null }, [fuzzyDefinition]).length, 1);
+assert.equal(findAliasAdmissions({ rawLabel: "Gloxxse", laboratory: null }, [fuzzyDefinition]).length, 0);
+const scopedDefinition = {
+  ...glucose,
+  aliases: [{ ...glucose.aliases[0]!, key: "test:scoped", laboratory: "lab-a" }],
+};
+assert.equal(findAliasAdmissions({ rawLabel: "Glucose", laboratory: "lab-b" }, [scopedDefinition]).length, 0);
+assert.equal(findAliasAdmissions({ rawLabel: "Glucose", laboratory: null }, [deprecatedGlucose]).length, 0);
+const invalidFuzzy = {
+  ...fuzzyDefinition,
+  aliases: [{ ...fuzzyDefinition.aliases[0]!, key: "test:invalid-fuzzy", matchAuthority: "recognition_only" as const }],
+};
+assert.equal(validateMeasurementRegistry([invalidFuzzy]).valid, false);
 
 for (const enzyme of ["alt", "ast", "alp", "ggt"] as const) {
   const resolved = resolveMeasurementDefinition({ rawLabel: enzyme, rawUnit: "U/L", specimen: "serum", valueKind: "numeric" });
@@ -30,7 +70,8 @@ for (const enzyme of ["alt", "ast", "alp", "ggt"] as const) {
 
 const altPartial = resolveMeasurementDefinition({ rawLabel: "ALT (alanine aminotransferase)", rawUnit: "U/L", valueKind: "numeric" });
 assert.equal(altPartial.result, "partial");
-assert.equal(altPartial.analyteKey, null, "incomplete evidence must not infer a concrete analyte identity");
+assert.equal(altPartial.analyteKey, "alt", "recognized incomplete evidence preserves analyte-level identity without selecting a concrete definition");
+assert.equal(altPartial.measurementDefinitionKey, null, "incomplete evidence must not infer a concrete measurement definition");
 assert.ok(altPartial.missingAxes.includes("specimen"));
 assert.equal(acceptancePathForResolution(altPartial), "raw");
 
@@ -46,6 +87,134 @@ assert.ok(fastingWithoutModifier.missingAxes.includes("modifier"));
 const glucoseWithoutSpecimen = resolveMeasurementDefinition({ rawLabel: "Glucose", rawUnit: "mmol/L", valueKind: "numeric" });
 assert.equal(glucoseWithoutSpecimen.result, "partial");
 assert.ok(glucoseWithoutSpecimen.missingAxes.includes("specimen"));
+
+const typedLaunchRows = [
+  ["Total protein", "g/L", "numeric", "total_protein"],
+  ["Direct bilirubin", "umol/L", "numeric", "direct_bilirubin"],
+  ["Antistreptolysin-O (ASO)", "IU/mL", "numeric", "aso"],
+  ["ESR, Westergren automated", "mm/hour", "numeric", "esr"],
+  ["Giardia antibodies, total", "positivity coefficient", "numeric", "giardia_antibodies_total"],
+  ["Ascaris IgG antibodies", "titer", "qualitative", "ascaris_igg"],
+  ["Total IgE", "IU/mL", "numeric", "total_ige"],
+  ["Eosinophilic cationic protein (ECP)", "ng/mL", "numeric", "eosinophilic_cationic_protein"],
+] as const;
+for (const [rawLabel, rawUnit, valueKind, analyteKey] of typedLaunchRows) {
+  const resolution = resolveMeasurementDefinition({ rawLabel, rawUnit, valueKind });
+  assert.equal(resolution.result, "partial", `${rawLabel} must remain provisional`);
+  assert.equal(resolution.analyteKey, analyteKey);
+  assert.equal(resolution.measurementDefinitionKey, null);
+  assert.ok(resolution.reasons.includes("unit_compatible"), `${rawLabel} must accept its source unit`);
+  assert.ok(!resolution.conflicts.some((conflict) => conflict.startsWith("unit_")));
+}
+for (const [rawLabel, analyteKey] of [
+  ["anti-Toxocara IgG, qualitative ELISA", "toxocara_igg"],
+  ["anti-Opisthorchis felineus IgG, qualitative ELISA", "opisthorchis_felineus_igg"],
+  ["anti-Echinococcus IgG, qualitative ELISA", "echinococcus_igg"],
+  ["anti-Trichinella sp. IgG, qualitative ELISA", "trichinella_igg"],
+] as const) {
+  const resolution = resolveMeasurementDefinition({ rawLabel, rawUnit: null, valueKind: "qualitative" });
+  assert.equal(resolution.result, "partial");
+  assert.equal(resolution.analyteKey, analyteKey);
+  assert.equal(resolution.measurementDefinitionKey, null);
+}
+for (const key of ["total_protein_unspecified", "direct_bilirubin_unspecified", "aso_unspecified", "esr_westergren_automated", "giardia_antibodies_total", "ascaris_igg", "toxocara_igg", "opisthorchis_felineus_igg", "echinococcus_igg", "trichinella_igg", "total_ige_unspecified", "ecp_unspecified"]) {
+  assert.equal(getMeasurementDefinition(key)?.maturity, "provisional");
+  assert.deepEqual(getMeasurementDefinition(key)?.assessmentBindings, []);
+  assert.equal(getMeasurementConversionPolicy(key), null);
+}
+for (const [rawLabel, rawUnit] of [
+  ["Total bilirubin", "umol/L"],
+  ["ALT (alanine aminotransferase)", "U/L"],
+  ["AST (aspartate aminotransferase)", "U/L"],
+  ["C-reactive protein, quantitative", "mg/L"],
+] as const) {
+  const resolution = resolveMeasurementDefinition({ rawLabel, rawUnit, valueKind: "numeric" });
+  assert.equal(resolution.result, "partial");
+  assert.ok(!resolution.conflicts.includes("unit_not_accepted"), `${rawLabel} must not retain a shadow fixture conflict`);
+}
+const glucoseVariants = [
+  [{ rawLabel: "Glucose", rawUnit: "mg/dL", specimen: "serum", valueKind: "numeric" }, "glucose_serum"],
+  [{ rawLabel: "Glucose", rawUnit: "mmol/L", specimen: "plasma", valueKind: "numeric" }, "glucose_plasma"],
+  [{ rawLabel: "Glucose", rawUnit: "mg/dL", specimen: "whole_blood", valueKind: "numeric" }, "glucose_whole_blood"],
+  [{ rawLabel: "FPG", rawUnit: "mmol/L", specimen: "plasma", modifier: "fasting", valueKind: "numeric" }, "fasting_glucose"],
+  [{ rawLabel: "PPG", rawUnit: "mmol/L", specimen: "plasma", modifier: "postprandial", valueKind: "numeric" }, "post_prandial_glucose_plasma"],
+  [{ rawLabel: "Urine glucose", rawUnit: null, specimen: "urine", method: "dipstick", valueKind: "qualitative" }, "glucose_urine_dipstick"],
+] as const;
+for (const [input, key] of glucoseVariants) {
+  const resolved = resolveMeasurementDefinition(input);
+  assert.equal(resolved.result, "resolved", `${key} requires explicit compatible evidence`);
+  assert.equal(resolved.measurementDefinitionKey, key);
+}
+
+const postPrandialWithoutModifier = resolveMeasurementDefinition({ rawLabel: "PPG", rawUnit: "mmol/L", specimen: "plasma", valueKind: "numeric" });
+assert.equal(postPrandialWithoutModifier.result, "partial");
+assert.ok(postPrandialWithoutModifier.missingAxes.includes("timing"));
+const conflictingPostPrandial = resolveMeasurementDefinition({ rawLabel: "PPG", rawUnit: "mmol/L", specimen: "plasma", modifier: "fasting", valueKind: "numeric" });
+assert.equal(conflictingPostPrandial.result, "partial");
+assert.ok(conflictingPostPrandial.conflicts.includes("modifier_conflict"));
+const incompatibleGlucoseUnit = resolveMeasurementDefinition({ rawLabel: "Glucose", rawUnit: "%", specimen: "serum", valueKind: "numeric" });
+assert.equal(incompatibleGlucoseUnit.result, "partial");
+assert.ok(incompatibleGlucoseUnit.conflicts.includes("unit_dimension_conflict"));
+for (const key of ["glucose_serum", "glucose_plasma", "glucose_whole_blood", "fasting_glucose", "post_prandial_glucose_plasma"]) {
+  assert.ok(getMeasurementConversionPolicy(key), `${key} has the reviewed glucose conversion`);
+}
+assert.equal(getMeasurementConversionPolicy("glucose_urine_dipstick"), null);
+assert.deepEqual(getMeasurementDefinition("glucose_urine_dipstick")?.assessmentBindings, []);
 assert.deepEqual(decideAutomaticPromotion({ resolution: altPartial, mappingClassification: "compatibility_preserving", qualityGateApproved: true }), { allowed: false, reason: "resolver_not_resolved" });
+
+const traceOptions = {
+  inputEvidenceHash: "a".repeat(64),
+  catalogManifestVersion: "eh115-test",
+  catalogManifestDigest: "eh115-test-digest",
+  resolverVersion: "eh115-test",
+};
+const resolvedTrace = buildPersistedResolverDecisionTrace(
+  resolveMeasurementDefinition({ rawLabel: "ALT (alanine aminotransferase)", rawUnit: "U/L", specimen: "serum", valueKind: "numeric" }),
+  traceOptions
+);
+assert.equal(resolvedTrace.outcome, "resolved");
+assert.equal(resolvedTrace.decisionKind, "single_reviewed_candidate");
+assert.equal(resolvedTrace.winningCandidateKey, "alt_serum_catalytic_activity");
+assert.equal(JSON.stringify(resolvedTrace).includes("ALT (alanine aminotransferase)"), false);
+
+const ambiguousTrace = buildPersistedResolverDecisionTrace(
+  {
+    ...resolveMeasurementDefinition({
+      rawLabel: "ALT",
+      rawUnit: "U/L",
+      specimen: "serum",
+      valueKind: "numeric",
+    }),
+    result: "ambiguous",
+    measurementDefinitionKey: null,
+    analyteKey: null,
+  },
+  traceOptions
+);
+assert.equal(ambiguousTrace.outcome, "ambiguous");
+assert.equal(ambiguousTrace.decisionKind, "multiple_reviewed_candidates");
+assert.equal(isPersistedResolverDecisionTrace(ambiguousTrace), true);
+const nonCanonicalTrace = {
+  ...ambiguousTrace,
+  candidates: [...ambiguousTrace.candidates].reverse(),
+};
+assert.equal(isPersistedResolverDecisionTrace(nonCanonicalTrace), false);
+
+const manualBaseResolution = resolveMeasurementDefinition({
+  rawLabel: "ALT",
+  rawUnit: "U/L",
+  specimen: "serum",
+  valueKind: "numeric",
+});
+const manualResolution = {
+  ...manualBaseResolution,
+  candidateEvidence: manualBaseResolution.candidateEvidence.map((candidate) => ({
+    ...candidate,
+    accepted: [...candidate.accepted, { code: "manual_selection" as const, source: "manual" as const, strength: "strong" as const, score: 3 }],
+  })),
+};
+assert.equal(buildPersistedResolverDecisionTrace(manualResolution, traceOptions).decisionKind, "manual_selection");
+assert.equal(buildPersistedResolverDecisionTrace(altPartial, traceOptions).decisionKind, "recognized_incomplete");
+assert.equal(buildPersistedResolverDecisionTrace(resolveMeasurementDefinition({ rawLabel: "Patient secret 42" }), traceOptions).decisionKind, "no_matching_candidate");
 
 console.log("verify-measurement-registry: all checks passed");

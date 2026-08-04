@@ -10,6 +10,7 @@
     { "id": "chemistry-en-west", "fixture": "documents/chemistry-en-west.json" },
     { "id": "cbc-ru-north", "fixture": "documents/cbc-ru-north.json" },
     { "id": "specialty-en-central", "fixture": "documents/specialty-en-central.json" },
-    { "id": "specialty-ru-central", "fixture": "documents/specialty-ru-central.json" }
+    { "id": "specialty-ru-central", "fixture": "documents/specialty-ru-central.json" },
+    { "id": "glucose-en-review", "fixture": "documents/glucose-en-review.json" }
   ]
 }

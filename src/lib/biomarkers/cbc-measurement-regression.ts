@@ -287,14 +287,16 @@ export const CBC_MEASUREMENT_REGRESSION_FIXTURES: readonly CbcRegressionFixture[
     allowConcreteKey: true,
     forbiddenKeys: ["reticulocytes_percent"],
   }),
-  fixture("retic-bare-percent-unmapped", "reticulocytes", {
+  fixture("retic-bare-percent-resolved", "reticulocytes", {
     rawLabel: "Reticulocytes",
     rawUnit: "%",
     specimen: WHOLE_BLOOD,
     valueKind: "numeric",
   }, {
-    classification: "unmapped",
-    forbiddenKeys: ["reticulocytes_percent", "reticulocytes_abs"],
+    classification: "resolved",
+    measurementDefinitionKey: "reticulocytes_percent",
+    allowConcreteKey: true,
+    forbiddenKeys: ["reticulocytes_abs"],
   }),
 
   // ── red-cell exact sample labels ──
@@ -447,6 +449,7 @@ export const CBC_MEASUREMENT_REGRESSION_FIXTURES: readonly CbcRegressionFixture[
     rawLabel: "Band neutrophils",
     rawUnit: "%",
     specimen: WHOLE_BLOOD,
+    method: "manual",
     valueKind: "numeric",
   }, {
     classification: "resolved",
@@ -520,8 +523,10 @@ export const CBC_MEASUREMENT_REGRESSION_FIXTURES: readonly CbcRegressionFixture[
     specimen: WHOLE_BLOOD,
     valueKind: "numeric",
   }, {
-    classification: "partial",
-    forbiddenKeys: ["neutrophils_percent", "neutrophils_abs"],
+    classification: "resolved",
+    measurementDefinitionKey: "neutrophils_percent",
+    allowConcreteKey: true,
+    forbiddenKeys: ["neutrophils_abs"],
   }),
   fixture("units-rdw-volume-on-percent-label", "units", {
     rawLabel: "RDW",

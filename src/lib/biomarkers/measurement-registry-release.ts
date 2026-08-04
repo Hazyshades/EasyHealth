@@ -5,6 +5,7 @@ import {
   MEASUREMENT_NORMALIZATION_VERSION,
   MEASUREMENT_CATALOG_MANIFEST_VERSION,
   MEASUREMENT_RESOLVER_VERSION,
+  MEASUREMENT_COMPATIBILITY_POLICY_VERSION,
 } from "./measurement-resolution";
 import type { MeasurementDefinition } from "./types";
 
@@ -24,6 +25,7 @@ export type MeasurementCatalogManifestRelease = {
   catalogManifestVersion: string;
   resolverVersion: string;
   normalizationVersion: string;
+  compatibilityPolicyVersion: string;
   manifestDigest: string;
   changelog: string[];
   changedDefinitions: MeasurementRegistryChange[];
@@ -54,17 +56,10 @@ function manifestDefinition(definition: MeasurementDefinition) {
     timing: definition.timing,
     method: definition.method,
     valueKind: definition.valueKind,
-    aliases: definition.aliases.map((alias) => ({
-      value: alias.value,
-      normalizedValue: alias.normalizedValue,
-      source: alias.source,
-      matchType: alias.matchType,
-      locale: alias.locale ?? null,
-      laboratory: alias.laboratory ?? null,
-    })),
+    aliases: definition.aliases,
     unitPolicy: definition.unitPolicy,
-    allowedSpecimens: definition.allowedSpecimens ?? [],
     requiredModifiers: definition.requiredModifiers ?? [],
+    requiredMethods: definition.requiredMethods ?? [],
     assessmentBindings: definition.assessmentBindings,
   };
 }
@@ -73,7 +68,7 @@ export function serializeMeasurementRegistryManifest(
   definitions: readonly MeasurementDefinition[] = MEASUREMENT_DEFINITIONS
 ): string {
   return stableValue({
-    registryModel: "launch-catalog-v2",
+    registryModel: "launch-catalog-v2-alias-authority",
     analytes: ANALYTES,
     definitions: definitions.map(manifestDefinition),
   });
@@ -105,7 +100,6 @@ export function classifyMeasurementDefinitionChange(
     previous.valueKind !== next.valueKind ||
     stableValue(previous.assessmentBindings) !== stableValue(next.assessmentBindings) ||
     stableValue(previous.unitPolicy) !== stableValue(next.unitPolicy) ||
-    stableValue(previous.allowedSpecimens ?? []) !== stableValue(next.allowedSpecimens ?? []) ||
     stableValue(previous.requiredModifiers ?? []) !== stableValue(next.requiredModifiers ?? []);
   if (identityChanged) {
     return {
@@ -115,10 +109,24 @@ export function classifyMeasurementDefinitionChange(
     };
   }
   if (stableValue(previous.aliases) !== stableValue(next.aliases)) {
+    const previousReviewed = new Map(previous.aliases
+      .filter((alias) => alias.lifecycle === "active" && alias.matchAuthority === "reviewed_resolution")
+      .map((alias) => [alias.key, alias]));
+    const nextReviewed = new Map(next.aliases
+      .filter((alias) => alias.lifecycle === "active" && alias.matchAuthority === "reviewed_resolution")
+      .map((alias) => [alias.key, alias]));
+    const removedOrBroadened = [...previousReviewed.values()].some((alias) => {
+      const replacement = nextReviewed.get(alias.key);
+      return !replacement ||
+        replacement.value !== alias.value ||
+        replacement.matchType !== alias.matchType ||
+        replacement.laboratory !== alias.laboratory ||
+        replacement.matchAuthority !== alias.matchAuthority;
+    });
     return {
       definitionKey: next.key,
-      classification: "review_required",
-      reason: "Alias policy changed",
+      classification: removedOrBroadened ? "breaking" : "review_required",
+      reason: removedOrBroadened ? "Reviewed alias admission changed" : "Alias authority policy changed",
     };
   }
   return {
@@ -138,8 +146,9 @@ export function buildMeasurementCatalogManifestRelease(options?: {
     catalogManifestVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,
     resolverVersion: MEASUREMENT_RESOLVER_VERSION,
     normalizationVersion: MEASUREMENT_NORMALIZATION_VERSION,
+    compatibilityPolicyVersion: MEASUREMENT_COMPATIBILITY_POLICY_VERSION,
     manifestDigest: digestMeasurementRegistryManifest(),
-    changelog: options?.changelog ?? ["Registry 2.0 measurement governance baseline"],
+    changelog: options?.changelog ?? ["EH-111 clinical compatibility policy cutover"],
     changedDefinitions: MEASUREMENT_DEFINITIONS.map((definition) =>
       classifyMeasurementDefinitionChange(previousByKey.get(definition.key), definition)
     ),

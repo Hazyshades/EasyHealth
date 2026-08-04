@@ -32,15 +32,15 @@ const OLD_HINT = "observations_normalization_revision_fk";
 // Exact runtime select strings (kept in sync by scripts/verify-postgrest-embed-hints.ts).
 const CONSUMER_SELECTS: Record<string, string> = {
   "document-observations":
-    `id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, source_extracted_biomarker_id, source_instrumental_measure_id, normalization_revision:observation_normalization_revisions!${NEW_HINT}(resolver_result, verification_status, measurement_definition_key, is_active)`,
+    `id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, source_extracted_biomarker_id, source_instrumental_measure_id, normalization_revision:observation_normalization_revisions!${NEW_HINT}(resolver_result, verification_status, measurement_definition_key, is_active, resolver_evidence)`,
   biomarkers:
-    `id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, value_kind, value_text, ordinal, specimen, modifier, documents(id, original_filename), normalization_revision:observation_normalization_revisions!${NEW_HINT}(resolver_result, verification_status, measurement_definition_key, is_active)`,
+    `id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, value_kind, value_text, ordinal, specimen, modifier, documents(id, original_filename), normalization_revision:observation_normalization_revisions!${NEW_HINT}(resolver_result, verification_status, measurement_definition_key, is_active, resolver_evidence)`,
   "health-profile":
-    `measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier, normalization_revision:observation_normalization_revisions!${NEW_HINT}(resolver_result, measurement_definition_key, is_active)`,
+    `measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier, normalization_revision:observation_normalization_revisions!${NEW_HINT}(resolver_result, measurement_definition_key, is_active, resolver_evidence)`,
   reports:
-    `name, analyte_key, measurement_definition_key, resolution_status, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, observation_kind, documents(original_filename, observed_at), normalization_revision:observation_normalization_revisions!${NEW_HINT}(resolver_result, verification_status, measurement_definition_key, is_active)`,
+    `name, analyte_key, measurement_definition_key, resolution_status, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, observation_kind, documents(original_filename, observed_at), normalization_revision:observation_normalization_revisions!${NEW_HINT}(resolver_result, verification_status, measurement_definition_key, is_active, resolver_evidence)`,
   "structured-context":
-    `id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, document_id, documents(original_filename), normalization_revision:observation_normalization_revisions!${NEW_HINT}(resolver_result, verification_status, measurement_definition_key, is_active)`,
+    `id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, document_id, documents(original_filename), normalization_revision:observation_normalization_revisions!${NEW_HINT}(resolver_result, verification_status, measurement_definition_key, is_active, resolver_evidence)`,
 };
 
 const OLD_HINT_SELECT = `id, normalization_revision:observation_normalization_revisions!${OLD_HINT}(resolver_result, is_active)`;

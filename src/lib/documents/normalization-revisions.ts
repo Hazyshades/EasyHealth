@@ -4,6 +4,7 @@ import type {
   MeasurementResolution,
   MeasurementResolutionInput,
   VerificationActorType,
+  ResolverDecisionTrace,
   VerificationStatus,
 } from "@/lib/biomarkers";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -34,6 +35,7 @@ export type NormalizationRevision = {
   verification_actor_id: string | null;
   is_active: boolean;
   mapping_change_classification: MappingChangeClassification | null;
+  resolver_evidence: ResolverDecisionTrace;
 };
 
 /**
@@ -48,6 +50,7 @@ export function buildInputEvidenceHash(input: MeasurementResolutionInput): strin
         rawLabel: input.rawLabel,
         rawUnit: input.rawUnit ?? null,
         rawValueText: input.rawValueText ?? null,
+        valueKind: input.valueKind ?? null,
         specimen: input.specimen ?? null,
         modifier: input.modifier ?? null,
         section: input.section ?? null,
@@ -55,6 +58,9 @@ export function buildInputEvidenceHash(input: MeasurementResolutionInput): strin
         referenceLow: input.referenceLow ?? null,
         referenceHigh: input.referenceHigh ?? null,
         proposedKey: input.proposedKey ?? null,
+        timing: input.timing ?? null,
+        method: input.method ?? null,
+        laboratory: input.laboratory ?? null,
       })
     )
     .digest("hex");
@@ -67,7 +73,7 @@ export async function getActiveNormalizationRevision(
   const { data, error } = await supabase
     .from("observation_normalization_revisions")
     .select(
-      "id, extracted_biomarker_id, observation_id, measurement_definition_key, analyte_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, verification_decided_at, verification_actor_type, verification_actor_id, is_active, mapping_change_classification"
+      "id, extracted_biomarker_id, observation_id, measurement_definition_key, analyte_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, verification_decided_at, verification_actor_type, verification_actor_id, is_active, mapping_change_classification, resolver_evidence"
     )
     .eq("extracted_biomarker_id", extractedBiomarkerId)
     .eq("is_active", true)

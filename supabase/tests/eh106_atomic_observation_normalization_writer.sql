@@ -1,6 +1,6 @@
 begin;
 
-select plan(31);
+select plan(37);
 
 select ok(
   has_function_privilege(
@@ -29,16 +29,21 @@ select ok(
   'authenticated cannot execute the EH-106 atomic writer'
 );
 
-with function_definition as (
-  select lower(pg_get_functiondef(
-    'public.write_observation_normalization_revision_v2(uuid,jsonb,jsonb,text,uuid,text,uuid,text,text,uuid,uuid,text,boolean)'::regprocedure
-  )) as definition
+with function_definitions as (
+  select
+    lower(pg_get_functiondef(
+      'public.write_observation_normalization_revision_v2(uuid,jsonb,jsonb,text,uuid,text,uuid,text,text,uuid,uuid,text,boolean)'::regprocedure
+    )) as wrapper_definition,
+    lower(pg_get_functiondef(
+      'public.write_observation_normalization_revision_v2_legacy(uuid,jsonb,jsonb,text,uuid,text,uuid,text,text,uuid,uuid,text,boolean)'::regprocedure
+    )) as legacy_definition
 )
 select ok(
-  position('promote_observation_normalization_revision_v2' in definition) > 0,
+  position('write_observation_normalization_revision_v2_legacy' in wrapper_definition) > 0
+    and position('promote_observation_normalization_revision_v2' in legacy_definition) > 0,
   'atomic writer delegates promotion to the EH-104 v2 primitive'
 )
-from function_definition;
+from function_definitions;
 
 create function public.eh106_observation_payload(
   p_profile_id uuid,
@@ -77,13 +82,46 @@ language sql
 immutable
 as $$
   select jsonb_build_object(
-    'input_evidence_hash', 'eh106-test-evidence',
+    'input_evidence_hash', repeat('e', 64),
     'measurement_definition_key', p_measurement_definition_key,
     'analyte_key', p_analyte_key,
     'resolver_result', p_result,
     'mapping_confidence', 0.95,
     'mapping_confidence_band', 'high',
     'resolver_evidence', '[]'::jsonb,
+    'resolver_decision_trace', jsonb_build_object(
+      'schemaVersion', '1',
+      'outcome', p_result,
+      'decisionKind', case p_result
+        when 'resolved' then 'single_reviewed_candidate'
+        when 'ambiguous' then 'multiple_reviewed_candidates'
+        when 'partial' then 'recognized_incomplete'
+        else 'no_matching_candidate'
+      end,
+      'inputEvidenceHash', repeat('e', 64),
+      'catalogManifestVersion', 'eh106-test',
+      'catalogManifestDigest', 'eh106-test-digest',
+      'resolverVersion', 'eh106-test',
+      'winningCandidateKey', case
+        when p_result = 'resolved' then to_jsonb(p_measurement_definition_key)
+        else 'null'::jsonb
+      end,
+      'candidates', case
+        when p_result = 'resolved' then jsonb_build_array(jsonb_build_object(
+          'candidateKey', p_measurement_definition_key,
+          'maturity', 'reviewed',
+          'score', 1,
+          'accepted', '[]'::jsonb,
+          'rejected', '[]'::jsonb,
+          'missingAxes', '[]'::jsonb,
+          'conflicts', '[]'::jsonb
+        ))
+        else '[]'::jsonb
+      end,
+      'missingAxes', '[]'::jsonb,
+      'conflicts', '[]'::jsonb
+    ),
+    'resolver_trace_schema_version', '1',
     'normalized_unit', 'mg/dl',
     'unit_dimension', 'mass_concentration',
     'catalog_manifest_version', 'eh106-test',
@@ -315,7 +353,11 @@ select lives_ok(
         '00000000-0000-0000-0000-000000001071',
         'Manual correction'
       ),
-      public.eh106_resolution_payload('resolved', 'glucose_serum', 'glucose'),
+      jsonb_set(
+        public.eh106_resolution_payload('resolved', 'glucose_serum', 'glucose'),
+        '{resolver_decision_trace,decisionKind}',
+        '"manual_selection"'::jsonb
+      ),
       'correction',
       '00000000-0000-0000-0000-000000001062',
       repeat('c', 64),
@@ -565,6 +607,94 @@ select is(
   ),
   '00000000-0000-0000-0000-000000001062'::uuid,
   'idempotent v2 no-op preserves the original promotion actor'
+);
+
+select is(
+  (
+    select count(*)::bigint
+    from public.observation_normalization_revisions
+    where extracted_biomarker_id in (
+      '00000000-0000-0000-0000-000000001081',
+      '00000000-0000-0000-0000-000000001082',
+      '00000000-0000-0000-0000-000000001088',
+      '00000000-0000-0000-0000-000000001089'
+    )
+      and resolver_decision_trace is not null
+  ),
+  4::bigint,
+  'resolved, partial, ambiguous, and unmapped revisions persist traces'
+);
+
+select is(
+  (
+    select resolver_decision_trace ->> 'decisionKind'
+    from public.observation_normalization_revisions
+    where extracted_biomarker_id = '00000000-0000-0000-0000-000000001083'
+  ),
+  'manual_selection',
+  'manual correction persists its own decision trace'
+);
+
+select ok(
+  not exists (
+    select 1
+    from public.observation_normalization_revisions
+    where extracted_biomarker_id = '00000000-0000-0000-0000-000000001082'
+      and resolver_decision_trace::text like '%Partial acceptance%'
+  ),
+  'persisted trace omits raw source labels'
+);
+
+select throws_ok(
+  $$
+    update public.observation_normalization_revisions
+    set resolver_trace_schema_version = '2'
+    where extracted_biomarker_id = '00000000-0000-0000-0000-000000001081'
+  $$,
+  'P0001',
+  'resolver_decision_trace_immutable',
+  'persisted decision traces are immutable'
+);
+
+select throws_ok(
+  $$
+    select public.write_observation_normalization_revision_v2(
+      '00000000-0000-0000-0000-000000001084',
+      public.eh106_observation_payload(
+        '00000000-0000-0000-0000-000000001061',
+        '00000000-0000-0000-0000-000000001071',
+        'Unsafe trace'
+      ),
+      jsonb_set(
+        public.eh106_resolution_payload('resolved', 'glucose_serum', 'glucose'),
+        '{resolver_decision_trace,rawLabel}',
+        '"raw patient source text"'::jsonb
+      ),
+      'acceptance',
+      '00000000-0000-0000-0000-000000001062',
+      repeat('f', 64),
+      null,
+      'additive',
+      null,
+      null,
+      null,
+      'eh106-test',
+      true
+    )
+  $$,
+  'P0001',
+  'invalid_resolver_decision_trace',
+  'writer rejects privacy-unsafe trace data before writing'
+);
+
+select is(
+  (
+    select count(*)::bigint
+    from public.observation_normalization_revisions
+    where extracted_biomarker_id = '00000000-0000-0000-0000-000000001084'
+  ),
+  0::bigint,
+  'invalid trace leaves no revision behind'
 );
 
 select * from finish();

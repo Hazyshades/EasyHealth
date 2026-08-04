@@ -2,42 +2,72 @@
   "schemaVersion": "1",
   "approvals": [
     {
-      "id": "registry-safety-review-2026-07-20",
+      "id": "registry-safety-review-2026-07-30",
       "scope": "false_concrete_review",
       "role": "registry-safety-reviewer",
-      "approvedBy": "Registry Safety Reviewer",
+      "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "b4489a7cae9ab40cef27e308f1fe64fb45eca55cfe612d806a5c4370e0116b13",
-      "note": "Reviewed the negative fixtures and false-concrete-resolution report for this candidate input."
+      "candidateInputHash": "32696937f0c95cc258514e45909ee0f0d5357b3dc2e048784116f5a0f2e81d6d",
+      "note": "Re-approved by the Project Owner for the exact rebased candidate input after reviewing the negative fixtures and false-concrete-resolution report."
     },
     {
-      "id": "assessment-alt-review-2026-07-20",
+      "id": "assessment-alt-review-2026-07-30",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
-      "approvedBy": "Assessment Owner",
+      "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "b4489a7cae9ab40cef27e308f1fe64fb45eca55cfe612d806a5c4370e0116b13",
+      "candidateInputHash": "32696937f0c95cc258514e45909ee0f0d5357b3dc2e048784116f5a0f2e81d6d",
       "bindingKey": "alt_serum_catalytic_activity",
-      "note": "Approved the reviewed ALT serum manual-correction assessment binding for this candidate input."
+      "note": "Re-approved by the Project Owner for the exact rebased candidate input for the reviewed ALT serum manual-correction assessment binding."
     },
     {
-      "id": "assessment-glucose-review-2026-07-20",
+      "id": "assessment-glucose-serum-review-2026-07-30",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
-      "approvedBy": "Assessment Owner",
+      "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "b4489a7cae9ab40cef27e308f1fe64fb45eca55cfe612d806a5c4370e0116b13",
+      "candidateInputHash": "32696937f0c95cc258514e45909ee0f0d5357b3dc2e048784116f5a0f2e81d6d",
       "bindingKey": "glucose_serum",
-      "note": "Approved the reviewed glucose serum assessment binding for this candidate input."
+      "note": "Re-approved by the Project Owner for the exact rebased candidate input for the reviewed serum glucose assessment binding."
     },
     {
-      "id": "release-gate-2026-07-20",
+      "id": "assessment-glucose-plasma-review-2026-07-30",
+      "scope": "score_affecting_binding",
+      "role": "assessment-owner",
+      "approvedBy": "Project Owner",
+      "status": "approved",
+      "candidateInputHash": "32696937f0c95cc258514e45909ee0f0d5357b3dc2e048784116f5a0f2e81d6d",
+      "bindingKey": "glucose_plasma",
+      "note": "Re-approved by the Project Owner for the exact rebased candidate input for the reviewed plasma glucose assessment binding."
+    },
+    {
+      "id": "assessment-glucose-whole-blood-review-2026-07-30",
+      "scope": "score_affecting_binding",
+      "role": "assessment-owner",
+      "approvedBy": "Project Owner",
+      "status": "approved",
+      "candidateInputHash": "32696937f0c95cc258514e45909ee0f0d5357b3dc2e048784116f5a0f2e81d6d",
+      "bindingKey": "glucose_whole_blood",
+      "note": "Re-approved by the Project Owner for the exact rebased candidate input for the reviewed whole-blood glucose assessment binding."
+    },
+    {
+      "id": "assessment-fasting-glucose-review-2026-07-30",
+      "scope": "score_affecting_binding",
+      "role": "assessment-owner",
+      "approvedBy": "Project Owner",
+      "status": "approved",
+      "candidateInputHash": "32696937f0c95cc258514e45909ee0f0d5357b3dc2e048784116f5a0f2e81d6d",
+      "bindingKey": "fasting_glucose",
+      "note": "Re-approved by the Project Owner for the exact rebased candidate input for the reviewed fasting glucose assessment binding."
+    },
+    {
+      "id": "release-gate-2026-07-30",
       "scope": "release_gate",
       "role": "release-manager",
-      "approvedBy": "Release Manager",
+      "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "b4489a7cae9ab40cef27e308f1fe64fb45eca55cfe612d806a5c4370e0116b13",
-      "note": "Approved the candidate release gate after threshold and evidence review."
+      "candidateInputHash": "32696937f0c95cc258514e45909ee0f0d5357b3dc2e048784116f5a0f2e81d6d",
+      "note": "Re-approved by the Project Owner for the exact rebased candidate input after threshold and evidence review."
     }
   ]
 }

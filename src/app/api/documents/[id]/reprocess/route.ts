@@ -2,11 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { assertDocumentOwner } from "@/lib/documents/access";
 import { enqueueFullPipelineJob } from "@/lib/documents/jobs";
-import {
-  isUploadableDocumentType,
-  normalizeDocumentType,
-} from "@/lib/health-systems";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getDocumentReprocessTypeOverride } from "@/lib/documents/reprocess-policy";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -20,18 +17,13 @@ export async function POST(req: Request, context: RouteContext) {
   const { doc, error } = await assertDocumentOwner(profileId, id);
   if (error) return error;
 
-  let documentTypeOverride: string | undefined;
+  let requestBody: unknown = null;
   try {
-    const body = await req.json();
-    if (body && typeof body.document_type === "string") {
-      const normalized = normalizeDocumentType(body.document_type);
-      if (normalized && isUploadableDocumentType(normalized)) {
-        documentTypeOverride = normalized;
-      }
-    }
+    requestBody = await req.json();
   } catch {
     // empty body is fine
   }
+  const documentTypeOverride = getDocumentReprocessTypeOverride(requestBody);
 
   const supabase = createAdminClient();
 

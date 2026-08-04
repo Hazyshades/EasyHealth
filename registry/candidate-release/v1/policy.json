@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1",
-  "requiredLaunchRows": 44,
+  "requiredLaunchRows": 52,
   "thresholds": {
     "minRawPreservationRate": 1,
     "minRecognitionRate": 1,
@@ -16,7 +16,10 @@
     "releaseApprovalRoles": ["release-manager"],
     "scoreAffectingBindingOwners": {
       "alt_serum_catalytic_activity": "assessment-owner",
-      "glucose_serum": "assessment-owner"
+      "fasting_glucose": "assessment-owner",
+      "glucose_plasma": "assessment-owner",
+      "glucose_serum": "assessment-owner",
+      "glucose_whole_blood": "assessment-owner"
     }
   },
   "releaseEvidence": {

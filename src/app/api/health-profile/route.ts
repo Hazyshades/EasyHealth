@@ -13,6 +13,7 @@ import {
   projectActiveRegistryV2LaboratoryBinding,
   type RegistryV2NormalizationRevisionReadBoundary,
 } from "@/lib/documents/observation-read-boundaries";
+import { projectLaboratoryOutcome } from "@/lib/documents/incomplete-laboratory-outcomes";
 import { getOrCreateHolisticSynthesis } from "@/lib/holistic-synthesis";
 
 export async function GET() {
@@ -35,7 +36,7 @@ export async function GET() {
       supabase
         .from("observations")
         .select(
-          "measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier, normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, measurement_definition_key, is_active)"
+          "measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier, normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence)"
         )
         .eq("profile_id", profileId)
         // EH-105: Health Profile remains a laboratory-only assessment boundary.
@@ -79,6 +80,13 @@ export async function GET() {
 
   const profile = buildHealthProfile(
     scopedObservations.flatMap<Parameters<typeof buildHealthProfile>[0][number]>((o) => {
+      const outcome = projectLaboratoryOutcome({
+        observation: o,
+        relation: o.normalization_revision as
+          | RegistryV2NormalizationRevisionReadBoundary
+          | RegistryV2NormalizationRevisionReadBoundary[]
+          | null,
+      });
       const binding = projectActiveRegistryV2LaboratoryBinding(
         o,
         o.normalization_revision as
@@ -88,7 +96,12 @@ export async function GET() {
       );
       const measurementDefinitionKey = binding.measurementDefinitionKey;
       const definition = binding.measurementDefinition;
-      if (!binding.registryBindingReady || !measurementDefinitionKey || !definition) {
+      const resolvedMeasurementBinding = binding.resolvedMeasurementBinding;
+      if (
+        !outcome.resolutionDetails.eligibility.assessmentEligible ||
+        !measurementDefinitionKey ||
+        !definition
+      ) {
         return [];
       }
       const key = definition.assessmentBindings.find((assessmentBinding) =>
@@ -127,7 +140,7 @@ export async function GET() {
 
       const display = presentObservation(
         {
-          measurement_definition_key: measurementDefinitionKey,
+          resolved_measurement_binding: resolvedMeasurementBinding,
           value: numericValue,
           unit: o.unit ?? "",
           ref_low: o.ref_low != null ? Number(o.ref_low) : null,
