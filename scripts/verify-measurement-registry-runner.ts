@@ -132,6 +132,34 @@ for (const [rawLabel, rawUnit] of [
   assert.equal(resolution.result, "partial");
   assert.ok(!resolution.conflicts.includes("unit_not_accepted"), `${rawLabel} must not retain a shadow fixture conflict`);
 }
+const glucoseVariants = [
+  [{ rawLabel: "Glucose", rawUnit: "mg/dL", specimen: "serum", valueKind: "numeric" }, "glucose_serum"],
+  [{ rawLabel: "Glucose", rawUnit: "mmol/L", specimen: "plasma", valueKind: "numeric" }, "glucose_plasma"],
+  [{ rawLabel: "Glucose", rawUnit: "mg/dL", specimen: "whole_blood", valueKind: "numeric" }, "glucose_whole_blood"],
+  [{ rawLabel: "FPG", rawUnit: "mmol/L", specimen: "plasma", modifier: "fasting", valueKind: "numeric" }, "fasting_glucose"],
+  [{ rawLabel: "PPG", rawUnit: "mmol/L", specimen: "plasma", modifier: "postprandial", valueKind: "numeric" }, "post_prandial_glucose_plasma"],
+  [{ rawLabel: "Urine glucose", rawUnit: null, specimen: "urine", method: "dipstick", valueKind: "qualitative" }, "glucose_urine_dipstick"],
+] as const;
+for (const [input, key] of glucoseVariants) {
+  const resolved = resolveMeasurementDefinition(input);
+  assert.equal(resolved.result, "resolved", `${key} requires explicit compatible evidence`);
+  assert.equal(resolved.measurementDefinitionKey, key);
+}
+
+const postPrandialWithoutModifier = resolveMeasurementDefinition({ rawLabel: "PPG", rawUnit: "mmol/L", specimen: "plasma", valueKind: "numeric" });
+assert.equal(postPrandialWithoutModifier.result, "partial");
+assert.ok(postPrandialWithoutModifier.missingAxes.includes("timing"));
+const conflictingPostPrandial = resolveMeasurementDefinition({ rawLabel: "PPG", rawUnit: "mmol/L", specimen: "plasma", modifier: "fasting", valueKind: "numeric" });
+assert.equal(conflictingPostPrandial.result, "partial");
+assert.ok(conflictingPostPrandial.conflicts.includes("modifier_conflict"));
+const incompatibleGlucoseUnit = resolveMeasurementDefinition({ rawLabel: "Glucose", rawUnit: "%", specimen: "serum", valueKind: "numeric" });
+assert.equal(incompatibleGlucoseUnit.result, "partial");
+assert.ok(incompatibleGlucoseUnit.conflicts.includes("unit_dimension_conflict"));
+for (const key of ["glucose_serum", "glucose_plasma", "glucose_whole_blood", "fasting_glucose", "post_prandial_glucose_plasma"]) {
+  assert.ok(getMeasurementConversionPolicy(key), `${key} has the reviewed glucose conversion`);
+}
+assert.equal(getMeasurementConversionPolicy("glucose_urine_dipstick"), null);
+assert.deepEqual(getMeasurementDefinition("glucose_urine_dipstick")?.assessmentBindings, []);
 assert.deepEqual(decideAutomaticPromotion({ resolution: altPartial, mappingClassification: "compatibility_preserving", qualityGateApproved: true }), { allowed: false, reason: "resolver_not_resolved" });
 
 const traceOptions = {

@@ -141,6 +141,7 @@ export function measurementInputFromWriterRow(
     rawUnit: row.raw_unit ?? row.unit,
     specimen: row.specimen ?? null,
     modifier: row.modifier ?? null,
+    method: row.method ?? null,
     section: row.section_context ?? null,
     referenceLow: ref_low,
     referenceHigh: ref_high,

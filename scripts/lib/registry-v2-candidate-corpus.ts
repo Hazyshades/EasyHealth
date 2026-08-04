@@ -22,7 +22,7 @@ import {
  */
 
 export const DEFAULT_CANDIDATE_CORPUS_ROOT = "registry/candidate-release/v1";
-export const REQUIRED_CANDIDATE_CORPUS_ROW_COUNT = 44;
+export const REQUIRED_CANDIDATE_CORPUS_ROW_COUNT = 52;
 
 const RESULTS: readonly ResolverResult[] = ["resolved", "partial", "ambiguous", "unmapped"];
 const VALUE_KINDS: readonly MeasurementValueKind[] = ["numeric", "qualitative", "ordinal", "unspecified"];
@@ -735,7 +735,7 @@ export function runRegistryV2CandidateCorpus(options: CandidateCorpusRunnerOptio
     const falseConcreteResolution = actualClassification === "resolved" && row.expected.classification !== "resolved";
     const definition = actualMeasurementDefinitionKey ? getMeasurementDefinition(actualMeasurementDefinitionKey) : undefined;
     const assessmentBindings = (definition?.assessmentBindings ?? [])
-      .filter((binding) => binding.status === "reviewed" && binding.compatibility === "compatible")
+      .filter((binding) => binding.status === "reviewed" && binding.compatibility === "compatible" && binding.scoreRole !== "display")
       .map((binding) => binding.assessmentInputKey)
       .sort();
     const rawPreserved = row.rawLabel.trim().length > 0 && row.rawValueText.trim().length > 0 && (row.valueKind !== "numeric" || row.rawUnit !== null);
@@ -770,7 +770,10 @@ export function runRegistryV2CandidateCorpus(options: CandidateCorpusRunnerOptio
         resolution && (
           row.rawUnit === null
             ? row.valueKind === "qualitative" && resolution.candidateEvidence.some((candidate) => !candidate.rejected.some((item) => UNIT_CONFLICTS.has(item.code)))
-            : resolution.candidateEvidence.some((candidate) => candidate.accepted.some((item) => item.code === "unit_compatible"))
+            : resolution.candidateEvidence.some((candidate) =>
+                candidate.accepted.some((item) => item.code === "unit_compatible") ||
+                candidate.rejected.some((item) => UNIT_CONFLICTS.has(item.code))
+              )
         )
       ),
       error,
@@ -799,7 +802,7 @@ export function runRegistryV2CandidateCorpus(options: CandidateCorpusRunnerOptio
     const correctedDefinitionKey = row.manualCorrection?.selectedDefinitionKey;
     const correctedBindings = correctedDefinitionKey
       ? (getMeasurementDefinition(correctedDefinitionKey)?.assessmentBindings ?? [])
-          .filter((binding) => binding.status === "reviewed" && binding.compatibility === "compatible")
+          .filter((binding) => binding.status === "reviewed" && binding.compatibility === "compatible" && binding.scoreRole !== "display")
           .map((binding) => binding.assessmentInputKey)
           .sort()
       : [];

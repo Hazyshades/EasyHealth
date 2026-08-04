@@ -36,7 +36,7 @@ export type AnalyteStatus = "active" | "deprecated";
 export type SpecimenKey = "serum" | "plasma" | "whole_blood" | "urine" | "unspecified";
 export type MeasurementPropertyKey = "cell_count" | "percentage" | "segmented_percentage" | "band_percentage" | "distribution_width_cv" | "distribution_width_sd" | "mean_cell_volume" | "mass_per_cell" | "substance_concentration" | "catalytic_activity_concentration" | "presence" | "unspecified";
 export type MeasurementScaleKey = "quantitative" | "ordinal" | "nominal" | "unspecified";
-export type MeasurementTimingKey = "point_in_time" | "fasting" | "unspecified";
+export type MeasurementTimingKey = "point_in_time" | "fasting" | "post_prandial" | "unspecified";
 export type MeasurementMethodKey = "automated" | "manual" | "dipstick" | "unspecified";
 export type MeasurementValueKind = "numeric" | "qualitative" | "ordinal" | "unspecified";
 

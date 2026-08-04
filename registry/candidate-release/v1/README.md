@@ -5,8 +5,10 @@ by `pnpm check:registry-v2-candidate-corpus`; the runner reads these inputs and
 prints evidence only. It does not call application writers or mutate patient,
 database, score, readiness, trend, or manual-decision state.
 
-- `corpus.json` contains the required 44 launch rows, exact raw label/unit/value
-  kind, expected classification, and fixture-only manual-correction evidence.
+- `corpus.json` contains the required 52 launch rows, including explicit serum,
+  plasma, whole-blood, urine-dipstick, fasting, post-prandial, missing-context,
+  and incompatible-unit glucose cases, exact raw label/unit/value kind, expected
+  classification, and fixture-only manual-correction evidence.
 - `documents.json` and `documents/` provide de-identified document metadata for
   panel, language, laboratory, and specialty coverage.
 - `policy.json` defines numeric gates and named reviewers.

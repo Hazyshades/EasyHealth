@@ -42,6 +42,26 @@ assert.equal(first.report.metrics.processingErrors, 0);
 assert.ok(first.report.rows.some((row) => row.expectedClassification === "partial" && row.contextAvailability === "missing"));
 assert.ok(first.report.manualCorrections.some((row) => row.id === "alt"));
 assert.ok(first.report.assessmentImpact.some((row) => row.definitionKey === "glucose_serum"));
+const glucoseRows = first.report.rows.filter((row) => row.family === "glucose");
+assert.deepEqual(
+  glucoseRows.map((row) => row.id),
+  [
+    "glucose",
+    "glucose-plasma",
+    "glucose-whole-blood",
+    "glucose-urine-dipstick",
+    "glucose-fasting",
+    "glucose-post-prandial",
+    "glucose-missing-specimen",
+    "glucose-fasting-missing-timing",
+    "glucose-incompatible-unit",
+  ]
+);
+assert.ok(glucoseRows.slice(0, 6).every((row) => row.actualClassification === "resolved"));
+assert.ok(glucoseRows.slice(6).every((row) => row.actualClassification === "partial"));
+assert.equal(glucoseRows.find((row) => row.id === "glucose-incompatible-unit")?.unitCovered, true);
+assert.equal(glucoseRows.find((row) => row.id === "glucose-urine-dipstick")?.assessmentBindings.length, 0);
+assert.equal(glucoseRows.find((row) => row.id === "glucose-post-prandial")?.assessmentBindings.length, 0);
 assert.ok(
   first.report.assessmentImpact.some(
     (impact) => impact.definitionKey === "alt_serum_catalytic_activity" && impact.source === "manual_correction"
@@ -108,6 +128,18 @@ assert.equal(
   forcedFalseResolution.manifest.thresholdChecks.find((check) => check.metric === "falseConcreteResolutions")?.passed,
   false
 );
+
+const forcedMissingSpecimenResolution = runRegistryV2CandidateCorpus({
+  resolver: (input) => {
+    const resolution = resolveMeasurementDefinition(input);
+    return input.rawLabel === "Glucose" && !input.specimen
+      ? { ...resolution, result: "resolved", measurementDefinitionKey: "glucose_serum", analyteKey: "glucose" }
+      : resolution;
+  },
+});
+const forcedMissingSpecimenRow = forcedMissingSpecimenResolution.report.rows.find((row) => row.id === "glucose-missing-specimen");
+assert.equal(forcedMissingSpecimenRow?.falseConcreteResolution, true);
+assert.equal(forcedMissingSpecimenResolution.manifest.launchable, false);
 
 const forcedAmbiguous = runRegistryV2CandidateCorpus({
   resolver: (input) => {
@@ -177,7 +209,7 @@ try {
   changeJson(loweredCorpusRoot, "policy.json", (policy) => {
     policy.requiredLaunchRows = REQUIRED_CANDIDATE_CORPUS_ROW_COUNT - 1;
   });
-  assert.throws(() => runRegistryV2CandidateCorpus({ root: loweredCorpusRoot }), /must remain 44/);
+  assert.throws(() => runRegistryV2CandidateCorpus({ root: loweredCorpusRoot }), new RegExp(`must remain ${REQUIRED_CANDIDATE_CORPUS_ROW_COUNT}`));
 } finally {
   rmSync(loweredCorpusRoot, { recursive: true, force: true });
 }
