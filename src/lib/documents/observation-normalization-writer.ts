@@ -19,6 +19,7 @@ import type {
   PersistedResolverDecisionTrace,
 } from "@/lib/biomarkers";
 import { parseReferenceRange } from "@/lib/schemas/biomarkers";
+import { statedAxisValue } from "./stated-axis-evidence";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   buildInputEvidenceHash,
@@ -136,12 +137,20 @@ export function measurementInputFromWriterRow(
   const { ref_low, ref_high } = parseReferenceRange(
     row.reference_range ?? row.raw_reference_range
   );
+  // #106: the writer and EH-116 reprocessing both resolve through this builder,
+  // so the stated-evidence policy has to be applied here as well as in the
+  // review preview. Reprocessing re-runs resolution and not extraction, which
+  // is what corrects rows already stored with a fabricated axis.
+  const provenance = {
+    sourceText: row.source_text ?? null,
+    sectionContext: row.section_context ?? null,
+  };
   return {
     rawLabel: row.raw_name ?? row.biomarker_name,
     rawUnit: row.raw_unit ?? row.unit,
-    specimen: row.specimen ?? null,
-    modifier: row.modifier ?? null,
-    method: row.method ?? null,
+    specimen: statedAxisValue("specimen", row.specimen ?? null, provenance),
+    modifier: statedAxisValue("modifier", row.modifier ?? null, provenance),
+    method: statedAxisValue("method", row.method ?? null, provenance),
     section: row.section_context ?? null,
     referenceLow: ref_low,
     referenceHigh: ref_high,
