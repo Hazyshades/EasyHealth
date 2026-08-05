@@ -270,10 +270,20 @@ assert.equal(unstatedRow.rawEvidence.modifier, null);
 assert.equal(unstatedRow.rawEvidence.method, null);
 
 const statedRow = buildExtractedReviewRow(
-  extractedFixture({ id: "extracted-stated", specimen: "serum", method: "automated" }),
+  extractedFixture({
+    id: "extracted-stated",
+    specimen: "whole_blood",
+    modifier: "percent",
+    method: "automated",
+  }),
 );
-assert.equal(statedRow.rawEvidence.specimen, "serum");
-assert.equal(statedRow.rawEvidence.method, "automated");
+assert.equal(
+  statedRow.rawEvidence.specimen,
+  "Whole blood",
+  "snake_case storage tokens must never reach the reviewer verbatim",
+);
+assert.equal(statedRow.rawEvidence.modifier, "Percent");
+assert.equal(statedRow.rawEvidence.method, "Automated");
 
 // --- Qualitative results keep their reported text, not a numeric coercion ---
 

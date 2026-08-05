@@ -213,6 +213,13 @@ export function resolveSourceLocation(
   };
 }
 
+/**
+ * Returns a stated axis as user-facing text, or null when the value is absent
+ * or is the storage default that means "the report did not say".
+ *
+ * Axis values are stored as snake_case enum tokens (`whole_blood`), which must
+ * never reach the reviewer verbatim.
+ */
 function statedAxis(
   value: string | null | undefined,
   unstated: Readonly<Record<string, true>>,
@@ -220,7 +227,10 @@ function statedAxis(
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   if (trimmed.length === 0) return null;
-  return trimmed.toLowerCase() in unstated ? null : trimmed;
+  const token = trimmed.toLowerCase();
+  if (token in unstated) return null;
+  const words = token.replaceAll("_", " ");
+  return `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
 }
 
 function formatReportedValue(
