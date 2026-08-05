@@ -46,12 +46,14 @@
     "check:registry-v2-candidate-corpus": "tsx scripts/registry-v2-candidate-corpus.ts --check",
     "check:registry-v2-candidate-corpus-technical": "tsx scripts/registry-v2-candidate-corpus.ts --technical-check",
     "report:registry-v2-candidate-corpus": "tsx scripts/registry-v2-candidate-corpus.ts --report",
-    "verify:registry": "tsx scripts/verify-biomarkers-runner.ts && tsx scripts/verify-measurement-registry-runner.ts && tsx scripts/verify-observation-identity-runner.ts && tsx scripts/verify-observation-provenance-runner.ts && tsx scripts/verify-registry-v1-baseline-runner.ts && tsx scripts/registry-v1-baseline.ts --check && tsx scripts/verify-registry-v2-runtime-cutover.ts && tsx scripts/verify-no-registry-v1-runtime-imports.ts && tsx scripts/verify-no-observations-biomarker-key.ts && tsx scripts/verify-registry-v2-candidate-corpus-runner.ts && tsx scripts/registry-v2-candidate-corpus.ts --technical-check && tsx scripts/verify-no-legacy-promotion-rpc.ts && tsx scripts/verify-cbc-measurement-regression-runner.ts",
+    "verify:registry": "tsx scripts/verify-biomarkers-runner.ts && tsx scripts/verify-measurement-registry-runner.ts && tsx scripts/verify-observation-identity-runner.ts && tsx scripts/verify-observation-provenance-runner.ts && tsx scripts/verify-registry-v1-baseline-runner.ts && tsx scripts/registry-v1-baseline.ts --check && tsx scripts/verify-registry-v2-runtime-cutover.ts && tsx scripts/verify-no-registry-v1-runtime-imports.ts && tsx scripts/verify-no-observations-biomarker-key.ts && tsx scripts/verify-registry-v2-candidate-corpus-runner.ts && tsx scripts/registry-v2-candidate-corpus.ts --technical-check && tsx scripts/verify-no-legacy-promotion-rpc.ts && tsx scripts/verify-cbc-measurement-regression-runner.ts && tsx scripts/verify-alias-order-insensitivity.ts",
     "test:eh113": "tsx scripts/verify-eh113-cbc-launch-catalog.ts",
     "test:eh113-db": "supabase test db --local supabase/tests/eh113_cbc_method_evidence.sql",
     "test:eh116": "tsx scripts/verify-eh116-reprocess-batch.ts",
     "test:eh116-db": "supabase test db --local supabase/tests/eh116_registry_reprocess_batches.sql",
     "test:eh117": "tsx scripts/verify-eh117-review-workspace.ts",
+    "test:alias-order": "tsx scripts/verify-alias-order-insensitivity.ts",
+    "test:alias-order-db": "supabase test db --local supabase/tests/alias_token_set_trace_code.sql",
     "reprocess:batch": "tsx scripts/reprocess-batch.ts"
   },
   "dependencies": {

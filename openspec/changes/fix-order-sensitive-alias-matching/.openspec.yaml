@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-05
+goal: Admit Registry 2.0 alias candidates by order-insensitive token set so a reordered parenthetical label resolves identically to the printed one, without weakening any admissibility guard.

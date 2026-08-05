@@ -15,6 +15,26 @@ export function normalizeBiomarkerKeyToken(key: string): string {
   return snakeCaseToken(key);
 }
 
+/** Separator that cannot occur inside a `snakeCaseToken` output. */
+const TOKEN_SET_SEPARATOR = "|";
+
+/**
+ * Order-insensitive projection of a normalization token, used by #105 alias
+ * admission so `alt_alanine_aminotransferase` and `alanine_aminotransferase_alt`
+ * collapse onto the same key.
+ *
+ * Returns `null` for fewer than two distinct tokens: a single-token projection
+ * is equivalent to plain normalized equality, so admitting it would widen
+ * nothing while exposing short labels to accidental collisions.
+ */
+export function tokenSetKey(normalizedToken: string): string | null {
+  const tokens = [
+    ...new Set(normalizedToken.split("_").filter((token) => token.length > 0)),
+  ];
+  if (tokens.length < 2) return null;
+  return tokens.sort().join(TOKEN_SET_SEPARATOR);
+}
+
 /** @deprecated Use `resolveMeasurementDefinition` for semantic resolution. */
 export function resolveCanonicalKey(key: string, name = ""): string {
   return snakeCaseToken(key || name) || "unknown";
