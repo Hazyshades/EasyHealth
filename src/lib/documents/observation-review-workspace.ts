@@ -492,17 +492,6 @@ export function resolveSelectionForPage(
   return selected ? selected.id : null;
 }
 
-/** List -> document synchronization for a row activated by the reviewer. */
-export function resolveNavigationForRow(
-  row: ReviewRow,
-  currentPage: number,
-): Readonly<{ page: number; snippet: string | null }> {
-  return {
-    page: row.source.page ?? currentPage,
-    snippet: row.source.snippet,
-  };
-}
-
 export function summarizeReviewRows(
   rows: readonly ReviewRow[],
 ): ReviewRowsSummary {

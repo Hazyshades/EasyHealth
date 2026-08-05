@@ -12,7 +12,7 @@
       `region | page | document` precision enum and the
       `Source page not recorded` document-level fallback.
 - [x] 1.4 Implement `groupReviewRowsByPage`, `findReviewRow`,
-      `resolveSelectionForPage`, `resolveNavigationForRow`,
+      `resolveSelectionForPage`,
       `summarizeReviewRows` and `hasIncompleteOutcomes`.
 - [x] 1.5 Add the verification and resolver presentation vocabulary
       (`verificationStatusLabel`, `verificationStatusVariant`,
