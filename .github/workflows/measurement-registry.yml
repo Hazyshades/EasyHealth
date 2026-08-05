@@ -89,6 +89,8 @@ jobs:
         run: pnpm test:eh111-db
       - name: Run EH-114 glucose persistence database contract
         run: pnpm test:eh114-db
+      - name: Run alias token-set decision-trace contract
+        run: pnpm test:alias-order-db
       - name: Stop local Supabase services
         if: always()
         run: supabase stop --no-backup

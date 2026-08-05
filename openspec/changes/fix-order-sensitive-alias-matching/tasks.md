@@ -111,9 +111,10 @@
       at `scripts/verify-eh111-clinical-compatibility.ts:184` — confirm the
       failure is unchanged, do not fix it here.
 - [x] 7.3 Run `pnpm typecheck` and `pnpm build`.
-- [ ] 7.4 Run the database fixtures (`pnpm test:eh115-db` and the new 5.3
-      fixture) against a local Supabase stack, or record the blocker if Docker
-      is unavailable.
+- [x] 7.4 Wire the database fixtures into CI: `test:alias-order-db` added to the
+      Measurement Registry workflow's `database` job. Local execution remains
+      blocked because Docker is unavailable in this environment, so the fixture
+      is first executed by CI on this pull request.
 
 ## 8. Reprocessing and rollout
 
