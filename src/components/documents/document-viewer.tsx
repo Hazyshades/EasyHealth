@@ -1,17 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import {
-  CircleAlert,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  Minus,
-  Plus,
-  RotateCcw,
-} from "lucide-react";
+import { CircleAlert, ChevronLeft, Download, RotateCcw } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +18,11 @@ import {
   ReferralInsightsPanel,
 } from "@/components/documents/document-insight-panels";
 import { TypeMismatchBanner } from "@/components/documents/type-mismatch-banner";
+import { DocumentSourcePane } from "@/components/documents/review/document-source-pane";
+import { ObservationReviewList } from "@/components/documents/review/observation-review-list";
+import { ObservationReviewRow } from "@/components/documents/review/observation-review-row";
+import { ReviewTechnicalDetails } from "@/components/documents/review/review-technical-details";
+import { ReviewWorkspaceSkeleton } from "@/components/documents/review/review-workspace-skeleton";
 import { normalizeDocumentType, type DocumentType } from "@/lib/health-systems";
 import {
   fileCacheKey,
@@ -34,13 +31,22 @@ import {
   setCachedSignedUrl,
 } from "@/lib/documents/signed-url-cache";
 import {
-  measurementMappingGuidance,
-  measurementMappingLabel,
-  measurementReasonLabel,
   resolveBiomarkerPanelMode,
   resolveBiomarkerReviewAction,
 } from "@/lib/documents/biomarker-review-state";
-import type { VerificationStatus } from "@/lib/biomarkers";
+import {
+  buildExtractedReviewRow,
+  buildObservationReviewRow,
+  findReviewRow,
+  groupReviewRowsByPage,
+  hasIncompleteOutcomes,
+  resolveSelectionForPage,
+  resolveSourceLocation,
+  summarizeReviewRows,
+  type ReviewRow,
+  type ReviewRowSourceLocation,
+} from "@/lib/documents/observation-review-workspace";
+import type { NormalizationReview } from "@/lib/documents/normalization-review";
 import type { LaboratoryResolutionDetails } from "@/lib/documents/incomplete-laboratory-outcomes";
 
 type DocumentMeta = {
@@ -102,10 +108,19 @@ type Observation = {
   registry_binding_ready?: boolean;
   resolution_details?: LaboratoryResolutionDetails;
   name: string;
+  raw_name?: string | null;
   value: number | string | null;
   value_kind?: string | null;
   value_text?: string | null;
   unit: string;
+  raw_unit?: string | null;
+  raw_value_text?: string | null;
+  raw_reference_text?: string | null;
+  specimen?: string | null;
+  modifier?: string | null;
+  confidence?: number | null;
+  source_page?: number | null;
+  source_text?: string | null;
   ref_low: number | string | null;
   ref_high: number | string | null;
   observed_at: string;
@@ -114,77 +129,23 @@ type Observation = {
 type ExtractedBiomarker = {
   id: string;
   biomarker_name: string;
+  raw_name?: string | null;
   value_numeric: number | null;
   value_text?: string | null;
   value_kind?: string | null;
   unit: string | null;
+  raw_unit?: string | null;
+  raw_value_text?: string | null;
   reference_range: string | null;
+  raw_reference_range?: string | null;
   source_page: number | null;
   source_text: string | null;
   confidence: number | null;
   status: string;
   specimen?: string | null;
   modifier?: string | null;
-  normalization?: {
-    result: "resolved" | "ambiguous" | "partial" | "unmapped";
-    candidateDefinitionKey: string | null;
-    analyteKey: string | null;
-    mappingConfidence: number;
-    mappingConfidenceBand: "high" | "medium" | "low";
-    resolutionDetails: LaboratoryResolutionDetails;
-    registryBindingReady: boolean;
-    missingAxes: string[];
-    conflicts: string[];
-    decisionTrace: {
-      availability: "persisted" | "preview" | "legacy_unavailable";
-      trace: {
-        schemaVersion: "1";
-        outcome: "resolved" | "ambiguous" | "partial" | "unmapped";
-        decisionKind: string;
-        catalogManifestVersion: string;
-        catalogManifestDigest: string;
-        resolverVersion: string;
-        winningCandidateKey: string | null;
-        candidates: Array<{
-          candidateKey: string;
-          maturity: "provisional" | "reviewed" | "retired";
-          score: number | null;
-          accepted: Array<{ code: string; strength: string }>;
-          rejected: Array<{ code: string; strength: string }>;
-          missingAxes: string[];
-          conflicts: string[];
-        }>;
-        missingAxes: string[];
-        conflicts: string[];
-      } | null;
-    };
-    previewCandidateEvidence: Array<{
-      candidateKey: string;
-      accepted: Array<{ code: string }>;
-      rejected: Array<{ code: string }>;
-    }>;
-    manualOptions: Array<{
-      key: string;
-      displayName: string;
-      analyteKey: string;
-      maturity: "provisional" | "reviewed" | "retired";
-      assessmentBindings: Array<unknown>;
-    }>;
-    activeRevision: {
-      id: string;
-      measurement_definition_key: string | null;
-      verification_status: VerificationStatus;
-    } | null;
-    revisions: Array<{
-      id: string;
-      measurement_definition_key: string | null;
-      verification_status: VerificationStatus;
-      is_active: boolean;
-      catalog_manifest_version: string;
-      resolver_version: string;
-      normalization_version: string;
-    }>;
-  };
+  method?: string | null;
+  normalization?: NormalizationReview;
 };
 
 type BootstrapPayload = {
@@ -223,6 +184,7 @@ type WriterActionPayload = {
 
 const PROCESSING_POLL_INTERVAL_MS = 8_000;
 const PROCESSING_POLL_TIMEOUT_MS = 150_000;
+const PAGE_PREVIEW_ERROR = "This page preview could not be loaded.";
 
 function statusVariant(
   status: string,
@@ -260,9 +222,10 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const [pages, setPages] = useState<PageMeta[]>([]);
   const [currentPage, setCurrentPage] = useState(startPage);
   const [pageUrl, setPageUrl] = useState<string | null>(null);
+  const [pageLoading, setPageLoading] = useState(false);
+  const [pageError, setPageError] = useState<string | null>(null);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [originalMime, setOriginalMime] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(1);
   const [observations, setObservations] = useState<Observation[]>([]);
   const [extracted, setExtracted] = useState<ExtractedBiomarker[]>([]);
   const [reviewDataError, setReviewDataError] = useState<string | null>(null);
@@ -278,7 +241,9 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     null,
   );
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [activeSourceText, setActiveSourceText] = useState<string | null>(null);
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [insightSource, setInsightSource] =
+    useState<ReviewRowSourceLocation | null>(null);
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
   const [confirmingObservations, setConfirmingObservations] = useState(false);
@@ -292,6 +257,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const [workerOffline, setWorkerOffline] = useState(false);
   const [processingStuck, setProcessingStuck] = useState(false);
   const [retryingProcessing, setRetryingProcessing] = useState(false);
+  const [retryingLoad, setRetryingLoad] = useState(false);
 
   /** Skip page-only fetch once after bootstrap seeds pageUrl for the same page. */
   const skipNextPageFetch = useRef(true);
@@ -336,6 +302,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
 
       if (opts?.applyPage !== false && data.current_page?.url) {
         setPageUrl(data.current_page.url);
+        setPageError(null);
         setCachedSignedUrl(
           pageCacheKey(documentId, data.current_page.pageNumber),
           data.current_page.url,
@@ -371,22 +338,33 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
       const cached = getCachedSignedUrl(cacheKey);
       if (cached) {
         setPageUrl(cached);
+        setPageError(null);
         return;
       }
-      const res = await fetch(
-        `/api/documents/${documentId}/pages/${pageNumber}`,
-      );
-      if (res.ok) {
-        const data = await res.json();
-        if (data.url) {
-          if (typeof data.expiresIn === "number") {
-            setCachedSignedUrl(cacheKey, data.url, data.expiresIn);
+      setPageLoading(true);
+      setPageError(null);
+      try {
+        const res = await fetch(
+          `/api/documents/${documentId}/pages/${pageNumber}`,
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (data.url) {
+            if (typeof data.expiresIn === "number") {
+              setCachedSignedUrl(cacheKey, data.url, data.expiresIn);
+            }
+            setPageUrl(data.url);
+            return;
           }
-          setPageUrl(data.url);
-          return;
         }
+        setPageUrl(null);
+        setPageError(PAGE_PREVIEW_ERROR);
+      } catch {
+        setPageUrl(null);
+        setPageError(PAGE_PREVIEW_ERROR);
+      } finally {
+        setPageLoading(false);
       }
-      setPageUrl(null);
     },
     [documentId],
   );
@@ -468,6 +446,52 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     }
     void loadPageUrl(currentPage);
   }, [currentPage, doc?.page_count, loadPageUrl]);
+
+  const extractedRows = useMemo(
+    () => extracted.map(buildExtractedReviewRow),
+    [extracted],
+  );
+  const observationRows = useMemo(
+    () => observations.map(buildObservationReviewRow),
+    [observations],
+  );
+
+  const biomarkerPanelMode = resolveBiomarkerPanelMode({
+    extractedCount: extracted.length,
+    observationCount: observations.length,
+    reviewDataError,
+  });
+
+  const reviewRows = useMemo(() => {
+    if (biomarkerPanelMode === "extracted-review") return extractedRows;
+    if (biomarkerPanelMode === "observations-fallback") return observationRows;
+    return [];
+  }, [biomarkerPanelMode, extractedRows, observationRows]);
+
+  const reviewGroups = useMemo(
+    () => groupReviewRowsByPage(reviewRows),
+    [reviewRows],
+  );
+  const reviewSummary = useMemo(
+    () => summarizeReviewRows(reviewRows),
+    [reviewRows],
+  );
+
+  // Document -> list synchronization: keep the selected row anchored to the page in view.
+  useEffect(() => {
+    setSelectedRowId((prev) =>
+      resolveSelectionForPage(reviewRows, currentPage, prev),
+    );
+  }, [reviewRows, currentPage]);
+
+  const selectedRow = findReviewRow(reviewRows, selectedRowId);
+  const activeSource = selectedRow?.source ?? insightSource;
+
+  const handleActivateRow = useCallback((row: ReviewRow) => {
+    setSelectedRowId(row.id);
+    setInsightSource(null);
+    if (row.source.page !== null) setCurrentPage(row.source.page);
+  }, []);
 
   async function handleDownload() {
     const cacheKey = fileCacheKey(documentId);
@@ -553,6 +577,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     const measurementDefinitionKey = manualSelections[extractedBiomarkerId];
     if (!measurementDefinitionKey) return;
     setNormalizingId(extractedBiomarkerId);
+    setActionError(null);
     try {
       const res = await fetch(`/api/documents/${documentId}/biomarkers`, {
         method: "PATCH",
@@ -566,7 +591,9 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
       if (!res.ok) throw new Error("Mapping correction failed");
       await loadBootstrap(currentPage, { soft: true });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Mapping correction failed");
+      setActionError(
+        e instanceof Error ? e.message : "Mapping correction failed",
+      );
     } finally {
       setNormalizingId(null);
     }
@@ -577,6 +604,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     revertToRevisionId: string,
   ) {
     setNormalizingId(extractedBiomarkerId);
+    setActionError(null);
     try {
       const res = await fetch(`/api/documents/${documentId}/biomarkers`, {
         method: "PATCH",
@@ -590,7 +618,9 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
       if (!res.ok) throw new Error("Mapping rollback failed");
       await loadBootstrap(currentPage, { soft: true });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Mapping rollback failed");
+      setActionError(
+        e instanceof Error ? e.message : "Mapping rollback failed",
+      );
     } finally {
       setNormalizingId(null);
     }
@@ -636,6 +666,19 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     }
   }
 
+  async function handleRetryLoad() {
+    setRetryingLoad(true);
+    setError(null);
+    try {
+      skipNextPageFetch.current = true;
+      await loadBootstrap(currentPage, { soft: false });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load");
+    } finally {
+      setRetryingLoad(false);
+    }
+  }
+
   async function handleDismissMismatch() {
     const res = await fetch(`/api/documents/${documentId}`, {
       method: "PATCH",
@@ -650,34 +693,37 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   }
 
   if (loading) {
-    return (
-      <p className="text-sm text-[var(--eh-text-secondary)]">
-        Loading document…
-      </p>
-    );
+    return <ReviewWorkspaceSkeleton />;
   }
 
   if (error || !doc) {
     return (
       <SurfaceCard padding="lg">
-        <p className="text-sm text-red-600">{error ?? "Document not found"}</p>
-        <Button asChild variant="outline" className="mt-4 rounded-xl">
-          <Link href="/app/documents">Back to documents</Link>
-        </Button>
+        <p role="alert" className="text-sm text-red-600">
+          {error ?? "Document not found"}
+        </p>
+        <p className="mt-2 max-w-[65ch] text-sm text-[var(--eh-text-secondary)]">
+          The review workspace could not be opened. Retry the request, or go
+          back to your documents.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button
+            className="rounded-xl"
+            disabled={retryingLoad}
+            onClick={handleRetryLoad}
+          >
+            {retryingLoad ? "Retrying…" : "Retry"}
+          </Button>
+          <Button asChild variant="outline" className="rounded-xl">
+            <Link href="/app/documents">Back to documents</Link>
+          </Button>
+        </div>
       </SurfaceCard>
     );
   }
 
   const pageCount = doc.page_count ?? pages.length ?? 0;
-  const showPagePreviews = pageCount > 0 && pageUrl;
-  const isImage = originalMime?.startsWith("image/");
-  const isPdf = originalMime === "application/pdf";
   const documentType = normalizeDocumentType(doc.document_type) ?? "lab_result";
-  const biomarkerPanelMode = resolveBiomarkerPanelMode({
-    extractedCount: extracted.length,
-    observationCount: observations.length,
-    reviewDataError,
-  });
   const biomarkerReviewAction = resolveBiomarkerReviewAction({
     mode: biomarkerPanelMode,
     documentStatus: doc.processing_status,
@@ -687,15 +733,11 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     ).length,
   });
   const hasIncompleteLaboratoryOutcomes =
-    extracted.some(
-      (item) =>
-        item.normalization && item.normalization.result !== "resolved"
-    ) ||
-    observations.some(
-      (item) =>
-        (item.resolver_result ?? item.resolution_status) !== null &&
-        (item.resolver_result ?? item.resolution_status) !== "resolved"
-    );
+    hasIncompleteOutcomes(extractedRows) || hasIncompleteOutcomes(observationRows);
+
+  const normalizationById = new Map(
+    extracted.map((item) => [item.id, item.normalization ?? null]),
+  );
 
   const panelTitle =
     documentType === "lab_result"
@@ -724,6 +766,18 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const showProcessingRecovery =
     doc.processing_status === "processing" &&
     (processingStuck || workerOffline);
+
+  const reprocessButton = (
+    <Button
+      variant="outline"
+      className="mt-3 w-full rounded-xl"
+      disabled={reprocessing}
+      onClick={() => handleReprocess()}
+    >
+      <RotateCcw className="size-4" aria-hidden />
+      {reprocessing ? "Reprocessing…" : "Reprocess document"}
+    </Button>
+  );
 
   return (
     <div className="space-y-4">
@@ -840,127 +894,34 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
         />
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_360px] lg:items-stretch">
-        <SurfaceCard
-          padding="sm"
-          className={`flex flex-col lg:h-full ${isPdf ? "min-h-[874px]" : "min-h-[480px]"}`}
-        >
-          {!isPdf && (
-            <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
-              <div className="flex items-center gap-1">
-                {showPagePreviews && (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="size-8 rounded-lg"
-                      disabled={currentPage <= 1}
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      aria-label="Previous page"
-                    >
-                      <ChevronLeft className="size-4" />
-                    </Button>
-                    <span className="px-2 text-sm text-[var(--eh-text-secondary)]">
-                      Page {currentPage} / {pageCount}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="size-8 rounded-lg"
-                      disabled={currentPage >= pageCount}
-                      onClick={() =>
-                        setCurrentPage((p) => Math.min(pageCount, p + 1))
-                      }
-                      aria-label="Next page"
-                    >
-                      <ChevronRight className="size-4" />
-                    </Button>
-                  </>
-                )}
-              </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="size-8 rounded-lg"
-                  onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
-                  aria-label="Zoom out"
-                >
-                  <Minus className="size-4" />
-                </Button>
-                <span className="w-12 text-center text-xs text-[var(--eh-text-muted)]">
-                  {Math.round(zoom * 100)}%
-                </span>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="size-8 rounded-lg"
-                  onClick={() => setZoom((z) => Math.min(3, z + 0.25))}
-                  aria-label="Zoom in"
-                >
-                  <Plus className="size-4" />
-                </Button>
-              </div>
-            </div>
-          )}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-stretch xl:grid-cols-[minmax(0,1fr)_420px]">
+        <DocumentSourcePane
+          filename={doc.original_filename}
+          processingStatus={doc.processing_status}
+          mimeType={originalMime}
+          pageUrl={pageUrl}
+          originalUrl={originalUrl}
+          pageCount={pageCount}
+          currentPage={currentPage}
+          onPageChange={setCurrentPage}
+          pageLoading={pageLoading}
+          pageError={pageError}
+          onRetryPage={() => void loadPageUrl(currentPage)}
+          activeSource={activeSource}
+        />
 
-          <div
-            className={`flex-1 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-2 ${isPdf ? "min-h-[842px]" : "min-h-[400px]"}`}
-          >
-            {showPagePreviews ? (
-              <div className="h-full overflow-auto">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={pageUrl!}
-                  alt={`Page ${currentPage}`}
-                  className="mx-auto block max-w-full object-contain transition-transform"
-                  style={{
-                    transform: `scale(${zoom})`,
-                    transformOrigin: "top center",
-                  }}
-                />
-              </div>
-            ) : isImage && originalUrl ? (
-              <div className="h-full overflow-auto">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={originalUrl}
-                  alt={doc.original_filename}
-                  className="mx-auto block max-w-full object-contain"
-                  style={{
-                    transform: `scale(${zoom})`,
-                    transformOrigin: "top center",
-                  }}
-                />
-              </div>
-            ) : isPdf && originalUrl ? (
-              <iframe
-                src={originalUrl}
-                title={doc.original_filename}
-                className="h-full w-full rounded-lg border-0 bg-white"
-              />
-            ) : doc.processing_status === "processing" ? (
-              <p className="flex h-full items-center justify-center p-8 text-center text-sm text-[var(--eh-text-secondary)]">
-                Generating preview…
-              </p>
-            ) : (
-              <p className="flex h-full items-center justify-center p-8 text-center text-sm text-[var(--eh-text-secondary)]">
-                Preview not available. Use Download original.
-              </p>
-            )}
-          </div>
-
-          {activeSourceText && (
-            <p className="mt-3 shrink-0 rounded-lg bg-slate-100 px-3 py-2 text-xs text-[var(--eh-text-secondary)]">
-              Source: {activeSourceText}
-            </p>
-          )}
-        </SurfaceCard>
-
-        <SurfaceCard padding="sm">
-          <h2 className="mb-3 font-semibold text-[var(--eh-text-primary)]">
+        <SurfaceCard padding="sm" className="min-w-0">
+          <h2 className="mb-1 font-semibold text-[var(--eh-text-primary)]">
             {panelTitle}
           </h2>
+          {documentType === "lab_result" && reviewSummary.total > 0 ? (
+            <p className="mb-3 text-xs text-[var(--eh-text-muted)]">
+              {reviewSummary.total} result
+              {reviewSummary.total === 1 ? "" : "s"} ·{" "}
+              {reviewSummary.resolved} matched · {reviewSummary.incomplete}{" "}
+              incomplete · {reviewSummary.unverified} not verified
+            </p>
+          ) : null}
 
           {documentType === "instrumental_report" ? (
             <InstrumentalInsightsPanel
@@ -970,7 +931,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
               processingStatus={doc.processing_status}
               onSelectSource={(page, text) => {
                 if (page) setCurrentPage(page);
-                setActiveSourceText(text);
+                setInsightSource(resolveSourceLocation(page, text));
               }}
             />
           ) : documentType === "consultation_note" ? (
@@ -1010,7 +971,9 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
               <DocumentSummaryCard summary={doc.document_summary} />
               {biomarkerPanelMode === "review-error" ? (
                 <div className="space-y-3">
-                  <p className="text-sm text-red-600">{reviewDataError}</p>
+                  <p role="alert" className="text-sm text-red-600">
+                    {reviewDataError}
+                  </p>
                   <Button
                     variant="outline"
                     className="w-full rounded-xl"
@@ -1022,247 +985,54 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                 </div>
               ) : biomarkerPanelMode === "extracted-review" ? (
                 <div>
-                <ul className="max-h-[520px] space-y-2 overflow-y-auto">
-                  {extracted.map((b) => {
-                    const reviewable =
-                      b.status === "needs_review" ||
-                      b.status === "pending_review";
-                    const normalization = b.normalization;
-                    return (
-                      <li
-                        key={b.id}
-                        className="rounded-xl border border-slate-200 bg-white p-3"
-                      >
-                        <button
-                          type="button"
-                          className="w-full text-left transition hover:text-[var(--eh-brand)]"
-                          onClick={() => {
-                            if (b.source_page) setCurrentPage(b.source_page);
-                            setActiveSourceText(b.source_text);
-                          }}
-                        >
-                          <div className="flex items-start gap-2">
-                            {reviewable && (
-                              <input
-                                type="checkbox"
-                                checked={selectedIds.has(b.id)}
-                                onChange={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedIds((prev) => {
-                                    const next = new Set(prev);
-                                    if (e.target.checked) next.add(b.id);
-                                    else next.delete(b.id);
-                                    return next;
-                                  });
-                                }}
-                                className="mt-1"
-                                aria-label={`Select ${b.biomarker_name}`}
-                              />
-                            )}
-                            <div className="min-w-0 flex-1">
-                              <p className="font-medium text-[var(--eh-text-primary)]">
-                                {b.biomarker_name}
-                              </p>
-                              <p className="text-sm text-[var(--eh-text-secondary)]">
-                                {b.value_kind && b.value_kind !== "numeric"
-                                  ? (b.value_text ?? "—")
-                                  : b.value_numeric != null
-                                    ? `${b.value_numeric}${b.unit ? ` ${b.unit}` : ""}`
-                                    : (b.value_text ?? "—")}
-                                {b.reference_range
-                                  ? ` · ref ${b.reference_range}`
-                                  : ""}
-                              </p>
-                              <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
-                                {b.confidence != null
-                                  ? `${Math.round(b.confidence * 100)}% extraction confidence`
-                                  : ""}
-                                {b.source_page
-                                  ? ` · page ${b.source_page}`
-                                  : ""}
-                                {b.source_text
-                                  ? ` · “${b.source_text.slice(0, 80)}${b.source_text.length > 80 ? "…" : ""}”`
-                                  : ""}
-                                {b.status === "accepted" ? " · accepted" : ""}
-                              </p>
-                            </div>
-                          </div>
-                        </button>
-                        {normalization && (
-                          <div className="mt-2 border-t border-slate-100 pt-2 text-xs text-[var(--eh-text-secondary)]">
-                            <p className="font-medium text-[var(--eh-text-primary)]">
-                              {measurementMappingLabel(
-                                normalization.result,
-                                normalization.mappingConfidenceBand,
-                              )}
-                            </p>
-                            <p className="mt-1 leading-relaxed">
-                              {measurementMappingGuidance(normalization.result)}
-                            </p>
-                            <details className="mt-2">
-                              <summary className="cursor-pointer text-[var(--eh-text-muted)] hover:text-[var(--eh-text-secondary)]">
-                                Technical details
-                              </summary>
-                              <p className="mt-2">
-                                Mapping confidence describes classification
-                                evidence, not medical certainty.
-                              </p>
-                              {normalization.decisionTrace.availability ===
-                              "persisted" ? (
-                                <p className="mt-1">
-                                  Recorded decision for this revision.
-                                </p>
-                              ) : normalization.decisionTrace.availability ===
-                                "preview" ? (
-                                <p className="mt-1">
-                                  Current preview only — it has not been saved
-                                  as a decision.
-                                </p>
-                              ) : (
-                                <p className="mt-1">
-                                  Decision trace unavailable for this historical
-                                  revision.
-                                </p>
-                              )}
-                              <p className="mt-1">
-                                State: {normalization.resolutionDetails.source}
-                                {normalization.resolutionDetails.verificationStatus
-                                  ? ` · ${normalization.resolutionDetails.verificationStatus}`
-                                  : ""}
-                                {normalization.resolutionDetails.mappingConfidence !=
-                                null
-                                  ? ` · ${Math.round(normalization.resolutionDetails.mappingConfidence * 100)}% confidence`
-                                  : ""}
-                              </p>
-                              {normalization.resolutionDetails.missingAxes.length >
-                                0 && (
-                                <p className="mt-1">
-                                  Missing: {normalization.resolutionDetails.missingAxes
-                                    .map(measurementReasonLabel)
-                                    .join(", ")}
-                                </p>
-                              )}
-                              {normalization.resolutionDetails.conflictCodes.length >
-                                0 && (
-                                <p className="mt-1">
-                                  Conflicts: {normalization.resolutionDetails.conflictCodes
-                                    .map(measurementReasonLabel)
-                                    .join(", ")}
-                                </p>
-                              )}
-                              {normalization.resolutionDetails.supportCodes.length >
-                                0 && (
-                                <p className="mt-1">
-                                  Supporting evidence: {normalization.resolutionDetails.supportCodes
-                                    .map(measurementReasonLabel)
-                                    .join(", ")}
-                                </p>
-                              )}
-                              <p className="mt-1">
-                                Candidates considered: {normalization.resolutionDetails.candidateCount}
-                              </p>
-                              <p className="mt-2 text-[var(--eh-text-muted)]">
-                                Catalog/resolver: {normalization.resolutionDetails.versions.catalog ?? "pending"}
-                                {" / "}
-                                {normalization.resolutionDetails.versions.resolver ?? "pending"}
-                                {normalization.resolutionDetails.versions.compatibilityPolicy
-                                  ? ` · policy ${normalization.resolutionDetails.versions.compatibilityPolicy}`
-                                  : ""}
-                              </p>
-                              {normalization.decisionTrace.trace ? (
-                                <>
-                                  <p className="mt-2">
-                                    Decision:{" "}
-                                    {normalization.decisionTrace.trace.decisionKind}
-                                    {normalization.decisionTrace.trace
-                                      .winningCandidateKey
-                                      ? ` · selected ${normalization.decisionTrace.trace.winningCandidateKey}`
-                                      : ""}
-                                  </p>
-                                  <ul className="mt-2 space-y-1">
-                                    {normalization.decisionTrace.trace.candidates.map(
-                                      (candidate) => (
-                                        <li key={candidate.candidateKey}>
-                                          <span className="font-medium">
-                                            {candidate.candidateKey}
-                                          </span>
-                                          {` · ${candidate.maturity}`}
-                                          {candidate.score != null
-                                            ? ` · score ${candidate.score}`
-                                            : ""}
-                                          {candidate.accepted.length
-                                            ? ` · supports: ${candidate.accepted.map((item) => item.code).join(", ")}`
-                                            : ""}
-                                          {candidate.rejected.length
-                                            ? ` · rejects: ${candidate.rejected.map((item) => item.code).join(", ")}`
-                                            : ""}
-                                        </li>
-                                      ),
-                                    )}
-                                  </ul>
-                                  {normalization.decisionTrace.trace
-                                    .missingAxes.length > 0 && (
-                                    <p className="mt-2">
-                                      Missing details:{" "}
-                                      {normalization.decisionTrace.trace.missingAxes.join(
-                                        ", ",
-                                      )}
-                                    </p>
-                                  )}
-                                  {normalization.decisionTrace.trace.conflicts
-                                    .length > 0 && (
-                                    <p className="mt-1">
-                                      Conflicts:{" "}
-                                      {normalization.decisionTrace.trace.conflicts.join(
-                                        ", ",
-                                      )}
-                                    </p>
-                                  )}
-                                  <p className="mt-2 font-mono text-[var(--eh-text-muted)]">
-                                    Catalog/resolver:{" "}
-                                    {
-                                      normalization.decisionTrace.trace
-                                        .catalogManifestVersion
-                                    }
-                                    {" / "}
-                                    {
-                                      normalization.decisionTrace.trace
-                                        .resolverVersion
-                                    }
-                                  </p>
-                                </>
-                              ) : normalization.decisionTrace.availability ===
-                                "preview" ? (
-                                <ul className="mt-2 space-y-1">
-                                  {normalization.previewCandidateEvidence.map(
-                                    (candidate) => (
-                                      <li key={candidate.candidateKey}>
-                                        <span className="font-medium">
-                                          {candidate.candidateKey}
-                                        </span>
-                                        {candidate.accepted.length
-                                          ? ` · supports: ${candidate.accepted.map((item) => item.code).join(", ")}`
-                                          : ""}
-                                        {candidate.rejected.length
-                                          ? ` · rejects: ${candidate.rejected.map((item) => item.code).join(", ")}`
-                                          : ""}
-                                      </li>
-                                    ),
-                                  )}
-                                </ul>
-                              ) : null}
-                              {normalization.manualOptions.length > 0 && (
+                  <ObservationReviewList
+                    groups={reviewGroups}
+                    currentPage={currentPage}
+                    selectedRowId={selectedRowId}
+                    onSelectPage={setCurrentPage}
+                    renderRow={(row) => {
+                      const normalization = normalizationById.get(row.id) ?? null;
+                      return (
+                        <ObservationReviewRow
+                          key={row.id}
+                          row={row}
+                          selected={row.id === selectedRowId}
+                          onActivate={handleActivateRow}
+                          selection={
+                            row.reviewable
+                              ? {
+                                  checked: selectedIds.has(row.id),
+                                  onChange: (next) =>
+                                    setSelectedIds((prev) => {
+                                      const updated = new Set(prev);
+                                      if (next) updated.add(row.id);
+                                      else updated.delete(row.id);
+                                      return updated;
+                                    }),
+                                }
+                              : undefined
+                          }
+                          technicalDetails={
+                            <ReviewTechnicalDetails
+                              details={row.resolutionDetails}
+                              decisionTrace={normalization?.decisionTrace}
+                              previewCandidateEvidence={
+                                normalization?.previewCandidateEvidence
+                              }
+                            >
+                              {normalization &&
+                              normalization.manualOptions.length > 0 ? (
                                 <div className="mt-3 flex flex-wrap gap-2">
                                   <select
-                                    value={manualSelections[b.id] ?? ""}
+                                    value={manualSelections[row.id] ?? ""}
                                     onChange={(event) =>
                                       setManualSelections((current) => ({
                                         ...current,
-                                        [b.id]: event.target.value,
+                                        [row.id]: event.target.value,
                                       }))
                                     }
                                     className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs"
-                                    aria-label={`Choose compatible mapping for ${b.biomarker_name}`}
+                                    aria-label={`Choose compatible mapping for ${row.rawEvidence.displayName}`}
                                   >
                                     <option value="">
                                       Select only if the report states the
@@ -1283,57 +1053,52 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                                     variant="outline"
                                     size="sm"
                                     disabled={
-                                      !manualSelections[b.id] ||
-                                      normalizingId === b.id
+                                      !manualSelections[row.id] ||
+                                      normalizingId === row.id
                                     }
-                                    onClick={() => handleManualCorrection(b.id)}
+                                    onClick={() =>
+                                      handleManualCorrection(row.id)
+                                    }
                                   >
-                                    {normalizingId === b.id
+                                    {normalizingId === row.id
                                       ? "Saving…"
                                       : "Use mapping"}
                                   </Button>
                                 </div>
-                              )}
-                              {normalization.activeRevision &&
-                                normalization.revisions
-                                  .filter(
-                                    (revision) =>
-                                      !revision.is_active &&
-                                      revision.measurement_definition_key,
-                                  )
-                                  .map((revision) => (
-                                    <Button
-                                      key={revision.id}
-                                      variant="ghost"
-                                      size="sm"
-                                      className="mt-2"
-                                      disabled={normalizingId === b.id}
-                                      onClick={() =>
-                                        handleUndoCorrection(b.id, revision.id)
-                                      }
-                                    >
-                                      Restore{" "}
-                                      {revision.measurement_definition_key}
-                                    </Button>
-                                  ))}
-                            </details>
-                          </div>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-                  {hasIncompleteLaboratoryOutcomes && (
-                    <Button
-                      variant="outline"
-                      className="mt-3 w-full rounded-xl"
-                      disabled={reprocessing}
-                      onClick={() => handleReprocess()}
-                    >
-                      <RotateCcw className="size-4" aria-hidden />
-                      {reprocessing ? "Reprocessing…" : "Reprocess document"}
-                    </Button>
-                  )}
+                              ) : null}
+                              {normalization?.activeRevision
+                                ? normalization.revisions
+                                    .filter(
+                                      (revision) =>
+                                        !revision.is_active &&
+                                        revision.measurement_definition_key,
+                                    )
+                                    .map((revision) => (
+                                      <Button
+                                        key={revision.id}
+                                        variant="ghost"
+                                        size="sm"
+                                        className="mt-2"
+                                        disabled={normalizingId === row.id}
+                                        onClick={() =>
+                                          handleUndoCorrection(
+                                            row.id,
+                                            revision.id,
+                                          )
+                                        }
+                                      >
+                                        Restore{" "}
+                                        {revision.measurement_definition_key}
+                                      </Button>
+                                    ))
+                                : null}
+                            </ReviewTechnicalDetails>
+                          }
+                        />
+                      );
+                    }}
+                  />
+                  {hasIncompleteLaboratoryOutcomes && reprocessButton}
                 </div>
               ) : biomarkerPanelMode === "observations-fallback" ? (
                 <div>
@@ -1343,91 +1108,26 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                       document. Confirm them to complete review.
                     </p>
                   )}
-                  <ul className="max-h-[520px] space-y-2 overflow-y-auto">
-                    {observations.map((o) => {
-                      const outcome = (o.resolver_result ??
-                        o.resolution_status) as
-                        | "resolved"
-                        | "ambiguous"
-                        | "partial"
-                        | "unmapped"
-                        | null;
-                      return (
-                      <li
-                        key={o.id}
-                        className="rounded-xl border border-slate-200 bg-white p-3"
-                      >
-                        <p className="font-medium text-[var(--eh-text-primary)]">
-                          {o.name}
-                        </p>
-                        <p className="text-sm text-[var(--eh-text-secondary)]">
-                          {o.value} {o.unit}
-                          {o.ref_low != null && o.ref_high != null
-                            ? ` · ref ${o.ref_low}–${o.ref_high}`
-                            : ""}
-                        </p>
-                        <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
-                          {o.observed_at}
-                        </p>
-                        {outcome && (
-                          <div className="mt-2 border-t border-slate-100 pt-2 text-xs text-[var(--eh-text-secondary)]">
-                            <p className="font-medium text-[var(--eh-text-primary)]">
-                              {measurementMappingLabel(
-                                outcome,
-                                o.resolution_details?.mappingConfidenceBand ??
-                                  "low",
-                              )}
-                            </p>
-                            <p className="mt-1 leading-relaxed">
-                              {measurementMappingGuidance(outcome)}
-                            </p>
-                            {o.resolution_details && (
-                              <details className="mt-2">
-                                <summary className="cursor-pointer text-[var(--eh-text-muted)]">
-                                  Technical details
-                                </summary>
-                                <p className="mt-2">
-                                  State: {o.resolution_details.source}
-                                  {o.verification_status
-                                    ? ` · ${o.verification_status}`
-                                    : ""}
-                                </p>
-                                {o.resolution_details.missingAxes.length > 0 && (
-                                  <p className="mt-1">
-                                    Missing: {o.resolution_details.missingAxes
-                                      .map(measurementReasonLabel)
-                                      .join(", ")}
-                                  </p>
-                                )}
-                                {o.resolution_details.conflictCodes.length > 0 && (
-                                  <p className="mt-1">
-                                    Conflicts: {o.resolution_details.conflictCodes
-                                      .map(measurementReasonLabel)
-                                      .join(", ")}
-                                  </p>
-                                )}
-                                <p className="mt-1">
-                                  Candidates considered: {o.resolution_details.candidateCount}
-                                </p>
-                              </details>
-                            )}
-                          </div>
-                        )}
-                      </li>
-                      );
-                    })}
-                  </ul>
-                  {hasIncompleteLaboratoryOutcomes && (
-                    <Button
-                      variant="outline"
-                      className="mt-3 w-full rounded-xl"
-                      disabled={reprocessing}
-                      onClick={() => handleReprocess()}
-                    >
-                      <RotateCcw className="size-4" aria-hidden />
-                      {reprocessing ? "Reprocessing…" : "Reprocess document"}
-                    </Button>
-                  )}
+                  <ObservationReviewList
+                    groups={reviewGroups}
+                    currentPage={currentPage}
+                    selectedRowId={selectedRowId}
+                    onSelectPage={setCurrentPage}
+                    renderRow={(row) => (
+                      <ObservationReviewRow
+                        key={row.id}
+                        row={row}
+                        selected={row.id === selectedRowId}
+                        onActivate={handleActivateRow}
+                        technicalDetails={
+                          <ReviewTechnicalDetails
+                            details={row.resolutionDetails}
+                          />
+                        }
+                      />
+                    )}
+                  />
+                  {hasIncompleteLaboratoryOutcomes && reprocessButton}
                 </div>
               ) : (
                 <div>
@@ -1438,29 +1138,26 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                         ? "No biomarkers are available for review. Reprocess the document to try extraction again."
                         : "No biomarkers linked to this document."}
                   </p>
-                  {doc.processing_status === "needs_review" && (
-                    <Button
-                      variant="outline"
-                      className="mt-3 w-full rounded-xl"
-                      onClick={() => handleReprocess()}
-                    >
-                      <RotateCcw className="size-4" aria-hidden />
-                      Reprocess document
-                    </Button>
-                  )}
+                  {doc.processing_status === "needs_review" && reprocessButton}
                 </div>
               )}
 
               {biomarkerReviewAction === "accept-extracted" && (
-                <Button
-                  className="mt-4 w-full rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90"
-                  disabled={accepting || selectedIds.size === 0}
-                  onClick={handleAccept}
-                >
-                  {accepting
-                    ? "Accepting…"
-                    : `Accept selected (${selectedIds.size})`}
-                </Button>
+                <>
+                  <Button
+                    className="mt-4 w-full rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90"
+                    disabled={accepting || selectedIds.size === 0}
+                    onClick={handleAccept}
+                  >
+                    {accepting
+                      ? "Accepting…"
+                      : `Accept selected (${selectedIds.size})`}
+                  </Button>
+                  <p className="mt-2 text-xs text-[var(--eh-text-muted)]">
+                    Accepting keeps every selected result exactly as reported.
+                    Choosing a measurement is optional.
+                  </p>
+                </>
               )}
               {biomarkerReviewAction === "confirm-observations" && (
                 <Button

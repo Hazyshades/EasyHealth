@@ -4,13 +4,22 @@ import {
   resolveMeasurementDefinition,
 } from "@/lib/biomarkers";
 import type {
+  AssessmentBinding,
+  CandidateEvidence,
+  ClinicalCompatibilityAxis,
+  MappingConfidenceBand,
+  MeasurementMaturity,
   MeasurementResolutionInput,
   PersistedResolverDecisionTrace,
+  ResolutionReasonCode,
+  NormalizedMeasurementUnit,
+  ResolverResult,
   VerificationStatus,
 } from "@/lib/biomarkers";
 import { parseReferenceRange } from "@/lib/schemas/biomarkers";
 import { compatibleManualDefinitions } from "./normalization-revisions";
 import { projectLaboratoryOutcome } from "./incomplete-laboratory-outcomes";
+import type { LaboratoryResolutionDetails } from "./incomplete-laboratory-outcomes";
 import type { RegistryV2NormalizationRevisionReadBoundary } from "./observation-read-boundaries";
 
 type ExtractedReviewRow = {
@@ -60,6 +69,37 @@ export type DecisionTraceReview = {
   trace: PersistedResolverDecisionTrace | null;
 };
 
+export type ManualMappingOption = {
+  key: string;
+  displayName: string;
+  analyteKey: string;
+  maturity: MeasurementMaturity;
+  assessmentBindings: readonly AssessmentBinding[];
+};
+
+/**
+ * Per-extracted-row review payload returned to the document review UI.
+ * Incomplete outcomes intentionally expose `candidateDefinitionKey` as null so
+ * no candidate is ever presented as active identity (EH-112).
+ */
+export type NormalizationReview = {
+  result: ResolverResult;
+  candidateDefinitionKey: string | null;
+  analyteKey: string | null;
+  missingAxes: readonly ClinicalCompatibilityAxis[];
+  conflicts: readonly ResolutionReasonCode[];
+  mappingConfidence: number;
+  mappingConfidenceBand: MappingConfidenceBand;
+  unit: NormalizedMeasurementUnit;
+  resolutionDetails: LaboratoryResolutionDetails;
+  registryBindingReady: boolean;
+  decisionTrace: DecisionTraceReview;
+  previewCandidateEvidence: readonly CandidateEvidence[];
+  manualOptions: readonly ManualMappingOption[];
+  activeRevision: NormalizationRevisionSummary | null;
+  revisions: readonly NormalizationRevisionSummary[];
+};
+
 export function measurementInputFromExtracted(
   row: ExtractedReviewRow
 ): MeasurementResolutionInput {
@@ -91,7 +131,7 @@ export function buildNormalizationReview(
     resolver_result?: string | null;
   },
   revisions: readonly NormalizationRevisionSummary[]
-) {
+): NormalizationReview {
   const input = measurementInputFromExtracted(row);
   const preview = resolveMeasurementDefinition(input);
   const outcome = projectLaboratoryOutcome({

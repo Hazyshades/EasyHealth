@@ -58,6 +58,13 @@ export function resolvePageMeta(pathname: string): { title: string; subtitle?: s
     return { title: "Report detail", subtitle: "View your generated health report" };
   }
 
+  if (pathname.startsWith("/app/documents/")) {
+    return {
+      title: "Document review",
+      subtitle: "Compare extracted results with their source document",
+    };
+  }
+
   return { title: "EasyHealth", subtitle: undefined };
 }
 

@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-04
+goal: Present source documents and resolved, ambiguous, partial or unmapped observations side by side with explicit resolution and verification state, page-synchronized navigation, and raw acceptance that never forces a mapping.

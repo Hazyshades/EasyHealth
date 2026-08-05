@@ -51,6 +51,7 @@
     "test:eh113-db": "supabase test db --local supabase/tests/eh113_cbc_method_evidence.sql",
     "test:eh116": "tsx scripts/verify-eh116-reprocess-batch.ts",
     "test:eh116-db": "supabase test db --local supabase/tests/eh116_registry_reprocess_batches.sql",
+    "test:eh117": "tsx scripts/verify-eh117-review-workspace.ts",
     "reprocess:batch": "tsx scripts/reprocess-batch.ts"
   },
   "dependencies": {

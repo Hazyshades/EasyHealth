@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { assertDocumentOwner } from "@/lib/documents/access";
+import { assertDocumentOwner, noStoreJson } from "@/lib/documents/access";
 import {
   isCurrentDocumentObservation,
   type RegistryV2NormalizationRevisionReadBoundary,
@@ -52,6 +52,7 @@ type ObservationWithRevision = {
   raw_reference_text: string | null;
   source_page: number | null;
   source_text: string | null;
+  confidence: number | null;
   value_kind: string | null;
   value_text: string | null;
   ordinal: number | null;
@@ -73,7 +74,7 @@ export async function GET(_req: Request, context: RouteContext) {
   const { data: observations, error: obsError } = await supabase
     .from("observations")
     .select(
-      "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, raw_name, raw_value_text, raw_unit, raw_reference_text, source_page, source_text, value_kind, value_text, ordinal, specimen, modifier, ref_low, ref_high, observed_at, source_extracted_biomarker_id, source_instrumental_measure_id, source_instrumental_measure:document_extracted_instrumental_measures!observations_instrumental_source_owner_fk(id, key_hint, raw_name, raw_value_text, raw_unit, source_page, source_text, source_locator, occurrence_index, snapshot_hash, is_current), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence)"
+      "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, confidence, raw_name, raw_value_text, raw_unit, raw_reference_text, source_page, source_text, value_kind, value_text, ordinal, specimen, modifier, ref_low, ref_high, observed_at, source_extracted_biomarker_id, source_instrumental_measure_id, source_instrumental_measure:document_extracted_instrumental_measures!observations_instrumental_source_owner_fk(id, key_hint, raw_name, raw_value_text, raw_unit, source_page, source_text, source_locator, occurrence_index, snapshot_hash, is_current), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence)"
     )
     .eq("profile_id", profileId)
     .eq("document_id", id)
@@ -107,5 +108,5 @@ export async function GET(_req: Request, context: RouteContext) {
     }
   );
 
-  return NextResponse.json({ observations: projectedObservations });
+  return noStoreJson({ observations: projectedObservations });
 }
