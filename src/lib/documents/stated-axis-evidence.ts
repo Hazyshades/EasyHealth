@@ -23,6 +23,12 @@
 
 /** Provenance captured for a single extracted row. */
 export type RowProvenance = {
+  /**
+   * The row's own printed label. It is document text, so a modifier spelled in
+   * the label — `Neutrophils, absolute (NEU)` — is stated even when no snippet
+   * was captured.
+   */
+  label?: string | null;
   /** Verbatim snippet from the document containing the row. */
   sourceText?: string | null;
   /** Heading or panel the row was printed under. */
@@ -49,12 +55,26 @@ const SPECIMEN_FORMS: Readonly<Record<string, readonly string[]>> = {
 
 export type ClinicalAxis = "specimen" | "modifier" | "method" | "timing";
 
-function normalizeHaystack(provenance: RowProvenance): string {
-  return `${provenance.sourceText ?? ""} ${provenance.sectionContext ?? ""}`
+/**
+ * Collapses to lowercase words separated by single spaces, so that hyphen,
+ * underscore and space are equivalent — `Post-prandial` states `post_prandial`
+ * exactly as `post prandial` does. This mirrors `snakeCaseToken`, which maps
+ * every non-alphanumeric run to one separator.
+ */
+function normalizeLexical(value: string): string {
+  return value
     .toLowerCase()
     .replace(/[\u00b5\u03bc]/g, "u")
     // `snakeCaseToken` already treats `%` as the word, so `NEU%` states percent.
-    .replace(/%/g, " percent ");
+    .replace(/%/g, " percent ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+function normalizeHaystack(provenance: RowProvenance): string {
+  return normalizeLexical(
+    `${provenance.label ?? ""} ${provenance.sourceText ?? ""} ${provenance.sectionContext ?? ""}`,
+  );
 }
 
 /**
@@ -63,10 +83,8 @@ function normalizeHaystack(provenance: RowProvenance): string {
  * are stored as the word the document prints, so the value itself is the form.
  */
 function statedForms(axis: ClinicalAxis, value: string): readonly string[] {
-  if (axis === "specimen") {
-    return SPECIMEN_FORMS[value] ?? [value.replaceAll("_", " ")];
-  }
-  return [value.replaceAll("_", " ")];
+  const forms = axis === "specimen" ? SPECIMEN_FORMS[value] ?? [value] : [value];
+  return forms.map(normalizeLexical);
 }
 
 /**
@@ -85,8 +103,13 @@ export function isAxisStated(
   if (trimmed.length === 0 || trimmed in UNKNOWN_AXIS_VALUES) return true;
 
   const haystack = normalizeHaystack(provenance);
-  if (haystack.trim().length === 0) return false;
-  return statedForms(axis, trimmed).some((form) => haystack.includes(form));
+  if (haystack.length === 0) return false;
+  // A value made only of punctuation (`<`, seen on censored results where the
+  // comparator leaked into the modifier axis) normalizes to the empty string,
+  // and `includes("")` is true for every haystack. Such a value can never be
+  // evidenced lexically, so it is never stated.
+  const forms = statedForms(axis, trimmed).filter((form) => form.length > 0);
+  return forms.some((form) => haystack.includes(form));
 }
 
 /**
@@ -156,7 +179,11 @@ export function auditUnstatedAxes(
   for (const row of rows) {
     const inferences = unstatedAxes(
       { specimen: row.specimen, modifier: row.modifier, method: row.method },
-      { sourceText: row.source_text, sectionContext: row.section_context },
+      {
+        label: row.raw_name ?? row.biomarker_name,
+        sourceText: row.source_text,
+        sectionContext: row.section_context,
+      },
     );
     if (inferences.length === 0) continue;
     findings.push({

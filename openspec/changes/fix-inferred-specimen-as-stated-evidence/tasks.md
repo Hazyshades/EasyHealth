@@ -53,62 +53,62 @@
 
 ## 4. Enforce on write (hygiene)
 
-- [ ] 4.1 Add the missing `specimen` instruction to the lab extraction prompt in
+- [x] 4.1 Add the missing `specimen` instruction to the lab extraction prompt in
       `src/lib/documents/extraction.ts`, mirroring the existing `method` wording,
       and forbid inferring the axis from the analyte label or from prevalence.
-- [ ] 4.2 Apply the predicate in the extraction parser so an unstated concrete
+- [x] 4.2 Apply the predicate in the extraction parser so an unstated concrete
       axis is stored as the explicit unknown value.
-- [ ] 4.3 Review `inferSpecimen` (`src/lib/biomarkers/qualitative.ts:90`): its own
+- [x] 4.3 Review `inferSpecimen` (`src/lib/biomarkers/qualitative.ts:90`): its own
       heuristics are already provenance-based, but its `explicit` pass-through is
       the hole. Decide whether the explicit branch keeps its trust or is gated by
       the predicate, and record the decision in a comment.
-- [ ] 4.4 Bump the extraction `processing_version`.
+- [x] 4.4 Bump the extraction `processing_version`.
 - [ ] 4.5 Re-extract the sample document and confirm the stored rows carry no
       unstated concrete axis (auditor reports 0).
 
 ## 5. Observability (separable — may be dropped without affecting safety)
 
-- [ ] 5.1 Add one additive nullable `jsonb` column on
+- [x] 5.1 Add one additive nullable `jsonb` column on
       `document_extracted_biomarkers` recording discarded axis inferences.
       No constraint change, no backfill.
-- [ ] 5.2 Populate it from the write-time filter. Never read it in the resolver,
+- [x] 5.2 Populate it from the write-time filter. Never read it in the resolver,
       never copy it onto observations, never include it in identity or the
       decision trace.
-- [ ] 5.3 Add a pgTAP fixture asserting the column is nullable, is not referenced
+- [x] 5.3 Add a pgTAP fixture asserting the column is nullable, is not referenced
       by any identity constraint, and that a row with a populated value still
       resolves exactly as one with the column null.
-- [ ] 5.4 Wire `test:stated-axis-db`.
+- [x] 5.4 Wire `test:stated-axis-db`.
 
 ## 6. Corpus and fixtures
 
-- [ ] 6.1 Add the seam check to release evidence: no current extracted row in the
+- [x] 6.1 Add the seam check to release evidence: no current extracted row in the
       evidence set may carry a concrete axis absent from its own provenance.
-- [ ] 6.2 Add the two required regression fixtures — conventional serum analyte
+- [x] 6.2 Add the two required regression fixtures — conventional serum analyte
       with no stated specimen expecting `partial` with `specimen` missing, and a
       row whose specimen is stated only by section context expecting the axis
       satisfied.
-- [ ] 6.3 Audit the existing 52 corpus rows and 9 specimen-bearing fixtures for
+- [x] 6.3 Audit the existing 52 corpus rows and 9 specimen-bearing fixtures for
       expectations that encode the defect. **Review each individually and record
       the reason; do not bulk-update expected classifications.**
-- [ ] 6.4 Check the EH-114 glucose database fixture
+- [x] 6.4 Check the EH-114 glucose database fixture
       (`supabase/tests/eh114_glucose_resolution_persistence.sql`) for inserted
       extracted rows that rely on an unstated specimen, and adjust or annotate.
-- [ ] 6.5 Bump `MEASUREMENT_NORMALIZATION_VERSION` `5` → `6`. Leave
+- [x] 6.5 Bump `MEASUREMENT_NORMALIZATION_VERSION` `5` → `6`. Leave
       `MEASUREMENT_RESOLVER_VERSION` as #105 leaves it.
 
 ## 7. Verification
 
-- [ ] 7.1 Run `pnpm typecheck`, `pnpm test:stated-axis`, `pnpm test:alias-order`,
+- [x] 7.1 Run `pnpm typecheck`, `pnpm test:stated-axis`, `pnpm test:alias-order`,
       `pnpm test:cbc-regression`, `pnpm test:eh112`, `pnpm test:eh113`,
       `pnpm test:eh106`, `pnpm test:eh116`, `pnpm test:document-review`,
       `pnpm verify:registry`, `pnpm build`.
-- [ ] 7.2 Note that `pnpm test:eh111` fails on a pre-existing assertion at
+- [x] 7.2 Note that `pnpm test:eh111` fails on a pre-existing assertion at
       `scripts/verify-eh111-clinical-compatibility.ts:184`; confirm the failure is
       unchanged and do not fix it here.
-- [ ] 7.3 Diff the candidate corpus report before and after. Record every row
+- [x] 7.3 Diff the candidate corpus report before and after. Record every row
       whose classification changed, with the reason. Expect movement toward
       `partial`; confirm no row gained a concrete identity it did not have.
-- [ ] 7.4 Run the database fixtures against a local Supabase stack, or record the
+- [x] 7.4 Run the database fixtures against a local Supabase stack, or record the
       blocker if Docker is unavailable.
 
 ## 8. Release with #105
@@ -131,18 +131,21 @@
 
 ## 9. QA and closeout
 
-- [ ] 9.1 Create `QA/issue-106/checklist.md`. State the expected
+- [x] 9.1 Create `QA/issue-106/checklist.md`. State the expected
       `Matched measurement → More details needed` movement prominently, before any
       test step, so a tester does not report it as a failure.
-- [ ] 9.2 Record before/after counts for the sample document (baseline
+- [x] 9.2 Record before/after counts for the sample document (baseline
       `resolved 27 / partial 17`, and 44/44 rows carrying an unstated specimen).
-- [ ] 9.3 Add a check that Health Profile inputs which disappear do so with a
+- [x] 9.3 Add a check that Health Profile inputs which disappear do so with a
       stated exclusion reason rather than silently.
-- [ ] 9.4 Add the automated-regression-coverage table mapping each boundary to its
+- [x] 9.4 Add the automated-regression-coverage table mapping each boundary to its
       verifying script or fixture.
-- [ ] 9.5 Name the non-goals explicitly in the checklist: no panel-implies-
+- [x] 9.5 Name the non-goals explicitly in the checklist: no panel-implies-
       specimen policy, `modifier: "<"` untouched, no re-extraction of existing
       documents.
-- [ ] 9.6 File the follow-up issue for the `modifier: "<"` parsing artifact.
+- [x] 9.6 File the follow-up issue for the `modifier: "<"` parsing artifact.
+      Filed as #108: the comparator is stored as a clinical modifier *and* the
+      censoring is lost from the value (`< 0.20` stored as `0.2`). Confirmed on
+      8 live rows. #106 rejects the punctuation-only value as a backstop only.
 - [ ] 9.7 Update GitHub issue #106 with the evidence and close it via a pull
       request using `Closes #106`.

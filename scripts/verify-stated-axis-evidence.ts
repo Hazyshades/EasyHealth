@@ -251,6 +251,33 @@ assert.equal(
   false,
   "`Complete blood count` does not lexically state whole blood",
 );
+
+// A punctuation-only value normalizes to "", and `includes("")` is true for
+// every haystack. Real uploads store `modifier: "<"` from censored results
+// such as `CRP < 0.20 mg/L`, so this hole was reachable from live data.
+assert.equal(
+  isAxisStated("modifier", "<", { sourceText: "C-reactive protein, quantitative < 0.20 mg/L" }),
+  false,
+  "a punctuation-only axis value can never be lexically evidenced",
+);
+assert.equal(
+  isAxisStated("modifier", "less than", { sourceText: "C-reactive protein, quantitative < 0.20 mg/L" }),
+  false,
+  "the comparator spelled out is still not printed by the document",
+);
+
+// Hyphen, underscore and space are the same separator, as `snakeCaseToken`
+// treats them. `Post-prandial` states `post_prandial`.
+assert.equal(
+  isAxisStated("modifier", "post_prandial", { label: "Post-prandial glucose" }),
+  true,
+  "a hyphen in the printed label states an underscored axis value",
+);
+assert.equal(
+  isAxisStated("specimen", "whole_blood", { sourceText: "Haemoglobin, whole-blood 140 g/L" }),
+  true,
+  "a hyphenated specimen in the document states the stored key",
+);
 assert.equal(
   isAxisStated("specimen", "whole_blood", { sourceText: "Hemoglobin, whole blood 156 g/L" }),
   true,

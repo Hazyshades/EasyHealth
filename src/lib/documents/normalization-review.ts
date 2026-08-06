@@ -69,6 +69,7 @@ export function measurementInputFromExtracted(
   // #106: an axis the document never stated must reach the resolver as absent,
   // otherwise it satisfies a compatibility axis and unlocks `resolved`.
   const provenance = {
+    label: row.raw_name ?? row.biomarker_name,
     sourceText: row.source_text ?? null,
     sectionContext: row.section_context ?? null,
   };

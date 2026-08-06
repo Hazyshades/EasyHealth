@@ -142,6 +142,7 @@ export function measurementInputFromWriterRow(
   // review preview. Reprocessing re-runs resolution and not extraction, which
   // is what corrects rows already stored with a fabricated axis.
   const provenance = {
+    label: row.raw_name ?? row.biomarker_name,
     sourceText: row.source_text ?? null,
     sectionContext: row.section_context ?? null,
   };

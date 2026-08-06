@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1",
-  "requiredLaunchRows": 52,
+  "requiredLaunchRows": 53,
   "thresholds": {
     "minRawPreservationRate": 1,
     "minRecognitionRate": 1,
@@ -12,8 +12,12 @@
     "maxUnclassifiedRows": 0
   },
   "approvals": {
-    "falseConcreteReviewRoles": ["registry-safety-reviewer"],
-    "releaseApprovalRoles": ["release-manager"],
+    "falseConcreteReviewRoles": [
+      "registry-safety-reviewer"
+    ],
+    "releaseApprovalRoles": [
+      "release-manager"
+    ],
     "scoreAffectingBindingOwners": {
       "alt_serum_catalytic_activity": "assessment-owner",
       "fasting_glucose": "assessment-owner",

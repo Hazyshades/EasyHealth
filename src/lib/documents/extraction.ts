@@ -12,6 +12,12 @@ import {
   type ValueKind,
 } from "@/lib/biomarkers";
 import { parseLabNumber } from "@/lib/schemas/biomarkers";
+import {
+  statedAxisValue,
+  unstatedAxes,
+  type AxisInference,
+  type RowProvenance,
+} from "./stated-axis-evidence";
 
 export function formatReferenceRange(
   refLow: number | null,
@@ -41,6 +47,11 @@ export type PipelineBiomarker = {
   method: string | null;
   reported_alt_value: number | null;
   reported_alt_unit: string | null;
+  /**
+   * #106: clinical axes the model supplied without document evidence, kept for
+   * observability only. Never read by the resolver, never part of identity.
+   */
+  inferred_axes: readonly AxisInference[] | null;
 };
 
 export type PipelineExtractionResult = {
@@ -82,6 +93,7 @@ Rules:
 - For qualitative results, put the text in "value" as a string (e.g. "Negative", "2+").
 - For quantitative results, put a number in "value".
 - If dual units are printed (e.g. 90 mg/dL / 5.0 mmol/L), store primary in value/unit and alternate in reported_alt_value/reported_alt_unit.
+- Emit specimen only when the report explicitly states it (for example a "Material: serum" line or a "Serum chemistry" heading); do not infer it from the analyte label or from which specimen the test is usually measured in. When the report does not state it, use null.
 - For CBC differentials, emit method only when the report explicitly states automated or manual; do not infer it from the analyte label.
 - EXCLUDE vital signs (blood pressure, pulse, respirations, temperature, SpO2).
 - EXCLUDE physical examination measurements and narrative clinical notes.
@@ -90,6 +102,52 @@ Rules:
 - source_text is a short verbatim snippet from the document containing the value.
 - confidence is 0.0-1.0 for extraction certainty.
 - Do not diagnose or interpret clinically.`;
+
+type ExtractedAxes = {
+  specimen: string;
+  modifier: string;
+  method: string | null;
+  inferred_axes: readonly AxisInference[] | null;
+};
+
+/**
+ * #106: keep only the clinical axes the document evidences.
+ *
+ * `inferSpecimen` and `inferModifier` are provenance-based on their own, but
+ * both pass an explicit model value straight through — that branch is how an
+ * invented specimen entered the pipeline. Everything the model supplied without
+ * evidence is dropped to the storage default and recorded separately.
+ */
+function statedAxesFromRow(
+  key: string,
+  name: string,
+  row: Record<string, unknown>,
+  sourceText: string | null,
+): ExtractedAxes {
+  const provenance: RowProvenance = { label: name, sourceText };
+  const specimen = inferSpecimen(
+    key,
+    name,
+    typeof row.specimen === "string" ? row.specimen : null,
+  );
+  const modifier = inferModifier(
+    key,
+    name,
+    typeof row.modifier === "string" ? row.modifier : null,
+  );
+  const method =
+    typeof row.method === "string" &&
+    ["automated", "manual"].includes(row.method.trim().toLowerCase())
+      ? row.method.trim().toLowerCase()
+      : null;
+  const inferred = unstatedAxes({ specimen, modifier, method }, provenance);
+  return {
+    specimen: statedAxisValue("specimen", specimen, provenance) ?? "unspecified",
+    modifier: statedAxisValue("modifier", modifier, provenance) ?? "none",
+    method: statedAxisValue("method", method, provenance),
+    inferred_axes: inferred.length > 0 ? inferred : null,
+  };
+}
 
 function parsePipelineExtraction(raw: unknown): PipelineExtractionResult {
   const data =
@@ -110,21 +168,14 @@ function parsePipelineExtraction(raw: unknown): PipelineExtractionResult {
     // the Registry 2.0 resolver using label, unit, and context evidence.
     const key = normalizeBiomarkerKeyToken(keySource) || "unknown";
 
+    const sourceText = typeof row.source_text === "string" ? row.source_text : null;
+    const axes = statedAxesFromRow(key, name, row, sourceText);
+
     const parsed = parseLabValueCell(row.value);
     if (!parsed) {
       // fall back: try numeric only
       const numeric = parseLabNumber(row.value);
       if (numeric === null) continue;
-      const specimen = inferSpecimen(
-        key,
-        name,
-        typeof row.specimen === "string" ? row.specimen : null
-      );
-      const modifier = inferModifier(
-        key,
-        name,
-        typeof row.modifier === "string" ? row.modifier : null
-      );
       biomarkers.push({
         key,
         name,
@@ -136,14 +187,15 @@ function parsePipelineExtraction(raw: unknown): PipelineExtractionResult {
         ref_low: typeof row.ref_low === "number" ? row.ref_low : null,
         ref_high: typeof row.ref_high === "number" ? row.ref_high : null,
         source_page: typeof row.source_page === "number" ? row.source_page : null,
-        source_text: typeof row.source_text === "string" ? row.source_text : null,
+        source_text: sourceText,
         confidence:
           typeof row.confidence === "number" && row.confidence >= 0 && row.confidence <= 1
             ? row.confidence
             : 0.85,
-        specimen,
-        modifier,
-        method: typeof row.method === "string" && ["automated", "manual"].includes(row.method.trim().toLowerCase()) ? row.method.trim().toLowerCase() : null,
+        specimen: axes.specimen,
+        modifier: axes.modifier,
+        method: axes.method,
+        inferred_axes: axes.inferred_axes,
         reported_alt_value:
           typeof row.reported_alt_value === "number" ? row.reported_alt_value : null,
         reported_alt_unit:
@@ -151,17 +203,6 @@ function parsePipelineExtraction(raw: unknown): PipelineExtractionResult {
       });
       continue;
     }
-
-    const specimen = inferSpecimen(
-      key,
-      name,
-      typeof row.specimen === "string" ? row.specimen : null
-    );
-    const modifier = inferModifier(
-      key,
-      name,
-      typeof row.modifier === "string" ? row.modifier : null
-    );
 
     biomarkers.push({
       key,
@@ -174,14 +215,15 @@ function parsePipelineExtraction(raw: unknown): PipelineExtractionResult {
       ref_low: typeof row.ref_low === "number" ? row.ref_low : null,
       ref_high: typeof row.ref_high === "number" ? row.ref_high : null,
       source_page: typeof row.source_page === "number" ? row.source_page : null,
-      source_text: typeof row.source_text === "string" ? row.source_text : null,
+      source_text: sourceText,
       confidence:
         typeof row.confidence === "number" && row.confidence >= 0 && row.confidence <= 1
           ? row.confidence
           : 0.85,
-      specimen,
-      modifier,
-      method: typeof row.method === "string" && ["automated", "manual"].includes(row.method.trim().toLowerCase()) ? row.method.trim().toLowerCase() : null,
+      specimen: axes.specimen,
+      modifier: axes.modifier,
+      method: axes.method,
+      inferred_axes: axes.inferred_axes,
       reported_alt_value:
         typeof row.reported_alt_value === "number" ? row.reported_alt_value : null,
       reported_alt_unit:
