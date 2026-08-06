@@ -75,7 +75,13 @@ export type ClinicalCompatibilityAxis =
 export type CompatibilityDisposition = "compatible" | "missing" | "conflict";
 
 export type AliasSource = "canonical" | "registry" | "laboratory" | "fixture";
-export type AliasMatchType = "exact" | "normalized" | "ocr_variant" | "bounded_fuzzy";
+export type AliasMatchType =
+  | "exact"
+  | "normalized"
+  | "ocr_variant"
+  | "bounded_fuzzy"
+  /** #105: order-insensitive projection derived from an exact/normalized alias. */
+  | "token_set";
 export type AliasMatchAuthority = "recognition_only" | "reviewed_resolution";
 export type AliasApprovalStatus = "reviewed" | "provisional";
 export type AliasLifecycle = "active" | "deprecated";
@@ -163,6 +169,7 @@ export type ResolutionReasonCode =
   | "alias_normalized_match"
   | "alias_ocr_variant_match"
   | "alias_bounded_fuzzy_match"
+  | "alias_token_set_match"
   | "proposed_key_match"
   | "unit_compatible"
   | "unit_not_required"

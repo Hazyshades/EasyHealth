@@ -1,6 +1,7 @@
-import { snakeCaseToken } from "./normalize";
+import { snakeCaseToken, tokenSetKey } from "./normalize";
 import { z } from "zod";
 import type {
+  AliasMatchType,
   AliasDefinition,
   AliasSource,
   Analyte,
@@ -33,7 +34,8 @@ import type {
 } from "./types";
 
 export const MEASUREMENT_CATALOG_MANIFEST_VERSION = "2026-08-03.0";
-export const MEASUREMENT_RESOLVER_VERSION = "8";
+/** 9: #105 order-insensitive alias admission (`token_set`). */
+export const MEASUREMENT_RESOLVER_VERSION = "9";
 export const MEASUREMENT_NORMALIZATION_VERSION = "5";
 export const MEASUREMENT_COMPATIBILITY_POLICY_VERSION = "1";
 /** Observation provenance schema version, assigned by the persistence layer (not copied from extraction). */
@@ -543,16 +545,62 @@ function damerauLevenshtein(left: string, right: string): number {
   return table[left.length]![right.length]!;
 }
 
-function aliasMatches(alias: AliasDefinition, rawLabel: string, normalizedLabel: string, laboratory: string | null | undefined): boolean {
-  if (alias.lifecycle !== "active" || (alias.laboratory && alias.laboratory !== laboratory)) return false;
-  if (alias.matchType === "exact") return canonicalLabel(alias.value) === canonicalLabel(rawLabel);
-  if (alias.matchType === "normalized" || alias.matchType === "ocr_variant") return alias.normalizedValue === normalizedLabel;
-  return normalizedLabel.length >= 5 && alias.maxNormalizedEditDistance !== undefined && damerauLevenshtein(alias.normalizedValue, normalizedLabel) <= alias.maxNormalizedEditDistance;
+/** Alias match types eligible to project an order-insensitive token set (#105). */
+const TOKEN_SET_ELIGIBLE_MATCH_TYPES: Readonly<Record<string, true>> = {
+  exact: true,
+  normalized: true,
+};
+
+/**
+ * Returns the match mode that actually admitted the alias, or null.
+ *
+ * Ordered modes are evaluated first and in their original order, so any label
+ * that resolves today takes the identical branch and reports the identical
+ * match type. `token_set` is consulted only after every ordered mode declines.
+ */
+function matchAliasMode(
+  alias: AliasDefinition,
+  rawLabel: string,
+  normalizedLabel: string,
+  labelTokenSetKey: string | null,
+  laboratory: string | null | undefined,
+): AliasMatchType | null {
+  if (alias.lifecycle !== "active" || (alias.laboratory && alias.laboratory !== laboratory)) return null;
+  if (alias.matchType === "exact") {
+    if (canonicalLabel(alias.value) === canonicalLabel(rawLabel)) return "exact";
+  } else if (alias.matchType === "normalized" || alias.matchType === "ocr_variant") {
+    if (alias.normalizedValue === normalizedLabel) return alias.matchType;
+  } else if (
+    normalizedLabel.length >= 5 &&
+    alias.maxNormalizedEditDistance !== undefined &&
+    damerauLevenshtein(alias.normalizedValue, normalizedLabel) <= alias.maxNormalizedEditDistance
+  ) {
+    return "bounded_fuzzy";
+  }
+  // Set EQUALITY, never containment: a strict superset or subset of the alias
+  // tokens must not be admitted.
+  if (
+    labelTokenSetKey !== null &&
+    TOKEN_SET_ELIGIBLE_MATCH_TYPES[alias.matchType] === true &&
+    tokenSetKey(alias.normalizedValue) === labelTokenSetKey
+  ) {
+    return "token_set";
+  }
+  return null;
 }
 
 export function findAliasAdmissions(input: Pick<MeasurementResolutionInput, "rawLabel" | "laboratory">, definitions: readonly MeasurementDefinition[] = MEASUREMENT_DEFINITIONS): Array<{ definition: MeasurementDefinition; alias: MatchedAlias }> {
   const normalizedLabel = snakeCaseToken(input.rawLabel);
-  return definitions.flatMap((definition) => definition.aliases.filter((alias) => aliasMatches(alias, input.rawLabel, normalizedLabel, input.laboratory)).map((alias) => ({ definition, alias })));
+  const labelTokenSetKey = tokenSetKey(normalizedLabel);
+  return definitions.flatMap((definition) =>
+    definition.aliases.flatMap((alias) => {
+      const matchType = matchAliasMode(alias, input.rawLabel, normalizedLabel, labelTokenSetKey, input.laboratory);
+      if (!matchType) return [];
+      // The admitted alias keeps its own authority, approval status, lifecycle
+      // and provenance; only the reported match type reflects the fired mode.
+      return [{ definition, alias: { ...alias, matchType } }];
+    }),
+  );
 }
 
 const SUPPORTED_SPECIMENS: readonly Exclude<SpecimenKey, "unspecified">[] = [
@@ -686,14 +734,19 @@ function candidateEvidence(
   input: MeasurementResolutionInput,
   unit: NormalizedMeasurementUnit
 ): CandidateEvidence {
-  const label: readonly [ResolutionReasonCode, number] =
-    alias.matchType === "exact"
-      ? ["alias_exact_match", 40]
-      : alias.matchType === "bounded_fuzzy"
-        ? ["alias_bounded_fuzzy_match", 28]
-        : alias.matchType === "ocr_variant"
-          ? ["alias_ocr_variant_match", 28]
-          : ["alias_normalized_match", 36];
+  // Weight order is deliberate: a permutation preserves every token exactly, so
+  // it is stronger evidence than an OCR variant or a bounded fuzzy match, but
+  // weaker than either ordered exact-token mode.
+  const ALIAS_LABEL_EVIDENCE: Readonly<
+    Record<AliasMatchType, readonly [ResolutionReasonCode, number]>
+  > = {
+    exact: ["alias_exact_match", 40],
+    normalized: ["alias_normalized_match", 36],
+    token_set: ["alias_token_set_match", 32],
+    ocr_variant: ["alias_ocr_variant_match", 28],
+    bounded_fuzzy: ["alias_bounded_fuzzy_match", 28],
+  };
+  const label = ALIAS_LABEL_EVIDENCE[alias.matchType];
   const accepted: ResolutionEvidence[] = [
     evidence(label[0], "label", "strong", label[1], alias.value),
   ];
@@ -880,6 +933,7 @@ const TRACE_REASON_CODES: Record<ResolutionReasonCode, true> = {
   alias_normalized_match: true,
   alias_ocr_variant_match: true,
   alias_bounded_fuzzy_match: true,
+  alias_token_set_match: true,
   proposed_key_match: true,
   unit_compatible: true,
   unit_not_required: true,
@@ -1179,6 +1233,35 @@ export function validateMeasurementRegistry(definitions: readonly MeasurementDef
         (definition.valueKind === "qualitative" || definition.valueKind === "ordinal")
       ) {
         errors.push(`Reviewed non-numeric definition uses numeric unit policy: ${definition.key}`);
+      }
+    }
+  }
+  // #105: an admission-eligible token-set projection must never be shared by
+  // two distinct reviewed ANALYTES, because an order-insensitive admission
+  // would then pull in a semantically unrelated measurement.
+  //
+  // Specimen, timing and method variants of the SAME analyte legitimately share
+  // aliases — `alanine_aminotransferase` is authored on both the serum and the
+  // plasma ALT definition — and the ordered path already admits both. That
+  // co-candidacy is the designed input to the specimen axis, not a collision.
+  //
+  // Reviewed/recognition-only collisions are also allowed: a recognition-only
+  // candidate can never reach `resolved`.
+  const reviewedTokenSetAnalytes = new Map<string, string>();
+  for (const definition of definitions) {
+    if (definition.maturity !== "reviewed") continue;
+    for (const alias of definition.aliases) {
+      if (alias.lifecycle !== "active") continue;
+      if (alias.matchType !== "exact" && alias.matchType !== "normalized") continue;
+      const projection = tokenSetKey(alias.normalizedValue);
+      if (projection === null) continue;
+      const owner = reviewedTokenSetAnalytes.get(projection);
+      if (owner === undefined) {
+        reviewedTokenSetAnalytes.set(projection, definition.analyteKey);
+      } else if (owner !== definition.analyteKey) {
+        errors.push(
+          `Colliding reviewed token-set projection "${projection}": analytes ${owner} and ${definition.analyteKey}`,
+        );
       }
     }
   }
