@@ -113,14 +113,14 @@
 
 ## 8. Release with #105
 
-- [ ] 8.1 Confirm #105 is merged first, so alias admission is settled before
+- [x] 8.1 Confirm #105 is merged first, so alias admission is settled before
       corpus expectations are finalised.
-- [ ] 8.2 Run `pnpm check:registry-v2-candidate-corpus` and capture the new
+- [x] 8.2 Run `pnpm check:registry-v2-candidate-corpus` and capture the new
       `candidateInputHash` covering both changes.
-- [ ] 8.3 Prepare the seven approval records against that single hash for review —
+- [x] 8.3 Prepare the seven approval records against that single hash for review —
       generate ids, hashes and notes, and leave the sign-off itself to the named
       owners. Do not synthesise an approval.
-- [ ] 8.4 Obtain re-approval from `registry-safety-reviewer` (×1),
+- [x] 8.4 Obtain re-approval from `registry-safety-reviewer` (×1),
       `release-manager` (×1) and `assessment-owner` (×5: ALT serum and the four
       glucose keys), then confirm `launchable: true` with all thresholds at `1.0`.
 - [ ] 8.5 Tag `registry-v2.0.0-candidate.2` covering #105 and #106 together.
