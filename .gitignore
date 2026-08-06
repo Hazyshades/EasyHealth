@@ -77,3 +77,5 @@ supabase/.temp
 
 # test_ruseluts
 test_ruseluts
+# EH-118 smoke-test output
+.artifacts

@@ -4,6 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import sharp from "sharp";
+import {
+  parsePdfBboxLayout,
+  splitPlainTextPages,
+  type PdfLayoutPage,
+} from "../../src/lib/documents/pdf-text-layout.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -116,17 +121,44 @@ export async function generateThumbnail(pageBuffer: Buffer): Promise<Buffer> {
     .toBuffer();
 }
 
-export async function extractPdfText(buffer: Buffer): Promise<string> {
+/**
+ * EH-118: extract the PDF page index with word geometry.
+ *
+ * `-bbox-layout` gives per-word rectangles in PDF user space, which is the only
+ * deterministic source of source-region coordinates available to this worker.
+ * When it yields nothing (scanned pages, older poppler, malformed PDF) the
+ * plain text extractor still supplies per-page text, so page-level provenance
+ * survives and only the region highlight degrades.
+ */
+export async function extractPdfPageIndex(buffer: Buffer): Promise<PdfLayoutPage[]> {
   const dir = await mkdtemp(join(tmpdir(), "eh-ocr-"));
   try {
     const pdfPath = join(dir, "input.pdf");
-    const txtPath = join(dir, "output.txt");
     await writeFile(pdfPath, buffer);
     const pdftotext = popplerExecutable("pdftotext");
-    await execFileAsync(pdftotext, [pdfPath, txtPath]);
-    return await readFile(txtPath, "utf-8");
+
+    try {
+      const layoutPath = join(dir, "layout.xhtml");
+      await execFileAsync(pdftotext, ["-bbox-layout", "-enc", "UTF-8", pdfPath, layoutPath]);
+      const pages = parsePdfBboxLayout(await readFile(layoutPath, "utf-8"));
+      if (pages.some((page) => page.lines.length > 0)) return pages;
+    } catch (error) {
+      const err = error as NodeJS.ErrnoException;
+      if (err.code === "ENOENT") throw new Error(popplerMissingMessage("pdftotext"));
+      console.warn("[previews] pdftotext -bbox-layout failed, falling back to plain text");
+    }
+
+    const txtPath = join(dir, "output.txt");
+    await execFileAsync(pdftotext, ["-enc", "UTF-8", pdfPath, txtPath]);
+    return splitPlainTextPages(await readFile(txtPath, "utf-8")).map((text, index) => ({
+      page_number: index + 1,
+      width: 0,
+      height: 0,
+      text,
+      lines: [],
+    }));
   } catch {
-    return "";
+    return [];
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

@@ -35,6 +35,12 @@ jobs:
           OPENAI_API_KEY: ci-placeholder
           NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      - run: pnpm test:eh118
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+          OPENAI_API_KEY: ci-placeholder
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
       - name: Validate Registry 2.0 candidate-release evidence
         run: pnpm check:registry-v2-candidate-corpus-technical
       - name: Verify CBC measurement regression suite
@@ -100,6 +106,8 @@ jobs:
         run: pnpm test:alias-order-db
       - name: Run stated-axis observability column contract
         run: pnpm test:stated-axis-db
+      - name: Run EH-118 source region database contract
+        run: pnpm test:eh118-db
       - name: Stop local Supabase services
         if: always()
         run: supabase stop --no-backup

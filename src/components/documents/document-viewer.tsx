@@ -31,6 +31,7 @@ import {
   setCachedSignedUrl,
 } from "@/lib/documents/signed-url-cache";
 import {
+
   resolveBiomarkerPanelMode,
   resolveBiomarkerReviewAction,
 } from "@/lib/documents/biomarker-review-state";
@@ -124,6 +125,7 @@ type Observation = {
   ref_low: number | string | null;
   ref_high: number | string | null;
   observed_at: string;
+  bounding_box?: unknown;
 };
 
 type ExtractedBiomarker = {
@@ -140,6 +142,7 @@ type ExtractedBiomarker = {
   raw_reference_range?: string | null;
   source_page: number | null;
   source_text: string | null;
+  bounding_box?: unknown;
   confidence: number | null;
   status: string;
   specimen?: string | null;
@@ -211,6 +214,7 @@ function formatWriterFailures(action: string, failures: NonNullable<WriterAction
     .join("; ");
   return `${action} completed for some results, but ${failures.length} row${failures.length === 1 ? "" : "s"} failed: ${details}`;
 }
+
 
 export function DocumentViewer({ documentId }: { documentId: string }) {
   const searchParams = useSearchParams();

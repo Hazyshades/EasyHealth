@@ -27,7 +27,19 @@ import {
   extractReferralFromImage,
   extractReferralFromText,
 } from "../../src/lib/documents/referral-extraction.js";
-import { buildPageOcrArtifact } from "../../src/lib/biomarkers/ocr-artifact.js";
+import {
+  buildPageOcrArtifact,
+  type PageOcrBlock,
+} from "../../src/lib/biomarkers/ocr-artifact.js";
+import {
+  buildPageMarkedText,
+  type PdfLayoutPage,
+} from "../../src/lib/documents/pdf-text-layout.js";
+import {
+  buildSourceIndex,
+  resolveSourceRegion,
+  type SourceIndexPage,
+} from "../../src/lib/documents/source-region-match.js";
 import {
   ocrFulltextPath,
   ocrPageJsonPath,
@@ -58,7 +70,7 @@ import {
   runClassifyTextOrImage,
   runStageTextOrImage,
 } from "./pipeline-llm.js";
-import { extractPdfText, generatePagePreviews, generateThumbnail } from "./previews.js";
+import { extractPdfPageIndex, generatePagePreviews, generateThumbnail } from "./previews.js";
 import { LAB_DOCUMENTS_BUCKET, supabase } from "./supabase.js";
 
 type JobRow = {
@@ -315,26 +327,45 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
   const thumbPath = thumbnailObjectPath(profileId, documentId);
   await uploadToLabDocuments(thumbPath, thumbBuffer, "image/webp");
 
-  let ocrText = "";
+  // EH-118: the page index is the provenance ground truth. Word geometry comes
+  // from poppler when the PDF has a text layer; otherwise only per-page text
+  // survives and region highlights degrade to page-only provenance.
+  let layoutPages: PdfLayoutPage[] = [];
   if (mimeType === "application/pdf") {
-    ocrText = await extractPdfText(buffer);
-    const ocrPath = ocrFulltextPath(profileId, documentId);
-    await uploadToLabDocuments(ocrPath, ocrText, "text/plain");
+    layoutPages = await extractPdfPageIndex(buffer);
   }
+  const hasPageText = layoutPages.some((page) => page.text.trim().length > 0);
+  // Extraction input carries explicit page markers so the model's `source_page`
+  // is read off the input instead of guessed from one undifferentiated blob.
+  const ocrText = hasPageText ? buildPageMarkedText(layoutPages) : "";
+  if (mimeType === "application/pdf") {
+    await uploadToLabDocuments(ocrFulltextPath(profileId, documentId), ocrText, "text/plain");
+  }
+  const sourceIndex: SourceIndexPage[] = buildSourceIndex(layoutPages);
+  const pageCount = pages.length;
 
   for (const page of pages) {
     const previewPath = pagePreviewObjectPath(profileId, documentId, page.pageNumber);
     await uploadToLabDocuments(previewPath, page.buffer, "image/webp");
 
-    // Page OCR artifact (schema_version 1). Full PDF text stored on page 1 when available.
+    // Page OCR artifact (schema_version 1), one per page, with normalized word
+    // geometry whenever the text layer provided it.
+    const layout = layoutPages.find((candidate) => candidate.page_number === page.pageNumber);
+    const pageText = layout?.text.trim() ? layout.text : "";
     let ocrJsonPath: string | null = null;
-    if (ocrText && page.pageNumber === 1) {
+    if (pageText) {
+      const blocks: PageOcrBlock[] | undefined =
+        layout && layout.lines.length > 0
+          ? layout.lines.map((line) => ({ text: line.text, bbox: line.bbox }))
+          : undefined;
       const artifact = buildPageOcrArtifact({
-        engine: mimeType === "application/pdf" ? "pdf-text" : "none",
+        engine: blocks ? "poppler-bbox-layout" : "pdf-text",
         page_number: page.pageNumber,
-        full_text: ocrText,
+        full_text: pageText,
         width: page.width,
         height: page.height,
+        blocks,
+        coordinate_space: blocks ? "normalized" : undefined,
       });
       ocrJsonPath = ocrPageJsonPath(profileId, documentId, page.pageNumber);
       await uploadToLabDocuments(
@@ -352,12 +383,20 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         width: page.width,
         height: page.height,
         preview_storage_path: previewPath,
-        ocr_text: page.pageNumber === 1 && ocrText ? ocrText.slice(0, 50000) : null,
+        ocr_text: pageText ? pageText.slice(0, 50000) : null,
         ocr_json_storage_path: ocrJsonPath,
       }),
       "write document page"
     );
   }
+
+  // EH-118: ground every extracted row against the page index. The model page
+  // hint is only a hint; a unique OCR match overrides it, and anything
+  // ambiguous degrades to page-only provenance rather than a misplaced box.
+  const resolveProvenance = (
+    hintedPage: number | null | undefined,
+    snippet: string | null | undefined
+  ) => resolveSourceRegion({ pages: sourceIndex, pageCount, snippet, hintedPage });
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -443,6 +482,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
                 reported_alt_unit?: string | null;
                 inferred_axes?: unknown;
               };
+              const provenance = resolveProvenance(anyB.source_page, anyB.source_text);
               return {
                 document_id: documentId,
                 profile_id: profileId,
@@ -459,7 +499,8 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
                 reference_range: formatReferenceRange(anyB.ref_low ?? null, anyB.ref_high ?? null),
                 raw_reference_range: formatReferenceRange(anyB.ref_low ?? null, anyB.ref_high ?? null),
                 section_context: null,
-                source_page: anyB.source_page ?? 1,
+                source_page: provenance.page,
+                bounding_box: provenance.region,
                 source_text: anyB.source_text,
                 confidence: anyB.confidence,
                 specimen: anyB.specimen ?? null,
@@ -512,6 +553,9 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
       // Stage the immutable snapshot (measures, findings, impression) as an
       // inactive prepared publication; readers keep seeing the prior current
       // version until the finalizer commits.
+      // EH-118: page and region are re-grounded against the page index before
+      // the snapshot is normalized. The source locator stays exactly as
+      // extracted because it carries EH-105 source identity.
       const snapshot = normalizeInstrumentalSnapshot({
         study_date:
           extraction.study_date ?? new Date().toISOString().slice(0, 10),
@@ -521,8 +565,18 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         impression: extraction.impression,
         processing_version: DOCUMENT_PROCESSING_VERSION,
         extraction_model: extractionModel,
-        measures: extraction.numeric_measures,
-        findings: extraction.findings,
+        measures: extraction.numeric_measures.map((measure) => {
+          const provenance = resolveProvenance(measure.source_page, measure.source_text);
+          return {
+            ...measure,
+            source_page: provenance.page,
+            bounding_box: provenance.region,
+          };
+        }),
+        findings: extraction.findings.map((finding) => ({
+          ...finding,
+          source_page: resolveProvenance(finding.source_page, finding.source_text).page,
+        })),
       });
 
       const prepared = await prepareInstrumentalPublicationRpc(job, documentId, snapshot);

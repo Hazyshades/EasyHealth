@@ -68,7 +68,9 @@ as $$
     'raw_name', p_name,
     'raw_value_text', '90',
     'raw_unit', 'mg/dL',
-    'provenance_schema_version', '1'
+    'source_page', 1,
+    'source_text', 'Glucose 90 mg/dL',
+    'provenance_schema_version', '2'
   );
 $$;
 
@@ -420,7 +422,8 @@ select throws_ok(
 );
 
 insert into public.observations (
-  id, profile_id, document_id, source_extracted_biomarker_id, name, value, unit, observed_at
+  id, profile_id, document_id, source_extracted_biomarker_id, name, value, unit, observed_at,
+  source_page
 )
 values (
   '00000000-0000-0000-0000-000000001091',
@@ -430,7 +433,8 @@ values (
   'Stale target',
   90,
   'mg/dL',
-  '2026-07-20'
+  '2026-07-20',
+  1
 );
 
 insert into public.observation_normalization_revisions (

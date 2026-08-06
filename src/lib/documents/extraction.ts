@@ -98,8 +98,8 @@ Rules:
 - EXCLUDE vital signs (blood pressure, pulse, respirations, temperature, SpO2).
 - EXCLUDE physical examination measurements and narrative clinical notes.
 - If the document is clearly not a laboratory report, return an empty biomarkers array.
-- source_page is 1-based page number where the value appears.
-- source_text is a short verbatim snippet from the document containing the value.
+- source_page is the 1-based page number where the value appears. When the input contains "=== PAGE N ===" markers, use N from the marker that precedes the value.
+- source_text is a short verbatim snippet from the document containing the label and the value. Copy it exactly; it is matched back to the page to highlight the source region.
 - confidence is 0.0-1.0 for extraction certainty.
 - Do not diagnose or interpret clinically.`;
 
