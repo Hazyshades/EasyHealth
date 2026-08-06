@@ -441,6 +441,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
                 modifier?: string | null;
                 reported_alt_value?: number | null;
                 reported_alt_unit?: string | null;
+                inferred_axes?: unknown;
               };
               return {
                 document_id: documentId,
@@ -465,6 +466,8 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
                 modifier: anyB.modifier ?? null,
                 reported_alt_value: anyB.reported_alt_value ?? null,
                 reported_alt_unit: anyB.reported_alt_unit ?? null,
+                // #106: observability only, never read by the resolver.
+                inferred_axes: anyB.inferred_axes ?? null,
                 extraction_method: "llm",
                 processing_version: DOCUMENT_PROCESSING_VERSION,
                 extraction_model: extractionModel,

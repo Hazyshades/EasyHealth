@@ -54,6 +54,9 @@
     "test:eh117": "tsx scripts/verify-eh117-review-workspace.ts",
     "test:alias-order": "tsx scripts/verify-alias-order-insensitivity.ts",
     "test:alias-order-db": "supabase test db --local supabase/tests/alias_token_set_trace_code.sql",
+    "test:stated-axis": "tsx scripts/verify-stated-axis-evidence.ts",
+    "audit:stated-axis": "tsx --env-file=.env scripts/audit-stated-axis-document.ts",
+    "test:stated-axis-db": "supabase test db --local supabase/tests/stated_axis_inferred_axes.sql",
     "reprocess:batch": "tsx scripts/reprocess-batch.ts"
   },
   "dependencies": {

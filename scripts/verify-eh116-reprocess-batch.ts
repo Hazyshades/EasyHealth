@@ -184,7 +184,10 @@ async function main(): Promise<void> {
     specimen: "serum",
     modifier: null,
     source_page: 1,
-    source_text: "Glucose 90 mg/dL",
+    // #106: the fixture claims a serum specimen, so the line it represents has
+    // to print it. Otherwise the specimen is stripped before resolution and
+    // this row can no longer exercise the partial -> resolved diff.
+    source_text: "Glucose, serum 90 mg/dL",
     bounding_box: null,
     reported_alt_value: null,
     reported_alt_unit: null,

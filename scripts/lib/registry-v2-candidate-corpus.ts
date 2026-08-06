@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
+import { statedAxisValue, unstatedAxes } from "../../src/lib/documents/stated-axis-evidence";
 import {
   MEASUREMENT_CATALOG_MANIFEST_DIGEST,
   MEASUREMENT_CATALOG_MANIFEST_VERSION,
@@ -22,7 +23,12 @@ import {
  */
 
 export const DEFAULT_CANDIDATE_CORPUS_ROOT = "registry/candidate-release/v1";
-export const REQUIRED_CANDIDATE_CORPUS_ROW_COUNT = 52;
+/**
+ * Frozen launch-corpus size. 53 since #106 added `glucose-specimen-by-section`,
+ * the only row covering a specimen stated by panel heading rather than by the
+ * row itself.
+ */
+export const REQUIRED_CANDIDATE_CORPUS_ROW_COUNT = 53;
 
 const RESULTS: readonly ResolverResult[] = ["resolved", "partial", "ambiguous", "unmapped"];
 const VALUE_KINDS: readonly MeasurementValueKind[] = ["numeric", "qualitative", "ordinal", "unspecified"];
@@ -42,6 +48,13 @@ export type CandidateCorpusRow = {
   specimen?: string | null;
   modifier?: string | null;
   method?: string | null;
+  /**
+   * #106: provenance the fixture claims the document printed. A concrete axis
+   * above is only honoured when one of these states it, so the corpus crosses
+   * the extraction-to-resolver seam instead of assuming it.
+   */
+  sourceText?: string | null;
+  sectionContext?: string | null;
   expected: {
     classification: ResolverResult;
     measurementDefinitionKey?: string | null;
@@ -444,6 +457,22 @@ function validateCandidateCorpus(loaded: Omit<LoadedCandidateCorpus, "fixtureErr
       if (correction.reviewStatus !== "reviewed") errors.push(`manual correction on ${row.id || "<unknown>"} lacks reviewed evidence`);
       if (missingString(correction.note)) errors.push(`manual correction on ${row.id || "<unknown>"} lacks a review note`);
     }
+    // #106 seam guard: a fixture may not claim a clinical axis the document it
+    // represents never printed. Without this, the defect can be re-encoded in
+    // the corpus and every threshold will still report 1.0.
+    const unstated = unstatedAxes(
+      { specimen: row.specimen, modifier: row.modifier, method: row.method },
+      {
+        label: row.rawLabel,
+        sourceText: row.sourceText ?? null,
+        sectionContext: row.sectionContext ?? null,
+      },
+    );
+    for (const { axis, discarded } of unstated) {
+      errors.push(
+        `row ${row.id || "<unknown>"} claims ${axis} "${discarded}" that its declared provenance does not state`,
+      );
+    }
   }
 
   if (documentIndex.schemaVersion !== "1") errors.push("documents.schemaVersion must be 1");
@@ -712,14 +741,23 @@ export function runRegistryV2CandidateCorpus(options: CandidateCorpusRunnerOptio
     if (!document) throw new Error(`Missing document fixture for row ${row.id}`);
     let resolution: MeasurementResolution | null = null;
     let error: string | null = null;
+    // #106: the corpus must cross the same boundary production does. A fixture
+    // may only supply a concrete axis when its declared provenance states it,
+    // otherwise the corpus would validate the resolver while leaving the seam
+    // that actually broke completely untested.
+    const provenance = {
+      label: row.rawLabel,
+      sourceText: row.sourceText ?? null,
+      sectionContext: row.sectionContext ?? null,
+    };
     try {
       resolution = resolver({
         rawLabel: row.rawLabel,
         rawUnit: row.rawUnit,
         rawValueText: row.rawValueText,
-        specimen: row.specimen ?? null,
-        modifier: row.modifier ?? null,
-        method: row.method ?? null,
+        specimen: statedAxisValue("specimen", row.specimen ?? null, provenance),
+        modifier: statedAxisValue("modifier", row.modifier ?? null, provenance),
+        method: statedAxisValue("method", row.method ?? null, provenance),
         section: row.panel,
         valueKind: row.valueKind,
       });

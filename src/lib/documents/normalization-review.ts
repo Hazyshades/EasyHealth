@@ -21,6 +21,7 @@ import { compatibleManualDefinitions } from "./normalization-revisions";
 import { projectLaboratoryOutcome } from "./incomplete-laboratory-outcomes";
 import type { LaboratoryResolutionDetails } from "./incomplete-laboratory-outcomes";
 import type { RegistryV2NormalizationRevisionReadBoundary } from "./observation-read-boundaries";
+import { statedAxisValue } from "./stated-axis-evidence";
 
 type ExtractedReviewRow = {
   id: string;
@@ -34,6 +35,7 @@ type ExtractedReviewRow = {
   raw_value_text?: string | null;
   value_kind?: string | null;
   section_context?: string | null;
+  source_text?: string | null;
   confidence?: number | null;
   specimen?: string | null;
   modifier?: string | null;
@@ -104,6 +106,13 @@ export function measurementInputFromExtracted(
   row: ExtractedReviewRow
 ): MeasurementResolutionInput {
   const { ref_low, ref_high } = parseReferenceRange(row.reference_range ?? row.raw_reference_range ?? null);
+  // #106: an axis the document never stated must reach the resolver as absent,
+  // otherwise it satisfies a compatibility axis and unlocks `resolved`.
+  const provenance = {
+    label: row.raw_name ?? row.biomarker_name,
+    sourceText: row.source_text ?? null,
+    sectionContext: row.section_context ?? null,
+  };
   return {
     rawLabel: row.raw_name ?? row.biomarker_name,
     rawUnit: row.raw_unit ?? row.unit ?? null,
@@ -113,9 +122,9 @@ export function measurementInputFromExtracted(
       row.value_kind === "ordinal"
         ? row.value_kind
         : null,
-    specimen: row.specimen ?? null,
-    modifier: row.modifier ?? null,
-    method: row.method ?? null,
+    specimen: statedAxisValue("specimen", row.specimen ?? null, provenance),
+    modifier: statedAxisValue("modifier", row.modifier ?? null, provenance),
+    method: statedAxisValue("method", row.method ?? null, provenance),
     section: row.section_context ?? null,
     referenceLow: ref_low,
     referenceHigh: ref_high,

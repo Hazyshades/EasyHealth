@@ -4,7 +4,7 @@
     "id": "registry-v2-launch-corpus-2026-07-20",
     "registryRelease": "registry-2.0-candidate"
   },
-  "requiredRowCount": 52,
+  "requiredRowCount": 53,
   "rows": [
     {
       "id": "total-protein",
@@ -32,7 +32,8 @@
       "expected": {
         "classification": "resolved",
         "measurementDefinitionKey": "glucose_serum"
-      }
+      },
+      "sourceText": "Glucose, serum 5.3 mmol/L"
     },
     {
       "id": "glucose-plasma",
@@ -47,7 +48,8 @@
       "expected": {
         "classification": "resolved",
         "measurementDefinitionKey": "glucose_plasma"
-      }
+      },
+      "sourceText": "Glucose, plasma 5.6 mmol/L"
     },
     {
       "id": "glucose-whole-blood",
@@ -62,6 +64,23 @@
       "expected": {
         "classification": "resolved",
         "measurementDefinitionKey": "glucose_whole_blood"
+      },
+      "sourceText": "Glucose, whole blood 92 mg/dL"
+    },
+    {
+      "id": "glucose-specimen-by-section",
+      "documentId": "glucose-en-review",
+      "panel": "biochemistry",
+      "family": "glucose",
+      "rawLabel": "Glucose",
+      "rawUnit": "mmol/L",
+      "rawValueText": "5.1",
+      "valueKind": "numeric",
+      "specimen": "serum",
+      "sectionContext": "Serum chemistry",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "glucose_serum"
       }
     },
     {
@@ -78,7 +97,8 @@
       "expected": {
         "classification": "resolved",
         "measurementDefinitionKey": "glucose_urine_dipstick"
-      }
+      },
+      "sourceText": "Urine glucose (dipstick): Positive"
     },
     {
       "id": "glucose-fasting",
@@ -94,7 +114,8 @@
       "expected": {
         "classification": "resolved",
         "measurementDefinitionKey": "fasting_glucose"
-      }
+      },
+      "sourceText": "Fasting glucose, plasma 4.8 mmol/L"
     },
     {
       "id": "glucose-post-prandial",
@@ -110,7 +131,8 @@
       "expected": {
         "classification": "resolved",
         "measurementDefinitionKey": "post_prandial_glucose_plasma"
-      }
+      },
+      "sourceText": "Post-prandial glucose, plasma 6.9 mmol/L"
     },
     {
       "id": "glucose-missing-specimen",
@@ -121,7 +143,9 @@
       "rawUnit": "mmol/L",
       "rawValueText": "5.1",
       "valueKind": "numeric",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      }
     },
     {
       "id": "glucose-fasting-missing-timing",
@@ -133,7 +157,10 @@
       "rawValueText": "4.7",
       "valueKind": "numeric",
       "specimen": "plasma",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      },
+      "sourceText": "Fasting glucose, plasma 4.7 mmol/L"
     },
     {
       "id": "glucose-incompatible-unit",
@@ -145,7 +172,10 @@
       "rawValueText": "5.0",
       "valueKind": "numeric",
       "specimen": "serum",
-      "expected": { "classification": "partial" }
+      "expected": {
+        "classification": "partial"
+      },
+      "sourceText": "Glucose, serum 5.0 %"
     },
     {
       "id": "total-bilirubin",
@@ -556,7 +586,8 @@
         "classification": "resolved",
         "measurementDefinitionKey": "band_neutrophils_percent"
       },
-      "method": "manual"
+      "method": "manual",
+      "sourceText": "Band neutrophils, manual differential, whole blood 2 %"
     },
     {
       "id": "lymph-manual",
