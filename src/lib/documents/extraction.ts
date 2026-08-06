@@ -93,7 +93,7 @@ Rules:
 - For qualitative results, put the text in "value" as a string (e.g. "Negative", "2+").
 - For quantitative results, put a number in "value".
 - If dual units are printed (e.g. 90 mg/dL / 5.0 mmol/L), store primary in value/unit and alternate in reported_alt_value/reported_alt_unit.
-- Emit specimen only when the report explicitly states it (for example a "Material: serum" line or a "Serum chemistry" heading); do not infer it from the analyte label or from which specimen the test is usually measured in. When the report does not state it, use null.
+- Emit specimen only when the report explicitly states it on the row itself or in a labelled line (for example "Material: serum"); do not infer it from the analyte label, from a section heading, or from which specimen the test is usually measured in. When the report does not state it, use null. A section heading is not accepted as evidence: it is not captured with the row, so a specimen taken from it cannot be verified and is discarded before resolution.
 - For CBC differentials, emit method only when the report explicitly states automated or manual; do not infer it from the analyte label.
 - EXCLUDE vital signs (blood pressure, pulse, respirations, temperature, SpO2).
 - EXCLUDE physical examination measurements and narrative clinical notes.
