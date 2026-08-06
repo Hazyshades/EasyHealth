@@ -1,4 +1,5 @@
-export const DOCUMENT_PROCESSING_VERSION = "2026-06-30-v1";
+/** Bumped for #106: extraction no longer stores an unstated clinical axis. */
+export const DOCUMENT_PROCESSING_VERSION = "2026-08-05-v1";
 export const SIGNED_URL_TTL_SECONDS = 900;
 
 export type DocumentProcessingStatus =

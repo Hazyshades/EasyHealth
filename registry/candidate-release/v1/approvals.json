@@ -2,72 +2,72 @@
   "schemaVersion": "1",
   "approvals": [
     {
-      "id": "registry-safety-review-2026-07-30",
+      "id": "registry-safety-review-2026-08-06",
       "scope": "false_concrete_review",
       "role": "registry-safety-reviewer",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "32696937f0c95cc258514e45909ee0f0d5357b3dc2e048784116f5a0f2e81d6d",
-      "note": "Re-approved by the Project Owner for the exact rebased candidate input after reviewing the negative fixtures and false-concrete-resolution report."
+      "candidateInputHash": "f00c0e6f4b0c041c75935186f1d8dee2d7d6f0cefb83dee22739e71bda74efd1",
+      "note": "Re-approved for registry-v2.0.0-candidate.2, the single candidate covering #105 (order-insensitive alias token set) and #106 (unstated clinical axes no longer reach the resolver). MEASUREMENT_NORMALIZATION_VERSION 5 -> 6 and the 52 -> 53 row corpus moved the candidate input hash; both changes were released together so the approval procedure runs once. False-concrete resolutions: 0. Reviewed all 8 rows reaching a concrete identity and the verbatim provenance permitting each: 7 state their specimen on the row itself, and glucose-specimen-by-section states it by the 'Serum chemistry' heading. The corpus now builds resolver input through the same stated-axis filter production uses, and a seam guard rejects any fixture claiming an axis its provenance does not state, so this report can no longer pass while the runtime fabricates."
     },
     {
-      "id": "assessment-alt-review-2026-07-30",
+      "id": "assessment-alt-serum-catalytic-activity-review-2026-08-06",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
-      "approvedBy": "Project Owner",
-      "status": "approved",
-      "candidateInputHash": "32696937f0c95cc258514e45909ee0f0d5357b3dc2e048784116f5a0f2e81d6d",
       "bindingKey": "alt_serum_catalytic_activity",
-      "note": "Re-approved by the Project Owner for the exact rebased candidate input for the reviewed ALT serum manual-correction assessment binding."
-    },
-    {
-      "id": "assessment-glucose-serum-review-2026-07-30",
-      "scope": "score_affecting_binding",
-      "role": "assessment-owner",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "32696937f0c95cc258514e45909ee0f0d5357b3dc2e048784116f5a0f2e81d6d",
-      "bindingKey": "glucose_serum",
-      "note": "Re-approved by the Project Owner for the exact rebased candidate input for the reviewed serum glucose assessment binding."
+      "candidateInputHash": "f00c0e6f4b0c041c75935186f1d8dee2d7d6f0cefb83dee22739e71bda74efd1",
+      "note": "Re-approved for registry-v2.0.0-candidate.2, the single candidate covering #105 (order-insensitive alias token set) and #106 (unstated clinical axes no longer reach the resolver). MEASUREMENT_NORMALIZATION_VERSION 5 -> 6 and the 52 -> 53 row corpus moved the candidate input hash; both changes were released together so the approval procedure runs once. Reached by 0 rows automatically: the ALT row carries no stated specimen and stays partial, reaching this definition only through a reviewed manual correction (source: manual_correction). That is the intended effect of #106 - a serum identity is now a human decision, not a model guess."
     },
     {
-      "id": "assessment-glucose-plasma-review-2026-07-30",
+      "id": "assessment-fasting-glucose-review-2026-08-06",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
-      "approvedBy": "Project Owner",
-      "status": "approved",
-      "candidateInputHash": "32696937f0c95cc258514e45909ee0f0d5357b3dc2e048784116f5a0f2e81d6d",
-      "bindingKey": "glucose_plasma",
-      "note": "Re-approved by the Project Owner for the exact rebased candidate input for the reviewed plasma glucose assessment binding."
-    },
-    {
-      "id": "assessment-glucose-whole-blood-review-2026-07-30",
-      "scope": "score_affecting_binding",
-      "role": "assessment-owner",
-      "approvedBy": "Project Owner",
-      "status": "approved",
-      "candidateInputHash": "32696937f0c95cc258514e45909ee0f0d5357b3dc2e048784116f5a0f2e81d6d",
-      "bindingKey": "glucose_whole_blood",
-      "note": "Re-approved by the Project Owner for the exact rebased candidate input for the reviewed whole-blood glucose assessment binding."
-    },
-    {
-      "id": "assessment-fasting-glucose-review-2026-07-30",
-      "scope": "score_affecting_binding",
-      "role": "assessment-owner",
-      "approvedBy": "Project Owner",
-      "status": "approved",
-      "candidateInputHash": "32696937f0c95cc258514e45909ee0f0d5357b3dc2e048784116f5a0f2e81d6d",
       "bindingKey": "fasting_glucose",
-      "note": "Re-approved by the Project Owner for the exact rebased candidate input for the reviewed fasting glucose assessment binding."
+      "approvedBy": "Project Owner",
+      "status": "approved",
+      "candidateInputHash": "f00c0e6f4b0c041c75935186f1d8dee2d7d6f0cefb83dee22739e71bda74efd1",
+      "note": "Re-approved for registry-v2.0.0-candidate.2, the single candidate covering #105 (order-insensitive alias token set) and #106 (unstated clinical axes no longer reach the resolver). MEASUREMENT_NORMALIZATION_VERSION 5 -> 6 and the 52 -> 53 row corpus moved the candidate input hash; both changes were released together so the approval procedure runs once. Reached by glucose-fasting, stated by 'Fasting glucose, plasma 4.8 mmol/L'."
     },
     {
-      "id": "release-gate-2026-07-30",
+      "id": "assessment-glucose-plasma-review-2026-08-06",
+      "scope": "score_affecting_binding",
+      "role": "assessment-owner",
+      "bindingKey": "glucose_plasma",
+      "approvedBy": "Project Owner",
+      "status": "approved",
+      "candidateInputHash": "f00c0e6f4b0c041c75935186f1d8dee2d7d6f0cefb83dee22739e71bda74efd1",
+      "note": "Re-approved for registry-v2.0.0-candidate.2, the single candidate covering #105 (order-insensitive alias token set) and #106 (unstated clinical axes no longer reach the resolver). MEASUREMENT_NORMALIZATION_VERSION 5 -> 6 and the 52 -> 53 row corpus moved the candidate input hash; both changes were released together so the approval procedure runs once. Reached by glucose-plasma, stated by 'Glucose, plasma 5.6 mmol/L'."
+    },
+    {
+      "id": "assessment-glucose-serum-review-2026-08-06",
+      "scope": "score_affecting_binding",
+      "role": "assessment-owner",
+      "bindingKey": "glucose_serum",
+      "approvedBy": "Project Owner",
+      "status": "approved",
+      "candidateInputHash": "f00c0e6f4b0c041c75935186f1d8dee2d7d6f0cefb83dee22739e71bda74efd1",
+      "note": "Re-approved for registry-v2.0.0-candidate.2, the single candidate covering #105 (order-insensitive alias token set) and #106 (unstated clinical axes no longer reach the resolver). MEASUREMENT_NORMALIZATION_VERSION 5 -> 6 and the 52 -> 53 row corpus moved the candidate input hash; both changes were released together so the approval procedure runs once. Reached by glucose ('Glucose, serum 5.3 mmol/L') and by glucose-specimen-by-section, whose specimen comes from the 'Serum chemistry' section heading rather than the row."
+    },
+    {
+      "id": "assessment-glucose-whole-blood-review-2026-08-06",
+      "scope": "score_affecting_binding",
+      "role": "assessment-owner",
+      "bindingKey": "glucose_whole_blood",
+      "approvedBy": "Project Owner",
+      "status": "approved",
+      "candidateInputHash": "f00c0e6f4b0c041c75935186f1d8dee2d7d6f0cefb83dee22739e71bda74efd1",
+      "note": "Re-approved for registry-v2.0.0-candidate.2, the single candidate covering #105 (order-insensitive alias token set) and #106 (unstated clinical axes no longer reach the resolver). MEASUREMENT_NORMALIZATION_VERSION 5 -> 6 and the 52 -> 53 row corpus moved the candidate input hash; both changes were released together so the approval procedure runs once. Reached by glucose-whole-blood, stated by 'Glucose, whole blood 92 mg/dL'."
+    },
+    {
+      "id": "release-gate-2026-08-06",
       "scope": "release_gate",
       "role": "release-manager",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "32696937f0c95cc258514e45909ee0f0d5357b3dc2e048784116f5a0f2e81d6d",
-      "note": "Re-approved by the Project Owner for the exact rebased candidate input after threshold and evidence review."
+      "candidateInputHash": "f00c0e6f4b0c041c75935186f1d8dee2d7d6f0cefb83dee22739e71bda74efd1",
+      "note": "Re-approved for registry-v2.0.0-candidate.2, the single candidate covering #105 (order-insensitive alias token set) and #106 (unstated clinical axes no longer reach the resolver). MEASUREMENT_NORMALIZATION_VERSION 5 -> 6 and the 52 -> 53 row corpus moved the candidate input hash; both changes were released together so the approval procedure runs once. 53 rows, resolved 8 / partial 45, expectedClassificationRate 1.0, falseConcreteResolutions 0, processingErrors 0, alias and unit coverage 1.0. Verified locally and in CI: typecheck, stated-axis, alias-order, cbc-regression, eh112, eh113, eh106, eh116, document-review, verify:registry, build, and the database contracts. Known unrelated failure: test:eh111 at verify-eh111-clinical-compatibility.ts:184, reproduced on a clean master before this work and tracked in #110 alongside nine suites CI never executes."
     }
   ]
 }

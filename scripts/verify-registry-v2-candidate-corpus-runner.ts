@@ -49,6 +49,7 @@ assert.deepEqual(
     "glucose",
     "glucose-plasma",
     "glucose-whole-blood",
+    "glucose-specimen-by-section",
     "glucose-urine-dipstick",
     "glucose-fasting",
     "glucose-post-prandial",
@@ -57,8 +58,24 @@ assert.deepEqual(
     "glucose-incompatible-unit",
   ]
 );
-assert.ok(glucoseRows.slice(0, 6).every((row) => row.actualClassification === "resolved"));
-assert.ok(glucoseRows.slice(6).every((row) => row.actualClassification === "partial"));
+// Partition by id rather than by index: the positional form silently mis-split
+// the moment #106 inserted `glucose-specimen-by-section` into the middle.
+const RESOLVED_GLUCOSE_ROWS = new Set([
+  "glucose",
+  "glucose-plasma",
+  "glucose-whole-blood",
+  "glucose-specimen-by-section",
+  "glucose-urine-dipstick",
+  "glucose-fasting",
+  "glucose-post-prandial",
+]);
+for (const row of glucoseRows) {
+  assert.equal(
+    row.actualClassification,
+    RESOLVED_GLUCOSE_ROWS.has(row.id) ? "resolved" : "partial",
+    `glucose row ${row.id} classification`,
+  );
+}
 assert.equal(glucoseRows.find((row) => row.id === "glucose-incompatible-unit")?.unitCovered, true);
 assert.equal(glucoseRows.find((row) => row.id === "glucose-urine-dipstick")?.assessmentBindings.length, 0);
 assert.equal(glucoseRows.find((row) => row.id === "glucose-post-prandial")?.assessmentBindings.length, 0);

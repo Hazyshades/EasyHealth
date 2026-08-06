@@ -36,7 +36,8 @@ import type {
 export const MEASUREMENT_CATALOG_MANIFEST_VERSION = "2026-08-03.0";
 /** 9: #105 order-insensitive alias admission (`token_set`). */
 export const MEASUREMENT_RESOLVER_VERSION = "9";
-export const MEASUREMENT_NORMALIZATION_VERSION = "5";
+/** 6: #106 unstated clinical axes no longer reach the resolver. */
+export const MEASUREMENT_NORMALIZATION_VERSION = "6";
 export const MEASUREMENT_COMPATIBILITY_POLICY_VERSION = "1";
 /** Observation provenance schema version, assigned by the persistence layer (not copied from extraction). */
 export const OBSERVATION_PROVENANCE_SCHEMA_VERSION = "1";

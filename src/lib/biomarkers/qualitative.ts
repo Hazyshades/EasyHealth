@@ -87,6 +87,16 @@ export type Modifier =
   | "percent"
   | string;
 
+/**
+ * Maps an explicit or label-derived specimen onto the stored vocabulary.
+ *
+ * #106 decision: the `explicit` branch keeps its trust here, because this
+ * function is a pure mapper with no access to the row's provenance and no way
+ * to judge where the value came from. The caller gates it instead — extraction
+ * runs the result through `statedAxisValue`, and both resolver-input builders
+ * do the same on read. Do not add provenance logic to this function; it would
+ * duplicate the gate and give two places to get it wrong.
+ */
 export function inferSpecimen(
   key: string,
   name = "",

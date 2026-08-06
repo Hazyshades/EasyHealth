@@ -39,6 +39,13 @@ jobs:
         run: pnpm check:registry-v2-candidate-corpus-technical
       - name: Verify CBC measurement regression suite
         run: pnpm test:cbc-regression
+      - name: Verify stated-axis evidence policy
+        run: pnpm test:stated-axis
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+          OPENAI_API_KEY: ci-placeholder
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
       - name: Publish Registry 2.0 candidate-release evidence
         run: |
           mkdir -p .artifacts
@@ -91,6 +98,8 @@ jobs:
         run: pnpm test:eh114-db
       - name: Run alias token-set decision-trace contract
         run: pnpm test:alias-order-db
+      - name: Run stated-axis observability column contract
+        run: pnpm test:stated-axis-db
       - name: Stop local Supabase services
         if: always()
         run: supabase stop --no-backup
