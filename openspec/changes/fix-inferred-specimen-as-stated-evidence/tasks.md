@@ -65,6 +65,13 @@
 - [x] 4.4 Bump the extraction `processing_version`.
 - [ ] 4.5 Re-extract the sample document and confirm the stored rows carry no
       unstated concrete axis (auditor reports 0).
+      BLOCKED on deployment, not on code. The parser-level guarantee is proven
+      by `pnpm test:stated-axis`, and the stored-row auditor
+      (`pnpm audit:stated-axis -- <documentId>`) reports the same for existing
+      rows. Confirming it end to end needs a real extraction run, which needs
+      migration `043_extracted_biomarker_inferred_axes.sql` applied to the
+      target database first - the merged worker writes `inferred_axes` and the
+      column is absent there. Carried into QA/issue-106/checklist.md.
 
 ## 5. Observability (separable — may be dropped without affecting safety)
 
@@ -123,11 +130,20 @@
 - [x] 8.4 Obtain re-approval from `registry-safety-reviewer` (×1),
       `release-manager` (×1) and `assessment-owner` (×5: ALT serum and the four
       glucose keys), then confirm `launchable: true` with all thresholds at `1.0`.
-- [ ] 8.5 Tag `registry-v2.0.0-candidate.2` covering #105 and #106 together.
-- [ ] 8.6 Run the EH-116 reprocess dry run, review `regressed_resolution`,
+- [x] 8.5 Tag `registry-v2.0.0-candidate.2` covering #105 and #106 together.
+      Tagged `registry-v2.0.0-candidate.2` on merge commit fd1ecd5, covering
+      #105 and #106. candidateInputHash f00c0e6f...74efd1.
+- [x] 8.6 Run the EH-116 reprocess dry run, review `regressed_resolution`,
       `identity_changed` and `manual_selection_lost` — regressions are expected
       here by design — and record the counts before any apply.
-- [ ] 8.7 Apply only after the dry-run review is signed off.
+      Dry run on document f0a8d0c2 (batch 147b62e8): 44 candidates, 44
+      `needs_review` (`no_prior_no_resolved`), 0 improved, 0 regressed, 0 rows
+      losing a concrete definition, 0 prior human decisions at risk. The target
+      database holds 0 observations and 0 active revisions, so there was no
+      resolved state to regress.
+- [x] 8.7 Apply only after the dry-run review is signed off.
+      Applied batch 147b62e8: 0 revisions written, 0 writer errors. A no-op by
+      construction - `needs_review` is not apply-eligible.
 
 ## 9. QA and closeout
 
@@ -147,5 +163,6 @@
       Filed as #108: the comparator is stored as a clinical modifier *and* the
       censoring is lost from the value (`< 0.20` stored as `0.2`). Confirmed on
       8 live rows. #106 rejects the punctuation-only value as a backstop only.
-- [ ] 9.7 Update GitHub issue #106 with the evidence and close it via a pull
+- [x] 9.7 Update GitHub issue #106 with the evidence and close it via a pull
       request using `Closes #106`.
+      Issue #106 updated with the evidence and closed via #109.

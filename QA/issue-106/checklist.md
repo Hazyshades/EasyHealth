@@ -36,6 +36,17 @@ See `openspec/changes/fix-inferred-specimen-as-stated-evidence/`.
 - [ ] Note the build: rows extracted before this change keep their stored axes.
   Re-upload a document to see new extraction behaviour; the review screen
   applies the new rule to old rows on read.
+- [ ] **Deployment prerequisite.** Confirm migration
+  `043_extracted_biomarker_inferred_axes.sql` is applied to the target
+  database *before* the worker carrying this change is deployed. The worker
+  writes the additive `inferred_axes` column; if the column is absent the
+  extraction insert fails. Verify with:
+  `select column_name from information_schema.columns where table_name = 'document_extracted_biomarkers' and column_name = 'inferred_axes';`
+- [ ] **End-to-end extraction check** (deferred from task 4.5, needs the
+  prerequisite above): re-upload `I106-DOC-01`, then run
+  `pnpm audit:stated-axis -- <documentId>` and confirm it reports 0 rows
+  claiming an unstated axis. Until this runs, the guarantee is proven only at
+  the parser boundary by `pnpm test:stated-axis`.
 
 ## Test data
 
