@@ -39,8 +39,12 @@ export const MEASUREMENT_RESOLVER_VERSION = "9";
 /** 6: #106 unstated clinical axes no longer reach the resolver. */
 export const MEASUREMENT_NORMALIZATION_VERSION = "6";
 export const MEASUREMENT_COMPATIBILITY_POLICY_VERSION = "1";
-/** Observation provenance schema version, assigned by the persistence layer (not copied from extraction). */
-export const OBSERVATION_PROVENANCE_SCHEMA_VERSION = "1";
+/**
+ * Observation provenance schema version, assigned by the persistence layer (not
+ * copied from extraction). Version 2 (EH-118) narrows `bounding_box` from an
+ * arbitrary object to the normalized source-region contract.
+ */
+export const OBSERVATION_PROVENANCE_SCHEMA_VERSION = "2";
 
 export const RESOLVER_DECISION_TRACE_SCHEMA_VERSION: ResolverTraceSchemaVersion = "1";
 

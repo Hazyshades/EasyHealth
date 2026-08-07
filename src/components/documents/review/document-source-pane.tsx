@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import type { ReviewRowSourceLocation } from "@/lib/documents/observation-review-workspace";
+import { SourceHighlightOverlay } from "@/components/documents/source-highlight-overlay";
 
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
@@ -32,9 +33,13 @@ export type DocumentSourcePaneProps = {
  * with page navigation and zoom, and echoes the selected row's source
  * provenance underneath.
  *
- * EH-118 is not implemented, so no bounding-box overlay is drawn: provenance
- * degrades to page + snippet, and to a document-level notice when the
- * extraction did not record a page.
+ * EH-118 adds the region highlight: when the selected row was grounded to a
+ * rectangle on the displayed page, that rectangle is drawn over the preview.
+ * Provenance degrades to page + snippet when no region could be grounded, and
+ * to a document-level notice when the extraction did not record a page.
+ *
+ * This pane owns preview scrolling outright. It scrolls only its own container,
+ * so it never competes with the row-list scroll in `ObservationReviewList`.
  */
 export function DocumentSourcePane({
   filename,
@@ -51,16 +56,52 @@ export function DocumentSourcePane({
   activeSource,
 }: DocumentSourcePaneProps) {
   const [zoom, setZoom] = useState(1);
+  const [imageReady, setImageReady] = useState(false);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const highlightRef = useRef<HTMLDivElement | null>(null);
   const isImage = mimeType?.startsWith("image/") ?? false;
   const isPdf = mimeType === "application/pdf";
   const showPagePreviews = pageCount > 0 && Boolean(pageUrl);
+
+  const highlightRegion =
+    activeSource?.region && activeSource.region.page === currentPage
+      ? activeSource.region
+      : null;
+  // Object identity churns on every parent render; the geometry does not.
+  const highlightKey = highlightRegion
+    ? `${highlightRegion.page}:${highlightRegion.x}:${highlightRegion.y}:${highlightRegion.w}:${highlightRegion.h}`
+    : null;
+
+  useEffect(() => {
+    setImageReady(false);
+  }, [pageUrl]);
+
+  /**
+   * This pane is the only owner of preview scrolling. It moves its own
+   * scroll container and never calls `scrollIntoView`, which would also scroll
+   * the review list and the window and fight the row-list scroll in
+   * `ObservationReviewList`.
+   */
+  useEffect(() => {
+    if (!highlightKey || !imageReady) return;
+    const scroller = scrollerRef.current;
+    const box = highlightRef.current;
+    if (!scroller || !box) return;
+    const view = scroller.getBoundingClientRect();
+    const target = box.getBoundingClientRect();
+    scroller.scrollTo({
+      top: Math.max(0, scroller.scrollTop + (target.top - view.top) - (view.height - target.height) / 2),
+      left: Math.max(0, scroller.scrollLeft + (target.left - view.left) - (view.width - target.width) / 2),
+      behavior: "smooth",
+    });
+  }, [highlightKey, imageReady, zoom]);
 
   return (
     <SurfaceCard
       padding="sm"
       className={`flex min-w-0 flex-col lg:h-full ${isPdf ? "min-h-[720px]" : "min-h-[480px]"}`}
     >
-      {!isPdf && (
+      {(showPagePreviews || !isPdf) && (
         <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-1">
             {pageCount > 0 && (
@@ -145,17 +186,30 @@ export function DocumentSourcePane({
             <Skeleton className="h-full w-full rounded-lg" />
           </div>
         ) : showPagePreviews ? (
-          <div className="h-full overflow-auto">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={pageUrl!}
-              alt={`Page ${currentPage} of ${filename}`}
-              className="mx-auto block max-w-full object-contain transition-transform"
+          <div ref={scrollerRef} className="h-full overflow-auto">
+            {/* The wrapper is exactly the size of the page image and carries the
+                zoom transform, so the percentage-positioned overlay scales with
+                the page instead of drifting off the text. */}
+            <div
+              className="mx-auto w-fit max-w-full transition-transform"
               style={{
                 transform: `scale(${zoom})`,
                 transformOrigin: "top center",
               }}
-            />
+            >
+              <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={pageUrl!}
+                  alt={`Page ${currentPage} of ${filename}`}
+                  className="block max-w-full"
+                  onLoad={() => setImageReady(true)}
+                />
+                {highlightRegion ? (
+                  <SourceHighlightOverlay ref={highlightRef} region={highlightRegion} />
+                ) : null}
+              </div>
+            </div>
           </div>
         ) : isImage && originalUrl ? (
           <div className="h-full overflow-auto">
@@ -202,12 +256,20 @@ export function DocumentSourcePane({
             <p className="mt-1 text-[var(--eh-text-muted)]">
               This result is linked to the document but not to a specific page.
             </p>
-          ) : isPdf ? (
+          ) : !showPagePreviews && isPdf ? (
             <p className="mt-1 text-[var(--eh-text-muted)]">
               Page previews are unavailable for this file, so the embedded PDF
               does not jump to the page automatically.
             </p>
-          ) : null}
+          ) : activeSource.precision === "region" ? (
+            <p className="mt-1 text-[var(--eh-text-muted)]">
+              The source region is highlighted on the page.
+            </p>
+          ) : (
+            <p className="mt-1 text-[var(--eh-text-muted)]">
+              The exact region could not be located, so the whole page is shown.
+            </p>
+          )}
         </div>
       ) : null}
     </SurfaceCard>

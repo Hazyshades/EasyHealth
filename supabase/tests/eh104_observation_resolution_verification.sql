@@ -192,14 +192,18 @@ insert into public.observations (
   value,
   unit,
   observed_at,
-  observation_kind
+  observation_kind,
+  -- EH-118: a document-sourced observation must name the page it came from
+  -- (`observations_document_source_page_present`). The standalone row below
+  -- has no source, so it stays null and still exercises the both-null path.
+  source_page
 )
 values
-  ('00000000-0000-0000-0000-000000000030', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000020', 'Primary observation', 1, 'mg/dL', '2026-01-01', 'lab'),
-  ('00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000021', 'Source mismatch observation', 2, 'mg/dL', '2026-01-02', 'lab'),
-  ('00000000-0000-0000-0000-000000000032', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000022', 'Profile mismatch observation', 3, 'mg/dL', '2026-01-03', 'lab'),
-  ('00000000-0000-0000-0000-000000000034', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', '00000000-0000-0000-0000-000000000024', 'Purge observation', 5, 'mg/dL', '2026-01-05', 'lab'),
-  ('00000000-0000-0000-0000-000000000035', '00000000-0000-0000-0000-000000000001', null, null, 'Standalone both-null observation', 6, 'mg/dL', '2026-01-06', 'lab');
+  ('00000000-0000-0000-0000-000000000030', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000020', 'Primary observation', 1, 'mg/dL', '2026-01-01', 'lab', 1),
+  ('00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000021', 'Source mismatch observation', 2, 'mg/dL', '2026-01-02', 'lab', 1),
+  ('00000000-0000-0000-0000-000000000032', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000022', 'Profile mismatch observation', 3, 'mg/dL', '2026-01-03', 'lab', 1),
+  ('00000000-0000-0000-0000-000000000034', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', '00000000-0000-0000-0000-000000000024', 'Purge observation', 5, 'mg/dL', '2026-01-05', 'lab', 1),
+  ('00000000-0000-0000-0000-000000000035', '00000000-0000-0000-0000-000000000001', null, null, 'Standalone both-null observation', 6, 'mg/dL', '2026-01-06', 'lab', null);
 
 insert into public.observation_normalization_revisions (
   id,
@@ -350,7 +354,10 @@ select throws_ok(
         value,
         unit,
         observed_at,
-        observation_kind
+        observation_kind,
+        -- EH-118: document-sourced, so it must carry a page. This case asserts
+        -- the deferred same-source FK (23503), not the page constraint.
+        source_page
       )
       values (
         '00000000-0000-0000-0000-000000000033',
@@ -361,7 +368,8 @@ select throws_ok(
         4,
         'mg/dL',
         '2026-01-04',
-        'lab'
+        'lab',
+        1
       );
       execute 'set constraints observations_normalization_revision_same_source_fk immediate';
     end
@@ -652,6 +660,8 @@ select lives_ok(
         'raw_name', 'ALT',
         'raw_value_text', '21',
         'raw_unit', 'U/L',
+        -- EH-118: the writer requires a page for a document-sourced row.
+        'source_page', 1,
         'provenance_schema_version', '1'
       ),
       jsonb_build_object(

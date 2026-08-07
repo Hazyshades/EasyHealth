@@ -71,6 +71,8 @@ export function ObservationReviewRow({
           ) : null}
           <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
             <span>{source.label}</span>
+            {/* EH-118: make the fallback visible without selecting the row. */}
+            {source.precision === "page" ? " · page only" : ""}
             {rawEvidence.specimen ? ` · ${rawEvidence.specimen}` : ""}
             {rawEvidence.modifier ? ` · ${rawEvidence.modifier}` : ""}
             {rawEvidence.method ? ` · ${rawEvidence.method}` : ""}

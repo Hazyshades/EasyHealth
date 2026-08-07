@@ -9,6 +9,8 @@ returns jsonb language sql immutable as $$
     'value', 90, 'value_kind', 'numeric', 'value_text', '90', 'unit', 'mg/dL',
     'observed_at', '2026-07-28', 'specimen', 'serum', 'modifier', 'none',
     'raw_name', p_name, 'raw_value_text', '90', 'raw_unit', 'mg/dL',
+    -- EH-118: a document-sourced observation must name its page.
+    'source_page', 1,
     'provenance_schema_version', '1'
   );
 $$;

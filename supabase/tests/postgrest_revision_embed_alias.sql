@@ -120,6 +120,8 @@ select lives_ok(
       insert into public.observations (
         id, profile_id, document_id,
         source_extracted_biomarker_id, normalization_revision_id,
+        -- EH-118: document-sourced rows must carry a page.
+        source_page,
         name, value, unit, observed_at, observation_kind
       )
       values (
@@ -128,6 +130,7 @@ select lives_ok(
         '10000000-0000-0000-0000-000000000010',
         '10000000-0000-0000-0000-000000000020',
         '10000000-0000-0000-0000-000000000040',
+        1,
         'Alias observation', 1, 'mg/dL', '2026-01-01', 'lab'
       );
       execute 'set constraints observations_normalization_revision_fk, observations_normalization_revision_same_source_fk immediate';
@@ -144,6 +147,9 @@ select throws_ok(
       insert into public.observations (
         id, profile_id, document_id,
         source_extracted_biomarker_id, normalization_revision_id,
+        -- EH-118: document-sourced rows must carry a page. These cases assert
+        -- the revision alias and same-source FKs, not the page constraint.
+        source_page,
         name, value, unit, observed_at, observation_kind
       )
       values (
@@ -152,6 +158,7 @@ select throws_ok(
         '10000000-0000-0000-0000-000000000010',
         '10000000-0000-0000-0000-000000000021',
         '10000000-0000-0000-0000-000000000040',
+        1,
         'Alias mismatch observation', 2, 'mg/dL', '2026-01-02', 'lab'
       );
       execute 'set constraints observations_normalization_revision_fk, observations_normalization_revision_same_source_fk immediate';

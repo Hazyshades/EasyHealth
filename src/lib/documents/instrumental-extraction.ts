@@ -5,6 +5,7 @@ import {
 } from "@/lib/ai/extract-with-trace";
 import type { PipelineLlmContext } from "@/lib/ai/pipeline-trace";
 import type { InstrumentalMeasureMaterializationInput } from "@/lib/documents/instrumental-measure-lineage";
+import { parseSourceRegion } from "@/lib/documents/source-region";
 import { parseLabNumber } from "@/lib/schemas/biomarkers";
 
 export type InstrumentalFinding = {
@@ -56,7 +57,6 @@ Shape:
       "source_text": "short source quote containing the measure" | null,
       "source_locator": "stable local locator such as page:1/table:measurements/row:3",
       "occurrence_index": "zero-based occurrence number within source_locator",
-      "bounding_box": object | null,
       "confidence": number | null
     }
   ]
@@ -69,6 +69,8 @@ Rules:
 - numeric_measures: explicitly stated numeric values (e.g. ejection fraction %, chamber dimensions, FEV1).
 - Every numeric measure must include raw/display values, source context or a stable source_locator, and an occurrence_index. Repeated left/right, regional, or serial values are separate entries even when their names match.
 - key_hint is only a model hint. Never use it to merge or identify source measures.
+- source_page is the 1-based page number where the item appears. When the input contains "=== PAGE N ===" markers, use N from the marker that precedes the item.
+- source_text is a short verbatim snippet copied exactly from the document; it is matched back to the page to highlight the source region.
 - Do not diagnose or interpret clinically beyond the document text.`;
 
 function textOrNull(value: unknown): string | null {
@@ -83,11 +85,9 @@ function confidenceOrNull(value: unknown): number | null {
   return typeof value === "number" && value >= 0 && value <= 1 ? value : null;
 }
 
-function boundingBoxOrNull(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
+// EH-118: the model never sees page geometry, so a model-supplied rectangle is
+// a guess. Regions are derived from the OCR page index after extraction; this
+// parser only accepts an already-valid region if one is ever supplied upstream.
 
 function deterministicSourceLocator(name: string, sourcePage: number | null, sourceText: string | null) {
   const evidence = (sourceText ?? name)
@@ -144,7 +144,7 @@ function parseNumericMeasures(value: unknown): InstrumentalNumericMeasure[] {
       source_text: sourceText,
       source_locator: sourceLocator,
       occurrence_index: occurrenceIndex,
-      bounding_box: boundingBoxOrNull(row.bounding_box),
+      bounding_box: parseSourceRegion(row.bounding_box),
       confidence: confidenceOrNull(row.confidence),
     });
   }

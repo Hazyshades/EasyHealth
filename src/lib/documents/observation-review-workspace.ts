@@ -8,6 +8,11 @@ import {
   measurementMappingLabel,
 } from "./biomarker-review-state";
 import type { LaboratoryResolutionDetails } from "./incomplete-laboratory-outcomes";
+import {
+  parseSourceRegion,
+  sourceRegionMatchesPage,
+  type SourceRegion,
+} from "./source-region";
 
 /**
  * EH-117 split-view review workspace state model.
@@ -22,9 +27,9 @@ import type { LaboratoryResolutionDetails } from "./incomplete-laboratory-outcom
 export type ReviewRowSourceKind = "extracted" | "observation";
 
 /**
- * Source-locator precision. EH-118 will add `"region"` once bounding boxes are
- * reliable; until then the workspace degrades to page-level provenance and,
- * when even the page is unknown, to document-level provenance.
+ * Source-locator precision. `"region"` means the extraction was grounded to a
+ * rectangle on the page and can be highlighted; `"page"` means only the page is
+ * known; `"document"` means not even the page was recorded.
  */
 export type SourcePrecision = "region" | "page" | "document";
 
@@ -58,6 +63,8 @@ export type ReviewRowSourceLocation = Readonly<{
   precision: SourcePrecision;
   page: number | null;
   snippet: string | null;
+  /** EH-118 highlight geometry; null whenever the region could not be grounded. */
+  region: SourceRegion | null;
   /** Tester- and user-facing label, e.g. `Page 2` or `Source page not recorded`. */
   label: string;
 }>;
@@ -187,13 +194,15 @@ export function resolverOutcomeVariant(
 }
 
 /**
- * Page-level provenance descriptor. EH-118 is not implemented, so no row can
- * report `"region"` precision yet; the contract exists so an overlay can be
- * layered in without reshaping the workspace.
+ * Provenance descriptor for one review row. A region is only reported when it
+ * satisfies the EH-118 source-region contract and belongs to the recorded page;
+ * anything else degrades to page-level and then to document-level provenance,
+ * so the pane never draws a rectangle it cannot stand behind.
  */
 export function resolveSourceLocation(
   sourcePage: number | null | undefined,
   sourceText: string | null | undefined,
+  boundingBox?: unknown,
 ): ReviewRowSourceLocation {
   const page =
     typeof sourcePage === "number" &&
@@ -205,10 +214,13 @@ export function resolveSourceLocation(
     typeof sourceText === "string" && sourceText.trim().length > 0
       ? sourceText
       : null;
+  const candidate = parseSourceRegion(boundingBox);
+  const region = sourceRegionMatchesPage(candidate, page) ? candidate : null;
   return {
-    precision: page === null ? "document" : "page",
+    precision: page === null ? "document" : region ? "region" : "page",
     page,
     snippet,
+    region,
     label: page === null ? "Source page not recorded" : `Page ${page}`,
   };
 }
@@ -290,6 +302,7 @@ export type ExtractedReviewRowInput = {
   confidence: number | null;
   source_page: number | null;
   source_text: string | null;
+  bounding_box?: unknown;
   status: string;
   normalization?: {
     result: ResolverResult;
@@ -335,7 +348,7 @@ export function buildExtractedReviewRow(
       method: statedAxis(item.method, NOTHING_UNSTATED),
       extractionConfidence: item.confidence,
     },
-    source: resolveSourceLocation(item.source_page, item.source_text),
+    source: resolveSourceLocation(item.source_page, item.source_text, item.bounding_box),
     mapping: buildMappingState({
       outcome: isResolverResult(normalization?.result)
         ? normalization.result
@@ -371,6 +384,7 @@ export type ObservationReviewRowInput = {
   confidence?: number | null;
   source_page?: number | null;
   source_text?: string | null;
+  bounding_box?: unknown;
   resolution_status?: string | null;
   resolver_result?: string | null;
   verification_status?: string | null;
@@ -423,7 +437,7 @@ export function buildObservationReviewRow(
       method: null,
       extractionConfidence: item.confidence ?? null,
     },
-    source: resolveSourceLocation(item.source_page, item.source_text),
+    source: resolveSourceLocation(item.source_page, item.source_text, item.bounding_box),
     mapping: buildMappingState({
       outcome,
       verificationStatus: asVerificationStatus(item.verification_status),

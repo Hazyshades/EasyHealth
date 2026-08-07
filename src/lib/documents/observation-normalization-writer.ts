@@ -20,6 +20,10 @@ import type {
 } from "@/lib/biomarkers";
 import { parseReferenceRange } from "@/lib/schemas/biomarkers";
 import { statedAxisValue } from "./stated-axis-evidence";
+import {
+  parseSourceRegion,
+  sourceRegionMatchesPage,
+} from "@/lib/documents/source-region";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   buildInputEvidenceHash,
@@ -238,6 +242,16 @@ function buildObservationPayload(options: {
   referenceRange: { ref_low: number | null; ref_high: number | null };
 }) {
   const { profileId, documentId, observedAt, row, value, referenceRange } = options;
+  // EH-118: a document-sourced observation must link to a source page. Legacy
+  // rows extracted before the page index existed cannot be grounded after the
+  // fact, so acceptance reports an actionable error instead of hitting the
+  // database constraint or fabricating page 1.
+  if (row.source_page == null) {
+    throw new ObservationNormalizationWriterError(
+      "This result has no source page. Reprocess the document to restore its source link before accepting it."
+    );
+  }
+  const region = parseSourceRegion(row.bounding_box);
   return {
     profile_id: profileId,
     document_id: documentId,
@@ -258,7 +272,10 @@ function buildObservationPayload(options: {
     raw_unit: row.raw_unit ?? row.unit ?? null,
     source_page: row.source_page ?? null,
     source_text: row.source_text ?? null,
-    bounding_box: row.bounding_box ?? null,
+    // EH-118: only a region that satisfies the contract and belongs to the
+    // recorded page is copied. Provenance is write-once, so an unverified box
+    // would be permanent; page-only provenance is the correct degradation.
+    bounding_box: sourceRegionMatchesPage(region, row.source_page ?? null) ? region : null,
     confidence: row.confidence ?? null,
     reported_alt_value: row.reported_alt_value ?? null,
     reported_alt_unit: row.reported_alt_unit ?? null,

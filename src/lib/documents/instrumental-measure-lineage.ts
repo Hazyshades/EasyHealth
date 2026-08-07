@@ -2,7 +2,11 @@
  * EH-105 contracts shared by extraction, the document worker, and typed readers.
  * `key_hint` is retained as raw model output only; source_locator +
  * occurrence_index identify the source occurrence within a snapshot.
+ * EH-118: `bounding_box` is the normalized source region contract, never a
+ * free-form model object.
  */
+import type { SourceRegion } from "@/lib/documents/source-region";
+
 export type InstrumentalMeasureMaterializationInput = {
   key_hint: string | null;
   name: string;
@@ -15,7 +19,7 @@ export type InstrumentalMeasureMaterializationInput = {
   source_text: string | null;
   source_locator: string;
   occurrence_index: number;
-  bounding_box: Record<string, unknown> | null;
+  bounding_box: SourceRegion | null;
   confidence: number | null;
 };
 
