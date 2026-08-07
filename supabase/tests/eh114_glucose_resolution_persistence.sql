@@ -37,6 +37,8 @@ as $$
     'raw_name', p_name,
     'raw_value_text', coalesce(p_value::text, 'Positive'),
     'raw_unit', p_unit,
+    -- EH-118: every document-sourced observation names the page it came from.
+    'source_page', 1,
     'provenance_schema_version', '1'
   );
 $$;
