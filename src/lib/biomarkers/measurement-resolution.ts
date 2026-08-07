@@ -8,7 +8,9 @@ import type {
   AssessmentBinding,
   BodySystemId,
   CandidateEvidence,
+  AdmissibilityRejectionCode,
   ClinicalCompatibilityAxis,
+  IncompleteReasonClass,
   CompatibilityEvidenceResult,
   ConversionRule,
   MappingConfidenceBand,
@@ -21,6 +23,8 @@ import type {
   NormalizedMeasurementUnit,
   ResolutionEvidence,
   ResolutionReasonCode,
+
+  ResolverResult,
   ResolverDecisionKind,
   PersistedResolverDecisionTrace,
   PersistedResolverDecisionTraceCandidate,
@@ -831,6 +835,7 @@ function candidateEvidence(
     score,
     selectable,
     eligible: false,
+    admissibilityRejections: [],
   };
 }
 
@@ -857,17 +862,29 @@ export function resolveMeasurementDefinition(
   const ranked = candidates
     .filter((candidate) => candidate.selectable && candidate.score !== null)
     .sort((a, b) => (b.score! - a.score!) || a.candidateKey.localeCompare(b.candidateKey));
-  const admissible = ranked.filter((candidate) => {
+  // #114: the same six conditions as before, but each one now names itself when
+  // it excludes a candidate. Previously this was a bare boolean AND, so a row
+  // blocked only by definition maturity reached the reviewer carrying no reason
+  // at all and was told that context was missing from the document.
+  const rejectionsByCandidate = new Map<string, readonly AdmissibilityRejectionCode[]>();
+  for (const candidate of ranked) {
     const definition = definitionByKey.get(candidate.candidateKey)!;
-    return (
-      definition.maturity === "reviewed" &&
-      definition.sourceProvenance.kind === "registry_v2_review" &&
-      candidate.matchedAlias.matchAuthority === "reviewed_resolution" &&
-      candidate.matchedAlias.approvalStatus === "reviewed" &&
-      candidate.missingAxes.length === 0 &&
-      candidate.score! >= 55
-    );
-  });
+    const rejections: AdmissibilityRejectionCode[] = [];
+    if (definition.maturity !== "reviewed") rejections.push("definition_not_reviewed");
+    if (definition.sourceProvenance.kind !== "registry_v2_review") {
+      rejections.push("definition_provenance_unverified");
+    }
+    if (candidate.matchedAlias.matchAuthority !== "reviewed_resolution") {
+      rejections.push("alias_authority_insufficient");
+    }
+    if (candidate.matchedAlias.approvalStatus !== "reviewed") rejections.push("alias_not_approved");
+    if (candidate.missingAxes.length > 0) rejections.push("required_axis_missing");
+    if (candidate.score! < 55) rejections.push("score_below_floor");
+    rejectionsByCandidate.set(candidate.candidateKey, rejections);
+  }
+  const admissible = ranked.filter(
+    (candidate) => (rejectionsByCandidate.get(candidate.candidateKey) ?? []).length === 0
+  );
   const winner = admissible[0];
   const runnerUp = admissible[1];
   const resolved = !!winner && (!runnerUp || winner.score! - runnerUp.score! >= 5);
@@ -890,6 +907,9 @@ export function resolveMeasurementDefinition(
     eligible: admissible.some(
       ({ candidateKey }) => candidateKey === candidate.candidateKey
     ),
+    // A candidate that never reached ranking was not selectable at all; its
+    // reason already lives in `rejected`, so it carries no admissibility code.
+    admissibilityRejections: rejectionsByCandidate.get(candidate.candidateKey) ?? [],
   }));
   const analytes = new Set(
     candidates
@@ -930,6 +950,67 @@ export function resolveMeasurementDefinition(
       candidates: evidenceByCandidate,
     },
   };
+}
+
+/**
+ * #114: the one reason a row did not resolve, chosen from recorded evidence.
+ *
+ * This is the single definition of the rule. Both the resolver and the
+ * read-side projection call it, because the projection sees a flattened trace
+ * summary rather than a resolution and would otherwise grow a second copy that
+ * drifts.
+ *
+ * Nothing here reads the catalog or re-evaluates an admissibility condition. If
+ * a class cannot be derived from what was recorded, the evidence is the bug.
+ *
+ * Precedence is deliberate. A hard conflict outranks a missing axis, and a
+ * missing axis outranks maturity, because naming the axis stays useful after
+ * the definition is reviewed. Reporting maturity first would send a reviewer
+ * away from the one thing they could still do.
+ */
+export function classifyIncompleteReason(input: {
+  outcome: ResolverResult | null;
+  candidateCount: number;
+  selectableCount: number;
+  conflictCount: number;
+  admissibilityRejections: readonly AdmissibilityRejectionCode[];
+}): IncompleteReasonClass | null {
+  if (input.outcome === null || input.outcome === "resolved") return null;
+  if (input.candidateCount === 0) return "no_candidate";
+
+  // `conflicts` is a union across every candidate, including ones that were
+  // never viable — a numeric glucose collects a `value_kind_conflict` from the
+  // urine-dipstick definition it was never going to be. A hard conflict makes a
+  // candidate unselectable, so a conflict is only this row's blocker when it
+  // left nothing selectable behind. Measured on document 298232ee: without this
+  // guard, one row read as a unit conflict when four live candidates were
+  // simply waiting for a specimen.
+  if (input.selectableCount === 0 && input.conflictCount > 0) return "unit_or_value_conflict";
+
+  const rejections = new Set(input.admissibilityRejections);
+  if (rejections.has("required_axis_missing")) return "axis_not_stated";
+  if (rejections.has("definition_not_reviewed")) return "definition_not_reviewed";
+  if (input.conflictCount > 0) return "unit_or_value_conflict";
+
+  // Recognized, and nothing recorded that the reviewer could supply: an
+  // ambiguous tie, a score floor, or an unverified provenance. Those are all
+  // catalog-side, so they must not be reported as missing context.
+  return rejections.size > 0 ? "definition_not_reviewed" : "axis_not_stated";
+}
+
+/** Convenience wrapper over `classifyIncompleteReason` for a full resolution. */
+export function incompleteReasonClass(
+  resolution: Pick<MeasurementResolution, "result" | "conflicts" | "candidateEvidence">
+): IncompleteReasonClass | null {
+  return classifyIncompleteReason({
+    outcome: resolution.result,
+    candidateCount: resolution.candidateEvidence.length,
+    selectableCount: resolution.candidateEvidence.filter(({ selectable }) => selectable).length,
+    conflictCount: resolution.conflicts.length,
+    admissibilityRejections: resolution.candidateEvidence.flatMap(
+      ({ admissibilityRejections }) => admissibilityRejections
+    ),
+  });
 }
 
 const TRACE_REASON_CODES: Record<ResolutionReasonCode, true> = {

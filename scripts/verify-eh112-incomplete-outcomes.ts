@@ -73,6 +73,10 @@ function trace(
       score: 40,
       selectable: outcome !== "unmapped",
       eligible: outcome === "resolved",
+      // #114: these fixtures are hand-built traces, not resolver output, so the
+      // admissibility record is empty; the reason class is exercised in
+      // verify-incomplete-reason-class against real resolutions.
+      admissibilityRejections: [],
     })),
   };
 }
@@ -219,6 +223,9 @@ assert.deepEqual(Object.keys(metric).sort(), [
   "compatibilityPolicyVersion",
   "conflictCodes",
   "consumerExclusionReasons",
+  // #114: a closed enum naming why a non-resolved row did not resolve. Added
+  // deliberately to this allowlist, which is the privacy contract for the metric.
+  "incompleteReason",
   "mappingConfidenceBand",
   "missingAxes",
   "name",

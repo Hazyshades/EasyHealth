@@ -1,5 +1,9 @@
 import type {
+  AdmissibilityRejectionCode,
+
   ClinicalCompatibilityAxis,
+
+  IncompleteReasonClass,
   MappingConfidenceBand,
   MeasurementResolution,
   ResolutionReasonCode,
@@ -7,6 +11,7 @@ import type {
   ResolverResult,
   VerificationStatus,
 } from "@/lib/biomarkers";
+import { classifyIncompleteReason, incompleteReasonClass } from "@/lib/biomarkers";
 import {
   projectActiveRegistryV2LaboratoryBinding,
   type RegistryV2LaboratoryBindingSource,
@@ -15,11 +20,17 @@ import {
 
 export type LaboratoryOutcomeSource = "active_revision" | "preview" | "none";
 
+/**
+ * Consumer eligibility exclusions. `unreviewed_definition` was declared here and
+ * never produced — `baseExclusion` short-circuits every non-resolved outcome to
+ * `incomplete_resolution` first. #114 removed it: the specificity it promised now
+ * lives in `IncompleteReasonClass`, and keeping a second, parallel taxonomy on the
+ * eligibility axis would only let the two drift.
+ */
 export type LaboratoryConsumerExclusionReason =
   | "no_active_revision"
   | "incomplete_resolution"
   | "candidate_only_identity"
-  | "unreviewed_definition"
   | "conversion_unavailable"
   | "assessment_binding_ineligible";
 
@@ -48,6 +59,12 @@ export type LaboratoryResolutionDetails = Readonly<{
   conflictCodes: readonly ResolutionReasonCode[];
   supportCodes: readonly ResolutionReasonCode[];
   candidateCount: number;
+  /**
+   * #114: the one reason this row did not resolve, or null when it did. Present
+   * for a preview as well as for an active revision, because a row awaiting
+   * first review is exactly where the reviewer reads the explanation.
+   */
+  incompleteReason: IncompleteReasonClass | null;
   versions: Readonly<{
     catalog: string | null;
     resolver: string | null;
@@ -70,6 +87,11 @@ export type LaboratoryOutcomeSummary = Readonly<{
 export type ResolutionOutcomeMetric = Readonly<{
   name: "resolution_outcome";
   outcome: ResolverResult;
+  /**
+   * #114: a closed enum, no free text and no candidate key, so the existing
+   * privacy allowlist guarantee is unchanged.
+   */
+  incompleteReason: IncompleteReasonClass | null;
   mappingConfidenceBand: MappingConfidenceBand;
   missingAxes: readonly ClinicalCompatibilityAxis[];
   conflictCodes: readonly ResolutionReasonCode[];
@@ -86,6 +108,10 @@ type DecisionTraceLike = Partial<ResolverDecisionTrace> & {
     missing?: readonly { code?: ResolutionReasonCode }[];
     rejected?: readonly { code?: ResolutionReasonCode }[];
     missingAxes?: readonly ClinicalCompatibilityAxis[];
+    /** #114: a hard conflict makes a candidate unselectable, which is what makes the conflict this row's blocker. */
+    selectable?: boolean;
+    /** #114: why admissibility excluded this candidate, when the resolver recorded it. */
+    admissibilityRejections?: readonly AdmissibilityRejectionCode[];
   }[];
 };
 
@@ -124,6 +150,10 @@ function summarizeTrace(trace: DecisionTraceLike | null | undefined) {
       )
     ),
     candidateCount: candidates.length,
+    admissibilityRejections: uniqueSorted(
+      candidates.flatMap((candidate) => candidate.admissibilityRejections ?? [])
+    ),
+    selectableCount: candidates.filter((candidate) => candidate.selectable !== false).length,
   };
 }
 
@@ -179,7 +209,7 @@ export function projectLaboratoryOutcome(
 
   if (activeRevision) {
     const trace = activeRevision.resolver_evidence as DecisionTraceLike | null;
-    const traceSummary = summarizeTrace(trace);
+    const { admissibilityRejections, selectableCount, ...traceFields } = summarizeTrace(trace);
     const definition = binding.measurementDefinition;
     const assessmentEligible =
       binding.registryBindingReady &&
@@ -213,7 +243,14 @@ export function projectLaboratoryOutcome(
         mappingConfidenceBand:
           (activeRevision.mapping_confidence_band as MappingConfidenceBand | null) ??
           null,
-        ...traceSummary,
+        ...traceFields,
+        incompleteReason: classifyIncompleteReason({
+          outcome: binding.resolutionStatus as ResolverResult | null,
+          candidateCount: traceFields.candidateCount,
+          conflictCount: traceFields.conflictCodes.length,
+          selectableCount,
+          admissibilityRejections,
+        }),
         versions: {
           catalog: activeRevision.catalog_manifest_version ?? null,
           resolver: activeRevision.resolver_version ?? null,
@@ -227,7 +264,7 @@ export function projectLaboratoryOutcome(
   }
 
   if (options.preview) {
-    const traceSummary = summarizeTrace(options.preview.decisionTrace);
+    const { admissibilityRejections, selectableCount, ...traceFields } = summarizeTrace(options.preview.decisionTrace);
     const eligibility = buildEligibility({
       hasActiveRevision: false,
       outcome: options.preview.result,
@@ -247,7 +284,17 @@ export function projectLaboratoryOutcome(
         verificationStatus: "pending",
         mappingConfidence: options.preview.mappingConfidence,
         mappingConfidenceBand: options.preview.mappingConfidenceBand,
-        ...traceSummary,
+        ...traceFields,
+        // #114: the preview path is the one issue #114 is about — a row awaiting
+        // first review has no active revision, so this is the only place the
+        // reviewer's explanation can come from.
+        incompleteReason: classifyIncompleteReason({
+          outcome: options.preview.result,
+          candidateCount: traceFields.candidateCount,
+          conflictCount: traceFields.conflictCodes.length,
+          selectableCount,
+          admissibilityRejections,
+        }),
         versions: {
           catalog: null,
           resolver: null,
@@ -284,6 +331,8 @@ export function projectLaboratoryOutcome(
       conflictCodes: [],
       supportCodes: [],
       candidateCount: 0,
+      // No outcome at all, so there is nothing to explain.
+      incompleteReason: null,
       versions: {
         catalog: null,
         resolver: null,
@@ -324,6 +373,7 @@ export function buildResolutionOutcomeMetric(options: {
   return {
     name: "resolution_outcome",
     outcome: options.resolution.result,
+    incompleteReason: incompleteReasonClass(options.resolution),
     mappingConfidenceBand: options.resolution.mappingConfidenceBand,
     missingAxes: uniqueSorted(options.resolution.missingAxes),
     conflictCodes: uniqueSorted(options.resolution.conflicts),

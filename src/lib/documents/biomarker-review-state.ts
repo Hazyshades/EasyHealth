@@ -10,14 +10,58 @@ export function measurementMappingLabel(
   return "Measurement not recognized";
 }
 
+/** Clinical English for a clinical axis the document did not state. */
+const AXIS_NOUNS: Record<string, string> = {
+  specimen: "specimen",
+  modifier: "clinical qualifier",
+  method: "method",
+  timing: "collection timing",
+  unit: "unit",
+  value_kind: "value type",
+};
+
+function axisPhrase(axes: readonly string[]): string | null {
+  const nouns = [...new Set(axes.map((axis) => AXIS_NOUNS[axis] ?? axis.replaceAll("_", " ")))];
+  if (nouns.length === 0) return null;
+  if (nouns.length === 1) return `The ${nouns[0]} is not stated in this report.`;
+  const last = nouns[nouns.length - 1];
+  return `The ${nouns.slice(0, -1).join(", ")} and ${last} are not stated in this report.`;
+}
+
+/**
+ * #114: guidance is chosen by WHY a row is incomplete, not only by its outcome.
+ *
+ * The previous single sentence — "required context is missing" — was false for
+ * every row blocked by catalog review: no context existed for the reader to
+ * supply. Telling a clinician that a detail is missing invites them to guess
+ * one, and a guessed specimen is exactly what #106 removed from the machine.
+ */
 export function measurementMappingGuidance(
-  result: "resolved" | "ambiguous" | "partial" | "unmapped"
+  result: "resolved" | "ambiguous" | "partial" | "unmapped",
+  context?: {
+    incompleteReason?: "unit_or_value_conflict" | "axis_not_stated" | "definition_not_reviewed" | "no_candidate" | null;
+    missingAxes?: readonly string[];
+  }
 ): string {
   if (result === "resolved") {
     return "Mapping confidence describes classification evidence, not medical certainty.";
   }
+  // The reason class, when present, is more specific than the outcome and wins.
+  switch (context?.incompleteReason) {
+    case "definition_not_reviewed":
+      return "This measurement is recognized and is awaiting review in our catalog. Your report is complete for this result, which is preserved exactly as reported.";
+    case "unit_or_value_conflict":
+      return "The reported unit or value type does not match any reviewed measurement. The raw result remains available.";
+    case "no_candidate":
+      return "The raw result is preserved, but no authorized Registry 2.0 measurement matched.";
+    default:
+      break;
+  }
   if (result === "partial") {
-    return "The result is recognized, but required context is missing. The raw result remains available.";
+    const phrase = axisPhrase(context?.missingAxes ?? []);
+    return phrase
+      ? `The result is recognized. ${phrase} The raw result remains available.`
+      : "The result is recognized, but required context is missing. The raw result remains available.";
   }
   if (result === "ambiguous") {
     return "More than one reviewed measurement remains possible. No measurement was selected.";
@@ -26,13 +70,29 @@ export function measurementMappingGuidance(
 }
 
 const REASON_LABELS: Record<string, string> = {
+  // Clinical axes, which are fed here directly as well as via reason codes.
+  specimen: "Specimen",
+  modifier: "Clinical qualifier",
+  method: "Method",
+  timing: "Collection timing",
+  unit: "Unit",
+  value_kind: "Value type",
+  // Reason codes emitted by the resolver.
   unit_missing: "Unit is missing",
   value_kind_missing: "Value type is missing",
   specimen_missing: "Specimen is missing",
+  modifier_missing: "Clinical qualifier is missing",
+  timing_missing: "Collection timing is missing",
+  method_missing: "Method is missing",
   unit_unsupported: "Unit is not supported",
-  unit_conflict: "Unit is incompatible",
+  unit_not_accepted: "Unit is not accepted for this measurement",
+  unit_dimension_conflict: "Unit measures a different quantity",
   value_kind_conflict: "Value type is incompatible",
   specimen_conflict: "Specimen is incompatible",
+  specimen_unsupported: "Specimen is not supported",
+  modifier_conflict: "Clinical qualifier is incompatible",
+  timing_conflict: "Collection timing is incompatible",
+  method_conflict: "Method is incompatible",
 };
 
 export function measurementReasonLabel(code: string): string {

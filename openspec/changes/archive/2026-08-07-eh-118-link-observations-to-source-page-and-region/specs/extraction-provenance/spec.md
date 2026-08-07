@@ -22,6 +22,19 @@ blocks and the page SHALL retain page-only provenance.
 - **THEN** no block geometry is written for that page
 - **AND** observations attributed to it still record a source page
 
+#### Scenario: Worker writes versioned OCR JSON
+
+- **WHEN** OCR completes for a document page
+- **THEN** the stored OCR JSON includes `schema_version` and `full_text`
+- **AND** may include block-level `bbox` and `confidence` when the engine provides them
+
+#### Scenario: Readers tolerate partial blocks
+
+- **WHEN** OCR JSON has full text but no blocks array
+- **THEN** downstream extraction and review still proceed using full text
+
+## ADDED Requirements
+
 ### Requirement: Source region contract
 
 The system SHALL accept exactly one shape for `bounding_box` on extracted rows

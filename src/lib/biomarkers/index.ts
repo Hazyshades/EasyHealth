@@ -34,6 +34,10 @@ export type {
   CompatibilityEvidenceResult,
   ResolverDecisionTrace,
   MappingConfidenceBand,
+  AdmissibilityRejectionCode,
+
+  IncompleteReasonClass,
+
   MeasurementResolution,
   MeasurementResolutionInput,
   ResolverResult,
@@ -104,6 +108,10 @@ export {
   evaluateUnitCompatibility,
   evaluateValueKindCompatibility,
   evaluateSpecimenCompatibility,
+  classifyIncompleteReason,
+
+  incompleteReasonClass,
+
   resolveMeasurementDefinition,
   findAliasAdmissions,
   RESOLVER_DECISION_TRACE_SCHEMA_VERSION,

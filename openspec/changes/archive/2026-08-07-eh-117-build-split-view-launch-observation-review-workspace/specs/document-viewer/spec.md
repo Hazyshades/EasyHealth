@@ -47,6 +47,20 @@ frame or download) and the rail SHALL list the observations linked by
 - **THEN** the preview and the rail stack vertically and the page does not
   scroll horizontally
 
+#### Scenario: Legacy document viewing
+
+- **WHEN** a user opens a legacy completed document without pipeline artifacts
+- **THEN** the left panel displays the original file (image inline or PDF via
+  iframe/download) and the observation rail lists existing `observations`
+  linked by `document_id`
+
+#### Scenario: Pipeline document viewing
+
+- **WHEN** a user opens a document with generated page previews
+- **THEN** the left panel displays page preview images with page navigation and
+  zoom, and the rail lists extracted biomarkers from
+  `document_extracted_biomarkers`
+
 ### Requirement: Efficient document open load path
 
 The document detail page SHALL load viewer-critical data without a client-side

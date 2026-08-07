@@ -15,6 +15,14 @@ const TRACE_AVAILABILITY_COPY = {
   legacy_unavailable: "Decision trace unavailable for this historical revision.",
 } as const;
 
+/** #114: plain names for the four reasons a row did not resolve. */
+const INCOMPLETE_REASON_LABELS = {
+  axis_not_stated: "The report did not state a required detail",
+  definition_not_reviewed: "Awaiting review in our measurement catalog",
+  unit_or_value_conflict: "Reported unit or value type is incompatible",
+  no_candidate: "No authorized measurement matched this label",
+} as const;
+
 function ReasonLine({
   label,
   codes,
@@ -77,6 +85,11 @@ export function ReviewTechnicalDetails({
               ? ` · ${Math.round(details.mappingConfidence * 100)}% confidence`
               : ""}
           </p>
+          {details.incompleteReason ? (
+            <p className="mt-1">
+              Reason: {INCOMPLETE_REASON_LABELS[details.incompleteReason]}
+            </p>
+          ) : null}
           <ReasonLine label="Missing" codes={details.missingAxes} />
           <ReasonLine label="Conflicts" codes={details.conflictCodes} />
           <ReasonLine

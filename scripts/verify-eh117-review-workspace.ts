@@ -22,6 +22,7 @@ import type { LaboratoryResolutionDetails } from "../src/lib/documents/incomplet
 import type {
   ClinicalCompatibilityAxis,
   MappingConfidenceBand,
+  IncompleteReasonClass,
   ResolutionReasonCode,
   ResolverResult,
   VerificationStatus,
@@ -34,6 +35,7 @@ function resolutionDetails(options: {
   missingAxes?: readonly ClinicalCompatibilityAxis[];
   conflictCodes?: readonly ResolutionReasonCode[];
   candidateCount?: number;
+  incompleteReason?: IncompleteReasonClass | null;
 }): LaboratoryResolutionDetails {
   return {
     source: "active_revision",
@@ -45,6 +47,9 @@ function resolutionDetails(options: {
     conflictCodes: options.conflictCodes ?? [],
     supportCodes: [],
     candidateCount: options.candidateCount ?? 0,
+    incompleteReason:
+      options.incompleteReason ??
+      (options.outcome === null || options.outcome === "resolved" ? null : "axis_not_stated"),
     versions: {
       catalog: "2026-07-20.0",
       resolver: "5",
@@ -227,7 +232,15 @@ for (const outcome of ["partial", "ambiguous", "unmapped"] as const) {
     `${outcome} rows awaiting review must remain acceptable as raw evidence`,
   );
   assert.equal(row.mapping.label, measurementMappingLabel(outcome, "low"));
-  assert.equal(row.mapping.guidance, measurementMappingGuidance(outcome));
+  // #114: guidance is now chosen by reason, so it must be compared against the
+  // same context the row carries — not against the outcome alone.
+  assert.equal(
+    row.mapping.guidance,
+    measurementMappingGuidance(outcome, {
+      incompleteReason: row.mapping.incompleteReason,
+      missingAxes: row.resolutionDetails?.missingAxes ?? [],
+    }),
+  );
   assert.equal(
     row.rawEvidence.displayName,
     "ALT (SGPT)",
@@ -440,6 +453,46 @@ assert.equal(summary.resolved, 2);
 assert.equal(summary.incomplete, 1);
 assert.equal(summary.unverified, 1);
 assert.deepEqual(summary.pagesWithRows, [1, 2, 4]);
+
+// #114: the split must account for every incomplete row, and the buckets must
+// sum to the figure the header used to show on its own.
+assert.equal(
+  summary.awaitingDocument + summary.awaitingCatalog + summary.conflicted,
+  summary.incomplete,
+  "every incomplete row belongs to exactly one bucket",
+);
+
+const catalogBlockedRow = buildObservationReviewRow(
+  observationFixture({
+    id: "obs-catalog-blocked",
+    source_page: 1,
+    resolution_details: resolutionDetails({
+      outcome: "partial",
+      verificationStatus: null,
+      band: "medium",
+      candidateCount: 1,
+      incompleteReason: "definition_not_reviewed",
+    }),
+  }),
+);
+const catalogSummary = summarizeReviewRows([catalogBlockedRow]);
+assert.equal(catalogSummary.awaitingCatalog, 1, "a provisional-blocked row waits on us");
+assert.equal(catalogSummary.awaitingDocument, 0, "it is not waiting on the report");
+assert.equal(
+  hasIncompleteOutcomes([catalogBlockedRow]),
+  false,
+  "reprocessing cannot change a maturity verdict, so it must not be offered as the remedy",
+);
+assert.match(
+  catalogBlockedRow.mapping.guidance ?? "",
+  /awaiting review in our catalog/i,
+  "the row must say the wait is on us",
+);
+assert.doesNotMatch(
+  catalogBlockedRow.mapping.guidance ?? "",
+  /required context is missing/,
+  "issue #114: a catalog-blocked row must never claim the reader is missing context",
+);
 
 const emptySummary = summarizeReviewRows([]);
 assert.equal(emptySummary.total, 0);

@@ -1,4 +1,6 @@
 import type {
+  IncompleteReasonClass,
+
   MappingConfidenceBand,
   ResolverResult,
   VerificationStatus,
@@ -74,6 +76,8 @@ export type ReviewRowMappingState = Readonly<{
   /** EH-112 wording; null when the row carries no resolver outcome at all. */
   label: string | null;
   guidance: string | null;
+  /** #114: which of the four reasons the guidance is speaking to; null when resolved. */
+  incompleteReason: IncompleteReasonClass | null;
   verificationStatus: VerificationStatus | null;
   verificationLabel: string;
   confidenceBand: MappingConfidenceBand | null;
@@ -109,6 +113,13 @@ export type ReviewRowsSummary = Readonly<{
   reviewable: number;
   resolved: number;
   incomplete: number;
+  /**
+   * #114: `incomplete` split by who can resolve it. The three sum to
+   * `incomplete`; the total is kept so the old figure stays available.
+   */
+  awaitingDocument: number;
+  awaitingCatalog: number;
+  conflicted: number;
   unverified: number;
   pagesWithRows: readonly number[];
 }>;
@@ -267,6 +278,8 @@ function buildMappingState(options: {
   confidenceBand: MappingConfidenceBand | null;
   registryBindingReady: boolean;
   reviewable: boolean;
+  incompleteReason: IncompleteReasonClass | null;
+  missingAxes: readonly string[];
 }): ReviewRowMappingState {
   const { outcome, confidenceBand } = options;
   return {
@@ -274,7 +287,13 @@ function buildMappingState(options: {
     label: outcome
       ? measurementMappingLabel(outcome, confidenceBand ?? "low")
       : null,
-    guidance: outcome ? measurementMappingGuidance(outcome) : null,
+    guidance: outcome
+      ? measurementMappingGuidance(outcome, {
+          incompleteReason: options.incompleteReason,
+          missingAxes: options.missingAxes,
+        })
+      : null,
+    incompleteReason: options.incompleteReason,
     verificationStatus: options.verificationStatus,
     verificationLabel: verificationStatusLabel(options.verificationStatus),
     confidenceBand,
@@ -361,6 +380,8 @@ export function buildExtractedReviewRow(
       confidenceBand: asConfidenceBand(normalization?.mappingConfidenceBand),
       registryBindingReady: normalization?.registryBindingReady === true,
       reviewable,
+      incompleteReason: normalization?.resolutionDetails?.incompleteReason ?? null,
+      missingAxes: normalization?.resolutionDetails?.missingAxes ?? [],
     }),
     resolutionDetails: normalization?.resolutionDetails ?? null,
   };
@@ -446,6 +467,8 @@ export function buildObservationReviewRow(
       ),
       registryBindingReady: item.registry_binding_ready === true,
       reviewable: false,
+      incompleteReason: item.resolution_details?.incompleteReason ?? null,
+      missingAxes: item.resolution_details?.missingAxes ?? [],
     }),
     resolutionDetails: item.resolution_details ?? null,
   };
@@ -522,13 +545,33 @@ export function summarizeReviewRows(
   let reviewable = 0;
   let resolved = 0;
   let incomplete = 0;
+  // #114: `incomplete` on its own merged work owed by the product with work owed
+  // by the document, so a reviewer read one number and could not tell which.
+  let awaitingDocument = 0;
+  let awaitingCatalog = 0;
+  let conflicted = 0;
   let unverified = 0;
   const pages = new Set<number>();
 
   for (const row of rows) {
     if (row.reviewable) reviewable += 1;
     if (row.mapping.outcome === "resolved") resolved += 1;
-    else if (row.mapping.outcome !== null) incomplete += 1;
+    else if (row.mapping.outcome !== null) {
+      incomplete += 1;
+      switch (row.mapping.incompleteReason) {
+        case "definition_not_reviewed":
+          awaitingCatalog += 1;
+          break;
+        case "unit_or_value_conflict":
+          conflicted += 1;
+          break;
+        default:
+          // `axis_not_stated`, `no_candidate` and an unclassified row all wait on
+          // the document. Defaulting here keeps the three buckets summing to
+          // `incomplete` even for a legacy row that carries no reason.
+          awaitingDocument += 1;
+      }
+    }
     if (
       row.mapping.verificationStatus === null ||
       row.mapping.verificationStatus === "pending"
@@ -543,6 +586,9 @@ export function summarizeReviewRows(
     reviewable,
     resolved,
     incomplete,
+    awaitingDocument,
+    awaitingCatalog,
+    conflicted,
     unverified,
     pagesWithRows: [...pages].sort((a, b) => a - b),
   };
@@ -554,6 +600,13 @@ export function summarizeReviewRows(
  */
 export function hasIncompleteOutcomes(rows: readonly ReviewRow[]): boolean {
   return rows.some(
-    (row) => row.mapping.outcome !== null && row.mapping.outcome !== "resolved",
+    (row) =>
+      row.mapping.outcome !== null &&
+      row.mapping.outcome !== "resolved" &&
+      // #114: reprocessing re-runs the resolver against the deployed catalog
+      // release. A row held back only by definition maturity will return the
+      // same verdict, so offering reprocess as the remedy is the same false
+      // affordance this change removes from the copy.
+      row.mapping.incompleteReason !== "definition_not_reviewed",
   );
 }

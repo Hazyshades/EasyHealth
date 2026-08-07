@@ -222,6 +222,35 @@ export type CompatibilityEvidenceResult = {
 
 export type ResolutionMissingAxis = "unit" | "specimen" | "modifier" | "timing" | "method" | "value_kind";
 
+/**
+ * #114: why a recognized candidate was excluded from concrete resolution.
+ *
+ * These are properties of the catalog entry and of the alias that matched it,
+ * not evidence about the measurement, so they are kept out of `rejected` and
+ * out of `conflicts` — a provisional definition is not a conflict with the
+ * document. Without them the exclusion is a bare boolean and the product cannot
+ * tell a reviewer whether the outstanding work is theirs or ours.
+ */
+export type AdmissibilityRejectionCode =
+  | "definition_not_reviewed"
+  | "definition_provenance_unverified"
+  | "alias_authority_insufficient"
+  | "alias_not_approved"
+  | "required_axis_missing"
+  | "score_below_floor";
+
+/**
+ * #114: the single reason presented for a row that did not resolve, in
+ * precedence order. A conflict outranks a missing axis, and a missing axis
+ * outranks maturity: naming an axis stays actionable even after the definition
+ * is reviewed, so it is never hidden behind a reason the reviewer cannot act on.
+ */
+export type IncompleteReasonClass =
+  | "unit_or_value_conflict"
+  | "axis_not_stated"
+  | "definition_not_reviewed"
+  | "no_candidate";
+
 export type CandidateEvidence = {
   candidateKey: MeasurementDefinitionKey;
   matchedAlias: MatchedAlias;
@@ -232,6 +261,12 @@ export type CandidateEvidence = {
   score: number | null;
   selectable: boolean;
   eligible: boolean;
+  /**
+   * #114: every admissibility condition this candidate failed. Empty when the
+   * candidate is admissible. Kept separate from `rejected` so that `conflicts`
+   * keeps meaning "the document and the definition disagree".
+   */
+  admissibilityRejections: readonly AdmissibilityRejectionCode[];
 };
 
 export type ResolverDecisionTrace = {
