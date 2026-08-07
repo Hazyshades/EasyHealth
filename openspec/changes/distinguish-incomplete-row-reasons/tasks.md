@@ -156,7 +156,7 @@
       section executable by a non-developer, developer evidence separate. State explicitly
       that the header count changing from one figure to a split is the intended result, so a
       tester does not file it as a regression.
-- [ ] 11.2 Update issue #114 with the evidence, and close #63 through this change, noting
+- [x] 11.2 Update issue #114 with the evidence, and close #63 through this change, noting
       which of its six criteria each artifact satisfies.
-- [ ] 11.3 Open the pull request. Note that reviewing the eight provisional definitions is
+- [x] 11.3 Open the pull request. Note that reviewing the eight provisional definitions is
       deliberately out of scope and remains the cheapest way to resolve those twelve rows.
