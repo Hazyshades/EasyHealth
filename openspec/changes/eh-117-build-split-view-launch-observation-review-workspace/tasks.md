@@ -82,4 +82,4 @@
       behaviour as developer evidence.
 - [x] 5.5 Record the EH-118 handoff: no bounding-box overlay ships here, and
       `SourcePrecision` reserves `region` for it.
-- [ ] 5.6 Update GitHub issue #17 and the roadmap once this change is merged.
+- [x] 5.6 Update GitHub issue #17 and the roadmap once this change is merged.
