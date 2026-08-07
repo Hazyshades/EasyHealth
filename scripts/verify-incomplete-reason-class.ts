@@ -10,6 +10,7 @@
 import assert from "node:assert/strict";
 import {
   incompleteReasonClass,
+  minimalBlockingAxes,
   resolveMeasurementDefinition,
   type MeasurementResolution,
   type MeasurementResolutionInput,
@@ -132,6 +133,38 @@ assert.equal(
   "axis_not_stated",
   "a conflict only blocks this row when it leaves nothing selectable",
 );
+
+// --- 4b. The copy names the least the reader would have to state -----------
+//
+// `missingAxes` unions every candidate. Glucose collects specimen + modifier +
+// timing + method, because the fasting and post-prandial definitions each want
+// their own — while three plain glucose definitions want only a specimen. The
+// reader was shown four demands when stating one resolves the row.
+
+const glucoseAxes = minimalBlockingAxes(numericGlucose.candidateEvidence);
+assert.ok(
+  numericGlucose.missingAxes.length > 1,
+  "the union still over-reports, which is correct for the evidence record",
+);
+assert.deepEqual(
+  [...glucoseAxes],
+  ["specimen"],
+  "stating the specimen alone resolves this row, so that is what the copy asks for",
+);
+assert.doesNotMatch(
+  measurementMappingGuidance("partial", {
+    incompleteReason: "axis_not_stated",
+    missingAxes: glucoseAxes,
+  }),
+  /clinical qualifier|collection timing|method/,
+  "the reader is not handed axes that other candidates wanted",
+);
+
+// ALT has one candidate family, so minimum and union agree.
+assert.deepEqual([...minimalBlockingAxes(axisBlocked.candidateEvidence)], ["specimen"]);
+
+// A row with no candidates has nothing to name.
+assert.deepEqual([...minimalBlockingAxes([])], []);
 
 // --- 5. An unrecognized label is not blamed on maturity ---------------------
 
