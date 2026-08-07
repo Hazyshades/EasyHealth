@@ -1013,6 +1013,36 @@ export function incompleteReasonClass(
   });
 }
 
+/**
+ * #114: the smallest set of axes that would unblock this row.
+ *
+ * `missingAxes` on the resolution is a union across every candidate, which is
+ * right for evidence and wrong for copy. Glucose collects
+ * `specimen + modifier + timing + method` because the fasting and
+ * post-prandial definitions each want their own, while three plain glucose
+ * definitions want only a specimen — so the reader was shown four demands when
+ * stating one would have resolved the row.
+ *
+ * Reporting the minimum is the honest version of the same sentence: this is the
+ * least you would have to state. Ties break on the sorted axis list so the copy
+ * is deterministic.
+ */
+export function minimalBlockingAxes(
+  candidates: readonly {
+    selectable?: boolean;
+    missingAxes?: readonly ClinicalCompatibilityAxis[];
+  }[]
+): readonly ClinicalCompatibilityAxis[] {
+  const viable = candidates.filter((candidate) => candidate.selectable !== false);
+  const sets = (viable.length > 0 ? viable : candidates)
+    .map((candidate) => [...new Set(candidate.missingAxes ?? [])].sort())
+    .filter((axes) => axes.length > 0);
+  if (sets.length === 0) return [];
+  return sets.reduce((best, axes) =>
+    axes.length < best.length || (axes.length === best.length && axes.join() < best.join()) ? axes : best
+  );
+}
+
 const TRACE_REASON_CODES: Record<ResolutionReasonCode, true> = {
   definition_key_match: true,
   alias_exact_match: true,

@@ -11,7 +11,7 @@ import type {
   ResolverResult,
   VerificationStatus,
 } from "@/lib/biomarkers";
-import { classifyIncompleteReason, incompleteReasonClass } from "@/lib/biomarkers";
+import { classifyIncompleteReason, incompleteReasonClass, minimalBlockingAxes } from "@/lib/biomarkers";
 import {
   projectActiveRegistryV2LaboratoryBinding,
   type RegistryV2LaboratoryBindingSource,
@@ -56,6 +56,12 @@ export type LaboratoryResolutionDetails = Readonly<{
   mappingConfidence: number | null;
   mappingConfidenceBand: MappingConfidenceBand | null;
   missingAxes: readonly ClinicalCompatibilityAxis[];
+  /**
+   * #114: the smallest set of axes that would unblock this row, for copy.
+   * `missingAxes` unions every candidate and over-reports what the reader would
+   * actually have to state — glucose collected four when stating one resolves it.
+   */
+  minimalMissingAxes: readonly ClinicalCompatibilityAxis[];
   conflictCodes: readonly ResolutionReasonCode[];
   supportCodes: readonly ResolutionReasonCode[];
   candidateCount: number;
@@ -150,6 +156,8 @@ function summarizeTrace(trace: DecisionTraceLike | null | undefined) {
       )
     ),
     candidateCount: candidates.length,
+    // #114: the union above is the evidence record; this is what the copy says.
+    minimalMissingAxes: minimalBlockingAxes(candidates),
     admissibilityRejections: uniqueSorted(
       candidates.flatMap((candidate) => candidate.admissibilityRejections ?? [])
     ),
@@ -328,6 +336,7 @@ export function projectLaboratoryOutcome(
       mappingConfidence: null,
       mappingConfidenceBand: null,
       missingAxes: [],
+      minimalMissingAxes: [],
       conflictCodes: [],
       supportCodes: [],
       candidateCount: 0,

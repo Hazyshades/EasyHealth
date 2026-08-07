@@ -381,7 +381,7 @@ export function buildExtractedReviewRow(
       registryBindingReady: normalization?.registryBindingReady === true,
       reviewable,
       incompleteReason: normalization?.resolutionDetails?.incompleteReason ?? null,
-      missingAxes: normalization?.resolutionDetails?.missingAxes ?? [],
+      missingAxes: normalization?.resolutionDetails?.minimalMissingAxes ?? [],
     }),
     resolutionDetails: normalization?.resolutionDetails ?? null,
   };
@@ -468,7 +468,7 @@ export function buildObservationReviewRow(
       registryBindingReady: item.registry_binding_ready === true,
       reviewable: false,
       incompleteReason: item.resolution_details?.incompleteReason ?? null,
-      missingAxes: item.resolution_details?.missingAxes ?? [],
+      missingAxes: item.resolution_details?.minimalMissingAxes ?? [],
     }),
     resolutionDetails: item.resolution_details ?? null,
   };

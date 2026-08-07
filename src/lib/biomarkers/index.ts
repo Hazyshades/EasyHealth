@@ -112,6 +112,8 @@ export {
 
   incompleteReasonClass,
 
+  minimalBlockingAxes,
+
   resolveMeasurementDefinition,
   findAliasAdmissions,
   RESOLVER_DECISION_TRACE_SCHEMA_VERSION,

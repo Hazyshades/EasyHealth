@@ -44,6 +44,7 @@ function resolutionDetails(options: {
     mappingConfidence: 0.42,
     mappingConfidenceBand: options.band,
     missingAxes: options.missingAxes ?? [],
+    minimalMissingAxes: options.missingAxes ?? [],
     conflictCodes: options.conflictCodes ?? [],
     supportCodes: [],
     candidateCount: options.candidateCount ?? 0,
