@@ -924,6 +924,21 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
               {reviewSummary.total === 1 ? "" : "s"} ·{" "}
               {reviewSummary.resolved} matched · {reviewSummary.incomplete}{" "}
               incomplete · {reviewSummary.unverified} not verified
+              {/* #114: one "incomplete" figure merged rows the document owes with
+                  rows our catalog owes. Both are named so a reviewer knows which
+                  of them they can actually do something about. */}
+              {reviewSummary.incomplete > 0 ? (
+                <>
+                  <br />
+                  {reviewSummary.awaitingDocument} awaiting details from the report
+                  {reviewSummary.awaitingCatalog > 0
+                    ? ` · ${reviewSummary.awaitingCatalog} awaiting our catalog review`
+                    : ""}
+                  {reviewSummary.conflicted > 0
+                    ? ` · ${reviewSummary.conflicted} with an incompatible unit or value`
+                    : ""}
+                </>
+              ) : null}
             </p>
           ) : null}
 

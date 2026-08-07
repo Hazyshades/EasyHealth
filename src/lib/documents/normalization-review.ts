@@ -7,6 +7,8 @@ import type {
   AssessmentBinding,
   CandidateEvidence,
   ClinicalCompatibilityAxis,
+
+  IncompleteReasonClass,
   MappingConfidenceBand,
   MeasurementMaturity,
   MeasurementResolutionInput,
@@ -90,6 +92,11 @@ export type NormalizationReview = {
   analyteKey: string | null;
   missingAxes: readonly ClinicalCompatibilityAxis[];
   conflicts: readonly ResolutionReasonCode[];
+  /**
+   * #114: why this row did not resolve, in one word the UI can speak to. Read
+   * from the projection so a preview row carries it too.
+   */
+  incompleteReason: IncompleteReasonClass | null;
   mappingConfidence: number;
   mappingConfidenceBand: MappingConfidenceBand;
   unit: NormalizedMeasurementUnit;
@@ -179,6 +186,7 @@ export function buildNormalizationReview(
     analyteKey: outcome.analyteKey,
     missingAxes: persistedTrace?.missingAxes ?? outcome.resolutionDetails.missingAxes,
     conflicts: persistedTrace?.conflicts ?? outcome.resolutionDetails.conflictCodes,
+    incompleteReason: outcome.resolutionDetails.incompleteReason,
     mappingConfidence:
       outcome.resolutionDetails.mappingConfidence ?? preview.mappingConfidence,
     mappingConfidenceBand:
