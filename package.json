@@ -62,7 +62,8 @@
     "audit:stated-axis": "tsx --env-file=.env scripts/audit-stated-axis-document.ts",
     "test:stated-axis-db": "supabase test db --local supabase/tests/stated_axis_inferred_axes.sql",
     "reprocess:batch": "tsx scripts/reprocess-batch.ts",
-    "test:reason-class": "tsx scripts/verify-incomplete-reason-class.ts"
+    "test:reason-class": "tsx scripts/verify-incomplete-reason-class.ts",
+    "test:writer-seam": "supabase test db --local supabase/tests/writer_rpc_seam.sql"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.0",

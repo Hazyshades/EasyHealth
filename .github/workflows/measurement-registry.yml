@@ -139,6 +139,10 @@ jobs:
         run: pnpm test:stated-axis-db
       - name: Run EH-118 source region database contract
         run: pnpm test:eh118-db
+      # #117: the only test that runs the writer's real payload against the real
+      # RPC. Acceptance was dead for months because nothing crossed this seam.
+      - name: Run the writer-to-RPC seam contract
+        run: pnpm test:writer-seam
       - name: Stop local Supabase services
         if: always()
         run: supabase stop --no-backup
