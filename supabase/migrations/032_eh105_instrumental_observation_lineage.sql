@@ -53,6 +53,9 @@ create index if not exists document_extracted_instrumental_measures_profile_docu
 
 alter table public.document_extracted_instrumental_measures enable row level security;
 
+drop policy if exists "service_all_document_extracted_instrumental_measures"
+  on public.document_extracted_instrumental_measures;
+
 create policy "service_all_document_extracted_instrumental_measures"
   on public.document_extracted_instrumental_measures
   for all

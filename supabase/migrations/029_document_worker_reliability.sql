@@ -12,6 +12,7 @@ comment on column public.worker_heartbeats.last_seen is
   'Last successful worker tick, used to surface unavailable document processing.';
 
 alter table public.worker_heartbeats enable row level security;
+drop policy if exists "service_all_worker_heartbeats" on public.worker_heartbeats;
 
 create policy "service_all_worker_heartbeats"
   on public.worker_heartbeats
