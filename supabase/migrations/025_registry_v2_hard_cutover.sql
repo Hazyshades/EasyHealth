@@ -4,8 +4,21 @@ alter table public.document_extracted_biomarkers
   add column if not exists analyte_key text,
   add column if not exists resolution_status text;
 
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'observations'
+      and column_name = 'biomarker_key'
+  ) then
+    alter table public.observations
+      alter column biomarker_key drop not null;
+  end if;
+end $$;
+
 alter table public.observations
-  alter column biomarker_key drop not null,
   add column if not exists analyte_key text,
   add column if not exists resolution_status text,
   add column if not exists source_extracted_biomarker_id uuid references public.document_extracted_biomarkers(id) on delete set null;

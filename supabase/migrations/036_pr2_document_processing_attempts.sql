@@ -95,6 +95,9 @@ alter table public.document_processing_attempts enable row level security;
 
 -- Reads are service-only; every write goes through the SECURITY DEFINER
 -- transitions below. No direct client mutation authority.
+drop policy if exists "service_select_document_processing_attempts"
+  on public.document_processing_attempts;
+
 create policy "service_select_document_processing_attempts"
   on public.document_processing_attempts
   for select

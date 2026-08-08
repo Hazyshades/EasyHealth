@@ -125,6 +125,13 @@ alter table public.document_instrumental_snapshot_contents enable row level secu
 alter table public.document_instrumental_publications enable row level security;
 alter table public.document_instrumental_current_publication enable row level security;
 
+drop policy if exists "service_select_document_instrumental_snapshot_contents"
+  on public.document_instrumental_snapshot_contents;
+drop policy if exists "service_select_document_instrumental_publications"
+  on public.document_instrumental_publications;
+drop policy if exists "service_select_document_instrumental_current_publication"
+  on public.document_instrumental_current_publication;
+
 create policy "service_select_document_instrumental_snapshot_contents"
   on public.document_instrumental_snapshot_contents for select to service_role using (true);
 create policy "service_select_document_instrumental_publications"
