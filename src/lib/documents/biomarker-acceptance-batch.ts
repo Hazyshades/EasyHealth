@@ -7,8 +7,19 @@ type ExtractedBiomarkerAcceptanceRow = {
   id: string;
 };
 
-function failureMessage(error: unknown): string {
+/**
+ * #117: a Supabase failure is a plain object, not an `Error`, so returning the
+ * placeholder for everything non-`Error` discarded the only useful signal. The
+ * writer had been rejecting every acceptance with
+ * `invalid_normalization_resolution_payload` and the API reported only
+ * "Normalization writer failed".
+ */
+export function failureMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) {
+    const { message } = error as { message: unknown };
+    if (typeof message === "string" && message.trim().length > 0) return message;
+  }
   return "Normalization writer failed";
 }
 

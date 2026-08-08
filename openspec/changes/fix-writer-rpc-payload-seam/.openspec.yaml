@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-08-08
+goal: |
+  Accept the decision-trace object the writer actually sends, surface the real
+  database failure, and require the writer's own payload to be exercised against
+  the deployed primitive.

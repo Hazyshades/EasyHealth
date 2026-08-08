@@ -17,6 +17,7 @@ import {
   buildNormalizationReview,
   type NormalizationRevisionSummary,
 } from "@/lib/documents/normalization-review";
+import { failureMessage } from "@/lib/documents/biomarker-acceptance-batch";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -168,7 +169,7 @@ export async function PATCH(req: Request, context: RouteContext) {
       compatibleDefinitionKeys: compatibleManualDefinitions(input).map((definition) => definition.key),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Normalization writer failed";
+    const message = failureMessage(error);
     const isClientError = error instanceof ObservationNormalizationWriterError;
     const isConflict = [
       "stale_revision_conflict",
