@@ -2,72 +2,72 @@
   "schemaVersion": "1",
   "approvals": [
     {
-      "id": "registry-safety-review-2026-08-06",
+      "id": "registry-safety-review-2026-08-09",
       "scope": "false_concrete_review",
       "role": "registry-safety-reviewer",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "f00c0e6f4b0c041c75935186f1d8dee2d7d6f0cefb83dee22739e71bda74efd1",
-      "note": "Re-approved for registry-v2.0.0-candidate.2, the single candidate covering #105 (order-insensitive alias token set) and #106 (unstated clinical axes no longer reach the resolver). MEASUREMENT_NORMALIZATION_VERSION 5 -> 6 and the 52 -> 53 row corpus moved the candidate input hash; both changes were released together so the approval procedure runs once. False-concrete resolutions: 0. Reviewed all 8 rows reaching a concrete identity and the verbatim provenance permitting each: 7 state their specimen on the row itself, and glucose-specimen-by-section states it by the 'Serum chemistry' heading. The corpus now builds resolver input through the same stated-axis filter production uses, and a seam guard rejects any fixture claiming an axis its provenance does not state, so this report can no longer pass while the runtime fabricates."
+      "candidateInputHash": "1ef42fbeb5152fec2c6c1de51e0a86ff68ed9cfc80c5555d002f87d7d0c08c03",
+      "note": "Re-approved for registry-v2.0.0-candidate.3, covering #120 (the promotion guard gated analyte_key like a concrete definition, so every recognized-but-incomplete row was unacceptable). MEASUREMENT_RESOLVER_VERSION 9 -> 10 is the sole cause of the hash move from f00c0e6f...74efd1: candidateInputHash covers resolverVersion. No catalog entry changed - digestMeasurementRegistryManifest() is unchanged at 5341c12e8a38255a0276c92c98fdf8bc97adc3d85c916d0726347ea3983f7357. False-concrete resolutions: 0, unchanged. The safety question this scope exists for is whether any row gained a concrete identity it was not entitled to, and the answer is measurable rather than argued: running the corpus with and without the resolver change produces byte-identical report rows and identical thresholdChecks, and the same 8 rows reach a concrete identity through the same verbatim provenance as candidate.2. The resolver change narrows the ANALYTE tier to candidates that survived hard-conflict evaluation; it cannot widen concrete identity, which is still gated on `resolved` in both the resolver and the promotion primitive. Migration 046 relaxes only the analyte half of the incomplete-outcome guard; the resolved branch still requires both identity links plus a reviewed definition, and supabase/tests/writer_rpc_seam.sql asserts in both directions that an incomplete payload carrying a measurement definition key is still rejected."
     },
     {
-      "id": "assessment-alt-serum-catalytic-activity-review-2026-08-06",
+      "id": "assessment-alt-serum-catalytic-activity-review-2026-08-09",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "bindingKey": "alt_serum_catalytic_activity",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "f00c0e6f4b0c041c75935186f1d8dee2d7d6f0cefb83dee22739e71bda74efd1",
-      "note": "Re-approved for registry-v2.0.0-candidate.2, the single candidate covering #105 (order-insensitive alias token set) and #106 (unstated clinical axes no longer reach the resolver). MEASUREMENT_NORMALIZATION_VERSION 5 -> 6 and the 52 -> 53 row corpus moved the candidate input hash; both changes were released together so the approval procedure runs once. Reached by 0 rows automatically: the ALT row carries no stated specimen and stays partial, reaching this definition only through a reviewed manual correction (source: manual_correction). That is the intended effect of #106 - a serum identity is now a human decision, not a model guess."
+      "candidateInputHash": "1ef42fbeb5152fec2c6c1de51e0a86ff68ed9cfc80c5555d002f87d7d0c08c03",
+      "note": "Re-approved for registry-v2.0.0-candidate.3 (#120). Signature refresh only: the resolver-version bump 9 -> 10 moved candidateInputHash, and the corpus rows are byte-identical to candidate.2. Reached by 0 rows automatically: the ALT row carries no stated specimen and stays partial, reaching this definition only through a reviewed manual correction (source: manual_correction). #120 does not change that - the ALT row now retains its analyte-level identity (analyte 'alt') when accepted, which is strictly weaker than this binding and does not make the row consumer-eligible."
     },
     {
-      "id": "assessment-fasting-glucose-review-2026-08-06",
+      "id": "assessment-fasting-glucose-review-2026-08-09",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "bindingKey": "fasting_glucose",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "f00c0e6f4b0c041c75935186f1d8dee2d7d6f0cefb83dee22739e71bda74efd1",
-      "note": "Re-approved for registry-v2.0.0-candidate.2, the single candidate covering #105 (order-insensitive alias token set) and #106 (unstated clinical axes no longer reach the resolver). MEASUREMENT_NORMALIZATION_VERSION 5 -> 6 and the 52 -> 53 row corpus moved the candidate input hash; both changes were released together so the approval procedure runs once. Reached by glucose-fasting, stated by 'Fasting glucose, plasma 4.8 mmol/L'."
+      "candidateInputHash": "1ef42fbeb5152fec2c6c1de51e0a86ff68ed9cfc80c5555d002f87d7d0c08c03",
+      "note": "Re-approved for registry-v2.0.0-candidate.3 (#120). Signature refresh only: the resolver-version bump 9 -> 10 moved candidateInputHash, and the corpus rows are byte-identical to candidate.2. Reached by glucose-fasting, stated by 'Fasting glucose, plasma 4.8 mmol/L'."
     },
     {
-      "id": "assessment-glucose-plasma-review-2026-08-06",
+      "id": "assessment-glucose-plasma-review-2026-08-09",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "bindingKey": "glucose_plasma",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "f00c0e6f4b0c041c75935186f1d8dee2d7d6f0cefb83dee22739e71bda74efd1",
-      "note": "Re-approved for registry-v2.0.0-candidate.2, the single candidate covering #105 (order-insensitive alias token set) and #106 (unstated clinical axes no longer reach the resolver). MEASUREMENT_NORMALIZATION_VERSION 5 -> 6 and the 52 -> 53 row corpus moved the candidate input hash; both changes were released together so the approval procedure runs once. Reached by glucose-plasma, stated by 'Glucose, plasma 5.6 mmol/L'."
+      "candidateInputHash": "1ef42fbeb5152fec2c6c1de51e0a86ff68ed9cfc80c5555d002f87d7d0c08c03",
+      "note": "Re-approved for registry-v2.0.0-candidate.3 (#120). Signature refresh only: the resolver-version bump 9 -> 10 moved candidateInputHash, and the corpus rows are byte-identical to candidate.2. Reached by glucose-plasma, stated by 'Glucose, plasma 5.6 mmol/L'."
     },
     {
-      "id": "assessment-glucose-serum-review-2026-08-06",
+      "id": "assessment-glucose-serum-review-2026-08-09",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "bindingKey": "glucose_serum",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "f00c0e6f4b0c041c75935186f1d8dee2d7d6f0cefb83dee22739e71bda74efd1",
-      "note": "Re-approved for registry-v2.0.0-candidate.2, the single candidate covering #105 (order-insensitive alias token set) and #106 (unstated clinical axes no longer reach the resolver). MEASUREMENT_NORMALIZATION_VERSION 5 -> 6 and the 52 -> 53 row corpus moved the candidate input hash; both changes were released together so the approval procedure runs once. Reached by glucose ('Glucose, serum 5.3 mmol/L') and by glucose-specimen-by-section, whose specimen comes from the 'Serum chemistry' section heading rather than the row."
+      "candidateInputHash": "1ef42fbeb5152fec2c6c1de51e0a86ff68ed9cfc80c5555d002f87d7d0c08c03",
+      "note": "Re-approved for registry-v2.0.0-candidate.3 (#120). Signature refresh only: the resolver-version bump 9 -> 10 moved candidateInputHash, and the corpus rows are byte-identical to candidate.2. Reached by glucose ('Glucose, serum 5.3 mmol/L') and by glucose-specimen-by-section, whose specimen comes from the 'Serum chemistry' section heading rather than the row."
     },
     {
-      "id": "assessment-glucose-whole-blood-review-2026-08-06",
+      "id": "assessment-glucose-whole-blood-review-2026-08-09",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "bindingKey": "glucose_whole_blood",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "f00c0e6f4b0c041c75935186f1d8dee2d7d6f0cefb83dee22739e71bda74efd1",
-      "note": "Re-approved for registry-v2.0.0-candidate.2, the single candidate covering #105 (order-insensitive alias token set) and #106 (unstated clinical axes no longer reach the resolver). MEASUREMENT_NORMALIZATION_VERSION 5 -> 6 and the 52 -> 53 row corpus moved the candidate input hash; both changes were released together so the approval procedure runs once. Reached by glucose-whole-blood, stated by 'Glucose, whole blood 92 mg/dL'."
+      "candidateInputHash": "1ef42fbeb5152fec2c6c1de51e0a86ff68ed9cfc80c5555d002f87d7d0c08c03",
+      "note": "Re-approved for registry-v2.0.0-candidate.3 (#120). Signature refresh only: the resolver-version bump 9 -> 10 moved candidateInputHash, and the corpus rows are byte-identical to candidate.2. Reached by glucose-whole-blood, stated by 'Glucose, whole blood 92 mg/dL'."
     },
     {
-      "id": "release-gate-2026-08-06",
+      "id": "release-gate-2026-08-09",
       "scope": "release_gate",
       "role": "release-manager",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "f00c0e6f4b0c041c75935186f1d8dee2d7d6f0cefb83dee22739e71bda74efd1",
-      "note": "Re-approved for registry-v2.0.0-candidate.2, the single candidate covering #105 (order-insensitive alias token set) and #106 (unstated clinical axes no longer reach the resolver). MEASUREMENT_NORMALIZATION_VERSION 5 -> 6 and the 52 -> 53 row corpus moved the candidate input hash; both changes were released together so the approval procedure runs once. 53 rows, resolved 8 / partial 45, expectedClassificationRate 1.0, falseConcreteResolutions 0, processingErrors 0, alias and unit coverage 1.0. Verified locally and in CI: typecheck, stated-axis, alias-order, cbc-regression, eh112, eh113, eh106, eh116, document-review, verify:registry, build, and the database contracts. Known unrelated failure: test:eh111 at verify-eh111-clinical-compatibility.ts:184, reproduced on a clean master before this work and tracked in #110 alongside nine suites CI never executes."
+      "candidateInputHash": "1ef42fbeb5152fec2c6c1de51e0a86ff68ed9cfc80c5555d002f87d7d0c08c03",
+      "note": "Re-approved for registry-v2.0.0-candidate.3, covering #120. 53 rows, resolved 8 / partial 45, all 53 classificationMatches true, expectedClassificationRate 1.0, rawPreservationRate 1.0, recognitionRate 1.0, alias and unit coverage 1.0, falseConcreteResolutions 0, processingErrors 0, unclassifiedRows 0 - every figure identical to candidate.2. Verified: typecheck clean; verify:registry all suites pass; test:writer-seam 12/12; test:eh111-db 14/14; test:eh106-db 37/37; test:eh104-db 42/42; test:eh112, test:eh113, test:reason-class pass. Every new assertion was mutation-checked against the pre-046 guard and fails there (writer-seam 4 of 12, eh111-db 3 of 14, measurement-registry on the analyte assertion), so the coverage defends the contract rather than describing it. Migration 046 verified in a deployed database: the old guard clause is absent from pg_proc.prosrc, the resolved branch is intact, and both write_observation_normalization_revision_v2 and its _legacy delegate remain at 13 arguments. End-to-end against the deployed primitive, the real resolver and buildNormalizationResolutionPayload output for an ALT row with no printed specimen committed one observation and one active revision with analyte_key 'alt', a null measurement definition key, and verification_status 'pending'. Known unrelated failure: test:eh111 at verify-eh111-clinical-compatibility.ts:184, reproduced on master before this change and not executed by CI (issue #110)."
     }
   ]
 }

@@ -1,6 +1,6 @@
 begin;
 
-select plan(11);
+select plan(14);
 
 create function public.eh111_db_observation_payload(p_profile_id uuid, p_document_id uuid, p_name text)
 returns jsonb language sql immutable as $$
@@ -71,7 +71,8 @@ insert into public.documents (id, profile_id, storage_path, original_filename, s
 insert into public.document_extracted_biomarkers (id, document_id, profile_id, biomarker_name, status) values
   ('00000000-0000-0000-0000-000000001131', '00000000-0000-0000-0000-000000001121', '00000000-0000-0000-0000-000000001111', 'EH111 partial glucose', 'needs_review'),
   ('00000000-0000-0000-0000-000000001132', '00000000-0000-0000-0000-000000001121', '00000000-0000-0000-0000-000000001111', 'EH111 ambiguous glucose', 'needs_review'),
-  ('00000000-0000-0000-0000-000000001133', '00000000-0000-0000-0000-000000001121', '00000000-0000-0000-0000-000000001111', 'EH111 resolved glucose', 'needs_review');
+  ('00000000-0000-0000-0000-000000001133', '00000000-0000-0000-0000-000000001121', '00000000-0000-0000-0000-000000001111', 'EH111 resolved glucose', 'needs_review'),
+  ('00000000-0000-0000-0000-000000001134', '00000000-0000-0000-0000-000000001121', '00000000-0000-0000-0000-000000001111', 'EH111 analyte-only glucose', 'needs_review');
 
 select lives_ok($$
   select public.write_observation_normalization_revision_v2(
@@ -152,6 +153,34 @@ select throws_ok($$
     'acceptance', '00000000-0000-0000-0000-000000001112', repeat('5', 64), null, 'additive', null, null, null, 'eh111-db-test', false
   )
 $$, 'P0001', 'unreviewed_measurement_definition', 'resolved result requires reviewed-definition evidence');
+
+-- #120: the middle case this suite never covered. Rows 1131 and 1132 assert the
+-- two ends — no identity at all, and a fabricated concrete definition — but the
+-- state a real incomplete row actually reaches is neither: the resolver knows
+-- the analyte and cannot pick the definition. The guard used to reject it,
+-- which made every recognized-incomplete row unacceptable.
+
+select lives_ok($$
+  select public.write_observation_normalization_revision_v2(
+    '00000000-0000-0000-0000-000000001134',
+    public.eh111_db_observation_payload('00000000-0000-0000-0000-000000001111', '00000000-0000-0000-0000-000000001121', 'EH111 analyte-only glucose'),
+    public.eh111_db_resolution_payload('partial', null, 'glucose', jsonb_build_array(
+      jsonb_build_object('axis', 'specimen', 'code', 'specimen_missing', 'state', 'missing')
+    )),
+    'acceptance', '00000000-0000-0000-0000-000000001112', repeat('6', 64), null, 'additive', null, null, null, 'eh111-db-test', false
+  )
+$$, 'partial result carrying only an analyte key writes atomically');
+
+select is(
+  (select analyte_key from public.observation_normalization_revisions where extracted_biomarker_id = '00000000-0000-0000-0000-000000001134' and is_active),
+  'glucose', 'analyte-level identity survives an incomplete outcome'
+);
+
+select ok(exists (
+  select 1 from public.observations
+  where source_extracted_biomarker_id = '00000000-0000-0000-0000-000000001134'
+    and resolution_status = 'partial' and analyte_key = 'glucose' and measurement_definition_key is null and normalization_revision_id is not null
+), 'the partial projection carries the analyte tier and no concrete definition');
 
 select * from finish();
 rollback;

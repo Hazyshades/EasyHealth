@@ -38,8 +38,11 @@ import type {
 } from "./types";
 
 export const MEASUREMENT_CATALOG_MANIFEST_VERSION = "2026-08-03.0";
-/** 9: #105 order-insensitive alias admission (`token_set`). */
-export const MEASUREMENT_RESOLVER_VERSION = "9";
+/**
+ * 10: #120 the analyte tier is derived from selectable candidates only.
+ * 9: #105 order-insensitive alias admission (`token_set`).
+ */
+export const MEASUREMENT_RESOLVER_VERSION = "10";
 /** 6: #106 unstated clinical axes no longer reach the resolver. */
 export const MEASUREMENT_NORMALIZATION_VERSION = "6";
 export const MEASUREMENT_COMPATIBILITY_POLICY_VERSION = "1";
@@ -911,8 +914,15 @@ export function resolveMeasurementDefinition(
     // reason already lives in `rejected`, so it carries no admissibility code.
     admissibilityRejections: rejectionsByCandidate.get(candidate.candidateKey) ?? [],
   }));
+  // #120: the analyte tier is the weaker of the two identity claims, but it is
+  // still a claim. It may only be drawn from candidates the resolver considered
+  // viable — `ranked`, not every generated candidate. A hard conflict already
+  // ruled a candidate out, so letting it vote here would persist an identity
+  // partly determined by evidence the resolver rejected. Missing-axis
+  // candidates stay in: being unable to pick between ALT serum and ALT plasma
+  // is exactly the case where the analyte survives and the definition does not.
   const analytes = new Set(
-    candidates
+    ranked
       .map((candidate) => definitionByKey.get(candidate.candidateKey)?.analyteKey)
       .filter((key): key is string => Boolean(key))
   );

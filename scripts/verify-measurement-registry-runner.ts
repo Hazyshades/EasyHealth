@@ -80,6 +80,32 @@ assert.equal(opisthorchis.result, "partial");
 assert.equal(opisthorchis.analyteKey, "opisthorchis_felineus_igg");
 assert.equal(resolveMeasurementDefinition({ rawLabel: "Not a known laboratory marker" }).result, "unmapped");
 
+// #120: the analyte tier is drawn only from candidates the resolver considered
+// viable. `urine_glucose` has one candidate, `glucose_urine_dipstick`, which is
+// ordinal-only; a numeric value hard-conflicts on value kind and makes it
+// non-selectable. The row previously carried analyte `glucose` derived from
+// that rejected candidate while simultaneously reporting a value-kind conflict
+// as its blocker — an identity taken from the evidence the resolver threw out.
+const urineGlucoseNumeric = resolveMeasurementDefinition({ rawLabel: "urine_glucose", valueKind: "numeric" });
+assert.equal(urineGlucoseNumeric.result, "partial");
+assert.ok(urineGlucoseNumeric.conflicts.includes("value_kind_conflict"));
+assert.equal(
+  urineGlucoseNumeric.candidateEvidence.filter((candidate) => candidate.selectable).length,
+  0,
+  "every candidate for a numeric urine glucose is hard-conflicted"
+);
+assert.equal(
+  urineGlucoseNumeric.analyteKey,
+  null,
+  "a hard-conflicted candidate must not contribute its analyte to the identity tier"
+);
+assert.equal(urineGlucoseNumeric.measurementDefinitionKey, null);
+
+// The same label with the value kind its definition actually declares keeps the
+// analyte: the narrowing removes rejected evidence, not recognition.
+const urineGlucoseOrdinal = resolveMeasurementDefinition({ rawLabel: "urine_glucose", valueKind: "ordinal" });
+assert.equal(urineGlucoseOrdinal.analyteKey, "glucose", "a viable candidate still supplies the analyte tier");
+
 const fastingWithoutModifier = resolveMeasurementDefinition({ rawLabel: "FPG", rawUnit: "mmol/L", specimen: "plasma", valueKind: "numeric" });
 assert.equal(fastingWithoutModifier.result, "partial");
 assert.ok(fastingWithoutModifier.missingAxes.includes("modifier"));

@@ -12,7 +12,7 @@ begin;
 -- This fixture submits the EXACT shape `buildNormalizationResolutionPayload`
 -- produces. If the two drift again, this fails.
 
-select plan(5);
+select plan(12);
 
 insert into public.profiles (id) values ('00000000-0000-0000-0000-0000000c0001');
 
@@ -39,6 +39,32 @@ values (
   'ALT (alanine aminotransferase)',
   28, '28', 'numeric', 'U/L', 'U/L', '28',
   1, 'ALT (alanine aminotransferase) 28 U/L',
+  1, 'needs_review', true, 'llm'
+);
+
+-- #120: two more sources, so the identity-tier cases each get a clean row.
+insert into public.document_extracted_biomarkers (
+  id, document_id, profile_id, biomarker_name, raw_name,
+  value_numeric, value_text, value_kind, unit, raw_unit, raw_value_text,
+  source_page, source_text, confidence, status, is_current, extraction_method
+)
+values (
+  '00000000-0000-0000-0000-0000000c0004',
+  '00000000-0000-0000-0000-0000000c0002',
+  '00000000-0000-0000-0000-0000000c0001',
+  'ALT (alanine aminotransferase)',
+  'ALT (alanine aminotransferase)',
+  31, '31', 'numeric', 'U/L', 'U/L', '31',
+  1, 'ALT (alanine aminotransferase) 31 U/L',
+  1, 'needs_review', true, 'llm'
+), (
+  '00000000-0000-0000-0000-0000000c0005',
+  '00000000-0000-0000-0000-0000000c0002',
+  '00000000-0000-0000-0000-0000000c0001',
+  'ALT (alanine aminotransferase)',
+  'ALT (alanine aminotransferase)',
+  35, '35', 'numeric', 'U/L', 'U/L', '35',
+  1, 'ALT (alanine aminotransferase) 35 U/L',
   1, 'needs_review', true, 'llm'
 );
 
@@ -196,6 +222,102 @@ select throws_ok(
   $$,
   'invalid_normalization_resolution_payload',
   'a scalar is still not acceptable evidence'
+);
+
+-- ── 5. #120: the analyte tier survives an incomplete outcome ───────────────
+--
+-- The resolver emits an analyte whenever its viable candidates converge on one,
+-- regardless of outcome, and the writer forwards it. The guard used to demand
+-- both identity links be null unless `resolved`, so every recognized-incomplete
+-- row — the normal state of a result whose specimen was never printed — was
+-- refused. `measurement_definition_key` stays null; only the weaker tier passes.
+
+select lives_ok(
+  $$
+    select public.write_observation_normalization_revision_v2(
+      '00000000-0000-0000-0000-0000000c0004',
+      public.seam_observation(),
+      public.seam_resolution() || jsonb_build_object('analyte_key', 'alt'),
+      'acceptance',
+      '00000000-0000-0000-0000-0000000c0001',
+      repeat('c', 64),
+      null::uuid,
+      'additive',
+      null::text,
+      null::uuid,
+      null::uuid,
+      'user',
+      false
+    )
+  $$,
+  'a partial row carrying only an analyte key is accepted'
+);
+
+select is(
+  (select analyte_key from public.observation_normalization_revisions
+   where extracted_biomarker_id = '00000000-0000-0000-0000-0000000c0004' and is_active),
+  'alt',
+  'the active revision stores the analyte-level identity'
+);
+
+select is(
+  (select measurement_definition_key from public.observation_normalization_revisions
+   where extracted_biomarker_id = '00000000-0000-0000-0000-0000000c0004' and is_active),
+  null::text,
+  'the concrete identity link stays null on an incomplete outcome'
+);
+
+select is(
+  (select verification_status from public.observation_normalization_revisions
+   where extracted_biomarker_id = '00000000-0000-0000-0000-0000000c0004' and is_active),
+  'pending',
+  'an analyte-level acceptance is not a user verification'
+);
+
+select is(
+  (select count(*)::bigint from public.observations
+   where source_extracted_biomarker_id = '00000000-0000-0000-0000-0000000c0004'),
+  1::bigint,
+  'the analyte-level acceptance produces exactly one observation'
+);
+
+-- ── 6. #120: the concrete tier is still gated ──────────────────────────────
+--
+-- Relaxing the analyte tier must not weaken the invariant the guard exists for.
+-- An incomplete outcome claiming a measurement definition is still a fabricated
+-- identity and is still refused.
+
+select throws_ok(
+  $$
+    select public.write_observation_normalization_revision_v2(
+      '00000000-0000-0000-0000-0000000c0005',
+      public.seam_observation(),
+      public.seam_resolution() || jsonb_build_object(
+        'analyte_key', 'alt',
+        'measurement_definition_key', 'alt_serum_catalytic_activity'
+      ),
+      'acceptance',
+      '00000000-0000-0000-0000-0000000c0001',
+      repeat('d', 64),
+      null::uuid,
+      'additive',
+      null::text,
+      null::uuid,
+      null::uuid,
+      'user',
+      false
+    )
+  $$,
+  'P0001',
+  'incomplete_normalization_cannot_have_concrete_identity',
+  'an incomplete outcome still cannot claim a concrete measurement definition'
+);
+
+select is(
+  (select count(*)::bigint from public.observations
+   where source_extracted_biomarker_id = '00000000-0000-0000-0000-0000000c0005'),
+  0::bigint,
+  'the rejected write commits nothing'
 );
 
 select * from finish();
