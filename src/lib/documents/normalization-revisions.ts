@@ -7,6 +7,7 @@ import type {
   ResolverDecisionTrace,
   VerificationStatus,
 } from "@/lib/biomarkers";
+import type { MeasurementOverride } from "./observation-measurement-correction";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   compatibleManualDefinitions,
@@ -36,6 +37,12 @@ export type NormalizationRevision = {
   is_active: boolean;
   mapping_change_classification: MappingChangeClassification | null;
   resolver_evidence: ResolverDecisionTrace;
+  /**
+   * EH-119: the reviewer's restatement of the reported measurement, or null
+   * when the revision reports the extraction as read. Its presence is what
+   * marks a row as user-corrected; verification status stays EH-120's.
+   */
+  measurement_override: MeasurementOverride | null;
 };
 
 /**
@@ -73,7 +80,7 @@ export async function getActiveNormalizationRevision(
   const { data, error } = await supabase
     .from("observation_normalization_revisions")
     .select(
-      "id, extracted_biomarker_id, observation_id, measurement_definition_key, analyte_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, verification_decided_at, verification_actor_type, verification_actor_id, is_active, mapping_change_classification, resolver_evidence"
+      "id, extracted_biomarker_id, observation_id, measurement_definition_key, analyte_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, verification_decided_at, verification_actor_type, verification_actor_id, is_active, mapping_change_classification, resolver_evidence, measurement_override"
     )
     .eq("extracted_biomarker_id", extractedBiomarkerId)
     .eq("is_active", true)

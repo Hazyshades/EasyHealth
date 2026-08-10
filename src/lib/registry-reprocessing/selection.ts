@@ -20,7 +20,7 @@ const EXTRACTED_COLUMNS =
   "id, document_id, profile_id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, confidence, specimen, modifier, source_page, source_text, bounding_box, reported_alt_value, reported_alt_unit, raw_value_text, method, processing_version";
 
 const REVISION_COLUMNS =
-  "id, extracted_biomarker_id, observation_id, measurement_definition_key, analyte_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, verification_decided_at, verification_actor_type, verification_actor_id, is_active, mapping_change_classification, resolver_evidence";
+  "id, extracted_biomarker_id, observation_id, measurement_definition_key, analyte_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, verification_decided_at, verification_actor_type, verification_actor_id, is_active, mapping_change_classification, resolver_evidence, measurement_override";
 
 /**
  * Selects laboratory extracted rows that should participate in a batch. The
@@ -37,12 +37,17 @@ const REVISION_COLUMNS =
  * as `'lab'` so the diff service keeps its defensive guard for callers that
  * build a candidate row by hand.
  *
- * The active-revision filter on `verification_status` and `resolver_result`
- * is applied after we know the revision, because PostgREST cannot express
- * "active revision resolver result matches this filter" in a single filter
- * clause without an embed hint that would collide with the alias-bridge
- * work in `fix-postgrest-normalization-revision-embeds`. We do two queries
- * instead: extracted rows first, then their revisions by extracted-row id.
+ * The active-revision filter on `verification_status` and
+ * `resolver_result` is applied after we know the revision, because PostgREST
+ * cannot express "active revision resolver result matches this filter" in a
+ * single filter clause without an embed hint that would collide with the
+ * alias-bridge work in `fix-postgrest-normalization-revision-embeds`. We do
+ * two queries instead: extracted rows first, then their revisions by
+ * extracted-row id.
+ *
+ * Protected manual rows remain in the returned candidate set. The diff layer
+ * records them as `skipped_manual_correction` so a dry run reports the row and
+ * the batch counter instead of silently dropping a user decision.
  */
 export async function selectExtractedRowsForReprocessBatch(
   inputs: ReprocessBatchInputs
@@ -96,14 +101,6 @@ export async function selectExtractedRowsForReprocessBatch(
     const activeResult: ResolverResult = active?.resolver_result ?? "unmapped";
     if (!wantedResults.has(activeResult)) continue;
 
-    if (
-      !inputs.filters.includeManualDecisions &&
-      active &&
-      (active.verification_status === "user_verified" ||
-        active.verification_status === "manually_corrected")
-    ) {
-      continue;
-    }
 
     candidates.push({
       ...raw,
