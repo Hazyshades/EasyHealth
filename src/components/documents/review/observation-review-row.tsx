@@ -18,12 +18,14 @@ export function ObservationReviewRow({
   selection,
   onActivate,
   technicalDetails,
+  history,
 }: {
   row: ReviewRow;
   selected: boolean;
   selection?: { checked: boolean; onChange: (next: boolean) => void };
   onActivate: (row: ReviewRow) => void;
   technicalDetails?: ReactNode;
+  history?: ReactNode;
 }) {
   const { rawEvidence, source, mapping } = row;
   const snippet = source.snippet
@@ -101,9 +103,13 @@ export function ObservationReviewRow({
             </p>
           ) : null}
           {technicalDetails}
+          {history}
         </div>
       ) : (
-        technicalDetails
+        <>
+          {technicalDetails}
+          {history}
+        </>
       )}
     </li>
   );

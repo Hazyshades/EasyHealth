@@ -22,6 +22,7 @@ import { DocumentSourcePane } from "@/components/documents/review/document-sourc
 import { ObservationReviewList } from "@/components/documents/review/observation-review-list";
 import { ObservationReviewRow } from "@/components/documents/review/observation-review-row";
 import { ReviewTechnicalDetails } from "@/components/documents/review/review-technical-details";
+import { ObservationChangeHistoryPanel } from "@/components/documents/review/observation-change-history-panel";
 import { ReviewWorkspaceSkeleton } from "@/components/documents/review/review-workspace-skeleton";
 import { normalizeDocumentType, type DocumentType } from "@/lib/health-systems";
 import {
@@ -49,6 +50,10 @@ import {
 } from "@/lib/documents/observation-review-workspace";
 import type { NormalizationReview } from "@/lib/documents/normalization-review";
 import type { LaboratoryResolutionDetails } from "@/lib/documents/incomplete-laboratory-outcomes";
+import {
+  indexObservationChangeEntries,
+  type ObservationChangeEntry,
+} from "@/lib/documents/observation-change-history";
 
 type DocumentMeta = {
   id: string;
@@ -262,6 +267,10 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const [processingStuck, setProcessingStuck] = useState(false);
   const [retryingProcessing, setRetryingProcessing] = useState(false);
   const [retryingLoad, setRetryingLoad] = useState(false);
+  const [changeHistory, setChangeHistory] = useState<
+    readonly ObservationChangeEntry[]
+  >([]);
+  const [changeHistoryLoading, setChangeHistoryLoading] = useState(true);
 
   /** Skip page-only fetch once after bootstrap seeds pageUrl for the same page. */
   const skipNextPageFetch = useRef(true);
@@ -450,6 +459,39 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     }
     void loadPageUrl(currentPage);
   }, [currentPage, doc?.page_count, loadPageUrl]);
+
+  // EH-121: the document's change history is fetched once per review payload.
+  // Every mutation handler ends in a soft bootstrap reload, which replaces the
+  // extracted and observation arrays, so this effect is also the refresh path
+  // after a correction, an undo, an acceptance or a confirmation.
+  useEffect(() => {
+    let cancelled = false;
+    setChangeHistoryLoading(true);
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/documents/${documentId}/observation-history`,
+        );
+        if (!res.ok) throw new Error("Failed to load change history");
+        const data = (await res.json()) as {
+          entries?: ObservationChangeEntry[];
+        };
+        if (!cancelled) setChangeHistory(data.entries ?? []);
+      } catch {
+        if (!cancelled) setChangeHistory([]);
+      } finally {
+        if (!cancelled) setChangeHistoryLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [documentId, extracted, observations]);
+
+  const changeHistoryByRow = useMemo(
+    () => indexObservationChangeEntries(changeHistory),
+    [changeHistory],
+  );
 
   const extractedRows = useMemo(
     () => extracted.map(buildExtractedReviewRow),
@@ -1113,6 +1155,12 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                                 : null}
                             </ReviewTechnicalDetails>
                           }
+                          history={
+                            <ObservationChangeHistoryPanel
+                              entries={changeHistoryByRow.get(row.id) ?? []}
+                              loading={changeHistoryLoading}
+                            />
+                          }
                         />
                       );
                     }}
@@ -1141,6 +1189,12 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                         technicalDetails={
                           <ReviewTechnicalDetails
                             details={row.resolutionDetails}
+                          />
+                        }
+                        history={
+                          <ObservationChangeHistoryPanel
+                            entries={changeHistoryByRow.get(row.id) ?? []}
+                            loading={changeHistoryLoading}
                           />
                         }
                       />
