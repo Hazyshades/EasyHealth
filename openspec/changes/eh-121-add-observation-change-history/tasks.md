@@ -114,5 +114,8 @@
       not mark unexecuted manual checks as passed.
 - [x] 6.3 Run `openspec validate eh-121-add-observation-change-history --strict`
       and record the outcome.
-- [ ] 6.4 Update GitHub issue #21 and the roadmap status last, after the
-      checklist and the verification record exist.
+- [x] 6.4 Update GitHub issue #21 and the roadmap status last, after the
+      checklist and the verification record exist. Issue checklist ticked,
+      delivery evidence posted, project status moved to **In progress**. The
+      issue stays open: the work is on a feature branch and the manual
+      interface checks have not been executed.
