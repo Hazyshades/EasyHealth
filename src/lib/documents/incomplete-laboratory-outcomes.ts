@@ -17,7 +17,6 @@ import {
   type RegistryV2LaboratoryBindingSource,
   type RegistryV2NormalizationRevisionReadBoundary,
 } from "./observation-read-boundaries";
-
 export type LaboratoryOutcomeSource = "active_revision" | "preview" | "none";
 
 /**
@@ -101,7 +100,7 @@ export type ResolutionOutcomeMetric = Readonly<{
   mappingConfidenceBand: MappingConfidenceBand;
   missingAxes: readonly ClinicalCompatibilityAxis[];
   conflictCodes: readonly ResolutionReasonCode[];
-  writeKind: "acceptance" | "correction" | "reversal";
+  writeKind: "acceptance" | "correction" | "value_correction" | "reversal";
   resolverVersion: string;
   catalogVersion: string;
   compatibilityPolicyVersion: string;
@@ -372,7 +371,7 @@ export function serializeLaboratoryOutcome<
 
 export function buildResolutionOutcomeMetric(options: {
   resolution: MeasurementResolution;
-  writeKind: "acceptance" | "correction" | "reversal";
+  writeKind: "acceptance" | "correction" | "value_correction" | "reversal";
   resolverVersion: string;
   catalogVersion: string;
 }): ResolutionOutcomeMetric {

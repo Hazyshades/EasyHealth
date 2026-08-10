@@ -62,7 +62,10 @@ export function computeReprocessBatchDiff(options: {
     throw new Error("registry-reprocessing.diff: only lab observations are eligible");
   }
 
-  const input = measurementInputFromWriterRow(extractedRow);
+  const input = measurementInputFromWriterRow(
+    extractedRow,
+    activeRevision?.measurement_override ?? null,
+  );
   const inputEvidenceHash = buildInputEvidenceHash(input);
   const nextResolution = resolveMeasurementDefinition(input);
   const nextTrace = buildPersistedResolverDecisionTrace(nextResolution, {
@@ -104,6 +107,19 @@ export function computeReprocessBatchDiff(options: {
   };
 
   const priorVerification = prior.verificationStatus;
+  if (
+    !includeManualDecisions &&
+    activeRevision?.measurement_override !== null &&
+    activeRevision?.measurement_override !== undefined
+  ) {
+    return finish(
+      extractedRow,
+      prior,
+      next,
+      "skipped_manual_correction",
+      "default_protection_measurement_correction",
+    );
+  }
 
   if (
     !includeManualDecisions &&

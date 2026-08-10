@@ -21,6 +21,12 @@ import type {
 import { parseReferenceRange } from "@/lib/schemas/biomarkers";
 import { statedAxisValue } from "./stated-axis-evidence";
 import {
+  applyMeasurementOverride,
+  codeFor,
+  type BaseMeasurement,
+  type MeasurementOverride,
+} from "./observation-measurement-correction";
+import {
   parseSourceRegion,
   sourceRegionMatchesPage,
 } from "@/lib/documents/source-region";
@@ -62,7 +68,17 @@ export type ExtractedBiomarkerWriterRow = {
   processing_version: string | null;
 };
 
-export type ObservationNormalizationWriteKind = "acceptance" | "correction";
+/**
+ * EH-119: `value_correction` restates the reported measurement. It is a
+ * different act from `correction`, which is the selection of a concrete
+ * reviewed definition and must still land on `resolved`. A measurement
+ * correction may end in any resolver outcome, because the outcome is
+ * re-derived from the corrected input rather than chosen by the caller.
+ */
+export type ObservationNormalizationWriteKind =
+  | "acceptance"
+  | "correction"
+  | "value_correction";
 
 export type ObservationNormalizationWriterResult = {
   observationId: string;
@@ -73,9 +89,59 @@ export type ObservationNormalizationWriterResult = {
 };
 
 export class ObservationNormalizationWriterError extends Error {
-  constructor(message: string, public readonly status = 422) {
+  constructor(
+    message: string,
+    public readonly status = 422,
+    public readonly code: string | null = null
+  ) {
     super(message);
   }
+}
+const WRITER_RPC_CODE_ALIASES: Readonly<Record<string, string>> = {
+  measurement_override_observed_at_in_future: "observed_at_in_future",
+  measurement_correction_requires_reason: "correction_reason_required",
+};
+
+const WRITER_RPC_CODES = [
+  "invalid_measurement_override",
+  "measurement_override_observed_at_in_future",
+  "measurement_correction_requires_reason",
+  "correction_requires_reviewed_concrete_definition",
+  "invalid_normalization_resolution_payload",
+  "invalid_normalization_writer_payload",
+  "invalid_normalization_write_kind",
+  "normalization_writer_actor_required",
+  "invalid_normalization_writer_request_hash",
+  "incomplete_normalization_cannot_have_concrete_identity",
+  "resolved_normalization_requires_concrete_identity",
+  "unreviewed_measurement_definition",
+  "reversal_revision_source_mismatch",
+  "superseded_revision_source_mismatch",
+  "invalid_resolver_decision_trace",
+  "observation_source_page_missing",
+  "resolver_decision_trace_resolution_mismatch",
+  "stale_revision_conflict",
+  "observation_source_mismatch",
+  "observation_source_owner_mismatch",
+  "active_revision_projection_mismatch",
+  "measurement_override_projection_mismatch",
+  "revision_observation_binding_conflict",
+] as const;
+
+function normalizeWriterRpcError(error: unknown): ObservationNormalizationWriterError | null {
+  if (!error || typeof error !== "object") return null;
+  const message =
+    "message" in error && typeof error.message === "string" ? error.message : null;
+  if (!message) return null;
+  const rawCode = WRITER_RPC_CODES.find(
+    (candidate) => message === candidate || message.includes(candidate),
+  );
+  if (!rawCode) return null;
+  return new ObservationNormalizationWriterError(
+    message,
+    codeFor(rawCode) ?? 422,
+    WRITER_RPC_CODE_ALIASES[rawCode] ?? rawCode,
+  );
 }
 
 type ParsedObservationValue = {
@@ -134,12 +200,46 @@ export function parseExtractedObservationValue(
   return { value, valueText, valueKind: normalizedValueKind, ordinal };
 }
 
-export function measurementInputFromWriterRow(
-  row: ExtractedBiomarkerWriterRow
-): MeasurementResolutionInput {
+const OBSERVED_AT_NOT_USED_BY_RESOLUTION = "1970-01-01";
+
+/**
+ * The measurement as the extractor read it, before any reviewer restatement.
+ */
+export function baseMeasurementFromWriterRow(
+  row: ExtractedBiomarkerWriterRow,
+  observedAt: string
+): BaseMeasurement {
   const parsedValue = parseExtractedObservationValue(row);
   const { ref_low, ref_high } = parseReferenceRange(
     row.reference_range ?? row.raw_reference_range
+  );
+  return {
+    value: parsedValue.value,
+    valueText: parsedValue.valueText,
+    valueKind: parsedValue.valueKind,
+    ordinal: parsedValue.ordinal,
+    unit: row.unit,
+    refLow: ref_low,
+    refHigh: ref_high,
+    observedAt,
+  };
+}
+
+export function measurementInputFromWriterRow(
+  row: ExtractedBiomarkerWriterRow,
+  override?: MeasurementOverride | null
+): MeasurementResolutionInput {
+  // EH-119: a correction edits the resolver's INPUT. The restated unit, value
+  // and reference bounds are what the reviewer says the document reports, so
+  // they are what resolution must see. Without an override this is byte-for-byte
+  // the pre-EH-119 input, which is why an uncorrected row keeps its evidence
+  // hash and its stored resolution.
+  // The date is not part of `MeasurementResolutionInput`, so any placeholder
+  // would do; the composition is reused purely for value kind, value text and
+  // the reference bounds.
+  const measurement = applyMeasurementOverride(
+    baseMeasurementFromWriterRow(row, OBSERVED_AT_NOT_USED_BY_RESOLUTION),
+    override
   );
   // #106: the writer and EH-116 reprocessing both resolve through this builder,
   // so the stated-evidence policy has to be applied here as well as in the
@@ -152,22 +252,22 @@ export function measurementInputFromWriterRow(
   };
   return {
     rawLabel: row.raw_name ?? row.biomarker_name,
-    rawUnit: row.raw_unit ?? row.unit,
+    rawUnit: override?.unit ?? row.raw_unit ?? row.unit,
     specimen: statedAxisValue("specimen", row.specimen ?? null, provenance),
     modifier: statedAxisValue("modifier", row.modifier ?? null, provenance),
     method: statedAxisValue("method", row.method ?? null, provenance),
     section: row.section_context ?? null,
-    referenceLow: ref_low,
-    referenceHigh: ref_high,
+    referenceLow: measurement.refLow,
+    referenceHigh: measurement.refHigh,
     extractionConfidence: row.confidence ?? null,
     proposedKey: row.biomarker_key,
     valueKind:
-      parsedValue.valueKind === "numeric" ||
-      parsedValue.valueKind === "qualitative" ||
-      parsedValue.valueKind === "ordinal"
-        ? parsedValue.valueKind
+      measurement.valueKind === "numeric" ||
+      measurement.valueKind === "qualitative" ||
+      measurement.valueKind === "ordinal"
+        ? measurement.valueKind
         : null,
-    rawValueText: row.raw_value_text ?? null,
+    rawValueText: override?.value_text ?? row.raw_value_text ?? null,
   };
 }
 
@@ -198,7 +298,9 @@ export function buildManualCorrectionResolution(options: {
     selectedCandidate.missingAxes.length > 0
   ) {
     throw new ObservationNormalizationWriterError(
-      "Selected measurement definition is incompatible with the extracted evidence"
+      "Selected measurement definition is incompatible with the extracted evidence",
+      422,
+      "correction_requires_reviewed_concrete_definition",
     );
   }
 
@@ -236,19 +338,20 @@ export function buildManualCorrectionResolution(options: {
 function buildObservationPayload(options: {
   profileId: string;
   documentId: string;
-  observedAt: string;
   row: ExtractedBiomarkerWriterRow;
-  value: ParsedObservationValue;
-  referenceRange: { ref_low: number | null; ref_high: number | null };
+  measurement: BaseMeasurement;
+  override: MeasurementOverride | null;
 }) {
-  const { profileId, documentId, observedAt, row, value, referenceRange } = options;
+  const { profileId, documentId, row, measurement, override } = options;
   // EH-118: a document-sourced observation must link to a source page. Legacy
   // rows extracted before the page index existed cannot be grounded after the
   // fact, so acceptance reports an actionable error instead of hitting the
   // database constraint or fabricating page 1.
   if (row.source_page == null) {
     throw new ObservationNormalizationWriterError(
-      "This result has no source page. Reprocess the document to restore its source link before accepting it."
+      "This result has no source page. Reprocess the document to restore its source link before accepting it.",
+      422,
+      "observation_source_page_missing"
     );
   }
   const region = parseSourceRegion(row.bounding_box);
@@ -256,16 +359,24 @@ function buildObservationPayload(options: {
     profile_id: profileId,
     document_id: documentId,
     name: row.biomarker_name,
-    value: value.value,
-    value_kind: value.valueKind,
-    value_text: value.valueText,
-    ordinal: value.ordinal,
-    unit: row.unit ?? "",
-    ref_low: referenceRange.ref_low,
-    ref_high: referenceRange.ref_high,
-    observed_at: observedAt,
+    // EH-119: the EFFECTIVE measurement, raw extraction with any active
+    // override applied. Every write kind sends it, so an acceptance, a
+    // confirmation or a reprocessing write that runs after a correction
+    // re-emits the corrected measurement instead of reverting to what the
+    // extractor read.
+    value: measurement.value,
+    value_kind: measurement.valueKind,
+    value_text: measurement.valueText,
+    ordinal: measurement.ordinal,
+    unit: measurement.unit ?? "",
+    ref_low: measurement.refLow,
+    ref_high: measurement.refHigh,
+    observed_at: measurement.observedAt,
     specimen: row.specimen ?? "unspecified",
     modifier: row.modifier ?? "none",
+    // Raw provenance below. None of it is correctable, and
+    // `observation_provenance_write_once` rejects any UPDATE that moves it, so
+    // these values are only ever written when the observation is created.
     raw_name: row.raw_name ?? row.biomarker_name,
     raw_value_text: row.raw_value_text ?? null,
     raw_reference_text: row.raw_reference_range ?? null,
@@ -281,6 +392,9 @@ function buildObservationPayload(options: {
     reported_alt_unit: row.reported_alt_unit ?? null,
     extraction_version: row.processing_version ?? null,
     provenance_schema_version: OBSERVATION_PROVENANCE_SCHEMA_VERSION,
+    // EH-119: the override rides inside the observation payload so the EH-115
+    // trace wrapper, which forwards it verbatim, needs no signature change.
+    measurement_override: override,
   };
 }
 
@@ -331,6 +445,7 @@ export function buildNormalizationWriterRequestHash(options: {
   mappingClassification: MappingChangeClassification;
   correctionReason?: string | null;
   reversalOfRevisionId?: string | null;
+  measurementOverride?: MeasurementOverride | null;
 }): string {
   return createHash("sha256")
     .update(
@@ -343,6 +458,11 @@ export function buildNormalizationWriterRequestHash(options: {
         mappingClassification: options.mappingClassification,
         correctionReason: options.correctionReason ?? null,
         reversalOfRevisionId: options.reversalOfRevisionId ?? null,
+        // EH-119: two corrections that differ only in what was restated must
+        // not collide on one idempotency key, and an identical replay must
+        // still reuse the same revision. `parseMeasurementOverride` emits keys
+        // in a fixed order, so this serialization is canonical.
+        measurementOverride: options.measurementOverride ?? null,
       })
     )
     .digest("hex");
@@ -361,18 +481,30 @@ export async function writeExtractedBiomarkerNormalization(options: {
   correctionReason?: string | null;
   reversalOfRevisionId?: string | null;
   supersedesRevisionId?: string | null;
+  /**
+   * EH-119: the reviewer's restatement. Omit it and the writer carries the
+   * active revision's override forward, which is what stops an acceptance,
+   * confirmation or reprocessing write from reverting a correction. Pass
+   * `null` explicitly to restore the raw extracted measurement, which is how
+   * undo back to raw is expressed.
+   */
+  measurementOverride?: MeasurementOverride | null;
 }): Promise<ObservationNormalizationWriterResult> {
-  const input = measurementInputFromWriterRow(options.row);
-  const resolution = options.resolution ?? resolveMeasurementDefinition(input);
-  const reviewedMeasurementDefinition = isReviewedResolution(resolution);
-  const parsedValue = parseExtractedObservationValue(options.row);
-  const referenceRange = parseReferenceRange(
-    options.row.reference_range ?? options.row.raw_reference_range
-  );
   const expectedActiveRevision =
     options.expectedActiveRevision === undefined
       ? await getActiveNormalizationRevision(options.row.id)
       : options.expectedActiveRevision;
+  const measurementOverride =
+    options.measurementOverride === undefined
+      ? expectedActiveRevision?.measurement_override ?? null
+      : options.measurementOverride;
+  const input = measurementInputFromWriterRow(options.row, measurementOverride);
+  const resolution = options.resolution ?? resolveMeasurementDefinition(input);
+  const reviewedMeasurementDefinition = isReviewedResolution(resolution);
+  const measurement = applyMeasurementOverride(
+    baseMeasurementFromWriterRow(options.row, options.observedAt),
+    measurementOverride
+  );
   const mappingClassification =
     options.mappingClassification ??
     (options.writeKind === "correction" ? "review_required" : "additive");
@@ -392,6 +524,7 @@ export async function writeExtractedBiomarkerNormalization(options: {
     mappingClassification,
     correctionReason: options.correctionReason,
     reversalOfRevisionId: options.reversalOfRevisionId,
+    measurementOverride,
   });
   const supabase = createAdminClient();
   const { data, error } = await supabase.rpc(
@@ -401,10 +534,9 @@ export async function writeExtractedBiomarkerNormalization(options: {
       p_observation: buildObservationPayload({
         profileId: options.profileId,
         documentId: options.documentId,
-        observedAt: options.observedAt,
         row: options.row,
-        value: parsedValue,
-        referenceRange,
+        measurement,
+        override: measurementOverride,
       }),
       p_resolution: buildResolutionPayload(resolution, decisionTrace),
       p_write_kind: options.writeKind,
@@ -418,9 +550,12 @@ export async function writeExtractedBiomarkerNormalization(options: {
         options.supersedesRevisionId ?? expectedActiveRevision?.id ?? null,
       p_extraction_version: options.row.processing_version ?? null,
       p_reviewed_measurement_definition: reviewedMeasurementDefinition,
+      p_measurement_override: measurementOverride,
     }
   );
-  if (error) throw error;
+  if (error) {
+    throw normalizeWriterRpcError(error) ?? error;
+  }
 
   const result = Array.isArray(data) ? data[0] : data;
   if (!result?.observation_id || !result.revision_id) {

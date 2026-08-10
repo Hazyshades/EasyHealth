@@ -1,6 +1,6 @@
 begin;
 
-select plan(37);
+select plan(38);
 
 select ok(
   has_function_privilege(
@@ -36,12 +36,16 @@ with function_definitions as (
     )) as wrapper_definition,
     lower(pg_get_functiondef(
       'public.write_observation_normalization_revision_v2_legacy(uuid,jsonb,jsonb,text,uuid,text,uuid,text,text,uuid,uuid,text,boolean)'::regprocedure
-    )) as legacy_definition
+    )) as legacy_definition,
+    lower(pg_get_functiondef(
+      'public.write_observation_normalization_revision_v2_legacy(uuid,jsonb,jsonb,text,uuid,text,jsonb,uuid,text,text,uuid,uuid,text,boolean)'::regprocedure
+    )) as explicit_legacy_definition
 )
 select ok(
   position('write_observation_normalization_revision_v2_legacy' in wrapper_definition) > 0
-    and position('promote_observation_normalization_revision_v2' in legacy_definition) > 0,
-  'atomic writer delegates promotion to the EH-104 v2 primitive'
+    and position('write_observation_normalization_revision_v2_legacy' in legacy_definition) > 0
+    and position('promote_observation_normalization_revision_v2' in explicit_legacy_definition) > 0,
+  'atomic writer delegates promotion to the EH-104 v2 primitive through the explicit override overload'
 )
 from function_definitions;
 
@@ -211,6 +215,12 @@ select ok(
       and normalization_revision_id is not null
   ),
   'v2 synchronizes the resolved Registry 2.0 projection'
+);
+select is(
+  (select value from public.observations
+   where source_extracted_biomarker_id = '00000000-0000-0000-0000-000000001081'),
+  90::numeric,
+  'the widened measurement projection preserves the existing acceptance value'
 );
 
 select is(

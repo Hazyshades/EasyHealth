@@ -83,6 +83,13 @@ jobs:
           OPENAI_API_KEY: ci-placeholder
           NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      - name: Verify observation correction flow
+        run: pnpm test:eh119
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+          OPENAI_API_KEY: ci-placeholder
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
       - name: Publish Registry 2.0 candidate-release evidence
         run: |
           mkdir -p .artifacts
@@ -137,6 +144,8 @@ jobs:
         run: pnpm test:alias-order-db
       - name: Run stated-axis observability column contract
         run: pnpm test:stated-axis-db
+      - name: Run EH-119 observation correction database contract
+        run: pnpm test:eh119-db
       - name: Run EH-118 source region database contract
         run: pnpm test:eh118-db
       # #117: the only test that runs the writer's real payload against the real

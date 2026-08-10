@@ -22,6 +22,13 @@ import { DocumentSourcePane } from "@/components/documents/review/document-sourc
 import { ObservationReviewList } from "@/components/documents/review/observation-review-list";
 import { ObservationReviewRow } from "@/components/documents/review/observation-review-row";
 import { ReviewTechnicalDetails } from "@/components/documents/review/review-technical-details";
+import {
+  ObservationCorrectionForm,
+  type CorrectionSaveRequest,
+  type CorrectionSaveResult,
+  type CorrectionUndoRequest,
+  type ObservationCorrectionDraft,
+} from "@/components/documents/review/observation-correction-form";
 import { ReviewWorkspaceSkeleton } from "@/components/documents/review/review-workspace-skeleton";
 import { normalizeDocumentType, type DocumentType } from "@/lib/health-systems";
 import {
@@ -48,6 +55,10 @@ import {
   type ReviewRowSourceLocation,
 } from "@/lib/documents/observation-review-workspace";
 import type { NormalizationReview } from "@/lib/documents/normalization-review";
+import {
+  baseMeasurementFromWriterRow,
+  type ExtractedBiomarkerWriterRow,
+} from "@/lib/documents/observation-normalization-writer";
 import type { LaboratoryResolutionDetails } from "@/lib/documents/incomplete-laboratory-outcomes";
 
 type DocumentMeta = {
@@ -248,6 +259,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [insightSource, setInsightSource] =
     useState<ReviewRowSourceLocation | null>(null);
+  const [manualReasons, setManualReasons] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
   const [confirmingObservations, setConfirmingObservations] = useState(false);
@@ -255,6 +267,10 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     Record<string, string>
   >({});
   const [normalizingId, setNormalizingId] = useState<string | null>(null);
+  const [correctionDrafts, setCorrectionDrafts] = useState<
+    Record<string, ObservationCorrectionDraft>
+  >({});
+  const [correctingRowId, setCorrectingRowId] = useState<string | null>(null);
   const [reprocessing, setReprocessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -497,6 +513,16 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     if (row.source.page !== null) setCurrentPage(row.source.page);
   }, []);
 
+  const handleCorrectionDraftChange = useCallback(
+    (extractedBiomarkerId: string, draft: ObservationCorrectionDraft) => {
+      setCorrectionDrafts((current) => ({
+        ...current,
+        [extractedBiomarkerId]: draft,
+      }));
+    },
+    [],
+  );
+
   async function handleDownload() {
     const cacheKey = fileCacheKey(documentId);
     const cached = getCachedSignedUrl(cacheKey);
@@ -577,9 +603,72 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     }
   }
 
+  async function handleCorrectMeasurement(
+    extractedBiomarkerId: string,
+    request: CorrectionSaveRequest,
+  ): Promise<CorrectionSaveResult> {
+    setCorrectingRowId(extractedBiomarkerId);
+    try {
+      const res = await fetch(`/api/documents/${documentId}/biomarkers`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          extractedBiomarkerId,
+          action: "edit-value",
+          measurementOverride: request.measurementOverride,
+          correctionReason: request.correctionReason,
+          expectedActiveRevisionId: request.expectedActiveRevisionId,
+          acknowledgeDefinitionLoss: request.acknowledgeDefinitionLoss,
+        }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        field?: string;
+        code?: string;
+      };
+      if (!res.ok) {
+        return {
+          ok: false,
+          error: {
+            message:
+              payload.code === "stale_revision_conflict"
+                ? "This result changed while you were editing it. Reload the row and try again."
+                : payload.error ?? "The correction could not be saved.",
+            field: payload.field,
+            code: payload.code,
+          },
+        };
+      }
+      await loadBootstrap(currentPage, { soft: true });
+      setCorrectionDrafts((current) => {
+        if (!(extractedBiomarkerId in current)) return current;
+        const next = { ...current };
+        delete next[extractedBiomarkerId];
+        return next;
+      });
+      return { ok: true };
+    } catch (caught) {
+      return {
+        ok: false,
+        error: {
+          message:
+            caught instanceof Error
+              ? caught.message
+              : "The correction could not be saved.",
+        },
+      };
+    } finally {
+      setCorrectingRowId(null);
+    }
+  }
+
   async function handleManualCorrection(extractedBiomarkerId: string) {
     const measurementDefinitionKey = manualSelections[extractedBiomarkerId];
-    if (!measurementDefinitionKey) return;
+    const correctionReason = manualReasons[extractedBiomarkerId]?.trim();
+    if (!measurementDefinitionKey || !correctionReason) {
+      setActionError("Select a mapping and explain why it is correct.");
+      return;
+    }
     setNormalizingId(extractedBiomarkerId);
     setActionError(null);
     try {
@@ -590,9 +679,15 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
           extractedBiomarkerId,
           action: "correct",
           measurementDefinitionKey,
+          correctionReason,
+          expectedActiveRevisionId:
+            normalizationById.get(extractedBiomarkerId)?.activeRevision?.id ?? null,
         }),
       });
-      if (!res.ok) throw new Error("Mapping correction failed");
+      const payload = (await res.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      if (!res.ok) throw new Error(payload.error ?? "Mapping correction failed");
       await loadBootstrap(currentPage, { soft: true });
     } catch (e) {
       setActionError(
@@ -605,8 +700,8 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
 
   async function handleUndoCorrection(
     extractedBiomarkerId: string,
-    revertToRevisionId: string,
-  ) {
+    request: CorrectionUndoRequest,
+  ): Promise<CorrectionSaveResult> {
     setNormalizingId(extractedBiomarkerId);
     setActionError(null);
     try {
@@ -616,15 +711,37 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
         body: JSON.stringify({
           extractedBiomarkerId,
           action: "undo",
-          revertToRevisionId,
+          revertToRevisionId: request.revertToRevisionId,
+          correctionReason: request.correctionReason || undefined,
+          expectedActiveRevisionId: request.expectedActiveRevisionId,
         }),
       });
-      if (!res.ok) throw new Error("Mapping rollback failed");
+      const payload = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        field?: string;
+        code?: string;
+      };
+      if (!res.ok) {
+        const error = {
+          message:
+            payload.code === "stale_revision_conflict"
+              ? "This result changed while you were editing it. Reload the row and try again."
+              : payload.error ?? "The correction could not be reverted.",
+          field: payload.field,
+          code: payload.code,
+        };
+        setActionError(error.message);
+        return { ok: false, error };
+      }
       await loadBootstrap(currentPage, { soft: true });
-    } catch (e) {
-      setActionError(
-        e instanceof Error ? e.message : "Mapping rollback failed",
-      );
+      return { ok: true };
+    } catch (caught) {
+      const error = {
+        message:
+          caught instanceof Error ? caught.message : "The correction could not be reverted.",
+      };
+      setActionError(error.message);
+      return { ok: false, error };
     } finally {
       setNormalizingId(null);
     }
@@ -741,6 +858,15 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
 
   const normalizationById = new Map(
     extracted.map((item) => [item.id, item.normalization ?? null]),
+  );
+  const correctionBaseById = new Map(
+    extracted.map((item) => [
+      item.id,
+      baseMeasurementFromWriterRow(
+        item as unknown as ExtractedBiomarkerWriterRow,
+        doc.observed_at ?? new Date().toISOString().slice(0, 10),
+      ),
+    ]),
   );
 
   const panelTitle =
@@ -1011,12 +1137,56 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                     onSelectPage={setCurrentPage}
                     renderRow={(row) => {
                       const normalization = normalizationById.get(row.id) ?? null;
+                      const activeRevision = normalization?.activeRevision ?? null;
+                      const previousRevision =
+                        activeRevision?.measurement_override != null
+                          ? normalization?.revisions.find(
+                              (revision) =>
+                                revision.id !== activeRevision.id &&
+                                !revision.is_active,
+                            ) ?? null
+                          : null;
                       return (
                         <ObservationReviewRow
                           key={row.id}
                           row={row}
                           selected={row.id === selectedRowId}
-                          onActivate={handleActivateRow}
+                          onActivate={() => setSelectedRowId(row.id)}
+                          correction={
+                            row.reviewable && correctionBaseById.get(row.id) ? (
+                              <ObservationCorrectionForm
+                                base={correctionBaseById.get(row.id)!}
+                                activeOverride={
+                                  activeRevision?.measurement_override ?? null
+                                }
+                                activeRevisionId={activeRevision?.id ?? null}
+                                disabled={
+                                  normalizingId === row.id ||
+                                  correctingRowId === row.id
+                                }
+                                draft={correctionDrafts[row.id]}
+                                onDraftChange={(draft) =>
+                                  handleCorrectionDraftChange(row.id, draft)
+                                }
+                                onSave={(request) =>
+                                  handleCorrectMeasurement(row.id, request)
+                                }
+                                previousRevision={
+                                  previousRevision
+                                    ? {
+                                        id: previousRevision.id,
+                                        createdAt: previousRevision.created_at,
+                                        measurementOverride:
+                                          previousRevision.measurement_override ?? null,
+                                      }
+                                    : null
+                                }
+                                onUndo={(request) =>
+                                  handleUndoCorrection(row.id, request)
+                                }
+                              />
+                            ) : null
+                          }
                           selection={
                             row.reviewable
                               ? {
@@ -1068,11 +1238,26 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                                       ),
                                     )}
                                   </select>
+                                  <input
+                                    type="text"
+                                    value={manualReasons[row.id] ?? ""}
+                                    onChange={(event) =>
+                                      setManualReasons((current) => ({
+                                        ...current,
+                                        [row.id]: event.target.value,
+                                      }))
+                                    }
+                                    placeholder="Why is this mapping correct?"
+                                    aria-label={`Reason for mapping ${row.rawEvidence.displayName}`}
+                                    className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs"
+                                    disabled={normalizingId === row.id}
+                                  />
                                   <Button
                                     variant="outline"
                                     size="sm"
                                     disabled={
                                       !manualSelections[row.id] ||
+                                      !manualReasons[row.id]?.trim() ||
                                       normalizingId === row.id
                                     }
                                     onClick={() =>
@@ -1087,11 +1272,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                               ) : null}
                               {normalization?.activeRevision
                                 ? normalization.revisions
-                                    .filter(
-                                      (revision) =>
-                                        !revision.is_active &&
-                                        revision.measurement_definition_key,
-                                    )
+                                    .filter((revision) => !revision.is_active)
                                     .map((revision) => (
                                       <Button
                                         key={revision.id}
@@ -1100,14 +1281,17 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                                         className="mt-2"
                                         disabled={normalizingId === row.id}
                                         onClick={() =>
-                                          handleUndoCorrection(
-                                            row.id,
-                                            revision.id,
-                                          )
+                                          handleUndoCorrection(row.id, {
+                                            revertToRevisionId: revision.id,
+                                            correctionReason: "",
+                                            expectedActiveRevisionId:
+                                              activeRevision?.id ?? null,
+                                          })
                                         }
                                       >
                                         Restore{" "}
-                                        {revision.measurement_definition_key}
+                                        {revision.measurement_definition_key ??
+                                          "raw extraction"}
                                       </Button>
                                     ))
                                 : null}

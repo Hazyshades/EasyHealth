@@ -18,12 +18,14 @@ export function ObservationReviewRow({
   selection,
   onActivate,
   technicalDetails,
+  correction,
 }: {
   row: ReviewRow;
   selected: boolean;
   selection?: { checked: boolean; onChange: (next: boolean) => void };
   onActivate: (row: ReviewRow) => void;
   technicalDetails?: ReactNode;
+  correction?: ReactNode;
 }) {
   const { rawEvidence, source, mapping } = row;
   const snippet = source.snippet
@@ -69,6 +71,23 @@ export function ObservationReviewRow({
               Reported as “{rawEvidence.rawValueText}”
             </p>
           ) : null}
+          {rawEvidence.correctedMeasurement ? (
+            <p className="mt-1 text-xs text-[var(--eh-text-secondary)]">
+              Corrected to{" "}
+              <span className="font-medium">
+                {rawEvidence.correctedMeasurement.value ??
+                  rawEvidence.correctedMeasurement.unit ??
+                  "—"}
+              </span>
+              {rawEvidence.correctedMeasurement.referenceText
+                ? ` · ref ${rawEvidence.correctedMeasurement.referenceText}`
+                : ""}
+              {rawEvidence.correctedMeasurement.observedAt
+                ? ` · date ${rawEvidence.correctedMeasurement.observedAt}`
+                : ""}
+              {" · raw extraction unchanged"}
+            </p>
+          ) : null}
           <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
             <span>{source.label}</span>
             {/* EH-118: make the fallback visible without selecting the row. */}
@@ -79,6 +98,7 @@ export function ObservationReviewRow({
             {rawEvidence.extractionConfidence != null
               ? ` · ${Math.round(rawEvidence.extractionConfidence * 100)}% extraction confidence`
               : ""}
+            {row.userCorrected ? " · corrected by you" : ""}
             {row.accepted ? " · stored" : ""}
           </p>
           {snippet ? (
@@ -88,6 +108,7 @@ export function ObservationReviewRow({
           ) : null}
         </button>
       </div>
+      {correction}
 
       <ReviewStateChips mapping={mapping} />
 

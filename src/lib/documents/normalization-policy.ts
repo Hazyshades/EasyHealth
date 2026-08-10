@@ -27,16 +27,20 @@ export function acceptancePathForResolution(
 
 export function decideAutomaticPromotion(options: {
   resolution: MeasurementResolution;
-  mappingClassification: MappingChangeClassification;
   activeRevision?: {
     verification_status: "pending" | "auto_verified" | "user_verified" | "manually_corrected";
+    measurement_override?: Record<string, unknown> | null;
   } | null;
+  mappingClassification: MappingChangeClassification;
   qualityGateApproved: boolean;
 }): PromotionDecision {
   if (!options.qualityGateApproved) return { allowed: false, reason: "quality_gate_not_approved" };
   if (options.resolution.result !== "resolved") return { allowed: false, reason: "resolver_not_resolved" };
   if (options.mappingClassification !== "compatibility_preserving") {
     return { allowed: false, reason: "mapping_requires_review" };
+  }
+  if (options.activeRevision?.measurement_override) {
+    return { allowed: false, reason: "manual_correction_protected" };
   }
   if (
     options.activeRevision &&

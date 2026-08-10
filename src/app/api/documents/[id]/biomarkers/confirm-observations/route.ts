@@ -121,8 +121,12 @@ export async function POST(req: NextRequest, context: RouteContext) {
           "This observation has no reviewed concrete Registry 2.0 definition to confirm"
         );
       }
+      const correctedInput = measurementInputFromWriterRow(
+        sourceRow,
+        activeRevision.measurement_override,
+      );
       const resolution = buildManualCorrectionResolution({
-        input: measurementInputFromWriterRow(sourceRow),
+        input: correctedInput,
         selectedDefinitionKey: activeRevision.measurement_definition_key,
       });
       await writeExtractedBiomarkerNormalization({
