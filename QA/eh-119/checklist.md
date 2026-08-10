@@ -1,6 +1,6 @@
 # EH-119: Observation edit and correction flow
 
-**Roadmap status:** Implementation complete; manual QA pending
+**Roadmap status:** Implementation complete; PR [#121](https://github.com/Hazyshades/EasyHealth/pull/121) open; issue [#19](https://github.com/Hazyshades/EasyHealth/issues/19) closed
 **Build / environment:** Windows local workspace; CI/deployed review route required for UI execution
 **Test run date:** `2026-08-10` (developer evidence)
 **Tester:** Implementation agent (automated evidence only)
