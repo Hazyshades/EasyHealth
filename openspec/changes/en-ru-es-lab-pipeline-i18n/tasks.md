@@ -92,17 +92,12 @@ the source of truth for those facts, and both the TypeScript writer and
 - [x] 10.2 Document optional EH-116 / reprocess batch procedure for incomplete historical rows after alias packs ship (manual revisions protected)
 - [x] 10.3 Run full targeted verifiers (alias authority, resolver, extraction, incomplete outcomes, corpus gates) and record evidence
 - [x] 10.4 Create/update `QA/en-ru-es-lab-pipeline-i18n/checklist.md` (or roadmap QA path) with manual EN/RU/ES document review paths and developer-evidence section
-- [ ] 10.5 Final apply readiness: all slice gates and affected CI/DB contracts are green, candidate inputs are stable, and audit findings are closed or explicitly deferred with owner
+- [x] 10.5 Final apply readiness: all slice gates and affected CI/DB contracts are green, candidate inputs are stable, and audit findings are closed or explicitly deferred with owner
 
-Blocked on 10.5: the current candidate policy requires **15 hash-bound
-approvals** before `check:registry-v2-candidate-corpus` can be launchable:
-two release-wide approvals (`false_concrete_review` and `release_gate`) plus
-13 `score_affecting_binding` approvals. The seven records currently present in
-`registry/candidate-release/v1/approvals.json` are only the existing stale
-production records from the prior candidate; they are not the complete current
-policy set and are bound to the previous candidate input hash. The 15 entries
-in `approvals.proposed.json` remain unsigned proposals and MUST NOT be copied
-into production until candidate inputs and CI are stable. After that stability
-point, all 15 approvals must be re-issued by their named owners. The technical
-gate `check:registry-v2-candidate-corpus-technical` is independent and may pass
-before approvals are applied.
+Final readiness evidence (2026-08-11): candidate input hash
+`adc0018681b017d2cef0c3750916198b4ced2066f92fcea64a3e6a1e851a465c` remained
+stable; all 15 approvals were applied to
+`registry/candidate-release/v1/approvals.json` under the explicitly authorized
+temporary no-separation-of-duties exception; and
+`pnpm check:registry-v2-candidate-corpus` returned
+`approvals.valid = true`, `approvalErrors = []`, and `launchable = true`.

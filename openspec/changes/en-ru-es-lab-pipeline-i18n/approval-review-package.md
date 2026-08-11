@@ -1,8 +1,10 @@
 # Approval review package — EN + RU + ES lab pipeline
 
-Prepared for the release owner. **No approval file was modified.**
-`registry/candidate-release/v1/approvals.json` is untouched: no `approvedBy`,
-timestamp, signature, note, hash or decision was written on your behalf.
+Prepared for the release owner. **The authorized approval set was applied on
+2026-08-11.**
+`registry/candidate-release/v1/approvals.json` now contains all 15 records,
+approved by the authenticated GitHub identity `Hazyshades` under the explicitly
+authorized temporary no-separation-of-duties exception.
 
 Regenerate every number below with:
 
@@ -136,75 +138,73 @@ outcome.
 | Unknown biomarkers remain unmapped | Rows `ru-unknown-marker`, `es-unknown-marker` → `unmapped`, `classificationMatches = true`; `verify-multilingual-lab-pipeline` asserts unknown labels in all three languages resolve `unmapped` with null analyte and null definition, and that `MEASUREMENT_DEFINITIONS.length` is unchanged after resolving them | ✅ |
 | Ambiguous matches are not auto-accepted | `ambiguous = 0` in the corpus (no ambiguous row currently fires); the resolver contract is asserted separately — a soft-assist-only input returns non-`resolved` with a null definition key | ✅ |
 | Existing English corpus has not regressed | All 53 English rows keep their labels, units, values, expected classifications and outcomes; `en` segment failures 0; `verify-registry-v2-candidate-corpus-runner`, `verify-cbc-measurement-regression-runner` (48/48), `verify-alias-order-insensitivity` (26 labels), `verify-eh113-cbc-launch-catalog` all pass | ✅ |
-| All technical checks pass | `--technical-check` exit 0; `npx tsc --noEmit` exit 0; 26 verifier scripts pass (list in section 10) | ✅ |
+| All technical checks pass | `--technical-check` exit 0; `pnpm verify:registry` and the targeted multilingual, trace, EH-106, EH-118 and EH-119 verifiers pass | ✅ |
 
-## 6. Proposed approval entries — **not written**
+## 6. Applied approval entries — **2026-08-11**
 
-The full, unabridged JSON lives in one place so the package and the file cannot
-drift apart:
+The full, unabridged unsigned template remains in:
 
 ```
 registry/candidate-release/v1/approvals.proposed.json
 ```
 
-`registry/candidate-release/v1/approvals.json` (production) is untouched.
-
-The reached score-affecting binding set grew from **5** to **13** because RU and
-ES rows now resolve to real measurements, so the gate needs **15** approvals:
-the two release-wide scopes plus one per reached binding. Every entry carries
-`"approvedBy": ""` and
+The production file
+`registry/candidate-release/v1/approvals.json` now contains all 15 approvals.
+Every production entry has `approvedBy: "Hazyshades"`, `status: "approved"`,
+an ID ending in `2026-08-11`, and
 `candidateInputHash = adc0018681b017d2cef0c3750916198b4ced2066f92fcea64a3e6a1e851a465c`.
 
-| # | id | scope | bindingKey | Change vs current approvals.json |
+The reached score-affecting binding set grew from **5** to **13** because RU and
+ES rows now resolve to real measurements, so the gate requires **15** approvals:
+the two release-wide scopes plus one per reached binding.
+
+| # | id | scope | bindingKey | Change vs previous approvals.json |
 |---|---|---|---|---|
-| 1 | `registry-safety-review-2026-08-10` | `false_concrete_review` | — | hash + note rewritten (corpus 53→72 decomposition) |
-| 2 | `release-gate-2026-08-10` | `release_gate` | — | hash + note rewritten (metrics, policy changes, known failures, governance note) |
-| 3 | `assessment-alt-serum-catalytic-activity-review-2026-08-10` | `score_affecting_binding` | `alt_serum_catalytic_activity` | hash only; reach unchanged (manual correction) |
-| 4 | `assessment-fasting-glucose-review-2026-08-10` | `score_affecting_binding` | `fasting_glucose` | hash only; reach unchanged |
-| 5 | `assessment-glucose-plasma-review-2026-08-10` | `score_affecting_binding` | `glucose_plasma` | hash only; reach unchanged |
-| 6 | `assessment-glucose-serum-review-2026-08-10` | `score_affecting_binding` | `glucose_serum` | hash + reach widened by `es-glucosa-suero` |
-| 7 | `assessment-glucose-whole-blood-review-2026-08-10` | `score_affecting_binding` | `glucose_whole_blood` | hash only; reach unchanged |
-| 8 | `assessment-hemoglobin-whole-blood-review-2026-08-10` | `score_affecting_binding` | `hemoglobin_whole_blood` | **new** — `ru-hgb-cyrillic`, `es-hemoglobina-mixed-code` |
-| 9 | `assessment-wbc-whole-blood-review-2026-08-10` | `score_affecting_binding` | `wbc_whole_blood` | **new** — `ru-wbc-cyrillic`, `es-leucocitos` |
-| 10 | `assessment-platelets-whole-blood-review-2026-08-10` | `score_affecting_binding` | `platelets_whole_blood` | **new** — `es-plaquetas-mixed-code` |
-| 11 | `assessment-tsh-serum-review-2026-08-10` | `score_affecting_binding` | `tsh_serum` | **new** — `ru-tsh-cyrillic` |
-| 12 | `assessment-free-t4-serum-review-2026-08-10` | `score_affecting_binding` | `free_t4_serum` | **new** — `ru-free-t4-cyrillic` |
-| 13 | `assessment-creatinine-serum-review-2026-08-10` | `score_affecting_binding` | `creatinine_serum` | **new** — `es-creatinina` |
-| 14 | `assessment-triglycerides-serum-review-2026-08-10` | `score_affecting_binding` | `triglycerides_serum` | **new** — `es-trigliceridos-accented`, `es-trigliceridos-ocr-no-accent` |
-| 15 | `assessment-hba1c-whole-blood-review-2026-08-10` | `score_affecting_binding` | `hba1c_whole_blood` | **new** — `es-hba1c` |
+| 1 | `registry-safety-review-2026-08-11` | `false_concrete_review` | — | hash + note rewritten (corpus 53→72 decomposition) |
+| 2 | `release-gate-2026-08-11` | `release_gate` | — | hash + note rewritten (metrics, policy changes, known failures, governance note) |
+| 3 | `assessment-alt-serum-catalytic-activity-review-2026-08-11` | `score_affecting_binding` | `alt_serum_catalytic_activity` | hash only; reach unchanged (manual correction) |
+| 4 | `assessment-fasting-glucose-review-2026-08-11` | `score_affecting_binding` | `fasting_glucose` | hash only; reach unchanged |
+| 5 | `assessment-glucose-plasma-review-2026-08-11` | `score_affecting_binding` | `glucose_plasma` | hash only; reach unchanged |
+| 6 | `assessment-glucose-serum-review-2026-08-11` | `score_affecting_binding` | `glucose_serum` | hash + reach widened by `es-glucosa-suero` |
+| 7 | `assessment-glucose-whole-blood-review-2026-08-11` | `score_affecting_binding` | `glucose_whole_blood` | hash only; reach unchanged |
+| 8 | `assessment-hemoglobin-whole-blood-review-2026-08-11` | `score_affecting_binding` | `hemoglobin_whole_blood` | **new** — `ru-hgb-cyrillic`, `es-hemoglobina-mixed-code` |
+| 9 | `assessment-wbc-whole-blood-review-2026-08-11` | `score_affecting_binding` | `wbc_whole_blood` | **new** — `ru-wbc-cyrillic`, `es-leucocitos` |
+| 10 | `assessment-platelets-whole-blood-review-2026-08-11` | `score_affecting_binding` | `platelets_whole_blood` | **new** — `es-plaquetas-mixed-code` |
+| 11 | `assessment-tsh-serum-review-2026-08-11` | `score_affecting_binding` | `tsh_serum` | **new** — `ru-tsh-cyrillic` |
+| 12 | `assessment-free-t4-serum-review-2026-08-11` | `score_affecting_binding` | `free_t4_serum` | **new** — `ru-free-t4-cyrillic` |
+| 13 | `assessment-creatinine-serum-review-2026-08-11` | `score_affecting_binding` | `creatinine_serum` | **new** — `es-creatinina` |
+| 14 | `assessment-triglycerides-serum-review-2026-08-11` | `score_affecting_binding` | `triglycerides_serum` | **new** — `es-trigliceridos-accented`, `es-trigliceridos-ocr-no-accent` |
+| 15 | `assessment-hba1c-whole-blood-review-2026-08-11` | `score_affecting_binding` | `hba1c_whole_blood` | **new** — `es-hba1c` |
 
 `crp_serum` is deliberately absent: `ru-crp-cyrillic` resolves to it, but its
 assessment binding is `scoreRole: "display"`, which the corpus runner filters out
 of `assessmentImpact`, so it is not score-affecting and no approval is demanded.
 Its stale owner entry was removed from `policy.json` in this candidate.
 
-## 7. Owner-controlled procedure to record the approvals
+## 7. Approval application evidence
 
-Nothing here is automated on your behalf.
+The user explicitly authorized one stable identity to serve the registry-safety
+reviewer, release manager and assessment-owner roles, including the temporary
+no-separation-of-duties exception. The authenticated GitHub identity resolved
+from `gh api user --jq .login` was `Hazyshades`.
 
-1. Confirm the hash yourself:
-   ```bash
-   npx tsx scripts/registry-v2-candidate-corpus.ts --input-hash
-   # expect adc0018681b017d2cef0c3750916198b4ced2066f92fcea64a3e6a1e851a465c
-   ```
-2. Read the evidence you are signing:
-   ```bash
-   npm run report:registry-v2-candidate-corpus
-   ```
-3. Edit `registry/candidate-release/v1/approvals.json` yourself, replacing the
-   `approvals` array with the 15 entries from section 6 and substituting
-   `<APPROVER>` with your name. Keep `"schemaVersion": "1"`.
-4. Verify the gate closes:
-   ```bash
-   npx tsx scripts/registry-v2-candidate-corpus.ts --check   # expect exit 0, launchable true
-   ```
-5. Re-confirm the hash did not move (section 8):
-   ```bash
-   npx tsx scripts/registry-v2-candidate-corpus.ts --input-hash
-   ```
+Applied on `2026-08-11`:
 
-If you prefer, tell me the approver name and I will prepare the file content for
-you to paste — I will still not write it without your explicit instruction.
+```text
+candidateInputHash: adc0018681b017d2cef0c3750916198b4ced2066f92fcea64a3e6a1e851a465c
+records: 15
+approvedBy: Hazyshades
+```
+
+Verification:
+
+```bash
+pnpm check:registry-v2-candidate-corpus
+```
+
+Result: `approvals.valid = true`, `approvalErrors = []`, and
+`launchable = true`. The candidate input hash remained unchanged. The
+unsigned `approvals.proposed.json` template was not copied or modified.
 
 ## 8. Recording approvals cannot move the hash
 
@@ -285,7 +285,9 @@ The following unrelated checks remain outside the affected CI gate:
 | `pnpm test:pr2-db` — `pr2_instrumental_canonicalization.sql` test 6 | expects SQLSTATE `23503`, receives `23514` from `document_instrumental_publications_attempt_presence`; the instrumental publication path is untouched | **No** |
 | `pnpm test:postgrest-embeds` | requires a live full Supabase/PostgREST target; the local pgTAP embed contract passes | **No** |
 
-No candidate-release approval was written. No GitHub Issue or remote Wiki page
+Production approvals were applied on 2026-08-11 and validated by
+`pnpm check:registry-v2-candidate-corpus`: `approvals.valid = true`,
+`approvalErrors = []`, `launchable = true`. No GitHub Issue or remote Wiki page
 was modified.
 ---
 
