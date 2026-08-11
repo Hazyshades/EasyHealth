@@ -397,7 +397,7 @@ select is(
 with function_definition as (
   select regexp_replace(
     lower(pg_get_functiondef(
-      'public.promote_observation_normalization_revision_v2(uuid,uuid,uuid,uuid)'::regprocedure
+      'public.promote_observation_normalization_revision_v2_with_payload(uuid,uuid,uuid,uuid,jsonb)'::regprocedure
     )),
     E'\\s+',
     ' ',

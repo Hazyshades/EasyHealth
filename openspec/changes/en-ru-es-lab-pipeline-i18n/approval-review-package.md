@@ -252,67 +252,41 @@ Application source outside `registry/candidate-release/v1` affects the release
 inputs only through `registryManifest` (the catalog digest), which is listed in
 section 3.
 
-## 10. Remaining known failures
+## 10. Verification state and remaining known failures
 
-All three reproduce **unchanged** on the clean baseline at `HEAD` (`ae2fe70`),
-verified in a detached worktree with none of this change applied.
+The affected CI and database contracts were re-run on 2026-08-11 after
+resetting the local schema through migration `049`. The canonical workflow
+database job now runs the 12 contracts below; all passed:
 
-| Failure | Baseline at `HEAD` | With this change | Related? |
-|---|---|---|---|
-| `test:eh111` — `scripts/verify-eh111-clinical-compatibility.ts:184`, `assert.ok(percentAgainstAbsolute.conflicts.includes("unit_dimension_conflict"))` | exit 1, identical assertion and message | exit 1, identical assertion and message | **No.** Tracked in issue #110 and already recorded as a known failure in `QA/issue-114/checklist.md`. |
-| `verify-postgrest-revision-embeds` (DB) — `new row for relation "observations" violates check constraint "observations_document_source_page_present"` | exit 1, identical constraint violation | exit 1, identical constraint violation | **No.** Fixture omits `source_page`; `pr2-db` family, issue #110. |
-| `supabase/tests/pr2_instrumental_canonicalization.sql` test 6 — `composite ownership FK rejects cross-owner publication attach` (expects SQLSTATE 23503) | fails | fails | **No.** Instrumental publication ownership; this change touches no instrumental table, function or code path. Same `pr2-db` family, issue #110. |
-
-### Suites that pass
-
-**33 TypeScript verifiers** (run with `--env-file=.env`), plus `npx tsc --noEmit`:
-`verify-biomarkers-runner`, `verify-measurement-registry-runner`,
-`verify-observation-identity-runner`, `verify-observation-provenance-runner`,
-`verify-registry-v1-baseline-runner`, `registry-v1-baseline --check`,
-`verify-registry-v2-runtime-cutover`, `verify-no-registry-v1-runtime-imports`,
-`verify-no-observations-biomarker-key`,
-`verify-registry-v2-candidate-corpus-runner`,
-`registry-v2-candidate-corpus --technical-check`,
-`verify-no-legacy-promotion-rpc`, `verify-cbc-measurement-regression-runner`,
-`verify-alias-order-insensitivity`, `verify-multilingual-lab-pipeline`,
-`verify-resolver-trace-v2`, `verify-eh112-incomplete-outcomes`,
-`verify-eh113-cbc-launch-catalog`, `verify-eh116-reprocess-batch`,
-`verify-eh117-review-workspace`, `verify-incomplete-reason-class`,
-`verify-stated-axis-evidence`, `verify-document-review-runner`,
-`verify-document-worker-reliability`, `verify-eh106-writer-boundary`,
-`verify-eh106-acceptance-batch`, `verify-eh106-consumer-cutover`,
-`verify-eh118-source-region-contract`, `verify-eh118-provenance-adapter`,
-`verify-eh104-phase-b-boundary`, `verify-eh104-document-delete`,
-`verify-eh105-instrumental-lineage`, `verify-eh105-worker-safety`,
-`verify-pr2-reader-boundaries`, `verify-postgrest-embed-hints`.
-
-**16 of 17 pgTAP suites** against the local stack (assertion counts):
-`alias_token_set_trace_code` 5, `eh104_observation_resolution_verification` 42,
+**12 of 12 affected pgTAP contracts (242 assertions):**
+`eh104_observation_resolution_verification` 42,
 `eh105_instrumental_observation_lineage` 16,
-`eh106_atomic_observation_normalization_writer` 37,
-`eh113_cbc_method_evidence` 5, `eh114_glucose_resolution_persistence` 7,
-`eh116_registry_reprocess_batches` 42, `eh118_observation_source_region` 26,
-`postgrest_revision_embed_alias` 8, `pr2_document_processing_attempts` 13,
-`pr2_instrumental_concurrency_and_rollback` 4,
-`pr2_instrumental_grants_and_view` 10, `pr2_instrumental_publication_matrix` 10,
-`resolver_trace_v2_alias_evidence` 26, `stated_axis_inferred_axes` 6,
-`writer_rpc_seam` 12. The seventeenth is the known
-`pr2_instrumental_canonicalization` failure above.
+`eh106_atomic_observation_normalization_writer` 38,
+`postgrest_revision_embed_alias` 8,
+`eh111_clinical_compatibility` 14,
+`eh114_glucose_resolution_persistence` 7,
+`alias_token_set_trace_code` 5,
+`stated_axis_inferred_axes` 6,
+`resolver_trace_v2_alias_evidence` 26,
+`eh119_observation_measurement_correction` 39,
+`eh118_observation_source_region` 26, and
+`writer_rpc_seam` 15.
 
-`supabase test db --local` could not be used on this machine (Docker Desktop
-mount error `mkdir /run/desktop/mnt/host/c: file exists`); the suites were run
-with `docker exec -i supabase_db_easyhealth psql -U postgres -d postgres < <file>`,
-which executes the same SQL against the same database.
+Additional repository database contracts also pass:
+`eh113_cbc_method_evidence` 5 and `eh116_registry_reprocess_batches` 42.
+`test:eh115-db` is the compatibility alias of the EH-106 contract and passes
+the same 38 assertions.
 
-### Working-tree entries this change did not produce
+The following unrelated checks remain outside the affected CI gate:
 
-- `.cursor/rules/english-only.mdc` — **already modified before this session** and
-  currently emptied (11 deletions, 0 bytes). Not touched by any edit here.
-  Restore with `git checkout -- .cursor/rules/english-only.mdc` if that was not
-  intentional; left as found pending your decision.
-- Three real PDFs under `lab_data/` (untracked, yours).
-- `.papercuts.jsonl` — friction log appended per `AGENTS.md`.
+| Check | Current result | Related? |
+|---|---|---|
+| `pnpm test:eh111` — `verify-eh111-clinical-compatibility.ts:184` expects a `unit_dimension_conflict` | fails with the pre-existing assertion; the same failure is recorded in issue #110 and `QA/issue-114/checklist.md` | **No** |
+| `pnpm test:pr2-db` — `pr2_instrumental_canonicalization.sql` test 6 | expects SQLSTATE `23503`, receives `23514` from `document_instrumental_publications_attempt_presence`; the instrumental publication path is untouched | **No** |
+| `pnpm test:postgrest-embeds` | requires a live full Supabase/PostgREST target; the local pgTAP embed contract passes | **No** |
 
+No candidate-release approval was written. No GitHub Issue or remote Wiki page
+was modified.
 ---
 
 ## 11. Option B: versioned persisted trace
@@ -385,7 +359,7 @@ Approvals-independence re-proven after option B on a throwaway copy: mutating
 | `pnpm-lock.yaml` modified? | No — `git status` clean for that path before and after reinstall |
 | Reproducible from a clean install? | `pnpm install --frozen-lockfile` succeeds and leaves the lockfile untouched |
 | Tracked files removed? | `git ls-files --deleted` is empty |
-| Tracked files unintentionally modified? | Only `.cursor/rules/english-only.mdc`, which was already modified before this session (see above) |
+| Tracked files unintentionally modified? | No unrelated tracked file is part of the canonical PR correction set |
 | Verification run from the restored state? | Yes — every result in sections 10 and 11 was produced after `pnpm install --force` restored the store |
 
 ---
@@ -396,7 +370,7 @@ Approvals-independence re-proven after option B on a throwaway copy: mutating
 
 `tasks.md`, section 6:
 
-> - [ ] 6.5 Decision-trace fields record alias locale and match mode (including fold-fallback when used)
+> - [x] 6.5 Decision-trace fields record alias locale and match mode (including fold-fallback when used)
 
 Spec obligations it implements:
 
@@ -435,27 +409,20 @@ triglycerides_serum: locale=es matchType=normalized foldFallback=true value="tri
 
 ## 6.5.3 Is this evidence persisted and auditable?
 
-**Yes — through `resolver_evidence`, not through `resolver_decision_trace`.**
+**Yes — schema 2 carries alias evidence in `resolver_decision_trace`, while
+`resolver_evidence` retains the operational candidate evidence.**
 
-- `observation-normalization-writer.ts` writes
-  `resolver_evidence: resolution.decisionTrace`, and
-  `ResolverDecisionTrace.candidates` is `readonly CandidateEvidence[]`, each with
-  `matchedAlias`. So `locale`, `laboratory`, `matchType` and `foldFallback` land
-  in the persisted JSON.
-- Column: `observation_normalization_revisions.resolver_evidence jsonb`
-  (migration 021), also on `observations` for the projection.
-- The RPC accepts it as an object with a `candidates` array (migrations 045 and
-  046); there is **no field allowlist** on its interior, so the additive fields
-  need no migration.
-- It is read back: `normalization-revisions.ts` types it as
-  `ResolverDecisionTrace`; `incomplete-laboratory-outcomes.ts` (`summarizeTrace`),
-  `observation-read-boundaries.ts`, `registry-reprocessing/selection.ts` and the
-  document/biomarkers/health-profile/reports API selects all read the column.
-
-The separate `resolver_decision_trace` column is the deliberately
-privacy-minimal explanation; it does **not** carry alias identity at all today
-(its candidate keys are `candidateKey, maturity, score, accepted, rejected,
-missingAxes, conflicts`), so it never carried match type or locale either.
+- `observation-normalization-writer.ts` projects both fields from the same
+  in-memory resolution and `assertTraceMatchesResolverEvidence` rejects
+  divergence before the RPC call.
+- `resolver_decision_trace` stores `aliasKey`, `aliasMatchType`, `aliasLocale`,
+  `aliasLaboratory` and `aliasFoldFallback` for each schema-2 candidate.
+- `resolver_evidence` remains the full `ResolverDecisionTrace` consumed by
+  existing readers. Migration `048` adds the database cross-check
+  `eh122_trace_matches_resolver_evidence`.
+- `normalization-review.ts` accepts schema 1 and schema 2; schema-1 rows remain
+  readable without backfill and schema-2 rows surface the persisted alias
+  evidence.
 
 ## 6.5.4 Every consumer of `isPersistedResolverDecisionTrace`
 
@@ -463,13 +430,12 @@ missingAxes, conflicts`), so it never carried match type or locale either.
 |---|---|
 | `src/lib/biomarkers/measurement-resolution.ts` (`buildPersistedResolverDecisionTrace`) | Self-check before returning a freshly built trace; throws "Resolver decision trace is not canonical" |
 | `src/lib/biomarkers/index.ts` | Re-export only |
-| `src/lib/documents/normalization-review.ts:165-167` | Read guard: a stored trace is surfaced only when `resolver_trace_schema_version === "1"` **and** the guard passes; otherwise the review falls back to `null` |
-| `scripts/verify-measurement-registry-runner.ts:222,227` | Asserts a canonical trace passes and a non-canonical one fails |
+| `src/lib/documents/normalization-review.ts:263-265` | Read guard accepts schema version `"1"` or `"2"` and validates the stored trace |
+| `scripts/verify-measurement-registry-runner.ts` | Asserts a canonical trace passes and a non-canonical one fails |
 
 Database-side equivalent: `public.eh115_validate_resolver_decision_trace`
-(migration 039, widened by 042) plus the immutability trigger
-`eh115_enforce_resolver_decision_trace`. The SQL function currently requires
-`p_schema_version = '1'` and **exactly 11 top-level keys**.
+(migration 048) accepts schema 1 and schema 2, while the immutability trigger
+`eh115_enforce_resolver_decision_trace` keeps persisted traces unchanged.
 
 ## 6.5.5 Could an additive/versioned trace change stay compatible?
 
@@ -486,7 +452,7 @@ The TypeScript guard is `z.object(...).strict()` with
 additive field is rejected by both today — a **version-aware** change is
 required. It is, however, entirely feasible without invalidating stored traces:
 
-**Proposed backward-compatible evolution (not implemented):**
+**Compatibility design considered before implementation:**
 
 1. Keep `RESOLVER_DECISION_TRACE_SCHEMA_VERSION = "1"` as the *minimum readable*
    version and introduce `"2"` as the *written* version.

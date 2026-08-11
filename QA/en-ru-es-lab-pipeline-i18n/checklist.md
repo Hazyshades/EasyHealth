@@ -196,6 +196,9 @@ declared as a lab report, the app shows its usual type-mismatch notice.
 | Alias evidence survives database write and read-back for RU and ES | `supabase/tests/resolver_trace_v2_alias_evidence.sql` | `pnpm test:trace-v2-db` |
 | Stored traces stay immutable | same | `pnpm test:trace-v2-db` |
 | `resolver_decision_trace` and `resolver_evidence` cannot diverge | writer assertion + `eh122_trace_matches_resolver_evidence` | `pnpm test:trace-v2`, `pnpm test:trace-v2-db` |
+| EH-104 legacy four-argument promotion stays unambiguous while the EH-119 five-argument payload overload remains exact | `supabase/migrations/049_fix_promotion_rpc_overload_defaults.sql`, EH-104 pgTAP contract | `pnpm test:eh104-db` |
+| EH-119 measurement corrections preserve atomic projection and conflict semantics | EH-119 pgTAP contract | `pnpm test:eh119-db` |
+
 
 Evidence owner: the implementing engineer records the command output on the
 delivery issue.

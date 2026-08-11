@@ -91,6 +91,13 @@ jobs:
           OPENAI_API_KEY: ci-placeholder
           NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      - name: Verify observation correction flow
+        run: pnpm test:eh119
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+          OPENAI_API_KEY: ci-placeholder
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
       - name: Publish Registry 2.0 candidate-release evidence
         run: |
           mkdir -p .artifacts
@@ -127,6 +134,13 @@ jobs:
         with:
           version: 2.109.0
       - run: pnpm install --frozen-lockfile
+      - name: Clean stale Supabase containers before database start
+        run: |
+          supabase stop --no-backup || true
+          stale_ids="$(docker ps -aq --filter publish=54322)"
+          if [ -n "$stale_ids" ]; then
+            docker rm -f $stale_ids
+          fi
       - name: Start local Supabase services
         run: supabase db start
       - name: Run EH-104 Phase B database contract
@@ -145,6 +159,10 @@ jobs:
         run: pnpm test:alias-order-db
       - name: Run stated-axis observability column contract
         run: pnpm test:stated-axis-db
+      - name: Run migration 048 resolver trace v2 alias evidence contract
+        run: pnpm test:trace-v2-db
+      - name: Run EH-119 observation correction database contract
+        run: pnpm test:eh119-db
       - name: Run EH-118 source region database contract
         run: pnpm test:eh118-db
       # #117: the only test that runs the writer's real payload against the real
