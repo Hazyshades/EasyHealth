@@ -1,10 +1,10 @@
 import type {
   IncompleteReasonClass,
-
   MappingConfidenceBand,
   ResolverResult,
   VerificationStatus,
 } from "@/lib/biomarkers";
+import { getMeasurementDefinition } from "@/lib/biomarkers";
 import { parseReferenceRange } from "@/lib/schemas/biomarkers";
 import type { MeasurementOverride } from "./observation-measurement-correction";
 import {
@@ -44,26 +44,27 @@ export type ReviewChipVariant =
   | "info"
   | "neutral";
 export type ReviewRowCorrectedMeasurement = Readonly<{
-  /** Effective measurement after applying the active human restatement. */
   value: string | null;
-  /** Corrected unit, when the reviewer restated it. */
   unit: string | null;
-  /** Corrected reference bounds in compact display form. */
   referenceText: string | null;
-  /** Corrected report date; null when the date was not restated. */
   observedAt: string | null;
 }>;
+
 
 export type ReviewRowRawEvidence = Readonly<{
   /** Name as reported by the document, never a candidate display name. */
   displayName: string;
+  /**
+   * Canonical English Registry measurement name when the row is concretely
+   * resolved; null for incomplete outcomes so no candidate is implied.
+   */
+  canonicalEnglishName: string | null;
   /** Formatted reported value with its reported unit, when available. */
   value: string | null;
   /** Verbatim value text from the document when it differs from `value`. */
   rawValueText: string | null;
   /** Reported reference range, verbatim. */
   referenceText: string | null;
-  /** Effective corrected measurement, kept separate from raw evidence. */
   correctedMeasurement: ReviewRowCorrectedMeasurement | null;
   /** Explicitly stated specimen; null when the report did not state one. */
   specimen: string | null;
@@ -110,7 +111,6 @@ export type ReviewRow = Readonly<{
   reviewable: boolean;
   /** Row has already been persisted as an observation. */
   accepted: boolean;
-  /** True when the active revision carries a human measurement restatement. */
   userCorrected: boolean;
   rawEvidence: ReviewRowRawEvidence;
   source: ReviewRowSourceLocation;
@@ -318,7 +318,6 @@ function buildMappingState(options: {
       options.reviewable && outcome !== null && outcome !== "resolved",
   };
 }
-
 function buildCorrectedMeasurement(
   item: ExtractedReviewRowInput,
   override: MeasurementOverride | null,
@@ -337,8 +336,7 @@ function buildCorrectedMeasurement(
         ? "text"
         : "numeric";
   const valueKind = override.value_kind ?? baseKind;
-  const numericValue =
-    "value" in override ? override.value ?? null : baseNumeric;
+  const numericValue = "value" in override ? override.value ?? null : baseNumeric;
   const valueText = "value_text" in override ? override.value_text ?? null : baseText;
   const unit =
     "unit" in override ? override.unit ?? null : item.unit ?? item.raw_unit ?? null;
@@ -347,10 +345,6 @@ function buildCorrectedMeasurement(
   );
   const refLow = "ref_low" in override ? override.ref_low ?? null : baseRefLow;
   const refHigh = "ref_high" in override ? override.ref_high ?? null : baseRefHigh;
-  const referenceText =
-    refLow === null && refHigh === null
-      ? null
-      : `${refLow ?? "—"} - ${refHigh ?? "—"}`;
   return {
     value: formatReportedValue(
       valueKind === "numeric" ? numericValue : null,
@@ -358,7 +352,8 @@ function buildCorrectedMeasurement(
       unit,
     ),
     unit: typeof unit === "string" && unit.trim() ? unit.trim() : null,
-    referenceText,
+    referenceText:
+      refLow === null && refHigh === null ? null : `${refLow ?? "—"} - ${refHigh ?? "—"}`,
     observedAt: "observed_at" in override ? override.observed_at ?? null : null,
   };
 }
@@ -383,6 +378,7 @@ export type ExtractedReviewRowInput = {
   source_text: string | null;
   bounding_box?: unknown;
   status: string;
+  measurement_definition_key?: string | null;
   normalization?: {
     result: ResolverResult;
     mappingConfidenceBand: MappingConfidenceBand;
@@ -392,6 +388,7 @@ export type ExtractedReviewRowInput = {
       verification_status: VerificationStatus;
       measurement_override?: MeasurementOverride | null;
     } | null;
+    candidateDefinitionKey?: string | null;
   } | null;
 };
 
@@ -420,6 +417,20 @@ export function buildExtractedReviewRow(
       ? item.raw_value_text.trim()
       : null;
 
+  const outcome = isResolverResult(normalization?.result)
+    ? normalization.result
+    : null;
+  const definitionKey =
+    outcome === "resolved"
+      ? (normalization?.candidateDefinitionKey ??
+        item.measurement_definition_key ??
+        null)
+      : null;
+  const canonicalEnglishName =
+    definitionKey != null
+      ? (getMeasurementDefinition(definitionKey)?.displayName ?? null)
+      : null;
+
   return {
     id: item.id,
     sourceKind: "extracted",
@@ -428,6 +439,7 @@ export function buildExtractedReviewRow(
     userCorrected: measurementOverride !== null,
     rawEvidence: {
       displayName: item.raw_name?.trim() || item.biomarker_name,
+      canonicalEnglishName,
       value,
       rawValueText,
       referenceText:
@@ -440,9 +452,7 @@ export function buildExtractedReviewRow(
     },
     source: resolveSourceLocation(item.source_page, item.source_text, item.bounding_box),
     mapping: buildMappingState({
-      outcome: isResolverResult(normalization?.result)
-        ? normalization.result
-        : null,
+      outcome,
       verificationStatus:
         asVerificationStatus(
           normalization?.resolutionDetails?.verificationStatus,
@@ -481,6 +491,7 @@ export type ObservationReviewRowInput = {
   resolver_result?: string | null;
   verification_status?: string | null;
   registry_binding_ready?: boolean;
+  measurement_definition_key?: string | null;
   resolution_details?: LaboratoryResolutionDetails | null;
 };
 
@@ -513,6 +524,12 @@ export function buildObservationReviewRow(
       : null;
   const reportedOutcome = item.resolver_result ?? item.resolution_status;
   const outcome = isResolverResult(reportedOutcome) ? reportedOutcome : null;
+  const definitionKey =
+    outcome === "resolved" ? (item.measurement_definition_key ?? null) : null;
+  const canonicalEnglishName =
+    definitionKey != null
+      ? (getMeasurementDefinition(definitionKey)?.displayName ?? null)
+      : null;
 
   return {
     id: item.id,
@@ -522,6 +539,7 @@ export function buildObservationReviewRow(
     userCorrected: false,
     rawEvidence: {
       displayName: item.raw_name?.trim() || item.name,
+      canonicalEnglishName,
       value,
       rawValueText,
       referenceText: observationReferenceText(item),

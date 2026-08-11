@@ -1,19 +1,14 @@
 import { NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { getProfileById } from "@/lib/auth/profile";
-import { presentObservation } from "@/lib/biomarkers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildHealthProfile, type HealthProfileSource } from "@/lib/health-systems";
+import { projectHealthProfileLaboratoryInput } from "@/lib/health-profile-input";
+import { isLaboratoryObservation } from "@/lib/documents/observation-read-boundaries";
 import {
   buildDocumentStructuredContext,
   hashStructuredContext,
 } from "@/lib/documents/structured-context";
-import {
-  isLaboratoryObservation,
-  projectActiveRegistryV2LaboratoryBinding,
-  type RegistryV2NormalizationRevisionReadBoundary,
-} from "@/lib/documents/observation-read-boundaries";
-import { projectLaboratoryOutcome } from "@/lib/documents/incomplete-laboratory-outcomes";
 import { getOrCreateHolisticSynthesis } from "@/lib/holistic-synthesis";
 
 export async function GET() {
@@ -79,96 +74,13 @@ export async function GET() {
   );
 
   const profile = buildHealthProfile(
-    scopedObservations.flatMap<Parameters<typeof buildHealthProfile>[0][number]>((o) => {
-      const outcome = projectLaboratoryOutcome({
-        observation: o,
-        relation: o.normalization_revision as
-          | RegistryV2NormalizationRevisionReadBoundary
-          | RegistryV2NormalizationRevisionReadBoundary[]
-          | null,
+    scopedObservations.flatMap((observation) => {
+      const input = projectHealthProfileLaboratoryInput({
+        observation,
+        relation: observation.normalization_revision,
+        labUnitSystem,
       });
-      const binding = projectActiveRegistryV2LaboratoryBinding(
-        o,
-        o.normalization_revision as
-          | RegistryV2NormalizationRevisionReadBoundary
-          | RegistryV2NormalizationRevisionReadBoundary[]
-          | null
-      );
-      const measurementDefinitionKey = binding.measurementDefinitionKey;
-      const definition = binding.measurementDefinition;
-      const resolvedMeasurementBinding = binding.resolvedMeasurementBinding;
-      if (
-        !outcome.resolutionDetails.eligibility.assessmentEligible ||
-        !measurementDefinitionKey ||
-        !definition
-      ) {
-        return [];
-      }
-      const key = definition.assessmentBindings.find((assessmentBinding) =>
-        assessmentBinding.status === "reviewed" &&
-        assessmentBinding.compatibility === "compatible"
-      )?.assessmentInputKey;
-      if (!key) return [];
-      const valueKind =
-        o.value_kind === "qualitative" ||
-        o.value_kind === "ordinal" ||
-        o.value_kind === "text" ||
-        o.value_kind === "numeric"
-          ? o.value_kind
-          : "numeric";
-      const numericValue = o.value != null ? Number(o.value) : null;
-
-      if (valueKind !== "numeric" || numericValue == null) {
-        return [{
-          biomarker_key: key,
-          measurement_definition_key: measurementDefinitionKey,
-          name: o.name,
-          value: null,
-          unit: o.unit ?? "",
-          ref_low: o.ref_low != null ? Number(o.ref_low) : null,
-          ref_high: o.ref_high != null ? Number(o.ref_high) : null,
-          observed_at: o.observed_at,
-          document_id: o.document_id,
-          observation_kind: "lab",
-          value_kind: valueKind,
-          value_text: o.value_text ?? null,
-          ordinal: o.ordinal != null ? Number(o.ordinal) : null,
-          specimen: o.specimen ?? "unspecified",
-          modifier: o.modifier ?? "none",
-        }];
-      }
-
-      const display = presentObservation(
-        {
-          resolved_measurement_binding: resolvedMeasurementBinding,
-          value: numericValue,
-          unit: o.unit ?? "",
-          ref_low: o.ref_low != null ? Number(o.ref_low) : null,
-          ref_high: o.ref_high != null ? Number(o.ref_high) : null,
-        },
-        labUnitSystem
-      );
-      return [{
-        biomarker_key: key,
-        measurement_definition_key: measurementDefinitionKey,
-        name: o.name,
-        value: display.value,
-        unit: display.unit,
-        ref_low: display.ref_low,
-        ref_high: display.ref_high,
-        observed_at: o.observed_at,
-        document_id: o.document_id,
-        observation_kind: "lab",
-        value_kind: "numeric" as const,
-        value_text: o.value_text ?? String(display.value),
-        ordinal: null,
-        specimen: o.specimen ?? "unspecified",
-        modifier: o.modifier ?? "none",
-        converted: display.converted,
-        conversion_note: display.conversion_note,
-        original_value: display.original_value,
-        original_unit: display.original_unit,
-      }];
+      return input ? [input] : [];
     }),
     sources
   );

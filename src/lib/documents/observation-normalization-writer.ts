@@ -19,13 +19,13 @@ import type {
   PersistedResolverDecisionTrace,
 } from "@/lib/biomarkers";
 import { parseReferenceRange } from "@/lib/schemas/biomarkers";
-import { statedAxisValue } from "./stated-axis-evidence";
 import {
   applyMeasurementOverride,
   codeFor,
   type BaseMeasurement,
   type MeasurementOverride,
 } from "./observation-measurement-correction";
+import { statedAxisValue } from "./stated-axis-evidence";
 import {
   parseSourceRegion,
   sourceRegionMatchesPage,
@@ -69,11 +69,8 @@ export type ExtractedBiomarkerWriterRow = {
 };
 
 /**
- * EH-119: `value_correction` restates the reported measurement. It is a
- * different act from `correction`, which is the selection of a concrete
- * reviewed definition and must still land on `resolved`. A measurement
- * correction may end in any resolver outcome, because the outcome is
- * re-derived from the corrected input rather than chosen by the caller.
+ * `value_correction` restates the reported measurement. It is distinct from
+ * `correction`, which selects a concrete reviewed definition.
  */
 export type ObservationNormalizationWriteKind =
   | "acceptance"
@@ -97,6 +94,7 @@ export class ObservationNormalizationWriterError extends Error {
     super(message);
   }
 }
+
 const WRITER_RPC_CODE_ALIASES: Readonly<Record<string, string>> = {
   measurement_override_observed_at_in_future: "observed_at_in_future",
   measurement_correction_requires_reason: "correction_reason_required",
@@ -202,9 +200,7 @@ export function parseExtractedObservationValue(
 
 const OBSERVED_AT_NOT_USED_BY_RESOLUTION = "1970-01-01";
 
-/**
- * The measurement as the extractor read it, before any reviewer restatement.
- */
+/** The measurement as the extractor read it, before reviewer restatement. */
 export function baseMeasurementFromWriterRow(
   row: ExtractedBiomarkerWriterRow,
   observedAt: string
@@ -229,22 +225,10 @@ export function measurementInputFromWriterRow(
   row: ExtractedBiomarkerWriterRow,
   override?: MeasurementOverride | null
 ): MeasurementResolutionInput {
-  // EH-119: a correction edits the resolver's INPUT. The restated unit, value
-  // and reference bounds are what the reviewer says the document reports, so
-  // they are what resolution must see. Without an override this is byte-for-byte
-  // the pre-EH-119 input, which is why an uncorrected row keeps its evidence
-  // hash and its stored resolution.
-  // The date is not part of `MeasurementResolutionInput`, so any placeholder
-  // would do; the composition is reused purely for value kind, value text and
-  // the reference bounds.
   const measurement = applyMeasurementOverride(
     baseMeasurementFromWriterRow(row, OBSERVED_AT_NOT_USED_BY_RESOLUTION),
     override
   );
-  // #106: the writer and EH-116 reprocessing both resolve through this builder,
-  // so the stated-evidence policy has to be applied here as well as in the
-  // review preview. Reprocessing re-runs resolution and not extraction, which
-  // is what corrects rows already stored with a fabricated axis.
   const provenance = {
     label: row.raw_name ?? row.biomarker_name,
     sourceText: row.source_text ?? null,
@@ -298,9 +282,7 @@ export function buildManualCorrectionResolution(options: {
     selectedCandidate.missingAxes.length > 0
   ) {
     throw new ObservationNormalizationWriterError(
-      "Selected measurement definition is incompatible with the extracted evidence",
-      422,
-      "correction_requires_reviewed_concrete_definition",
+      "Selected measurement definition is incompatible with the extracted evidence"
     );
   }
 
@@ -349,9 +331,7 @@ function buildObservationPayload(options: {
   // database constraint or fabricating page 1.
   if (row.source_page == null) {
     throw new ObservationNormalizationWriterError(
-      "This result has no source page. Reprocess the document to restore its source link before accepting it.",
-      422,
-      "observation_source_page_missing"
+      "This result has no source page. Reprocess the document to restore its source link before accepting it."
     );
   }
   const region = parseSourceRegion(row.bounding_box);
@@ -359,11 +339,6 @@ function buildObservationPayload(options: {
     profile_id: profileId,
     document_id: documentId,
     name: row.biomarker_name,
-    // EH-119: the EFFECTIVE measurement, raw extraction with any active
-    // override applied. Every write kind sends it, so an acceptance, a
-    // confirmation or a reprocessing write that runs after a correction
-    // re-emits the corrected measurement instead of reverting to what the
-    // extractor read.
     value: measurement.value,
     value_kind: measurement.valueKind,
     value_text: measurement.valueText,
@@ -374,9 +349,6 @@ function buildObservationPayload(options: {
     observed_at: measurement.observedAt,
     specimen: row.specimen ?? "unspecified",
     modifier: row.modifier ?? "none",
-    // Raw provenance below. None of it is correctable, and
-    // `observation_provenance_write_once` rejects any UPDATE that moves it, so
-    // these values are only ever written when the observation is created.
     raw_name: row.raw_name ?? row.biomarker_name,
     raw_value_text: row.raw_value_text ?? null,
     raw_reference_text: row.raw_reference_range ?? null,
@@ -392,8 +364,6 @@ function buildObservationPayload(options: {
     reported_alt_unit: row.reported_alt_unit ?? null,
     extraction_version: row.processing_version ?? null,
     provenance_schema_version: OBSERVATION_PROVENANCE_SCHEMA_VERSION,
-    // EH-119: the override rides inside the observation payload so the EH-115
-    // trace wrapper, which forwards it verbatim, needs no signature change.
     measurement_override: override,
   };
 }
@@ -413,10 +383,54 @@ export function buildNormalizationResolutionPayload(
   );
 }
 
+/**
+ * Source of truth for alias evidence is `resolver_decision_trace` (schema 2).
+ * `resolver_evidence` keeps the operational v2 `ResolverDecisionTrace` its
+ * existing readers consume. Both are projected from the same in-memory
+ * resolution, and this assertion makes a future divergence impossible to ship
+ * silently; `eh122_trace_matches_resolver_evidence` re-checks it in the
+ * database so a hand-built payload cannot bypass it either.
+ */
+function assertTraceMatchesResolverEvidence(
+  resolution: MeasurementResolution,
+  trace: PersistedResolverDecisionTrace
+): void {
+  if (trace.schemaVersion !== "2") return;
+  const evidenceByKey = new Map(
+    resolution.decisionTrace.candidates.map((candidate) => [candidate.candidateKey, candidate])
+  );
+  if (evidenceByKey.size !== trace.candidates.length) {
+    throw new ObservationNormalizationWriterError(
+      "Resolver evidence and decision trace disagree on candidate count"
+    );
+  }
+  for (const candidate of trace.candidates) {
+    const evidence = evidenceByKey.get(candidate.candidateKey);
+    if (!evidence) {
+      throw new ObservationNormalizationWriterError(
+        `Resolver evidence has no candidate ${candidate.candidateKey}`
+      );
+    }
+    const alias = evidence.matchedAlias;
+    if (
+      alias.key !== candidate.aliasKey ||
+      alias.matchType !== candidate.aliasMatchType ||
+      (alias.locale ?? "en") !== candidate.aliasLocale ||
+      (alias.laboratory ?? null) !== candidate.aliasLaboratory ||
+      (alias.foldFallback === true) !== candidate.aliasFoldFallback
+    ) {
+      throw new ObservationNormalizationWriterError(
+        `Alias evidence diverges between trace and resolver evidence for ${candidate.candidateKey}`
+      );
+    }
+  }
+}
+
 function buildResolutionPayload(
   resolution: MeasurementResolution,
   trace: PersistedResolverDecisionTrace
 ) {
+  assertTraceMatchesResolverEvidence(resolution, trace);
   return {
     input_evidence_hash: trace.inputEvidenceHash,
     measurement_definition_key: resolution.measurementDefinitionKey,
@@ -458,10 +472,6 @@ export function buildNormalizationWriterRequestHash(options: {
         mappingClassification: options.mappingClassification,
         correctionReason: options.correctionReason ?? null,
         reversalOfRevisionId: options.reversalOfRevisionId ?? null,
-        // EH-119: two corrections that differ only in what was restated must
-        // not collide on one idempotency key, and an identical replay must
-        // still reuse the same revision. `parseMeasurementOverride` emits keys
-        // in a fixed order, so this serialization is canonical.
         measurementOverride: options.measurementOverride ?? null,
       })
     )
@@ -481,13 +491,6 @@ export async function writeExtractedBiomarkerNormalization(options: {
   correctionReason?: string | null;
   reversalOfRevisionId?: string | null;
   supersedesRevisionId?: string | null;
-  /**
-   * EH-119: the reviewer's restatement. Omit it and the writer carries the
-   * active revision's override forward, which is what stops an acceptance,
-   * confirmation or reprocessing write from reverting a correction. Pass
-   * `null` explicitly to restore the raw extracted measurement, which is how
-   * undo back to raw is expressed.
-   */
   measurementOverride?: MeasurementOverride | null;
 }): Promise<ObservationNormalizationWriterResult> {
   const expectedActiveRevision =

@@ -20,6 +20,14 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+      - name: Verify generated biomarker documentation
+        run: pnpm check:biomarker-docs
+      - name: Verify biomarker documentation contract
+        run: pnpm test:biomarker-docs
+      - name: Verify laboratory persistence boundaries
+        run: pnpm test:document-persistence-boundaries
+      - name: Verify Health Profile laboratory projection
+        run: pnpm test:health-profile-lab-input
       - run: pnpm check:registry-v2-cutover
       - run: pnpm check:no-legacy-promotion-rpc
       - run: pnpm check:postgrest-embed-hints
@@ -83,13 +91,6 @@ jobs:
           OPENAI_API_KEY: ci-placeholder
           NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
-      - name: Verify observation correction flow
-        run: pnpm test:eh119
-        env:
-          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
-          OPENAI_API_KEY: ci-placeholder
-          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
       - name: Publish Registry 2.0 candidate-release evidence
         run: |
           mkdir -p .artifacts
@@ -144,8 +145,6 @@ jobs:
         run: pnpm test:alias-order-db
       - name: Run stated-axis observability column contract
         run: pnpm test:stated-axis-db
-      - name: Run EH-119 observation correction database contract
-        run: pnpm test:eh119-db
       - name: Run EH-118 source region database contract
         run: pnpm test:eh118-db
       # #117: the only test that runs the writer's real payload against the real

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1",
+  "id": "chemistry-es-iberia",
+  "language": "es",
+  "laboratory": "westfield-diagnostics",
+  "panels": ["biochemistry"],
+  "specialtyRows": false,
+  "deidentified": true,
+  "rawRows": [
+    { "rawLabel": "Glucosa", "rawUnit": "mmol/L", "rawValueText": "5.4", "valueKind": "numeric" },
+    { "rawLabel": "Triglicéridos", "rawUnit": "mmol/L", "rawValueText": "1.2", "valueKind": "numeric" },
+    { "rawLabel": "Trigliceridos", "rawUnit": "mmol/L", "rawValueText": "1.3", "valueKind": "numeric" },
+    { "rawLabel": "Hemoglobina glucosilada", "rawUnit": "%", "rawValueText": "5.6", "valueKind": "numeric" },
+    { "rawLabel": "Creatinina", "rawUnit": "umol/L", "rawValueText": "78", "valueKind": "numeric" },
+    { "rawLabel": "Marcador desconocido QZ", "rawUnit": "U/L", "rawValueText": "10", "valueKind": "numeric" }
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1",
-  "requiredLaunchRows": 53,
+  "requiredLaunchRows": 72,
   "thresholds": {
     "minRawPreservationRate": 1,
     "minRecognitionRate": 1,
@@ -10,6 +10,12 @@
     "maxFalseConcreteResolutions": 0,
     "maxProcessingErrors": 0,
     "maxUnclassifiedRows": 0
+  },
+  "languageThresholds": {
+    "requiredLanguages": ["en", "ru", "es"],
+    "minRowsPerLanguage": 4,
+    "minExpectedClassificationRate": 1,
+    "maxFalseConcreteResolutions": 0
   },
   "approvals": {
     "falseConcreteReviewRoles": [
@@ -23,7 +29,15 @@
       "fasting_glucose": "assessment-owner",
       "glucose_plasma": "assessment-owner",
       "glucose_serum": "assessment-owner",
-      "glucose_whole_blood": "assessment-owner"
+      "glucose_whole_blood": "assessment-owner",
+      "hemoglobin_whole_blood": "assessment-owner",
+      "wbc_whole_blood": "assessment-owner",
+      "platelets_whole_blood": "assessment-owner",
+      "tsh_serum": "assessment-owner",
+      "free_t4_serum": "assessment-owner",
+      "creatinine_serum": "assessment-owner",
+      "triglycerides_serum": "assessment-owner",
+      "hba1c_whole_blood": "assessment-owner"
     }
   },
   "releaseEvidence": {

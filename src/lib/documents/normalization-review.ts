@@ -1,4 +1,5 @@
 import {
+  getMeasurementDefinition,
   isPersistedResolverDecisionTrace,
   resolveMeasurementDefinition,
 } from "@/lib/biomarkers";
@@ -188,8 +189,6 @@ export function measurementInputFromExtracted(
           ? null
           : String(override.value)
         : row.raw_value_text ?? null;
-  // #106: an axis the document never stated must reach the resolver as absent,
-  // otherwise it satisfies a compatibility axis and unlocks `resolved`.
   const provenance = {
     label: row.raw_name ?? row.biomarker_name,
     sourceText: row.source_text ?? null,
@@ -260,7 +259,8 @@ export function buildNormalizationReview(
   });
   const persistedTrace =
     activeRevision &&
-    activeRevision.resolver_trace_schema_version === "1" &&
+    (activeRevision.resolver_trace_schema_version === "1" ||
+      activeRevision.resolver_trace_schema_version === "2") &&
     isPersistedResolverDecisionTrace(activeRevision.resolver_decision_trace)
       ? activeRevision.resolver_decision_trace
       : null;
@@ -270,7 +270,14 @@ export function buildNormalizationReview(
         trace: persistedTrace,
       }
     : { availability: "preview", trace: null };
-  const manualOptions = compatibleManualDefinitions(input);
+  const traceCandidates = persistedTrace?.candidates ?? [];
+  const manualOptions = persistedTrace
+    ? traceCandidates
+        .filter((candidate) => candidate.maturity === "reviewed" && candidate.conflicts.length === 0)
+        .map((candidate) => getMeasurementDefinition(candidate.candidateKey))
+        .filter((definition): definition is NonNullable<typeof definition> => Boolean(definition))
+    : compatibleManualDefinitions(input);
+
   return {
     result: outcome.outcome ?? preview.result,
     candidateDefinitionKey: outcome.measurementDefinitionKey,

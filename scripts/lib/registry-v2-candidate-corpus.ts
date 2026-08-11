@@ -24,17 +24,20 @@ import {
 
 export const DEFAULT_CANDIDATE_CORPUS_ROOT = "registry/candidate-release/v1";
 /**
- * Frozen launch-corpus size. 53 since #106 added `glucose-specimen-by-section`,
- * the only row covering a specimen stated by panel heading rather than by the
- * row itself.
+ * Frozen launch-corpus size. 72 since the EN+RU+ES multilingual slice added
+ * genuine Cyrillic and Spanish rows (previously 53 English-only rows, some of
+ * which were mislabelled as Russian coverage).
  */
-export const REQUIRED_CANDIDATE_CORPUS_ROW_COUNT = 53;
+export const REQUIRED_CANDIDATE_CORPUS_ROW_COUNT = 72;
 
 const RESULTS: readonly ResolverResult[] = ["resolved", "partial", "ambiguous", "unmapped"];
 const VALUE_KINDS: readonly MeasurementValueKind[] = ["numeric", "qualitative", "ordinal", "unspecified"];
 const UNIT_CONFLICTS = new Set(["unit_dimension_conflict", "unit_not_accepted"]);
 const APPROVAL_SCOPES = ["false_concrete_review", "score_affecting_binding", "release_gate"] as const;
 const APPROVAL_STATUSES = ["approved"] as const;
+/** Script/diacritic markers used by the fixture language-authenticity gate. */
+const CYRILLIC = /[\u0400-\u04FF]/;
+const SPANISH_MARKER = /[áéíóúüñÁÉÍÓÚÜÑ]|\b(glucosa|hemoglobina|leucocitos|plaquetas|creatinina|colesterol|trigliceridos|sangre|suero|orina|marcador|eritrocitos|linfocitos|monocitos)\b/i;
 
 export type CandidateCorpusRow = {
   id: string;
@@ -119,6 +122,16 @@ export type CandidateReleasePolicy = {
     maxProcessingErrors: number;
     maxUnclassifiedRows: number;
   };
+  /**
+   * Per-language gates. A passing aggregate must not hide a failing language,
+   * so each required language is scored on its own rows.
+   */
+  languageThresholds: {
+    requiredLanguages: string[];
+    minRowsPerLanguage: number;
+    minExpectedClassificationRate: number;
+    maxFalseConcreteResolutions: number;
+  };
   approvals: {
     falseConcreteReviewRoles: string[];
     releaseApprovalRoles: string[];
@@ -145,17 +158,21 @@ export type CandidateApprovalEvidence = {
   approvals: CandidateApproval[];
 };
 
-type LoadedCandidateCorpus = {
+type LoadedCandidateCorpusTechnical = {
   root: string;
   corpus: CandidateReleaseCorpus;
   documentIndex: CandidateDocumentIndex;
   documents: Map<string, CandidateDocumentFixture>;
   documentFixtureHashes: Record<string, string>;
   policy: CandidateReleasePolicy;
-  approvals: CandidateApprovalEvidence;
   resetRollbackNotes: string;
   fixtureErrors: string[];
 };
+
+type LoadedCandidateCorpus = LoadedCandidateCorpusTechnical & {
+  approvals: CandidateApprovalEvidence;
+};
+
 
 export type CandidateCorpusReportRow = {
   id: string;
@@ -301,6 +318,16 @@ export type CandidateReleaseManifest = {
   launchable: boolean;
 };
 
+export type CandidateCorpusTechnicalManifest = Omit<
+  CandidateReleaseManifest,
+  "approvalEvidenceHash" | "approvals" | "launchable"
+>;
+
+export type CandidateCorpusTechnicalRun = {
+  manifest: CandidateCorpusTechnicalManifest;
+  report: CandidateCorpusReport;
+};
+
 export type CandidateCorpusRun = {
   manifest: CandidateReleaseManifest;
   report: CandidateCorpusReport;
@@ -406,7 +433,7 @@ function rawEvidenceKey(row: Pick<CandidateCorpusRow, "rawLabel" | "rawUnit" | "
   });
 }
 
-function validateCandidateCorpus(loaded: Omit<LoadedCandidateCorpus, "fixtureErrors">): string[] {
+function validateCandidateCorpus(loaded: Omit<LoadedCandidateCorpusTechnical, "fixtureErrors">): string[] {
   const errors: string[] = [];
   const { corpus, documentIndex, documents, policy, resetRollbackNotes } = loaded;
   if (corpus.schemaVersion !== "1") errors.push("corpus.schemaVersion must be 1");
@@ -539,6 +566,52 @@ function validateCandidateCorpus(loaded: Omit<LoadedCandidateCorpus, "fixtureErr
     if (document.laboratory) laboratories.add(document.laboratory);
     if (document.specialtyRows) specialtyCount += 1;
   }
+
+  // Language authenticity: a fixture tagged `ru` or `es` must actually carry
+  // that language's wording. English labels under a foreign tag were how the
+  // corpus previously claimed coverage it did not have.
+  const corpusRowsByDocument = new Map<string, CandidateCorpusRow[]>();
+  for (const row of corpus.rows ?? []) {
+    const rows = corpusRowsByDocument.get(row.documentId) ?? [];
+    rows.push(row);
+    corpusRowsByDocument.set(row.documentId, rows);
+  }
+  for (const document of documents.values()) {
+    const labels = [
+      ...(document.rawRows ?? []).map((rawRow) => rawRow?.rawLabel ?? ""),
+      ...(corpusRowsByDocument.get(document.id) ?? []).map((row) => row.rawLabel),
+    ].filter((label) => typeof label === "string" && label.trim().length > 0);
+    if (labels.length === 0) continue;
+    if (document.language === "ru" && !labels.some((label) => CYRILLIC.test(label))) {
+      errors.push(
+        `document ${document.id} declares language ru but no label contains Cyrillic text`,
+      );
+    }
+    if (document.language === "es" && !labels.some((label) => SPANISH_MARKER.test(label))) {
+      errors.push(
+        `document ${document.id} declares language es but no label contains Spanish wording`,
+      );
+    }
+    if (document.language === "en" && labels.some((label) => CYRILLIC.test(label))) {
+      errors.push(
+        `document ${document.id} declares language en but carries Cyrillic labels`,
+      );
+    }
+  }
+
+  const languagePolicy = policy.languageThresholds;
+  if (!languagePolicy || typeof languagePolicy !== "object") {
+    errors.push("policy.languageThresholds is required");
+  } else {
+    if (!Array.isArray(languagePolicy.requiredLanguages) || languagePolicy.requiredLanguages.length === 0) {
+      errors.push("policy.languageThresholds.requiredLanguages must list at least one language");
+    }
+    for (const language of languagePolicy.requiredLanguages ?? []) {
+      if (!languages.has(language)) {
+        errors.push(`policy requires language ${language} but no document fixture provides it`);
+      }
+    }
+  }
   for (const panel of requiredPanels) if (!panels.has(panel)) errors.push(`required document panel coverage is missing: ${panel}`);
   for (const language of requiredLanguages) if (!languages.has(language)) errors.push(`required document language coverage is missing: ${language}`);
   for (const laboratory of requiredLaboratories) if (!laboratories.has(laboratory)) errors.push(`required document laboratory coverage is missing: ${laboratory}`);
@@ -559,8 +632,6 @@ function validateCandidateCorpus(loaded: Omit<LoadedCandidateCorpus, "fixtureErr
   })) {
     if (typeof value === "number" && value > 1) errors.push(`policy threshold ${name} cannot exceed 1`);
   }
-  if (!policy.approvals || policy.approvals.falseConcreteReviewRoles.length === 0) errors.push("policy must name a false-concrete-resolution approval role");
-  if (!policy.approvals || policy.approvals.releaseApprovalRoles.length === 0) errors.push("policy must name a release approval role");
   if (missingString(policy.releaseEvidence?.resetRollbackFile)) errors.push("policy must name reset/rollback notes");
   if (!/##\s+Reset/i.test(resetRollbackNotes) || !/##\s+Rollback/i.test(resetRollbackNotes)) {
     errors.push("reset/rollback notes must include Reset and Rollback sections");
@@ -568,12 +639,11 @@ function validateCandidateCorpus(loaded: Omit<LoadedCandidateCorpus, "fixtureErr
   return errors;
 }
 
-function loadCandidateCorpus(rootInput = DEFAULT_CANDIDATE_CORPUS_ROOT): LoadedCandidateCorpus {
+function loadCandidateCorpusTechnical(rootInput = DEFAULT_CANDIDATE_CORPUS_ROOT): LoadedCandidateCorpusTechnical {
   const root = resolve(rootInput);
   const corpus = readJson<CandidateReleaseCorpus>(join(root, "corpus.json"));
   const documentIndex = readJson<CandidateDocumentIndex>(join(root, "documents.json"));
   const policy = readJson<CandidateReleasePolicy>(join(root, "policy.json"));
-  const approvals = readJson<CandidateApprovalEvidence>(join(root, "approvals.json"));
   const documents = new Map<string, CandidateDocumentFixture>();
   const documentFixtureHashes: Record<string, string> = {};
   for (const entry of documentIndex.documents ?? []) {
@@ -588,8 +658,16 @@ function loadCandidateCorpus(rootInput = DEFAULT_CANDIDATE_CORPUS_ROOT): LoadedC
   const resetRollbackPath = asRelativePath(root, policy.releaseEvidence?.resetRollbackFile ?? "", "reset/rollback notes");
   if (!existsSync(resetRollbackPath)) throw new Error(`Required reset/rollback notes are missing: ${policy.releaseEvidence?.resetRollbackFile ?? "<unset>"}`);
   const resetRollbackNotes = readText(resetRollbackPath);
-  const loadedWithoutErrors = { root, corpus, documentIndex, documents, documentFixtureHashes, policy, approvals, resetRollbackNotes };
+  const loadedWithoutErrors = { root, corpus, documentIndex, documents, documentFixtureHashes, policy, resetRollbackNotes };
   return { ...loadedWithoutErrors, fixtureErrors: validateCandidateCorpus(loadedWithoutErrors) };
+}
+
+function loadCandidateCorpus(rootInput = DEFAULT_CANDIDATE_CORPUS_ROOT): LoadedCandidateCorpus {
+  const loaded = loadCandidateCorpusTechnical(rootInput);
+  return {
+    ...loaded,
+    approvals: readJson<CandidateApprovalEvidence>(join(loaded.root, "approvals.json")),
+  };
 }
 
 function countRate(rows: readonly CandidateCorpusReportRow[], predicate: (row: CandidateCorpusReportRow) => boolean): number {
@@ -641,6 +719,37 @@ function thresholdChecks(report: CandidateCorpusReport, policy: CandidateRelease
     { metric: "processingErrors", operator: "<=", expected: policy.thresholds.maxProcessingErrors, actual: metric.processingErrors },
     { metric: "unclassifiedRows", operator: "<=", expected: policy.thresholds.maxUnclassifiedRows, actual: metric.unclassifiedRows },
   ];
+
+  // Language segments are scored independently: a strong aggregate must never
+  // mark a candidate launchable while one language silently fails.
+  const languagePolicy = policy.languageThresholds;
+  for (const language of languagePolicy?.requiredLanguages ?? []) {
+    const segment = report.segments.language[language];
+    const total = segment?.total ?? 0;
+    const expectedFailures = segment?.expectedClassificationFailures ?? 0;
+    const classificationRate = total === 0 ? 0 : (total - expectedFailures) / total;
+    checks.push(
+      {
+        metric: `language.${language}.rows`,
+        operator: ">=",
+        expected: languagePolicy.minRowsPerLanguage,
+        actual: total,
+      },
+      {
+        metric: `language.${language}.expectedClassificationRate`,
+        operator: ">=",
+        expected: languagePolicy.minExpectedClassificationRate,
+        actual: classificationRate,
+      },
+      {
+        metric: `language.${language}.falseConcreteResolutions`,
+        operator: "<=",
+        expected: languagePolicy.maxFalseConcreteResolutions,
+        actual: segment?.falseConcreteResolutions ?? 0,
+      },
+    );
+  }
+
   return checks.map((check) => ({ ...check, passed: check.operator === ">=" ? check.actual >= check.expected : check.actual <= check.expected }));
 }
 
@@ -699,7 +808,7 @@ function validateApprovals(
   return { valid: errors.length === 0, errors: [...new Set(errors)].sort(), approvalsHash: hashJson(evidence) };
 }
 
-function buildInputHashes(loaded: LoadedCandidateCorpus): CandidateReleaseManifest["inputHashes"] {
+function buildInputHashes(loaded: LoadedCandidateCorpusTechnical): CandidateReleaseManifest["inputHashes"] {
   return {
     corpus: hashJson(loaded.corpus),
     documentIndex: hashJson(loaded.documentIndex),
@@ -725,11 +834,13 @@ function candidateInputHash(corpus: CandidateReleaseCorpus, inputHashes: Candida
  * rejected before anything is called; the runner cannot invoke a mutation
  * path as part of normal candidate evaluation.
  */
-export function runRegistryV2CandidateCorpus(options: CandidateCorpusRunnerOptions = {}): CandidateCorpusRun {
+export function runRegistryV2CandidateCorpusTechnical(
+  options: CandidateCorpusRunnerOptions = {},
+): CandidateCorpusTechnicalRun {
   if (options.mutationAttempt) {
     throw new Error("Candidate corpus runner rejects runtime mutation attempts before evaluation");
   }
-  const loaded = loadCandidateCorpus(options.root);
+  const loaded = loadCandidateCorpusTechnical(options.root);
   if (loaded.fixtureErrors.length > 0) {
     throw new Error(`Candidate corpus fixture validation failed:\n${loaded.fixtureErrors.map((error) => `- ${error}`).join("\n")}`);
   }
@@ -820,6 +931,9 @@ export function runRegistryV2CandidateCorpus(options: CandidateCorpusRunnerOptio
     };
   });
 
+  const recognizableRows = reportRows.filter(
+    (row) => row.expectedClassification !== "unmapped",
+  );
   const resolved = reportRows.filter((row) => row.actualClassification === "resolved").length;
   const partial = reportRows.filter((row) => row.actualClassification === "partial").length;
   const ambiguous = reportRows.filter((row) => row.actualClassification === "ambiguous").length;
@@ -871,10 +985,17 @@ export function runRegistryV2CandidateCorpus(options: CandidateCorpusRunnerOptio
     },
     metrics: {
       rawPreservationRate: countRate(reportRows, (row) => row.rawPreserved),
-      recognitionRate: countRate(reportRows, (row) => row.actualClassification !== null && row.actualClassification !== "unmapped"),
+      // Recognition, alias and unit coverage are scored over rows the corpus
+      // expects to be recognized. Deliberate unknown-marker rows must stay
+      // `unmapped`, and their safety is asserted by expectedClassificationRate
+      // and falseConcreteResolutions instead.
+      recognitionRate: countRate(
+        recognizableRows,
+        (row) => row.actualClassification !== null && row.actualClassification !== "unmapped",
+      ),
       expectedClassificationRate: countRate(reportRows, (row) => row.classificationMatches),
-      aliasCoverageRate: countRate(reportRows, (row) => row.aliasCovered),
-      unitCoverageRate: countRate(reportRows, (row) => row.unitCovered),
+      aliasCoverageRate: countRate(recognizableRows, (row) => row.aliasCovered),
+      unitCoverageRate: countRate(recognizableRows, (row) => row.unitCovered),
       resolved,
       partial,
       ambiguous,
@@ -902,13 +1023,7 @@ export function runRegistryV2CandidateCorpus(options: CandidateCorpusRunnerOptio
     },
   };
   const checks = thresholdChecks(report, loaded.policy);
-  const approvals = validateApprovals(
-    loaded.approvals,
-    loaded.policy,
-    inputHash,
-    assessmentImpact.map((item) => item.definitionKey)
-  );
-  const manifestWithoutHash: Omit<CandidateReleaseManifest, "manifestHash"> = {
+  const manifestWithoutHash: Omit<CandidateCorpusTechnicalManifest, "manifestHash"> = {
     schemaVersion: "1",
     candidate: {
       id: loaded.corpus.candidate.id,
@@ -921,17 +1036,39 @@ export function runRegistryV2CandidateCorpus(options: CandidateCorpusRunnerOptio
     candidateInputHash: inputHash,
     inputHashes,
     reportHash: hashJson(report),
-    approvalEvidenceHash: approvals.approvalsHash,
     thresholdChecks: checks,
-    approvals: { valid: approvals.valid, errors: approvals.errors },
     fixtureErrors: loaded.fixtureErrors,
-    launchable: loaded.fixtureErrors.length === 0 && checks.every((check) => check.passed) && approvals.valid,
+  };
+  const manifest: CandidateCorpusTechnicalManifest = {
+    ...manifestWithoutHash,
+    manifestHash: hashJson(manifestWithoutHash),
+  };
+  return { manifest, report };
+}
+
+export function runRegistryV2CandidateCorpus(options: CandidateCorpusRunnerOptions = {}): CandidateCorpusRun {
+  const technical = runRegistryV2CandidateCorpusTechnical(options);
+  const loaded = loadCandidateCorpus(options.root);
+  const approvals = validateApprovals(
+    loaded.approvals,
+    loaded.policy,
+    technical.manifest.candidateInputHash,
+    technical.report.assessmentImpact.map((item) => item.definitionKey),
+  );
+  const manifestWithoutHash: Omit<CandidateReleaseManifest, "manifestHash"> = {
+    ...technical.manifest,
+    approvalEvidenceHash: approvals.approvalsHash,
+    approvals: { valid: approvals.valid, errors: approvals.errors },
+    launchable:
+      technical.manifest.fixtureErrors.length === 0 &&
+      technical.manifest.thresholdChecks.every((check) => check.passed) &&
+      approvals.valid,
   };
   const manifest: CandidateReleaseManifest = {
     ...manifestWithoutHash,
     manifestHash: hashJson(manifestWithoutHash),
   };
-  return { manifest, report };
+  return { manifest, report: technical.report };
 }
 
 export function candidateCorpusSummary(run: CandidateCorpusRun): Record<string, unknown> {

@@ -7,6 +7,7 @@ import {
   canonicalJson,
   REQUIRED_CANDIDATE_CORPUS_ROW_COUNT,
   runRegistryV2CandidateCorpus,
+  runRegistryV2CandidateCorpusTechnical,
 } from "./lib/registry-v2-candidate-corpus";
 
 const candidateRoot = resolve("registry/candidate-release/v1");
@@ -34,7 +35,7 @@ assert.equal(first.report.coverage.actualRows, REQUIRED_CANDIDATE_CORPUS_ROW_COU
 assert.ok(first.report.coverage.missingContextNegativeCount > 0, "missing-context negatives must remain represented");
 assert.ok(first.report.coverage.deidentifiedDocumentCount >= 4, "representative de-identified document fixtures are required");
 assert.ok(first.report.coverage.specialtyDocumentCount > 0, "specialty document coverage is required");
-assert.deepEqual(first.report.coverage.languages, ["en", "ru"]);
+assert.deepEqual(first.report.coverage.languages, ["en", "es", "ru"]);
 assert.equal(first.report.metrics.rawPreservationRate, 1);
 assert.equal(first.report.metrics.expectedClassificationRate, 1);
 assert.equal(first.report.metrics.falseConcreteResolutions, 0);
@@ -56,6 +57,8 @@ assert.deepEqual(
     "glucose-missing-specimen",
     "glucose-fasting-missing-timing",
     "glucose-incompatible-unit",
+    "ru-glucose-missing-specimen",
+    "es-glucosa-suero",
   ]
 );
 // Partition by id rather than by index: the positional form silently mis-split
@@ -68,6 +71,8 @@ const RESOLVED_GLUCOSE_ROWS = new Set([
   "glucose-urine-dipstick",
   "glucose-fasting",
   "glucose-post-prandial",
+  // Spanish `Glucosa, suero` states its specimen, so it resolves like `glucose`.
+  "es-glucosa-suero",
 ]);
 for (const row of glucoseRows) {
   assert.equal(
@@ -327,6 +332,45 @@ try {
   assert.match(staleApproval.manifest.approvals.errors.join("\n"), /bound to a different candidate input hash/);
 } finally {
   rmSync(staleApprovalRoot, { recursive: true, force: true });
+}
+
+for (const mutateApprovals of [
+  (root: string) => rmSync(join(root, "approvals.json")),
+  (root: string) => writeFileSync(join(root, "approvals.json"), "{ not valid json", "utf8"),
+  (root: string) => changeJson(root, "approvals.json", (evidence) => {
+    const approvals = evidence.approvals as Array<Record<string, unknown>>;
+    approvals[0]!.status = "pending";
+  }),
+  (root: string) => changeJson(root, "approvals.json", (evidence) => {
+    const approvals = evidence.approvals as Array<Record<string, unknown>>;
+    approvals[0]!.candidateInputHash = "different-candidate-input";
+  }),
+]) {
+  const technicalApprovalIsolationRoot = temporaryCandidateRoot();
+  try {
+    mutateApprovals(technicalApprovalIsolationRoot);
+    const technical = runRegistryV2CandidateCorpusTechnical({ root: technicalApprovalIsolationRoot });
+    assert.equal(technical.report.metrics.expectedClassificationRate, 1);
+    assert.ok(technical.manifest.thresholdChecks.every((check) => check.passed));
+    assert.doesNotMatch(canonicalJson(technical), /approv|launchable/i);
+  } finally {
+    rmSync(technicalApprovalIsolationRoot, { recursive: true, force: true });
+  }
+}
+
+const technicalFixtureFailureRoot = temporaryCandidateRoot();
+try {
+  changeJson(technicalFixtureFailureRoot, "corpus.json", (corpus) => {
+    const rows = corpus.rows as Array<Record<string, unknown>>;
+    rows.pop();
+  });
+  assert.throws(
+    () => runRegistryV2CandidateCorpusTechnical({ root: technicalFixtureFailureRoot }),
+    /fixture validation failed/,
+    "technical evaluation must still reject invalid corpus fixtures",
+  );
+} finally {
+  rmSync(technicalFixtureFailureRoot, { recursive: true, force: true });
 }
 
 const missingReleaseArtifactRoot = temporaryCandidateRoot();

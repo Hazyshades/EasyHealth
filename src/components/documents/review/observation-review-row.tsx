@@ -60,17 +60,18 @@ export function ObservationReviewRow({
           <p className="font-medium text-[var(--eh-text-primary)]">
             {rawEvidence.displayName}
           </p>
+          {rawEvidence.canonicalEnglishName &&
+          rawEvidence.canonicalEnglishName !== rawEvidence.displayName ? (
+            <p className="text-xs text-[var(--eh-text-muted)]">
+              Canonical: {rawEvidence.canonicalEnglishName}
+            </p>
+          ) : null}
           <p className="text-sm text-[var(--eh-text-secondary)]">
             {rawEvidence.value ?? rawEvidence.rawValueText ?? "—"}
             {rawEvidence.referenceText
               ? ` · ref ${rawEvidence.referenceText}`
               : ""}
           </p>
-          {rawEvidence.rawValueText && rawEvidence.value ? (
-            <p className="mt-0.5 text-xs text-[var(--eh-text-muted)]">
-              Reported as “{rawEvidence.rawValueText}”
-            </p>
-          ) : null}
           {rawEvidence.correctedMeasurement ? (
             <p className="mt-1 text-xs text-[var(--eh-text-secondary)]">
               Corrected to{" "}
@@ -83,9 +84,13 @@ export function ObservationReviewRow({
                 ? ` · ref ${rawEvidence.correctedMeasurement.referenceText}`
                 : ""}
               {rawEvidence.correctedMeasurement.observedAt
-                ? ` · date ${rawEvidence.correctedMeasurement.observedAt}`
+                ? ` · ${rawEvidence.correctedMeasurement.observedAt}`
                 : ""}
-              {" · raw extraction unchanged"}
+            </p>
+          ) : null}
+          {rawEvidence.rawValueText && rawEvidence.value ? (
+            <p className="mt-0.5 text-xs text-[var(--eh-text-muted)]">
+              Reported as “{rawEvidence.rawValueText}”
             </p>
           ) : null}
           <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
@@ -98,8 +103,8 @@ export function ObservationReviewRow({
             {rawEvidence.extractionConfidence != null
               ? ` · ${Math.round(rawEvidence.extractionConfidence * 100)}% extraction confidence`
               : ""}
-            {row.userCorrected ? " · corrected by you" : ""}
             {row.accepted ? " · stored" : ""}
+            {row.userCorrected ? " · corrected by you" : ""}
           </p>
           {snippet ? (
             <p className="mt-1 text-xs italic text-[var(--eh-text-muted)]">
@@ -108,9 +113,9 @@ export function ObservationReviewRow({
           ) : null}
         </button>
       </div>
-      {correction}
 
       <ReviewStateChips mapping={mapping} />
+      {correction}
 
       {mapping.guidance ? (
         <div className="mt-2 border-t border-slate-100 pt-2 text-xs text-[var(--eh-text-secondary)]">

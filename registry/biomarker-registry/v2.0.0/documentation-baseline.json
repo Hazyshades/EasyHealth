@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1",
+  "catalog": {
+    "manifestVersion": "2026-08-09.0",
+    "manifestDigest": "0958b2794f9a4de55462caafbfa71b0f3c22db977851433b6b796f32f133f1d7",
+    "counts": {
+      "definitions": 107,
+      "reviewedDefinitions": 68,
+      "provisionalDefinitions": 39,
+      "retiredDefinitions": 0,
+      "analytes": 77,
+      "aliases": 625,
+      "assessmentBoundDefinitions": 44,
+      "aliasesByLocale": {
+        "en": 277,
+        "ru": 179,
+        "es": 169
+      }
+    }
+  },
+  "technicalCorpus": {
+    "rows": 72,
+    "rowsByLocale": {
+      "en": 53,
+      "ru": 9,
+      "es": 10
+    }
+  }
+}

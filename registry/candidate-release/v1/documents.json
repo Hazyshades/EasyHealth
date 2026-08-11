@@ -2,15 +2,18 @@
   "schemaVersion": "1",
   "requiredCoverage": {
     "panels": ["biochemistry", "cbc", "serology"],
-    "languages": ["en", "ru"],
+    "languages": ["en", "ru", "es"],
     "laboratories": ["central-serology", "northern-diagnostics", "westfield-diagnostics"],
     "requiresSpecialtyRows": true
   },
   "documents": [
     { "id": "chemistry-en-west", "fixture": "documents/chemistry-en-west.json" },
+    { "id": "cbc-en-north", "fixture": "documents/cbc-en-north.json" },
     { "id": "cbc-ru-north", "fixture": "documents/cbc-ru-north.json" },
     { "id": "specialty-en-central", "fixture": "documents/specialty-en-central.json" },
     { "id": "specialty-ru-central", "fixture": "documents/specialty-ru-central.json" },
-    { "id": "glucose-en-review", "fixture": "documents/glucose-en-review.json" }
+    { "id": "glucose-en-review", "fixture": "documents/glucose-en-review.json" },
+    { "id": "chemistry-es-iberia", "fixture": "documents/chemistry-es-iberia.json" },
+    { "id": "cbc-es-latam", "fixture": "documents/cbc-es-latam.json" }
   ]
 }

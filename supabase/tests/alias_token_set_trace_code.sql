@@ -136,7 +136,7 @@ select ok(
     (select trace from alias_token_set_fixture where name = 'token_set'),
     '2'
   ),
-  'an unrecognized trace schema version is still rejected'
+  'a schema-1 trace declared as schema 2 is rejected'
 );
 
 select * from finish();
