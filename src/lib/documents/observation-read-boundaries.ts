@@ -1,5 +1,6 @@
 import { getMeasurementDefinition } from "@/lib/biomarkers";
 import type { ResolvedReviewedMeasurementBinding } from "@/lib/biomarkers";
+import type { MeasurementOverride } from "./observation-measurement-correction";
 
 type InstrumentalSourceRelation = { is_current?: boolean | null } | null;
 
@@ -42,6 +43,7 @@ export type RegistryV2NormalizationRevisionReadBoundary = {
       missingAxes?: readonly string[];
     }[];
   } | null;
+  measurement_override?: MeasurementOverride | null;
 };
 
 export type RegistryV2LaboratoryBindingSource =

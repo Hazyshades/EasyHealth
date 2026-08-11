@@ -12,7 +12,7 @@ begin;
 -- This fixture submits the EXACT shape `buildNormalizationResolutionPayload`
 -- produces. If the two drift again, this fails.
 
-select plan(12);
+select plan(15);
 
 insert into public.profiles (id) values ('00000000-0000-0000-0000-0000000c0001');
 
@@ -39,6 +39,15 @@ values (
   'ALT (alanine aminotransferase)',
   28, '28', 'numeric', 'U/L', 'U/L', '28',
   1, 'ALT (alanine aminotransferase) 28 U/L',
+  1, 'needs_review', true, 'llm'
+), (
+  '00000000-0000-0000-0000-0000000c0006',
+  '00000000-0000-0000-0000-0000000c0002',
+  '00000000-0000-0000-0000-0000000c0001',
+  'ALT correction seam',
+  'ALT correction seam',
+  28, '28', 'numeric', 'U/L', 'U/L', '28',
+  1, 'ALT correction seam 28 U/L',
   1, 'needs_review', true, 'llm'
 );
 
@@ -170,6 +179,47 @@ select lives_ok(
     )
   $$,
   'the RPC accepts the v2 decision-trace object the TypeScript writer actually sends'
+);
+select lives_ok(
+  $$
+    select public.write_observation_normalization_revision_v2(
+      '00000000-0000-0000-0000-0000000c0006',
+      public.seam_observation() || jsonb_build_object(
+        'value', 29,
+        'value_text', '29',
+        'measurement_override',
+        jsonb_build_object('value', 29)
+      ),
+      public.seam_resolution(),
+      'value_correction',
+      '00000000-0000-0000-0000-0000000c0001',
+      repeat('c', 64),
+      jsonb_build_object('value', 29),
+      null::uuid,
+      'additive',
+      'The printed value is 29, not 28.',
+      null::uuid,
+      null::uuid,
+      'user',
+      false
+    )
+  $$,
+  'the explicit correction payload crosses the writer RPC seam'
+);
+select is(
+  (select measurement_override
+   from public.observation_normalization_revisions
+   where extracted_biomarker_id = '00000000-0000-0000-0000-0000000c0006'
+     and is_active),
+  jsonb_build_object('value', 29),
+  'the writer persists the explicit measurement override'
+);
+select is(
+  (select value
+   from public.observations
+   where source_extracted_biomarker_id = '00000000-0000-0000-0000-0000000c0006'),
+  29::numeric,
+  'the writer projects the corrected value atomically'
 );
 
 -- ── 2. It really wrote an observation ──────────────────────────────────────

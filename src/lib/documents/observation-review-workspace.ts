@@ -5,6 +5,8 @@ import type {
   ResolverResult,
   VerificationStatus,
 } from "@/lib/biomarkers";
+import { parseReferenceRange } from "@/lib/schemas/biomarkers";
+import type { MeasurementOverride } from "./observation-measurement-correction";
 import {
   measurementMappingGuidance,
   measurementMappingLabel,
@@ -41,6 +43,16 @@ export type ReviewChipVariant =
   | "error"
   | "info"
   | "neutral";
+export type ReviewRowCorrectedMeasurement = Readonly<{
+  /** Effective measurement after applying the active human restatement. */
+  value: string | null;
+  /** Corrected unit, when the reviewer restated it. */
+  unit: string | null;
+  /** Corrected reference bounds in compact display form. */
+  referenceText: string | null;
+  /** Corrected report date; null when the date was not restated. */
+  observedAt: string | null;
+}>;
 
 export type ReviewRowRawEvidence = Readonly<{
   /** Name as reported by the document, never a candidate display name. */
@@ -51,6 +63,8 @@ export type ReviewRowRawEvidence = Readonly<{
   rawValueText: string | null;
   /** Reported reference range, verbatim. */
   referenceText: string | null;
+  /** Effective corrected measurement, kept separate from raw evidence. */
+  correctedMeasurement: ReviewRowCorrectedMeasurement | null;
   /** Explicitly stated specimen; null when the report did not state one. */
   specimen: string | null;
   /** Explicitly stated modifier; null when the report did not state one. */
@@ -96,6 +110,8 @@ export type ReviewRow = Readonly<{
   reviewable: boolean;
   /** Row has already been persisted as an observation. */
   accepted: boolean;
+  /** True when the active revision carries a human measurement restatement. */
+  userCorrected: boolean;
   rawEvidence: ReviewRowRawEvidence;
   source: ReviewRowSourceLocation;
   mapping: ReviewRowMappingState;
@@ -303,6 +319,50 @@ function buildMappingState(options: {
   };
 }
 
+function buildCorrectedMeasurement(
+  item: ExtractedReviewRowInput,
+  override: MeasurementOverride | null,
+): ReviewRowCorrectedMeasurement | null {
+  if (!override) return null;
+  const baseNumeric =
+    item.value_kind && item.value_kind !== "numeric" ? null : item.value_numeric;
+  const baseText = item.value_text ?? null;
+  const baseKind =
+    item.value_kind === "numeric" ||
+    item.value_kind === "qualitative" ||
+    item.value_kind === "ordinal" ||
+    item.value_kind === "text"
+      ? item.value_kind
+      : baseNumeric == null
+        ? "text"
+        : "numeric";
+  const valueKind = override.value_kind ?? baseKind;
+  const numericValue =
+    "value" in override ? override.value ?? null : baseNumeric;
+  const valueText = "value_text" in override ? override.value_text ?? null : baseText;
+  const unit =
+    "unit" in override ? override.unit ?? null : item.unit ?? item.raw_unit ?? null;
+  const { ref_low: baseRefLow, ref_high: baseRefHigh } = parseReferenceRange(
+    item.reference_range ?? item.raw_reference_range ?? null,
+  );
+  const refLow = "ref_low" in override ? override.ref_low ?? null : baseRefLow;
+  const refHigh = "ref_high" in override ? override.ref_high ?? null : baseRefHigh;
+  const referenceText =
+    refLow === null && refHigh === null
+      ? null
+      : `${refLow ?? "—"} - ${refHigh ?? "—"}`;
+  return {
+    value: formatReportedValue(
+      valueKind === "numeric" ? numericValue : null,
+      valueText,
+      unit,
+    ),
+    unit: typeof unit === "string" && unit.trim() ? unit.trim() : null,
+    referenceText,
+    observedAt: "observed_at" in override ? override.observed_at ?? null : null,
+  };
+}
+
 export type ExtractedReviewRowInput = {
   id: string;
   biomarker_name: string;
@@ -328,7 +388,10 @@ export type ExtractedReviewRowInput = {
     mappingConfidenceBand: MappingConfidenceBand;
     registryBindingReady: boolean;
     resolutionDetails: LaboratoryResolutionDetails;
-    activeRevision: { verification_status: VerificationStatus } | null;
+    activeRevision: {
+      verification_status: VerificationStatus;
+      measurement_override?: MeasurementOverride | null;
+    } | null;
   } | null;
 };
 
@@ -337,6 +400,12 @@ export function buildExtractedReviewRow(
 ): ReviewRow {
   const reviewable = item.status in REVIEWABLE_EXTRACTED_STATUSES;
   const normalization = item.normalization ?? null;
+  const measurementOverride =
+    normalization?.activeRevision?.measurement_override ?? null;
+  const correctedMeasurement = buildCorrectedMeasurement(
+    item,
+    measurementOverride,
+  );
   const numericValue =
     item.value_kind && item.value_kind !== "numeric" ? null : item.value_numeric;
   const value = formatReportedValue(
@@ -356,12 +425,14 @@ export function buildExtractedReviewRow(
     sourceKind: "extracted",
     reviewable,
     accepted: item.status === "accepted" || item.status === "auto_accepted",
+    userCorrected: measurementOverride !== null,
     rawEvidence: {
       displayName: item.raw_name?.trim() || item.biomarker_name,
       value,
       rawValueText,
       referenceText:
         item.raw_reference_range?.trim() || item.reference_range?.trim() || null,
+      correctedMeasurement,
       specimen: statedAxis(item.specimen, UNSTATED_SPECIMEN),
       modifier: statedAxis(item.modifier, UNSTATED_MODIFIER),
       method: statedAxis(item.method, NOTHING_UNSTATED),
@@ -448,11 +519,13 @@ export function buildObservationReviewRow(
     sourceKind: "observation",
     reviewable: false,
     accepted: true,
+    userCorrected: false,
     rawEvidence: {
       displayName: item.raw_name?.trim() || item.name,
       value,
       rawValueText,
       referenceText: observationReferenceText(item),
+      correctedMeasurement: null,
       specimen: statedAxis(item.specimen, UNSTATED_SPECIMEN),
       modifier: statedAxis(item.modifier, UNSTATED_MODIFIER),
       method: null,

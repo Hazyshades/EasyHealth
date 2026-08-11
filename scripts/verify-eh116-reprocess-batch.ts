@@ -221,6 +221,7 @@ async function main(): Promise<void> {
       confidence: 0.5,
       candidates: [],
     },
+    measurement_override: null,
   };
 
   const partialToResolvedDiff = computeReprocessBatchDiff({
@@ -280,7 +281,18 @@ async function main(): Promise<void> {
     measurement_definition_key: "some_other_definition",
     analyte_key: "other_analyte",
     verification_status: "manually_corrected",
+    measurement_override: { value: 91 },
   };
+  const correctedProtectedDiff = computeReprocessBatchDiff({
+    extractedRow: baseRow,
+    activeRevision: manuallyCorrectedActive,
+    includeManualDecisions: false,
+  });
+  assert.equal(
+    correctedProtectedDiff.diffClassification,
+    "skipped_manual_correction",
+    "a measurement correction is protected even when its verification is not the selector",
+  );
 
   const overrideDiff = computeReprocessBatchDiff({
     extractedRow: baseRow,
