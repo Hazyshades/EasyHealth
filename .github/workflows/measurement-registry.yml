@@ -114,6 +114,9 @@ jobs:
           OPENAI_API_KEY: ci-placeholder
           NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      - name: Verify observation change history
+        run: pnpm test:eh121
+
       - name: Publish Registry 2.0 candidate-release evidence
         run: |
           mkdir -p .artifacts
@@ -170,6 +173,8 @@ jobs:
         run: pnpm test:stated-axis-db
       - name: Run EH-119 observation correction database contract
         run: pnpm test:eh119-db
+      - name: Run EH-121 observation change history database contract
+        run: pnpm test:eh121-db
       - name: Run EH-118 source region database contract
         run: pnpm test:eh118-db
       - name: Run EH-113 CBC method evidence database contract
