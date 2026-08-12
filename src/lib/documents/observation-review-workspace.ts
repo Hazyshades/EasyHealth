@@ -7,6 +7,7 @@ import type {
 } from "@/lib/biomarkers";
 import { parseReferenceRange } from "@/lib/schemas/biomarkers";
 import type { MeasurementOverride } from "./observation-measurement-correction";
+import { getMeasurementDefinition } from "@/lib/biomarkers";
 import {
   measurementMappingGuidance,
   measurementMappingLabel,
@@ -57,6 +58,11 @@ export type ReviewRowCorrectedMeasurement = Readonly<{
 export type ReviewRowRawEvidence = Readonly<{
   /** Name as reported by the document, never a candidate display name. */
   displayName: string;
+  /**
+   * Canonical English Registry measurement name when the row is concretely
+   * resolved; null for incomplete outcomes so no candidate is implied.
+   */
+  canonicalEnglishName: string | null;
   /** Formatted reported value with its reported unit, when available. */
   value: string | null;
   /** Verbatim value text from the document when it differs from `value`. */
@@ -383,6 +389,7 @@ export type ExtractedReviewRowInput = {
   source_text: string | null;
   bounding_box?: unknown;
   status: string;
+  measurement_definition_key?: string | null;
   normalization?: {
     result: ResolverResult;
     mappingConfidenceBand: MappingConfidenceBand;
@@ -392,6 +399,7 @@ export type ExtractedReviewRowInput = {
       verification_status: VerificationStatus;
       measurement_override?: MeasurementOverride | null;
     } | null;
+    candidateDefinitionKey?: string | null;
   } | null;
 };
 
@@ -420,6 +428,20 @@ export function buildExtractedReviewRow(
       ? item.raw_value_text.trim()
       : null;
 
+  const outcome = isResolverResult(normalization?.result)
+    ? normalization.result
+    : null;
+  const definitionKey =
+    outcome === "resolved"
+      ? (normalization?.candidateDefinitionKey ??
+        item.measurement_definition_key ??
+        null)
+      : null;
+  const canonicalEnglishName =
+    definitionKey != null
+      ? (getMeasurementDefinition(definitionKey)?.displayName ?? null)
+      : null;
+
   return {
     id: item.id,
     sourceKind: "extracted",
@@ -428,6 +450,7 @@ export function buildExtractedReviewRow(
     userCorrected: measurementOverride !== null,
     rawEvidence: {
       displayName: item.raw_name?.trim() || item.biomarker_name,
+      canonicalEnglishName,
       value,
       rawValueText,
       referenceText:
@@ -440,9 +463,7 @@ export function buildExtractedReviewRow(
     },
     source: resolveSourceLocation(item.source_page, item.source_text, item.bounding_box),
     mapping: buildMappingState({
-      outcome: isResolverResult(normalization?.result)
-        ? normalization.result
-        : null,
+      outcome,
       verificationStatus:
         asVerificationStatus(
           normalization?.resolutionDetails?.verificationStatus,
@@ -481,6 +502,7 @@ export type ObservationReviewRowInput = {
   resolver_result?: string | null;
   verification_status?: string | null;
   registry_binding_ready?: boolean;
+  measurement_definition_key?: string | null;
   resolution_details?: LaboratoryResolutionDetails | null;
 };
 
@@ -513,6 +535,12 @@ export function buildObservationReviewRow(
       : null;
   const reportedOutcome = item.resolver_result ?? item.resolution_status;
   const outcome = isResolverResult(reportedOutcome) ? reportedOutcome : null;
+  const definitionKey =
+    outcome === "resolved" ? (item.measurement_definition_key ?? null) : null;
+  const canonicalEnglishName =
+    definitionKey != null
+      ? (getMeasurementDefinition(definitionKey)?.displayName ?? null)
+      : null;
 
   return {
     id: item.id,
@@ -522,6 +550,7 @@ export function buildObservationReviewRow(
     userCorrected: false,
     rawEvidence: {
       displayName: item.raw_name?.trim() || item.name,
+      canonicalEnglishName,
       value,
       rawValueText,
       referenceText: observationReferenceText(item),

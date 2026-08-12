@@ -22,6 +22,11 @@ if (!url || !key || url.includes("ci-placeholder") || key.includes("ci-placehold
   process.exit(1);
 }
 
+// Test-only fault injection lets the integration contract exercise its
+// `finally` cleanup path without weakening the normal success run.
+const FORCE_FAILURE = process.env.POSTGREST_EMBEDS_FORCE_FAILURE === "1";
+
+
 const supabase = createClient(url, key, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
@@ -99,11 +104,13 @@ async function insertFixture(): Promise<void> {
         document_id: documentId,
         source_extracted_biomarker_id: biomarkerId,
         normalization_revision_id: revisionId,
-        name: "PostgREST embed observation",
+        name: "PostGREST embed observation",
         value: 1,
         unit: "mg/dL",
         observed_at: "2026-01-01",
         observation_kind: "lab",
+        source_page: 1,
+        source_text: "PostGREST embed observation 1 mg/dL",
       },
     ],
   ];
@@ -116,27 +123,44 @@ async function insertFixture(): Promise<void> {
 
 async function cleanupFixture(): Promise<void> {
   // Mirrors the owner DELETE route: controlled lineage purge, then document,
-  // then profile. Best-effort; a leaked fixture in a dev stack is non-fatal.
+  // then profile. Every cleanup failure is retained and fails the contract
+  // after all deletion attempts have run.
+  const failures: string[] = [];
   const { error: purgeError } = await supabase.rpc(
     "purge_document_derived_laboratory_lineage",
     { p_document_id: documentId }
   );
-  if (purgeError) {
-    console.warn(`cleanup: lineage purge failed: ${purgeError.message}`);
-  }
+  if (purgeError) failures.push(`lineage purge: ${purgeError.message}`);
   const { error: docError } = await supabase.from("documents").delete().eq("id", documentId);
-  if (docError) {
-    console.warn(`cleanup: document delete failed: ${docError.message}`);
-  }
+  if (docError) failures.push(`document delete: ${docError.message}`);
   const { error: profileError } = await supabase.from("profiles").delete().eq("id", profileId);
-  if (profileError) {
-    console.warn(`cleanup: profile delete failed: ${profileError.message}`);
+  if (profileError) failures.push(`profile delete: ${profileError.message}`);
+  if (failures.length > 0) {
+    throw new Error(`fixture cleanup failed: ${failures.join("; ")}`);
   }
+
+  const residueChecks: Array<[string, string]> = [
+    ["profiles", profileId],
+    ["documents", documentId],
+    ["document_extracted_biomarkers", biomarkerId],
+    ["observation_normalization_revisions", revisionId],
+    ["observations", observationId],
+  ];
+  for (const [table, id] of residueChecks) {
+    const { data, error } = await supabase.from(table).select("id").eq("id", id);
+    assert.equal(error, null, `${table}: cleanup residue check failed: ${error?.message}`);
+    assert.equal(data?.length, 0, `${table}: fixture residue remained after cleanup`);
+  }
+  console.log(`ok: fixture cleanup after ${FORCE_FAILURE ? "failure" : "success"} path`);
 }
 
+
 async function main(): Promise<void> {
-  await insertFixture();
   try {
+    await insertFixture();
+    if (FORCE_FAILURE) {
+      throw new Error("forced failure after fixture insert for cleanup verification");
+    }
     for (const [consumer, select] of Object.entries(CONSUMER_SELECTS)) {
       const { data, error } = await supabase
         .from("observations")

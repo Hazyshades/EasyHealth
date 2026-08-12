@@ -176,7 +176,7 @@ assert.equal(resolvedGlucose.result, "resolved");
 assert.equal(resolvedGlucose.measurementDefinitionKey, "glucose_serum");
 
 const percentAgainstAbsolute = resolveMeasurementDefinition({
-  rawLabel: "Neutrophils absolute",
+  rawLabel: "Neutrophils, absolute (NEU)",
   rawUnit: "%",
   specimen: "whole_blood",
   valueKind: "numeric",
@@ -184,7 +184,7 @@ const percentAgainstAbsolute = resolveMeasurementDefinition({
 assert.ok(percentAgainstAbsolute.conflicts.includes("unit_dimension_conflict"));
 assert.equal(percentAgainstAbsolute.measurementDefinitionKey, null);
 const absoluteAgainstPercent = resolveMeasurementDefinition({
-  rawLabel: "Neutrophils percent",
+  rawLabel: "Neutrophils (NEU%)",
   rawUnit: "10^9/L",
   specimen: "whole_blood",
   valueKind: "numeric",
@@ -335,7 +335,7 @@ const writerRow: ExtractedBiomarkerWriterRow = {
   specimen: "serum",
   modifier: null,
   source_page: 1,
-  source_text: "ALT 28 U/L",
+  source_text: "ALT 28 U/L, serum",
   reported_alt_value: null,
   reported_alt_unit: null,
   raw_value_text: "28",

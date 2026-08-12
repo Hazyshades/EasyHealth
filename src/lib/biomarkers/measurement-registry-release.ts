@@ -121,6 +121,8 @@ export function classifyMeasurementDefinitionChange(
         replacement.value !== alias.value ||
         replacement.matchType !== alias.matchType ||
         replacement.laboratory !== alias.laboratory ||
+        replacement.locale !== alias.locale ||
+        replacement.normalizedValue !== alias.normalizedValue ||
         replacement.matchAuthority !== alias.matchAuthority;
     });
     return {

@@ -113,7 +113,14 @@ export type MatchedAlias = Pick<
   | "approvalStatus"
   | "lifecycle"
   | "provenance"
-> & { value: string; normalizedValue: string };
+  | "locale"
+  | "laboratory"
+> & {
+  value: string;
+  normalizedValue: string;
+  /** True when the accent-folded Spanish form admitted this alias. */
+  foldFallback?: boolean;
+};
 
 export type AssessmentBinding = {
   assessmentInputKey: string;
@@ -278,7 +285,14 @@ export type ResolverDecisionTrace = {
   confidence: number;
   candidates: readonly CandidateEvidence[];
 };
-export type ResolverTraceSchemaVersion = "1";
+/**
+ * Persisted trace schema versions.
+ *
+ * `"1"` is frozen: every trace already stored against a patient revision was
+ * written under it and must keep validating without backfill. `"2"` adds the
+ * alias evidence that explains which alias admitted the winning candidate.
+ */
+export type ResolverTraceSchemaVersion = "1" | "2";
 
 export type ResolverDecisionKind =
   | "single_reviewed_candidate"
@@ -292,7 +306,7 @@ export type PersistedResolverDecisionTraceEvidence = Pick<
   "code" | "strength"
 >;
 
-export type PersistedResolverDecisionTraceCandidate = {
+export type PersistedResolverDecisionTraceCandidateBase = {
   candidateKey: MeasurementDefinitionKey;
   maturity: MeasurementMaturity;
   score: number | null;
@@ -302,8 +316,30 @@ export type PersistedResolverDecisionTraceCandidate = {
   conflicts: readonly ResolutionReasonCode[];
 };
 
-export type PersistedResolverDecisionTrace = {
-  schemaVersion: ResolverTraceSchemaVersion;
+/**
+ * Schema-2 alias evidence. Catalog-derived only: `aliasKey` resolves to the
+ * literal through the release manifest, so no source text enters the trace.
+ */
+export type PersistedResolverDecisionTraceAliasEvidence = {
+  aliasKey: string;
+  aliasMatchType: AliasMatchType;
+  aliasLocale: string;
+  aliasLaboratory: string | null;
+  aliasFoldFallback: boolean;
+};
+
+export type PersistedResolverDecisionTraceCandidateV1 =
+  PersistedResolverDecisionTraceCandidateBase;
+
+export type PersistedResolverDecisionTraceCandidateV2 =
+  PersistedResolverDecisionTraceCandidateBase &
+    PersistedResolverDecisionTraceAliasEvidence;
+
+export type PersistedResolverDecisionTraceCandidate =
+  | PersistedResolverDecisionTraceCandidateV1
+  | PersistedResolverDecisionTraceCandidateV2;
+
+type PersistedResolverDecisionTraceCommon = {
   outcome: ResolverResult;
   decisionKind: ResolverDecisionKind;
   inputEvidenceHash: string;
@@ -311,10 +347,23 @@ export type PersistedResolverDecisionTrace = {
   catalogManifestDigest: string;
   resolverVersion: string;
   winningCandidateKey: MeasurementDefinitionKey | null;
-  candidates: readonly PersistedResolverDecisionTraceCandidate[];
   missingAxes: readonly ClinicalCompatibilityAxis[];
   conflicts: readonly ResolutionReasonCode[];
 };
+
+export type PersistedResolverDecisionTraceV1 = PersistedResolverDecisionTraceCommon & {
+  schemaVersion: "1";
+  candidates: readonly PersistedResolverDecisionTraceCandidateV1[];
+};
+
+export type PersistedResolverDecisionTraceV2 = PersistedResolverDecisionTraceCommon & {
+  schemaVersion: "2";
+  candidates: readonly PersistedResolverDecisionTraceCandidateV2[];
+};
+
+export type PersistedResolverDecisionTrace =
+  | PersistedResolverDecisionTraceV1
+  | PersistedResolverDecisionTraceV2;
 
 export type MappingConfidenceBand = "high" | "medium" | "low";
 

@@ -9,13 +9,13 @@ export type ParsedLabValue = {
 
 /** Dipstick / semi-quant ordinal map (design D1). */
 const ORDINAL_MAP: Array<{ pattern: RegExp; ordinal: number; kind: ValueKind }> = [
-  { pattern: /^(negative|neg|none|absent|негативн|отриц)/i, ordinal: 0, kind: "ordinal" },
-  { pattern: /^(trace|следы)/i, ordinal: 1, kind: "ordinal" },
+  { pattern: /^(negative|neg|none|absent|негативн|отриц|negativ)/i, ordinal: 0, kind: "ordinal" },
+  { pattern: /^(trace|следы|trazas)/i, ordinal: 1, kind: "ordinal" },
   { pattern: /^(\+{4}|4\+|xxxx)$/i, ordinal: 5, kind: "ordinal" },
   { pattern: /^(\+{3}|3\+|xxx)$/i, ordinal: 4, kind: "ordinal" },
   { pattern: /^(\+{2}|2\+|xx)$/i, ordinal: 3, kind: "ordinal" },
   { pattern: /^(\+|1\+|x)$/i, ordinal: 2, kind: "ordinal" },
-  { pattern: /^(positive|pos|позитивн|положит)/i, ordinal: 2, kind: "ordinal" },
+  { pattern: /^(positive|pos|позитивн|положит|positiv)/i, ordinal: 2, kind: "ordinal" },
 ];
 
 /**
@@ -109,13 +109,13 @@ export function inferSpecimen(
     key === "uacr" ||
     key === "upcr" ||
     key === "specific_gravity" ||
-    /urine|моч[аие]|urinalysis|dipstick/i.test(blob)
+    /urine|моч[аие]|urinalysis|dipstick|orina/i.test(blob)
   ) {
     return "urine";
   }
   if (/plasma|плазм/i.test(blob)) return "plasma";
-  if (/whole\s*blood|цельной?\s*кров/i.test(blob)) return "whole_blood";
-  if (/serum|сыворот/i.test(blob)) return "serum";
+  if (/whole\s*blood|цельной?\s*кров|sangre\s*(total|entera)/i.test(blob)) return "whole_blood";
+  if (/serum|сыворот|suero/i.test(blob)) return "serum";
   return "unspecified";
 }
 
@@ -126,20 +126,20 @@ export function inferModifier(
 ): Modifier {
   if (explicit && explicit.trim()) return explicit.trim().toLowerCase();
   const blob = `${key} ${name}`.toLowerCase();
-  if (/fasting|натощак|fpg/i.test(blob)) return "fasting";
-  if (/random|случай/i.test(blob)) return "random";
-  if (/\bfree\b|свободн/i.test(blob) && !/free_t/.test(key)) return "free";
-  if (/\btotal\b|общ/i.test(blob) && /t3|t4|testosterone|cholesterol/i.test(blob)) return "total";
-  if (/direct|conjugated|прям/i.test(blob)) return "direct";
-  if (/indirect|unconjugated|непрям/i.test(blob)) return "indirect";
-  if (/ionized|ионизир/i.test(blob)) return "ionized";
-  if (/percent|%|относ/i.test(blob) && /neutrophil|lymphocyte|mono|eosino|baso/i.test(blob)) {
+  if (/fasting|натощак|fpg|ayunas|basal/i.test(blob)) return "fasting";
+  if (/random|случай|azar/i.test(blob)) return "random";
+  if (/\bfree\b|свободн|libre/i.test(blob) && !/free_t/.test(key)) return "free";
+  if (/\btotal\b|общ/i.test(blob) && /t3|t4|testosterone|cholesterol|colesterol/i.test(blob)) return "total";
+  if (/direct|conjugated|прям|directa?/i.test(blob)) return "direct";
+  if (/indirect|unconjugated|непрям|indirecta?/i.test(blob)) return "indirect";
+  if (/ionized|ионизир|ionizado/i.test(blob)) return "ionized";
+  if (/percent|%|относ|porcentaje/i.test(blob) && /neutrophil|lymphocyte|mono|eosino|baso|neutr[oó]filo|linfocito/i.test(blob)) {
     return "percent";
   }
-  if (/absolute|абс/i.test(blob) && /neutrophil|lymphocyte|mono|eosino|baso/i.test(blob)) {
+  if (/absolute|абс|absolutos?/i.test(blob) && /neutrophil|lymphocyte|mono|eosino|baso|neutr[oó]filo|linfocito/i.test(blob)) {
     return "absolute";
   }
-  if (/calculated|calc|расчёт/i.test(blob)) return "calculated";
+  if (/calculated|calc|расчёт|calculad[oa]/i.test(blob)) return "calculated";
   return "none";
 }
 
