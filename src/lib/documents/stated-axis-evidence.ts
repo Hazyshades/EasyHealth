@@ -43,14 +43,22 @@ const UNKNOWN_AXIS_VALUES: Readonly<Record<string, true>> = {
 };
 
 /**
- * Lexical forms that count as stating each specimen, including the Cyrillic
- * stems already recognised by `inferSpecimen`.
+ * Lexical forms that count as stating each specimen, including the Cyrillic and
+ * Spanish stems already recognised by `inferSpecimen`.
  */
 const SPECIMEN_FORMS: Readonly<Record<string, readonly string[]>> = {
-  serum: ["serum", "сыворот"],
+  serum: ["serum", "сыворот", "suero"],
   plasma: ["plasma", "плазм"],
-  whole_blood: ["whole blood", "whole-blood", "wholeblood", "цельной крови", "цельная кровь"],
-  urine: ["urine", "моч"],
+  whole_blood: [
+    "whole blood",
+    "whole-blood",
+    "wholeblood",
+    "цельной крови",
+    "цельная кровь",
+    "sangre total",
+    "sangre entera",
+  ],
+  urine: ["urine", "моч", "orina"],
 };
 
 export type ClinicalAxis = "specimen" | "modifier" | "method" | "timing";

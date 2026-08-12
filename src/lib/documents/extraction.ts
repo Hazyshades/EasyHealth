@@ -32,6 +32,8 @@ export function formatReferenceRange(
 export type PipelineBiomarker = {
   key: string;
   name: string;
+  /** Verbatim printed label from the document; authoritative for alias matching. */
+  raw_name: string;
   value: number | null;
   value_text: string | null;
   value_kind: ValueKind;
@@ -68,8 +70,9 @@ Shape:
   "observed_at": "YYYY-MM-DD" | null,
   "biomarkers": [
     {
-      "key": "snake_case",
-      "name": "Human readable test name",
+      "raw_name": "exact test label as printed in the document (do not translate)",
+      "key": "optional English snake_case hint only",
+      "name": "optional English display hint",
       "value": number | string,
       "unit": "string",
       "ref_low": number | null,
@@ -86,18 +89,20 @@ Shape:
   ]
 }
 Rules:
-- Normalize biomarker keys to snake_case using common lab keys (e.g. hba1c, sodium, potassium, bicarbonate, crp, hs_crp, uacr, ferritin, ldl, free_t4, transferrin_saturation, urine_ketones, psa).
-- Prefer canonical names: sodium not na, lpa for Lp(a), vitamin_d for 25-OH D.
+- raw_name is REQUIRED for every row: copy the printed test name verbatim in the document language (Russian, Spanish, English, mixed). Do not translate raw_name.
+- key is an optional English snake_case hint (e.g. hba1c, sodium, glucose). It is NOT authoritative identity.
+- name is an optional English-oriented display hint; when unsure, omit or repeat raw_name.
+- Prefer common lab keys when emitting key hints (e.g. hba1c, sodium, potassium, bicarbonate, crp, hs_crp, uacr, ferritin, ldl, free_t4, transferrin_saturation, urine_ketones, psa).
 - Use ISO date YYYY-MM-DD for observed_at when visible.
-- Include quantitative lab results AND qualitative/semi-quantitative results (Negative, Trace, 1+, Positive).
-- For qualitative results, put the text in "value" as a string (e.g. "Negative", "2+").
+- Include quantitative lab results AND qualitative/semi-quantitative results (Negative, Trace, 1+, Positive, Отрицательно, Negativo).
+- For qualitative results, put the lab's verbatim text in "value" as a string (do not translate Отрицательно/Negativo into English).
 - For quantitative results, put a number in "value".
 - If dual units are printed (e.g. 90 mg/dL / 5.0 mmol/L), store primary in value/unit and alternate in reported_alt_value/reported_alt_unit.
 - Emit specimen only when the report explicitly states it on the row itself or in a labelled line (for example "Material: serum"); do not infer it from the analyte label, from a section heading, or from which specimen the test is usually measured in. When the report does not state it, use null. A section heading is not accepted as evidence: it is not captured with the row, so a specimen taken from it cannot be verified and is discarded before resolution.
 - For CBC differentials, emit method only when the report explicitly states automated or manual; do not infer it from the analyte label.
 - EXCLUDE vital signs (blood pressure, pulse, respirations, temperature, SpO2).
 - EXCLUDE physical examination measurements and narrative clinical notes.
-- If the document is clearly not a laboratory report, return an empty biomarkers array.
+- If the document is clearly not a laboratory report, return an empty biomarkers array. Do not invent catalog entries.
 - source_page is the 1-based page number where the value appears. When the input contains "=== PAGE N ===" markers, use N from the marker that precedes the value.
 - source_text is a short verbatim snippet from the document containing the label and the value. Copy it exactly; it is matched back to the page to highlight the source region.
 - confidence is 0.0-1.0 for extraction certainty.
@@ -149,7 +154,7 @@ function statedAxesFromRow(
   };
 }
 
-function parsePipelineExtraction(raw: unknown): PipelineExtractionResult {
+export function parsePipelineExtraction(raw: unknown): PipelineExtractionResult {
   const data =
     raw && typeof raw === "object" && !Array.isArray(raw)
       ? (raw as Record<string, unknown>)
@@ -162,23 +167,31 @@ function parsePipelineExtraction(raw: unknown): PipelineExtractionResult {
     if (!item || typeof item !== "object" || Array.isArray(item)) continue;
     const row = item as Record<string, unknown>;
 
-    const name = typeof row.name === "string" && row.name.trim() ? row.name.trim() : "Unknown test";
-    const keySource = typeof row.key === "string" && row.key.trim() ? row.key : name;
-    // This is an opaque extraction hint. Semantic identity is assigned later by
-    // the Registry 2.0 resolver using label, unit, and context evidence.
+    const rawName =
+      typeof row.raw_name === "string" && row.raw_name.trim()
+        ? row.raw_name.trim()
+        : typeof row.name === "string" && row.name.trim()
+          ? row.name.trim()
+          : "";
+    if (!rawName) continue;
+
+    const name =
+      typeof row.name === "string" && row.name.trim() ? row.name.trim() : rawName;
+    const keySource = typeof row.key === "string" && row.key.trim() ? row.key : rawName;
+    // Opaque extraction hint only. Semantic identity uses raw_name via resolver.
     const key = normalizeBiomarkerKeyToken(keySource) || "unknown";
 
     const sourceText = typeof row.source_text === "string" ? row.source_text : null;
-    const axes = statedAxesFromRow(key, name, row, sourceText);
+    const axes = statedAxesFromRow(key, rawName, row, sourceText);
 
     const parsed = parseLabValueCell(row.value);
     if (!parsed) {
-      // fall back: try numeric only
       const numeric = parseLabNumber(row.value);
       if (numeric === null) continue;
       biomarkers.push({
         key,
         name,
+        raw_name: rawName,
         value: numeric,
         value_text: String(numeric),
         value_kind: "numeric",
@@ -207,6 +220,7 @@ function parsePipelineExtraction(raw: unknown): PipelineExtractionResult {
     biomarkers.push({
       key,
       name,
+      raw_name: rawName,
       value: parsed.value,
       value_text: parsed.value_text,
       value_kind: parsed.value_kind,

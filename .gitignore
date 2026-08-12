@@ -47,7 +47,6 @@ next-env.d.ts
 xmcp-env.d.ts
 
 #scpecs
-/docs/
 openspec/domains/
 openspec/specs/
 hackathon.md
@@ -79,3 +78,5 @@ supabase/.temp
 test_ruseluts
 # EH-118 smoke-test output
 .artifacts
+
+.wiki-export/

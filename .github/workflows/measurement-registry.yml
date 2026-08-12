@@ -19,7 +19,19 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Verify CI suite coverage contract
+        run: pnpm check:ci-suite-coverage-contract
+      - name: Verify every test suite is workflow-reachable
+        run: pnpm check:ci-suite-coverage
       - run: pnpm typecheck
+      - name: Verify generated biomarker documentation
+        run: pnpm check:biomarker-docs
+      - name: Verify biomarker documentation contract
+        run: pnpm test:biomarker-docs
+      - name: Verify laboratory persistence boundaries
+        run: pnpm test:document-persistence-boundaries
+      - name: Verify Health Profile laboratory projection
+        run: pnpm test:health-profile-lab-input
       - run: pnpm check:registry-v2-cutover
       - run: pnpm check:no-legacy-promotion-rpc
       - run: pnpm check:postgrest-embed-hints
@@ -29,6 +41,18 @@ jobs:
           OPENAI_API_KEY: ci-placeholder
           NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      - name: Verify document worker reliability
+        run: pnpm test:document-worker
+      - name: Verify EH-104 document lifecycle contracts
+        run: pnpm test:eh104
+      - name: Verify EH-105 instrumental lineage contracts
+        run: pnpm test:eh105
+      - name: Verify EH-111 clinical compatibility unit contract
+        run: pnpm test:eh111
+      - name: Verify EH-113 CBC launch catalog
+        run: pnpm test:eh113
+      - name: Verify EH-116 registry reprocess batch
+        run: pnpm test:eh116
       - run: pnpm test:eh106
         env:
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
@@ -148,10 +172,57 @@ jobs:
         run: pnpm test:eh119-db
       - name: Run EH-118 source region database contract
         run: pnpm test:eh118-db
+      - name: Run EH-113 CBC method evidence database contract
+        run: pnpm test:eh113-db
+      - name: Run EH-116 registry reprocess database contract
+        run: pnpm test:eh116-db
+      - name: Run PR2 instrumental database contracts
+        run: pnpm test:pr2-db
+      - name: Run resolver trace v2 database contract
+        run: pnpm test:trace-v2-db
       # #117: the only test that runs the writer's real payload against the real
       # RPC. Acceptance was dead for months because nothing crossed this seam.
       - name: Run the writer-to-RPC seam contract
         run: pnpm test:writer-seam
+      - name: Stop local Supabase services
+        if: always()
+        run: supabase stop --no-backup
+
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - run: pnpm install --frozen-lockfile
+      - name: Start local Supabase services
+        run: supabase start
+      - name: Export local Supabase connection values
+        id: supabase
+        shell: bash
+        run: |
+          api_url="$(supabase status -o env | sed -n 's/^API_URL=//p' | tr -d '"')"
+          service_role_key="$(supabase status -o env | sed -n 's/^SERVICE_ROLE_KEY=//p' | tr -d '"')"
+          test -n "$api_url"
+          test -n "$service_role_key"
+          {
+            echo "api_url=$api_url"
+            echo "service_role_key=$service_role_key"
+          } >> "$GITHUB_OUTPUT"
+      - name: Run PostgREST consumer embed contract
+        run: pnpm test:postgrest-embeds
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ steps.supabase.outputs.api_url }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ steps.supabase.outputs.service_role_key }}
       - name: Stop local Supabase services
         if: always()
         run: supabase stop --no-backup

@@ -260,7 +260,8 @@ export function buildNormalizationReview(
   });
   const persistedTrace =
     activeRevision &&
-    activeRevision.resolver_trace_schema_version === "1" &&
+    (activeRevision.resolver_trace_schema_version === "1" ||
+      activeRevision.resolver_trace_schema_version === "2") &&
     isPersistedResolverDecisionTrace(activeRevision.resolver_decision_trace)
       ? activeRevision.resolver_decision_trace
       : null;
