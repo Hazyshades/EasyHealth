@@ -278,7 +278,7 @@ assert.equal(
 // ── Migration seams ──────────────────────────────────────────────────────────
 
 const migration = readFileSync(
-  "supabase/migrations/048_eh121_observation_change_history.sql",
+  "supabase/migrations/051_eh121_observation_change_history.sql",
   "utf8",
 );
 

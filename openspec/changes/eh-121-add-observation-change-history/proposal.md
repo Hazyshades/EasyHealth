@@ -78,7 +78,7 @@ compact place to show it.
   `src/components/documents/document-viewer.tsx`,
   `scripts/verify-eh121-observation-change-history.ts` (new).
 - Affected data and operations: migration
-  `048_eh121_observation_change_history.sql` adds the
+  `051_eh121_observation_change_history.sql` adds the
   `observation_change_event_kind` enum, the `observation_change_events` table
   with RLS and service-role-only `select, insert`, the three source triggers,
   the append-only guard, and the historical backfill. The table is

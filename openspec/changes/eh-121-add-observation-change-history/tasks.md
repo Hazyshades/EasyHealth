@@ -2,7 +2,7 @@
 
 ## 1. Audit event schema
 
-- [x] 1.1 Add `supabase/migrations/048_eh121_observation_change_history.sql`
+- [x] 1.1 Add `supabase/migrations/051_eh121_observation_change_history.sql`
       creating the `observation_change_event_kind` enum
       (`observation_accepted`, `mapping_corrected`, `correction_reverted`,
       `verification_changed`, `extraction_superseded`, `reprocess_applied`) and

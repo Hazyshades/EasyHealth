@@ -197,7 +197,7 @@ supplies the evidence.
   `purge_document_derived_laboratory_lineage` and a plain document delete both
   remove the document's history without tripping the append-only guard.
 - [ ] **Backfill.** Migration
-  `supabase/migrations/048_eh121_observation_change_history.sql` reconstructs
+  `supabase/migrations/051_eh121_observation_change_history.sql` reconstructs
   events from `observation_normalization_revisions`, superseded
   `document_extracted_biomarkers`, and applied
   `registry_reprocess_batch_rows`, stamping `origin = 'backfill'` and the

@@ -251,7 +251,7 @@ and the Restore buttons, and the fallback branch does not pass children at all.
 
 ## Migration Plan
 
-1. Apply `048_eh121_observation_change_history.sql`: enum, table, indexes, RLS,
+1. Apply `051_eh121_observation_change_history.sql`: enum, table, indexes, RLS,
    grants, append-only guard, three capture triggers, backfill.
 2. Deploy the reader, the endpoint and the UI. Both are additive; no existing
    response shape changes.
