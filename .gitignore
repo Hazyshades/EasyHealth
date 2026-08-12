@@ -67,12 +67,21 @@ hachakton.md
 .agents/skills/*
 !.agents/skills/roadmap-qa-checklists/
 !.agents/skills/roadmap-qa-checklists/**
+!.agents/skills/registry-documentation-sync/
+!.agents/skills/registry-documentation-sync/**
 
 #data
 /biomarkers/
 
 #db
 supabase/.temp
+
+# local generated Wiki staging and Supabase branch state
+/.tmp-biomarker-wiki-handoff/
+/supabase/.branches/
+
+# local laboratory PDFs; already tracked fixtures remain tracked
+/lab_data/*.pdf
 
 # test_ruseluts
 test_ruseluts

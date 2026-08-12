@@ -12,7 +12,7 @@ begin;
 -- This fixture submits the EXACT shape `buildNormalizationResolutionPayload`
 -- produces. If the two drift again, this fails.
 
-select plan(15);
+select plan(17);
 
 insert into public.profiles (id) values ('00000000-0000-0000-0000-0000000c0001');
 
@@ -49,8 +49,16 @@ values (
   28, '28', 'numeric', 'U/L', 'U/L', '28',
   1, 'ALT correction seam 28 U/L',
   1, 'needs_review', true, 'llm'
+), (
+  '00000000-0000-0000-0000-0000000c0007',
+  '00000000-0000-0000-0000-0000000c0002',
+  '00000000-0000-0000-0000-0000000c0001',
+  'ALT invalid region seam',
+  'ALT invalid region seam',
+  28, '28', 'numeric', 'U/L', 'U/L', '28',
+  1, 'ALT invalid region seam 28 U/L',
+  1, 'needs_review', true, 'llm'
 );
-
 -- #120: two more sources, so the identity-tier cases each get a clean row.
 insert into public.document_extracted_biomarkers (
   id, document_id, profile_id, biomarker_name, raw_name,
@@ -151,6 +159,7 @@ create function public.seam_observation() returns jsonb language sql immutable a
     'raw_value_text', '28',
     'raw_unit', 'U/L',
     'source_page', 1,
+    'bounding_box', 'null'::jsonb,
     'provenance_schema_version', '1'
   );
 $$;
@@ -179,6 +188,12 @@ select lives_ok(
     )
   $$,
   'the RPC accepts the v2 decision-trace object the TypeScript writer actually sends'
+);
+select ok(
+  (select source_page = 1 and bounding_box is null
+   from public.observations
+   where source_extracted_biomarker_id = '00000000-0000-0000-0000-0000000c0003'),
+  'page-only acceptance stores source page and SQL-null bounding box'
 );
 select lives_ok(
   $$
@@ -272,6 +287,40 @@ select throws_ok(
   $$,
   'invalid_normalization_resolution_payload',
   'a scalar is still not acceptable evidence'
+);
+select throws_ok(
+  $$
+    select public.write_observation_normalization_revision_v2(
+      '00000000-0000-0000-0000-0000000c0007',
+      public.seam_observation() || jsonb_build_object(
+        'bounding_box',
+        jsonb_build_object(
+          'schema_version', 1,
+          'space', 'normalized',
+          'page', 2,
+          'x', 0.1,
+          'y', 0.2,
+          'w', 0.3,
+          'h', 0.02,
+          'origin', 'ocr_exact'
+        )
+      ),
+      public.seam_resolution(),
+      'acceptance',
+      '00000000-0000-0000-0000-0000000c0001',
+      repeat('e', 64),
+      null::uuid,
+      'additive',
+      null::text,
+      null::uuid,
+      null::uuid,
+      'user',
+      false
+    )
+  $$,
+  '23514',
+  null,
+  'a non-null region on another page is still rejected'
 );
 
 -- ── 5. #120: the analyte tier survives an incomplete outcome ───────────────
