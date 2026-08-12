@@ -4,7 +4,7 @@
     "id": "registry-v2-launch-corpus-2026-07-20",
     "registryRelease": "registry-2.0-candidate"
   },
-  "requiredRowCount": 53,
+  "requiredRowCount": 72,
   "rows": [
     {
       "id": "total-protein",
@@ -262,7 +262,7 @@
     },
     {
       "id": "rbc",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "red-cell",
       "rawLabel": "Red blood cells (RBC)",
@@ -275,7 +275,7 @@
     },
     {
       "id": "hgb",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "red-cell",
       "rawLabel": "Hemoglobin (HGB)",
@@ -288,7 +288,7 @@
     },
     {
       "id": "hct",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "red-cell",
       "rawLabel": "Hematocrit (HCT)",
@@ -301,7 +301,7 @@
     },
     {
       "id": "mcv",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "red-cell",
       "rawLabel": "Mean corpuscular volume (MCV)",
@@ -314,7 +314,7 @@
     },
     {
       "id": "mch",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "red-cell",
       "rawLabel": "Mean corpuscular hemoglobin (MCH)",
@@ -327,7 +327,7 @@
     },
     {
       "id": "mchc",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "red-cell",
       "rawLabel": "Mean corpuscular hemoglobin concentration (MCHC)",
@@ -340,7 +340,7 @@
     },
     {
       "id": "rdw",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "red-cell",
       "rawLabel": "Red cell distribution width (RDW)",
@@ -353,7 +353,7 @@
     },
     {
       "id": "plt",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "platelets",
       "rawLabel": "Platelets (PLT)",
@@ -366,7 +366,7 @@
     },
     {
       "id": "mpv",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "platelets",
       "rawLabel": "Mean platelet volume (MPV)",
@@ -379,7 +379,7 @@
     },
     {
       "id": "pdw",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "platelets",
       "rawLabel": "Platelet distribution width (PDW)",
@@ -392,7 +392,7 @@
     },
     {
       "id": "pct",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "platelets",
       "rawLabel": "Plateletcrit (PCT)",
@@ -405,7 +405,7 @@
     },
     {
       "id": "wbc",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "white-cell",
       "rawLabel": "White blood cells (WBC)",
@@ -418,7 +418,7 @@
     },
     {
       "id": "neu-percent",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "white-cell-differential",
       "rawLabel": "Neutrophils (NEU%)",
@@ -431,7 +431,7 @@
     },
     {
       "id": "neu-abs",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "white-cell-differential",
       "rawLabel": "Neutrophils, absolute (NEU)",
@@ -444,7 +444,7 @@
     },
     {
       "id": "lymf-percent",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "white-cell-differential",
       "rawLabel": "Lymphocytes (LYMF%)",
@@ -457,7 +457,7 @@
     },
     {
       "id": "lymf-abs",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "white-cell-differential",
       "rawLabel": "Lymphocytes, absolute (LYMF)",
@@ -470,7 +470,7 @@
     },
     {
       "id": "mon-percent",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "white-cell-differential",
       "rawLabel": "Monocytes (MON%)",
@@ -483,7 +483,7 @@
     },
     {
       "id": "mon-abs",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "white-cell-differential",
       "rawLabel": "Monocytes, absolute (MON)",
@@ -496,7 +496,7 @@
     },
     {
       "id": "eos-percent",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "white-cell-differential",
       "rawLabel": "Eosinophils (EOS%)",
@@ -509,7 +509,7 @@
     },
     {
       "id": "eos-abs",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "white-cell-differential",
       "rawLabel": "Eosinophils, absolute (EOS)",
@@ -522,7 +522,7 @@
     },
     {
       "id": "bas-percent",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "white-cell-differential",
       "rawLabel": "Basophils (BAS%)",
@@ -535,7 +535,7 @@
     },
     {
       "id": "bas-abs",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "white-cell-differential",
       "rawLabel": "Basophils, absolute (BAS)",
@@ -548,7 +548,7 @@
     },
     {
       "id": "esr",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "inflammation",
       "rawLabel": "ESR, Westergren automated",
@@ -561,7 +561,7 @@
     },
     {
       "id": "segmented",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "white-cell-differential",
       "rawLabel": "Segmented neutrophils",
@@ -574,7 +574,7 @@
     },
     {
       "id": "band",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "white-cell-differential",
       "rawLabel": "Band neutrophils",
@@ -591,7 +591,7 @@
     },
     {
       "id": "lymph-manual",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "white-cell-differential",
       "rawLabel": "Lymphocytes, manual differential",
@@ -604,7 +604,7 @@
     },
     {
       "id": "mon-manual",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "white-cell-differential",
       "rawLabel": "Monocytes, manual differential",
@@ -617,7 +617,7 @@
     },
     {
       "id": "eos-manual",
-      "documentId": "cbc-ru-north",
+      "documentId": "cbc-en-north",
       "panel": "cbc",
       "family": "white-cell-differential",
       "rawLabel": "Eosinophils, manual differential",
@@ -656,7 +656,7 @@
     },
     {
       "id": "toxocara",
-      "documentId": "specialty-ru-central",
+      "documentId": "specialty-en-central",
       "panel": "serology",
       "family": "parasitology",
       "rawLabel": "anti-Toxocara IgG, qualitative ELISA",
@@ -669,7 +669,7 @@
     },
     {
       "id": "opisthorchis",
-      "documentId": "specialty-ru-central",
+      "documentId": "specialty-en-central",
       "panel": "serology",
       "family": "parasitology",
       "rawLabel": "anti-Opisthorchis felineus IgG, qualitative ELISA",
@@ -682,7 +682,7 @@
     },
     {
       "id": "echinococcus",
-      "documentId": "specialty-ru-central",
+      "documentId": "specialty-en-central",
       "panel": "serology",
       "family": "parasitology",
       "rawLabel": "anti-Echinococcus IgG, qualitative ELISA",
@@ -695,7 +695,7 @@
     },
     {
       "id": "trichinella",
-      "documentId": "specialty-ru-central",
+      "documentId": "specialty-en-central",
       "panel": "serology",
       "family": "parasitology",
       "rawLabel": "anti-Trichinella sp. IgG, qualitative ELISA",
@@ -721,7 +721,7 @@
     },
     {
       "id": "ecp",
-      "documentId": "specialty-ru-central",
+      "documentId": "specialty-en-central",
       "panel": "serology",
       "family": "allergy",
       "rawLabel": "Eosinophilic cationic protein (ECP)",
@@ -730,6 +730,300 @@
       "valueKind": "numeric",
       "expected": {
         "classification": "partial"
+      }
+    },
+    {
+      "id": "ru-hgb-cyrillic",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "red-cell",
+      "rawLabel": "Гемоглобин",
+      "rawUnit": "g/L",
+      "rawValueText": "142",
+      "valueKind": "numeric",
+      "specimen": "whole_blood",
+      "sourceText": "Гемоглобин, цельная кровь 142 g/L",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "hemoglobin_whole_blood"
+      }
+    },
+    {
+      "id": "ru-wbc-cyrillic",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "white-cell",
+      "rawLabel": "Лейкоциты",
+      "rawUnit": "x10^9/L",
+      "rawValueText": "6.2",
+      "valueKind": "numeric",
+      "specimen": "whole_blood",
+      "sourceText": "Лейкоциты, цельная кровь 6.2 x10^9/L",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "wbc_whole_blood"
+      }
+    },
+    {
+      "id": "ru-neu-percent-cyrillic",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "differential",
+      "rawLabel": "Нейтрофилы %",
+      "rawUnit": "%",
+      "rawValueText": "54",
+      "valueKind": "numeric",
+      "specimen": "whole_blood",
+      "sourceText": "Нейтрофилы % цельная кровь 54 %",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "neutrophils_percent"
+      }
+    },
+    {
+      "id": "ru-segmented-neutrophils-missing-method",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "differential",
+      "rawLabel": "Сегментоядерные нейтрофилы",
+      "rawUnit": "%",
+      "rawValueText": "49",
+      "valueKind": "numeric",
+      "specimen": "whole_blood",
+      "sourceText": "Сегментоядерные нейтрофилы, цельная кровь 49 %",
+      "expected": {
+        "classification": "partial"
+      }
+    },
+    {
+      "id": "ru-unknown-marker",
+      "documentId": "cbc-ru-north",
+      "panel": "cbc",
+      "family": "unknown",
+      "rawLabel": "Неизвестный маркер XYZ",
+      "rawUnit": "mg/L",
+      "rawValueText": "1",
+      "valueKind": "numeric",
+      "expected": {
+        "classification": "unmapped"
+      }
+    },
+    {
+      "id": "ru-glucose-missing-specimen",
+      "documentId": "specialty-ru-central",
+      "panel": "biochemistry",
+      "family": "glucose",
+      "rawLabel": "Глюкоза",
+      "rawUnit": "mmol/L",
+      "rawValueText": "5.1",
+      "valueKind": "numeric",
+      "expected": {
+        "classification": "partial"
+      }
+    },
+    {
+      "id": "ru-tsh-cyrillic",
+      "documentId": "specialty-ru-central",
+      "panel": "biochemistry",
+      "family": "thyroid",
+      "rawLabel": "ТТГ",
+      "rawUnit": "mIU/L",
+      "rawValueText": "1.8",
+      "valueKind": "numeric",
+      "specimen": "serum",
+      "sourceText": "ТТГ, сыворотка 1.8 mIU/L",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "tsh_serum"
+      }
+    },
+    {
+      "id": "ru-free-t4-cyrillic",
+      "documentId": "specialty-ru-central",
+      "panel": "biochemistry",
+      "family": "thyroid",
+      "rawLabel": "Свободный Т4",
+      "rawUnit": "pmol/L",
+      "rawValueText": "15",
+      "valueKind": "numeric",
+      "specimen": "serum",
+      "sourceText": "Свободный Т4, сыворотка 15 pmol/L",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "free_t4_serum"
+      }
+    },
+    {
+      "id": "ru-crp-cyrillic",
+      "documentId": "specialty-ru-central",
+      "panel": "biochemistry",
+      "family": "inflammation",
+      "rawLabel": "СРБ",
+      "rawUnit": "mg/L",
+      "rawValueText": "3.2",
+      "valueKind": "numeric",
+      "specimen": "serum",
+      "sourceText": "СРБ, сыворотка 3.2 mg/L",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "crp_serum"
+      }
+    },
+    {
+      "id": "es-glucosa-suero",
+      "documentId": "chemistry-es-iberia",
+      "panel": "biochemistry",
+      "family": "glucose",
+      "rawLabel": "Glucosa",
+      "rawUnit": "mmol/L",
+      "rawValueText": "5.4",
+      "valueKind": "numeric",
+      "specimen": "serum",
+      "sourceText": "Glucosa, suero 5.4 mmol/L",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "glucose_serum"
+      }
+    },
+    {
+      "id": "es-trigliceridos-accented",
+      "documentId": "chemistry-es-iberia",
+      "panel": "biochemistry",
+      "family": "lipids",
+      "rawLabel": "Triglicéridos",
+      "rawUnit": "mmol/L",
+      "rawValueText": "1.2",
+      "valueKind": "numeric",
+      "specimen": "serum",
+      "sourceText": "Triglicéridos, suero 1.2 mmol/L",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "triglycerides_serum"
+      }
+    },
+    {
+      "id": "es-trigliceridos-ocr-no-accent",
+      "documentId": "chemistry-es-iberia",
+      "panel": "biochemistry",
+      "family": "lipids",
+      "rawLabel": "Trigliceridos",
+      "rawUnit": "mmol/L",
+      "rawValueText": "1.3",
+      "valueKind": "numeric",
+      "specimen": "serum",
+      "sourceText": "Trigliceridos, suero 1.3 mmol/L",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "triglycerides_serum"
+      }
+    },
+    {
+      "id": "es-hba1c",
+      "documentId": "chemistry-es-iberia",
+      "panel": "biochemistry",
+      "family": "glycemia",
+      "rawLabel": "Hemoglobina glucosilada",
+      "rawUnit": "%",
+      "rawValueText": "5.6",
+      "valueKind": "numeric",
+      "specimen": "whole_blood",
+      "sourceText": "Hemoglobina glucosilada, sangre total 5.6 %",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "hba1c_whole_blood"
+      }
+    },
+    {
+      "id": "es-creatinina",
+      "documentId": "chemistry-es-iberia",
+      "panel": "biochemistry",
+      "family": "kidney",
+      "rawLabel": "Creatinina",
+      "rawUnit": "umol/L",
+      "rawValueText": "78",
+      "valueKind": "numeric",
+      "specimen": "serum",
+      "sourceText": "Creatinina, suero 78 umol/L",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "creatinine_serum"
+      }
+    },
+    {
+      "id": "es-unknown-marker",
+      "documentId": "chemistry-es-iberia",
+      "panel": "biochemistry",
+      "family": "unknown",
+      "rawLabel": "Marcador desconocido QZ",
+      "rawUnit": "U/L",
+      "rawValueText": "10",
+      "valueKind": "numeric",
+      "expected": {
+        "classification": "unmapped"
+      }
+    },
+    {
+      "id": "es-hemoglobina-mixed-code",
+      "documentId": "cbc-es-latam",
+      "panel": "cbc",
+      "family": "red-cell",
+      "rawLabel": "Hemoglobina (HGB)",
+      "rawUnit": "g/L",
+      "rawValueText": "138",
+      "valueKind": "numeric",
+      "specimen": "whole_blood",
+      "sourceText": "Hemoglobina (HGB), sangre total 138 g/L",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "hemoglobin_whole_blood"
+      }
+    },
+    {
+      "id": "es-leucocitos",
+      "documentId": "cbc-es-latam",
+      "panel": "cbc",
+      "family": "white-cell",
+      "rawLabel": "Leucocitos",
+      "rawUnit": "x10^9/L",
+      "rawValueText": "7.1",
+      "valueKind": "numeric",
+      "specimen": "whole_blood",
+      "sourceText": "Leucocitos, sangre total 7.1 x10^9/L",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "wbc_whole_blood"
+      }
+    },
+    {
+      "id": "es-neutrofilos-percent",
+      "documentId": "cbc-es-latam",
+      "panel": "cbc",
+      "family": "differential",
+      "rawLabel": "Neutrófilos",
+      "rawUnit": "%",
+      "rawValueText": "58",
+      "valueKind": "numeric",
+      "specimen": "whole_blood",
+      "sourceText": "Neutrófilos, sangre total 58 %",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "neutrophils_percent"
+      }
+    },
+    {
+      "id": "es-plaquetas-mixed-code",
+      "documentId": "cbc-es-latam",
+      "panel": "cbc",
+      "family": "platelets",
+      "rawLabel": "Plaquetas (PLT)",
+      "rawUnit": "x10^9/L",
+      "rawValueText": "240",
+      "valueKind": "numeric",
+      "specimen": "whole_blood",
+      "sourceText": "Plaquetas (PLT), sangre total 240 x10^9/L",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "platelets_whole_blood"
       }
     }
   ]

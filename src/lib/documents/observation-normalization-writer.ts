@@ -413,10 +413,54 @@ export function buildNormalizationResolutionPayload(
   );
 }
 
+/**
+ * Source of truth for alias evidence is `resolver_decision_trace` (schema 2).
+ * `resolver_evidence` keeps the operational v2 `ResolverDecisionTrace` its
+ * existing readers consume. Both are projected from the same in-memory
+ * resolution, and this assertion makes a future divergence impossible to ship
+ * silently; `eh122_trace_matches_resolver_evidence` re-checks it in the
+ * database so a hand-built payload cannot bypass it either.
+ */
+function assertTraceMatchesResolverEvidence(
+  resolution: MeasurementResolution,
+  trace: PersistedResolverDecisionTrace
+): void {
+  if (trace.schemaVersion !== "2") return;
+  const evidenceByKey = new Map(
+    resolution.decisionTrace.candidates.map((candidate) => [candidate.candidateKey, candidate])
+  );
+  if (evidenceByKey.size !== trace.candidates.length) {
+    throw new ObservationNormalizationWriterError(
+      "Resolver evidence and decision trace disagree on candidate count"
+    );
+  }
+  for (const candidate of trace.candidates) {
+    const evidence = evidenceByKey.get(candidate.candidateKey);
+    if (!evidence) {
+      throw new ObservationNormalizationWriterError(
+        `Resolver evidence has no candidate ${candidate.candidateKey}`
+      );
+    }
+    const alias = evidence.matchedAlias;
+    if (
+      alias.key !== candidate.aliasKey ||
+      alias.matchType !== candidate.aliasMatchType ||
+      (alias.locale ?? "en") !== candidate.aliasLocale ||
+      (alias.laboratory ?? null) !== candidate.aliasLaboratory ||
+      (alias.foldFallback === true) !== candidate.aliasFoldFallback
+    ) {
+      throw new ObservationNormalizationWriterError(
+        `Alias evidence diverges between trace and resolver evidence for ${candidate.candidateKey}`
+      );
+    }
+  }
+}
+
 function buildResolutionPayload(
   resolution: MeasurementResolution,
   trace: PersistedResolverDecisionTrace
 ) {
+  assertTraceMatchesResolverEvidence(resolution, trace);
   return {
     input_evidence_hash: trace.inputEvidenceHash,
     measurement_definition_key: resolution.measurementDefinitionKey,

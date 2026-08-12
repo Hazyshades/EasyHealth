@@ -1,4 +1,15 @@
-import { snakeCaseToken, tokenSetKey } from "./normalize";
+import {
+  analyzeMeasurementLabel,
+  foldMeasurementLabel,
+  normalizeMeasurementLabel,
+  snakeCaseToken,
+  tokenSetKey,
+} from "./normalize";
+import {
+  applyMultilingualAliasEnrichment,
+  listMissingMultilingualSliceLocales,
+  MULTILINGUAL_LAUNCH_SLICE_KEYS,
+} from "./multilingual-launch-slice";
 import { z } from "zod";
 import type {
   AliasMatchType,
@@ -27,7 +38,7 @@ import type {
   ResolverResult,
   ResolverDecisionKind,
   PersistedResolverDecisionTrace,
-  PersistedResolverDecisionTraceCandidate,
+  PersistedResolverDecisionTraceCandidateV2,
   ResolverTraceSchemaVersion,
   ScoreContributionGroup,
   ScoreRequiredGroup,
@@ -37,14 +48,15 @@ import type {
   UnitToken,
 } from "./types";
 
-export const MEASUREMENT_CATALOG_MANIFEST_VERSION = "2026-08-03.0";
+export const MEASUREMENT_CATALOG_MANIFEST_VERSION = "2026-08-09.0";
 /**
+ * 11: multilingual measurement-label normalization + locale alias packs.
  * 10: #120 the analyte tier is derived from selectable candidates only.
  * 9: #105 order-insensitive alias admission (`token_set`).
  */
-export const MEASUREMENT_RESOLVER_VERSION = "10";
-/** 6: #106 unstated clinical axes no longer reach the resolver. */
-export const MEASUREMENT_NORMALIZATION_VERSION = "6";
+export const MEASUREMENT_RESOLVER_VERSION = "11";
+/** 7: label normalization uses normalizeMeasurementLabel (not snakeCaseToken). */
+export const MEASUREMENT_NORMALIZATION_VERSION = "7";
 export const MEASUREMENT_COMPATIBILITY_POLICY_VERSION = "1";
 /**
  * Observation provenance schema version, assigned by the persistence layer (not
@@ -53,7 +65,13 @@ export const MEASUREMENT_COMPATIBILITY_POLICY_VERSION = "1";
  */
 export const OBSERVATION_PROVENANCE_SCHEMA_VERSION = "2";
 
-export const RESOLVER_DECISION_TRACE_SCHEMA_VERSION: ResolverTraceSchemaVersion = "1";
+/**
+ * Version written for new decisions. Schema 1 stays readable forever: it is the
+ * version every already-stored patient trace was written under.
+ */
+export const RESOLVER_DECISION_TRACE_SCHEMA_VERSION: ResolverTraceSchemaVersion = "2";
+export const SUPPORTED_RESOLVER_DECISION_TRACE_SCHEMA_VERSIONS: readonly ResolverTraceSchemaVersion[] =
+  ["1", "2"];
 
 const PERCENT_POLICY: MeasurementUnitPolicy = {
   dimensions: ["ratio"], acceptedUnits: ["%"], canonicalUnit: "%", conversionPolicyRef: null, missingUnitPolicy: "ambiguous",
@@ -161,10 +179,12 @@ function aliases(
 ): AliasSeed[] {
   return [...new Set(values)].map((value) => ({
     value,
-    normalizedValue: snakeCaseToken(value),
+    normalizedValue: normalizeMeasurementLabel(value),
     source,
     approvalStatus,
-    ...metadata,
+    locale: metadata.locale ?? "en",
+    matchType: metadata.matchType,
+    laboratory: metadata.laboratory,
     ...(fixtureRefs ? { fixtureRefs } : {}),
   }));
 }
@@ -175,9 +195,19 @@ function cbcAliases(
 ): AliasSeed[] {
   return [
     ...aliases(reviewedValues, "registry", "reviewed"),
-    ...aliases(options.fixtureValues ?? [], "fixture", "reviewed", ["eh-113-cbc"], { matchType: "exact" }),
-    ...aliases(options.russianValues ?? [], "laboratory", "reviewed", ["eh-113-cbc-ru"], { matchType: "normalized", locale: "ru", laboratory: "northern-diagnostics" }),
-    ...aliases(options.ocrValues ?? [], "fixture", "provisional", ["eh-113-cbc-ocr"], { matchType: "ocr_variant" }),
+    ...aliases(options.fixtureValues ?? [], "fixture", "reviewed", ["eh-113-cbc"], {
+      matchType: "exact",
+      locale: "en",
+    }),
+    // Keep RU CBC fixtures unscoped so common clinical wording matches any lab.
+    ...aliases(options.russianValues ?? [], "laboratory", "reviewed", ["eh-113-cbc-ru"], {
+      matchType: "normalized",
+      locale: "ru",
+    }),
+    ...aliases(options.ocrValues ?? [], "fixture", "provisional", ["eh-113-cbc-ocr"], {
+      matchType: "ocr_variant",
+      locale: "en",
+    }),
   ];
 }
 
@@ -384,8 +414,15 @@ const SAMPLE_FIXTURE_DEFINITIONS: readonly MeasurementDefinition[] = SAMPLE_FIXT
   });
 
 /** Only reviewed Registry 2.0 definitions are eligible for concrete runtime behavior. */
-export const CURATED_MEASUREMENT_DEFINITIONS = REVIEWED_DEFINITIONS;
-export const MEASUREMENT_DEFINITIONS: readonly MeasurementDefinition[] = [...REVIEWED_DEFINITIONS, ...PROVISIONAL_LAUNCH_DEFINITIONS, ...SAMPLE_FIXTURE_DEFINITIONS];
+const BASE_MEASUREMENT_DEFINITIONS: readonly MeasurementDefinition[] = [
+  ...REVIEWED_DEFINITIONS,
+  ...PROVISIONAL_LAUNCH_DEFINITIONS,
+  ...SAMPLE_FIXTURE_DEFINITIONS,
+];
+
+export const CURATED_MEASUREMENT_DEFINITIONS = applyMultilingualAliasEnrichment(REVIEWED_DEFINITIONS);
+export const MEASUREMENT_DEFINITIONS: readonly MeasurementDefinition[] =
+  applyMultilingualAliasEnrichment(BASE_MEASUREMENT_DEFINITIONS);
 
 export const ANALYTES: readonly Analyte[] = [...new Map(MEASUREMENT_DEFINITIONS.map((definition) => [
   definition.analyteKey,
@@ -574,20 +611,31 @@ function matchAliasMode(
   alias: AliasDefinition,
   rawLabel: string,
   normalizedLabel: string,
+  foldedLabel: string,
   labelTokenSetKey: string | null,
   laboratory: string | null | undefined,
-): AliasMatchType | null {
+  foldFallbackAllowed: boolean,
+): { matchType: AliasMatchType; foldFallback: boolean } | null {
   if (alias.lifecycle !== "active" || (alias.laboratory && alias.laboratory !== laboratory)) return null;
   if (alias.matchType === "exact") {
-    if (canonicalLabel(alias.value) === canonicalLabel(rawLabel)) return "exact";
+    if (canonicalLabel(alias.value) === canonicalLabel(rawLabel)) return { matchType: "exact", foldFallback: false };
   } else if (alias.matchType === "normalized" || alias.matchType === "ocr_variant") {
-    if (alias.normalizedValue === normalizedLabel) return alias.matchType;
+    if (alias.normalizedValue === normalizedLabel) return { matchType: alias.matchType, foldFallback: false };
+    // Controlled ES accent-fold fallback only when primary misses and fold is unique.
+    if (
+      foldFallbackAllowed &&
+      alias.locale === "es" &&
+      foldedLabel.length > 0 &&
+      foldMeasurementLabel(alias.value) === foldedLabel
+    ) {
+      return { matchType: alias.matchType, foldFallback: true };
+    }
   } else if (
     normalizedLabel.length >= 5 &&
     alias.maxNormalizedEditDistance !== undefined &&
     damerauLevenshtein(alias.normalizedValue, normalizedLabel) <= alias.maxNormalizedEditDistance
   ) {
-    return "bounded_fuzzy";
+    return { matchType: "bounded_fuzzy", foldFallback: false };
   }
   // Set EQUALITY, never containment: a strict superset or subset of the alias
   // tokens must not be admitted.
@@ -596,21 +644,62 @@ function matchAliasMode(
     TOKEN_SET_ELIGIBLE_MATCH_TYPES[alias.matchType] === true &&
     tokenSetKey(alias.normalizedValue) === labelTokenSetKey
   ) {
-    return "token_set";
+    return { matchType: "token_set", foldFallback: false };
   }
   return null;
 }
 
 export function findAliasAdmissions(input: Pick<MeasurementResolutionInput, "rawLabel" | "laboratory">, definitions: readonly MeasurementDefinition[] = MEASUREMENT_DEFINITIONS): Array<{ definition: MeasurementDefinition; alias: MatchedAlias }> {
-  const normalizedLabel = snakeCaseToken(input.rawLabel);
+  const analysis = analyzeMeasurementLabel(input.rawLabel);
+  if (analysis.isEmpty || analysis.isWeak) return [];
+  const normalizedLabel = analysis.primary;
+  const foldedLabel = analysis.folded;
   const labelTokenSetKey = tokenSetKey(normalizedLabel);
+
+  // folded form -> set of analyte keys that own an active ES reviewed alias with that fold
+  const foldAnalytes = new Map<string, Set<string>>();
+  for (const definition of definitions) {
+    for (const alias of definition.aliases) {
+      if (alias.lifecycle !== "active" || alias.matchAuthority !== "reviewed_resolution") continue;
+      if (alias.locale !== "es") continue;
+      const folded = foldMeasurementLabel(alias.value);
+      if (!folded) continue;
+      let owners = foldAnalytes.get(folded);
+      if (!owners) {
+        owners = new Set<string>();
+        foldAnalytes.set(folded, owners);
+      }
+      owners.add(definition.analyteKey);
+    }
+  }
+
   return definitions.flatMap((definition) =>
     definition.aliases.flatMap((alias) => {
-      const matchType = matchAliasMode(alias, input.rawLabel, normalizedLabel, labelTokenSetKey, input.laboratory);
-      if (!matchType) return [];
-      // The admitted alias keeps its own authority, approval status, lifecycle
-      // and provenance; only the reported match type reflects the fired mode.
-      return [{ definition, alias: { ...alias, matchType } }];
+      const owners = foldAnalytes.get(foldedLabel);
+      const foldFallbackAllowed =
+        Boolean(foldedLabel) &&
+        owners !== undefined &&
+        owners.size === 1 &&
+        owners.has(definition.analyteKey);
+      const match = matchAliasMode(
+        alias,
+        input.rawLabel,
+        normalizedLabel,
+        foldedLabel,
+        labelTokenSetKey,
+        input.laboratory,
+        foldFallbackAllowed,
+      );
+      if (!match) return [];
+      // The admitted alias keeps its own authority, approval status, lifecycle,
+      // locale and provenance; only the reported match type reflects the fired
+      // mode, and `foldFallback` records when the accent-folded ES form fired.
+      return [
+        {
+          definition,
+          alias: { ...alias, matchType: match.matchType, foldFallback: match.foldFallback },
+        },
+      ];
     }),
   );
 }
@@ -1110,6 +1199,16 @@ const TRACE_IDENTIFIER = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
 const TRACE_VERSION = /^[A-Za-z0-9._:-]{1,128}$/;
 const TRACE_HASH = /^[0-9a-f]{64}$/;
 const TRACE_OUTCOMES = ["resolved", "ambiguous", "partial", "unmapped"] as const;
+/** Alias keys and laboratory scopes carry `:` and `-`, unlike definition keys. */
+const TRACE_ALIAS_KEY = /^[A-Za-z0-9._:-]{1,200}$/;
+const TRACE_ALIAS_MATCH_TYPES: Record<string, true> = {
+  exact: true,
+  normalized: true,
+  ocr_variant: true,
+  bounded_fuzzy: true,
+  token_set: true,
+};
+const TRACE_ALIAS_LOCALES: Record<string, true> = { en: true, ru: true, es: true };
 
 export type BuildPersistedResolverDecisionTraceOptions = {
   inputEvidenceHash: string;
@@ -1132,56 +1231,104 @@ const traceEvidenceSchema = z
     strength: z.string().refine((strength) => Object.hasOwn(TRACE_STRENGTHS, strength)),
   })
   .strict();
-const traceCandidateSchema = z
-  .object({
-    candidateKey: z.string().regex(TRACE_IDENTIFIER),
-    maturity: z.string().refine((maturity) => Object.hasOwn(TRACE_MATURITIES, maturity)),
-    score: z.number().finite().nonnegative().nullable(),
-    accepted: z.array(traceEvidenceSchema),
-    rejected: z.array(traceEvidenceSchema),
-    missingAxes: z.array(z.string().refine((axis) => Object.hasOwn(TRACE_MISSING_AXES, axis))),
-    conflicts: z.array(z.string().refine((code) => Object.hasOwn(TRACE_REASON_CODES, code))),
-  })
+const traceCandidateBaseShape = {
+  candidateKey: z.string().regex(TRACE_IDENTIFIER),
+  maturity: z.string().refine((maturity) => Object.hasOwn(TRACE_MATURITIES, maturity)),
+  score: z.number().finite().nonnegative().nullable(),
+  accepted: z.array(traceEvidenceSchema),
+  rejected: z.array(traceEvidenceSchema),
+  missingAxes: z.array(z.string().refine((axis) => Object.hasOwn(TRACE_MISSING_AXES, axis))),
+  conflicts: z.array(z.string().refine((code) => Object.hasOwn(TRACE_REASON_CODES, code))),
+};
+
+/** Schema-2 alias evidence: catalog identifiers only, never source text. */
+const traceCandidateAliasShape = {
+  aliasKey: z.string().regex(TRACE_ALIAS_KEY),
+  aliasMatchType: z.string().refine((mode) => Object.hasOwn(TRACE_ALIAS_MATCH_TYPES, mode)),
+  aliasLocale: z.string().refine((locale) => Object.hasOwn(TRACE_ALIAS_LOCALES, locale)),
+  aliasLaboratory: z.string().regex(TRACE_ALIAS_KEY).nullable(),
+  aliasFoldFallback: z.boolean(),
+};
+
+function refineTraceCandidate(
+  candidate: {
+    accepted: Array<{ code: string; strength: string }>;
+    rejected: Array<{ code: string; strength: string }>;
+    missingAxes: string[];
+    conflicts: string[];
+  },
+  context: z.RefinementCtx,
+): void {
+  const accepted = candidate.accepted.map((item) => `${item.code}:${item.strength}`);
+  const rejected = candidate.rejected.map((item) => `${item.code}:${item.strength}`);
+  const expectedConflicts = sortedUnique(
+    candidate.rejected
+      .filter((item) => item.strength === "hard")
+      .map((item) => item.code)
+  );
+  if (!isCanonicalStringList(accepted)) {
+    context.addIssue({ code: "custom", message: "Accepted trace evidence must be canonical" });
+  }
+  if (!isCanonicalStringList(rejected)) {
+    context.addIssue({ code: "custom", message: "Rejected trace evidence must be canonical" });
+  }
+  if (!isCanonicalStringList(candidate.missingAxes)) {
+    context.addIssue({ code: "custom", message: "Missing axes must be canonical" });
+  }
+  if (
+    !isCanonicalStringList(candidate.conflicts) ||
+    JSON.stringify(candidate.conflicts) !== JSON.stringify(expectedConflicts)
+  ) {
+    context.addIssue({ code: "custom", message: "Candidate conflicts must be canonical hard rejections" });
+  }
+}
+
+const traceCandidateV1Schema = z
+  .object(traceCandidateBaseShape)
   .strict()
-  .superRefine((candidate, context) => {
-    const accepted = candidate.accepted.map((item) => `${item.code}:${item.strength}`);
-    const rejected = candidate.rejected.map((item) => `${item.code}:${item.strength}`);
-    const expectedConflicts = sortedUnique(
-      candidate.rejected
-        .filter((item) => item.strength === "hard")
-        .map((item) => item.code)
-    );
-    if (!isCanonicalStringList(accepted)) {
-      context.addIssue({ code: "custom", message: "Accepted trace evidence must be canonical" });
-    }
-    if (!isCanonicalStringList(rejected)) {
-      context.addIssue({ code: "custom", message: "Rejected trace evidence must be canonical" });
-    }
-    if (!isCanonicalStringList(candidate.missingAxes)) {
-      context.addIssue({ code: "custom", message: "Missing axes must be canonical" });
-    }
-    if (
-      !isCanonicalStringList(candidate.conflicts) ||
-      JSON.stringify(candidate.conflicts) !== JSON.stringify(expectedConflicts)
-    ) {
-      context.addIssue({ code: "custom", message: "Candidate conflicts must be canonical hard rejections" });
-    }
-  });
-const resolverDecisionTraceSchema = z
+  .superRefine(refineTraceCandidate);
+
+const traceCandidateV2Schema = z
+  .object({ ...traceCandidateBaseShape, ...traceCandidateAliasShape })
+  .strict()
+  .superRefine(refineTraceCandidate);
+
+const traceCommonShape = {
+  outcome: z.enum(TRACE_OUTCOMES),
+  decisionKind: z.string().refine((kind) => Object.hasOwn(TRACE_DECISION_KINDS, kind)),
+  inputEvidenceHash: z.string().regex(TRACE_HASH),
+  catalogManifestVersion: z.string().regex(TRACE_VERSION),
+  catalogManifestDigest: z.string().regex(TRACE_VERSION),
+  resolverVersion: z.string().regex(TRACE_VERSION),
+  winningCandidateKey: z.string().regex(TRACE_IDENTIFIER).nullable(),
+  missingAxes: z.array(z.string().refine((axis) => Object.hasOwn(TRACE_MISSING_AXES, axis))),
+  conflicts: z.array(z.string().refine((code) => Object.hasOwn(TRACE_REASON_CODES, code))),
+};
+
+/**
+ * Frozen schema-1 reader. Every trace already stored against a patient revision
+ * was written under it, so this branch must never change.
+ */
+const resolverDecisionTraceV1Schema = z
   .object({
-    schemaVersion: z.literal(RESOLVER_DECISION_TRACE_SCHEMA_VERSION),
-    outcome: z.enum(TRACE_OUTCOMES),
-    decisionKind: z.string().refine((kind) => Object.hasOwn(TRACE_DECISION_KINDS, kind)),
-    inputEvidenceHash: z.string().regex(TRACE_HASH),
-    catalogManifestVersion: z.string().regex(TRACE_VERSION),
-    catalogManifestDigest: z.string().regex(TRACE_VERSION),
-    resolverVersion: z.string().regex(TRACE_VERSION),
-    winningCandidateKey: z.string().regex(TRACE_IDENTIFIER).nullable(),
-    candidates: z.array(traceCandidateSchema),
-    missingAxes: z.array(z.string().refine((axis) => Object.hasOwn(TRACE_MISSING_AXES, axis))),
-    conflicts: z.array(z.string().refine((code) => Object.hasOwn(TRACE_REASON_CODES, code))),
+    schemaVersion: z.literal("1"),
+    ...traceCommonShape,
+    candidates: z.array(traceCandidateV1Schema),
   })
   .strict();
+
+const resolverDecisionTraceV2Schema = z
+  .object({
+    schemaVersion: z.literal("2"),
+    ...traceCommonShape,
+    candidates: z.array(traceCandidateV2Schema),
+  })
+  .strict();
+
+const resolverDecisionTraceSchema = z.discriminatedUnion("schemaVersion", [
+  resolverDecisionTraceV1Schema,
+  resolverDecisionTraceV2Schema,
+]);
 
 function traceDecisionKind(resolution: MeasurementResolution): ResolverDecisionKind {
   if (
@@ -1207,7 +1354,7 @@ export function buildPersistedResolverDecisionTrace(
   resolution: MeasurementResolution,
   options: BuildPersistedResolverDecisionTraceOptions
 ): PersistedResolverDecisionTrace {
-  const candidates: PersistedResolverDecisionTraceCandidate[] = resolution.candidateEvidence
+  const candidates: PersistedResolverDecisionTraceCandidateV2[] = resolution.candidateEvidence
     .map((candidate) => {
       const definition = getMeasurementDefinition(candidate.candidateKey);
       if (!definition) {
@@ -1220,6 +1367,7 @@ export function buildPersistedResolverDecisionTrace(
             ? left.strength.localeCompare(right.strength)
             : left.code.localeCompare(right.code)
         );
+      const alias = candidate.matchedAlias;
       return {
         candidateKey: candidate.candidateKey,
         maturity: definition.maturity,
@@ -1238,11 +1386,17 @@ export function buildPersistedResolverDecisionTrace(
             .filter((evidenceItem) => evidenceItem.strength === "hard")
             .map((evidenceItem) => evidenceItem.code)
         ),
+        // Schema 2: which alias admitted this candidate, by catalog identity.
+        aliasKey: alias.key,
+        aliasMatchType: alias.matchType,
+        aliasLocale: alias.locale ?? "en",
+        aliasLaboratory: alias.laboratory ?? null,
+        aliasFoldFallback: alias.foldFallback === true,
       };
     })
     .sort((left, right) => left.candidateKey.localeCompare(right.candidateKey));
   const trace: PersistedResolverDecisionTrace = {
-    schemaVersion: RESOLVER_DECISION_TRACE_SCHEMA_VERSION,
+    schemaVersion: "2",
     outcome: resolution.result,
     decisionKind: traceDecisionKind(resolution),
     inputEvidenceHash: options.inputEvidenceHash,
@@ -1333,6 +1487,16 @@ export function validateMeasurementRegistry(definitions: readonly MeasurementDef
         alias.lifecycle !== "active" ||
         alias.maxNormalizedEditDistance === undefined
       )) errors.push(`Bounded fuzzy alias lacks reviewed active authority: ${alias.key}`);
+      if (!alias.locale || !["en", "ru", "es"].includes(alias.locale)) {
+        errors.push(`Alias lacks locale en|ru|es: ${alias.key}`);
+      }
+      const labelAnalysis = analyzeMeasurementLabel(alias.value);
+      if (alias.lifecycle === "active" && (labelAnalysis.isEmpty || labelAnalysis.isWeak)) {
+        errors.push(`Active alias normalizes to empty or weak label: ${alias.key} (${alias.value})`);
+      }
+      if (alias.normalizedValue !== labelAnalysis.primary) {
+        errors.push(`Alias normalizedValue drift: ${alias.key}`);
+      }
     }
     const { unitPolicy } = definition;
     if (unitPolicy.missingUnitPolicy === "display_only") {
@@ -1391,6 +1555,48 @@ export function validateMeasurementRegistry(definitions: readonly MeasurementDef
       }
     }
   }
-  if (!definitions.some((definition) => definition.maturity === "reviewed")) warnings.push("No reviewed Registry 2.0 definitions are available");
+  // Primary-form collisions across different analytes (same locale) are unsafe
+  // for reviewed_resolution admission.
+  const primaryLocaleOwners = new Map<string, string>();
+  const foldLocaleOwners = new Map<string, string>();
+  for (const definition of definitions) {
+    if (definition.maturity !== "reviewed") continue;
+    for (const alias of definition.aliases) {
+      if (alias.lifecycle !== "active" || alias.matchAuthority !== "reviewed_resolution") continue;
+      if (alias.matchType !== "exact" && alias.matchType !== "normalized") continue;
+      const locale = alias.locale ?? "en";
+      const primaryKey = `${locale}|${alias.normalizedValue}`;
+      const primaryOwner = primaryLocaleOwners.get(primaryKey);
+      if (primaryOwner === undefined) primaryLocaleOwners.set(primaryKey, definition.analyteKey);
+      else if (primaryOwner !== definition.analyteKey) {
+        errors.push(
+          `Colliding reviewed primary label "${alias.normalizedValue}" (${locale}): analytes ${primaryOwner} and ${definition.analyteKey}`,
+        );
+      }
+      if (locale === "es") {
+        const folded = foldMeasurementLabel(alias.value);
+        if (!folded) continue;
+        const foldKey = `es|${folded}`;
+        const foldOwner = foldLocaleOwners.get(foldKey);
+        if (foldOwner === undefined) foldLocaleOwners.set(foldKey, definition.analyteKey);
+        else if (foldOwner !== definition.analyteKey) {
+          // Runtime disables fold-fallback for colliding folds; warn at build.
+          warnings.push(
+            `Colliding ES accent-fold "${folded}": analytes ${foldOwner} and ${definition.analyteKey}`,
+          );
+        }
+      }
+    }
+  }
+  const definitionKeys = new Set(definitions.map((definition) => definition.key));
+  const sliceComplete = MULTILINGUAL_LAUNCH_SLICE_KEYS.every((key) => definitionKeys.has(key));
+  if (sliceComplete) {
+    for (const missing of listMissingMultilingualSliceLocales(definitions)) {
+      errors.push(`Multilingual launch slice gap: ${missing}`);
+    }
+  }
+  if (!definitions.some((definition) => definition.maturity === "reviewed")) {
+    warnings.push("No reviewed Registry 2.0 definitions are available");
+  }
   return { valid: errors.length === 0, errors, warnings };
 }

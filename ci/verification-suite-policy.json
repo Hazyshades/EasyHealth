@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "suites": [
+    {
+      "script": "test:document-worker",
+      "verificationFiles": ["scripts/verify-document-worker-reliability.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "backend-tooling",
+      "reason": "Worker reliability and model-capability boundary are release verification."
+    },
+    {
+      "script": "test:eh111",
+      "verificationFiles": ["scripts/verify-eh111-clinical-compatibility-runner.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "backend-tooling",
+      "reason": "Clinical compatibility unit contract requires explicit CI triage."
+    },
+    {
+      "script": "test:eh113",
+      "verificationFiles": ["scripts/verify-eh113-cbc-launch-catalog.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "health-profile",
+      "reason": "CBC Registry launch catalog is a delivered roadmap regression suite."
+    },
+    {
+      "script": "test:eh116",
+      "verificationFiles": ["scripts/verify-eh116-reprocess-batch.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "documents",
+      "reason": "Registry reprocessing safety is a delivered roadmap regression suite."
+    },
+    {
+      "script": "test:eh113-db",
+      "verificationFiles": ["supabase/tests/eh113_cbc_method_evidence.sql"],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "health-profile",
+      "reason": "CBC method evidence contract requires the migrated local database."
+    },
+    {
+      "script": "test:eh116-db",
+      "verificationFiles": ["supabase/tests/eh116_registry_reprocess_batches.sql"],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "documents",
+      "reason": "Registry reprocessing batch persistence contract requires pgTAP."
+    },
+    {
+      "script": "test:pr2-db",
+      "verificationFiles": [
+        "supabase/tests/pr2_document_processing_attempts.sql",
+        "supabase/tests/pr2_instrumental_publication_matrix.sql",
+        "supabase/tests/pr2_instrumental_canonicalization.sql",
+        "supabase/tests/pr2_instrumental_grants_and_view.sql",
+        "supabase/tests/pr2_instrumental_concurrency_and_rollback.sql"
+      ],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "documents",
+      "reason": "Instrumental publication and canonicalization contracts require pgTAP."
+    },
+    {
+      "script": "test:postgrest-embeds",
+      "verificationFiles": ["scripts/verify-postgrest-revision-embeds.ts"],
+      "job": "integration",
+      "environment": "local-supabase-postgrest",
+      "localOnly": false,
+      "owner": "documents",
+      "reason": "Consumer embed selects require a real local PostgREST endpoint."
+    }
+  ],
+  "localOnly": []
+}

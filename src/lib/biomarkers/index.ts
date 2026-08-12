@@ -46,7 +46,12 @@ export type {
   AssessmentCompatibility,
   ResolverDecisionKind,
   PersistedResolverDecisionTrace,
+  PersistedResolverDecisionTraceV1,
+  PersistedResolverDecisionTraceV2,
   PersistedResolverDecisionTraceCandidate,
+  PersistedResolverDecisionTraceCandidateV1,
+  PersistedResolverDecisionTraceCandidateV2,
+  PersistedResolverDecisionTraceAliasEvidence,
   PersistedResolverDecisionTraceEvidence,
   ResolverTraceSchemaVersion,
   UnitToken,
@@ -62,7 +67,14 @@ export type {
   SystemScoreability,
 } from "./types";
 
-export { normalizeBiomarkerKeyToken, snakeCaseToken } from "./normalize";
+export {
+  normalizeBiomarkerKeyToken,
+  snakeCaseToken,
+  normalizeMeasurementLabel,
+  analyzeMeasurementLabel,
+  foldMeasurementLabel,
+  tokenSetKey,
+} from "./normalize";
 
 export { presentObservation, presentObservations, type NativeObservation } from "./units";
 
@@ -117,6 +129,7 @@ export {
   resolveMeasurementDefinition,
   findAliasAdmissions,
   RESOLVER_DECISION_TRACE_SCHEMA_VERSION,
+  SUPPORTED_RESOLVER_DECISION_TRACE_SCHEMA_VERSIONS,
   buildPersistedResolverDecisionTrace,
   isPersistedResolverDecisionTrace,
   validateMeasurementRegistry,
@@ -135,6 +148,12 @@ export {
   type MeasurementRegistryChange,
   type MeasurementCatalogManifestRelease,
 } from "./measurement-registry-release";
+
+export {
+  getRegistryV2ScoreRole,
+  getRegistryV2ScoreReadinessGroups,
+  getRegistryV2ScoreContributionGroups,
+} from "./registry-v2-runtime";
 
 export {
   CBC_MEASUREMENT_REGRESSION_FIXTURES,

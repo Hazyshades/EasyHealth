@@ -62,6 +62,12 @@ export function ObservationReviewRow({
           <p className="font-medium text-[var(--eh-text-primary)]">
             {rawEvidence.displayName}
           </p>
+          {rawEvidence.canonicalEnglishName &&
+          rawEvidence.canonicalEnglishName !== rawEvidence.displayName ? (
+            <p className="text-xs text-[var(--eh-text-muted)]">
+              Canonical: {rawEvidence.canonicalEnglishName}
+            </p>
+          ) : null}
           <p className="text-sm text-[var(--eh-text-secondary)]">
             {rawEvidence.value ?? rawEvidence.rawValueText ?? "—"}
             {rawEvidence.referenceText

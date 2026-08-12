@@ -466,6 +466,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
               const anyB = b as {
                 key: string;
                 name: string;
+                raw_name?: string | null;
                 value: number | null;
                 value_text?: string | null;
                 value_kind?: string | null;
@@ -488,7 +489,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
                 profile_id: profileId,
                 biomarker_key: anyB.key,
                 biomarker_name: anyB.name,
-                raw_name: anyB.name,
+                raw_name: anyB.raw_name ?? anyB.name,
                 value_numeric: anyB.value,
                 value_text: anyB.value_text ?? (anyB.value != null ? String(anyB.value) : null),
                 value_kind: anyB.value_kind ?? (anyB.value != null ? "numeric" : "text"),

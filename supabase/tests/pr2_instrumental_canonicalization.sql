@@ -134,9 +134,14 @@ values
 
 insert into public.document_processing_jobs (id, document_id, profile_id, job_type, status)
 values ('40000000-0000-0000-0000-000000000020', '40000000-0000-0000-0000-000000000010', '40000000-0000-0000-0000-000000000001', 'extract', 'queued');
+insert into public.document_processing_jobs (id, document_id, profile_id, job_type, status)
+values ('40000000-0000-0000-0000-000000000021', '40000000-0000-0000-0000-000000000011', '40000000-0000-0000-0000-000000000002', 'extract', 'queued');
 
 create temporary table c_claim as
 select * from public.claim_document_processing_job('40000000-0000-0000-0000-000000000020');
+
+create temporary table c_claim_b as
+select * from public.claim_document_processing_job('40000000-0000-0000-0000-000000000021');
 
 create temporary table c_payload on commit drop as
 select jsonb_build_object(
@@ -178,7 +183,7 @@ select * from public.prepare_instrumental_publication(
 
 select ok((select publication_id from c_prep) is not null, 'matching caller digest prepares successfully');
 
--- Cross-owner content FK rejection: insert content under profile A, attempt attach under profile B.
+-- Cross-owner content FK rejection: insert content under profile A, then attach it to profile B with a valid attempt column so the ownership FK, not the prepared-attempt check, is exercised.
 insert into public.document_instrumental_snapshot_contents (
   id, document_id, profile_id, canonicalization_version, snapshot_hash, canonical_payload, study_date
 ) values (
@@ -194,12 +199,13 @@ insert into public.document_instrumental_snapshot_contents (
 select throws_ok(
   $$
     insert into public.document_instrumental_publications (
-      id, document_id, profile_id, snapshot_content_id, state
+      id, document_id, profile_id, snapshot_content_id, processing_attempt_id, state
     ) values (
       '40000000-0000-0000-0000-000000000031',
       '40000000-0000-0000-0000-000000000011',
       '40000000-0000-0000-0000-000000000002',
       '40000000-0000-0000-0000-000000000030',
+      (select processing_attempt_id from c_claim_b),
       'prepared'
     );
   $$,
