@@ -49,7 +49,10 @@ function firstDocument(
 export async function GET() {
   const profileId = await getSessionProfileId();
   if (!profileId) {
-    return NextResponse.json({ authenticated: false }, { status: 401 });
+    return NextResponse.json(
+      { authenticated: false },
+      { status: 401, headers: { "Cache-Control": "no-store" } },
+    );
   }
 
   try {
@@ -66,7 +69,10 @@ export async function GET() {
       .order("observed_at", { ascending: false });
 
     if (observationsError) {
-      return NextResponse.json({ error: observationsError.message }, { status: 500 });
+      return NextResponse.json(
+        { error: observationsError.message },
+        { status: 500, headers: { "Cache-Control": "no-store" } },
+      );
     }
 
     const presented = ((observations ?? []) as BiomarkerObservation[]).map(
@@ -156,8 +162,13 @@ export async function GET() {
       },
       lab_unit_system: unitSystem,
       observations: presented,
+    }, {
+      headers: { "Cache-Control": "no-store" },
     });
   } catch {
-    return NextResponse.json({ authenticated: false }, { status: 401 });
+    return NextResponse.json(
+      { authenticated: false },
+      { status: 401, headers: { "Cache-Control": "no-store" } },
+    );
   }
 }

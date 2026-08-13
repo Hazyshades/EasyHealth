@@ -135,8 +135,8 @@ assert.equal(
 assert.equal(isLaboratoryObservation({ observation_kind: "lab" }), true);
 assert.equal(isLaboratoryObservation({ observation_kind: "instrumental" }), false);
 
-const healthProfileRoute = readFileSync("src/app/api/health-profile/route.ts", "utf8");
-assert.match(healthProfileRoute, /\.eq\("observation_kind", "lab"\)/);
+const healthProfileSnapshot = readFileSync("src/lib/health-profile-snapshot.ts", "utf8");
+assert.match(healthProfileSnapshot, /\.eq\("observation_kind", "lab"\)/);
 const observationsRoute = readFileSync(
   "src/app/api/documents/[id]/observations/route.ts",
   "utf8"
