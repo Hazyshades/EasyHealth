@@ -1,7 +1,7 @@
 # EH-123: Recalculate dependent Health Profile assessments
 
-**Roadmap status:** In progress
-**Build / environment:** Local Next.js app with linked Supabase project `nuqvypxavtorupntmrau`; local migrations `053`–`059` applied on 2026-08-13. Remote project has `053`–`057` applied; `058`–`059` remain pending until the migration-number conflict is reconciled.
+**Roadmap status:** Delivered in PR #138
+**Build / environment:** Local Next.js app with linked Supabase project `nuqvypxavtorupntmrau`; local migrations `053`–`059` applied on 2026-08-13. Remote migrations `053`–`059` are applied after PR merge.
 **Test run date:** 2026-08-13
 **Tester:** Automated contract run; authenticated disposable-account smoke run; correction dataset and controlled-failure scenarios pending
 
@@ -76,10 +76,10 @@ Charts remain based on the current accepted laboratory results. They are not sep
 
 - [x] `supabase db reset --local` applied migrations `001`–`059`, then `pnpm test:eh123-db` passed 20 assertions: live-event admission, backfill exclusion, privacy boundary, exclusive claim, invalid snapshot rejection, immutable version write, one receipt, retryable lease recovery, and manual retry. Owner: backend engineer.
 - [x] `pnpm test:eh123` passed the Registry V2 Health Profile input gate, deterministic canonical snapshot ordering/hash, version selection, no-store API responses, retry route, worker claim/complete/failure/reclaim seams, and no-GET synthesis contract. `pnpm typecheck` also passed. The worker TypeScript check remains to be rerun after the migration repair. Owner: backend engineer.
-- [x] Disposable-database CI is configured to run `pnpm test:eh123-db` after migrations in `.github/workflows/measurement-registry.yml`. This local run does not claim a remote CI result. Owner: CI.
+- [x] Disposable-database CI is configured to run `pnpm test:eh123-db` after migrations in `.github/workflows/measurement-registry.yml`. PR #138 checks passed: `verify`, `database`, and `integration`. Owner: CI.
 - [x] Schema review and the pgTAP privacy assertion confirm dependency events declare no raw patient values, document text, source regions, resolver evidence, or decision traces. Owner: backend engineer.
 - [x] The database contract verifies immutable version/receipt writes and append-only dependency-event mutation rejection. The EH-121 regression (`37` assertions) also passed after EH-123 preserves controlled lineage-purge cascades. Owner: database contract test.
-- [x] Remote migration history was inspected after renumbering: remote `053`–`057` are present; `058`–`059` are not yet applied. No remote push was performed in this verification run. Owner: backend engineer.
+- [x] Remote migration history was verified after merge: remote `053`–`059` are present, including the renumbered EH-123 migrations. Owner: backend engineer.
 - [x] Authenticated disposable-account smoke after the remote repair: profile and consent onboarding completed; **Documents**, **Biomarkers**, and **Health Profile** opened successfully; `GET /api/health-profile` and `GET /api/biomarkers` returned `200` with `Cache-Control: no-store`; two `POST /api/health-profile/recalculate` calls returned `200` with `{ "status": "queued" }` and `Cache-Control: no-store`; `POST /api/health-profile/synthesis` returned the expected `400` no-documents response. The disposable account was removed after the run. Owner: backend engineer.
 
 ## Out of scope or not manually testable yet
