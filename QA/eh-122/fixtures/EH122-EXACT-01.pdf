@@ -1,0 +1,65 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 792 612] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 1081 >>
+stream
+BT
+/F1 9 Tf
+42 570 Td
+(EasyHealth Synthetic Laboratory Report) Tj
+0 -19 Td
+(Fictional de-identified QA fixture; not a medical record or clinical advice.) Tj
+0 -19 Td
+(Fixture ID: EH122-EXACT-01    Patient: Test Subject \(fictional\)    Collection date: 2026-08-13) Tj
+0 -19 Td
+(Laboratory: Example Diagnostics \(fictional\)) Tj
+0 -19 Td
+() Tj
+0 -19 Td
+(Complete blood count) Tj
+0 -19 Td
+(Analyte | Result | Unit | Reference range | Specimen) Tj
+0 -19 Td
+(Hemoglobin \(HGB\) | 150 | g/L | 130 - 170 | Specimen: whole blood) Tj
+0 -19 Td
+(Hematocrit \(HCT\) | 45.0 | % | 40 - 50 | Specimen: whole blood) Tj
+0 -19 Td
+(Red blood cells \(RBC\) | 5.10 | x10^12/L | 4.5 - 5.9 | Specimen: whole blood) Tj
+0 -19 Td
+(White blood cells \(WBC\) | 6.20 | x10^9/L | 4.0 - 10.0 | Specimen: whole blood) Tj
+0 -19 Td
+(Platelets \(PLT\) | 250 | x10^9/L | 150 - 400 | Specimen: whole blood) Tj
+0 -19 Td
+(Mean corpuscular volume \(MCV\) | 88.0 | fL | 80 - 100 | Specimen: whole blood) Tj
+0 -19 Td
+() Tj
+0 -19 Td
+(All values are fictional and included only to exercise EH-122 batch verification.) Tj
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000247 00000 n 
+0000000317 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1449
+%%EOF

@@ -1,6 +1,6 @@
 # EH-122: Batch verification for low-risk exact matches
 
-**Roadmap status:** Implemented; authenticated UI partially exercised, EH-122 fixtures unavailable
+**Roadmap status:** Implemented; exact-match fixture generated, authenticated UI provisioning pending
 **Build / environment:** `localhost:3000` via authenticated Chrome relay; Supabase-backed staging data; Windows workspace
 **Test run date:** 2026-08-13
 **Tester:** Engineering automation
@@ -22,7 +22,7 @@ This checklist does not cover automatic verification, batch value/mapping correc
 
 | ID | Test document or setup | Purpose |
 | --- | --- | --- |
-| `EH122-EXACT-01` | A synthetic laboratory document with at least three pending-review rows that have a reviewed exact match, complete compatible evidence, active source evidence, and no edits or prior human decision. | Normal batch-verification path. |
+| `EH122-EXACT-01` | [`QA/eh-122/fixtures/EH122-EXACT-01.pdf`](fixtures/EH122-EXACT-01.pdf), a synthetic laboratory document with six pending-review rows that have a reviewed exact match, complete compatible evidence, active source evidence, and no edits or prior human decision. | Normal batch-verification path. |
 | `EH122-MIXED-02` | A synthetic laboratory document that includes one eligible exact row plus partial, ambiguous, normalized/OCR/fuzzy, incomplete-evidence, and manually corrected rows. | Exclusion explanations and individual-review preservation. |
 | `EH122-STALE-03` | A synthetic document with at least two eligible rows; use two authenticated sessions or a prepared test hook to change one row after the first session opens confirmation. | Partial completion and stale-row feedback. |
 | `EH122-UNDO-04` | A completed EH-122 batch with at least two verified rows; change one row individually after the batch. | Audit-safe partial undo. |
@@ -31,7 +31,7 @@ This checklist does not cover automatic verification, batch value/mapping correc
 
 ### EH122-UI-01: Verify eligible exact matches
 
-**Precondition:** `EH122-EXACT-01` is open in **Documents** and all listed rows are awaiting review.
+**Precondition:** Upload the repository fixture [`QA/eh-122/fixtures/EH122-EXACT-01.pdf`](fixtures/EH122-EXACT-01.pdf) into the dedicated test account, wait for extraction to complete, then open it in **Documents** with all listed rows awaiting review.
 
 1. Open **Documents** and select `EH122-EXACT-01`.
 2. In **Extracted biomarkers**, review the batch-verification selection.
@@ -43,7 +43,7 @@ This checklist does not cover automatic verification, batch value/mapping correc
 **Expected result:** Only the eligible exact rows are selected by default. The confirmation summary reports the selected count and states that the current user will verify them. After confirmation, the rows show a verified-by-user state and remain linked to their source evidence; no raw extraction text or value is overwritten.
 
 **Result:** Blocked
-**Notes / evidence link:** Blocked — the supplied document `original.pdf` (`3a060458-ef26-4f11-8518-0e72e43b8f1a`) has 12 reviewable rows but `0 eligible exact matches`; its confirmation action is disabled, so the successful batch transition could not be exercised. The session still has no `EH122-EXACT-01` fixture.
+**Notes / evidence link:** The fixture is now available at [`QA/eh-122/fixtures/EH122-EXACT-01.pdf`](fixtures/EH122-EXACT-01.pdf). It has not yet been uploaded into the authenticated staging account, so the successful batch transition remains blocked in this environment. Direct resolver/policy verification confirms the six labels are eligible when their row-level `whole_blood` specimen evidence is extracted.
 
 ### EH122-UI-02: Explain skipped rows and preserve individual review
 
@@ -130,9 +130,10 @@ This checklist does not cover automatic verification, batch value/mapping correc
   - [x] `pnpm render:biomarker-wiki` and the explicit local staging export passed. The generated seven-page Wiki mirror was published to `Hazyshades/EasyHealth.wiki` at commit `1b7c07b`.
 - [x] `pnpm check:ci-suite-coverage-contract` and `pnpm check:ci-suite-coverage` passed: EH-122 node and pgTAP suites are workflow-reachable with 51 covered suites and no orphaned/partial entries.
 - [x] Authenticated browser relay on `original.pdf` (`3a060458-ef26-4f11-8518-0e72e43b8f1a`) confirmed the server projection and UI: 12 pending rows, 7 non-exact resolved matches, 5 incomplete rows, 0 eligible IDs, disabled batch action, and no application error. The OpenSpec policy requires `aliasMatchType = exact`; normalized and token-set matches remain individual-review only.
+- [x] `pdftotext` extracted all six exact labels and explicit row-level `Specimen: whole blood` evidence from `QA/eh-122/fixtures/EH122-EXACT-01.pdf`; direct resolver/policy probes returned `eligible: true` with `matchType: exact`, reviewed resolution authority, and no exclusion codes for `hemoglobin_whole_blood`, `hematocrit_whole_blood`, `rbc_whole_blood`, `wbc_whole_blood`, `platelets_whole_blood`, and `mcv_whole_blood`. `pnpm test:cbc-regression` passed all 48 checks.
 
 ## Out of scope or not manually testable yet
 
 - Automatic verification, batch correction, rejection, and reprocessing are out of scope for EH-122.
 - The Wiki is a generated mirror and is not test evidence; repository documentation and the delivered product are authoritative.
-- Authenticated manual review is now reachable through the browser relay, but this environment does not contain the named EH-122 synthetic fixtures or any server-projected eligible exact rows. Keep UI-01, UI-03, UI-04, UI-05, and UI-06 blocked until those fixtures are provisioned; UI-02 records the available exclusion/no-eligible evidence.
+- The repository now contains the de-identified `EH122-EXACT-01` fixture, but it has not been provisioned in the authenticated staging account. After upload and extraction, re-run UI-01 and UI-03; keep UI-04, UI-05, and UI-06 blocked until the corresponding concurrency, completed-batch, and mixed downstream fixtures are available.
