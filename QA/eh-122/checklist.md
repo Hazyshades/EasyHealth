@@ -43,7 +43,7 @@ This checklist does not cover automatic verification, batch value/mapping correc
 **Expected result:** Only the eligible exact rows are selected by default. The confirmation summary reports the selected count and states that the current user will verify them. After confirmation, the rows show a verified-by-user state and remain linked to their source evidence; no raw extraction text or value is overwritten.
 
 **Result:** Blocked
-**Notes / evidence link:** Blocked — the authenticated session has no `EH122-EXACT-01` fixture and the 37 documents returned by `/api/documents` have zero server-projected eligible rows. The available synthetic document `eh120_synthetic_biomarker_report.pdf` (`d35687e8-de06-4a34-b9fd-c43e8c5af38d`) reports `0 eligible exact matches`, so the confirmation and successful batch transition could not be exercised.
+**Notes / evidence link:** Blocked — the supplied document `original.pdf` (`3a060458-ef26-4f11-8518-0e72e43b8f1a`) has 12 reviewable rows but `0 eligible exact matches`; its confirmation action is disabled, so the successful batch transition could not be exercised. The session still has no `EH122-EXACT-01` fixture.
 
 ### EH122-UI-02: Explain skipped rows and preserve individual review
 
@@ -58,8 +58,8 @@ This checklist does not cover automatic verification, batch value/mapping correc
 
 **Expected result:** Unsafe rows are not selectable for batch verification. The summary gives a clear skip reason for each excluded category. An incomplete row remains available for its existing individual/raw-acceptance path and is not presented as a verified concrete measurement.
 
-**Result:** Passed for the available no-eligible path; mixed-fixture coverage blocked
-**Notes / evidence link:** `eh120_synthetic_biomarker_report.pdf` rendered in the authenticated review workspace after the hook-order fix. It showed 12 extracted rows, 0 eligible exact matches, a disabled `Verify eligible matches (0)` action, and `Individual review required` explanations for every row. Matched rows exposed non-exact/protected-decision reasons; incomplete rows remained raw/individual and did not expose a concrete candidate. The requested `EH122-MIXED-02` fixture was not provisioned.
+**Result:** Passed for the supplied mixed/no-eligible path; eligible-batch coverage blocked
+**Notes / evidence link:** `original.pdf` rendered in the authenticated review workspace with `12 not verified`: 7 resolved rows were individually excluded with `alias_not_exact` (two token-set matches and five normalized matches), while 5 incomplete/unmapped rows were excluded with `not_resolved`, `missing_definition`, and `winning_candidate_missing`. The UI showed `0 eligible exact matches`, a disabled `Verify eligible matches (0)`, and individual-review explanations; incomplete rows retained raw/individual acceptance without a concrete batch identity.
 
 ### EH122-UI-03: Deselect an otherwise eligible row
 
@@ -129,8 +129,7 @@ This checklist does not cover automatic verification, batch value/mapping correc
   - [x] `pnpm generate:biomarker-docs`, `pnpm check:biomarker-docs`, and `pnpm test:biomarker-docs` passed; canonical Registry docs were regenerated and current.
   - [x] `pnpm render:biomarker-wiki` and the explicit local staging export passed. The generated seven-page Wiki mirror was published to `Hazyshades/EasyHealth.wiki` at commit `1b7c07b`.
 - [x] `pnpm check:ci-suite-coverage-contract` and `pnpm check:ci-suite-coverage` passed: EH-122 node and pgTAP suites are workflow-reachable with 51 covered suites and no orphaned/partial entries.
-- [x] Authenticated browser smoke: the document review workspace rendered the available synthetic document; **Biomarkers** and **Health Profile** rendered without an application error. The initial runtime hook-order failure was fixed by removing conditional batch `useMemo` calls; `pnpm typecheck` passed afterward.
-- [x] `pnpm test:document-review` passed with the repository `.env` loaded explicitly; structural review-workspace and document-route checks passed.
+- [x] Authenticated browser relay on `original.pdf` (`3a060458-ef26-4f11-8518-0e72e43b8f1a`) confirmed the server projection and UI: 12 pending rows, 7 non-exact resolved matches, 5 incomplete rows, 0 eligible IDs, disabled batch action, and no application error. The OpenSpec policy requires `aliasMatchType = exact`; normalized and token-set matches remain individual-review only.
 
 ## Out of scope or not manually testable yet
 
