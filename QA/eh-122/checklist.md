@@ -43,7 +43,7 @@ This checklist does not cover automatic verification, batch value/mapping correc
 **Expected result:** Only the eligible exact rows are selected by default. The confirmation summary reports the selected count and states that the current user will verify them. After confirmation, the rows show a verified-by-user state and remain linked to their source evidence; no raw extraction text or value is overwritten.
 
 **Result:** Blocked
-**Notes / evidence link:** Blocked — the authenticated session has no `EH122-EXACT-01` fixture and the 36 documents returned by `/api/documents` have zero server-projected eligible rows. The available synthetic document `eh120_synthetic_biomarker_report.pdf` (`d35687e8-de06-4a34-b9fd-c43e8c5af38d`) reports `0 eligible exact matches`, so the confirmation and successful batch transition could not be exercised.
+**Notes / evidence link:** Blocked — the authenticated session has no `EH122-EXACT-01` fixture and the 37 documents returned by `/api/documents` have zero server-projected eligible rows. The available synthetic document `eh120_synthetic_biomarker_report.pdf` (`d35687e8-de06-4a34-b9fd-c43e8c5af38d`) reports `0 eligible exact matches`, so the confirmation and successful batch transition could not be exercised.
 
 ### EH122-UI-02: Explain skipped rows and preserve individual review
 
