@@ -1,10 +1,10 @@
 # EH-124: Run accessibility and review-workflow QA
 
 **Roadmap status:** In progress
-**Build / environment:** `________`
-**Test run date:** `________`
-**Tester:** `________`
-**Browser / screen reader:** `________`
+**Build / environment:** `eh-124-run-accessibility-and-review-workflow-qa @ ecff24f`; local developer evidence environment; no authenticated UI environment
+**Test run date:** `2026-08-13`
+**Tester:** `engineering / CI evidence`
+**Browser / screen reader:** `N/A for blocked manual cases; no supported pairing is documented`
 
 ## Current execution baseline
 
@@ -181,9 +181,12 @@ The current product does not expose EH-120's complete verification-state workflo
 
 ## Developer evidence required
 
-- [x] `pnpm test:eh118` passed locally on 2026-08-12 and proves source-region, page-only fallback, provenance matching, and scroll-ownership contracts. Evidence owner: engineering/CI.
-- [x] `pnpm test:eh119` passed locally on 2026-08-12 and proves raw-versus-corrected projection, correction validation, idempotency, and correction-form contract. Evidence owner: engineering/CI.
-- [x] `pnpm test:eh121` passed locally on 2026-08-12 and proves compact history rendering, source-safe audit projection, actor labels, ordering, and empty-state behavior. Evidence owner: engineering/CI.
+- [x] `pnpm test:eh118` passed locally on 2026-08-13 and proves source-region, page-only fallback, provenance matching, and scroll-ownership contracts. Evidence owner: engineering/CI.
+- [x] `pnpm test:eh119` passed locally on 2026-08-13 and proves raw-versus-corrected projection, correction validation, idempotency, and correction-form contract. Evidence owner: engineering/CI.
+- [x] `pnpm test:eh121` passed locally on 2026-08-13 and proves compact history rendering, source-safe audit projection, actor labels, ordering, and empty-state behavior. Evidence owner: engineering/CI.
+- [x] `pnpm typecheck`, `pnpm check:ci-suite-coverage-contract`, and `pnpm check:ci-suite-coverage` passed locally on 2026-08-13. The coverage check reported 55 covered suites, 0 local-only, 0 orphaned, 0 partial, and 0 invalid. Evidence owner: engineering/CI.
+- [x] `pnpm test:eh120`, `pnpm test:eh122`, and `pnpm test:eh123` passed locally on 2026-08-13. These are automated contract checks only; they do not replace manual UI verification.
+- [x] Relevant local database suites passed against the existing local schema: EH-104, EH-105, EH-106, PostgREST alias, EH-111, EH-114, alias order, stated axis, EH-118, EH-119, EH-120, EH-121, EH-122, EH-113, EH-116, PR2, resolver trace v2, and writer seam. EH-123 DB was not runnable because the existing local schema lacks `public.assessment_dependency_events`; refreshing pending migrations also fails at `058_eh123_complete_job_status.sql` against that stale schema. Evidence owner: engineering/CI.
 - [ ] The deployed/CI environment proves authenticated document ownership and route availability for the manual run. Evidence owner: release owner.
 - [ ] Every confirmed P0 defect has a GitHub issue link, owner, triage state, focused regression evidence, and manual retest result. Evidence owner: QA/engineering.
 - [ ] The EH-124 regression report lists every automated command, manual result, environment, evidence artifact, defect link, and dependency-blocked case. Evidence owner: release owner.
