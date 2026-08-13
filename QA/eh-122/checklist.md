@@ -1,7 +1,7 @@
 # EH-122: Batch verification for low-risk exact matches
 
-**Roadmap status:** Implemented; authenticated manual QA blocked
-**Build / environment:** Local Supabase; Windows workspace; local Documents route smoke-tested
+**Roadmap status:** Implemented; authenticated UI partially exercised, EH-122 fixtures unavailable
+**Build / environment:** `localhost:3000` via authenticated Chrome relay; Supabase-backed staging data; Windows workspace
 **Test run date:** 2026-08-13
 **Tester:** Engineering automation
 
@@ -43,7 +43,7 @@ This checklist does not cover automatic verification, batch value/mapping correc
 **Expected result:** Only the eligible exact rows are selected by default. The confirmation summary reports the selected count and states that the current user will verify them. After confirmation, the rows show a verified-by-user state and remain linked to their source evidence; no raw extraction text or value is overwritten.
 
 **Result:** Blocked
-**Notes / evidence link:** Blocked — the local **Documents** route now renders and redirects to `/?signin=required`, but this workspace has no authenticated product session or prepared synthetic test documents. Execute in a deployed authenticated environment.
+**Notes / evidence link:** Blocked — the authenticated session has no `EH122-EXACT-01` fixture and the 36 documents returned by `/api/documents` have zero server-projected eligible rows. The available synthetic document `eh120_synthetic_biomarker_report.pdf` (`d35687e8-de06-4a34-b9fd-c43e8c5af38d`) reports `0 eligible exact matches`, so the confirmation and successful batch transition could not be exercised.
 
 ### EH122-UI-02: Explain skipped rows and preserve individual review
 
@@ -58,8 +58,8 @@ This checklist does not cover automatic verification, batch value/mapping correc
 
 **Expected result:** Unsafe rows are not selectable for batch verification. The summary gives a clear skip reason for each excluded category. An incomplete row remains available for its existing individual/raw-acceptance path and is not presented as a verified concrete measurement.
 
-**Result:** Blocked
-**Notes / evidence link:** Blocked — the local **Documents** route now renders and redirects to `/?signin=required`, but this workspace has no authenticated product session or prepared synthetic test documents. Execute in a deployed authenticated environment.
+**Result:** Passed for the available no-eligible path; mixed-fixture coverage blocked
+**Notes / evidence link:** `eh120_synthetic_biomarker_report.pdf` rendered in the authenticated review workspace after the hook-order fix. It showed 12 extracted rows, 0 eligible exact matches, a disabled `Verify eligible matches (0)` action, and `Individual review required` explanations for every row. Matched rows exposed non-exact/protected-decision reasons; incomplete rows remained raw/individual and did not expose a concrete candidate. The requested `EH122-MIXED-02` fixture was not provisioned.
 
 ### EH122-UI-03: Deselect an otherwise eligible row
 
@@ -74,7 +74,7 @@ This checklist does not cover automatic verification, batch value/mapping correc
 **Expected result:** The summary distinguishes the deselected row from excluded rows. Only the still-selected rows become verified; the deselected row remains pending review and can be reviewed later.
 
 **Result:** Blocked
-**Notes / evidence link:** Blocked — the local **Documents** route now renders and redirects to `/?signin=required`, but this workspace has no authenticated product session or prepared synthetic test documents. Execute in a deployed authenticated environment.
+**Notes / evidence link:** No eligible rows were available in the authenticated document set, so deselection versus exclusion could not be distinguished in the confirmation summary.
 
 ### EH122-UI-04: Partial result after a concurrent change
 
@@ -88,7 +88,7 @@ This checklist does not cover automatic verification, batch value/mapping correc
 **Expected result:** The changed row is not batch verified and has an actionable stale/changed explanation. Independent unchanged rows complete normally. The result clearly reports a partial outcome rather than incorrectly claiming full success.
 
 **Result:** Blocked
-**Notes / evidence link:** Blocked — the local **Documents** route now renders and redirects to `/?signin=required`, but this workspace has no authenticated product session or prepared synthetic test documents. Execute in a deployed authenticated environment.
+**Notes / evidence link:** No `EH122-STALE-03` fixture or eligible batch was available; concurrency and partial completion require two sessions or an equivalent prepared test hook.
 
 ### EH122-UI-05: Undo only unchanged batch rows
 
@@ -102,7 +102,7 @@ This checklist does not cover automatic verification, batch value/mapping correc
 **Expected result:** The unchanged batch row returns to pending verification through a new history entry. The later-changed row is not overwritten and is reported as unavailable for undo. The history remains readable and shows an additional reversal transition rather than edited or deleted prior history.
 
 **Result:** Blocked
-**Notes / evidence link:** Blocked — the local **Documents** route now renders and redirects to `/?signin=required`, but this workspace has no authenticated product session or prepared synthetic test documents. Execute in a deployed authenticated environment.
+**Notes / evidence link:** No completed batch operation was available, so partial audit-safe reversal could not be exercised.
 
 ### EH122-UI-06: Downstream safety regression
 
@@ -115,7 +115,7 @@ This checklist does not cover automatic verification, batch value/mapping correc
 **Expected result:** A batch-verified exact row is displayed with its verified state and source document. The incomplete/raw-accepted row does not acquire a concrete definition or become eligible for downstream health-profile use merely because it was retained.
 
 **Result:** Blocked
-**Notes / evidence link:** Blocked — the local **Documents** route now renders and redirects to `/?signin=required`, but this workspace has no authenticated product session or prepared synthetic test documents. Execute in a deployed authenticated environment.
+**Notes / evidence link:** **Biomarkers** and **Health Profile** both rendered without an application error in the authenticated session. Full EH-122 downstream coverage remains blocked because no batch-verified row or `EH122-MIXED-02` raw-retained fixture is available.
 
 ## Developer evidence required
 
@@ -129,9 +129,11 @@ This checklist does not cover automatic verification, batch value/mapping correc
   - [x] `pnpm generate:biomarker-docs`, `pnpm check:biomarker-docs`, and `pnpm test:biomarker-docs` passed; canonical Registry docs were regenerated and current.
   - [x] `pnpm render:biomarker-wiki` and the explicit local staging export passed. The generated seven-page Wiki mirror was published to `Hazyshades/EasyHealth.wiki` at commit `1b7c07b`.
 - [x] `pnpm check:ci-suite-coverage-contract` and `pnpm check:ci-suite-coverage` passed: EH-122 node and pgTAP suites are workflow-reachable with 51 covered suites and no orphaned/partial entries.
+- [x] Authenticated browser smoke: the document review workspace rendered the available synthetic document; **Biomarkers** and **Health Profile** rendered without an application error. The initial runtime hook-order failure was fixed by removing conditional batch `useMemo` calls; `pnpm typecheck` passed afterward.
+- [x] `pnpm test:document-review` passed with the repository `.env` loaded explicitly; structural review-workspace and document-route checks passed.
 
 ## Out of scope or not manually testable yet
 
 - Automatic verification, batch correction, rejection, and reprocessing are out of scope for EH-122.
 - The Wiki is a generated mirror and is not test evidence; repository documentation and the delivered product are authoritative.
-- Authenticated manual review cannot be executed in the current Windows workspace: the local route renders but redirects to sign-in, and no test account or synthetic documents are provisioned. Mark affected interface checks **Blocked** with this limitation; execute this checklist in a deployed/authenticated environment before delivery is claimed.
+- Authenticated manual review is now reachable through the browser relay, but this environment does not contain the named EH-122 synthetic fixtures or any server-projected eligible exact rows. Keep UI-01, UI-03, UI-04, UI-05, and UI-06 blocked until those fixtures are provisioned; UI-02 records the available exclusion/no-eligible evidence.
