@@ -20,10 +20,17 @@ export function ObservationReviewRow({
   technicalDetails,
   history,
   correction,
+  batchVerification,
 }: {
   row: ReviewRow;
   selected: boolean;
   selection?: { checked: boolean; onChange: (next: boolean) => void };
+  batchVerification?: {
+    eligible: boolean;
+    checked?: boolean;
+    reason?: string;
+    onChange?: (next: boolean) => void;
+  };
   onActivate: (row: ReviewRow) => void;
   technicalDetails?: ReactNode;
   history?: ReactNode;
@@ -119,6 +126,23 @@ export function ObservationReviewRow({
       {correction}
 
       <ReviewStateChips mapping={mapping} />
+      {batchVerification ? (
+        <div className="mt-2 rounded-lg bg-slate-50 px-2 py-1.5 text-xs text-[var(--eh-text-secondary)]">
+          {batchVerification.eligible && batchVerification.onChange ? (
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={Boolean(batchVerification.checked)}
+                onChange={(event) => batchVerification.onChange?.(event.target.checked)}
+                aria-label={`Select ${rawEvidence.displayName} for batch verification`}
+              />
+              Verify with eligible exact matches
+            </label>
+          ) : (
+            <>Individual review required: {batchVerification.reason}</>
+          )}
+        </div>
+      ) : null}
 
       {mapping.guidance ? (
         <div className="mt-2 border-t border-slate-100 pt-2 text-xs text-[var(--eh-text-secondary)]">

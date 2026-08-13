@@ -24,7 +24,9 @@ import {
   evaluateUnitCompatibility,
   getMeasurementDefinition,
   normalizeMeasurementUnit,
+  parseLabValueCell,
 } from "@/lib/biomarkers";
+import { parseReferenceRange } from "@/lib/schemas/biomarkers";
 
 export const MEASUREMENT_OVERRIDE_FIELDS = [
   "value",
@@ -91,6 +93,76 @@ export type BaseMeasurement = {
   readonly refHigh: number | null;
   readonly observedAt: string;
 };
+
+export type ExtractedBiomarkerMeasurementRow = Readonly<{
+  value_numeric: number | string | null;
+  value_text: string | null;
+  value_kind: string | null;
+  ordinal: number | null;
+  unit: string | null;
+  reference_range: string | null;
+  raw_reference_range: string | null;
+}>;
+
+function finiteMeasurementValue(
+  value: number | string | null | undefined,
+): number | null {
+  if (value == null) return null;
+  const parsed = typeof value === "number" ? value : Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/**
+ * Builds the client-safe correction base from immutable extracted evidence.
+ * Persistence and resolver decisions remain the normalization writer's job.
+ */
+export function baseMeasurementFromExtractedRow(
+  row: ExtractedBiomarkerMeasurementRow,
+  observedAt: string,
+): BaseMeasurement {
+  let value = finiteMeasurementValue(row.value_numeric);
+  let valueText = row.value_text?.trim() || null;
+  let valueKind = row.value_kind ?? null;
+  let ordinal = row.ordinal ?? null;
+
+  if (value == null && valueText) {
+    const parsed = parseLabValueCell(valueText);
+    if (parsed) {
+      value = parsed.value;
+      valueText = parsed.value_text;
+      valueKind = parsed.value_kind;
+      ordinal = parsed.ordinal;
+    }
+  } else if (value != null) {
+    valueKind ??= "numeric";
+    valueText ??= String(value);
+  }
+
+  const normalizedValueKind =
+    valueKind === "numeric" || valueKind === "qualitative" || valueKind === "ordinal"
+      ? valueKind
+      : "text";
+  if (normalizedValueKind === "numeric" && value == null) {
+    throw new Error("Numeric observation has no usable value");
+  }
+  if (normalizedValueKind !== "numeric" && !valueText) {
+    throw new Error("Qualitative observation has no usable value");
+  }
+
+  const { ref_low, ref_high } = parseReferenceRange(
+    row.reference_range ?? row.raw_reference_range,
+  );
+  return {
+    value,
+    valueText,
+    valueKind: normalizedValueKind,
+    ordinal,
+    unit: row.unit,
+    refLow: ref_low,
+    refHigh: ref_high,
+    observedAt,
+  };
+}
 
 export type MeasurementCorrectionCode =
   | "override_not_an_object"

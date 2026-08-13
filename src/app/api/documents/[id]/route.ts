@@ -20,6 +20,15 @@ import { reviewDataErrorMessage } from "@/lib/documents/biomarker-review-state";
 import { isWorkerOffline } from "@/lib/documents/worker-health";
 import { purgeDocumentDerivedLaboratoryLineage } from "@/lib/documents/laboratory-lineage-purge";
 import { purgeDocumentInstrumentalPublicationState } from "@/lib/documents/instrumental-publication-purge";
+import { resolveMeasurementDefinition } from "@/lib/biomarkers";
+import {
+  evaluateBatchVerificationEligibility,
+  summarizeBatchVerificationEligibility,
+} from "@/lib/documents/batch-verification-eligibility";
+import {
+  measurementInputFromWriterRow,
+  type ExtractedBiomarkerWriterRow,
+} from "@/lib/documents/observation-normalization-writer";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -171,6 +180,23 @@ export async function GET(req: NextRequest, context: RouteContext) {
       (revisionsByExtractedId.get(item.id) ?? []) as unknown as NormalizationRevisionSummary[]
     ),
   }));
+
+  const batchEligibility = summarizeBatchVerificationEligibility(
+    enrichedExtractedItems,
+    (item) =>
+      evaluateBatchVerificationEligibility({
+        status: item.status,
+        isCurrent: true,
+        sourceSnapshot: item.created_at,
+        resolution: resolveMeasurementDefinition(
+          measurementInputFromWriterRow(
+            item as unknown as ExtractedBiomarkerWriterRow,
+            item.normalization.activeRevision?.measurement_override,
+          ),
+        ),
+        activeRevision: item.normalization.activeRevision,
+      }),
+  );
   const extractedCount = enrichedExtractedItems.length;
   const file =
     fileSigned != null
@@ -226,6 +252,14 @@ export async function GET(req: NextRequest, context: RouteContext) {
     prescription: prescriptionResult.data ?? null,
     referral: referralResult.data ?? null,
     extracted_biomarkers: enrichedExtractedItems,
+    batch_verification: {
+      eligible_ids: batchEligibility.eligibleIds,
+      excluded: batchEligibility.excluded.map((item) => ({
+        id: item.id,
+        exclusion_codes: item.exclusionCodes,
+      })),
+      excluded_counts: batchEligibility.excludedCounts,
+    },
     review_data_error: reviewDataError,
     file,
     current_page,
