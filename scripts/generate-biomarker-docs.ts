@@ -439,6 +439,8 @@ function renderModule(counts: BiomarkerDocumentationCounts): string {
     "",
     "`GET /api/health-profile` admits laboratory input only through `projectHealthProfileLaboratoryInput`. The source must be current and active, have an active `resolved` trace whose selected candidate matches the measurement definition, use reviewed Registry v2 provenance, and have a reviewed compatible assessment binding. Numeric presence is necessary but not sufficient for a score: Registry score role, usable document reference range, specimen, readiness group, and contribution group still govern scoring. Incomplete, rejected, superseded, provisional, or non-laboratory observations remain readable evidence but do not enter the scored profile.",
     "",
+    "Chart-facing `GET /api/biomarkers` and `GET /api/health-profile` responses emit `Cache-Control: no-store`, so corrections are not served from an HTTP cache. Health Profile reads the latest assessment, job, and synthesis state without generating synthesis during `GET`.",
+    "",
     "## Unknown labels and controlled reprocessing",
     "",
     "An unknown label remains raw extracted evidence and becomes persisted `unmapped` only after acceptance or explicit Registry batch reprocessing. `scripts/reprocess-batch.ts` invokes the operator-controlled batch path. There is no HTTP Registry-batch endpoint, automatic catalog-change reprocessing, automatic catalog growth from patient or LLM input, admin queue promoting unknown labels, or source-document-to-catalog provenance promotion.",

@@ -404,6 +404,67 @@ select is(
   'supersession retry does not duplicate the lifecycle event'
 );
 
+-- ── failed processing attempts hide their laboratory source rows ─────────────
+insert into public.document_processing_jobs (
+  id, document_id, profile_id, job_type, status, attempts, max_attempts, started_at
+)
+values (
+  '00000000-0000-0000-0000-000000001022',
+  '00000000-0000-0000-0000-000000001010',
+  '00000000-0000-0000-0000-000000001001',
+  'document',
+  'processing',
+  1,
+  3,
+  now()
+);
+insert into public.document_processing_attempts (
+  id, job_id, document_id, profile_id, attempt_number, captured_write_generation, state
+)
+values (
+  '00000000-0000-0000-0000-000000001032',
+  '00000000-0000-0000-0000-000000001022',
+  '00000000-0000-0000-0000-000000001010',
+  '00000000-0000-0000-0000-000000001001',
+  2,
+  0,
+  'active'
+);
+insert into public.document_extracted_biomarkers (
+  id, document_id, profile_id, processing_attempt_id, biomarker_name, status,
+  resolver_result, resolution_status
+)
+values (
+  '00000000-0000-0000-0000-000000001140',
+  '00000000-0000-0000-0000-000000001010',
+  '00000000-0000-0000-0000-000000001001',
+  '00000000-0000-0000-0000-000000001032',
+  'Failed attempt source',
+  'needs_review',
+  'partial',
+  'partial'
+);
+update public.document_processing_attempts
+set state = 'failed',
+    terminal_at = now(),
+    terminal_reason = 'synthetic extraction failure'
+where id = '00000000-0000-0000-0000-000000001032';
+select is(
+  (select record_status from public.document_extracted_biomarkers where id = '00000000-0000-0000-0000-000000001140'),
+  'superseded'::text,
+  'failed attempt source is moved out of the active lifecycle'
+);
+select is(
+  (select lifecycle_reason_code from public.document_extracted_biomarkers where id = '00000000-0000-0000-0000-000000001140'),
+  'retryable_failure'::text,
+  'failed attempt source records a stable retry reason'
+);
+select is(
+  (select count(*)::bigint from public.observation_change_events where extracted_biomarker_id = '00000000-0000-0000-0000-000000001140' and event_kind = 'record_superseded'),
+  1::bigint,
+  'failed attempt source transition is audited once'
+);
+
 -- ── automatic actor/status guard ─────────────────────────────────────────────
 select throws_ok(
   $$

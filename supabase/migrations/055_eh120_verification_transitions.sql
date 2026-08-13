@@ -99,7 +99,7 @@ alter table public.document_extracted_biomarkers
     check (
       (record_status = 'active' and lifecycle_reason_code is null and superseded_by_processing_attempt_id is null)
       or (record_status = 'rejected' and lifecycle_reason_code in ('incorrect_extraction', 'duplicate_source', 'wrong_document', 'privacy_request', 'other') and superseded_by_processing_attempt_id is null)
-      or (record_status = 'superseded' and lifecycle_reason_code in ('document_reprocessed', 'catalog_reprocessed'))
+      or (record_status = 'superseded' and lifecycle_reason_code in ('document_reprocessed', 'catalog_reprocessed', 'retryable_failure'))
     ),
   add constraint document_extracted_biomarkers_superseded_by_attempt_fk
     foreign key (superseded_by_processing_attempt_id)
@@ -115,7 +115,7 @@ alter table public.document_extracted_biomarkers
   add constraint document_extracted_biomarkers_superseded_reason_check
     check (
       record_status <> 'superseded'
-      or lifecycle_reason_code in ('document_reprocessed', 'catalog_reprocessed')
+      or lifecycle_reason_code in ('document_reprocessed', 'catalog_reprocessed', 'retryable_failure')
     );
 
 create index if not exists document_extracted_biomarkers_record_status_idx
@@ -146,7 +146,7 @@ as $$
         and extracted.lifecycle_reason_code not in ('incorrect_extraction', 'duplicate_source', 'wrong_document', 'privacy_request', 'other')
         then 'rejected_reason_missing'
       when extracted.record_status = 'superseded'
-        and extracted.lifecycle_reason_code not in ('document_reprocessed', 'catalog_reprocessed')
+        and extracted.lifecycle_reason_code not in ('document_reprocessed', 'catalog_reprocessed', 'retryable_failure')
         then 'superseded_reason_missing'
       else 'unknown'
     end,
@@ -166,7 +166,7 @@ as $$
      or (extracted.record_status = 'rejected'
        and extracted.lifecycle_reason_code not in ('incorrect_extraction', 'duplicate_source', 'wrong_document', 'privacy_request', 'other'))
      or (extracted.record_status = 'superseded'
-       and extracted.lifecycle_reason_code not in ('document_reprocessed', 'catalog_reprocessed'));
+       and extracted.lifecycle_reason_code not in ('document_reprocessed', 'catalog_reprocessed', 'retryable_failure'));
 $$;
 
 -- ── 2. Service operation ledger for lifecycle idempotency ────────────────────
@@ -274,7 +274,7 @@ begin
     raise exception using message = 'eh120_rejected_source_cannot_be_superseded';
   end if;
   if new.record_status = 'superseded'
-    and new.lifecycle_reason_code not in ('document_reprocessed', 'catalog_reprocessed') then
+    and new.lifecycle_reason_code not in ('document_reprocessed', 'catalog_reprocessed', 'retryable_failure') then
     raise exception using message = 'eh120_supersession_reason_required';
   end if;
   return new;
@@ -714,6 +714,76 @@ drop trigger if exists eh120_capture_lifecycle_transition
 create trigger eh120_capture_lifecycle_transition
 after update of record_status on public.document_extracted_biomarkers
 for each row execute function public.eh120_capture_lifecycle_transition();
+
+-- A failed, requeued, or reclaimed attempt must never leave its uncompleted
+-- laboratory rows in the active review projection. The rows remain retained
+-- as historical evidence, but are terminally superseded with a stable,
+-- non-PII retry reason. Completion is intentionally excluded: the completion
+-- seam supersedes the previous source batch after the replacement is valid.
+create or replace function public.eh120_hide_incomplete_attempt_sources()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  request_hash text;
+begin
+  if old.state is distinct from 'active'
+    or new.state = 'completed' then
+    return null;
+  end if;
+
+  request_hash := encode(
+    extensions.digest(
+      convert_to('eh120:retryable_failure:' || new.id::text, 'UTF8'),
+      'sha256'
+    ),
+    'hex'
+  );
+  perform set_config('easyhealth.lifecycle_transition', 'on', true);
+
+  update public.document_extracted_biomarkers
+  set record_status = 'superseded',
+      is_current = false,
+      superseded_at = coalesce(superseded_at, now()),
+      lifecycle_reason_code = 'retryable_failure',
+      lifecycle_request_hash = request_hash,
+      superseded_by_processing_attempt_id = null
+  where processing_attempt_id = new.id
+    and record_status = 'active'
+    and is_current is true
+    and not exists (
+      select 1
+      from public.observation_normalization_revisions as revision
+      left join public.observation_normalization_revisions as prior
+        on prior.id = revision.reversal_of_revision_id
+      where revision.extracted_biomarker_id = document_extracted_biomarkers.id
+        and revision.is_active
+        and (
+          revision.verification_status in ('user_verified', 'manually_corrected')
+          or prior.verification_status in ('user_verified', 'manually_corrected')
+        )
+    );
+
+  return null;
+end;
+$$;
+
+revoke all on function public.eh120_hide_incomplete_attempt_sources()
+  from public, anon, authenticated;
+grant execute on function public.eh120_hide_incomplete_attempt_sources()
+  to service_role;
+
+drop trigger if exists eh120_hide_incomplete_attempt_sources
+  on public.document_processing_attempts;
+create trigger eh120_hide_incomplete_attempt_sources
+after update of state on public.document_processing_attempts
+for each row execute function public.eh120_hide_incomplete_attempt_sources();
+
+comment on function public.eh120_hide_incomplete_attempt_sources() is
+  'EH-120 hides laboratory rows from failed, requeued, or reclaimed processing attempts without deleting retained evidence.';
+
 
 -- EH-121's legacy extraction event describes the same update. The explicit
 -- lifecycle event above is authoritative for EH-120 transitions, so avoid two

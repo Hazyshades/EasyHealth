@@ -564,6 +564,12 @@ async function main() {
   assert.match(writer, /decideAutomaticPromotion/);
   assert.match(writer, /p_resolution:\s*buildResolutionPayload/);
   assert.match(writer, /p_quality_gate_approved/);
+  const workerPipeline = readFileSync(
+    path.join(ROOT, "worker/src/pipeline.ts"),
+    "utf8",
+  );
+  assert.match(workerPipeline, /writeAutomaticBiomarkerVerification/);
+  assert.match(workerPipeline, /isAutomaticVerificationReleaseApproved/);
   const lifecycleService = readFileSync(
     path.join(ROOT, "src/lib/documents/observation-lifecycle.ts"),
     "utf8",
@@ -580,6 +586,8 @@ async function main() {
   assert.match(transitionMigration, /auto_verified/);
   assert.match(transitionMigration, /verification_actor_type/);
   assert.match(transitionMigration, /to service_role/);
+  assert.match(transitionMigration, /eh120_hide_incomplete_attempt_sources/);
+  assert.match(transitionMigration, /retryable_failure/);
 
   console.log("verify-eh120-verification-transitions: all checks passed");
 }

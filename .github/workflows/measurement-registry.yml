@@ -118,6 +118,8 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
       - name: Verify observation change history
         run: pnpm test:eh121
+      - name: Verify EH-123 assessment recalculation contracts
+        run: pnpm test:eh123
       - name: Verify batch verification contracts
         run: pnpm test:eh122
 
@@ -181,6 +183,8 @@ jobs:
         run: pnpm test:eh120-db
       - name: Run EH-121 observation change history database contract
         run: pnpm test:eh121-db
+      - name: Run EH-123 assessment recalculation database contract
+        run: pnpm test:eh123-db
       - name: Run EH-122 batch verification database contract
         run: pnpm test:eh122-db
       - name: Run EH-118 source region database contract
