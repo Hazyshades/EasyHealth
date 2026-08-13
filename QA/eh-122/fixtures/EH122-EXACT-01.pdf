@@ -13,7 +13,7 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 5 0 obj
-<< /Length 1081 >>
+<< /Length 1311 >>
 stream
 BT
 /F1 9 Tf
@@ -30,19 +30,19 @@ BT
 0 -19 Td
 (Complete blood count) Tj
 0 -19 Td
-(Analyte | Result | Unit | Reference range | Specimen) Tj
+(Material is printed on every result row using the extractor enum: whole_blood.) Tj
 0 -19 Td
-(Hemoglobin \(HGB\) | 150 | g/L | 130 - 170 | Specimen: whole blood) Tj
+(Material: whole_blood | Analyte: Hemoglobin \(HGB\) | Result: 150 | Unit: g/L | Reference: 130 - 170) Tj
 0 -19 Td
-(Hematocrit \(HCT\) | 45.0 | % | 40 - 50 | Specimen: whole blood) Tj
+(Material: whole_blood | Analyte: Hematocrit \(HCT\) | Result: 45.0 | Unit: % | Reference: 40 - 50) Tj
 0 -19 Td
-(Red blood cells \(RBC\) | 5.10 | x10^12/L | 4.5 - 5.9 | Specimen: whole blood) Tj
+(Material: whole_blood | Analyte: Red blood cells \(RBC\) | Result: 5.10 | Unit: x10^12/L | Reference: 4.5 - 5.9) Tj
 0 -19 Td
-(White blood cells \(WBC\) | 6.20 | x10^9/L | 4.0 - 10.0 | Specimen: whole blood) Tj
+(Material: whole_blood | Analyte: White blood cells \(WBC\) | Result: 6.20 | Unit: x10^9/L | Reference: 4.0 - 10.0) Tj
 0 -19 Td
-(Platelets \(PLT\) | 250 | x10^9/L | 150 - 400 | Specimen: whole blood) Tj
+(Material: whole_blood | Analyte: Platelets \(PLT\) | Result: 250 | Unit: x10^9/L | Reference: 150 - 400) Tj
 0 -19 Td
-(Mean corpuscular volume \(MCV\) | 88.0 | fL | 80 - 100 | Specimen: whole blood) Tj
+(Material: whole_blood | Analyte: Mean corpuscular volume \(MCV\) | Result: 88.0 | Unit: fL | Reference: 80 - 100) Tj
 0 -19 Td
 () Tj
 0 -19 Td
@@ -61,5 +61,5 @@ xref
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-1449
+1679
 %%EOF
