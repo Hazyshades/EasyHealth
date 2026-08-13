@@ -577,7 +577,7 @@ async function main() {
   assert.match(lifecycleService, /eh120_reject_document_extracted_biomarker/);
   assert.match(lifecycleService, /buildLifecycleRequestHash/);
   const transitionMigration = readFileSync(
-    path.join(ROOT, "supabase/migrations/055_eh120_verification_transitions.sql"),
+    path.join(ROOT, "supabase/migrations/060_eh120_verification_transitions.sql"),
     "utf8",
   );
   assert.match(transitionMigration, /eh120_reject_document_extracted_biomarker/);

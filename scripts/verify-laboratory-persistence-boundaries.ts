@@ -10,7 +10,7 @@ const confirmRoute = source("src/app/api/documents/[id]/biomarkers/confirm-obser
 const reprocessCommand = source("scripts/reprocess-batch.ts");
 const reprocessService = source("src/lib/registry-reprocessing/service.ts");
 
-const pipelineInsert = pipeline.indexOf('from("document_extracted_biomarkers").insert(');
+const pipelineInsert = pipeline.search(/from\("document_extracted_biomarkers"\)\s*\.insert\(/);
 assert.notEqual(pipelineInsert, -1, "initial laboratory extraction must insert source-linked extracted rows");
 const pipelineMappedRows = pipeline.slice(pipelineInsert, pipeline.indexOf("const summaryModel", pipelineInsert));
 assert.match(pipelineMappedRows, /raw_name: anyB\.raw_name \?\? anyB\.name/);
