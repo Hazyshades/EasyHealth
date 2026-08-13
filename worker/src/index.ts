@@ -6,6 +6,7 @@ import {
   reclaimStaleJobs,
   type ReclaimableJob,
 } from "./job-reliability.js";
+import { buildHealthProfileSnapshot } from "../../src/lib/health-profile-snapshot";
 
 type JobRow = {
   id: string;
@@ -114,6 +115,50 @@ async function processJob(job: JobRow) {
   }
 }
 
+type ClaimedAssessmentJob = {
+  job_id: string;
+  profile_id: string;
+  attempts: number;
+  max_attempts: number;
+};
+
+async function processAssessmentJob() {
+  const { data, error } = await supabase.rpc("claim_assessment_recalculation_job");
+  if (error) throw new Error(`Assessment claim error: ${error.message}`);
+  const job = (Array.isArray(data) ? data[0] : data) as ClaimedAssessmentJob | null;
+  if (!job) return;
+
+  try {
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("lab_unit_system")
+      .eq("id", job.profile_id)
+      .single();
+    if (profileError) throw new Error(profileError.message);
+    const snapshot = await buildHealthProfileSnapshot({
+      profileId: job.profile_id,
+      labUnitSystem: profile.lab_unit_system === "us" ? "us" : "si",
+    });
+    const { error: completeError } = await supabase.rpc(
+      "complete_assessment_recalculation_job",
+      {
+        p_job_id: job.job_id,
+        p_input_hash: snapshot.inputHash,
+        p_payload: snapshot.profile,
+        p_source_document_ids: snapshot.sourceDocumentIds,
+      },
+    );
+    if (completeError) throw new Error(completeError.message);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Assessment recalculation failed";
+    const { error: failError } = await supabase.rpc(
+      "fail_assessment_recalculation_job",
+      { p_job_id: job.job_id, p_error_code: "assessment_recalculation_failed", p_error_message: message },
+    );
+    if (failError) console.error("Assessment failure recording error:", failError.message);
+  }
+}
+
 async function recordHeartbeat() {
   const { error } = await supabase.from("worker_heartbeats").upsert(
     {
@@ -199,6 +244,17 @@ async function tick() {
   } catch (error) {
     console.error(
       "Stale job reclamation error:",
+      error instanceof Error ? error.message : error,
+    );
+  }
+
+  try {
+    const reclaimed = await supabase.rpc("reclaim_stale_assessment_recalculation_jobs");
+    if (reclaimed.error) throw new Error(reclaimed.error.message);
+    await processAssessmentJob();
+  } catch (error) {
+    console.error(
+      "Assessment recalculation error:",
       error instanceof Error ? error.message : error,
     );
   }

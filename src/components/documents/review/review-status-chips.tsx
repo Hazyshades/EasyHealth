@@ -14,14 +14,18 @@ export function ReviewStateChips({
 }: {
   mapping: ReviewRowMappingState;
 }) {
-  if (!mapping.outcome || !mapping.label) return null;
   return (
     <div className="mt-2 flex flex-wrap items-center gap-1.5">
-      <StatusChip variant={resolverOutcomeVariant(mapping.outcome)}>
-        {mapping.label}
-      </StatusChip>
+      {mapping.outcome && mapping.label ? (
+        <StatusChip variant={resolverOutcomeVariant(mapping.outcome)}>
+          {mapping.label}
+        </StatusChip>
+      ) : null}
       <StatusChip variant={verificationStatusVariant(mapping.verificationStatus)}>
         {mapping.verificationLabel}
+      </StatusChip>
+      <StatusChip variant={mapping.recordStatusVariant}>
+        {mapping.recordStatusLabel}
       </StatusChip>
       {mapping.confidenceBand ? (
         <span className="text-xs text-[var(--eh-text-muted)]">
