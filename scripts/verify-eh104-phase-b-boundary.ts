@@ -129,8 +129,18 @@ assert.match(
 
 assert.match(
   workerPipeline,
-  /update\(\{\s*is_current:\s*false/,
-  "lab reprocess must supersede extracted rows rather than delete revision lineage"
+  /eh120_complete_document_processing_attempt/,
+  "lab reprocess must complete through the EH-120 lifecycle seam"
+);
+assert.match(
+  workerPipeline,
+  /if \(documentType !== "lab_result"\)[\s\S]*?document_extracted_biomarkers"\)\.delete/,
+  "worker must retain laboratory extraction rows for lifecycle supersession"
+);
+assert.doesNotMatch(
+  workerPipeline,
+  /supabase\.from\("document_extracted_biomarkers"\)\.update/,
+  "worker must not mutate laboratory lifecycle fields outside the trusted seam"
 );
 assert.match(
   workerPipeline,

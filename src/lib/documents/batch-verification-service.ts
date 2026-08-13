@@ -38,12 +38,13 @@ export type BatchVerificationResult = Readonly<{
 
 type BatchExtractedRow = ExtractedBiomarkerWriterRow & {
   status: string | null;
+  record_status: "active" | "rejected" | "superseded" | null;
   created_at: string | null;
   is_current: boolean;
 };
 
 const BATCH_EXTRACTED_BIOMARKER_SELECT =
-  "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, status, source_page, source_text, bounding_box, confidence, specimen, modifier, method, reported_alt_value, reported_alt_unit, raw_value_text, processing_version, created_at, is_current";
+  "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, status, record_status, source_page, source_text, bounding_box, confidence, specimen, modifier, method, reported_alt_value, reported_alt_unit, raw_value_text, processing_version, created_at, is_current";
 
 export class BatchVerificationError extends Error {
   constructor(message: string, public readonly status: number) {
@@ -154,6 +155,7 @@ export async function executeBatchVerification(options: {
     );
     const eligibility = evaluateBatchVerificationEligibility({
       status: row.status,
+      recordStatus: row.record_status,
       isCurrent: row.is_current,
       sourceSnapshot: row.created_at,
       expectedSourceSnapshot: snapshot.sourceSnapshot,
@@ -284,6 +286,8 @@ export async function reverseBatchVerification(options: {
     if (
       extractedResult.error ||
       !extracted ||
+      extracted.record_status !== "active" ||
+      !extracted.is_current ||
       activeRevision?.id !== row.resulting_revision_id
     ) {
       outcomes.push({

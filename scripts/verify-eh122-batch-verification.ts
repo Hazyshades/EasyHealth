@@ -38,6 +38,7 @@ function policy(
   overrides: Partial<Parameters<typeof evaluateBatchVerificationEligibility>[0]> = {},
 ) {
   return evaluateBatchVerificationEligibility({
+    recordStatus: "active",
     status: "needs_review",
     isCurrent: true,
     sourceSnapshot: "extract-1",

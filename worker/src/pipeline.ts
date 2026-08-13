@@ -1,6 +1,14 @@
+import { createHash } from "node:crypto";
 import {
   DOCUMENT_PROCESSING_VERSION,
 } from "../../src/lib/documents/constants.js";
+import {
+  isAutomaticVerificationReleaseApproved,
+} from "../../src/lib/documents/normalization-policy.js";
+import {
+  writeAutomaticBiomarkerVerification,
+  type ExtractedBiomarkerWriterRow,
+} from "../../src/lib/documents/observation-normalization-writer.js";
 import {
   extractConsultationFromImage,
   extractConsultationFromText,
@@ -133,6 +141,18 @@ export async function failJob(
   }
 }
 
+function lifecycleRequestHash(documentId: string, processingAttemptId: string): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        documentId,
+        processingAttemptId,
+        operation: "document_reprocessed",
+      }),
+    )
+    .digest("hex");
+}
+
 async function runTextOrImageExtraction<T>(
   ocrText: string,
   pageBuffer: Buffer,
@@ -168,15 +188,7 @@ async function runTextOrImageExtraction<T>(
 }
 
 async function clearPriorExtractions(documentId: string, documentType: string) {
-  if (documentType === "lab_result") {
-    // Keep immutable extracted evidence and its append-only normalization audit trail.
-    // The next extraction rows use the default `is_current = true` value.
-    requireMutationSuccess(await supabase
-      .from("document_extracted_biomarkers")
-      .update({ is_current: false, superseded_at: new Date().toISOString() })
-      .eq("document_id", documentId)
-      .eq("is_current", true), "supersede prior laboratory extractions");
-  } else {
+  if (documentType !== "lab_result") {
     requireMutationSuccess(
       await supabase.from("document_extracted_biomarkers").delete().eq("document_id", documentId),
       "clear prior extracted biomarkers"
@@ -460,66 +472,94 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
       labName = extraction.lab_name;
 
       if (extraction.biomarkers.length > 0) {
-        requireMutationSuccess(
-          await supabase.from("document_extracted_biomarkers").insert(
-            extraction.biomarkers.map((b) => {
-              const anyB = b as {
-                key: string;
-                name: string;
-                raw_name?: string | null;
-                value: number | null;
-                value_text?: string | null;
-                value_kind?: string | null;
-                ordinal?: number | null;
-                unit: string;
-                ref_low?: number | null;
-                ref_high?: number | null;
-                source_page?: number | null;
-                source_text?: string | null;
-                confidence?: number | null;
-                specimen?: string | null;
-                modifier?: string | null;
-                reported_alt_value?: number | null;
-                reported_alt_unit?: string | null;
-                inferred_axes?: unknown;
-              };
-              const provenance = resolveProvenance(anyB.source_page, anyB.source_text);
-              return {
-                document_id: documentId,
-                profile_id: profileId,
-                biomarker_key: anyB.key,
-                biomarker_name: anyB.name,
-                raw_name: anyB.raw_name ?? anyB.name,
-                value_numeric: anyB.value,
-                value_text: anyB.value_text ?? (anyB.value != null ? String(anyB.value) : null),
-                value_kind: anyB.value_kind ?? (anyB.value != null ? "numeric" : "text"),
-                ordinal: anyB.ordinal ?? null,
-                unit: anyB.unit,
-                raw_unit: anyB.unit,
-                raw_value_text: anyB.value_text ?? (anyB.value != null ? String(anyB.value) : null),
-                reference_range: formatReferenceRange(anyB.ref_low ?? null, anyB.ref_high ?? null),
-                raw_reference_range: formatReferenceRange(anyB.ref_low ?? null, anyB.ref_high ?? null),
-                section_context: null,
-                source_page: provenance.page,
-                bounding_box: provenance.region,
-                source_text: anyB.source_text,
-                confidence: anyB.confidence,
-                specimen: anyB.specimen ?? null,
-                modifier: anyB.modifier ?? null,
-                reported_alt_value: anyB.reported_alt_value ?? null,
-                reported_alt_unit: anyB.reported_alt_unit ?? null,
-                // #106: observability only, never read by the resolver.
-                inferred_axes: anyB.inferred_axes ?? null,
-                extraction_method: "llm",
-                processing_version: DOCUMENT_PROCESSING_VERSION,
-                extraction_model: extractionModel,
-                status: "needs_review",
-                is_current: true,
-              };
-            })
-          ),
+        const insertedBiomarkers = requireMutationSuccess(
+          await supabase
+            .from("document_extracted_biomarkers")
+            .insert(
+              extraction.biomarkers.map((b) => {
+                const anyB = b as {
+                  key: string;
+                  name: string;
+                  raw_name?: string | null;
+                  value: number | null;
+                  value_text?: string | null;
+                  value_kind?: string | null;
+                  ordinal?: number | null;
+                  unit: string;
+                  ref_low?: number | null;
+                  ref_high?: number | null;
+                  source_page?: number | null;
+                  source_text?: string | null;
+                  confidence?: number | null;
+                  specimen?: string | null;
+                  modifier?: string | null;
+                  reported_alt_value?: number | null;
+                  reported_alt_unit?: string | null;
+                  inferred_axes?: unknown;
+                };
+                const provenance = resolveProvenance(anyB.source_page, anyB.source_text);
+                return {
+                  document_id: documentId,
+                  profile_id: profileId,
+                  processing_attempt_id: job.processing_attempt_id,
+                  biomarker_key: anyB.key,
+                  biomarker_name: anyB.name,
+                  raw_name: anyB.raw_name ?? anyB.name,
+                  value_numeric: anyB.value,
+                  value_text: anyB.value_text ?? (anyB.value != null ? String(anyB.value) : null),
+                  value_kind: anyB.value_kind ?? (anyB.value != null ? "numeric" : "text"),
+                  ordinal: anyB.ordinal ?? null,
+                  unit: anyB.unit,
+                  raw_unit: anyB.unit,
+                  raw_value_text: anyB.value_text ?? (anyB.value != null ? String(anyB.value) : null),
+                  reference_range: formatReferenceRange(anyB.ref_low ?? null, anyB.ref_high ?? null),
+                  raw_reference_range: formatReferenceRange(anyB.ref_low ?? null, anyB.ref_high ?? null),
+                  section_context: null,
+                  source_page: provenance.page,
+                  bounding_box: provenance.region,
+                  source_text: anyB.source_text,
+                  confidence: anyB.confidence,
+                  specimen: anyB.specimen ?? null,
+                  modifier: anyB.modifier ?? null,
+                  reported_alt_value: anyB.reported_alt_value ?? null,
+                  reported_alt_unit: anyB.reported_alt_unit ?? null,
+                  // #106: observability only, never read by the resolver.
+                  inferred_axes: anyB.inferred_axes ?? null,
+                  extraction_method: "llm",
+                  processing_version: DOCUMENT_PROCESSING_VERSION,
+                  extraction_model: extractionModel,
+                  status: "needs_review",
+                  is_current: true,
+                };
+              })
+            )
+            .select(),
           "write extracted laboratory biomarkers"
         );
+        const insertedRows = (insertedBiomarkers.data ?? []) as unknown as ExtractedBiomarkerWriterRow[];
+        if (insertedRows.length !== extraction.biomarkers.length) {
+          throw new Error("write extracted laboratory biomarkers returned an incomplete row set");
+        }
+        if (isAutomaticVerificationReleaseApproved()) {
+          const automaticObservedAt =
+            observedAt ?? new Date().toISOString().slice(0, 10);
+          for (const row of insertedRows) {
+            const result = await writeAutomaticBiomarkerVerification({
+              profileId,
+              documentId,
+              observedAt: automaticObservedAt,
+              row,
+              qualityGateApproved: true,
+            });
+            if (!("promoted" in result)) {
+              console.info("[pipeline] Automatically verified extracted biomarker", {
+                documentId,
+                extractedBiomarkerId: row.id,
+                revisionId: result.revisionId,
+              });
+            }
+            }
+          }
         processingStatus = "needs_review";
       }
 
@@ -785,25 +825,41 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
 
   const completionOutcome = await finalizeDocumentProcessing({
     async complete() {
-      const { error } = await supabase.rpc("complete_document_processing_attempt", {
-        p_attempt_id: job.processing_attempt_id,
-        p_document: {
-          processing_status: processingStatus,
-          page_count: pages.length,
-          thumbnail_storage_path: thumbPath,
-          processing_version: DOCUMENT_PROCESSING_VERSION,
-          extraction_model: extractionModel,
-          lab_name: labName,
-          observed_at: observedAt,
-          modality,
-          document_summary: documentSummary,
-          ocr_status: ocrText ? "completed" : "skipped",
-          extraction_status: "completed",
-          detected_document_type: detectedDocumentType,
-          type_mismatch_warning: typeMismatchWarning,
-          type_mismatch_reason: typeMismatchReason,
-        },
-      });
+      const lifecycleHash =
+        documentType === "lab_result"
+          ? lifecycleRequestHash(documentId, job.processing_attempt_id)
+          : null;
+      const pDocument = {
+        processing_status: processingStatus,
+        page_count: pages.length,
+        thumbnail_storage_path: thumbPath,
+        processing_version: DOCUMENT_PROCESSING_VERSION,
+        extraction_model: extractionModel,
+        lab_name: labName,
+        observed_at: observedAt,
+        modality,
+        document_summary: documentSummary,
+        ocr_status: ocrText ? "completed" : "skipped",
+        extraction_status: "completed",
+        detected_document_type: detectedDocumentType,
+        type_mismatch_warning: typeMismatchWarning,
+        type_mismatch_reason: typeMismatchReason,
+      };
+      const { error } = await supabase.rpc(
+        documentType === "lab_result"
+          ? "eh120_complete_document_processing_attempt"
+          : "complete_document_processing_attempt",
+        documentType === "lab_result"
+          ? {
+              p_attempt_id: job.processing_attempt_id,
+              p_document: pDocument,
+              p_lifecycle_request_hash: lifecycleHash,
+            }
+          : {
+              p_attempt_id: job.processing_attempt_id,
+              p_document: pDocument,
+            },
+      );
       if (error) {
         throw new Error(`complete document processing: ${error.message}`);
       }

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   buildPersistedResolverDecisionTrace,
   getMeasurementDefinition,
@@ -16,6 +17,7 @@ import type {
   MeasurementResolutionInput,
   MeasurementValueKind,
   PersistedResolverDecisionTrace,
+  VerificationStatus,
 } from "@/lib/biomarkers";
 import {
   applyMeasurementOverride,
@@ -24,18 +26,22 @@ import {
   type BaseMeasurement,
   type MeasurementOverride,
 } from "./observation-measurement-correction";
-import { statedAxisValue } from "./stated-axis-evidence";
+import {
+  decideAutomaticPromotion,
+  isAutomaticVerificationReleaseApproved,
+} from "./normalization-policy";
 
 import {
   parseSourceRegion,
   sourceRegionMatchesPage,
 } from "@/lib/documents/source-region";
-import { createAdminClient } from "@/lib/supabase/admin";
 import {
   buildInputEvidenceHash,
   getActiveNormalizationRevision,
+  getNormalizationSourceState,
   type NormalizationRevision,
 } from "./normalization-revisions";
+import { statedAxisValue } from "./stated-axis-evidence";
 import {
   buildResolutionOutcomeMetric,
   emitResolutionOutcomeMetricForWrite,
@@ -67,6 +73,8 @@ export type ExtractedBiomarkerWriterRow = {
   raw_value_text: string | null;
   method?: string | null;
   processing_version: string | null;
+  record_status?: "active" | "rejected" | "superseded" | null;
+  is_current?: boolean | null;
 };
 
 /**
@@ -85,7 +93,7 @@ export type ObservationNormalizationWriteKind =
 export type ObservationNormalizationWriterResult = {
   observationId: string;
   revisionId: string;
-  verificationStatus: "pending" | "user_verified" | "manually_corrected";
+  verificationStatus: VerificationStatus;
   resolverResult: MeasurementResolution["result"];
   wasReused: boolean;
 };
@@ -138,6 +146,13 @@ const WRITER_RPC_CODES = [
   "batch_verification_revision_not_active",
   "batch_verification_revision_not_reversible",
   "verification_reversal_request_conflict",
+  "automatic_verification_service_role_required",
+  "automatic_quality_gate_not_approved",
+  "automatic_verification_policy_rejected",
+  "automatic_verification_source_not_current",
+  "automatic_verification_protected_decision",
+  "automatic_verification_request_conflict",
+  "automatic_verification_projection_missing",
   "invalid_resolver_decision_trace",
   "observation_source_page_missing",
   "resolver_decision_trace_resolution_mismatch",
@@ -147,8 +162,8 @@ const WRITER_RPC_CODES = [
   "active_revision_projection_mismatch",
   "measurement_override_projection_mismatch",
   "revision_observation_binding_conflict",
+  "terminal_record",
 ] as const;
-
 function normalizeWriterRpcError(error: unknown): ObservationNormalizationWriterError | null {
   if (!error || typeof error !== "object") return null;
   const message =
@@ -560,6 +575,123 @@ export async function writeExtractedBiomarkerNormalization(options: {
     }),
   });
 
+  return {
+    observationId: String(result.observation_id),
+    revisionId: String(result.revision_id),
+    verificationStatus: result.verification_status as ObservationNormalizationWriterResult["verificationStatus"],
+    resolverResult: result.resolver_result as MeasurementResolution["result"],
+    wasReused,
+  };
+}
+
+export type AutomaticVerificationResult =
+  | ObservationNormalizationWriterResult
+  | Readonly<{ promoted: false; reason: string }>;
+
+/**
+ * Service-only automatic promotion. The caller supplies only the current
+ * extracted row and an approved quality-gate decision; the resolver outcome,
+ * actor metadata, verification status, and request hash are derived here.
+ */
+export async function writeAutomaticBiomarkerVerification(options: {
+  profileId: string;
+  documentId: string;
+  observedAt: string;
+  row: ExtractedBiomarkerWriterRow;
+  expectedActiveRevision?: NormalizationRevision | null;
+  qualityGateApproved: boolean;
+  measurementOverride?: MeasurementOverride | null;
+}): Promise<AutomaticVerificationResult> {
+  const sourceState = await getNormalizationSourceState(options.row.id);
+  if (!sourceState) {
+    return { promoted: false, reason: "source_not_found" };
+  }
+  const expectedActiveRevision =
+    options.expectedActiveRevision === undefined
+      ? await getActiveNormalizationRevision(options.row.id)
+      : options.expectedActiveRevision;
+  const measurementOverride =
+    options.measurementOverride === undefined
+      ? expectedActiveRevision?.measurement_override ?? null
+      : options.measurementOverride;
+  const input = measurementInputFromWriterRow(options.row, measurementOverride);
+  const resolution = resolveMeasurementDefinition(input);
+  const qualityGateApproved =
+    options.qualityGateApproved && isAutomaticVerificationReleaseApproved();
+  const promotion = decideAutomaticPromotion({
+    resolution,
+    activeRevision: expectedActiveRevision
+      ? {
+          verification_status: expectedActiveRevision.verification_status,
+          measurement_override: expectedActiveRevision.measurement_override,
+        }
+      : null,
+    recordStatus: sourceState.record_status,
+    sourceIsCurrent: sourceState.is_current,
+    mappingClassification: "compatibility_preserving",
+    qualityGateApproved,
+  });
+  if (!promotion.allowed) {
+    return { promoted: false, reason: promotion.reason };
+  }
+
+  const measurement = applyMeasurementOverride(
+    baseMeasurementFromWriterRow(options.row, options.observedAt),
+    measurementOverride,
+  );
+  const inputEvidenceHash = buildInputEvidenceHash(input);
+  const decisionTrace = buildPersistedResolverDecisionTrace(resolution, {
+    inputEvidenceHash,
+    catalogManifestVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,
+    catalogManifestDigest: MEASUREMENT_CATALOG_MANIFEST_RELEASE.manifestDigest,
+    resolverVersion: MEASUREMENT_RESOLVER_VERSION,
+  });
+  const requestHash = buildNormalizationWriterRequestHash({
+    actorId: "system",
+    extractedBiomarkerId: options.row.id,
+    inputEvidenceHash,
+    decisionTrace,
+    writeKind: "acceptance",
+    mappingClassification: "compatibility_preserving",
+    measurementOverride,
+  });
+  const { data, error } = await createAdminClient().rpc(
+    "eh120_write_automatic_verification_v2",
+    {
+      p_extracted_biomarker_id: options.row.id,
+      p_observation: buildObservationPayload({
+        profileId: options.profileId,
+        documentId: options.documentId,
+        row: options.row,
+        measurement,
+        override: measurementOverride,
+      }),
+      p_resolution: buildResolutionPayload(resolution, decisionTrace),
+      p_request_hash: requestHash,
+      p_expected_active_revision_id: expectedActiveRevision?.id ?? null,
+      p_extraction_version: options.row.processing_version ?? null,
+      p_quality_gate_approved: qualityGateApproved,
+      p_reviewed_measurement_definition: isReviewedResolution(resolution),
+      p_measurement_override: measurementOverride,
+    },
+  );
+  if (error) {
+    throw normalizeWriterRpcError(error) ?? error;
+  }
+  const result = Array.isArray(data) ? data[0] : data;
+  if (!result?.observation_id || !result.revision_id) {
+    throw new Error("Automatic verification writer returned no promoted revision");
+  }
+  const wasReused = Boolean(result.was_reused);
+  emitResolutionOutcomeMetricForWrite({
+    wasReused,
+    metric: buildResolutionOutcomeMetric({
+      resolution,
+      writeKind: "acceptance",
+      resolverVersion: MEASUREMENT_RESOLVER_VERSION,
+      catalogVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,
+    }),
+  });
   return {
     observationId: String(result.observation_id),
     revisionId: String(result.revision_id),

@@ -19,7 +19,10 @@ import {
   withDisclaimer,
 } from "@/lib/reports";
 import { buildDocumentStructuredContext } from "@/lib/documents/structured-context";
-import type { RegistryV2NormalizationRevisionReadBoundary } from "@/lib/documents/observation-read-boundaries";
+import {
+  isCurrentDocumentObservation,
+  type RegistryV2NormalizationRevisionReadBoundary,
+} from "@/lib/documents/observation-read-boundaries";
 import { projectLaboratoryOutcome } from "@/lib/documents/incomplete-laboratory-outcomes";
 
 function sanitizeSearchTerm(value: string): string {
@@ -157,7 +160,7 @@ export async function POST(req: NextRequest) {
   const { data: observations, error: obsError } = await supabase
     .from("observations")
     .select(
-      "name, analyte_key, measurement_definition_key, resolution_status, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, observation_kind, documents(original_filename, observed_at), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence)"
+      "name, analyte_key, measurement_definition_key, resolution_status, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, observation_kind, source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(record_status, is_current), documents(original_filename, observed_at), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence)"
     )
     .eq("profile_id", profileId)
     .in("document_id", scopeIds)
@@ -171,8 +174,22 @@ export async function POST(req: NextRequest) {
   const context = buildMultiSourceReportContext(
     structured,
     (observations ?? []).flatMap((o) => {
+      const laboratorySource = Array.isArray(o.source_extracted_biomarker)
+        ? o.source_extracted_biomarker[0] ?? null
+        : o.source_extracted_biomarker ?? null;
+      if (
+        !isCurrentDocumentObservation({
+          observation_kind: o.observation_kind,
+          source_extracted_biomarker: laboratorySource,
+        })
+      ) {
+        return [];
+      }
       const outcome = projectLaboratoryOutcome({
-        observation: o,
+        observation: {
+          ...o,
+          source_extracted_biomarker: laboratorySource,
+        },
         relation: o.normalization_revision as
           | RegistryV2NormalizationRevisionReadBoundary
           | RegistryV2NormalizationRevisionReadBoundary[]

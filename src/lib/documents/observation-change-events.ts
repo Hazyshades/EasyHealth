@@ -14,7 +14,8 @@ import type { ObservationChangeEventRow } from "./observation-change-history";
 export const OBSERVATION_CHANGE_EVENT_SELECT =
   "id, event_kind, origin, observation_id, extracted_biomarker_id, " +
   "source_revision_id, source_prior_revision_id, source_reprocess_row_id, " +
-  "actor_type, actor_id, correction_reason, " +
+  "actor_type, actor_id, correction_reason, prior_record_status, " +
+  "next_record_status, reason_code, transition_request_hash, " +
   "prior_measurement_definition_key, prior_analyte_key, prior_resolver_result, " +
   "prior_verification_status, prior_mapping_confidence_band, " +
   "prior_input_evidence_hash, " +

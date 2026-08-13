@@ -88,3 +88,24 @@ export async function getActiveNormalizationRevision(
   if (error) throw error;
   return (data as NormalizationRevision | null) ?? null;
 }
+
+export type NormalizationSourceState = Readonly<{
+  id: string;
+  profile_id: string;
+  document_id: string;
+  record_status: "active" | "rejected" | "superseded";
+  is_current: boolean;
+}>;
+
+export async function getNormalizationSourceState(
+  extractedBiomarkerId: string,
+): Promise<NormalizationSourceState | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("document_extracted_biomarkers")
+    .select("id, profile_id, document_id, record_status, is_current")
+    .eq("id", extractedBiomarkerId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as NormalizationSourceState | null) ?? null;
+}
