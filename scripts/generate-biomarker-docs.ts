@@ -431,6 +431,8 @@ function renderModule(counts: BiomarkerDocumentationCounts): string {
     "",
     "`GET /api/documents/[id]/observations` exposes persisted raw/outcome fields. Health Profile input is created only by `projectHealthProfileLaboratoryInput`: a lab observation must have an active resolved trace, matching selected candidate/definition, reviewed Registry v2 provenance, and a reviewed compatible binding. Numeric presence is necessary but not sufficient for a score: Registry score role, usable document reference range, specimen, readiness group, and contribution group still govern scoring.",
     "",
+    "Chart-facing `GET /api/biomarkers` and `GET /api/health-profile` responses emit `Cache-Control: no-store`, so corrections are not served from an HTTP cache. Health Profile reads the latest assessment, job, and synthesis state without generating synthesis during `GET`.",
+    "",
     "## Unknown labels and controlled reprocessing",
     "",
     "An unknown label remains raw extracted evidence and becomes persisted `unmapped` only after acceptance or explicit Registry batch reprocessing. `scripts/reprocess-batch.ts` invokes the operator-controlled batch path. There is no HTTP Registry-batch endpoint, automatic catalog-change reprocessing, automatic catalog growth from patient or LLM input, admin queue promoting unknown labels, or source-document-to-catalog provenance promotion.",
