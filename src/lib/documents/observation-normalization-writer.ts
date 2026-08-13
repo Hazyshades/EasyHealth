@@ -7,7 +7,6 @@ import {
   MEASUREMENT_NORMALIZATION_VERSION,
   MEASUREMENT_RESOLVER_VERSION,
   OBSERVATION_PROVENANCE_SCHEMA_VERSION,
-  parseLabValueCell,
   resolveMeasurementDefinition,
 } from "@/lib/biomarkers";
 import type {
@@ -18,14 +17,15 @@ import type {
   MeasurementValueKind,
   PersistedResolverDecisionTrace,
 } from "@/lib/biomarkers";
-import { parseReferenceRange } from "@/lib/schemas/biomarkers";
-import { statedAxisValue } from "./stated-axis-evidence";
 import {
   applyMeasurementOverride,
+  baseMeasurementFromExtractedRow,
   codeFor,
   type BaseMeasurement,
   type MeasurementOverride,
 } from "./observation-measurement-correction";
+import { statedAxisValue } from "./stated-axis-evidence";
+
 import {
   parseSourceRegion,
   sourceRegionMatchesPage,
@@ -40,6 +40,7 @@ import {
   buildResolutionOutcomeMetric,
   emitResolutionOutcomeMetricForWrite,
 } from "./incomplete-laboratory-outcomes";
+const OBSERVED_AT_NOT_USED_BY_RESOLUTION = "1970-01-01";
 
 export type ExtractedBiomarkerWriterRow = {
   id: string;
@@ -78,7 +79,8 @@ export type ExtractedBiomarkerWriterRow = {
 export type ObservationNormalizationWriteKind =
   | "acceptance"
   | "correction"
-  | "value_correction";
+  | "value_correction"
+  | "verification_reversal";
 
 export type ObservationNormalizationWriterResult = {
   observationId: string;
@@ -95,6 +97,19 @@ export class ObservationNormalizationWriterError extends Error {
     public readonly code: string | null = null
   ) {
     super(message);
+  }
+}
+
+function baseMeasurementFromWriterRow(
+  row: ExtractedBiomarkerWriterRow,
+  observedAt: string,
+): BaseMeasurement {
+  try {
+    return baseMeasurementFromExtractedRow(row, observedAt);
+  } catch (caught) {
+    throw new ObservationNormalizationWriterError(
+      caught instanceof Error ? caught.message : "Could not read extracted measurement",
+    );
   }
 }
 const WRITER_RPC_CODE_ALIASES: Readonly<Record<string, string>> = {
@@ -117,6 +132,12 @@ const WRITER_RPC_CODES = [
   "unreviewed_measurement_definition",
   "reversal_revision_source_mismatch",
   "superseded_revision_source_mismatch",
+  "invalid_verification_reversal_source",
+  "verification_reversal_requires_reason",
+  "batch_verification_revision_not_found",
+  "batch_verification_revision_not_active",
+  "batch_verification_revision_not_reversible",
+  "verification_reversal_request_conflict",
   "invalid_resolver_decision_trace",
   "observation_source_page_missing",
   "resolver_decision_trace_resolution_mismatch",
@@ -144,86 +165,6 @@ function normalizeWriterRpcError(error: unknown): ObservationNormalizationWriter
   );
 }
 
-type ParsedObservationValue = {
-  value: number | null;
-  valueText: string | null;
-  valueKind: "numeric" | "qualitative" | "ordinal" | "text";
-  ordinal: number | null;
-};
-
-function finiteNumber(value: number | string | null | undefined): number | null {
-  if (value == null) return null;
-  const parsed = typeof value === "number" ? value : Number.parseFloat(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-export function measurementValueKind(valueKind: string | null | undefined): MeasurementValueKind {
-  if (valueKind === "numeric" || valueKind === "qualitative" || valueKind === "ordinal") {
-    return valueKind;
-  }
-  return "unspecified";
-}
-
-export function parseExtractedObservationValue(
-  row: Pick<ExtractedBiomarkerWriterRow, "value_numeric" | "value_text" | "value_kind" | "ordinal">
-): ParsedObservationValue {
-  let value = finiteNumber(row.value_numeric);
-  let valueText = row.value_text?.trim() || null;
-  let valueKind = row.value_kind ?? null;
-  let ordinal = row.ordinal ?? null;
-
-  if (value == null && valueText) {
-    const parsed = parseLabValueCell(valueText);
-    if (parsed) {
-      value = parsed.value;
-      valueText = parsed.value_text;
-      valueKind = parsed.value_kind;
-      ordinal = parsed.ordinal;
-    }
-  } else if (value != null) {
-    valueKind ??= "numeric";
-    valueText ??= String(value);
-  }
-
-  const normalizedValueKind =
-    valueKind === "numeric" || valueKind === "qualitative" || valueKind === "ordinal"
-      ? valueKind
-      : "text";
-
-  if (normalizedValueKind === "numeric" && value == null) {
-    throw new ObservationNormalizationWriterError("Numeric observation has no usable value");
-  }
-  if (normalizedValueKind !== "numeric" && !valueText) {
-    throw new ObservationNormalizationWriterError("Qualitative observation has no usable value");
-  }
-
-  return { value, valueText, valueKind: normalizedValueKind, ordinal };
-}
-
-const OBSERVED_AT_NOT_USED_BY_RESOLUTION = "1970-01-01";
-
-/**
- * The measurement as the extractor read it, before any reviewer restatement.
- */
-export function baseMeasurementFromWriterRow(
-  row: ExtractedBiomarkerWriterRow,
-  observedAt: string
-): BaseMeasurement {
-  const parsedValue = parseExtractedObservationValue(row);
-  const { ref_low, ref_high } = parseReferenceRange(
-    row.reference_range ?? row.raw_reference_range
-  );
-  return {
-    value: parsedValue.value,
-    valueText: parsedValue.valueText,
-    valueKind: parsedValue.valueKind,
-    ordinal: parsedValue.ordinal,
-    unit: row.unit,
-    refLow: ref_low,
-    refHigh: ref_high,
-    observedAt,
-  };
-}
 
 export function measurementInputFromWriterRow(
   row: ExtractedBiomarkerWriterRow,
@@ -610,7 +551,10 @@ export async function writeExtractedBiomarkerNormalization(options: {
     wasReused,
     metric: buildResolutionOutcomeMetric({
       resolution,
-      writeKind: options.writeKind,
+      writeKind:
+        options.writeKind === "verification_reversal"
+          ? "reversal"
+          : options.writeKind,
       resolverVersion: MEASUREMENT_RESOLVER_VERSION,
       catalogVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,
     }),

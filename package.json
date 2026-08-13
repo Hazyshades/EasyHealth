@@ -79,6 +79,8 @@
     "test:reason-class": "tsx scripts/verify-incomplete-reason-class.ts",
     "test:eh119": "tsx scripts/verify-eh119-observation-correction.ts && tsx scripts/verify-eh119-measurement-override.ts && tsx scripts/verify-eh119-correction-flow.ts",
     "test:eh119-db": "supabase test db --local QA-Db_tests/eh119_observation_measurement_correction.sql",
+    "test:eh122-db": "supabase test db --local supabase/tests/eh122_batch_verification.sql",
+    "test:eh122": "tsx scripts/verify-eh122-batch-verification.ts && tsx scripts/verify-eh122-batch-service.ts",
     "test:writer-seam": "supabase test db --local supabase/tests/writer_rpc_seam.sql",
     "check:ci-suite-coverage": "tsx scripts/verify-ci-suite-coverage.ts",
     "check:ci-suite-coverage-contract": "tsx scripts/verify-ci-suite-coverage-contract.ts"

@@ -3,6 +3,7 @@ import { resolveMeasurementDefinition } from "@/lib/biomarkers";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  baseMeasurementFromExtractedRow,
   parseMeasurementOverride,
   validateMeasurementCorrection,
   type MeasurementOverride,
@@ -13,7 +14,6 @@ import {
   getActiveNormalizationRevision,
 } from "@/lib/documents/normalization-revisions";
 import {
-  baseMeasurementFromWriterRow,
   buildManualCorrectionResolution,
   measurementInputFromWriterRow,
   ObservationNormalizationWriterError,
@@ -223,7 +223,7 @@ export async function PATCH(req: Request, context: RouteContext) {
               ...parsedOverride.override,
             };
       const validation = validateMeasurementCorrection({
-        base: baseMeasurementFromWriterRow(
+        base: baseMeasurementFromExtractedRow(
           row,
           doc!.observed_at ?? new Date().toISOString().slice(0, 10),
         ),
