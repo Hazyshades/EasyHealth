@@ -128,6 +128,7 @@ This checklist does not cover automatic verification, batch value/mapping correc
 - [x] `pnpm typecheck` and `pnpm build` passed locally with the frozen, hoisted dependency install. The production build includes both EH-122 API routes and `/app/documents/[id]`; it emitted only the pre-existing `metadataBase` configuration warnings.
   - [x] `pnpm generate:biomarker-docs`, `pnpm check:biomarker-docs`, and `pnpm test:biomarker-docs` passed; canonical Registry docs were regenerated and current.
   - [x] `pnpm render:biomarker-wiki` and the explicit local staging export passed. The generated seven-page Wiki mirror was published to `Hazyshades/EasyHealth.wiki` at commit `1b7c07b`.
+- [x] `pnpm check:ci-suite-coverage-contract` and `pnpm check:ci-suite-coverage` passed: EH-122 node and pgTAP suites are workflow-reachable with 51 covered suites and no orphaned/partial entries.
 
 ## Out of scope or not manually testable yet
 

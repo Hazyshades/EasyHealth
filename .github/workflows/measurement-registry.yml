@@ -116,6 +116,8 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
       - name: Verify observation change history
         run: pnpm test:eh121
+      - name: Verify batch verification contracts
+        run: pnpm test:eh122
 
       - name: Publish Registry 2.0 candidate-release evidence
         run: |
@@ -175,6 +177,8 @@ jobs:
         run: pnpm test:eh119-db
       - name: Run EH-121 observation change history database contract
         run: pnpm test:eh121-db
+      - name: Run EH-122 batch verification database contract
+        run: pnpm test:eh122-db
       - name: Run EH-118 source region database contract
         run: pnpm test:eh118-db
       - name: Run EH-113 CBC method evidence database contract
