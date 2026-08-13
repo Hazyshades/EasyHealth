@@ -1034,19 +1034,12 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const normalizationById = new Map(
     extracted.map((item) => [item.id, item.normalization ?? null]),
   );
-  const batchEligibleIds = useMemo(
-    () => new Set(batchVerification?.eligible_ids ?? []),
-    [batchVerification],
-  );
-  const batchExclusionsById = useMemo(
-    () =>
-      new Map(
-        (batchVerification?.excluded ?? []).map((item) => [
-          item.id,
-          item.exclusion_codes,
-        ]),
-      ),
-    [batchVerification],
+  const batchEligibleIds = new Set(batchVerification?.eligible_ids ?? []);
+  const batchExclusionsById = new Map(
+    (batchVerification?.excluded ?? []).map((item) => [
+      item.id,
+      item.exclusion_codes,
+    ]),
   );
   const batchSelection = summarizeBatchVerificationSelection({
     eligibleIds: batchVerification?.eligible_ids ?? [],
