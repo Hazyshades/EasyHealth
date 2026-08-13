@@ -7,6 +7,8 @@ import type { ReprocessBatchInputs } from "./types";
 export type ReprocessCandidateRow = ExtractedBiomarkerWriterRow & {
   profile_id: string;
   document_id: string;
+  record_status: "active";
+  is_current: true;
   observation_kind: "lab" | "instrumental";
   active_revision: NormalizationRevision | null;
 };
@@ -17,7 +19,7 @@ export type ReprocessCandidateRow = ExtractedBiomarkerWriterRow & {
  * are pulled because the writer reads them; they never leave the CLI JSON.
  */
 const EXTRACTED_COLUMNS =
-  "id, document_id, profile_id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, confidence, specimen, modifier, source_page, source_text, bounding_box, reported_alt_value, reported_alt_unit, raw_value_text, method, processing_version";
+  "id, document_id, profile_id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, confidence, specimen, modifier, source_page, source_text, bounding_box, reported_alt_value, reported_alt_unit, raw_value_text, method, processing_version, record_status, is_current";
 
 const REVISION_COLUMNS =
   "id, extracted_biomarker_id, observation_id, measurement_definition_key, analyte_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, verification_decided_at, verification_actor_type, verification_actor_id, is_active, mapping_change_classification, resolver_evidence, measurement_override";
@@ -57,23 +59,23 @@ export async function selectExtractedRowsForReprocessBatch(
   let extractedQuery = supabase
     .from("document_extracted_biomarkers")
     .select(EXTRACTED_COLUMNS)
+    .eq("record_status", "active")
+    .eq("is_current", true)
     .order("id", { ascending: true })
     .limit(inputs.batchLimit);
-
   if (inputs.scope.kind === "document") {
     extractedQuery = extractedQuery.eq("document_id", inputs.scope.documentId);
   } else if (inputs.scope.kind === "profile") {
     extractedQuery = extractedQuery.eq("profile_id", inputs.scope.profileId);
   }
-
   const { data: extractedData, error: extractedError } = await extractedQuery;
   if (extractedError) throw extractedError;
-
-  // supabase-js returns unknown-shaped JSON here; the SELECT column list is the runtime contract.
   const extractedRows = (extractedData ?? []) as unknown as Array<
     ExtractedBiomarkerWriterRow & {
       profile_id: string;
       document_id: string;
+      record_status: "active";
+      is_current: true;
     }
   >;
 

@@ -6,6 +6,31 @@ import { ReviewStateChips } from "./review-status-chips";
 
 const SNIPPET_PREVIEW_LENGTH = 90;
 
+const LIFECYCLE_REASON_LABELS: Readonly<Record<string, string>> = {
+  incorrect_extraction: "The result was extracted incorrectly",
+  duplicate_source: "The result is a duplicate source",
+  wrong_document: "The result belongs to another document",
+  privacy_request: "Removed at the owner's request",
+  other: "Other allowed reason",
+  document_reprocessed: "Document reprocessed",
+  catalog_reprocessed: "Registry reprocessed",
+  verification_reversed: "Verification reversed by the owner",
+  protected_human_decision: "Protected human decision",
+  retryable_failure: "Retryable processing issue",
+  automatic_quality_gate: "Automatic verification quality gate",
+};
+
+function lifecycleReasonLabel(reasonCode: string | null): string | null {
+  if (!reasonCode) return null;
+  return LIFECYCLE_REASON_LABELS[reasonCode] ?? "Lifecycle reason recorded";
+}
+
+function lifecycleDate(value: string | null): string | null {
+  if (!value) return null;
+  const date = value.slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
+}
+
 /**
  * One reviewable result. Raw document evidence is rendered first and is never
  * replaced by a candidate display name, converted value or inferred axis
@@ -20,6 +45,7 @@ export function ObservationReviewRow({
   technicalDetails,
   history,
   correction,
+  rejection,
   batchVerification,
 }: {
   row: ReviewRow;
@@ -35,20 +61,27 @@ export function ObservationReviewRow({
   technicalDetails?: ReactNode;
   history?: ReactNode;
   correction?: ReactNode;
+  rejection?: ReactNode;
 }) {
   const { rawEvidence, source, mapping } = row;
+  const isHistorical = mapping.recordStatus !== "active" || !row.sourceIsCurrent;
   const snippet = source.snippet
     ? `${source.snippet.slice(0, SNIPPET_PREVIEW_LENGTH)}${source.snippet.length > SNIPPET_PREVIEW_LENGTH ? "…" : ""}`
     : null;
+  const reasonLabel = lifecycleReasonLabel(row.lifecycleReasonCode);
+  const supersededDate = lifecycleDate(row.supersededAt);
 
   return (
     <li
       data-review-row-id={row.id}
+      data-review-row-read-only={isHistorical ? "true" : undefined}
       aria-current={selected ? "true" : undefined}
-      className={`rounded-xl border bg-white p-3 transition-colors ${
+      className={`rounded-xl border p-3 transition-colors ${
         selected
           ? "border-[var(--eh-brand)] bg-[var(--eh-brand-soft)]"
-          : "border-slate-200"
+          : isHistorical
+            ? "border-slate-200 bg-slate-50/70"
+            : "border-slate-200 bg-white"
       }`}
     >
       <div className="flex items-start gap-2">
@@ -64,6 +97,7 @@ export function ObservationReviewRow({
         <button
           type="button"
           onClick={() => onActivate(row)}
+          aria-label={`${isHistorical ? "View historical evidence for" : "Review"} ${rawEvidence.displayName}`}
           className="min-w-0 flex-1 rounded-lg text-left transition hover:text-[var(--eh-brand)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--eh-brand)]"
         >
           <p className="font-medium text-[var(--eh-text-primary)]">
@@ -116,6 +150,21 @@ export function ObservationReviewRow({
             {row.userCorrected ? " · corrected by you" : ""}
             {row.accepted ? " · stored" : ""}
           </p>
+          {row.mapping.recordStatus === "superseded" ? (
+            <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
+              Historical evidence · replaced during reprocessing
+              {supersededDate ? ` · replacement recorded ${supersededDate}` : ""}
+              {row.supersededByProcessingAttemptId
+                ? " · replacement processing attempt recorded"
+                : ""}
+              {reasonLabel ? ` · ${reasonLabel}` : ""}
+            </p>
+          ) : row.mapping.recordStatus === "rejected" ? (
+            <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
+              Rejected source · retained for audit history
+              {reasonLabel ? ` · ${reasonLabel}` : ""}
+            </p>
+          ) : null}
           {snippet ? (
             <p className="mt-1 text-xs italic text-[var(--eh-text-muted)]">
               “{snippet}”
@@ -124,6 +173,7 @@ export function ObservationReviewRow({
         </button>
       </div>
       {correction}
+      {rejection}
 
       <ReviewStateChips mapping={mapping} />
       {batchVerification ? (

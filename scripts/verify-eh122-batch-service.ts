@@ -41,6 +41,10 @@ const service = readFileSync("src/lib/documents/batch-verification-service.ts", 
 assert.match(service, /aggregate_status: "executing"/, "new batch operations start in an executing state");
 assert.match(service, /existing\.data\.request_hash !== hash/, "a reused operation id rejects a conflicting selection");
 assert.match(service, /evaluateBatchVerificationEligibility/, "execution re-evaluates server-side eligibility rather than trusting the client");
+assert.match(service, /record_status,/, "batch reads the source lifecycle state");
+assert.match(service, /recordStatus: row\.record_status/, "batch policy receives the source lifecycle state");
+assert.match(service, /record_status !== "active"/, "batch reversal refuses terminal source records");
+assert.match(service, /writeKind: "acceptance"/, "batch verification uses the canonical acceptance writer");
 assert.match(service, /activeRevision\?\.id !== row\.resulting_revision_id/, "undo excludes rows changed after the original batch");
 assert.match(service, /writeKind: "verification_reversal"/, "undo uses the canonical append-only writer transition");
 

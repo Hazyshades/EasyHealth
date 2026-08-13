@@ -69,6 +69,10 @@ import {
   BATCH_VERIFICATION_EXCLUSION_LABELS,
   type BatchVerificationExclusionCode,
 } from "@/lib/documents/batch-verification-eligibility";
+import {
+  REJECTION_REASON_LABELS,
+  type RejectionReasonCode,
+} from "@/lib/documents/observation-verification-workflow";
 import { summarizeBatchVerificationSelection } from "@/lib/documents/batch-verification-workspace";
 
 type DocumentMeta = {
@@ -127,6 +131,11 @@ type Observation = {
   resolution_status: string | null;
   resolver_result?: string | null;
   verification_status?: string | null;
+  record_status?: "active" | "rejected" | "superseded" | null;
+  lifecycle_reason_code?: string | null;
+  superseded_at?: string | null;
+  superseded_by_processing_attempt_id?: string | null;
+  source_is_current?: boolean | null;
   registry_binding_ready?: boolean;
   resolution_details?: LaboratoryResolutionDetails;
   name: string;
@@ -151,6 +160,7 @@ type Observation = {
 
 type ExtractedBiomarker = {
   id: string;
+  biomarker_key?: string | null;
   biomarker_name: string;
   raw_name?: string | null;
   value_numeric: number | null;
@@ -166,12 +176,18 @@ type ExtractedBiomarker = {
   bounding_box?: unknown;
   confidence: number | null;
   status: string;
+  record_status?: "active" | "rejected" | "superseded" | null;
+  lifecycle_reason_code?: string | null;
+  superseded_at?: string | null;
+  superseded_by_processing_attempt_id?: string | null;
+  is_current?: boolean | null;
   specimen?: string | null;
   modifier?: string | null;
   method?: string | null;
   created_at: string;
   normalization?: NormalizationReview;
 };
+
 
 type BatchVerificationProjection = {
   eligible_ids: string[];
@@ -244,19 +260,50 @@ function applyExtractedSelection(items: ExtractedBiomarker[]) {
   return new Set(
     items
       .filter(
-        (b) => b.status === "needs_review" || b.status === "pending_review",
+        (b) =>
+          (b.record_status ?? b.normalization?.recordStatus ?? "active") ===
+            "active" &&
+          b.is_current !== false &&
+          b.normalization?.sourceIsCurrent !== false &&
+          (b.status === "needs_review" || b.status === "pending_review"),
       )
       .map((b) => b.id),
   );
 }
 
-function formatWriterFailures(action: string, failures: NonNullable<WriterActionPayload["failures"]>) {
+function formatWriterFailures(
+  action: string,
+  failures: NonNullable<WriterActionPayload["failures"]>,
+) {
   const details = failures
-    .map((failure) => failure.error ?? `Row ${failure.id ?? failure.observationId ?? "unknown"} failed`)
+    .map(
+      (failure) =>
+        failure.error ??
+        `Row ${failure.id ?? failure.observationId ?? "unknown"} failed`,
+    )
     .join("; ");
   return `${action} completed for some results, but ${failures.length} row${failures.length === 1 ? "" : "s"} failed: ${details}`;
 }
-
+function rejectionErrorMessage(code: string | undefined, fallback?: string): string {
+  switch (code) {
+    case "authorization_required":
+    case "foreign_owner":
+      return "You are not allowed to reject this result.";
+    case "confirmation_required":
+    case "confirmation_payload_required":
+      return "Confirm the current result before rejecting it.";
+    case "stale_source_snapshot":
+    case "stale_revision_snapshot":
+    case "record_not_current":
+    case "terminal_record":
+      return "This result changed while you were reviewing it. Reload and try again.";
+    case "invalid_lifecycle_reason_code":
+    case "reason_required":
+      return "Choose one of the allowed rejection reasons before continuing.";
+    default:
+      return fallback ?? "The result could not be rejected.";
+  }
+}
 
 export function DocumentViewer({ documentId }: { documentId: string }) {
   const searchParams = useSearchParams();
@@ -312,6 +359,11 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const [correctionDrafts, setCorrectionDrafts] = useState<
     Record<string, ObservationCorrectionDraft>
   >({});
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+  const [rejectionReasons, setRejectionReasons] = useState<
+    Record<string, RejectionReasonCode | "">
+  >({});
+  const [rejectingRowId, setRejectingRowId] = useState<string | null>(null);
   const [correctingRowId, setCorrectingRowId] = useState<string | null>(null);
   const [reprocessing, setReprocessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -770,11 +822,78 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
       await loadBootstrap(currentPage, { soft: true });
       if (payload.failures?.length) {
         setActionError(formatWriterFailures("Confirmation", payload.failures));
+      } else {
+        setActionFeedback("Observations confirmed and the review projection was refreshed.");
       }
     } catch (e) {
       setActionError(e instanceof Error ? e.message : "Confirmation failed");
     } finally {
       setConfirmingObservations(false);
+    }
+  }
+
+  async function handleReject(row: ReviewRow) {
+    const reasonCode = rejectionReasons[row.id];
+    if (!reasonCode) {
+      setActionError("Choose a rejection reason before continuing.");
+      return;
+    }
+    const source = extracted.find((item) => item.id === row.id);
+    if (!source?.created_at) {
+      setActionError("Reload this result before rejecting it.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Reject “${row.rawEvidence.displayName}”? The extracted source will remain in history but cannot be verified or accepted.`,
+      )
+    ) {
+      return;
+    }
+
+    setRejectingRowId(row.id);
+    setActionError(null);
+    setActionFeedback(null);
+    try {
+      const res = await fetch(
+        `/api/documents/${documentId}/biomarkers/reject`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            extractedBiomarkerId: row.id,
+            reasonCode,
+            confirm: true,
+            expectedSourceSnapshot: source.created_at,
+            expectedActiveRevisionId:
+              normalizationById.get(row.id)?.activeRevision?.id ?? null,
+          }),
+        },
+      );
+      const payload = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        code?: string;
+      };
+      if (!res.ok) {
+        throw new Error(
+          rejectionErrorMessage(payload.code, payload.error),
+        );
+      }
+      setRejectionReasons((current) => {
+        const next = { ...current };
+        delete next[row.id];
+        return next;
+      });
+      setActionFeedback(
+        `“${row.rawEvidence.displayName}” was marked Rejected. Its raw evidence and history remain available.`,
+      );
+      await loadBootstrap(currentPage, { soft: true });
+    } catch (caught) {
+      setActionError(
+        caught instanceof Error ? caught.message : "The result could not be rejected.",
+      );
+    } finally {
+      setRejectingRowId(null);
     }
   }
 
@@ -1154,6 +1273,11 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
           {actionError}
         </p>
       )}
+      {actionFeedback && (
+        <p role="status" className="text-sm text-emerald-700">
+          {actionFeedback}
+        </p>
+      )}
 
       {showProcessingRecovery && (
         <div
@@ -1374,6 +1498,51 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                               />
                             ) : null
                           }
+                          rejection={
+                            row.sourceKind === "extracted" &&
+                            row.actionAvailability?.reject.available === true ? (
+                              <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-slate-100 pt-2">
+                                <label className="flex min-w-[14rem] flex-1 flex-col gap-1 text-xs text-[var(--eh-text-secondary)]">
+                                  <span>Reject source</span>
+                                  <select
+                                    value={rejectionReasons[row.id] ?? ""}
+                                    onChange={(event) =>
+                                      setRejectionReasons((current) => ({
+                                        ...current,
+                                        [row.id]: event.target.value as
+                                          | RejectionReasonCode
+                                          | "",
+                                      }))
+                                    }
+                                    className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs"
+                                    aria-label={`Rejection reason for ${row.rawEvidence.displayName}`}
+                                  >
+                                    <option value="">Choose a reason…</option>
+                                    {Object.entries(REJECTION_REASON_LABELS).map(
+                                      ([code, label]) => (
+                                        <option key={code} value={code}>
+                                          {label}
+                                        </option>
+                                      ),
+                                    )}
+                                  </select>
+                                </label>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={
+                                    !rejectionReasons[row.id] ||
+                                    rejectingRowId === row.id
+                                  }
+                                  onClick={() => handleReject(row)}
+                                >
+                                  {rejectingRowId === row.id
+                                    ? "Rejecting…"
+                                    : "Reject source"}
+                                </Button>
+                              </div>
+                            ) : null
+                          }
                           selection={
                             row.reviewable
                               ? {
@@ -1389,7 +1558,9 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                               : undefined
                           }
                           batchVerification={
-                            batchVerification
+                            batchVerification &&
+                            row.sourceKind === "extracted" &&
+                            row.sourceIsCurrent
                               ? {
                                   eligible: batchEligibleIds.has(row.id),
                                   checked: batchSelectedIds.has(row.id),
@@ -1421,7 +1592,8 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                                 normalization?.previewCandidateEvidence
                               }
                             >
-                              {normalization &&
+                              {row.actionAvailability?.correct.available &&
+                              normalization &&
                               normalization.manualOptions.length > 0 ? (
                                 <div className="mt-3 flex flex-wrap gap-2">
                                   <select
@@ -1482,7 +1654,8 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                                   </Button>
                                 </div>
                               ) : null}
-                              {normalization?.activeRevision
+                              {row.actionAvailability?.reverse.available &&
+                              normalization?.activeRevision
                                 ? normalization.revisions
                                     .filter((revision) => !revision.is_active)
                                     .map((revision) => (

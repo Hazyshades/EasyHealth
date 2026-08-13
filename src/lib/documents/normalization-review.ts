@@ -28,6 +28,10 @@ import { compatibleManualDefinitions } from "./normalization-revisions";
 import { projectLaboratoryOutcome } from "./incomplete-laboratory-outcomes";
 import type { LaboratoryResolutionDetails } from "./incomplete-laboratory-outcomes";
 import type { RegistryV2NormalizationRevisionReadBoundary } from "./observation-read-boundaries";
+import {
+  isRecordStatus,
+  type RecordStatus,
+} from "./observation-verification-workflow";
 import { statedAxisValue } from "./stated-axis-evidence";
 
 type ExtractedReviewRow = {
@@ -50,6 +54,14 @@ type ExtractedReviewRow = {
   specimen?: string | null;
   modifier?: string | null;
   method?: string | null;
+  status?: string | null;
+  record_status?: string | null;
+  lifecycle_reason_code?: string | null;
+  superseded_at?: string | null;
+  superseded_by_processing_attempt_id?: string | null;
+  processing_attempt_id?: string | null;
+  is_current?: boolean | null;
+  created_at?: string | null;
 };
 
 export type NormalizationRevisionSummary =
@@ -76,6 +88,24 @@ export type DecisionTraceAvailability =
   | "persisted"
   | "preview"
   | "legacy_unavailable";
+
+export type NormalizationReviewAction =
+  | "acceptRaw"
+  | "verifyUser"
+  | "verifyAuto"
+  | "correct"
+  | "reverse"
+  | "reject"
+  | "batchVerify";
+
+export type NormalizationActionAvailability = Readonly<{
+  available: boolean;
+  exclusionReason: string | null;
+}>;
+
+export type NormalizationActionAvailabilityMap = Readonly<
+  Record<NormalizationReviewAction, NormalizationActionAvailability>
+>;
 
 export type DecisionTraceReview = {
   availability: DecisionTraceAvailability;
@@ -114,6 +144,13 @@ export type NormalizationReview = {
   effectiveMeasurement?: EffectiveReviewMeasurement;
   registryBindingReady: boolean;
   decisionTrace: DecisionTraceReview;
+  traceState: DecisionTraceAvailability;
+  recordStatus: RecordStatus;
+  sourceIsCurrent: boolean;
+  lifecycleReasonCode: string | null;
+  supersededAt: string | null;
+  supersededByProcessingAttemptId: string | null;
+  actionAvailability: NormalizationActionAvailabilityMap;
   previewCandidateEvidence: readonly CandidateEvidence[];
   manualOptions: readonly ManualMappingOption[];
   activeRevision: NormalizationRevisionSummary | null;
@@ -234,6 +271,75 @@ export function measurementInputFromExtracted(
   };
 }
 
+function actionAvailability(
+  available: boolean,
+  exclusionReason: string | null,
+): NormalizationActionAvailability {
+  return { available, exclusionReason: available ? null : exclusionReason };
+}
+
+export function buildNormalizationActionAvailability(options: {
+  recordStatus: RecordStatus;
+  sourceIsCurrent: boolean;
+  reviewable: boolean;
+  outcome: ResolverResult | null;
+  registryBindingReady: boolean;
+  activeRevision: NormalizationRevisionSummary | null;
+  verificationStatus: VerificationStatus | null;
+}): NormalizationActionAvailabilityMap {
+  const lifecycleBlock =
+    options.recordStatus !== "active"
+      ? "record_not_active"
+      : !options.sourceIsCurrent
+        ? "source_not_current"
+        : null;
+  const reviewBlock = !options.reviewable ? "not_awaiting_review" : null;
+  const resolvedBlock =
+    options.outcome !== "resolved" ? "incomplete_outcome" : null;
+  const verifiedBlock =
+    options.verificationStatus === null ||
+    options.verificationStatus === "pending"
+      ? "no_verified_revision"
+      : null;
+
+  return {
+    acceptRaw: actionAvailability(
+      lifecycleBlock === null &&
+        reviewBlock === null &&
+        options.outcome !== null &&
+        options.outcome !== "resolved",
+      lifecycleBlock ?? reviewBlock ?? resolvedBlock,
+    ),
+    verifyUser: actionAvailability(
+      lifecycleBlock === null &&
+        resolvedBlock === null &&
+        options.registryBindingReady &&
+        options.activeRevision !== null &&
+        options.verificationStatus === "pending",
+      lifecycleBlock ??
+        resolvedBlock ??
+        (!options.registryBindingReady ? "definition_not_ready" : null) ??
+        (options.activeRevision === null ? "no_active_revision" : null) ??
+        (options.verificationStatus !== "pending"
+          ? "verification_already_set"
+          : null),
+    ),
+    verifyAuto: actionAvailability(false, "system_only"),
+    correct: actionAvailability(
+      lifecycleBlock === null && reviewBlock === null && options.outcome !== null,
+      lifecycleBlock ?? reviewBlock ?? "no_resolution",
+    ),
+    reverse: actionAvailability(
+      lifecycleBlock === null &&
+        options.activeRevision !== null &&
+        verifiedBlock === null,
+      lifecycleBlock ?? verifiedBlock ?? "no_active_revision",
+    ),
+    reject: actionAvailability(lifecycleBlock === null, lifecycleBlock),
+    batchVerify: actionAvailability(false, "batch_eligibility_not_evaluated"),
+  };
+}
+
 export function buildNormalizationReview(
   row: ExtractedReviewRow & {
     measurement_definition_key?: string | null;
@@ -272,6 +378,28 @@ export function buildNormalizationReview(
       }
     : { availability: "preview", trace: null };
   const manualOptions = compatibleManualDefinitions(input);
+  const recordStatus: RecordStatus = isRecordStatus(row.record_status)
+    ? row.record_status
+    : row.is_current === false
+      ? "superseded"
+      : "active";
+  const sourceIsCurrent = recordStatus === "active" && row.is_current !== false;
+  const reviewable =
+    sourceIsCurrent &&
+    (row.status === "needs_review" || row.status === "pending_review");
+  const verificationStatus =
+    outcome.verificationStatus ??
+    activeRevision?.verification_status ??
+    null;
+  const actionAvailability = buildNormalizationActionAvailability({
+    recordStatus,
+    sourceIsCurrent,
+    reviewable,
+    outcome: outcome.outcome ?? preview.result,
+    registryBindingReady: outcome.registryBindingReady,
+    activeRevision,
+    verificationStatus,
+  });
   return {
     result: outcome.outcome ?? preview.result,
     candidateDefinitionKey: outcome.measurementDefinitionKey,
@@ -290,6 +418,14 @@ export function buildNormalizationReview(
     resolutionDetails: outcome.resolutionDetails,
     registryBindingReady: outcome.registryBindingReady,
     decisionTrace,
+    traceState: decisionTrace.availability,
+    recordStatus,
+    sourceIsCurrent,
+    lifecycleReasonCode: row.lifecycle_reason_code ?? null,
+    supersededAt: row.superseded_at ?? null,
+    supersededByProcessingAttemptId:
+      row.superseded_by_processing_attempt_id ?? null,
+    actionAvailability,
     previewCandidateEvidence: activeRevision ? [] : preview.candidateEvidence,
     manualOptions: manualOptions.map((definition) => ({
       key: definition.key,

@@ -16,6 +16,12 @@ import type {
   VerificationStatus,
 } from "@/lib/biomarkers";
 import {
+  isRecordStatus,
+  isLifecycleReasonCode,
+  type LifecycleReasonCode,
+  type RecordStatus,
+} from "./observation-verification-workflow";
+import {
   isResolverResult,
   resolverOutcomeVariant,
   verificationStatusLabel,
@@ -28,6 +34,9 @@ export type ObservationChangeEventKind =
   | "mapping_corrected"
   | "correction_reverted"
   | "verification_changed"
+  | "automatic_verification"
+  | "record_rejected"
+  | "record_superseded"
   | "extraction_superseded"
   | "reprocess_applied";
 
@@ -48,6 +57,10 @@ export type ObservationChangeEventRow = Readonly<{
   actor_type: string;
   actor_id: string | null;
   correction_reason: string | null;
+  prior_record_status?: string | null;
+  next_record_status?: string | null;
+  reason_code?: string | null;
+  transition_request_hash?: string | null;
   prior_measurement_definition_key: string | null;
   prior_analyte_key: string | null;
   prior_resolver_result: string | null;
@@ -75,6 +88,7 @@ export type ObservationChangeField =
   | "analyte"
   | "outcome"
   | "verification"
+  | "record_status"
   | "confidence";
 
 export type ObservationChangeFieldDiff = Readonly<{
@@ -108,12 +122,10 @@ export type ObservationChangeEntry = Readonly<{
   actorId: string | null;
   actorLabel: string;
   reason: string | null;
+  reasonCode: LifecycleReasonCode | null;
+  priorRecordStatus: RecordStatus | null;
+  nextRecordStatus: RecordStatus | null;
   fields: readonly ObservationChangeFieldDiff[];
-  /**
-   * Evidence is referenced, never reproduced: these are the input-evidence
-   * hashes of the revisions on either side of the change, for support to
-   * correlate against the revision store.
-   */
   priorEvidenceHash: string | null;
   nextEvidenceHash: string | null;
   versions: ObservationChangeVersions;
@@ -126,6 +138,9 @@ const EVENT_KINDS: Readonly<Record<ObservationChangeEventKind, true>> = {
   mapping_corrected: true,
   correction_reverted: true,
   verification_changed: true,
+  automatic_verification: true,
+  record_rejected: true,
+  record_superseded: true,
   extraction_superseded: true,
   reprocess_applied: true,
 };
@@ -135,6 +150,9 @@ const EVENT_HEADLINES: Readonly<Record<ObservationChangeEventKind, string>> = {
   mapping_corrected: "Measurement mapping corrected",
   correction_reverted: "Correction reverted",
   verification_changed: "Verification updated",
+  automatic_verification: "Verified automatically",
+  record_rejected: "Source record rejected",
+  record_superseded: "Source record superseded",
   extraction_superseded: "Source extraction replaced by reprocessing",
   reprocess_applied: "Catalog reprocessing applied",
 };
@@ -146,6 +164,9 @@ const EVENT_VARIANTS: Readonly<
   mapping_corrected: "info",
   correction_reverted: "warning",
   verification_changed: "info",
+  automatic_verification: "info",
+  record_rejected: "error",
+  record_superseded: "neutral",
   extraction_superseded: "neutral",
   reprocess_applied: "info",
 };
@@ -155,6 +176,7 @@ const FIELD_LABELS: Readonly<Record<ObservationChangeField, string>> = {
   analyte: "Analyte",
   outcome: "Recognition outcome",
   verification: "Verification",
+  record_status: "Record lifecycle",
   confidence: "Mapping confidence",
 };
 
@@ -181,27 +203,41 @@ const OUTCOME_LABELS: Readonly<Record<ResolverResult, string>> = {
 export function isObservationChangeEventKind(
   value: unknown,
 ): value is ObservationChangeEventKind {
-  return typeof value === "string" && value in EVENT_KINDS;
+  return typeof value === "string" && Object.hasOwn(EVENT_KINDS, value);
 }
 
 function asVerificationStatus(value: unknown): VerificationStatus | null {
   if (typeof value !== "string") return null;
-  return value in VERIFICATION_STATUSES ? (value as VerificationStatus) : null;
+  return Object.hasOwn(VERIFICATION_STATUSES, value)
+    ? (value as VerificationStatus)
+    : null;
 }
 
 function asConfidenceBand(value: unknown): MappingConfidenceBand | null {
   if (typeof value !== "string") return null;
-  return value in CONFIDENCE_LABELS ? (value as MappingConfidenceBand) : null;
+  return Object.hasOwn(CONFIDENCE_LABELS, value)
+    ? (value as MappingConfidenceBand)
+    : null;
+}
+
+function asRecordStatus(value: unknown): RecordStatus | null {
+  return isRecordStatus(value) ? value : null;
 }
 
 function diff(
   field: ObservationChangeField,
-  from: string | null,
-  to: string | null,
+  from: string | null | undefined,
+  to: string | null | undefined,
 ): ObservationChangeFieldDiff | null {
-  if (from === to) return null;
-  if (from === null && to === null) return null;
-  return { field, label: FIELD_LABELS[field], from, to };
+  const normalizedFrom = from ?? null;
+  const normalizedTo = to ?? null;
+  if (normalizedFrom === normalizedTo) return null;
+  return {
+    field,
+    label: FIELD_LABELS[field],
+    from: normalizedFrom,
+    to: normalizedTo,
+  };
 }
 
 /**
@@ -237,6 +273,11 @@ function buildFieldDiffs(
       nextVerification ? verificationStatusLabel(nextVerification) : null,
     ),
     diff(
+      "record_status",
+      row.prior_record_status,
+      row.next_record_status,
+    ),
+    diff(
       "confidence",
       priorBand ? CONFIDENCE_LABELS[priorBand] : null,
       nextBand ? CONFIDENCE_LABELS[nextBand] : null,
@@ -256,12 +297,15 @@ function entryVariant(
   kind: ObservationChangeEventKind,
   row: ObservationChangeEventRow,
 ): ReviewChipVariant {
-  if (kind === "verification_changed") {
+  if (kind === "verification_changed" || kind === "automatic_verification") {
     return verificationStatusVariant(
       asVerificationStatus(row.next_verification_status),
     );
   }
-  if (kind === "reprocess_applied" && isResolverResult(row.next_resolver_result)) {
+  if (
+    (kind === "reprocess_applied" || kind === "record_superseded") &&
+    isResolverResult(row.next_resolver_result)
+  ) {
     return resolverOutcomeVariant(row.next_resolver_result);
   }
   return EVENT_VARIANTS[kind];
@@ -313,6 +357,9 @@ export function buildObservationChangeEntry(
     actorId,
     actorLabel,
     reason: reason ? reason : null,
+    reasonCode: isLifecycleReasonCode(row.reason_code) ? row.reason_code : null,
+    priorRecordStatus: asRecordStatus(row.prior_record_status),
+    nextRecordStatus: asRecordStatus(row.next_record_status),
     fields: buildFieldDiffs(row),
     priorEvidenceHash: row.prior_input_evidence_hash,
     nextEvidenceHash: row.next_input_evidence_hash,

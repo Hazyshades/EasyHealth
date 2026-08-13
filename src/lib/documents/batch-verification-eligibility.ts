@@ -7,6 +7,7 @@ import type { MeasurementOverride } from "./observation-measurement-correction";
 
 export const BATCH_VERIFICATION_EXCLUSION_CODES = [
   "not_awaiting_review",
+  "record_not_active",
   "source_not_current",
   "stale_source_snapshot",
   "stale_active_revision",
@@ -34,9 +35,9 @@ export type BatchVerificationEligibility = Readonly<{
   eligible: boolean;
   exclusionCodes: readonly BatchVerificationExclusionCode[];
 }>;
-
 export type BatchVerificationEligibilityInput = Readonly<{
   status: string | null;
+  recordStatus: "active" | "rejected" | "superseded" | null;
   isCurrent: boolean;
   sourceSnapshot: string | null;
   expectedSourceSnapshot?: string | null;
@@ -53,6 +54,7 @@ export type BatchVerificationEligibilityInput = Readonly<{
 export const BATCH_VERIFICATION_EXCLUSION_LABELS: Readonly<
   Record<BatchVerificationExclusionCode, string>
 > = {
+  record_not_active: "This result was rejected and cannot be verified.",
   not_awaiting_review: "This result is no longer awaiting review.",
   source_not_current: "This result was superseded and cannot be verified.",
   stale_source_snapshot: "This result changed while the review was open.",
@@ -102,6 +104,11 @@ export function evaluateBatchVerificationEligibility(
   const exclusionCodes: BatchVerificationExclusionCode[] = [];
   const reviewable =
     input.status === "needs_review" || input.status === "pending_review";
+  add(
+    exclusionCodes,
+    input.recordStatus !== "active",
+    "record_not_active",
+  );
 
   add(exclusionCodes, !reviewable, "not_awaiting_review");
   add(exclusionCodes, !input.isCurrent, "source_not_current");

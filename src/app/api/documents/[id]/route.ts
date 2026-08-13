@@ -33,7 +33,7 @@ import {
 type RouteContext = { params: Promise<{ id: string }> };
 
 const EXTRACTED_BIOMARKER_SELECT =
-  "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, source_page, source_text, bounding_box, confidence, status, processing_version, extraction_model, specimen, modifier, method, reported_alt_value, reported_alt_unit, raw_value_text, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, resolver_evidence, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, verification_status, created_at";
+  "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, source_page, source_text, bounding_box, confidence, status, processing_version, extraction_model, specimen, modifier, method, reported_alt_value, reported_alt_unit, raw_value_text, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, resolver_evidence, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, verification_status, record_status, lifecycle_reason_code, superseded_at, superseded_by_processing_attempt_id, processing_attempt_id, is_current, created_at";
 
 async function safeSignedUrl(storagePath: string | null | undefined) {
   if (!storagePath) return null;
@@ -81,7 +81,6 @@ export async function GET(req: NextRequest, context: RouteContext) {
       .select(EXTRACTED_BIOMARKER_SELECT)
       .eq("document_id", id)
       .eq("profile_id", profileId)
-      .eq("is_current", true)
       .order("biomarker_name", { ascending: true }),
     documentType === "instrumental_report"
       ? supabase
@@ -173,7 +172,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
     entries.push(revision as Record<string, unknown>);
     revisionsByExtractedId.set(key, entries);
   }
-  const enrichedExtractedItems = extractedItems.map((item) => ({
+  const baseExtractedItems = extractedItems.map((item) => ({
     ...item,
     normalization: buildNormalizationReview(
       item,
@@ -181,12 +180,17 @@ export async function GET(req: NextRequest, context: RouteContext) {
     ),
   }));
 
+  const batchEligibilityById = new Map<
+    string,
+    ReturnType<typeof evaluateBatchVerificationEligibility>
+  >();
   const batchEligibility = summarizeBatchVerificationEligibility(
-    enrichedExtractedItems,
-    (item) =>
-      evaluateBatchVerificationEligibility({
+    baseExtractedItems,
+    (item) => {
+      const eligibility = evaluateBatchVerificationEligibility({
         status: item.status,
-        isCurrent: true,
+        recordStatus: item.normalization.recordStatus,
+        isCurrent: item.normalization.sourceIsCurrent,
         sourceSnapshot: item.created_at,
         resolution: resolveMeasurementDefinition(
           measurementInputFromWriterRow(
@@ -195,8 +199,34 @@ export async function GET(req: NextRequest, context: RouteContext) {
           ),
         ),
         activeRevision: item.normalization.activeRevision,
-      }),
+      });
+      batchEligibilityById.set(item.id, eligibility);
+      return eligibility;
+    },
   );
+  const enrichedExtractedItems = baseExtractedItems.map((item) => {
+    const eligibility = batchEligibilityById.get(item.id);
+    const actionAvailability = {
+      ...item.normalization.actionAvailability,
+      batchVerify: {
+        available: eligibility?.eligible === true,
+        exclusionReason: eligibility?.eligible
+          ? null
+          : eligibility?.exclusionCodes[0] ?? "batch_ineligible",
+      },
+    };
+    return {
+      ...item,
+      recordStatus: item.normalization.recordStatus,
+      sourceIsCurrent: item.normalization.sourceIsCurrent,
+      traceState: item.normalization.traceState,
+      actionAvailability,
+      normalization: {
+        ...item.normalization,
+        actionAvailability,
+      },
+    };
+  });
   const extractedCount = enrichedExtractedItems.length;
   const file =
     fileSigned != null
@@ -260,6 +290,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
       })),
       excluded_counts: batchEligibility.excludedCounts,
     },
+
     review_data_error: reviewDataError,
     file,
     current_page,

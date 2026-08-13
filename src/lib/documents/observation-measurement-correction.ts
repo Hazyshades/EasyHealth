@@ -251,6 +251,7 @@ const CORRECTION_HTTP_STATUSES: Readonly<Record<string, number>> = {
   active_revision_projection_mismatch: 409,
   measurement_override_projection_mismatch: 409,
   revision_observation_binding_conflict: 409,
+  terminal_record: 409,
   observation_source_page_missing: 422,
   invalid_resolver_decision_trace: 422,
   resolver_decision_trace_resolution_mismatch: 422,
