@@ -406,30 +406,29 @@ select is(
 );
 
 -- ── 9. Reprocessing supersession is captured ─────────────────────────────────
-
+-- EH-120 owns the lifecycle axis. Keep the legacy extraction event suppressed
+-- when the same update records the authoritative record-superseded event.
+select set_config('easyhealth.lifecycle_transition', 'on', true);
 update public.document_extracted_biomarkers
-set is_current = false, superseded_at = now()
+set record_status = 'superseded',
+    is_current = false,
+    superseded_at = now(),
+    lifecycle_reason_code = 'document_reprocessed',
+    lifecycle_request_hash = repeat('c', 64)
 where id = '00000000-0000-0000-0000-000000000123';
+select set_config('easyhealth.lifecycle_transition', '', true);
 
 select is(
   (
     select count(*)::int
     from public.observation_change_events
     where extracted_biomarker_id = '00000000-0000-0000-0000-000000000123'
-      and event_kind = 'extraction_superseded'
+      and event_kind = 'record_superseded'
   ),
   1,
-  'retiring an extracted row records that reprocessing replaced it'
+  'retiring an extracted row records the authoritative lifecycle replacement'
 );
 
-update public.document_extracted_biomarkers
-set is_current = true, superseded_at = null
-where id = '00000000-0000-0000-0000-000000000123';
-
-update public.document_extracted_biomarkers
-set is_current = false, superseded_at = now()
-where id = '00000000-0000-0000-0000-000000000123';
-
 select is(
   (
     select count(*)::int
@@ -437,8 +436,8 @@ select is(
     where extracted_biomarker_id = '00000000-0000-0000-0000-000000000123'
       and event_kind = 'extraction_superseded'
   ),
-  1,
-  'a repeated supersession does not append a duplicate event'
+  0,
+  'EH-120 lifecycle capture prevents a duplicate legacy supersession event'
 );
 
 -- ── 10. Append-only enforcement ──────────────────────────────────────────────
@@ -686,9 +685,6 @@ values (
   'Sodium', 'Sodium', 140, 'mmol/L', 1, 'Sodium 140 mmol/L', 'eh121-fixture', 'resolved'
 );
 
-update public.document_extracted_biomarkers
-set is_current = false, superseded_at = now()
-where id = '00000000-0000-0000-0000-000000000133';
 
 delete from public.documents
 where id = '00000000-0000-0000-0000-000000000132';
