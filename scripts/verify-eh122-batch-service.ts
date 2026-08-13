@@ -38,6 +38,7 @@ assert.equal(batchVerificationAggregateStatus([{ outcome: "failed" }]), "failed"
 assert.equal(batchVerificationAggregateStatus([{ outcome: "excluded" }]), "no_op");
 
 const service = readFileSync("src/lib/documents/batch-verification-service.ts", "utf8");
+assert.match(service, /aggregate_status: "executing"/, "new batch operations start in an executing state");
 assert.match(service, /existing\.data\.request_hash !== hash/, "a reused operation id rejects a conflicting selection");
 assert.match(service, /evaluateBatchVerificationEligibility/, "execution re-evaluates server-side eligibility rather than trusting the client");
 assert.match(service, /activeRevision\?\.id !== row\.resulting_revision_id/, "undo excludes rows changed after the original batch");

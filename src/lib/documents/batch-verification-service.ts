@@ -122,6 +122,7 @@ export async function executeBatchVerification(options: {
       document_id: options.documentId,
       operation_id: options.operationId,
       request_hash: hash,
+      aggregate_status: "executing",
     })
     .select("id")
     .single();
