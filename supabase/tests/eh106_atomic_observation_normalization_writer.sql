@@ -39,13 +39,22 @@ with function_definitions as (
     )) as legacy_definition,
     lower(pg_get_functiondef(
       'public.write_observation_normalization_revision_v2_legacy(uuid,jsonb,jsonb,text,uuid,text,jsonb,uuid,text,text,uuid,uuid,text,boolean)'::regprocedure
-    )) as explicit_legacy_definition
+    )) as explicit_legacy_definition,
+    lower(pg_get_functiondef(
+      'public.write_observation_normalization_revision_v2_pre_eh122(uuid,jsonb,jsonb,text,uuid,text,jsonb,uuid,text,text,uuid,uuid,text,boolean)'::regprocedure
+    )) as pre_eh122_definition
 )
 select ok(
   position('write_observation_normalization_revision_v2_legacy' in wrapper_definition) > 0
     and position('write_observation_normalization_revision_v2_legacy' in legacy_definition) > 0
-    and position('promote_observation_normalization_revision_v2' in explicit_legacy_definition) > 0,
-  'atomic writer delegates promotion to the EH-104 v2 primitive through the explicit override overload'
+    and (
+      position('promote_observation_normalization_revision_v2' in explicit_legacy_definition) > 0
+      or (
+        position('write_observation_normalization_revision_v2_pre_eh122' in explicit_legacy_definition) > 0
+          and position('promote_observation_normalization_revision_v2' in pre_eh122_definition) > 0
+      )
+    ),
+  'atomic writer keeps the canonical promotion path reachable through the explicit override overload'
 )
 from function_definitions;
 
