@@ -7,7 +7,8 @@ import {
   MEASUREMENT_RESOLVER_VERSION,
   MEASUREMENT_COMPATIBILITY_POLICY_VERSION,
 } from "./measurement-resolution";
-import type { MeasurementDefinition } from "./types";
+import { PANEL_DEFINITIONS, PANEL_REGISTRY_VERSION } from "./panel-registry";
+import type { MeasurementDefinition, PanelDefinition } from "./types";
 
 export type MappingChangeClassification =
   | "additive"
@@ -64,20 +65,33 @@ function manifestDefinition(definition: MeasurementDefinition) {
   };
 }
 
+function manifestPanel(panel: PanelDefinition) {
+  return {
+    key: panel.key,
+    displayName: panel.displayName,
+    alternateNames: panel.alternateNames,
+    members: panel.members,
+  };
+}
+
 export function serializeMeasurementRegistryManifest(
-  definitions: readonly MeasurementDefinition[] = MEASUREMENT_DEFINITIONS
+  definitions: readonly MeasurementDefinition[] = MEASUREMENT_DEFINITIONS,
+  panels: readonly PanelDefinition[] = PANEL_DEFINITIONS,
 ): string {
   return stableValue({
-    registryModel: "launch-catalog-v2-alias-authority",
+    registryModel: "launch-catalog-v2-panel-registry",
+    panelRegistryVersion: PANEL_REGISTRY_VERSION,
     analytes: ANALYTES,
     definitions: definitions.map(manifestDefinition),
+    panels: panels.map(manifestPanel),
   });
 }
 
 export function digestMeasurementRegistryManifest(
-  definitions: readonly MeasurementDefinition[] = MEASUREMENT_DEFINITIONS
+  definitions: readonly MeasurementDefinition[] = MEASUREMENT_DEFINITIONS,
+  panels: readonly PanelDefinition[] = PANEL_DEFINITIONS,
 ): string {
-  return createHash("sha256").update(serializeMeasurementRegistryManifest(definitions)).digest("hex");
+  return createHash("sha256").update(serializeMeasurementRegistryManifest(definitions, panels)).digest("hex");
 }
 
 export function classifyMeasurementDefinitionChange(
@@ -150,12 +164,13 @@ export function buildMeasurementCatalogManifestRelease(options?: {
     normalizationVersion: MEASUREMENT_NORMALIZATION_VERSION,
     compatibilityPolicyVersion: MEASUREMENT_COMPATIBILITY_POLICY_VERSION,
     manifestDigest: digestMeasurementRegistryManifest(),
-    changelog: options?.changelog ?? ["EH-111 clinical compatibility policy cutover"],
+    changelog: options?.changelog ?? ["EH-125 static panel registry and reviewed iron-study identities"],
     changedDefinitions: MEASUREMENT_DEFINITIONS.map((definition) =>
       classifyMeasurementDefinitionChange(previousByKey.get(definition.key), definition)
     ),
     regressionFixtures: options?.regressionFixtures ?? [
       { name: "verify-biomarkers-runner", status: "declared" },
+      { name: "verify-panel-registry-runner", status: "declared" },
     ],
   };
 }

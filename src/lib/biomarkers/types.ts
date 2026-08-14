@@ -30,6 +30,19 @@ export type AnalyteKey = string;
 export type MeasurementDefinitionKey = string;
 export type NormalizedUnitKey = string;
 export type MeasurementMaturity = "provisional" | "reviewed" | "retired";
+export type PanelKey = string;
+export type PanelMemberRole = "required" | "optional";
+export type PanelMember = Readonly<{
+  measurementDefinitionKey: MeasurementDefinitionKey;
+  role: PanelMemberRole;
+  displayOrder: number;
+}>;
+export type PanelDefinition = Readonly<{
+  key: PanelKey;
+  displayName: string;
+  alternateNames: readonly string[];
+  members: readonly PanelMember[];
+}>;
 /** Provenance for Registry 2.0 definition data used by the runtime resolver. */
 export type RegistrySourceKind = "registry_v2_review" | "sample_fixture";
 export type AnalyteStatus = "active" | "deprecated";
