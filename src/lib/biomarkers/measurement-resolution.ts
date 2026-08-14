@@ -48,7 +48,7 @@ import type {
   UnitToken,
 } from "./types";
 
-export const MEASUREMENT_CATALOG_MANIFEST_VERSION = "2026-08-09.0";
+export const MEASUREMENT_CATALOG_MANIFEST_VERSION = "2026-08-12.0";
 /**
  * 11: multilingual measurement-label normalization + locale alias packs.
  * 10: #120 the analyte tier is derived from selectable candidates only.
@@ -112,6 +112,15 @@ const BILIRUBIN_POLICY: MeasurementUnitPolicy = {
 const CREATININE_POLICY: MeasurementUnitPolicy = {
   dimensions: ["mass_concentration", "molar_concentration"], acceptedUnits: ["mg/dl", "umol/l"], canonicalUnit: "umol/l", conversionPolicyRef: "registry-2.0:creatinine", missingUnitPolicy: "ambiguous",
 };
+const IRON_POLICY: MeasurementUnitPolicy = {
+  dimensions: ["mass_concentration", "molar_concentration"], acceptedUnits: ["ug/dl", "umol/l"], canonicalUnit: "umol/l", conversionPolicyRef: "registry-2.0:iron", missingUnitPolicy: "ambiguous",
+};
+const FERRITIN_POLICY: MeasurementUnitPolicy = {
+  dimensions: ["mass_concentration"], acceptedUnits: ["ng/ml", "ug/l"], canonicalUnit: "ng/ml", conversionPolicyRef: "registry-2.0:ferritin", missingUnitPolicy: "ambiguous",
+};
+const TRANSFERRIN_POLICY: MeasurementUnitPolicy = {
+  dimensions: ["mass_concentration"], acceptedUnits: ["mg/dl", "g/l"], canonicalUnit: "g/l", conversionPolicyRef: "registry-2.0:transferrin", missingUnitPolicy: "ambiguous",
+};
 const VITAMIN_D_POLICY: MeasurementUnitPolicy = {
   dimensions: ["mass_concentration", "molar_concentration"], acceptedUnits: ["ng/ml", "nmol/l"], canonicalUnit: "nmol/l", conversionPolicyRef: "registry-2.0:vitamin-d", missingUnitPolicy: "ambiguous",
 };
@@ -159,6 +168,9 @@ const VITAMIN_D_CONVERSION: ConversionRule = { type: "linear", conventionalUnit:
 const HBA1C_CONVERSION: ConversionRule = { type: "formula", formula: "hba1c_ngsp_ifcc", conventionalUnit: "%", siUnit: "mmol/mol" };
 const BUN_UREA_CONVERSION: ConversionRule = { type: "formula", formula: "bun_urea", conventionalUnit: "mg/dL", siUnit: "mmol/L" };
 const ENZYME_DISPLAY_ONLY: ConversionRule = { type: "none", reason: "Catalytic activity has no reviewed US/SI mass conversion." };
+const IRON_CONVERSION: ConversionRule = { type: "linear", conventionalUnit: "µg/dL", siUnit: "µmol/L", factorCo: 0.1791, factorSi: 5.5835 };
+const FERRITIN_CONVERSION: ConversionRule = { type: "equal", conventionalUnit: "ng/mL", siUnit: "µg/L" };
+const TRANSFERRIN_CONVERSION: ConversionRule = { type: "linear", conventionalUnit: "mg/dL", siUnit: "g/L", factorCo: 0.01, factorSi: 100 };
 type AliasSeed = {
   value: string;
   normalizedValue: string;
@@ -334,6 +346,15 @@ const REVIEWED_DEFINITIONS: readonly MeasurementDefinition[] = [
   ...([["neutrophils", "NEU", "Нейтрофилы"], ["lymphocytes", "LYM", "Лимфоциты"], ["monocytes", "MON", "Моноциты"], ["eosinophils", "EOS", "Эозинофилы"], ["basophils", "BAS", "Базофилы"]] as const).flatMap(([key, abbreviation, russian]) => [reviewed({ key: `${key}_percent`, analyteKey: key, displayName: `${key}, percent`, specimen: "whole_blood", property: "percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: cbcAliases([key, `${key}_percent`, abbreviation, `${abbreviation}%`], { fixtureValues: [`${key[0]!.toUpperCase()}${key.slice(1)} (${abbreviation}%)`, ...(key === "lymphocytes" ? ["Lymphocytes (LYMF%)"] : [])], russianValues: [`${russian} (${abbreviation}%)`] }), unitPolicy: PERCENT_POLICY }), reviewed({ key: `${key}_abs`, analyteKey: key, displayName: `${key}, absolute`, specimen: "whole_blood", property: "cell_count", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: cbcAliases([...(key === "neutrophils" ? [key] : []), `${key}_abs`, abbreviation], { fixtureValues: [`${key[0]!.toUpperCase()}${key.slice(1)}, absolute (${abbreviation})`, ...(key === "lymphocytes" ? ["Lymphocytes, absolute (LYMF)"] : [])], russianValues: [`${russian}, абс. (${abbreviation})`] }), unitPolicy: CELL_POLICY })]),
   ...([["reticulocytes_percent", "reticulocytes", "percentage", PERCENT_POLICY, "Reticulocytes (RETIC%)"], ["reticulocytes_abs", "reticulocytes", "cell_count", CELL_POLICY, "Reticulocytes, absolute (RETIC)"], ["segmented_neutrophils_percent", "neutrophils", "segmented_percentage", PERCENT_POLICY, "Segmented neutrophils"], ["band_neutrophils_percent", "neutrophils", "band_percentage", PERCENT_POLICY, "Band neutrophils"]] as const).map(([key, analyteKey, property, unitPolicy, fixtureLabel]) => reviewed({ key, analyteKey, displayName: fixtureLabel, specimen: "whole_blood", property, scale: "quantitative", timing: "point_in_time", method: key.includes("neutrophils") ? "manual" : "automated", valueKind: "numeric", aliases: cbcAliases([key, analyteKey, ...(key === "reticulocytes_percent" ? ["retic_percent"] : []), ...(key === "reticulocytes_abs" ? ["absolute_reticulocyte_count"] : [])], { fixtureValues: [fixtureLabel] }), unitPolicy, ...(key.includes("neutrophils") ? { requiredMethods: ["manual"] } : {}) })),
   ...(["lymphocytes", "monocytes", "eosinophils"] as const).map((analyteKey) => reviewed({ key: `${analyteKey}_manual_percent`, analyteKey, displayName: `${analyteKey}, manual differential`, specimen: "whole_blood", property: "percentage", scale: "quantitative", timing: "point_in_time", method: "manual", valueKind: "numeric", aliases: cbcAliases([`${analyteKey}_manual`, `${analyteKey}_manual_differential`], { fixtureValues: [`${analyteKey[0]!.toUpperCase()}${analyteKey.slice(1)}, manual differential`] }), unitPolicy: PERCENT_POLICY, requiredMethods: ["manual"] })),
+
+  // Iron studies. Registry v1 records supply migration evidence only; these
+  // reviewed definitions are the sole runtime identities.
+  reviewed({ key: "iron_serum", analyteKey: "iron", displayName: "Serum iron", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["serum_iron", "iron"], "registry", "reviewed"), unitPolicy: IRON_POLICY, conversion: IRON_CONVERSION }),
+  reviewed({ key: "ferritin_serum", analyteKey: "ferritin", displayName: "Ferritin", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["ferritin", "serum_ferritin"], "registry", "reviewed"), unitPolicy: FERRITIN_POLICY, conversion: FERRITIN_CONVERSION }),
+  reviewed({ key: "tibc_serum", analyteKey: "tibc", displayName: "Total iron-binding capacity", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["tibc", "total_iron_binding_capacity"], "registry", "reviewed"), unitPolicy: IRON_POLICY, conversion: IRON_CONVERSION }),
+  reviewed({ key: "uibc_serum", analyteKey: "uibc", displayName: "Unsaturated iron-binding capacity", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["uibc", "unsaturated_iron_binding_capacity"], "registry", "reviewed"), unitPolicy: IRON_POLICY, conversion: IRON_CONVERSION }),
+  reviewed({ key: "transferrin_serum", analyteKey: "transferrin", displayName: "Transferrin", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["transferrin", "serum_transferrin"], "registry", "reviewed"), unitPolicy: TRANSFERRIN_POLICY, conversion: TRANSFERRIN_CONVERSION }),
+  reviewed({ key: "transferrin_saturation_serum", analyteKey: "transferrin_saturation", displayName: "Transferrin saturation", specimen: "serum", property: "percentage", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["transferrin_saturation", "tsat"], "registry", "reviewed"), unitPolicy: PERCENT_POLICY }),
   // Nutrients and inflammation
   reviewed({ key: "vitamin_d_serum", analyteKey: "vitamin_d", displayName: "25-hydroxy vitamin D", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["vitamin_d", "25_oh_vitamin_d", "25_oh_d"], "registry", "reviewed"), unitPolicy: VITAMIN_D_POLICY, conversion: VITAMIN_D_CONVERSION, binding: assessment("nutrients", "vitamin_d", "core", { coversConfidence: true, readinessGroup: "vitamin_d", contributionGroup: "vitamin_d" }) }),
   reviewed({ key: "b12_serum", analyteKey: "b12", displayName: "Vitamin B12", specimen: "serum", property: "substance_concentration", scale: "quantitative", timing: "point_in_time", method: "automated", valueKind: "numeric", aliases: aliases(["b12", "vitamin_b12", "cobalamin"], "registry", "reviewed"), unitPolicy: B12_POLICY, binding: assessment("nutrients", "b12", "core", { coversConfidence: true, readinessGroup: "b12", contributionGroup: "b12" }) }),

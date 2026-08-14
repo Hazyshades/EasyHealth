@@ -7,8 +7,8 @@
       "role": "registry-safety-reviewer",
       "approvedBy": "",
       "status": "approved",
-      "candidateInputHash": "adc0018681b017d2cef0c3750916198b4ced2066f92fcea64a3e6a1e851a465c",
-      "note": "Multilingual EN+RU+ES candidate. Corpus 53 -> 72 rows, a delta of exactly 19, all of them localized. Decomposition: 19 localized rows added = 17 recognizable (15 expected resolved + 2 expected partial) + 2 deliberate unknown-marker rows (ru-unknown-marker, es-unknown-marker). No English row was added: the English segment grew from 20 to 53 solely because 33 English-labelled rows were re-pointed from the RU-tagged documents onto cbc-en-north and specialty-en-central, with their labels, units, values and expected classifications byte-identical. Final segments en 53 / ru 9 / es 10 = 72. falseConcreteResolutions 0 aggregate and 0 in each of en/ru/es. expectedClassificationRate 1.0: all 72 rows match their declared expectation, including both unknown-marker rows which stay unmapped. The 2 expected-unmapped rows are excluded from the recognition, alias and unit coverage denominators, which is why those rates remain 1.0; their safety is asserted by expectedClassificationRate and falseConcreteResolutions instead. Catalog digest moved from 5341c12e to 0958b279 because alias normalized forms are recomputed with normalizeMeasurementLabel and every alias now declares a locale."
+      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
+      "note": "Proposed EH-125 renewal. The candidate corpus remains 72 rows with expectedClassificationRate 1.0, falseConcreteResolutions 0, and no processing errors. Registry 2.0 now adds six reviewed iron-study identities and a manifest-covered static panel registry; resolver, normalization, persistence, assessment bindings, and corpus expectations are unchanged. Sign only after reviewing the new candidate-input hash and threshold report."
     },
     {
       "id": "release-gate-2026-08-10",
@@ -16,8 +16,8 @@
       "role": "release-manager",
       "approvedBy": "",
       "status": "approved",
-      "candidateInputHash": "adc0018681b017d2cef0c3750916198b4ced2066f92fcea64a3e6a1e851a465c",
-      "note": "72 rows, resolved 23 / partial 47 / unmapped 2 / ambiguous 0. rawPreservationRate 1.0, recognitionRate 1.0, expectedClassificationRate 1.0, aliasCoverageRate 1.0, unitCoverageRate 1.0, falseConcreteResolutions 0, processingErrors 0, unclassifiedRows 0. 17 threshold checks pass, including per-language gates for en (53 rows), ru (9 rows) and es (10 rows). Catalog manifest 2026-08-03.0 -> 2026-08-09.0, resolver version 10 -> 11, normalization version 6 -> 7. Policy changes in this candidate: requiredLaunchRows 53 -> 72, a new languageThresholds block, and scoreAffectingBindingOwners extended to the 13 definitions the corpus actually reaches; the unreachable crp_serum owner entry was removed so the policy describes the current release surface only. Launchability inputs per the release-gate contract are fixture validity, threshold checks and hash-bound approvals; test suites are supporting engineering evidence and are not inputs to the manifest. Evidence reviewed: tsc --noEmit clean; 33 TypeScript verifiers pass; 16 of 17 pgTAP suites pass. Three failures are pre-existing and unrelated, reproduced on a clean baseline at HEAD ae2fe70 and recorded in issue #110 and QA/issue-114/checklist.md: test:eh111 line 184, verify-postgrest-revision-embeds, and pr2_instrumental_canonicalization test 6. No waiver is invoked because none of the three is a gate input; each is asserted unchanged against baseline rather than excused. Governance note for this candidate: one Project Owner acts in the registry-safety-reviewer, release-manager and assessment-owner roles, which the current policy permits and existing approval precedent follows; separating those roles is tracked as a follow-up governance improvement and is deliberately out of scope here."
+      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
+      "note": "Proposed EH-125 renewal. Catalog manifest 2026-08-12.0 includes static panel metadata and six reviewed iron-study definitions, changing the candidate-input hash without changing resolver or normalization versions. The 72-row technical corpus still passes every threshold. The signed approvals file intentionally remains on the prior hash until the required reviewers renew approval."
     },
     {
       "id": "assessment-alt-serum-catalytic-activity-review-2026-08-10",
@@ -26,7 +26,7 @@
       "bindingKey": "alt_serum_catalytic_activity",
       "approvedBy": "",
       "status": "approved",
-      "candidateInputHash": "adc0018681b017d2cef0c3750916198b4ced2066f92fcea64a3e6a1e851a465c",
+      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
       "note": "Signature refresh only. Reached by 0 rows automatically: corpus row `alt` (English, unchanged) stays partial and reaches this definition solely through a reviewed manual correction, source manual_correction, consumerEligible false. The multilingual slice adds no row that reaches this binding."
     },
     {
@@ -36,7 +36,7 @@
       "bindingKey": "fasting_glucose",
       "approvedBy": "",
       "status": "approved",
-      "candidateInputHash": "adc0018681b017d2cef0c3750916198b4ced2066f92fcea64a3e6a1e851a465c",
+      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
       "note": "Signature refresh only. Reached by corpus row `glucose-fasting` (English, unchanged), label 'Fasting glucose' mmol/L, expected resolved, actual resolved fasting_glucose, falseConcrete false. The multilingual slice adds no row that reaches this binding."
     },
     {
@@ -46,7 +46,7 @@
       "bindingKey": "glucose_plasma",
       "approvedBy": "",
       "status": "approved",
-      "candidateInputHash": "adc0018681b017d2cef0c3750916198b4ced2066f92fcea64a3e6a1e851a465c",
+      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
       "note": "Signature refresh only. Reached by corpus row `glucose-plasma` (English, unchanged), label 'Glucose' mmol/L with plasma stated on the row, expected resolved, actual resolved glucose_plasma, falseConcrete false. The multilingual slice adds no row that reaches this binding."
     },
     {
@@ -56,7 +56,7 @@
       "bindingKey": "glucose_serum",
       "approvedBy": "",
       "status": "approved",
-      "candidateInputHash": "adc0018681b017d2cef0c3750916198b4ced2066f92fcea64a3e6a1e851a465c",
+      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
       "note": "Reach widened by one Spanish row. Existing English rows `glucose` and `glucose-specimen-by-section` are unchanged. New row `es-glucosa-suero`: label 'Glucosa' mmol/L, specimen serum stated on the row itself by 'Glucosa, suero 5.4 mmol/L', expected resolved glucose_serum, actual resolved glucose_serum, falseConcrete false, alias match alias_normalized_match on a reviewed es alias. No specimen is inferred."
     },
     {
@@ -66,7 +66,7 @@
       "bindingKey": "glucose_whole_blood",
       "approvedBy": "",
       "status": "approved",
-      "candidateInputHash": "adc0018681b017d2cef0c3750916198b4ced2066f92fcea64a3e6a1e851a465c",
+      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
       "note": "Signature refresh only. Reached by corpus row `glucose-whole-blood` (English, unchanged), label 'Glucose' mg/dL with whole blood stated on the row, expected resolved, actual resolved glucose_whole_blood, falseConcrete false. The multilingual slice adds no row that reaches this binding."
     },
     {
@@ -76,7 +76,7 @@
       "bindingKey": "hemoglobin_whole_blood",
       "approvedBy": "",
       "status": "approved",
-      "candidateInputHash": "adc0018681b017d2cef0c3750916198b4ced2066f92fcea64a3e6a1e851a465c",
+      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
       "note": "Newly reached by two multilingual rows. `ru-hgb-cyrillic`: 'Гемоглобин' g/L, whole blood stated by 'Гемоглобин, цельная кровь 142 g/L', expected resolved, actual resolved hemoglobin_whole_blood, falseConcrete false. `es-hemoglobina-mixed-code`: 'Hemoglobina (HGB)' g/L, whole blood stated by 'Hemoglobina (HGB), sangre total 138 g/L', expected resolved, actual resolved hemoglobin_whole_blood, falseConcrete false. Both admitted by alias_normalized_match on reviewed aliases; contextAvailability provided on both."
     },
     {
@@ -86,7 +86,7 @@
       "bindingKey": "wbc_whole_blood",
       "approvedBy": "",
       "status": "approved",
-      "candidateInputHash": "adc0018681b017d2cef0c3750916198b4ced2066f92fcea64a3e6a1e851a465c",
+      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
       "note": "Newly reached by two multilingual rows. `ru-wbc-cyrillic`: 'Лейкоциты' x10^9/L, whole blood stated by 'Лейкоциты, цельная кровь 6.2 x10^9/L', expected resolved, actual resolved wbc_whole_blood, falseConcrete false. `es-leucocitos`: 'Leucocitos' x10^9/L, whole blood stated by 'Leucocitos, sangre total 7.1 x10^9/L', expected resolved, actual resolved wbc_whole_blood, falseConcrete false. Both admitted by alias_normalized_match on reviewed aliases."
     },
     {
@@ -96,7 +96,7 @@
       "bindingKey": "platelets_whole_blood",
       "approvedBy": "",
       "status": "approved",
-      "candidateInputHash": "adc0018681b017d2cef0c3750916198b4ced2066f92fcea64a3e6a1e851a465c",
+      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
       "note": "Newly reached by one multilingual row. `es-plaquetas-mixed-code`: 'Plaquetas (PLT)' x10^9/L, whole blood stated by 'Plaquetas (PLT), sangre total 240 x10^9/L', expected resolved, actual resolved platelets_whole_blood, falseConcrete false, alias_normalized_match on a reviewed es alias."
     },
     {
@@ -106,7 +106,7 @@
       "bindingKey": "tsh_serum",
       "approvedBy": "",
       "status": "approved",
-      "candidateInputHash": "adc0018681b017d2cef0c3750916198b4ced2066f92fcea64a3e6a1e851a465c",
+      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
       "note": "Newly reached by one multilingual row. `ru-tsh-cyrillic`: 'ТТГ' mIU/L, serum stated by 'ТТГ, сыворотка 1.8 mIU/L', expected resolved, actual resolved tsh_serum, falseConcrete false, alias_normalized_match on a reviewed ru alias. The abbreviation is pure Cyrillic and could not match at all before this change."
     },
     {
@@ -116,7 +116,7 @@
       "bindingKey": "free_t4_serum",
       "approvedBy": "",
       "status": "approved",
-      "candidateInputHash": "adc0018681b017d2cef0c3750916198b4ced2066f92fcea64a3e6a1e851a465c",
+      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
       "note": "Newly reached by one multilingual row. `ru-free-t4-cyrillic`: 'Свободный Т4' pmol/L, serum stated by 'Свободный Т4, сыворотка 15 pmol/L', expected resolved, actual resolved free_t4_serum, falseConcrete false, alias_normalized_match on a reviewed ru alias. Under the previous identifier normalization this label collapsed to the bare token '4'; the new label contract rejects such weak tokens outright."
     },
     {
@@ -126,7 +126,7 @@
       "bindingKey": "creatinine_serum",
       "approvedBy": "",
       "status": "approved",
-      "candidateInputHash": "adc0018681b017d2cef0c3750916198b4ced2066f92fcea64a3e6a1e851a465c",
+      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
       "note": "Newly reached by one multilingual row. `es-creatinina`: 'Creatinina' umol/L, serum stated by 'Creatinina, suero 78 umol/L', expected resolved, actual resolved creatinine_serum, falseConcrete false, alias_normalized_match on a reviewed es alias."
     },
     {
@@ -136,7 +136,7 @@
       "bindingKey": "triglycerides_serum",
       "approvedBy": "",
       "status": "approved",
-      "candidateInputHash": "adc0018681b017d2cef0c3750916198b4ced2066f92fcea64a3e6a1e851a465c",
+      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
       "note": "Newly reached by two multilingual rows, one of which exercises the accent-fold fallback. `es-trigliceridos-accented`: 'Triglicéridos' mmol/L, serum stated by 'Triglicéridos, suero 1.2 mmol/L', expected resolved, actual resolved triglycerides_serum, falseConcrete false, matched on the accent-preserving primary form. `es-trigliceridos-ocr-no-accent`: 'Trigliceridos' mmol/L, serum stated by 'Trigliceridos, suero 1.3 mmol/L', expected resolved, actual resolved triglycerides_serum, falseConcrete false, admitted through the collision-gated accent-fold fallback and recorded in the persisted schema-2 trace with aliasFoldFallback true. The fallback fires only when a single analyte owns that folded form."
     },
     {
@@ -146,7 +146,7 @@
       "bindingKey": "hba1c_whole_blood",
       "approvedBy": "",
       "status": "approved",
-      "candidateInputHash": "adc0018681b017d2cef0c3750916198b4ced2066f92fcea64a3e6a1e851a465c",
+      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
       "note": "Newly reached by one multilingual row. `es-hba1c`: 'Hemoglobina glucosilada' %, whole blood stated by 'Hemoglobina glucosilada, sangre total 5.6 %', expected resolved, actual resolved hba1c_whole_blood, falseConcrete false, alias_normalized_match on a reviewed es alias."
     }
   ]

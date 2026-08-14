@@ -96,7 +96,7 @@ QA checklists (qa-tests.md)          ← verification status
 <!-- generated-biomarker-docs:start -->
 ## Generated biomarker reference data
 
-Registry 2.0 biomarker references are generated from the typed catalog and approval-independent technical corpus (107 definitions; 625 EN/RU/ES aliases). Do not edit generated files manually.
+Registry 2.0 biomarker references are generated from the typed catalog and approval-independent technical corpus (113 definitions; 637 EN/RU/ES aliases). Do not edit generated files manually.
 
 ```text
 pnpm generate:biomarker-docs

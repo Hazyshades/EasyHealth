@@ -7,6 +7,8 @@ import {
   MEASUREMENT_DEFINITIONS,
   MEASUREMENT_NORMALIZATION_VERSION,
   MEASUREMENT_RESOLVER_VERSION,
+  PANEL_DEFINITIONS,
+  PANEL_REGISTRY_VERSION,
   getMeasurementConversionPolicy,
   getMeasurementIdentity,
   getRegistryV2ScoreContributionGroups,
@@ -304,6 +306,29 @@ function renderDefinition(definition: MeasurementDefinition): string {
   ].join("\n");
 }
 
+function renderPanels(): string[] {
+  const rows = sortBy(PANEL_DEFINITIONS, (panel) => panel.key).map((panel) => [
+    code(panel.key),
+    escapeMarkdownCell(panel.displayName),
+    list(panel.alternateNames),
+    panel.members
+      .slice()
+      .sort((left, right) => left.displayOrder - right.displayOrder)
+      .map((member) => `${member.displayOrder}. ${code(member.measurementDefinitionKey)} (${member.role})`)
+      .join("<br>"),
+  ].join(" | "));
+  return [
+    "## Static panel registry",
+    "",
+    `Panel registry version ${code(PANEL_REGISTRY_VERSION)}. Membership is static catalog metadata; it does not resolve measurements, supply specimen, change assessment bindings, or alter scoring.`,
+    "",
+    "| panel key | canonical name | alternate names | ordered members |",
+    "| --- | --- | --- | --- |",
+    ...rows.map((row) => `| ${row} |`),
+    "",
+  ];
+}
+
 function renderCatalog(definitions: readonly MeasurementDefinition[], counts: BiomarkerDocumentationCounts): string {
   const reviewed = sortBy(definitions.filter((definition) => definition.maturity === "reviewed"), (definition) => definition.key);
   const provisional = sortBy(definitions.filter((definition) => definition.maturity === "provisional"), (definition) => definition.key);
@@ -327,6 +352,7 @@ function renderCatalog(definitions: readonly MeasurementDefinition[], counts: Bi
     "Provisional definitions preserve recognition evidence only. Even a synthetic resolved trace is rejected by the real consumer projection because maturity/provenance is not reviewed; they never enter Health Profile or scoring.",
     "",
     ...provisional.map(renderDefinition),
+    ...renderPanels(),
     "## Registry v1 legacy boundary",
     "",
     "Registry v1 is a frozen compatibility baseline, not a Registry 2.0 runtime source. Its authoritative [v1.0.0 audit](../../registry/biomarker-registry/v1.0.0/AUDIT.md) retains the 113-concept inventory. No v1 concept or alias is automatically promoted or used as a runtime fallback.",

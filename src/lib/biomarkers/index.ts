@@ -25,6 +25,10 @@ export type {
   MeasurementMethodKey,
   MeasurementDefinitionKey,
   NormalizedUnitKey,
+  PanelKey,
+  PanelMemberRole,
+  PanelMember,
+  PanelDefinition,
   UnitDimension,
   CandidateEvidence,
   ResolutionEvidence,
@@ -148,6 +152,17 @@ export {
   type MeasurementRegistryChange,
   type MeasurementCatalogManifestRelease,
 } from "./measurement-registry-release";
+
+export {
+  PANEL_DEFINITIONS,
+  PANEL_REGISTRY_VERSION,
+  REQUIRED_PANEL_KEYS,
+  getPanelDefinition,
+  listPanelDefinitions,
+  listPanelsForMeasurementDefinition,
+  validatePanelRegistry,
+  type PanelRegistryValidation,
+} from "./panel-registry";
 
 export {
   getRegistryV2ScoreRole,

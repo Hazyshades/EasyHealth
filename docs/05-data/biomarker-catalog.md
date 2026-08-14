@@ -3,13 +3,13 @@
 
 Canonical reference generated from the typed runtime Registry 2.0 catalog. A measurement definition is not merely an analyte: its identity includes analyte, specimen, property, scale, timing, method, and value kind.
 
-- **Definitions:** 107 (68 reviewed; 39 provisional). **Analytes:** 77.
-- **Aliases:** 625 (en 277; ru 179; es 169). **Assessment-bound definitions:** 44.
-- **Manifest:** `2026-08-09.0` / `0958b2794f9a4de55462caafbfa71b0f3c22db977851433b6b796f32f133f1d7`; resolver `11`; normalization `7`.
+- **Definitions:** 113 (74 reviewed; 39 provisional). **Analytes:** 83.
+- **Aliases:** 637 (en 289; ru 179; es 169). **Assessment-bound definitions:** 44.
+- **Manifest:** `2026-08-12.0` / `c26ced74ec3a031c8d9c8f38a44988587086a328cb5ef62dddc2a89ecc8b48c9`; resolver `11`; normalization `7`.
 
 The [complete alias-governance reference](./biomarker-aliases.md) is authoritative for alias authority, approval, lifecycle, fixture, provenance, and review metadata.
 
-## Reviewed definitions (68)
+## Reviewed definitions (74)
 
 ### `albumin_serum` — Albumin
 
@@ -471,6 +471,26 @@ The [complete alias-governance reference](./biomarker-aliases.md) is authoritati
 - **ru** (2): глюкоза натощак [`fasting_glucose:ru:laboratory:4`] · гликемия натощак [`fasting_glucose:ru:laboratory:5`]
 - **es** (3): glucosa en ayunas [`fasting_glucose:es:laboratory:6`] · glucosa basal [`fasting_glucose:es:laboratory:7`] · glicemia en ayunas [`fasting_glucose:es:laboratory:8`]
 
+### `ferritin_serum` — Ferritin
+
+- **analyte:** `ferritin`
+- **specimen / property / scale:** `serum` / `substance_concentration` / `quantitative`
+- **timing / method / value kind:** `point_in_time` / `automated` / `numeric`
+- **maturity:** `reviewed`; **definition provenance:** `registry_v2_review` / `registry-2.0:ferritin_serum`
+- **concrete-resolution eligibility:** reviewed identity may resolve only after authorized label and clinical-axis compatibility
+- **unit dimensions:** `mass_concentration`; **accepted units:** `ng/ml`, `ug/l`; **canonical unit:** `ng/ml`
+- **conversion policy:** `registry-2.0:ferritin`; **missing-unit behavior:** `ambiguous`; **conversion:** equal: ng/mL = µg/L
+- **required modifiers / methods:** — / —
+- **Health Profile consumer eligibility:** no. It requires a lab observation, active `resolved` revision/trace, matching selected candidate and definition key, reviewed Registry v2 provenance, and a reviewed compatible assessment binding.
+- **reviewed binding:** —
+- **score role / readiness / contribution groups:** `display` / — / —
+- **reviewed groups:** readiness —; contribution —
+
+**Compact aliases by locale**
+- **en** (2): ferritin [`ferritin_serum:registry:1`] · serum_ferritin [`ferritin_serum:registry:2`]
+- **ru** (0): —
+- **es** (0): —
+
 ### `folate_serum` — Folate
 
 - **analyte:** `folate`
@@ -710,6 +730,26 @@ The [complete alias-governance reference](./biomarker-aliases.md) is authoritati
 - **en** (4): Hemoglobin (HGB) [`hemoglobin_whole_blood:fixture:4`] · hemoglobin [`hemoglobin_whole_blood:registry:1`] · hgb [`hemoglobin_whole_blood:registry:2`] · hb [`hemoglobin_whole_blood:registry:3`]
 - **ru** (3): Гемоглобин (HGB) [`hemoglobin_whole_blood:laboratory:5`] · гемоглобин [`hemoglobin_whole_blood:ru:laboratory:6`] · hb [`hemoglobin_whole_blood:ru:laboratory:7`]
 - **es** (3): hb [`hemoglobin_whole_blood:es:laboratory:10`] · hemoglobina [`hemoglobin_whole_blood:es:laboratory:8`] · hemoglobina (hgb) [`hemoglobin_whole_blood:es:laboratory:9`]
+
+### `iron_serum` — Serum iron
+
+- **analyte:** `iron`
+- **specimen / property / scale:** `serum` / `substance_concentration` / `quantitative`
+- **timing / method / value kind:** `point_in_time` / `automated` / `numeric`
+- **maturity:** `reviewed`; **definition provenance:** `registry_v2_review` / `registry-2.0:iron_serum`
+- **concrete-resolution eligibility:** reviewed identity may resolve only after authorized label and clinical-axis compatibility
+- **unit dimensions:** `mass_concentration`, `molar_concentration`; **accepted units:** `ug/dl`, `umol/l`; **canonical unit:** `umol/l`
+- **conversion policy:** `registry-2.0:iron`; **missing-unit behavior:** `ambiguous`; **conversion:** linear: µg/dL → µmol/L × 0.1791; µmol/L → µg/dL × 5.5835
+- **required modifiers / methods:** — / —
+- **Health Profile consumer eligibility:** no. It requires a lab observation, active `resolved` revision/trace, matching selected candidate and definition key, reviewed Registry v2 provenance, and a reviewed compatible assessment binding.
+- **reviewed binding:** —
+- **score role / readiness / contribution groups:** `display` / — / —
+- **reviewed groups:** readiness —; contribution —
+
+**Compact aliases by locale**
+- **en** (2): serum_iron [`iron_serum:registry:1`] · iron [`iron_serum:registry:2`]
+- **ru** (0): —
+- **es** (0): —
 
 ### `ldl_serum` — LDL cholesterol
 
@@ -1231,6 +1271,26 @@ The [complete alias-governance reference](./biomarker-aliases.md) is authoritati
 - **ru** (2): натрий [`sodium_serum:ru:laboratory:3`] · na [`sodium_serum:ru:laboratory:4`]
 - **es** (2): sodio [`sodium_serum:es:laboratory:5`] · na [`sodium_serum:es:laboratory:6`]
 
+### `tibc_serum` — Total iron-binding capacity
+
+- **analyte:** `tibc`
+- **specimen / property / scale:** `serum` / `substance_concentration` / `quantitative`
+- **timing / method / value kind:** `point_in_time` / `automated` / `numeric`
+- **maturity:** `reviewed`; **definition provenance:** `registry_v2_review` / `registry-2.0:tibc_serum`
+- **concrete-resolution eligibility:** reviewed identity may resolve only after authorized label and clinical-axis compatibility
+- **unit dimensions:** `mass_concentration`, `molar_concentration`; **accepted units:** `ug/dl`, `umol/l`; **canonical unit:** `umol/l`
+- **conversion policy:** `registry-2.0:iron`; **missing-unit behavior:** `ambiguous`; **conversion:** linear: µg/dL → µmol/L × 0.1791; µmol/L → µg/dL × 5.5835
+- **required modifiers / methods:** — / —
+- **Health Profile consumer eligibility:** no. It requires a lab observation, active `resolved` revision/trace, matching selected candidate and definition key, reviewed Registry v2 provenance, and a reviewed compatible assessment binding.
+- **reviewed binding:** —
+- **score role / readiness / contribution groups:** `display` / — / —
+- **reviewed groups:** readiness —; contribution —
+
+**Compact aliases by locale**
+- **en** (2): tibc [`tibc_serum:registry:1`] · total_iron_binding_capacity [`tibc_serum:registry:2`]
+- **ru** (0): —
+- **es** (0): —
+
 ### `total_cholesterol_serum` — Total cholesterol
 
 - **analyte:** `total_cholesterol`
@@ -1250,6 +1310,46 @@ The [complete alias-governance reference](./biomarker-aliases.md) is authoritati
 - **en** (4): total_cholesterol [`total_cholesterol_serum:registry:1`] · cholesterol_total [`total_cholesterol_serum:registry:2`] · tc [`total_cholesterol_serum:registry:3`] · chol [`total_cholesterol_serum:registry:4`]
 - **ru** (3): общий холестерин [`total_cholesterol_serum:ru:laboratory:5`] · холестерин общий [`total_cholesterol_serum:ru:laboratory:6`] · охс [`total_cholesterol_serum:ru:laboratory:7`]
 - **es** (2): colesterol total [`total_cholesterol_serum:es:laboratory:8`] · colesterol [`total_cholesterol_serum:es:laboratory:9`]
+
+### `transferrin_saturation_serum` — Transferrin saturation
+
+- **analyte:** `transferrin_saturation`
+- **specimen / property / scale:** `serum` / `percentage` / `quantitative`
+- **timing / method / value kind:** `point_in_time` / `automated` / `numeric`
+- **maturity:** `reviewed`; **definition provenance:** `registry_v2_review` / `registry-2.0:transferrin_saturation_serum`
+- **concrete-resolution eligibility:** reviewed identity may resolve only after authorized label and clinical-axis compatibility
+- **unit dimensions:** `ratio`; **accepted units:** `%`; **canonical unit:** `%`
+- **conversion policy:** `—`; **missing-unit behavior:** `ambiguous`; **conversion:** none (no reviewed conversion rule)
+- **required modifiers / methods:** — / —
+- **Health Profile consumer eligibility:** no. It requires a lab observation, active `resolved` revision/trace, matching selected candidate and definition key, reviewed Registry v2 provenance, and a reviewed compatible assessment binding.
+- **reviewed binding:** —
+- **score role / readiness / contribution groups:** `display` / — / —
+- **reviewed groups:** readiness —; contribution —
+
+**Compact aliases by locale**
+- **en** (2): transferrin_saturation [`transferrin_saturation_serum:registry:1`] · tsat [`transferrin_saturation_serum:registry:2`]
+- **ru** (0): —
+- **es** (0): —
+
+### `transferrin_serum` — Transferrin
+
+- **analyte:** `transferrin`
+- **specimen / property / scale:** `serum` / `substance_concentration` / `quantitative`
+- **timing / method / value kind:** `point_in_time` / `automated` / `numeric`
+- **maturity:** `reviewed`; **definition provenance:** `registry_v2_review` / `registry-2.0:transferrin_serum`
+- **concrete-resolution eligibility:** reviewed identity may resolve only after authorized label and clinical-axis compatibility
+- **unit dimensions:** `mass_concentration`; **accepted units:** `mg/dl`, `g/l`; **canonical unit:** `g/l`
+- **conversion policy:** `registry-2.0:transferrin`; **missing-unit behavior:** `ambiguous`; **conversion:** linear: mg/dL → g/L × 0.01; g/L → mg/dL × 100
+- **required modifiers / methods:** — / —
+- **Health Profile consumer eligibility:** no. It requires a lab observation, active `resolved` revision/trace, matching selected candidate and definition key, reviewed Registry v2 provenance, and a reviewed compatible assessment binding.
+- **reviewed binding:** —
+- **score role / readiness / contribution groups:** `display` / — / —
+- **reviewed groups:** readiness —; contribution —
+
+**Compact aliases by locale**
+- **en** (2): transferrin [`transferrin_serum:registry:1`] · serum_transferrin [`transferrin_serum:registry:2`]
+- **ru** (0): —
+- **es** (0): —
 
 ### `triglycerides_serum` — Triglycerides
 
@@ -1310,6 +1410,26 @@ The [complete alias-governance reference](./biomarker-aliases.md) is authoritati
 - **en** (2): uacr [`uacr_urine:registry:1`] · urine_albumin_creatinine_ratio [`uacr_urine:registry:2`]
 - **ru** (3): альбумин креатинин [`uacr_urine:ru:laboratory:3`] · соотношение альбумин креатинин [`uacr_urine:ru:laboratory:4`] · а/кр [`uacr_urine:ru:laboratory:5`]
 - **es** (3): cociente albumina creatinina [`uacr_urine:es:laboratory:6`] · rac [`uacr_urine:es:laboratory:7`] · uacr [`uacr_urine:es:laboratory:8`]
+
+### `uibc_serum` — Unsaturated iron-binding capacity
+
+- **analyte:** `uibc`
+- **specimen / property / scale:** `serum` / `substance_concentration` / `quantitative`
+- **timing / method / value kind:** `point_in_time` / `automated` / `numeric`
+- **maturity:** `reviewed`; **definition provenance:** `registry_v2_review` / `registry-2.0:uibc_serum`
+- **concrete-resolution eligibility:** reviewed identity may resolve only after authorized label and clinical-axis compatibility
+- **unit dimensions:** `mass_concentration`, `molar_concentration`; **accepted units:** `ug/dl`, `umol/l`; **canonical unit:** `umol/l`
+- **conversion policy:** `registry-2.0:iron`; **missing-unit behavior:** `ambiguous`; **conversion:** linear: µg/dL → µmol/L × 0.1791; µmol/L → µg/dL × 5.5835
+- **required modifiers / methods:** — / —
+- **Health Profile consumer eligibility:** no. It requires a lab observation, active `resolved` revision/trace, matching selected candidate and definition key, reviewed Registry v2 provenance, and a reviewed compatible assessment binding.
+- **reviewed binding:** —
+- **score role / readiness / contribution groups:** `display` / — / —
+- **reviewed groups:** readiness —; contribution —
+
+**Compact aliases by locale**
+- **en** (2): uibc [`uibc_serum:registry:1`] · unsaturated_iron_binding_capacity [`uibc_serum:registry:2`]
+- **ru** (0): —
+- **es** (0): —
 
 ### `urea_serum` — Urea
 
@@ -2154,6 +2274,19 @@ Provisional definitions preserve recognition evidence only. Even a synthetic res
 - **en** (2): anti-Trichinella sp. IgG, qualitative ELISA [`trichinella_igg:fixture:1`] · trichinella_igg [`trichinella_igg:fixture:2`]
 - **ru** (0): —
 - **es** (0): —
+
+## Static panel registry
+
+Panel registry version `2026-08-12.0`. Membership is static catalog metadata; it does not resolve measurements, supply specimen, change assessment bindings, or alter scoring.
+
+| panel key | canonical name | alternate names | ordered members |
+| --- | --- | --- | --- |
+| `cbc` | Complete blood count | Complete blood count with differential, Full blood count | 10. `hemoglobin_whole_blood` (required)<br>20. `hematocrit_whole_blood` (required)<br>30. `rbc_whole_blood` (required)<br>40. `wbc_whole_blood` (required)<br>50. `platelets_whole_blood` (required)<br>60. `mcv_whole_blood` (optional)<br>70. `mch_whole_blood` (optional)<br>80. `mchc_whole_blood` (optional)<br>90. `rdw_cv` (optional)<br>100. `rdw_sd` (optional)<br>110. `mpv_whole_blood` (optional)<br>120. `pdw_cv` (optional)<br>130. `plateletcrit_percent` (optional)<br>140. `neutrophils_percent` (optional)<br>150. `neutrophils_abs` (optional)<br>160. `lymphocytes_percent` (optional)<br>170. `lymphocytes_abs` (optional)<br>180. `monocytes_percent` (optional)<br>190. `monocytes_abs` (optional)<br>200. `eosinophils_percent` (optional)<br>210. `eosinophils_abs` (optional)<br>220. `basophils_percent` (optional)<br>230. `basophils_abs` (optional)<br>240. `reticulocytes_percent` (optional)<br>250. `reticulocytes_abs` (optional)<br>260. `segmented_neutrophils_percent` (optional)<br>270. `band_neutrophils_percent` (optional)<br>280. `lymphocytes_manual_percent` (optional)<br>290. `monocytes_manual_percent` (optional)<br>300. `eosinophils_manual_percent` (optional) |
+| `iron_studies` | Iron studies | Iron panel, Iron profile | 10. `iron_serum` (required)<br>20. `ferritin_serum` (required)<br>30. `tibc_serum` (optional)<br>40. `uibc_serum` (optional)<br>50. `transferrin_serum` (optional)<br>60. `transferrin_saturation_serum` (optional)<br>70. `hemoglobin_whole_blood` (optional) |
+| `kidney` | Kidney panel | Renal panel, Renal function tests | 10. `egfr` (required)<br>20. `creatinine_serum` (required)<br>30. `bun_serum` (optional)<br>40. `urea_serum` (optional)<br>50. `uacr_urine` (optional)<br>60. `sodium_serum` (optional)<br>70. `potassium_serum` (optional)<br>80. `chloride_serum` (optional)<br>90. `bicarbonate_serum` (optional)<br>100. `calcium_serum` (optional) |
+| `lipid` | Lipid panel | Lipid profile, Cholesterol panel | 10. `total_cholesterol_serum` (required)<br>20. `ldl_serum` (required)<br>30. `hdl_serum` (required)<br>40. `triglycerides_serum` (required)<br>50. `non_hdl_cholesterol_serum` (optional) |
+| `liver` | Liver panel | Liver function tests, Hepatic panel | 10. `alt_serum_catalytic_activity` (required)<br>20. `ast_serum_catalytic_activity` (required)<br>30. `bilirubin_serum` (required)<br>40. `albumin_serum` (required)<br>50. `alp_serum_catalytic_activity` (optional)<br>60. `ggt_serum_catalytic_activity` (optional)<br>70. `alt_plasma_catalytic_activity` (optional)<br>80. `ast_plasma_catalytic_activity` (optional)<br>90. `alp_plasma_catalytic_activity` (optional)<br>100. `ggt_plasma_catalytic_activity` (optional) |
+| `thyroid` | Thyroid panel | Thyroid function tests, Thyroid function panel | 10. `tsh_serum` (required)<br>20. `free_t4_serum` (required) |
 
 ## Registry v1 legacy boundary
 
