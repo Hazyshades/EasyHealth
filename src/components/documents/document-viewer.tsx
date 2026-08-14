@@ -57,14 +57,23 @@ import {
 } from "@/lib/documents/observation-review-workspace";
 import type { NormalizationReview } from "@/lib/documents/normalization-review";
 import {
-  baseMeasurementFromWriterRow,
-  type ExtractedBiomarkerWriterRow,
-} from "@/lib/documents/observation-normalization-writer";
+  baseMeasurementFromExtractedRow,
+  type ExtractedBiomarkerMeasurementRow,
+} from "@/lib/documents/observation-measurement-correction";
 import type { LaboratoryResolutionDetails } from "@/lib/documents/incomplete-laboratory-outcomes";
 import {
   indexObservationChangeEntries,
   type ObservationChangeEntry,
 } from "@/lib/documents/observation-change-history";
+import {
+  BATCH_VERIFICATION_EXCLUSION_LABELS,
+  type BatchVerificationExclusionCode,
+} from "@/lib/documents/batch-verification-eligibility";
+import {
+  REJECTION_REASON_LABELS,
+  type RejectionReasonCode,
+} from "@/lib/documents/observation-verification-workflow";
+import { summarizeBatchVerificationSelection } from "@/lib/documents/batch-verification-workspace";
 
 type DocumentMeta = {
   id: string;
@@ -122,6 +131,11 @@ type Observation = {
   resolution_status: string | null;
   resolver_result?: string | null;
   verification_status?: string | null;
+  record_status?: "active" | "rejected" | "superseded" | null;
+  lifecycle_reason_code?: string | null;
+  superseded_at?: string | null;
+  superseded_by_processing_attempt_id?: string | null;
+  source_is_current?: boolean | null;
   registry_binding_ready?: boolean;
   resolution_details?: LaboratoryResolutionDetails;
   name: string;
@@ -146,6 +160,7 @@ type Observation = {
 
 type ExtractedBiomarker = {
   id: string;
+  biomarker_key?: string | null;
   biomarker_name: string;
   raw_name?: string | null;
   value_numeric: number | null;
@@ -161,10 +176,36 @@ type ExtractedBiomarker = {
   bounding_box?: unknown;
   confidence: number | null;
   status: string;
+  record_status?: "active" | "rejected" | "superseded" | null;
+  lifecycle_reason_code?: string | null;
+  superseded_at?: string | null;
+  superseded_by_processing_attempt_id?: string | null;
+  is_current?: boolean | null;
   specimen?: string | null;
   modifier?: string | null;
   method?: string | null;
+  created_at: string;
   normalization?: NormalizationReview;
+};
+
+
+type BatchVerificationProjection = {
+  eligible_ids: string[];
+  excluded: Array<{
+    id: string;
+    exclusion_codes: BatchVerificationExclusionCode[];
+  }>;
+  excluded_counts: Partial<Record<BatchVerificationExclusionCode, number>>;
+};
+
+type BatchVerificationResponse = {
+  operationId: string;
+  aggregateStatus: "completed" | "partially_completed" | "no_op" | "failed";
+  outcomes: Array<{
+    extractedBiomarkerId: string;
+    outcome: "verified" | "excluded" | "missing" | "failed";
+    error?: string;
+  }>;
 };
 
 type BootstrapPayload = {
@@ -177,6 +218,7 @@ type BootstrapPayload = {
   extracted_biomarkers?: ExtractedBiomarker[];
   review_data_error?: string | null;
   workerOffline?: boolean;
+  batch_verification?: BatchVerificationProjection;
   file?: {
     url: string;
     mimeType: string;
@@ -218,19 +260,50 @@ function applyExtractedSelection(items: ExtractedBiomarker[]) {
   return new Set(
     items
       .filter(
-        (b) => b.status === "needs_review" || b.status === "pending_review",
+        (b) =>
+          (b.record_status ?? b.normalization?.recordStatus ?? "active") ===
+            "active" &&
+          b.is_current !== false &&
+          b.normalization?.sourceIsCurrent !== false &&
+          (b.status === "needs_review" || b.status === "pending_review"),
       )
       .map((b) => b.id),
   );
 }
 
-function formatWriterFailures(action: string, failures: NonNullable<WriterActionPayload["failures"]>) {
+function formatWriterFailures(
+  action: string,
+  failures: NonNullable<WriterActionPayload["failures"]>,
+) {
   const details = failures
-    .map((failure) => failure.error ?? `Row ${failure.id ?? failure.observationId ?? "unknown"} failed`)
+    .map(
+      (failure) =>
+        failure.error ??
+        `Row ${failure.id ?? failure.observationId ?? "unknown"} failed`,
+    )
     .join("; ");
   return `${action} completed for some results, but ${failures.length} row${failures.length === 1 ? "" : "s"} failed: ${details}`;
 }
-
+function rejectionErrorMessage(code: string | undefined, fallback?: string): string {
+  switch (code) {
+    case "authorization_required":
+    case "foreign_owner":
+      return "You are not allowed to reject this result.";
+    case "confirmation_required":
+    case "confirmation_payload_required":
+      return "Confirm the current result before rejecting it.";
+    case "stale_source_snapshot":
+    case "stale_revision_snapshot":
+    case "record_not_current":
+    case "terminal_record":
+      return "This result changed while you were reviewing it. Reload and try again.";
+    case "invalid_lifecycle_reason_code":
+    case "reason_required":
+      return "Choose one of the allowed rejection reasons before continuing.";
+    default:
+      return fallback ?? "The result could not be rejected.";
+  }
+}
 
 export function DocumentViewer({ documentId }: { documentId: string }) {
   const searchParams = useSearchParams();
@@ -261,6 +334,17 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     null,
   );
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchVerification, setBatchVerification] =
+    useState<BatchVerificationProjection | null>(null);
+  const [batchSelectedIds, setBatchSelectedIds] = useState<Set<string>>(new Set());
+  const [batchConfirmationOpen, setBatchConfirmationOpen] = useState(false);
+  const [batchVerifying, setBatchVerifying] = useState(false);
+  const [batchOperationId, setBatchOperationId] = useState<string | null>(null);
+  const [batchFeedback, setBatchFeedback] = useState<string | null>(null);
+  const [lastBatchOperationId, setLastBatchOperationId] = useState<string | null>(null);
+  const [undoBatchOpen, setUndoBatchOpen] = useState(false);
+  const [undoBatchReason, setUndoBatchReason] = useState("");
+  const [undoingBatch, setUndoingBatch] = useState(false);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [insightSource, setInsightSource] =
     useState<ReviewRowSourceLocation | null>(null);
@@ -275,6 +359,11 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const [correctionDrafts, setCorrectionDrafts] = useState<
     Record<string, ObservationCorrectionDraft>
   >({});
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+  const [rejectionReasons, setRejectionReasons] = useState<
+    Record<string, RejectionReasonCode | "">
+  >({});
+  const [rejectingRowId, setRejectingRowId] = useState<string | null>(null);
   const [correctingRowId, setCorrectingRowId] = useState<string | null>(null);
   const [reprocessing, setReprocessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -318,6 +407,9 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
       setExtracted(items);
       setReviewDataError(data.review_data_error ?? null);
       setSelectedIds(applyExtractedSelection(items));
+      const projection = data.batch_verification ?? null;
+      setBatchVerification(projection);
+      setBatchSelectedIds(new Set(projection?.eligible_ids ?? []));
 
       if (data.file?.url) {
         setOriginalUrl(data.file.url);
@@ -617,6 +709,99 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     }
   }
 
+  async function handleBatchVerification() {
+    const snapshots = extracted
+      .filter((item) => batchSelectedIds.has(item.id) && batchEligibleIds.has(item.id))
+      .map((item) => ({
+        extractedBiomarkerId: item.id,
+        sourceSnapshot: item.created_at,
+        activeRevisionId: item.normalization?.activeRevision?.id ?? null,
+      }));
+    if (snapshots.length === 0) return;
+
+    const operationId = batchOperationId ?? crypto.randomUUID();
+    setBatchOperationId(operationId);
+    setBatchVerifying(true);
+    setActionError(null);
+    setBatchFeedback(null);
+    try {
+      const res = await fetch(
+        `/api/documents/${documentId}/biomarkers/batch-verification`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ operationId, snapshots }),
+        },
+      );
+      const payload = (await res.json().catch(() => ({}))) as BatchVerificationResponse & {
+        error?: string;
+      };
+      if (!res.ok) throw new Error(payload.error ?? "Batch verification failed");
+      const verified = payload.outcomes.filter(
+        (outcome) => outcome.outcome === "verified",
+      );
+      const skipped = payload.outcomes.filter(
+        (outcome) => outcome.outcome !== "verified",
+      );
+      setLastBatchOperationId(verified.length > 0 ? payload.operationId : null);
+      setBatchConfirmationOpen(false);
+      setBatchOperationId(null);
+      const details = skipped
+        .map((outcome) => outcome.error)
+        .filter((message): message is string => Boolean(message))
+        .join(" ");
+      setBatchFeedback(
+        `${verified.length} verified; ${skipped.length} left for individual review.${details ? ` ${details}` : ""}`,
+      );
+      await loadBootstrap(currentPage, { soft: true });
+    } catch (caught) {
+      setActionError(
+        caught instanceof Error ? caught.message : "Batch verification failed",
+      );
+    } finally {
+      setBatchVerifying(false);
+    }
+  }
+
+  async function handleUndoBatchVerification() {
+    if (!lastBatchOperationId || !undoBatchReason.trim()) return;
+    setUndoingBatch(true);
+    setActionError(null);
+    setBatchFeedback(null);
+    try {
+      const res = await fetch(
+        `/api/documents/${documentId}/biomarkers/batch-verification/reverse`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            operationId: lastBatchOperationId,
+            reason: undoBatchReason.trim(),
+          }),
+        },
+      );
+      const payload = (await res.json().catch(() => ({}))) as BatchVerificationResponse & {
+        error?: string;
+      };
+      if (!res.ok) throw new Error(payload.error ?? "Batch undo failed");
+      const reversed = payload.outcomes.filter((outcome) => outcome.outcome === "verified");
+      const unchanged = payload.outcomes.length - reversed.length;
+      setUndoBatchOpen(false);
+      setUndoBatchReason("");
+      setLastBatchOperationId(null);
+      setBatchFeedback(
+        reversed.length > 0
+          ? `Undid ${reversed.length} verification${reversed.length === 1 ? "" : "s"}; ${unchanged} result${unchanged === 1 ? "" : "s"} changed after the batch and remain untouched.`
+          : "No results could be undone because each verified result changed after the batch.",
+      );
+      await loadBootstrap(currentPage, { soft: true });
+    } catch (caught) {
+      setActionError(caught instanceof Error ? caught.message : "Batch undo failed");
+    } finally {
+      setUndoingBatch(false);
+    }
+  }
+
   async function handleConfirmObservations() {
     if (observations.length === 0) return;
     setConfirmingObservations(true);
@@ -637,11 +822,78 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
       await loadBootstrap(currentPage, { soft: true });
       if (payload.failures?.length) {
         setActionError(formatWriterFailures("Confirmation", payload.failures));
+      } else {
+        setActionFeedback("Observations confirmed and the review projection was refreshed.");
       }
     } catch (e) {
       setActionError(e instanceof Error ? e.message : "Confirmation failed");
     } finally {
       setConfirmingObservations(false);
+    }
+  }
+
+  async function handleReject(row: ReviewRow) {
+    const reasonCode = rejectionReasons[row.id];
+    if (!reasonCode) {
+      setActionError("Choose a rejection reason before continuing.");
+      return;
+    }
+    const source = extracted.find((item) => item.id === row.id);
+    if (!source?.created_at) {
+      setActionError("Reload this result before rejecting it.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Reject “${row.rawEvidence.displayName}”? The extracted source will remain in history but cannot be verified or accepted.`,
+      )
+    ) {
+      return;
+    }
+
+    setRejectingRowId(row.id);
+    setActionError(null);
+    setActionFeedback(null);
+    try {
+      const res = await fetch(
+        `/api/documents/${documentId}/biomarkers/reject`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            extractedBiomarkerId: row.id,
+            reasonCode,
+            confirm: true,
+            expectedSourceSnapshot: source.created_at,
+            expectedActiveRevisionId:
+              normalizationById.get(row.id)?.activeRevision?.id ?? null,
+          }),
+        },
+      );
+      const payload = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        code?: string;
+      };
+      if (!res.ok) {
+        throw new Error(
+          rejectionErrorMessage(payload.code, payload.error),
+        );
+      }
+      setRejectionReasons((current) => {
+        const next = { ...current };
+        delete next[row.id];
+        return next;
+      });
+      setActionFeedback(
+        `“${row.rawEvidence.displayName}” was marked Rejected. Its raw evidence and history remain available.`,
+      );
+      await loadBootstrap(currentPage, { soft: true });
+    } catch (caught) {
+      setActionError(
+        caught instanceof Error ? caught.message : "The result could not be rejected.",
+      );
+    } finally {
+      setRejectingRowId(null);
     }
   }
 
@@ -901,11 +1153,23 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const normalizationById = new Map(
     extracted.map((item) => [item.id, item.normalization ?? null]),
   );
+  const batchEligibleIds = new Set(batchVerification?.eligible_ids ?? []);
+  const batchExclusionsById = new Map(
+    (batchVerification?.excluded ?? []).map((item) => [
+      item.id,
+      item.exclusion_codes,
+    ]),
+  );
+  const batchSelection = summarizeBatchVerificationSelection({
+    eligibleIds: batchVerification?.eligible_ids ?? [],
+    selectedIds: batchSelectedIds,
+    excludedCount: batchVerification?.excluded.length ?? 0,
+  });
   const correctionBaseById = new Map(
     extracted.map((item) => [
       item.id,
-      baseMeasurementFromWriterRow(
-        item as unknown as ExtractedBiomarkerWriterRow,
+      baseMeasurementFromExtractedRow(
+        item as unknown as ExtractedBiomarkerMeasurementRow,
         doc.observed_at ?? new Date().toISOString().slice(0, 10),
       ),
     ]),
@@ -1007,6 +1271,11 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
       {actionError && (
         <p role="alert" className="text-sm text-red-600">
           {actionError}
+        </p>
+      )}
+      {actionFeedback && (
+        <p role="status" className="text-sm text-emerald-700">
+          {actionFeedback}
         </p>
       )}
 
@@ -1229,6 +1498,51 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                               />
                             ) : null
                           }
+                          rejection={
+                            row.sourceKind === "extracted" &&
+                            row.actionAvailability?.reject.available === true ? (
+                              <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-slate-100 pt-2">
+                                <label className="flex min-w-[14rem] flex-1 flex-col gap-1 text-xs text-[var(--eh-text-secondary)]">
+                                  <span>Reject source</span>
+                                  <select
+                                    value={rejectionReasons[row.id] ?? ""}
+                                    onChange={(event) =>
+                                      setRejectionReasons((current) => ({
+                                        ...current,
+                                        [row.id]: event.target.value as
+                                          | RejectionReasonCode
+                                          | "",
+                                      }))
+                                    }
+                                    className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs"
+                                    aria-label={`Rejection reason for ${row.rawEvidence.displayName}`}
+                                  >
+                                    <option value="">Choose a reason…</option>
+                                    {Object.entries(REJECTION_REASON_LABELS).map(
+                                      ([code, label]) => (
+                                        <option key={code} value={code}>
+                                          {label}
+                                        </option>
+                                      ),
+                                    )}
+                                  </select>
+                                </label>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={
+                                    !rejectionReasons[row.id] ||
+                                    rejectingRowId === row.id
+                                  }
+                                  onClick={() => handleReject(row)}
+                                >
+                                  {rejectingRowId === row.id
+                                    ? "Rejecting…"
+                                    : "Reject source"}
+                                </Button>
+                              </div>
+                            ) : null
+                          }
                           selection={
                             row.reviewable
                               ? {
@@ -1243,6 +1557,33 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                                 }
                               : undefined
                           }
+                          batchVerification={
+                            batchVerification &&
+                            row.sourceKind === "extracted" &&
+                            row.sourceIsCurrent
+                              ? {
+                                  eligible: batchEligibleIds.has(row.id),
+                                  checked: batchSelectedIds.has(row.id),
+                                  reason: (batchExclusionsById.get(row.id) ?? [])
+                                    .map(
+                                      (code) =>
+                                        BATCH_VERIFICATION_EXCLUSION_LABELS[code],
+                                    )
+                                    .join(" "),
+                                  onChange: batchEligibleIds.has(row.id)
+                                    ? (next) => {
+                                        setBatchSelectedIds((current) => {
+                                          const updated = new Set(current);
+                                          if (next) updated.add(row.id);
+                                          else updated.delete(row.id);
+                                          return updated;
+                                        });
+                                        setBatchOperationId(null);
+                                      }
+                                    : undefined,
+                                }
+                              : undefined
+                          }
                           technicalDetails={
                             <ReviewTechnicalDetails
                               details={row.resolutionDetails}
@@ -1251,7 +1592,8 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                                 normalization?.previewCandidateEvidence
                               }
                             >
-                              {normalization &&
+                              {row.actionAvailability?.correct.available &&
+                              normalization &&
                               normalization.manualOptions.length > 0 ? (
                                 <div className="mt-3 flex flex-wrap gap-2">
                                   <select
@@ -1312,7 +1654,8 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                                   </Button>
                                 </div>
                               ) : null}
-                              {normalization?.activeRevision
+                              {row.actionAvailability?.reverse.available &&
+                              normalization?.activeRevision
                                 ? normalization.revisions
                                     .filter((revision) => !revision.is_active)
                                     .map((revision) => (
@@ -1398,6 +1741,124 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                   {doc.processing_status === "needs_review" && reprocessButton}
                 </div>
               )}
+
+              {biomarkerPanelMode === "extracted-review" && batchVerification ? (
+                <section className="mt-4 rounded-xl border border-slate-200 p-3">
+                  <p className="text-sm font-medium text-[var(--eh-text-primary)]">
+                    {batchVerification.eligible_ids.length} eligible exact match
+                    {batchVerification.eligible_ids.length === 1 ? "" : "es"}
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
+                    {batchVerification.excluded.length} result
+                    {batchVerification.excluded.length === 1 ? "" : "s"} remain
+                    for individual review. Exact matches are rechecked on the
+                    server when you confirm.
+                  </p>
+                  <Button
+                    className="mt-3 w-full rounded-xl"
+                    disabled={batchSelection.selectedCount === 0 || batchVerifying}
+                    onClick={() => setBatchConfirmationOpen(true)}
+                  >
+                    Verify eligible matches ({batchSelection.selectedCount})
+                  </Button>
+                  {batchFeedback ? (
+                    <p role="status" className="mt-2 text-xs text-[var(--eh-text-secondary)]">
+                      {batchFeedback}
+                    </p>
+                  ) : null}
+                  {batchConfirmationOpen ? (
+                    <div
+                      role="dialog"
+                      aria-labelledby="batch-verification-confirmation-title"
+                      className="mt-3 rounded-lg bg-slate-50 p-3"
+                    >
+                      <p
+                        id="batch-verification-confirmation-title"
+                        className="text-sm text-[var(--eh-text-primary)]"
+                      >
+                        Verify {batchSelection.selectedCount} exact match
+                        {batchSelection.selectedCount === 1 ? "" : "es"}?
+                      </p>
+                      <ul className="mt-2 space-y-1 text-xs text-[var(--eh-text-secondary)]">
+                        <li>{batchSelection.selectedCount} selected for verification.</li>
+                        <li>
+                          {batchSelection.deselectedEligibleCount} eligible match
+                          {batchSelection.deselectedEligibleCount === 1 ? "" : "es"} left
+                          unselected.
+                        </li>
+                        <li>
+                          {batchSelection.excludedCount} excluded for
+                          individual review.
+                        </li>
+                        {Object.entries(batchVerification.excluded_counts).map(
+                          ([code, count]) => (
+                            <li key={code}>
+                              {count}{" "}
+                              {
+                                BATCH_VERIFICATION_EXCLUSION_LABELS[
+                                  code as BatchVerificationExclusionCode
+                                ]
+                              }
+                            </li>
+                          ),
+                        )}
+                      </ul>
+                      <p className="mt-2 text-xs text-[var(--eh-text-secondary)]">
+                        Selected results are verified by you. You can undo only
+                        results that remain unchanged after this batch.
+                      </p>
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={batchVerifying}
+                          onClick={() => setBatchConfirmationOpen(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={batchVerifying}
+                          onClick={() => void handleBatchVerification()}
+                        >
+                          {batchVerifying ? "Verifying…" : "Confirm verification"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+                  {lastBatchOperationId ? (
+                    <div className="mt-3 border-t border-slate-200 pt-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setUndoBatchOpen((open) => !open)}
+                      >
+                        Undo last batch verification
+                      </Button>
+                      {undoBatchOpen ? (
+                        <div className="mt-2 space-y-2">
+                          <label className="block text-xs text-[var(--eh-text-secondary)]">
+                            Why should these verifications be undone?
+                            <input
+                              value={undoBatchReason}
+                              onChange={(event) => setUndoBatchReason(event.target.value)}
+                              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1"
+                            />
+                          </label>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={undoingBatch || !undoBatchReason.trim()}
+                            onClick={() => void handleUndoBatchVerification()}
+                          >
+                            {undoingBatch ? "Undoing…" : "Confirm undo"}
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </section>
+              ) : null}
 
               {biomarkerReviewAction === "accept-extracted" && (
                 <>

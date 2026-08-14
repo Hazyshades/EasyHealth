@@ -3,11 +3,20 @@ import { getSessionProfileId } from "@/lib/auth/session";
 import { getProfileById } from "@/lib/auth/profile";
 import { presentObservation } from "@/lib/biomarkers";
 import {
+  isCurrentDocumentObservation,
   projectActiveRegistryV2LaboratoryBinding,
   type RegistryV2NormalizationRevisionReadBoundary,
 } from "@/lib/documents/observation-read-boundaries";
 import { projectLaboratoryOutcome } from "@/lib/documents/incomplete-laboratory-outcomes";
 import { createAdminClient } from "@/lib/supabase/admin";
+
+type LaboratoryMeasureSource = {
+  record_status: "active" | "rejected" | "superseded" | null;
+  lifecycle_reason_code?: string | null;
+  superseded_at?: string | null;
+  superseded_by_processing_attempt_id?: string | null;
+  is_current: boolean | null;
+};
 
 type BiomarkerObservation = {
   id: string;
@@ -38,6 +47,7 @@ type BiomarkerObservation = {
     | RegistryV2NormalizationRevisionReadBoundary
     | RegistryV2NormalizationRevisionReadBoundary[]
     | null;
+  source_extracted_biomarker: LaboratoryMeasureSource | LaboratoryMeasureSource[] | null;
 };
 
 function firstDocument(
@@ -49,35 +59,51 @@ function firstDocument(
 export async function GET() {
   const profileId = await getSessionProfileId();
   if (!profileId) {
-    return NextResponse.json({ authenticated: false }, { status: 401 });
+    return NextResponse.json(
+      { authenticated: false },
+      { status: 401, headers: { "Cache-Control": "no-store" } },
+    );
   }
 
+  const profile = await getProfileById(profileId);
   try {
-    const profile = await getProfileById(profileId);
     const unitSystem = profile.lab_unit_system ?? "si";
     const supabase = createAdminClient();
     const { data: observations, error: observationsError } = await supabase
       .from("observations")
       .select(
-        "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, raw_name, raw_value_text, raw_unit, raw_reference_text, source_page, source_text, ref_low, ref_high, observed_at, document_id, value_kind, value_text, ordinal, specimen, modifier, documents(id, original_filename), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence)"
+        "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, raw_name, raw_value_text, raw_unit, raw_reference_text, source_page, source_text, ref_low, ref_high, observed_at, document_id, value_kind, value_text, ordinal, specimen, modifier, documents(id, original_filename), source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(record_status, lifecycle_reason_code, superseded_at, superseded_by_processing_attempt_id, is_current), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence, measurement_override)"
       )
       .eq("profile_id", profileId)
       .eq("observation_kind", "lab")
       .order("observed_at", { ascending: false });
 
     if (observationsError) {
-      return NextResponse.json({ error: observationsError.message }, { status: 500 });
+      return NextResponse.json(
+        { error: observationsError.message },
+        { status: 500, headers: { "Cache-Control": "no-store" } },
+      );
     }
-
-    const presented = ((observations ?? []) as BiomarkerObservation[]).map(
-      ({ normalization_revision, documents, ...row }) => {
+    const presented = ((observations ?? []) as BiomarkerObservation[])
+      .filter((observation) =>
+        isCurrentDocumentObservation({
+          observation_kind: observation.observation_kind,
+          source_extracted_biomarker: observation.source_extracted_biomarker,
+        }),
+      )
+      .map(
+        ({ normalization_revision, documents, source_extracted_biomarker, ...row }) => {
+      const laboratorySource = Array.isArray(source_extracted_biomarker)
+        ? source_extracted_biomarker[0] ?? null
+        : source_extracted_biomarker;
+      const observation = { ...row, source_extracted_biomarker: laboratorySource };
       const outcome = projectLaboratoryOutcome({
-        observation: row,
+        observation,
         relation: normalization_revision,
       });
       const binding = projectActiveRegistryV2LaboratoryBinding(
-        row,
-        normalization_revision
+        observation,
+        normalization_revision,
       );
       const { registryBindingReady, resolvedMeasurementBinding } = binding;
       const valueKind = row.value_kind ?? "numeric";
@@ -118,6 +144,12 @@ export async function GET() {
         ...row,
         documents: firstDocument(documents),
         observation_kind: "lab" as const,
+        record_status: laboratorySource?.record_status ?? null,
+        lifecycle_reason_code: laboratorySource?.lifecycle_reason_code ?? null,
+        superseded_at: laboratorySource?.superseded_at ?? null,
+        superseded_by_processing_attempt_id:
+          laboratorySource?.superseded_by_processing_attempt_id ?? null,
+        source_is_current: laboratorySource?.is_current ?? null,
         measurement_definition_key: outcome.measurementDefinitionKey,
         analyte_key: outcome.analyteKey,
         resolution_status: outcome.outcome,
@@ -156,8 +188,13 @@ export async function GET() {
       },
       lab_unit_system: unitSystem,
       observations: presented,
+    }, {
+      headers: { "Cache-Control": "no-store" },
     });
   } catch {
-    return NextResponse.json({ authenticated: false }, { status: 401 });
+    return NextResponse.json(
+      { authenticated: false },
+      { status: 401, headers: { "Cache-Control": "no-store" } },
+    );
   }
 }

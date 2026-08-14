@@ -11,8 +11,18 @@ import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 import { resolveBodyMapLayout } from "@/lib/health-systems";
 import type { BodySystemId, HealthProfileResult } from "@/lib/health-systems";
 
+type AssessmentStatus = {
+  status: "queued" | "processing" | "retryable_failed" | "failed" | "succeeded";
+  error_message: string | null;
+  fallback: boolean;
+};
+
+type HealthProfileResponse = HealthProfileResult & {
+  assessment?: AssessmentStatus;
+};
+
 export default function HealthProfilePage() {
-  const [profile, setProfile] = useState<HealthProfileResult | null>(null);
+  const [profile, setProfile] = useState<HealthProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeChip, setActiveChip] = useState<BodySystemId | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -44,6 +54,18 @@ export default function HealthProfilePage() {
       setRefreshError(e instanceof Error ? e.message : "Refresh failed");
     } finally {
       setRefreshing(false);
+    }
+  }
+
+  async function handleRetryAssessment() {
+    setRefreshError(null);
+    try {
+      const res = await fetch("/api/health-profile/recalculate", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Retry failed");
+      await loadProfile();
+    } catch (e) {
+      setRefreshError(e instanceof Error ? e.message : "Retry failed");
     }
   }
 
@@ -130,6 +152,24 @@ export default function HealthProfilePage() {
         />
 
       </div>
+
+      {profile.assessment && profile.assessment.status !== "succeeded" ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <p className="font-medium">
+            {profile.assessment.status === "failed"
+              ? "Health Profile update failed"
+              : "Health Profile update in progress"}
+          </p>
+          <p className="mt-1">
+            {profile.assessment.error_message ?? "Your last completed assessment remains available while we update it."}
+          </p>
+          {(profile.assessment.status === "failed" || profile.assessment.status === "retryable_failed") ? (
+            <Button type="button" variant="outline" className="mt-3" onClick={() => handleRetryAssessment()}>
+              Retry update
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
 
 
 

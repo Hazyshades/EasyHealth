@@ -29,6 +29,16 @@ type InstrumentalMeasureSource = {
   is_current: boolean;
 };
 
+type LaboratoryMeasureSource = {
+  id: string;
+  record_status: "active" | "rejected" | "superseded" | null;
+  lifecycle_reason_code?: string | null;
+  superseded_at?: string | null;
+  superseded_by_processing_attempt_id?: string | null;
+  is_current: boolean | null;
+  created_at: string;
+};
+
 type ObservationWithRevision = {
   id: string;
   observation_kind: "lab" | "instrumental";
@@ -45,6 +55,7 @@ type ObservationWithRevision = {
   source_text: string | null;
   bounding_box: unknown;
   source_extracted_biomarker_id: string | null;
+  source_extracted_biomarker: LaboratoryMeasureSource | LaboratoryMeasureSource[] | null;
   source_instrumental_measure_id: string | null;
   source_instrumental_measure:
     | InstrumentalMeasureSource
@@ -80,7 +91,7 @@ export async function GET(_req: Request, context: RouteContext) {
   const { data: observations, error: obsError } = await supabase
     .from("observations")
     .select(
-      "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, confidence, raw_name, raw_value_text, raw_unit, raw_reference_text, source_page, source_text, bounding_box, value_kind, value_text, ordinal, specimen, modifier, ref_low, ref_high, observed_at, source_extracted_biomarker_id, source_instrumental_measure_id, source_instrumental_measure:document_extracted_instrumental_measures!observations_instrumental_source_owner_fk(id, key_hint, raw_name, raw_value_text, raw_unit, source_page, source_text, source_locator, occurrence_index, snapshot_hash, is_current), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(id, resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence, measurement_override)"
+      "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, confidence, raw_name, raw_value_text, raw_unit, raw_reference_text, source_page, source_text, bounding_box, value_kind, value_text, ordinal, specimen, modifier, ref_low, ref_high, observed_at, source_extracted_biomarker_id, source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(id, record_status, lifecycle_reason_code, superseded_at, superseded_by_processing_attempt_id, is_current, created_at), source_instrumental_measure_id, source_instrumental_measure:document_extracted_instrumental_measures!observations_instrumental_source_owner_fk(id, key_hint, raw_name, raw_value_text, raw_unit, source_page, source_text, source_locator, occurrence_index, snapshot_hash, is_current), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(id, resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, is_active, resolver_evidence, measurement_override)"
     )
     .eq("profile_id", profileId)
     .eq("document_id", id)
@@ -89,15 +100,23 @@ export async function GET(_req: Request, context: RouteContext) {
   if (obsError) {
     return NextResponse.json({ error: obsError.message }, { status: 500 });
   }
-
   const projectedObservations = ((observations ?? []) as ObservationWithRevision[]).flatMap(
-    ({ normalization_revision, source_instrumental_measure, ...observation }) => {
+    ({
+      normalization_revision,
+      source_extracted_biomarker,
+      source_instrumental_measure,
+      ...observation
+    }) => {
+      const laboratorySource = Array.isArray(source_extracted_biomarker)
+        ? source_extracted_biomarker[0] ?? null
+        : source_extracted_biomarker;
       const instrumentalSource = Array.isArray(source_instrumental_measure)
         ? source_instrumental_measure[0] ?? null
         : source_instrumental_measure;
       if (
         !isCurrentDocumentObservation({
           observation_kind: observation.observation_kind,
+          source_extracted_biomarker: laboratorySource,
           source_instrumental_measure: instrumentalSource,
         })
       ) {
@@ -106,13 +125,22 @@ export async function GET(_req: Request, context: RouteContext) {
       const activeRevision =
         getActiveRegistryV2NormalizationRevision(normalization_revision);
       const serialized = serializeLaboratoryOutcome({
-        observation,
+        observation: {
+          ...observation,
+          source_extracted_biomarker: laboratorySource,
+        },
         relation: normalization_revision,
       });
       // EH-118: a region only renders on the page it was measured against.
       const region = parseSourceRegion(observation.bounding_box);
       return [{
         ...serialized,
+        record_status: laboratorySource?.record_status ?? null,
+        lifecycle_reason_code: laboratorySource?.lifecycle_reason_code ?? null,
+        superseded_at: laboratorySource?.superseded_at ?? null,
+        superseded_by_processing_attempt_id:
+          laboratorySource?.superseded_by_processing_attempt_id ?? null,
+        source_is_current: laboratorySource?.is_current ?? null,
         userCorrected: activeRevision?.measurement_override != null,
         bounding_box: sourceRegionMatchesPage(region, observation.source_page) ? region : null,
         source_instrumental_measure: instrumentalSource,

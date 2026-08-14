@@ -4,6 +4,7 @@ import { z } from "zod";
 export const env = createEnv({
   server: {
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+    EH120_AUTOMATIC_VERIFICATION_RELEASE_DIGEST: z.string().min(1).optional(),
     OPENAI_API_KEY: z.string().min(1),
     DEEPSEEK_API_KEY: z.string().min(1).optional(),
     DEEPSEEK_BASE_URL: z.string().url().optional(),
@@ -67,6 +68,8 @@ export const env = createEnv({
   },
   runtimeEnv: {
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    EH120_AUTOMATIC_VERIFICATION_RELEASE_DIGEST:
+      process.env.EH120_AUTOMATIC_VERIFICATION_RELEASE_DIGEST,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
     DEEPSEEK_BASE_URL: process.env.DEEPSEEK_BASE_URL,

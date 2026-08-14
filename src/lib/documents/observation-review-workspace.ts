@@ -12,6 +12,11 @@ import {
   measurementMappingGuidance,
   measurementMappingLabel,
 } from "./biomarker-review-state";
+import type { NormalizationActionAvailabilityMap } from "./normalization-review";
+import {
+  isRecordStatus,
+  type RecordStatus,
+} from "./observation-verification-workflow";
 import type { LaboratoryResolutionDetails } from "./incomplete-laboratory-outcomes";
 import {
   parseSourceRegion,
@@ -102,10 +107,10 @@ export type ReviewRowMappingState = Readonly<{
   verificationLabel: string;
   confidenceBand: MappingConfidenceBand | null;
   registryBindingReady: boolean;
-  /**
-   * True when the row can be preserved as raw evidence without choosing a
-   * measurement. Drives the "accept without mapping" affordance.
-   */
+  recordStatus: RecordStatus;
+  recordStatusLabel: string;
+  recordStatusVariant: ReviewChipVariant;
+  /** True when the row can be preserved as raw evidence without choosing a measurement. */
   acceptableAsRaw: boolean;
 }>;
 
@@ -118,6 +123,11 @@ export type ReviewRow = Readonly<{
   accepted: boolean;
   /** True when the active revision carries a human measurement restatement. */
   userCorrected: boolean;
+  sourceIsCurrent: boolean;
+  lifecycleReasonCode: string | null;
+  supersededAt: string | null;
+  supersededByProcessingAttemptId: string | null;
+  actionAvailability: NormalizationActionAvailabilityMap | null;
   rawEvidence: ReviewRowRawEvidence;
   source: ReviewRowSourceLocation;
   mapping: ReviewRowMappingState;
@@ -182,6 +192,20 @@ const OUTCOME_VARIANTS: Readonly<Record<ResolverResult, ReviewChipVariant>> = {
   unmapped: "neutral",
 };
 
+const RECORD_STATUS_LABELS: Readonly<Record<RecordStatus, string>> = {
+  active: "Active",
+  rejected: "Rejected",
+  superseded: "Superseded",
+};
+
+const RECORD_STATUS_VARIANTS: Readonly<
+  Record<RecordStatus, ReviewChipVariant>
+> = {
+  active: "success",
+  rejected: "error",
+  superseded: "neutral",
+};
+
 const REVIEWABLE_EXTRACTED_STATUSES: Readonly<Record<string, true>> = {
   needs_review: true,
   pending_review: true,
@@ -198,6 +222,21 @@ export function isResolverResult(value: unknown): value is ResolverResult {
 function asVerificationStatus(value: unknown): VerificationStatus | null {
   if (typeof value !== "string") return null;
   return value in VERIFICATION_LABELS ? (value as VerificationStatus) : null;
+}
+
+function asRecordStatus(value: unknown, isCurrent?: boolean | null): RecordStatus {
+  if (isRecordStatus(value)) return value;
+  return isCurrent === false ? "superseded" : "active";
+}
+
+export function recordStatusLabel(status: RecordStatus | null | undefined): string {
+  return status ? RECORD_STATUS_LABELS[status] : RECORD_STATUS_LABELS.active;
+}
+
+export function recordStatusVariant(
+  status: RecordStatus | null | undefined,
+): ReviewChipVariant {
+  return status ? RECORD_STATUS_VARIANTS[status] : RECORD_STATUS_VARIANTS.active;
 }
 
 function asConfidenceBand(value: unknown): MappingConfidenceBand | null {
@@ -299,6 +338,7 @@ function buildMappingState(options: {
   verificationStatus: VerificationStatus | null;
   confidenceBand: MappingConfidenceBand | null;
   registryBindingReady: boolean;
+  recordStatus: RecordStatus;
   reviewable: boolean;
   incompleteReason: IncompleteReasonClass | null;
   missingAxes: readonly string[];
@@ -320,6 +360,9 @@ function buildMappingState(options: {
     verificationLabel: verificationStatusLabel(options.verificationStatus),
     confidenceBand,
     registryBindingReady: options.registryBindingReady,
+    recordStatus: options.recordStatus,
+    recordStatusLabel: recordStatusLabel(options.recordStatus),
+    recordStatusVariant: recordStatusVariant(options.recordStatus),
     acceptableAsRaw:
       options.reviewable && outcome !== null && outcome !== "resolved",
   };
@@ -389,12 +432,23 @@ export type ExtractedReviewRowInput = {
   source_text: string | null;
   bounding_box?: unknown;
   status: string;
+  record_status?: string | null;
+  lifecycle_reason_code?: string | null;
+  superseded_at?: string | null;
+  superseded_by_processing_attempt_id?: string | null;
+  is_current?: boolean | null;
   measurement_definition_key?: string | null;
   normalization?: {
     result: ResolverResult;
     mappingConfidenceBand: MappingConfidenceBand;
     registryBindingReady: boolean;
     resolutionDetails: LaboratoryResolutionDetails;
+    recordStatus?: RecordStatus;
+    sourceIsCurrent?: boolean;
+    lifecycleReasonCode?: string | null;
+    supersededAt?: string | null;
+    supersededByProcessingAttemptId?: string | null;
+    actionAvailability?: NormalizationActionAvailabilityMap;
     activeRevision: {
       verification_status: VerificationStatus;
       measurement_override?: MeasurementOverride | null;
@@ -406,8 +460,14 @@ export type ExtractedReviewRowInput = {
 export function buildExtractedReviewRow(
   item: ExtractedReviewRowInput,
 ): ReviewRow {
-  const reviewable = item.status in REVIEWABLE_EXTRACTED_STATUSES;
   const normalization = item.normalization ?? null;
+  const recordStatus = normalization?.recordStatus ??
+    asRecordStatus(item.record_status, item.is_current);
+  const sourceIsCurrent =
+    normalization?.sourceIsCurrent ??
+    (recordStatus === "active" && item.is_current !== false);
+  const reviewable =
+    sourceIsCurrent && item.status in REVIEWABLE_EXTRACTED_STATUSES;
   const measurementOverride =
     normalization?.activeRevision?.measurement_override ?? null;
   const correctedMeasurement = buildCorrectedMeasurement(
@@ -448,6 +508,15 @@ export function buildExtractedReviewRow(
     reviewable,
     accepted: item.status === "accepted" || item.status === "auto_accepted",
     userCorrected: measurementOverride !== null,
+    sourceIsCurrent,
+    lifecycleReasonCode:
+      normalization?.lifecycleReasonCode ?? item.lifecycle_reason_code ?? null,
+    supersededAt: normalization?.supersededAt ?? item.superseded_at ?? null,
+    supersededByProcessingAttemptId:
+      normalization?.supersededByProcessingAttemptId ??
+      item.superseded_by_processing_attempt_id ??
+      null,
+    actionAvailability: normalization?.actionAvailability ?? null,
     rawEvidence: {
       displayName: item.raw_name?.trim() || item.biomarker_name,
       canonicalEnglishName,
@@ -471,6 +540,7 @@ export function buildExtractedReviewRow(
         asVerificationStatus(normalization?.activeRevision?.verification_status),
       confidenceBand: asConfidenceBand(normalization?.mappingConfidenceBand),
       registryBindingReady: normalization?.registryBindingReady === true,
+      recordStatus,
       reviewable,
       incompleteReason: normalization?.resolutionDetails?.incompleteReason ?? null,
       missingAxes: normalization?.resolutionDetails?.minimalMissingAxes ?? [],
@@ -501,6 +571,11 @@ export type ObservationReviewRowInput = {
   resolution_status?: string | null;
   resolver_result?: string | null;
   verification_status?: string | null;
+  record_status?: string | null;
+  lifecycle_reason_code?: string | null;
+  superseded_at?: string | null;
+  superseded_by_processing_attempt_id?: string | null;
+  is_current?: boolean | null;
   registry_binding_ready?: boolean;
   measurement_definition_key?: string | null;
   resolution_details?: LaboratoryResolutionDetails | null;
@@ -541,13 +616,21 @@ export function buildObservationReviewRow(
     definitionKey != null
       ? (getMeasurementDefinition(definitionKey)?.displayName ?? null)
       : null;
-
+  const recordStatus = asRecordStatus(item.record_status, item.is_current);
+  const sourceIsCurrent =
+    recordStatus === "active" && item.is_current !== false;
   return {
     id: item.id,
     sourceKind: "observation",
     reviewable: false,
     accepted: true,
     userCorrected: false,
+    sourceIsCurrent,
+    lifecycleReasonCode: item.lifecycle_reason_code ?? null,
+    supersededAt: item.superseded_at ?? null,
+    supersededByProcessingAttemptId:
+      item.superseded_by_processing_attempt_id ?? null,
+    actionAvailability: null,
     rawEvidence: {
       displayName: item.raw_name?.trim() || item.name,
       canonicalEnglishName,
@@ -568,6 +651,7 @@ export function buildObservationReviewRow(
         item.resolution_details?.mappingConfidenceBand,
       ),
       registryBindingReady: item.registry_binding_ready === true,
+      recordStatus,
       reviewable: false,
       incompleteReason: item.resolution_details?.incompleteReason ?? null,
       missingAxes: item.resolution_details?.minimalMissingAxes ?? [],

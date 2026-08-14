@@ -3,16 +3,22 @@ import type { ResolvedReviewedMeasurementBinding } from "@/lib/biomarkers";
 import type { MeasurementOverride } from "./observation-measurement-correction";
 
 type InstrumentalSourceRelation = { is_current?: boolean | null } | null;
+type LaboratorySourceRow = {
+  record_status?: string | null;
+  is_current?: boolean | null;
+};
+type LaboratorySourceRelation = LaboratorySourceRow | LaboratorySourceRow[] | null;
 
 export type DocumentObservationReadBoundary = {
   observation_kind?: string | null;
   source_instrumental_measure?:
     | InstrumentalSourceRelation
     | InstrumentalSourceRelation[];
+  source_extracted_biomarker?: LaboratorySourceRelation;
 };
 
 export type LaboratoryObservationReadBoundary =
-  Pick<DocumentObservationReadBoundary, "observation_kind"> & {
+  Pick<DocumentObservationReadBoundary, "observation_kind" | "source_extracted_biomarker"> & {
     measurement_definition_key?: string | null;
     resolution_status?: string | null;
   };
@@ -86,8 +92,17 @@ export function projectActiveRegistryV2LaboratoryBinding(
   const measurementDefinition = revisionDefinitionKey
     ? getMeasurementDefinition(revisionDefinitionKey)
     : undefined;
+  const laboratorySource = Array.isArray(observation.source_extracted_biomarker)
+    ? observation.source_extracted_biomarker[0] ?? null
+    : observation.source_extracted_biomarker ?? null;
+  const sourceLifecycleActive =
+    laboratorySource == null ||
+    (laboratorySource.record_status !== "rejected" &&
+      laboratorySource.record_status !== "superseded" &&
+      laboratorySource.is_current !== false);
   const registryBindingReady =
     isLaboratoryObservation(observation) &&
+    sourceLifecycleActive &&
     activeRevision?.is_active === true &&
     resolutionStatus === "resolved" &&
     activeRevision.resolver_evidence?.outcome === "resolved" &&
@@ -113,6 +128,7 @@ export function projectActiveRegistryV2LaboratoryBinding(
     measurementDefinition: registryBindingReady ? measurementDefinition : undefined,
     resolutionStatus,
     verificationStatus: activeRevision?.verification_status ?? null,
+    recordStatus: laboratorySource?.record_status ?? "active",
     registryBindingReady,
     resolvedMeasurementBinding,
   };
@@ -121,6 +137,17 @@ export function projectActiveRegistryV2LaboratoryBinding(
 export function isCurrentDocumentObservation(
   observation: DocumentObservationReadBoundary
 ): boolean {
+  if (observation.observation_kind === "lab") {
+    const source = Array.isArray(observation.source_extracted_biomarker)
+      ? observation.source_extracted_biomarker[0] ?? null
+      : observation.source_extracted_biomarker ?? null;
+    return (
+      source == null ||
+      (source.record_status !== "rejected" &&
+        source.record_status !== "superseded" &&
+        source.is_current !== false)
+    );
+  }
   if (observation.observation_kind !== "instrumental") return true;
   const source = Array.isArray(observation.source_instrumental_measure)
     ? observation.source_instrumental_measure[0] ?? null

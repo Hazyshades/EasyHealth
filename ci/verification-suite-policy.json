@@ -56,6 +56,24 @@
       "reason": "Registry reprocessing batch persistence contract requires pgTAP."
     },
     {
+      "script": "test:eh120",
+      "verificationFiles": ["scripts/verify-eh120-verification-transitions.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "documents",
+      "reason": "Verification transition, lifecycle projection, and audit contracts require explicit CI triage."
+    },
+    {
+      "script": "test:eh120-db",
+      "verificationFiles": ["supabase/tests/eh120_verification_transitions.sql"],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "documents",
+      "reason": "Lifecycle transition, authorization, idempotency, and append-only contracts require pgTAP."
+    },
+    {
       "script": "test:pr2-db",
       "verificationFiles": [
         "supabase/tests/pr2_document_processing_attempts.sql",
@@ -78,6 +96,27 @@
       "localOnly": false,
       "owner": "documents",
       "reason": "Consumer embed selects require a real local PostgREST endpoint."
+    },
+    {
+      "script": "test:eh122",
+      "verificationFiles": [
+        "scripts/verify-eh122-batch-service.ts",
+        "scripts/verify-eh122-batch-verification.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "documents",
+      "reason": "Batch verification eligibility and service contracts are a delivered roadmap regression suite."
+    },
+    {
+      "script": "test:eh122-db",
+      "verificationFiles": ["supabase/tests/eh122_batch_verification.sql"],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "documents",
+      "reason": "Batch verification metadata and append-only reversal contracts require pgTAP."
     }
   ],
   "localOnly": []

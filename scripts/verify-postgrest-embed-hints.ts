@@ -16,9 +16,9 @@ const RUNTIME_ROOTS = ["src", "worker/src"];
 const CONSUMERS = [
   "src/app/api/documents/[id]/observations/route.ts",
   "src/app/api/biomarkers/route.ts",
-  "src/app/api/health-profile/route.ts",
   "src/app/api/reports/route.ts",
   "src/lib/documents/structured-context.ts",
+  "src/lib/health-profile-snapshot.ts",
 ];
 const ALIAS_MIGRATION = "supabase/migrations/035_postgrest_normalization_revision_fk_alias.sql";
 

@@ -1,6 +1,12 @@
-import { getMeasurementDefinition, resolveMeasurementDefinition } from "@/lib/biomarkers";
-import type { MeasurementResolution, MeasurementResolutionInput } from "@/lib/biomarkers";
+import {
+  MEASUREMENT_CATALOG_MANIFEST_RELEASE,
+  getMeasurementDefinition,
+  resolveMeasurementDefinition,
+  type MeasurementResolution,
+  type MeasurementResolutionInput,
+} from "@/lib/biomarkers";
 import type { MappingChangeClassification } from "@/lib/biomarkers";
+import type { RecordStatus } from "./observation-verification-workflow";
 
 export type PromotionDecision =
   | { allowed: true; reason: "approved" }
@@ -19,6 +25,19 @@ export function compatibleManualDefinitions(input: MeasurementResolutionInput) {
     .filter((definition): definition is NonNullable<typeof definition> => definition?.maturity === "reviewed");
 }
 
+/**
+ * Automatic verification is disabled unless deployment configuration binds the
+ * approved release gate to the exact catalog manifest being executed.
+ * A missing or mismatched digest is a hard deny, never a user-verification
+ * fallback.
+ */
+export function isAutomaticVerificationReleaseApproved(): boolean {
+  const configuredDigest = process.env.EH120_AUTOMATIC_VERIFICATION_RELEASE_DIGEST
+    ?.trim()
+    .toLowerCase();
+  return configuredDigest === MEASUREMENT_CATALOG_MANIFEST_RELEASE.manifestDigest;
+}
+
 export function acceptancePathForResolution(
   resolution: Pick<MeasurementResolution, "result" | "measurementDefinitionKey">
 ): "resolved" | "raw" {
@@ -30,10 +49,19 @@ export function decideAutomaticPromotion(options: {
   activeRevision?: {
     verification_status: "pending" | "auto_verified" | "user_verified" | "manually_corrected";
     measurement_override?: Record<string, unknown> | null;
+    reversal_of_revision_id?: string | null;
   } | null;
+  recordStatus?: RecordStatus;
+  sourceIsCurrent?: boolean;
   mappingClassification: MappingChangeClassification;
   qualityGateApproved: boolean;
 }): PromotionDecision {
+  if (options.recordStatus !== undefined && options.recordStatus !== "active") {
+    return { allowed: false, reason: "record_not_active" };
+  }
+  if (options.sourceIsCurrent === false) {
+    return { allowed: false, reason: "source_not_current" };
+  }
   if (!options.qualityGateApproved) return { allowed: false, reason: "quality_gate_not_approved" };
   if (options.resolution.result !== "resolved") return { allowed: false, reason: "resolver_not_resolved" };
   if (options.mappingClassification !== "compatibility_preserving") {
@@ -45,7 +73,8 @@ export function decideAutomaticPromotion(options: {
   if (
     options.activeRevision &&
     (options.activeRevision.verification_status === "user_verified" ||
-      options.activeRevision.verification_status === "manually_corrected")
+      options.activeRevision.verification_status === "manually_corrected" ||
+      options.activeRevision.reversal_of_revision_id)
   ) {
     return { allowed: false, reason: "manual_decision_protected" };
   }
