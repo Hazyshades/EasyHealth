@@ -1,9 +1,9 @@
 # EH-125: Static panel registry and membership
 
-**Roadmap status:** In progress
-**Build / environment:** `________`
-**Test run date:** `________`
-**Tester:** `________`
+**Roadmap status:** Delivered
+**Build / environment:** GitHub Actions run `31773007440`; local Node 22 verification
+**Test run date:** 2026-08-14
+**Tester:** Project Owner / automated verification
 
 ## What this checklist covers
 
@@ -30,12 +30,12 @@ EH-125 does not add a screen, route, export, document-review control, or timelin
 
 ## Developer evidence required
 
-- [ ] Engineering provides `pnpm test:panel-registry` output proving exactly six non-empty panels, reviewed concrete members, deterministic order, alias validation, and many-to-many membership.
-- [ ] Engineering provides `pnpm test:measurement-registry` output proving Registry 2.0 validation still passes.
-- [ ] Engineering provides regression output proving panel lookup does not change resolver output, score role, readiness groups, or contribution groups.
-- [ ] Engineering provides `pnpm check:biomarker-docs` and `pnpm test:biomarker-docs` output proving canonical generated documentation matches the runtime registry.
-- [ ] Release management provides the technical candidate report for candidate-input hash `55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed` and records renewal of every required approval before release.
-- [ ] Documentation owner publishes the reviewed generated Wiki staging output or records the remote publication handoff on issue #25.
+- [x] Engineering provides `pnpm test:panel-registry` output proving exactly six non-empty panels, reviewed concrete members, deterministic order, alias validation, and many-to-many membership. Result: `panel-registry: 6 panels, 64 memberships`.
+- [x] Engineering provides `pnpm test:measurement-registry` output proving Registry 2.0 validation still passes. Result: `verify-measurement-registry: all checks passed`.
+- [x] Engineering provides regression output proving panel lookup does not change resolver output, score role, readiness groups, or contribution groups. Result: included in the focused panel-registry runner and passed in CI.
+- [x] Engineering provides `pnpm check:biomarker-docs` and `pnpm test:biomarker-docs` output proving canonical generated documentation matches the runtime registry. Both passed locally and in CI.
+- [x] Release management provides the technical candidate report for candidate-input hash `55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed` and records renewal of every required approval before release. Result: 15 approved records; `launchable: true`, `approvalErrors: []`, `fixtureErrors: []`; renewal merged by PR #145.
+- [x] Documentation owner publishes the reviewed generated Wiki staging output or records the remote publication handoff on issue #25. Result: published at Wiki commit `2609333`.
 - [x] Database regression test is not applicable: EH-125 changes only static TypeScript catalog data, manifest serialization, fixtures, and generated documentation. It adds no migration, database read/write/projection, RPC, authorization, or persistence contract.
 
 ## Out of scope or not manually testable yet
@@ -43,4 +43,4 @@ EH-125 does not add a screen, route, export, document-review control, or timelin
 - Panel membership does not identify measurements, supply specimen, change a resolver outcome, or alter Health Profile eligibility or scoring.
 - OCR-backed panel-to-specimen policy is deferred to the separate reviewed panel-specimen-policy change.
 - Timeline ordering and panel presentation are deferred to EH-126 and later panel consumers.
-- The current generated Wiki mirror is local staging evidence only until publication to the GitHub Wiki is confirmed.
+- The generated Wiki mirror was published at Wiki commit `2609333`; remote publication is no longer pending.
