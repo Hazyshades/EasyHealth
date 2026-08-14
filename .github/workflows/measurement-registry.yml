@@ -69,6 +69,8 @@ jobs:
         run: pnpm check:registry-v2-candidate-corpus-technical
       - name: Verify CBC measurement regression suite
         run: pnpm test:cbc-regression
+      - name: Verify static Registry 2.0 panel membership
+        run: pnpm test:panel-registry
       - name: Verify stated-axis evidence policy
         run: pnpm test:stated-axis
         env:
