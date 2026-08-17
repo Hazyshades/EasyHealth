@@ -1,10 +1,11 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import type { ReviewRow } from "@/lib/documents/observation-review-workspace";
 import { ReviewStateChips } from "./review-status-chips";
 
 const SNIPPET_PREVIEW_LENGTH = 90;
+const PREVIEW_ENTER_DELAY_MS = 100;
 
 const LIFECYCLE_REASON_LABELS: Readonly<Record<string, string>> = {
   incorrect_extraction: "The result was extracted incorrectly",
@@ -33,15 +34,16 @@ function lifecycleDate(value: string | null): string | null {
 
 /**
  * One reviewable result. Raw document evidence is rendered first and is never
- * replaced by a candidate display name, converted value or inferred axis
- * (EH-112). Mapping explanation follows, and everything technical stays behind
- * the progressive-disclosure slot.
+ * replaced by a candidate display name, converted value or inferred axis.
+ * Hover/focus only sends ephemeral preview intent; explicit activation pins it.
  */
 export function ObservationReviewRow({
   row,
   selected,
   selection,
   onActivate,
+  onPreviewStart,
+  onPreviewEnd,
   technicalDetails,
   history,
   correction,
@@ -58,18 +60,48 @@ export function ObservationReviewRow({
     onChange?: (next: boolean) => void;
   };
   onActivate: (row: ReviewRow) => void;
+  onPreviewStart?: (row: ReviewRow) => void;
+  onPreviewEnd?: (row: ReviewRow) => void;
   technicalDetails?: ReactNode;
   history?: ReactNode;
   correction?: ReactNode;
   rejection?: ReactNode;
 }) {
   const { rawEvidence, source, mapping } = row;
+  const previewTimerRef = useRef<number>(0);
   const isHistorical = mapping.recordStatus !== "active" || !row.sourceIsCurrent;
   const snippet = source.snippet
     ? `${source.snippet.slice(0, SNIPPET_PREVIEW_LENGTH)}${source.snippet.length > SNIPPET_PREVIEW_LENGTH ? "…" : ""}`
     : null;
   const reasonLabel = lifecycleReasonLabel(row.lifecycleReasonCode);
   const supersededDate = lifecycleDate(row.supersededAt);
+  const sourceDescriptionId = `review-row-source-${row.id}`;
+
+  function clearPreviewTimer() {
+      window.clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = 0;
+    }
+
+  function beginPreview() {
+    clearPreviewTimer();
+    if (!onPreviewStart) return;
+    previewTimerRef.current = window.setTimeout(() => {
+      previewTimerRef.current = 0;
+      onPreviewStart(row);
+    }, PREVIEW_ENTER_DELAY_MS);
+  }
+
+  function endPreview() {
+    clearPreviewTimer();
+    onPreviewEnd?.(row);
+  }
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(previewTimerRef.current);
+    },
+    [row.id],
+  );
 
   return (
     <li
@@ -97,7 +129,12 @@ export function ObservationReviewRow({
         <button
           type="button"
           onClick={() => onActivate(row)}
+          onMouseEnter={beginPreview}
+          onMouseLeave={endPreview}
+          onFocus={beginPreview}
+          onBlur={endPreview}
           aria-label={`${isHistorical ? "View historical evidence for" : "Review"} ${rawEvidence.displayName}`}
+          aria-describedby={sourceDescriptionId}
           className="min-w-0 flex-1 rounded-lg text-left transition hover:text-[var(--eh-brand)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--eh-brand)]"
         >
           <p className="font-medium text-[var(--eh-text-primary)]">
@@ -137,9 +174,11 @@ export function ObservationReviewRow({
               {" · raw extraction unchanged"}
             </p>
           ) : null}
-          <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
+          <p
+            id={sourceDescriptionId}
+            className="mt-1 text-xs text-[var(--eh-text-muted)]"
+          >
             <span>{source.label}</span>
-            {/* EH-118: make the fallback visible without selecting the row. */}
             {source.precision === "page" ? " · page only" : ""}
             {rawEvidence.specimen ? ` · ${rawEvidence.specimen}` : ""}
             {rawEvidence.modifier ? ` · ${rawEvidence.modifier}` : ""}

@@ -110,13 +110,13 @@ assert.equal(exact.strategy, "ocr_exact");
 assert.equal(exact.page, 1);
 assert.ok(exact.region, "an exact snippet match must produce a region");
 assert.equal(exact.region.page, 1);
-assert.equal(exact.region.origin, "ocr_exact");
-assert.ok(exact.region.x < 60 / 600, "the region must be padded around the matched words");
+assert.equal(exact.region.match.strategy, "exact");
+assert.ok(exact.region.rects[0].x < 60 / 600, "the region must be padded around the matched words");
 assert.ok(
-  exact.region.x + exact.region.w > 420 / 600,
+  exact.region.rects[0].x + exact.region.rects[0].w > 420 / 600,
   "the region must span every matched word"
 );
-assert.ok(exact.region.h < 0.2, "a one-line match must stay a one-line box");
+assert.ok(exact.region.rects[0].h < 0.2, "a one-line match must stay a one-line box");
 
 // Regression: poppler emits a real table column by column, so the cells of one
 // visual row are far apart in the raw flow. The index must be rebuilt from
@@ -155,11 +155,11 @@ const tableRow = resolveSourceRegion({
 assert.equal(tableRow.strategy, "ocr_exact", "a table-row snippet must still match exactly");
 assert.ok(tableRow.region);
 assert.ok(
-  tableRow.region.y < 110 / 800 && tableRow.region.y + tableRow.region.h < 120 / 800,
+  tableRow.region.rects[0].y < 110 / 800 && tableRow.region.rects[0].y + tableRow.region.rects[0].h < 120 / 800,
   "the region must stay on the matched row and not swallow the row below"
 );
 assert.ok(
-  tableRow.region.x + tableRow.region.w > 420 / 600,
+  tableRow.region.rects[0].x + tableRow.region.rects[0].w > 420 / 600,
   "the region must span the row from the label to the unit cell"
 );
 
@@ -205,8 +205,8 @@ assert.equal(
   2,
   "an ambiguous snippet on the hinted page resolves to that page"
 );
-assert.ok(ambiguousWithHint.region, "a unique match on the hinted page is still usable");
-assert.equal(ambiguousWithHint.region.page, 2);
+assert.equal(ambiguousWithHint.region, null, "duplicate exact matches remain page-only even when one is hinted");
+
 
 const unmatched = resolveSourceRegion({
   pages: index,
