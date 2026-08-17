@@ -41,7 +41,12 @@ for (const snippet of probes) {
     hintedPage: 1,
   });
   const region = resolved.region
-    ? `x=${resolved.region.x.toFixed(4)} y=${resolved.region.y.toFixed(4)} w=${resolved.region.w.toFixed(4)} h=${resolved.region.h.toFixed(4)}`
+    ? resolved.region.rects
+        .map(
+          (rect, index) =>
+            `rect${index + 1}=x=${rect.x.toFixed(4)} y=${rect.y.toFixed(4)} w=${rect.w.toFixed(4)} h=${rect.h.toFixed(4)}`,
+        )
+        .join("; ")
     : "none (page-only fallback)";
   console.log(`\nsnippet: ${JSON.stringify(snippet.slice(0, 80))}`);
   console.log(`  strategy=${resolved.strategy} page=${resolved.page}`);

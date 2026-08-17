@@ -65,6 +65,8 @@ jobs:
           OPENAI_API_KEY: ci-placeholder
           NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      - name: Verify EH-162 source-region hover contract
+        run: pnpm test:eh162
       - name: Validate Registry 2.0 candidate-release evidence
         run: pnpm check:registry-v2-candidate-corpus-technical
       - name: Verify CBC measurement regression suite
@@ -191,6 +193,10 @@ jobs:
         run: pnpm test:eh122-db
       - name: Run EH-118 source region database contract
         run: pnpm test:eh118-db
+      - name: Run EH-162 source region match database contract
+        run: pnpm test:eh162-db
+      - name: Run service-role access database contract
+        run: pnpm test:service-role-access-db
       - name: Run EH-113 CBC method evidence database contract
         run: pnpm test:eh113-db
       - name: Run EH-116 registry reprocess database contract
