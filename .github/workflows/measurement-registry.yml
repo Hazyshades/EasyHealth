@@ -19,6 +19,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Install worker dependencies
+        run: pnpm --dir worker install --frozen-lockfile
       - name: Verify CI suite coverage contract
         run: pnpm check:ci-suite-coverage-contract
       - name: Verify every test suite is workflow-reachable
@@ -69,6 +71,8 @@ jobs:
         run: pnpm test:eh162
       - name: Validate Registry 2.0 candidate-release evidence
         run: pnpm check:registry-v2-candidate-corpus-technical
+      - name: Verify EH-163 Mistral OCR contract
+        run: pnpm test:eh163-ocr
       - name: Verify CBC measurement regression suite
         run: pnpm test:cbc-regression
       - name: Verify static Registry 2.0 panel membership
@@ -195,6 +199,8 @@ jobs:
         run: pnpm test:eh118-db
       - name: Run EH-162 source region match database contract
         run: pnpm test:eh162-db
+      - name: Run EH-163 Mistral OCR database contract
+        run: pnpm test:eh163-db
       - name: Run service-role access database contract
         run: pnpm test:service-role-access-db
       - name: Run EH-113 CBC method evidence database contract

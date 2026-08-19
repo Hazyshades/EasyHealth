@@ -7,6 +7,7 @@ import {
   coreResolveModelForStage,
   coreResolveOpenAiVisionModel,
 } from "../../src/lib/ai/resolve-model-core.js";
+import { verifyMistralOcrModel } from "./ocr/mistral.js";
 import { workerEnv } from "./env.js";
 
 export type AiProviderId =
@@ -39,5 +40,8 @@ export async function ensureWorkerAiReady(): Promise<void> {
     await validateNebiusModelCatalog({
       failInProduction: process.env.NODE_ENV === "production",
     });
+  }
+  if (workerEnv.mistralOcrEnabled) {
+    await verifyMistralOcrModel();
   }
 }

@@ -270,8 +270,13 @@ assert.equal(noPages.strategy, "unavailable");
 const pipeline = readFileSync("worker/src/pipeline.ts", "utf8");
 assert.match(
   pipeline,
-  /const ocrText = hasPageText \? buildPageMarkedText\(layoutPages\) : ""/,
-  "extraction input must carry page markers"
+  /let ocrText = ocrSelection\.kind === "poppler" \? popplerPageMarkedText : ""/,
+  "Poppler extraction input must carry page-marked text",
+);
+assert.match(
+  pipeline,
+  /ocrText = buildPageMarkedText\(layoutPages\)/,
+  "normalized OCR extraction input must carry page markers",
 );
 assert.match(
   pipeline,
@@ -280,8 +285,13 @@ assert.match(
 );
 assert.match(
   pipeline,
-  /coordinate_space: blocks \? "normalized" : undefined/,
-  "page OCR artifacts must declare the coordinate space of their blocks"
+  /buildPageOcrArtifactV2\(/,
+  "pipeline must write the versioned OCR artifact contract",
+);
+assert.match(
+  pipeline,
+  /blocks,/,
+  "page OCR artifacts must carry normalized block metadata",
 );
 assert.doesNotMatch(
   pipeline,
