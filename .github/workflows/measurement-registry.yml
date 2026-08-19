@@ -19,6 +19,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Install worker dependencies
+        run: pnpm --dir worker install --frozen-lockfile
       - name: Verify CI suite coverage contract
         run: pnpm check:ci-suite-coverage-contract
       - name: Verify every test suite is workflow-reachable
