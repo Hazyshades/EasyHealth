@@ -33,7 +33,7 @@ import {
 type RouteContext = { params: Promise<{ id: string }> };
 
 const EXTRACTED_BIOMARKER_SELECT =
-  "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, source_page, source_text, bounding_box, confidence, status, processing_version, extraction_model, specimen, modifier, method, reported_alt_value, reported_alt_unit, raw_value_text, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, resolver_evidence, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, verification_status, record_status, lifecycle_reason_code, superseded_at, superseded_by_processing_attempt_id, processing_attempt_id, is_current, created_at";
+  "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, source_page, source_text, bounding_box, confidence, status, processing_version, extraction_model, source_text_origin, ocr_provider, ocr_model, ocr_adapter_version, ocr_artifact_schema_version, ocr_source_sha256, specimen, modifier, method, reported_alt_value, reported_alt_unit, raw_value_text, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, resolver_evidence, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, verification_status, record_status, lifecycle_reason_code, superseded_at, superseded_by_processing_attempt_id, processing_attempt_id, is_current, is_published, created_at";
 
 async function safeSignedUrl(storagePath: string | null | undefined) {
   if (!storagePath) return null;
@@ -75,12 +75,14 @@ export async function GET(req: NextRequest, context: RouteContext) {
       .from("document_pages")
       .select("page_number, width, height, preview_storage_path")
       .eq("document_id", id)
+      .eq("is_current", true)
       .order("page_number", { ascending: true }),
     supabase
       .from("document_extracted_biomarkers")
       .select(EXTRACTED_BIOMARKER_SELECT)
       .eq("document_id", id)
       .eq("profile_id", profileId)
+      .eq("is_published", true)
       .order("biomarker_name", { ascending: true }),
     documentType === "instrumental_report"
       ? supabase
@@ -95,6 +97,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
           .select("*")
           .eq("document_id", id)
           .eq("status", "accepted")
+          .eq("is_published", true)
           .maybeSingle()
       : Promise.resolve({ data: null }),
     documentType === "prescription"
@@ -103,6 +106,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
           .select("*")
           .eq("document_id", id)
           .eq("status", "accepted")
+          .eq("is_published", true)
           .maybeSingle()
       : Promise.resolve({ data: null }),
     documentType === "referral"
@@ -111,6 +115,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
           .select("*")
           .eq("document_id", id)
           .eq("status", "accepted")
+          .eq("is_published", true)
           .maybeSingle()
       : Promise.resolve({ data: null }),
     safeSignedUrl(getOriginalPath(doc!)),

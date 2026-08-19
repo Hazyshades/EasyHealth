@@ -16,6 +16,8 @@
     "test:eh112": "tsx scripts/verify-eh112-incomplete-outcomes.ts",
     "test:document-review": "tsx scripts/verify-document-review-runner.ts",
     "test:document-worker": "tsx scripts/verify-document-worker-reliability.ts",
+    "test:eh163-ocr": "tsx scripts/verify-mistral-ocr.mts",
+    "test:eh163-db": "supabase test db --local QA-Db_tests/eh163_mistral_ocr.sql",
     "test:document-persistence-boundaries": "tsx scripts/verify-laboratory-persistence-boundaries.ts",
     "test:health-profile-lab-input": "tsx scripts/verify-health-profile-lab-input.ts",
     "test:eh105": "tsx scripts/verify-eh105-instrumental-lineage.ts && tsx scripts/verify-eh105-worker-safety.ts && tsx scripts/verify-pr2-reader-boundaries.ts",

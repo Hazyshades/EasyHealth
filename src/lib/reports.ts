@@ -21,17 +21,20 @@ export async function getEligibleDocumentIds(profileId: string): Promise<string[
       .from("document_extracted_clinical_notes")
       .select("document_id")
       .eq("profile_id", profileId)
-      .eq("status", "accepted"),
+      .eq("status", "accepted")
+      .eq("is_published", true),
     supabase
       .from("document_extracted_prescriptions")
       .select("document_id")
       .eq("profile_id", profileId)
-      .eq("status", "accepted"),
+      .eq("status", "accepted")
+      .eq("is_published", true),
     supabase
       .from("document_extracted_referrals")
       .select("document_id")
       .eq("profile_id", profileId)
-      .eq("status", "accepted"),
+      .eq("status", "accepted")
+      .eq("is_published", true),
   ]);
 
   const candidateIds = [

@@ -95,6 +95,7 @@ export type NormalizationSourceState = Readonly<{
   document_id: string;
   record_status: "active" | "rejected" | "superseded";
   is_current: boolean;
+  is_published: boolean;
 }>;
 
 export async function getNormalizationSourceState(
@@ -103,8 +104,9 @@ export async function getNormalizationSourceState(
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("document_extracted_biomarkers")
-    .select("id, profile_id, document_id, record_status, is_current")
+    .select("id, profile_id, document_id, record_status, is_current, is_published")
     .eq("id", extractedBiomarkerId)
+    .eq("is_published", true)
     .maybeSingle();
   if (error) throw error;
   return (data as NormalizationSourceState | null) ?? null;
