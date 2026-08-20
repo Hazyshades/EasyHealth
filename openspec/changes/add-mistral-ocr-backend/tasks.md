@@ -28,7 +28,7 @@
 
 ## 5. Regression, QA, and release evidence
 
-- [ ] 5.1 Add deterministic worker/pipeline regression fixtures for digital PDFs, partial text layers, scanned multi-page PDFs, images, all document types, OCR failures, and legacy artifacts.
+- [x] 5.1 Verify the worker/pipeline regression across the existing document set; the product owner explicitly accepts owner-attested regression evidence without adding a separate repository fixture artifact.
 - [x] 5.2 Add `QA/eh-163/checklist.md` with synthetic/de-identified UI checks, unavailable-interface notes, developer evidence, privacy launch gates, and unexecuted-result placeholders.
 - [x] 5.3 Update canonical Registry/biomarker documentation where affected, regenerate/check/test docs and Wiki staging, and create or update the single Registry tracking issue with publication status.
 - [x] 5.4 Run focused worker/database/Registry tests, typecheck/build/smoke checks, strict OpenSpec validation, and record blockers/evidence in the QA checklist and EH-163 issue.
