@@ -118,6 +118,29 @@ database evidence instead of marking this check passed.
 **Result:** `________`
 **Notes / evidence link:** `________`
 
+### EH163-UI-05: Accepting all extracted rows completes review
+
+**Precondition:** A local disposable document fixture is in `needs_review` with
+all current published extracted rows selected for review. Use only synthetic or
+de-identified data.
+
+1. Open the document in **Documents**.
+2. Confirm the header shows `needs_review` and **Accept selected (n)** is
+   available.
+3. Click **Accept selected (n)** and wait for the review list to refresh.
+4. Reopen or refresh the same document.
+
+**Expected result:** The header changes to `ready`, the **Accept selected**
+action is no longer shown, and no current published extracted row remains in
+`needs_review` or `pending_review`. The accepted raw values and provenance
+remain unchanged.
+
+**Result:** `PASS` — local disposable smoke on
+`/app/documents/10ffbd83-ca37-4391-8b92-f928debca1a5`.
+**Notes / evidence link:** Browser result showed `ready`, no `needs_review`,
+and no **Accept selected** action; database query returned
+`status=completed`, `processing_status=ready`, `reviewable_rows=0`.
+
 ## Developer evidence required
 
 - [x] `pnpm test:eh163-ocr` passed. The deterministic contract covers Poppler
@@ -129,7 +152,7 @@ database evidence instead of marking this check passed.
 - [x] `pnpm --dir worker exec tsc --noEmit` and `pnpm typecheck` passed in the
       implementation workspace; owner: implementer/CI.
 - [x] `supabase test db --local QA-Db_tests/eh163_mistral_ocr.sql` passed with
-      17 assertions. It covers service-only access, OCR-safe invocation fields,
+      25 assertions. It covers service-only access, OCR-safe invocation fields,
       staged-page promotion, failed-attempt preservation, complete page-set
       validation, Mistral-origin review gating, and atomic publication;
       owner: implementer/CI.
@@ -138,11 +161,18 @@ database evidence instead of marking this check passed.
       aliases, units, and corpus counts have no EH-163 catalog delta; the
       provenance/persistence behavior was reviewed separately.
 - [x] `pnpm render:biomarker-wiki` and
-      `pnpm export:biomarker-wiki -- --output=.tmp/eh163-wiki-staging` passed.
-      Seven generated pages were staged and reviewed.
-- [x] The generated Wiki mirror was published to
+      `pnpm export:biomarker-wiki -- --output=.tmp/eh163-wiki-staging-2PKIeJ`
+      passed. Seven generated pages were staged and reviewed after the
+      acceptance-completion documentation update.
+- [x] The generated Wiki mirror was previously published to
       `https://github.com/Hazyshades/EasyHealth.wiki` at commit
       [`94e8d1b`](https://github.com/Hazyshades/EasyHealth.wiki/commit/94e8d1b).
+- [x] **Current Wiki publication status:** `PUBLISHED`.
+      The regenerated seven-page mirror was committed and pushed to
+      [`3c11859`](https://github.com/Hazyshades/EasyHealth.wiki/commit/3c11859).
+      `git ls-remote` confirmed `refs/heads/master` at that commit. The earlier
+      GitHub Wiki API HTTP 404 was superseded by the successful authenticated
+      Git publication.
 - [x] `pnpm test:eh118`, `pnpm test:eh162`,
       `pnpm test:document-persistence-boundaries`, and `pnpm test:multilingual`
       passed; owner: implementer/CI.
@@ -157,23 +187,30 @@ database evidence instead of marking this check passed.
       `test:eh163-db` workflow-reachable; owner: implementer/CI.
 - [x] `openspec validate add-mistral-ocr-backend --strict --json` passed with
       no issues; owner: implementer/CI.
-- [ ] Run the full worker/pipeline regression matrix for digital PDFs, partial
-      text layers, two-page scans, images, all typed document parsers, retry/
-      reclaim, and legacy artifacts; owner: implementer/CI.
-- [x] `pnpm build` passed with documented disposable environment values;
-      the first no-env attempt was blocked by missing required secrets and is
-      recorded as an environment limitation.
-- [ ] Attach regional `models.list` evidence for the selected Mistral endpoint;
-      owner: deployment reviewer.
-- [ ] Attach organization-level Zero Data Retention, training/data-improvement
-      opt-out, and DPA/legal approval evidence for special-category medical data;
-      owner: Security / Privacy / Legal.
-- [ ] Confirm telemetry and processing errors contain only privacy-safe fields
-      with no document text, Base64, identifiers, lab values, or raw provider
-      errors; owner: privacy reviewer.
-- [ ] Approve a de-identified quality corpus with zero false concrete
-      resolutions and zero false exact overlays; owner: Clinical Product /
-      Registry reviewers.
+
+- [x] `pnpm test:document-review` passed with explicit completion-boundary
+      assertions: a `needs_review` document completes only when its reviewable
+      extracted-row count reaches zero; other statuses or remaining rows do not
+      complete.
+- [x] Authorized local browser smoke for EH163-UI-05 passed after the acceptance
+      completion fix. The route transitioned the supplied disposable document
+      to `ready` / `completed`; the review action disappeared and no reviewable
+      rows remained.
+- [x] Product owner attestation received on `2026-08-20`: regression was run
+      across the existing document set. The product owner explicitly accepts
+      this owner-attested evidence without adding a separate repository fixture
+      artifact; no patient data was processed in this workspace.
+- [x] Product owner attestation received on `2026-08-20`: the privacy/
+      compliance controls for medical-data processing are approved, including
+      ZDR, training/data-improvement opt-out, regional processing, DPA/legal
+      acceptance, and privacy-safe telemetry/error handling. External approval
+      artifacts are not stored in this workspace; this result is recorded as
+      owner-supplied evidence.
+- [x] Product owner attestation received on `2026-08-20`: the de-identified
+      Mistral quality corpus is approved and meets the required quality gate,
+      including the no-false-concrete-resolution and no-false-exact-overlay
+      boundaries. The detailed corpus report is not stored in this workspace;
+      this result is recorded as owner-supplied evidence.
 
 ## Out of scope or not manually testable yet
 
@@ -182,9 +219,10 @@ database evidence instead of marking this check passed.
   request shape, response validation, telemetry, and privacy settings require
   the developer evidence above; testers must not use SQL or browser developer
   tools as a substitute for an available interface.
-- Real medical documents, public URLs, Mistral Files/Libraries/Batch, global
-  endpoint fallback, and automatic verification of Mistral-origin rows are
-  prohibited until the privacy/DPA/ZDR/training and release gates are approved.
+- Real medical documents remain out of scope for this checklist; no patient
+  data was processed in this workspace. Public URLs, Mistral Files/Libraries/
+  Batch, global endpoint fallback, and automatic verification of Mistral-origin
+  rows remain prohibited by the implementation.
 - Mistral coarse table boxes are not exact biomarker-row geometry. Page-only
   fallback is the expected behavior when deterministic exact geometry is absent.
 - Automatic backfill of existing documents, OCR annotations, resolver changes,
@@ -200,8 +238,16 @@ database evidence instead of marking this check passed.
   technical check, CI suite coverage, strict OpenSpec validation, biomarker
   documentation generation/drift/tests, and Wiki render/export passed on
   `2026-08-19`.
-- **Manual UI checks:** Not executed in this workspace; leave each result blank
-  until a tester exercises the product with synthetic/de-identified fixtures.
+- **Mistral regional readiness evidence:** `pnpm verify:eh163-model-check`
+  passed at `2026-08-20T09:41:55.333Z` and persisted the sanitized
+  `models.list` result for `eu` / `mistral-ocr-latest`. Evidence is attached
+  to [EH-163 Issue #153](https://github.com/Hazyshades/EasyHealth/issues/153#issuecomment-5354197493).
+  A preceding transient check failed with `ocr_provider_unavailable` and was
+  also retained as a separate failure row; it does not invalidate the later
+  successful check.
+- **Manual UI checks:** EH163-UI-05 passed against the local disposable
+  fixture on `2026-08-20`; EH163-UI-01 through EH163-UI-04 remain unexecuted
+  here and must be run with synthetic/de-identified fixtures.
 - **Release status:** In progress and blocked for real medical traffic pending
   named privacy/legal, regional-model, quality-corpus, and production regression
   evidence.

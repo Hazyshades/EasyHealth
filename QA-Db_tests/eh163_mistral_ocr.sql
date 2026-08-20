@@ -1,6 +1,6 @@
 begin;
 
-select plan(17);
+select plan(25);
 
 select ok(
   has_table_privilege('service_role', 'public.document_pages', 'select'),
@@ -17,6 +17,75 @@ select ok(
 select ok(
   not has_table_privilege('anon', 'public.ai_invocations', 'select'),
   'anon cannot read invocation telemetry'
+);
+select ok(
+  has_table_privilege('service_role', 'public.ai_provider_model_checks', 'select'),
+  'service_role can read Mistral model readiness evidence'
+);
+select ok(
+  has_table_privilege('service_role', 'public.ai_provider_model_checks', 'insert'),
+  'service_role can write Mistral model readiness evidence'
+);
+select ok(
+  not has_table_privilege('anon', 'public.ai_provider_model_checks', 'select'),
+  'anon cannot read Mistral model readiness evidence'
+);
+select ok(
+  not has_table_privilege('service_role', 'public.ai_provider_model_checks', 'update'),
+  'readiness evidence does not grant service-role updates'
+);
+select ok(
+  not has_table_privilege('service_role', 'public.ai_provider_model_checks', 'delete'),
+  'readiness evidence does not grant service-role deletes'
+);
+
+insert into public.ai_provider_model_checks (
+  provider,
+  region,
+  requested_model,
+  model_present,
+  success,
+  error_code,
+  latency_ms,
+  worker_instance_id,
+  adapter_version,
+  checked_at
+)
+values (
+  'mistral',
+  'eu',
+  'mistral-ocr-latest',
+  true,
+  true,
+  null,
+  123,
+  'eh163-test-worker',
+  'eh163-1',
+  '2026-08-19T00:00:00Z'
+);
+select is(
+  (select requested_model from public.ai_provider_model_checks limit 1),
+  'mistral-ocr-latest',
+  'readiness evidence stores the requested model without a raw catalog'
+);
+select throws_ok(
+  $$
+    update public.ai_provider_model_checks
+    set success = false
+    where requested_model = 'mistral-ocr-latest';
+  $$,
+  'P0001',
+  'ai_provider_model_checks_append_only',
+  'readiness evidence rejects updates'
+);
+select throws_ok(
+  $$
+    delete from public.ai_provider_model_checks
+    where requested_model = 'mistral-ocr-latest';
+  $$,
+  'P0001',
+  'ai_provider_model_checks_append_only',
+  'readiness evidence rejects deletes'
 );
 
 insert into public.profiles (id, email)

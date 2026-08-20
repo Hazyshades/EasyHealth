@@ -3,6 +3,13 @@ import { Mistral } from "@mistralai/mistralai";
 import { z } from "zod";
 import { workerEnv } from "../env.js";
 import {
+  createMistralModelCheckEvidence,
+  recordMistralModelCheck,
+  toMistralModelCheckErrorCode,
+  type MistralModelCheckEvidence,
+  type MistralModelCheckRecorder,
+} from "./model-check.js";
+import {
   OcrProviderError,
   type OcrBlock,
   type OcrDocument,
@@ -224,9 +231,25 @@ export function createMistralClient(): Mistral {
   });
 }
 
-export async function verifyMistralOcrModel(client = createMistralClient()): Promise<void> {
+async function persistMistralModelCheck(
+  recorder: MistralModelCheckRecorder,
+  evidence: MistralModelCheckEvidence,
+): Promise<void> {
   try {
-    const response = await client.models.list(undefined, {
+    await recorder(evidence);
+  } catch {
+    throw new Error("mistral_model_check_evidence_unavailable");
+  }
+}
+
+export async function verifyMistralOcrModel(
+  client?: MistralClient,
+  recorder: MistralModelCheckRecorder = recordMistralModelCheck,
+): Promise<MistralModelCheckEvidence> {
+  const startedAt = Date.now();
+  let modelPresent = false;
+  try {
+    const response = await (client ?? createMistralClient()).models.list(undefined, {
       timeoutMs: workerEnv.mistralOcrTimeoutMs,
       retries: { strategy: "none" },
     });
@@ -238,12 +261,26 @@ export async function verifyMistralOcrModel(client = createMistralClient()): Pro
         : [];
       return [...ids, ...aliases];
     });
-    if (!modelIds.includes(workerEnv.mistralOcrModel)) {
-      throw new OcrProviderError("ocr_provider_unavailable");
-    }
+    modelPresent = modelIds.includes(workerEnv.mistralOcrModel);
   } catch (error) {
-    throw stableProviderError(error);
+    const stableError = stableProviderError(error);
+    const evidence = createMistralModelCheckEvidence({
+      modelPresent: false,
+      errorCode: toMistralModelCheckErrorCode(stableError.code),
+      startedAt,
+    });
+    await persistMistralModelCheck(recorder, evidence);
+    throw stableError;
   }
+
+  const evidence = createMistralModelCheckEvidence({
+    modelPresent,
+    errorCode: modelPresent ? null : "ocr_provider_unavailable",
+    startedAt,
+  });
+  await persistMistralModelCheck(recorder, evidence);
+  if (!modelPresent) throw new OcrProviderError("ocr_provider_unavailable");
+  return evidence;
 }
 
 export async function processMistralOcr(input: {

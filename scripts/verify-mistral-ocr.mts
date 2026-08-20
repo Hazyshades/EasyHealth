@@ -4,6 +4,7 @@ import { selectOcrSource } from "../worker/src/ocr/select";
 import { buildPageOcrArtifactV2, isPageOcrArtifact } from "../src/lib/biomarkers/ocr-artifact";
 import type { PdfLayoutPage } from "../src/lib/documents/pdf-text-layout";
 import type { OcrProviderError } from "../worker/src/ocr/types";
+import type { MistralModelCheckEvidence } from "../worker/src/ocr/model-check";
 
 process.env.NEXT_PUBLIC_SUPABASE_URL ??= "https://example.supabase.co";
 process.env.SUPABASE_SERVICE_ROLE_KEY ??= "test-service-role-key";
@@ -11,7 +12,12 @@ process.env.OPENAI_API_KEY ??= "test-openai-key";
 
 // The worker env module validates required secrets at import time; this test
 // seeds disposable values before loading the adapter boundary.
-const { normalizeMistralResponse, processMistralOcr } = await import("../worker/src/ocr/mistral");
+const {
+  normalizeMistralResponse,
+  processMistralOcr,
+  verifyMistralOcrModel,
+} = await import("../worker/src/ocr/mistral");
+const { formatMistralModelCheckEvidence } = await import("../worker/src/ocr/model-check");
 
 const layoutPages = (texts: string[]): PdfLayoutPage[] =>
   texts.map((text, index) => ({
@@ -164,6 +170,64 @@ assert.match(String(calls[0]?.document.documentUrl), /^data:application\/pdf;bas
 assert.equal(calls[1]?.document.type, "image_url");
 assert.match(String(calls[1]?.document.imageUrl), /^data:image\/png;base64,/);
 assert.equal(calls[0]?.options?.timeoutMs, 45_000);
+const readinessRecords: MistralModelCheckEvidence[] = [];
+const recordReadiness = async (evidence: MistralModelCheckEvidence) => {
+  readinessRecords.push(evidence);
+};
+const modelPresentClient = {
+  models: {
+    async list() {
+      return { data: [{ id: "mistral-ocr-latest", aliases: ["mistral-ocr-latest"] }] };
+    },
+  },
+} as never;
+const modelCheck = await verifyMistralOcrModel(modelPresentClient, recordReadiness);
+assert.equal(modelCheck.modelPresent, true);
+assert.equal(modelCheck.success, true);
+assert.equal(readinessRecords.at(-1)?.requestedModel, "mistral-ocr-latest");
+assert.match(formatMistralModelCheckEvidence(modelCheck), /"model_present":true/);
+assert.doesNotMatch(
+  formatMistralModelCheckEvidence(modelCheck),
+  /api[_-]?key|authorization|raw[_-]?response|patient|document[_-]?content/i,
+);
+
+const modelMissingClient = {
+  models: {
+    async list() {
+      return { data: [{ id: "other-model" }] };
+    },
+  },
+} as never;
+await assert.rejects(
+  () => verifyMistralOcrModel(modelMissingClient, recordReadiness),
+  (error: unknown) => (error as OcrProviderError).code === "ocr_provider_unavailable",
+);
+assert.equal(readinessRecords.at(-1)?.modelPresent, false);
+assert.equal(readinessRecords.at(-1)?.errorCode, "ocr_provider_unavailable");
+
+const providerFailureClient = {
+  models: {
+    async list() {
+      throw Object.assign(new Error("provider body must not escape"), { status: 401 });
+    },
+  },
+} as never;
+await assert.rejects(
+  () => verifyMistralOcrModel(providerFailureClient, recordReadiness),
+  (error: unknown) => (error as OcrProviderError).code === "ocr_provider_unavailable",
+);
+assert.equal(readinessRecords.at(-1)?.errorCode, "ocr_provider_unavailable");
+
+await assert.rejects(
+  () => verifyMistralOcrModel(modelPresentClient, async () => {
+    throw new Error("database details must not escape");
+  }),
+  (error: unknown) =>
+    error instanceof Error && error.message === "mistral_model_check_evidence_unavailable",
+);
+
+assert.equal(readinessRecords.length, 3);
+
 
 const v2 = buildPageOcrArtifactV2({
   provider: "mistral",
