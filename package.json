@@ -18,6 +18,7 @@
     "test:document-worker": "tsx scripts/verify-document-worker-reliability.ts",
     "test:eh163-ocr": "tsx scripts/verify-mistral-ocr.mts",
     "verify:eh163-model-check": "pnpm --dir worker exec tsx ../scripts/verify-mistral-model-check.mts",
+    "test:document-persistence-boundaries": "tsx scripts/verify-laboratory-persistence-boundaries.ts",
     "test:eh163-db": "supabase test db --local QA-Db_tests/eh163_mistral_ocr.sql",
     "test:health-profile-lab-input": "tsx scripts/verify-health-profile-lab-input.ts",
     "test:eh105": "tsx scripts/verify-eh105-instrumental-lineage.ts && tsx scripts/verify-eh105-worker-safety.ts && tsx scripts/verify-pr2-reader-boundaries.ts",
