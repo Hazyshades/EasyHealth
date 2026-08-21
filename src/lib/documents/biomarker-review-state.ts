@@ -114,6 +114,13 @@ export function resolveBiomarkerReviewAction(options: { mode: BiomarkerPanelMode
   return "none";
 }
 
+export function shouldCompleteDocumentReview(options: {
+  documentStatus: string;
+  reviewableExtractedCount: number;
+}): boolean {
+  return options.documentStatus === "needs_review" && options.reviewableExtractedCount === 0;
+}
+
 export function reviewDataErrorMessage(error: { message?: string | null } | null | undefined): string | null { return error ? "Biomarker review data could not be loaded." : null; }
 export type ObservationFallbackValidation = { ok: true } | { ok: false; status: number; error: string };
 function sameIds(left: readonly string[], right: readonly string[]) { const a = [...new Set(left)].sort(); const b = [...new Set(right)].sort(); return a.length === b.length && a.every((value, index) => value === b[index]); }

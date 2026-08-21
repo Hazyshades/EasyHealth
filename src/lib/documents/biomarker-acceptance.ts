@@ -40,6 +40,7 @@ export async function acceptExtractedBiomarkers(options: {
     .eq("document_id", options.documentId)
     .eq("profile_id", options.profileId)
     .eq("is_current", true)
+    .eq("is_published", true)
     .eq("record_status", "active")
     .in("id", ids);
 

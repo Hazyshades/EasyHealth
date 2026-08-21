@@ -69,7 +69,11 @@ assert.equal(
 assert.equal(
   resolveModelCapabilities("nebius_fast", "meta-llama/Llama-3.3-70B-Instruct")
     .supportsTemperature,
-  true,
+  false,
+);
+assert.equal(
+  temperatureForModel("nebius_fast", "meta-llama/Llama-3.3-70B-Instruct", 0),
+  undefined,
 );
 assert.equal(temperatureForModel("deepseek", "deepseek-reasoner", 0), undefined);
 assert.equal(

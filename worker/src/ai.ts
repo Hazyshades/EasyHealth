@@ -7,6 +7,9 @@ import {
   coreResolveModelForStage,
   coreResolveOpenAiVisionModel,
 } from "../../src/lib/ai/resolve-model-core.js";
+import { verifyMistralOcrModel } from "./ocr/mistral.js";
+import { formatMistralModelCheckEvidence } from "./ocr/model-check.js";
+import { OcrProviderError } from "./ocr/types.js";
 import { workerEnv } from "./env.js";
 
 export type AiProviderId =
@@ -39,5 +42,20 @@ export async function ensureWorkerAiReady(): Promise<void> {
     await validateNebiusModelCatalog({
       failInProduction: process.env.NODE_ENV === "production",
     });
+  }
+  if (workerEnv.mistralOcrEnabled) {
+    try {
+      const evidence = await verifyMistralOcrModel();
+      console.log(formatMistralModelCheckEvidence(evidence));
+    } catch (error) {
+      const errorCode = error instanceof OcrProviderError
+        ? error.code
+        : "mistral_model_check_evidence_unavailable";
+      console.error(
+        `Mistral models.list readiness failed: region=${workerEnv.mistralOcrRegion} ` +
+          `requested_model=${workerEnv.mistralOcrModel} error_code=${errorCode}`,
+      );
+      throw error;
+    }
   }
 }

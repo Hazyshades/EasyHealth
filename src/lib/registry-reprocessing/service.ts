@@ -302,6 +302,7 @@ async function materializeRow(options: {
       "id, document_id, profile_id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, confidence, specimen, modifier, source_page, source_text, bounding_box, reported_alt_value, reported_alt_unit, raw_value_text, method, processing_version"
     )
     .eq("id", options.pendingRow.extracted_biomarker_id)
+    .eq("is_published", true)
     .single();
   if (extractedError) throw extractedError;
 

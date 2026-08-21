@@ -134,7 +134,12 @@ assert.match(
 );
 assert.match(
   workerPipeline,
-  /if \(documentType !== "lab_result"\)[\s\S]*?document_extracted_biomarkers"\)\.delete/,
+  /from\("document_extracted_biomarkers"\)[\s\S]*?\.insert\(/,
+  "worker must stage laboratory extraction rows for lifecycle supersession"
+);
+assert.doesNotMatch(
+  workerPipeline,
+  /supabase\.from\("document_extracted_biomarkers"\)\.delete/,
   "worker must retain laboratory extraction rows for lifecycle supersession"
 );
 assert.doesNotMatch(
@@ -144,7 +149,7 @@ assert.doesNotMatch(
 );
 assert.match(
   workerPipeline,
-  /documentType !== "instrumental_report"/,
+  /documentType === "instrumental_report"/,
   "worker must keep instrumental snapshot replacement on the EH-105 path"
 );
 

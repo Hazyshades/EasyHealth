@@ -136,6 +136,7 @@ export async function executeBatchVerification(options: {
     .select(BATCH_EXTRACTED_BIOMARKER_SELECT)
     .eq("profile_id", options.profileId)
     .eq("document_id", options.documentId)
+    .eq("is_published", true)
     .in("id", [...byId.keys()]);
   if (rowResult.error) throw new BatchVerificationError(rowResult.error.message, 500);
   const rowsById = new Map(
@@ -292,6 +293,7 @@ export async function reverseBatchVerification(options: {
       .eq("profile_id", options.profileId)
       .eq("document_id", options.documentId)
       .eq("id", row.extracted_biomarker_id)
+      .eq("is_published", true)
       .maybeSingle();
     const extracted = extractedResult.data as BatchExtractedRow | null;
     const activeRevision = extracted

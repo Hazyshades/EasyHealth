@@ -18,11 +18,7 @@ import {
   type RecordStatus,
 } from "./observation-verification-workflow";
 import type { LaboratoryResolutionDetails } from "./incomplete-laboratory-outcomes";
-import {
-  parseSourceRegion,
-  sourceRegionMatchesPage,
-  type SourceRegion,
-} from "./source-region";
+import { parseSourceRegion, sourceRegionCanRender, type SourceRegion } from "./source-region";
 
 /**
  * EH-117 split-view review workspace state model.
@@ -287,7 +283,7 @@ export function resolveSourceLocation(
       ? sourceText
       : null;
   const candidate = parseSourceRegion(boundingBox);
-  const region = sourceRegionMatchesPage(candidate, page) ? candidate : null;
+  const region = sourceRegionCanRender(candidate, page) ? candidate : null;
   return {
     precision: page === null ? "document" : region ? "region" : "page",
     page,

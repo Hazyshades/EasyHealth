@@ -6,6 +6,7 @@ type InstrumentalSourceRelation = { is_current?: boolean | null } | null;
 type LaboratorySourceRow = {
   record_status?: string | null;
   is_current?: boolean | null;
+  is_published?: boolean | null;
 };
 type LaboratorySourceRelation = LaboratorySourceRow | LaboratorySourceRow[] | null;
 
@@ -94,12 +95,13 @@ export function projectActiveRegistryV2LaboratoryBinding(
     : undefined;
   const laboratorySource = Array.isArray(observation.source_extracted_biomarker)
     ? observation.source_extracted_biomarker[0] ?? null
-    : observation.source_extracted_biomarker ?? null;
+: observation.source_extracted_biomarker;
   const sourceLifecycleActive =
     laboratorySource == null ||
     (laboratorySource.record_status !== "rejected" &&
       laboratorySource.record_status !== "superseded" &&
-      laboratorySource.is_current !== false);
+      laboratorySource.is_current !== false &&
+      laboratorySource.is_published !== false);
   const registryBindingReady =
     isLaboratoryObservation(observation) &&
     sourceLifecycleActive &&
@@ -140,12 +142,13 @@ export function isCurrentDocumentObservation(
   if (observation.observation_kind === "lab") {
     const source = Array.isArray(observation.source_extracted_biomarker)
       ? observation.source_extracted_biomarker[0] ?? null
-      : observation.source_extracted_biomarker ?? null;
+: observation.source_extracted_biomarker;
     return (
       source == null ||
       (source.record_status !== "rejected" &&
         source.record_status !== "superseded" &&
-        source.is_current !== false)
+        source.is_current !== false &&
+        source.is_published !== false)
     );
   }
   if (observation.observation_kind !== "instrumental") return true;

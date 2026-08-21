@@ -117,6 +117,15 @@
       "localOnly": false,
       "owner": "documents",
       "reason": "Batch verification metadata and append-only reversal contracts require pgTAP."
+    },
+    {
+      "script": "test:service-role-access-db",
+      "verificationFiles": ["QA-Db_tests/service_role_access_contract.sql"],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "documents",
+      "reason": "Service-role grants for AI invocation logging and observation source embeds require pgTAP."
     }
   ],
   "localOnly": []
