@@ -17,6 +17,10 @@ export const PAGE_TITLES: Record<string, { title: string; subtitle?: string }> =
     title: "Health Profile",
     subtitle: "Current state assessments and factual insights from your records",
   },
+  "/app/timeline": {
+    title: "Health Timeline",
+    subtitle: "Your medical events in chronological order",
+  },
   "/app/biomarkers": {
     title: "Biomarkers",
     subtitle: "Values extracted from your lab documents",
