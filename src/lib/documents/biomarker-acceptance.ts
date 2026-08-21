@@ -27,7 +27,7 @@ export class BiomarkerAcceptanceError extends Error {
 export async function acceptExtractedBiomarkers(options: {
   profileId: string;
   documentId: string;
-  observedAt: string;
+  observedAt: string | null;
   ids: string[];
 }): Promise<{ acceptedIds: string[]; failures: BiomarkerAcceptanceFailure[] }> {
   const supabase = createAdminClient();

@@ -106,7 +106,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
   );
   const confirmedObservationIds: string[] = [];
   const failures: ConfirmationFailure[] = [];
-  const observedAt = doc!.observed_at ?? new Date().toISOString().slice(0, 10);
+  const observedAt = doc!.observed_at;
 
   for (const observation of observations) {
     const sourceRow = sourceRowsById.get(observation.source_extracted_biomarker_id!);

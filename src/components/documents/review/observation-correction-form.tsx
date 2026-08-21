@@ -66,7 +66,7 @@ function asDraft(
     unit: measurement.unit ?? "",
     refLow: measurement.refLow == null ? "" : String(measurement.refLow),
     refHigh: measurement.refHigh == null ? "" : String(measurement.refHigh),
-    observedAt: measurement.observedAt,
+    observedAt: measurement.observedAt ?? "",
     reason: "",
   };
 }
@@ -105,7 +105,8 @@ function buildAbsoluteOverride(
   if (draft.unit.trim() !== (base.unit ?? "").trim()) candidate.unit = draft.unit.trim();
   if (refLow !== base.refLow) candidate.ref_low = refLow;
   if (refHigh !== base.refHigh) candidate.ref_high = refHigh;
-  if (draft.observedAt !== base.observedAt) candidate.observed_at = draft.observedAt;
+  const observedAt = draft.observedAt.trim() || null;
+  if (observedAt !== base.observedAt) candidate.observed_at = observedAt;
 
   return candidate as MeasurementOverride;
 }

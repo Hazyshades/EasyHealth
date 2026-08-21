@@ -51,7 +51,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       await executeBatchVerification({
         profileId,
         documentId,
-        observedAt: doc!.observed_at ?? new Date().toISOString().slice(0, 10),
+        observedAt: doc!.observed_at,
         operationId,
         snapshots,
       }),
