@@ -24,7 +24,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: "No biomarker ids provided" }, { status: 400 });
   }
 
-  const observedAt = doc!.observed_at ?? new Date().toISOString().slice(0, 10);
+  const observedAt = doc!.observed_at;
 
   try {
     const result = await acceptExtractedBiomarkers({

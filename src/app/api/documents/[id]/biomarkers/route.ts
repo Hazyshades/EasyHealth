@@ -234,7 +234,7 @@ export async function PATCH(req: Request, context: RouteContext) {
       const validation = validateMeasurementCorrection({
         base: baseMeasurementFromExtractedRow(
           row,
-          doc!.observed_at ?? new Date().toISOString().slice(0, 10),
+          doc!.observed_at,
         ),
         override: effectiveOverride,
         correctionReason: body.correctionReason,
@@ -259,7 +259,7 @@ export async function PATCH(req: Request, context: RouteContext) {
       const writerResult = await writeExtractedBiomarkerNormalization({
         profileId,
         documentId: id,
-        observedAt: doc!.observed_at ?? new Date().toISOString().slice(0, 10),
+        observedAt: doc!.observed_at,
         row,
         actorId: profileId,
         writeKind: "value_correction",
@@ -321,7 +321,7 @@ export async function PATCH(req: Request, context: RouteContext) {
       const writerResult = await writeExtractedBiomarkerNormalization({
         profileId,
         documentId: id,
-        observedAt: doc!.observed_at ?? new Date().toISOString().slice(0, 10),
+        observedAt: doc!.observed_at,
         row,
         actorId: profileId,
         writeKind: "value_correction",
@@ -373,7 +373,7 @@ export async function PATCH(req: Request, context: RouteContext) {
     const writerResult = await writeExtractedBiomarkerNormalization({
       profileId,
       documentId: id,
-      observedAt: doc!.observed_at ?? new Date().toISOString().slice(0, 10),
+      observedAt: doc!.observed_at,
       row,
       actorId: profileId,
       writeKind: "correction",

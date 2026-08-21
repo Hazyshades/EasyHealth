@@ -71,6 +71,12 @@ import {
   type PrepareInstrumentalPublicationArgs,
   type PrepareInstrumentalPublicationRow,
 } from "../../src/lib/documents/instrumental-publication.js";
+import {
+  buildMedicalEventDateSync,
+  calendarDateProjection,
+  type MedicalEventDateRole,
+  type MedicalEventDateSync,
+} from "../../src/lib/documents/medical-events.js";
 import { finalizeDocumentProcessing } from "./document-completion.js";
 import { modelIdForStage, resolveModelForStage, type AiProviderId } from "./ai.js";
 import {
@@ -112,6 +118,31 @@ function requireMutationSuccess<T extends SupabaseMutationResult>(
     throw new Error(`${operation}: ${result.error.message}`);
   }
   return result;
+}
+
+function consistentSourceDate(values: readonly unknown[]): string | null {
+  const candidates = values.flatMap((value) =>
+    typeof value === "string" && value.trim() ? [value.trim()] : []
+  );
+  if (candidates.length === 0) return null;
+  const first = candidates[0];
+  return candidates.every((candidate) => candidate === first) ? first : null;
+}
+
+async function syncMedicalEventDates(
+  documentId: string,
+  dates: Partial<Record<MedicalEventDateRole, unknown>>,
+): Promise<void> {
+  const payload: MedicalEventDateSync[] = Object.entries(dates).map(([role, value]) =>
+    buildMedicalEventDateSync(role as MedicalEventDateRole, value)
+  );
+  const { error } = await supabase.rpc("eh126_sync_document_event_dates", {
+    p_document_id: documentId,
+    p_dates: payload,
+  });
+  if (error) {
+    throw new Error(`sync medical event dates: ${error.message}`);
+  }
 }
 
 async function uploadToLabDocuments(
@@ -470,6 +501,11 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
       structuredPayload = extraction;
       observedAt = extraction.observed_at;
       labName = extraction.lab_name;
+      await syncMedicalEventDates(documentId, {
+        occurred: observedAt,
+        collected: consistentSourceDate(extraction.biomarkers.map((row) => row.collected_at)),
+        authored: consistentSourceDate(extraction.biomarkers.map((row) => row.reported_at)),
+      });
 
       if (extraction.biomarkers.length > 0) {
         const insertedBiomarkers = requireMutationSuccess(
@@ -495,6 +531,8 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
                   modifier?: string | null;
                   reported_alt_value?: number | null;
                   reported_alt_unit?: string | null;
+                  collected_at?: string | null;
+                  reported_at?: string | null;
                   inferred_axes?: unknown;
                 };
                 const provenance = resolveProvenance(anyB.source_page, anyB.source_text);
@@ -519,10 +557,10 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
                   bounding_box: provenance.region,
                   source_text: anyB.source_text,
                   confidence: anyB.confidence,
-                  specimen: anyB.specimen ?? null,
-                  modifier: anyB.modifier ?? null,
                   reported_alt_value: anyB.reported_alt_value ?? null,
                   reported_alt_unit: anyB.reported_alt_unit ?? null,
+                  collected_at: calendarDateProjection(anyB.collected_at),
+                  reported_at: calendarDateProjection(anyB.reported_at),
                   // #106: observability only, never read by the resolver.
                   inferred_axes: anyB.inferred_axes ?? null,
                   extraction_method: "llm",
@@ -541,8 +579,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
           throw new Error("write extracted laboratory biomarkers returned an incomplete row set");
         }
         if (isAutomaticVerificationReleaseApproved()) {
-          const automaticObservedAt =
-            observedAt ?? new Date().toISOString().slice(0, 10);
+          const automaticObservedAt = calendarDateProjection(observedAt);
           for (const row of insertedRows) {
             const result = await writeAutomaticBiomarkerVerification({
               profileId,
@@ -590,16 +627,13 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
       observedAt = extraction.study_date;
       labName = extraction.facility_name;
       modality = extraction.modality;
+      await syncMedicalEventDates(documentId, { occurred: observedAt });
 
-      // Stage the immutable snapshot (measures, findings, impression) as an
-      // inactive prepared publication; readers keep seeing the prior current
-      // version until the finalizer commits.
-      // EH-118: page and region are re-grounded against the page index before
-      // the snapshot is normalized. The source locator stays exactly as
-      // extracted because it carries EH-105 source identity.
+      // The legacy instrumental publication snapshot has a day-level date
+      // projection. The event row above retains any month/year precision.
+      // Missing/partial source dates therefore stay null in the snapshot.
       const snapshot = normalizeInstrumentalSnapshot({
-        study_date:
-          extraction.study_date ?? new Date().toISOString().slice(0, 10),
+        study_date: calendarDateProjection(extraction.study_date),
         modality: extraction.modality,
         body_region: extraction.body_region,
         facility_name: extraction.facility_name,
@@ -663,6 +697,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
       structuredPayload = extraction;
       observedAt = extraction.visit_date;
       labName = extraction.provider_name;
+      await syncMedicalEventDates(documentId, { occurred: observedAt });
 
       await supabase.from("document_extracted_clinical_notes").insert({
         document_id: documentId,
@@ -701,11 +736,14 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         (image, model, filename, ctx) =>
           extractDischargeFromImage(image, "image/webp", model, filename, ctx)
       );
-
       extractionModel = modelId;
       structuredPayload = extraction;
-      observedAt = extraction.discharge_date ?? extraction.admission_date;
+      observedAt = extraction.admission_date ?? extraction.discharge_date;
       labName = extraction.provider_name;
+      await syncMedicalEventDates(documentId, {
+        occurred: extraction.admission_date,
+        occurred_end: extraction.discharge_date,
+      });
 
       await supabase.from("document_extracted_clinical_notes").insert({
         document_id: documentId,
@@ -750,11 +788,11 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         (image, model, filename, ctx) =>
           extractPrescriptionFromImage(image, "image/webp", model, filename, ctx)
       );
-
       extractionModel = modelId;
       structuredPayload = extraction;
       observedAt = extraction.prescribed_at;
       labName = extraction.prescriber_name;
+      await syncMedicalEventDates(documentId, { occurred: observedAt });
 
       await supabase.from("document_extracted_prescriptions").insert({
         document_id: documentId,
@@ -787,11 +825,11 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         (image, model, filename, ctx) =>
           extractReferralFromImage(image, "image/webp", model, filename, ctx)
       );
-
       extractionModel = modelId;
       structuredPayload = extraction;
       observedAt = extraction.referral_date;
       labName = extraction.referring_provider;
+      await syncMedicalEventDates(documentId, { occurred: observedAt });
 
       await supabase.from("document_extracted_referrals").insert({
         document_id: documentId,
@@ -836,8 +874,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         processing_version: DOCUMENT_PROCESSING_VERSION,
         extraction_model: extractionModel,
         lab_name: labName,
-        observed_at: observedAt,
-        modality,
+        observed_at: calendarDateProjection(observedAt),
         document_summary: documentSummary,
         ocr_status: ocrText ? "completed" : "skipped",
         extraction_status: "completed",

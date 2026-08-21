@@ -124,6 +124,8 @@ jobs:
         run: pnpm test:eh123
       - name: Verify batch verification contracts
         run: pnpm test:eh122
+      - name: Verify EH-126 medical-event contracts
+        run: pnpm test:eh126
 
       - name: Publish Registry 2.0 candidate-release evidence
         run: |
@@ -131,6 +133,7 @@ jobs:
           pnpm report:registry-v2-candidate-corpus > .artifacts/registry-v2-candidate-release.json
           cp registry/candidate-release/v1/approvals.json .artifacts/registry-v2-candidate-release-approvals.json
           cp registry/candidate-release/v1/reset-rollback.md .artifacts/registry-v2-candidate-release-reset-rollback.md
+
       - name: Upload Registry 2.0 candidate-release evidence
         uses: actions/upload-artifact@v4
         with:
@@ -195,6 +198,8 @@ jobs:
         run: pnpm test:eh113-db
       - name: Run EH-116 registry reprocess database contract
         run: pnpm test:eh116-db
+      - name: Run EH-126 medical-event database contract
+        run: pnpm test:eh126-db
       - name: Run PR2 instrumental database contracts
         run: pnpm test:pr2-db
       - name: Run resolver trace v2 database contract

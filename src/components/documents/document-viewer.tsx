@@ -1170,7 +1170,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
       item.id,
       baseMeasurementFromExtractedRow(
         item as unknown as ExtractedBiomarkerMeasurementRow,
-        doc.observed_at ?? new Date().toISOString().slice(0, 10),
+        doc.observed_at,
       ),
     ]),
   );

@@ -70,6 +70,7 @@ QA checklists (qa-tests.md)          ← verification status
 
 ### Reference
 - [Human-facing API](./04-api/human-api.md)
+- [Medical-event model and timeline API](./05-data/medical-event-model.md)
 - [Database schema](./05-data/database-schema.md)
 - [Migrations](./05-data/migrations.md)
 - [Biomarker Registry v1.0.0 baseline](../registry/biomarker-registry/v1.0.0/AUDIT.md)

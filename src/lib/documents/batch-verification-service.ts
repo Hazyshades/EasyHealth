@@ -74,7 +74,7 @@ function asOutcomes(value: unknown): BatchVerificationRowOutcome[] {
 export async function executeBatchVerification(options: {
   profileId: string;
   documentId: string;
-  observedAt: string;
+  observedAt: string | null;
   operationId: string;
   snapshots: readonly BatchVerificationSnapshot[];
 }): Promise<BatchVerificationResult> {
@@ -254,6 +254,20 @@ export async function reverseBatchVerification(options: {
   if (operation.error) throw new BatchVerificationError(operation.error.message, 500);
   if (!operation.data) throw new BatchVerificationError("Batch verification operation not found", 404);
 
+  const documentResult = await supabase
+    .from("documents")
+    .select("observed_at")
+    .eq("id", options.documentId)
+    .eq("profile_id", options.profileId)
+    .maybeSingle();
+  if (documentResult.error) {
+    throw new BatchVerificationError(documentResult.error.message, 500);
+  }
+  if (!documentResult.data) {
+    throw new BatchVerificationError("Document not found", 404);
+  }
+  const observedAt = documentResult.data.observed_at;
+
   const rows = await supabase
     .from("batch_verification_operation_rows")
     .select("id, extracted_biomarker_id, resulting_revision_id, reversal_revision_id")
@@ -306,7 +320,7 @@ export async function reverseBatchVerification(options: {
       const reversal = await writeExtractedBiomarkerNormalization({
         profileId: options.profileId,
         documentId: options.documentId,
-        observedAt: new Date().toISOString().slice(0, 10),
+        observedAt,
         row: extracted,
         actorId: options.profileId,
         writeKind: "verification_reversal",
