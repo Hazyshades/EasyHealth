@@ -384,14 +384,21 @@ declare
   v_definition text;
   v_old text := 'if p_snapshot ->> ''study_date'' is null';
   v_new text := 'if p_snapshot ->> ''study_date'' is not null';
+  v_date_or text := 'or (p_snapshot ->> ''study_date'') !~';
+  v_date_and text := 'and (p_snapshot ->> ''study_date'') !~';
 begin
   select pg_get_functiondef('public.pr2_validate_instrumental_snapshot(jsonb)'::regprocedure)
   into v_definition;
   if v_definition is null
-    or (position(v_old in v_definition) = 0 and position(v_new in v_definition) = 0) then
+    or (position(v_old in v_definition) = 0 and position(v_new in v_definition) = 0)
+    or (position(v_date_or in v_definition) = 0 and position(v_date_and in v_definition) = 0) then
     raise exception using message = 'eh126_pr2_validator_patch_target_missing';
   end if;
-  execute replace(v_definition, v_old, v_new);
+  execute replace(
+    replace(v_definition, v_old, v_new),
+    v_date_or,
+    v_date_and
+  );
 end;
 $eh126_patch$;
 

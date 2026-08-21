@@ -1,6 +1,6 @@
 begin;
 
-select plan(24);
+select plan(26);
 
 select ok(
   to_regclass('public.medical_events') is not null,
@@ -47,6 +47,34 @@ select ok(
 select ok(
   public.eh119_is_measurement_override('{"observed_at": null}'::jsonb),
   'explicit null observed_at corrections are valid'
+);
+
+select lives_ok(
+  $$
+    select public.pr2_validate_instrumental_snapshot(
+      jsonb_build_object(
+        'study_date', null,
+        'measures', '[]'::jsonb,
+        'findings', '[]'::jsonb
+      )
+    )
+  $$,
+  'instrumental snapshots may omit study date'
+);
+
+select throws_ok(
+  $$
+    select public.pr2_validate_instrumental_snapshot(
+      jsonb_build_object(
+        'study_date', '2026-02-31',
+        'measures', '[]'::jsonb,
+        'findings', '[]'::jsonb
+      )
+    )
+  $$,
+  null,
+  null,
+  'malformed non-null instrumental dates remain rejected'
 );
 
 
