@@ -54,6 +54,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       .eq("profile_id", profileId)
       .eq("document_id", id)
       .eq("is_current", true)
+      .eq("is_published", true)
       .eq("record_status", "active")
       .in("status", ["needs_review", "pending_review"]),
   ]);
@@ -92,6 +93,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
     .eq("document_id", id)
     .eq("profile_id", profileId)
     .eq("is_current", true)
+    .eq("is_published", true)
     .eq("record_status", "active")
     .in("id", sourceIds);
   if (sourceError) return NextResponse.json({ error: sourceError.message }, { status: 500 });
@@ -104,7 +106,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
   );
   const confirmedObservationIds: string[] = [];
   const failures: ConfirmationFailure[] = [];
-  const observedAt = doc!.observed_at ?? new Date().toISOString().slice(0, 10);
+  const observedAt = doc!.observed_at;
 
   for (const observation of observations) {
     const sourceRow = sourceRowsById.get(observation.source_extracted_biomarker_id!);

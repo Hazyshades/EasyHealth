@@ -49,6 +49,8 @@ export type PipelineBiomarker = {
   method: string | null;
   reported_alt_value: number | null;
   reported_alt_unit: string | null;
+  collected_at: string | null;
+  reported_at: string | null;
   /**
    * #106: clinical axes the model supplied without document evidence, kept for
    * observability only. Never read by the resolver, never part of identity.
@@ -67,7 +69,7 @@ Respond with a single JSON object only. No markdown fences, no commentary.
 Shape:
 {
   "lab_name": string | null,
-  "observed_at": "YYYY-MM-DD" | null,
+  "observed_at": "YYYY | YYYY-MM | YYYY-MM-DD" | null,
   "biomarkers": [
     {
       "raw_name": "exact test label as printed in the document (do not translate)",
@@ -77,6 +79,8 @@ Shape:
       "unit": "string",
       "ref_low": number | null,
       "ref_high": number | null,
+      "collected_at": "YYYY | YYYY-MM | YYYY-MM-DD" | null,
+      "reported_at": "YYYY | YYYY-MM | YYYY-MM-DD" | null,
       "source_page": number | null,
       "source_text": string | null,
       "confidence": number,
@@ -93,7 +97,7 @@ Rules:
 - key is an optional English snake_case hint (e.g. hba1c, sodium, glucose). It is NOT authoritative identity.
 - name is an optional English-oriented display hint; when unsure, omit or repeat raw_name.
 - Prefer common lab keys when emitting key hints (e.g. hba1c, sodium, potassium, bicarbonate, crp, hs_crp, uacr, ferritin, ldl, free_t4, transferrin_saturation, urine_ketones, psa).
-- Use ISO date YYYY-MM-DD for observed_at when visible.
+- Use YYYY, YYYY-MM, or YYYY-MM-DD for observed_at, collected_at, and reported_at when visible. Do not fill missing month/day values.
 - Include quantitative lab results AND qualitative/semi-quantitative results (Negative, Trace, 1+, Positive, Отрицательно, Negativo).
 - For qualitative results, put the lab's verbatim text in "value" as a string (do not translate Отрицательно/Negativo into English).
 - For quantitative results, put a number in "value".
@@ -104,7 +108,7 @@ Rules:
 - EXCLUDE physical examination measurements and narrative clinical notes.
 - If the document is clearly not a laboratory report, return an empty biomarkers array. Do not invent catalog entries.
 - source_page is the 1-based page number where the value appears. When the input contains "=== PAGE N ===" markers, use N from the marker that precedes the value.
-- source_text is a short verbatim snippet from the document containing the label and the value. Copy it exactly; it is matched back to the page to highlight the source region.
+- source_text is a short verbatim snippet containing the printed label, the reported value, and the unit when one is present. Copy it exactly, including enough surrounding row text to make the match unique; it is grounded back to the page to highlight the source region.
 - confidence is 0.0-1.0 for extraction certainty.
 - Do not diagnose or interpret clinically.`;
 
@@ -182,6 +186,14 @@ export function parsePipelineExtraction(raw: unknown): PipelineExtractionResult 
     const key = normalizeBiomarkerKeyToken(keySource) || "unknown";
 
     const sourceText = typeof row.source_text === "string" ? row.source_text : null;
+    const collectedAt =
+      typeof row.collected_at === "string" && row.collected_at.trim()
+        ? row.collected_at.trim()
+        : null;
+    const reportedAt =
+      typeof row.reported_at === "string" && row.reported_at.trim()
+        ? row.reported_at.trim()
+        : null;
     const axes = statedAxesFromRow(key, rawName, row, sourceText);
 
     const parsed = parseLabValueCell(row.value);
@@ -213,6 +225,8 @@ export function parsePipelineExtraction(raw: unknown): PipelineExtractionResult 
           typeof row.reported_alt_value === "number" ? row.reported_alt_value : null,
         reported_alt_unit:
           typeof row.reported_alt_unit === "string" ? row.reported_alt_unit : null,
+        collected_at: collectedAt,
+        reported_at: reportedAt,
       });
       continue;
     }
@@ -242,6 +256,8 @@ export function parsePipelineExtraction(raw: unknown): PipelineExtractionResult 
         typeof row.reported_alt_value === "number" ? row.reported_alt_value : null,
       reported_alt_unit:
         typeof row.reported_alt_unit === "string" ? row.reported_alt_unit : null,
+      collected_at: collectedAt,
+      reported_at: reportedAt,
     });
   }
 

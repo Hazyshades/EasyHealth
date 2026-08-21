@@ -1,41 +1,53 @@
 /**
- * EH-118 source region contract.
+ * EH-162 source provenance contract.
  *
- * A source region is the page-relative rectangle that a stored observation was
- * read from. It is the single accepted shape for the `bounding_box` JSONB
- * columns on `document_extracted_biomarkers`,
- * `document_extracted_instrumental_measures`, and `observations`.
- *
- * Coordinates are always normalized fractions of the page box with the origin
- * at the top-left corner. Pixel or PDF-point coordinates are rejected: the
- * rendered preview is downscaled to a fixed width and re-encoded, so any
- * absolute space stored at extraction time would be misaligned at render time.
+ * New writes use normalized page fractions and explicit match metadata. The
+ * parser also canonicalizes the EH-118 shape so legacy rows keep working while
+ * fuzzy/model-origin geometry remains non-renderable.
  */
 
 import type { OcrBbox } from "@/lib/biomarkers/ocr-artifact";
 
 export const SOURCE_REGION_SCHEMA_VERSION = 1 as const;
+export const SOURCE_REGION_COORDINATE_SPACE = "normalized" as const;
+export const SOURCE_REGION_COORDINATE_ORIGIN = "top-left" as const;
 
-/** How the region was derived. Renderers may downgrade low-trust origins. */
+export const SOURCE_REGION_MATCH_STRATEGIES = [
+  "exact",
+  "fuzzy",
+  "ambiguous",
+  "unresolved",
+] as const;
+
+export type SourceRegionMatchStrategy =
+  (typeof SOURCE_REGION_MATCH_STRATEGIES)[number];
+
+/** Legacy EH-118 provenance origins accepted by the compatibility parser. */
 export const SOURCE_REGION_ORIGINS = ["ocr_exact", "ocr_fuzzy", "model"] as const;
-
 export type SourceRegionOrigin = (typeof SOURCE_REGION_ORIGINS)[number];
 
-export type SourceRegion = {
+export type SourceRegionRect = OcrBbox;
+
+export type SourceRegionMatch = Readonly<{
+  strategy: SourceRegionMatchStrategy;
+  score: number;
+  engine: string;
+  resolver_version: string;
+}>;
+
+export type SourceRegion = Readonly<{
   schema_version: typeof SOURCE_REGION_SCHEMA_VERSION;
-  space: "normalized";
+  coordinate_space: typeof SOURCE_REGION_COORDINATE_SPACE;
+  origin: typeof SOURCE_REGION_COORDINATE_ORIGIN;
   page: number;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  origin: SourceRegionOrigin;
-};
+  rects: readonly SourceRegionRect[];
+  match: SourceRegionMatch;
+}>;
 
 /**
- * Rounding error and glyph overhang from OCR engines routinely push a box a
- * fraction of a percent outside the page box. Anything further out is treated
- * as a wrong coordinate space rather than a rounding artifact.
+ * Rounding error and glyph overhang from positional extraction routinely push a
+ * box a fraction of a percent outside the page box. Anything further out is
+ * treated as a wrong coordinate space rather than a rounding artifact.
  */
 const OUT_OF_PAGE_TOLERANCE = 0.02;
 
@@ -49,57 +61,19 @@ function roundCoordinate(value: number): number {
   return Math.round(value * factor) / factor;
 }
 
-/** Shared coercion: five coordinate/page fields must reject NaN identically. */
 function finiteNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-/**
- * Build a region from a normalized bbox. Returns null when the geometry is not
- * a usable highlight, so callers degrade to the page-only fallback instead of
- * persisting a box that would render in the wrong place.
- */
-export function buildSourceRegion(input: {
-  page: number;
-  bbox: OcrBbox;
-  origin: SourceRegionOrigin;
-}): SourceRegion | null {
-  return parseSourceRegion({
-    schema_version: SOURCE_REGION_SCHEMA_VERSION,
-    space: "normalized",
-    page: input.page,
-    x: input.bbox.x,
-    y: input.bbox.y,
-    w: input.bbox.w,
-    h: input.bbox.h,
-    origin: input.origin,
-  });
-}
-
-/**
- * Validate and canonicalize an untrusted `bounding_box` value. Every write path
- * and every read path funnels through this function, so a stored region always
- * satisfies the same invariants the database CHECK constraint enforces.
- */
-export function parseSourceRegion(value: unknown): SourceRegion | null {
+function normalizeRect(value: unknown): SourceRegionRect | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const raw = value as Record<string, unknown>;
-
-  if (raw.schema_version !== SOURCE_REGION_SCHEMA_VERSION) return null;
-  if (raw.space !== "normalized") return null;
-  if (!SOURCE_REGION_ORIGINS.includes(raw.origin as SourceRegionOrigin)) return null;
-
-  const page = finiteNumber(raw.page);
-  if (page === null || !Number.isInteger(page) || page < 1) return null;
-
   const x = finiteNumber(raw.x);
   const y = finiteNumber(raw.y);
   const w = finiteNumber(raw.w);
   const h = finiteNumber(raw.h);
   if (x === null || y === null || w === null || h === null) return null;
 
-  // Reject a box that is not merely rounded outside the page. A pixel-space or
-  // PDF-point box lands far outside [0, 1] and must never reach a renderer.
   const lower = -OUT_OF_PAGE_TOLERANCE;
   const upper = 1 + OUT_OF_PAGE_TOLERANCE;
   if (x < lower || y < lower || w <= 0 || h <= 0) return null;
@@ -112,14 +86,168 @@ export function parseSourceRegion(value: unknown): SourceRegion | null {
   if (clampedW < MIN_REGION_EXTENT || clampedH < MIN_REGION_EXTENT) return null;
 
   return {
-    schema_version: SOURCE_REGION_SCHEMA_VERSION,
-    space: "normalized",
-    page,
     x: roundCoordinate(clampedX),
     y: roundCoordinate(clampedY),
     w: roundCoordinate(clampedW),
     h: roundCoordinate(clampedH),
-    origin: raw.origin as SourceRegionOrigin,
+  };
+}
+
+function parsePage(value: unknown): number | null {
+  const page = finiteNumber(value);
+  return page !== null && Number.isInteger(page) && page >= 1 ? page : null;
+}
+
+function parseMatch(value: unknown): SourceRegionMatch | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const strategy = raw.strategy;
+  const score = finiteNumber(raw.score);
+  const engine = raw.engine;
+  const resolverVersion = raw.resolver_version;
+  if (
+    typeof strategy !== "string" ||
+    !SOURCE_REGION_MATCH_STRATEGIES.includes(strategy as SourceRegionMatchStrategy) ||
+    score === null ||
+    score < 0 ||
+    score > 1 ||
+    typeof engine !== "string" ||
+    engine.trim().length === 0 ||
+    typeof resolverVersion !== "string" ||
+    resolverVersion.trim().length === 0
+  ) {
+    return null;
+  }
+  return {
+    strategy: strategy as SourceRegionMatchStrategy,
+    score: roundCoordinate(score),
+    engine,
+    resolver_version: resolverVersion,
+  };
+}
+
+function legacyMatch(origin: SourceRegionOrigin): SourceRegionMatch {
+  switch (origin) {
+    case "ocr_exact":
+      return {
+        strategy: "exact",
+        score: 1,
+        engine: "pdf-text-bbox",
+        resolver_version: "legacy-eh118",
+      };
+    case "ocr_fuzzy":
+      return {
+        strategy: "fuzzy",
+        score: 0,
+        engine: "pdf-text-bbox",
+        resolver_version: "legacy-eh118",
+      };
+    case "model":
+      return {
+        strategy: "unresolved",
+        score: 0,
+        engine: "legacy-model",
+        resolver_version: "legacy-eh118",
+      };
+  }
+}
+
+/**
+ * Build a canonical region from normalized rectangles. `bbox` and `origin`
+ * remain accepted for source compatibility with EH-118 callers.
+ */
+export function buildSourceRegion(input: {
+  page: number;
+  rects?: readonly OcrBbox[];
+  bbox?: OcrBbox;
+  match?: Partial<SourceRegionMatch>;
+  origin?: SourceRegionOrigin;
+}): SourceRegion | null {
+  const strategy =
+    input.match?.strategy ??
+    (input.origin === "ocr_fuzzy"
+      ? "fuzzy"
+      : input.origin === "model"
+        ? "unresolved"
+        : "exact");
+  const rects = input.rects ?? (input.bbox ? [input.bbox] : []);
+  const match: SourceRegionMatch = {
+    strategy,
+    score:
+      input.match?.score ??
+      (strategy === "exact" ? 1 : strategy === "fuzzy" ? 0.7 : 0),
+    engine: input.match?.engine ?? "pdf-text-bbox",
+    resolver_version: input.match?.resolver_version ?? "1",
+  };
+  return parseSourceRegion({
+    schema_version: SOURCE_REGION_SCHEMA_VERSION,
+    coordinate_space: SOURCE_REGION_COORDINATE_SPACE,
+    origin: SOURCE_REGION_COORDINATE_ORIGIN,
+    page: input.page,
+    rects,
+    match,
+  });
+}
+
+/**
+ * Validate and canonicalize an untrusted `bounding_box` value. Every write and
+ * read path funnels through this function so stored geometry has one shape.
+ */
+export function parseSourceRegion(value: unknown): SourceRegion | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const page = parsePage(raw.page);
+  if (page === null || raw.schema_version !== SOURCE_REGION_SCHEMA_VERSION) {
+    return null;
+  }
+
+  // Canonical EH-162 shape.
+  if (
+    raw.coordinate_space === SOURCE_REGION_COORDINATE_SPACE &&
+    raw.origin === SOURCE_REGION_COORDINATE_ORIGIN
+  ) {
+    if (!Array.isArray(raw.rects)) return null;
+    const match = parseMatch(raw.match);
+    if (!match) return null;
+    const rects: SourceRegionRect[] = [];
+    for (const candidate of raw.rects) {
+      const rect = normalizeRect(candidate);
+      if (!rect) return null;
+      rects.push(rect);
+    }
+    if (
+      rects.length === 0 &&
+      (match.strategy === "exact" || match.strategy === "fuzzy")
+    ) {
+      return null;
+    }
+    return {
+      schema_version: SOURCE_REGION_SCHEMA_VERSION,
+      coordinate_space: SOURCE_REGION_COORDINATE_SPACE,
+      origin: SOURCE_REGION_COORDINATE_ORIGIN,
+      page,
+      rects,
+      match,
+    };
+  }
+
+  // Legacy EH-118 shape. It is canonicalized on read; the exact-only render
+  // predicate below prevents old fuzzy/model boxes from becoming visual claims.
+  if (
+    raw.space !== SOURCE_REGION_COORDINATE_SPACE ||
+    !SOURCE_REGION_ORIGINS.includes(raw.origin as SourceRegionOrigin)
+  ) {
+    return null;
+  }
+  const rect = normalizeRect(raw);
+  if (!rect) return null;
+  return {
+    schema_version: SOURCE_REGION_SCHEMA_VERSION,
+    coordinate_space: SOURCE_REGION_COORDINATE_SPACE,
+    origin: SOURCE_REGION_COORDINATE_ORIGIN,
+    page,
+    rects: [rect],
+    match: legacyMatch(raw.origin as SourceRegionOrigin),
   };
 }
 
@@ -127,20 +255,27 @@ export function isSourceRegion(value: unknown): value is SourceRegion {
   return parseSourceRegion(value) !== null;
 }
 
-/**
- * A region is only renderable on the page it was measured against. A stored
- * page/region disagreement means the provenance is unreliable, so the caller
- * falls back to page-only navigation rather than drawing a misaligned box.
- */
+/** A region is persisted-coherent when it belongs to the recorded page. */
 export function sourceRegionMatchesPage(
   region: SourceRegion | null,
-  sourcePage: number | null
+  sourcePage: number | null,
 ): boolean {
-  if (!region) return false;
-  return sourcePage !== null && region.page === sourcePage;
+  return Boolean(region && sourcePage !== null && region.page === sourcePage);
 }
 
-/** Union of normalized boxes, used to cover a multi-word or multi-line match. */
+/** Only deterministic exact geometry may become a visual overlay. */
+export function sourceRegionCanRender(
+  region: SourceRegion | null,
+  sourcePage: number | null,
+): boolean {
+  return Boolean(
+    sourceRegionMatchesPage(region, sourcePage) &&
+      region?.match.strategy === "exact" &&
+      region.rects.length > 0,
+  );
+}
+
+/** Union of normalized boxes, used for diagnostics and line-span bounds. */
 export function unionBbox(boxes: readonly OcrBbox[]): OcrBbox | null {
   if (boxes.length === 0) return null;
   let minX = Number.POSITIVE_INFINITY;

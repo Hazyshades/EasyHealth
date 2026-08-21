@@ -14,13 +14,17 @@ const NO_TEMPERATURE_MODEL_PATTERNS = [
 ];
 
 export function resolveModelCapabilities(
-  _provider: AiProviderId,
+  provider: AiProviderId,
   modelId: string,
 ): ModelCapabilities {
+  // @ai-sdk/openai classifies every non-OpenAI model id supplied through its
+  // OpenAI-compatible adapter as a reasoning model and strips temperature
+  // itself. Omit it before the request so the worker does not emit a warning
+  // while claiming support that the adapter cannot provide.
   return {
-    supportsTemperature: !NO_TEMPERATURE_MODEL_PATTERNS.some((pattern) =>
-      pattern.test(modelId),
-    ),
+    supportsTemperature:
+      provider === "openai" &&
+      !NO_TEMPERATURE_MODEL_PATTERNS.some((pattern) => pattern.test(modelId)),
   };
 }
 

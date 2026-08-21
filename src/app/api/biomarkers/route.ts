@@ -16,6 +16,7 @@ type LaboratoryMeasureSource = {
   superseded_at?: string | null;
   superseded_by_processing_attempt_id?: string | null;
   is_current: boolean | null;
+  is_published?: boolean | null;
 };
 
 type BiomarkerObservation = {
@@ -72,7 +73,7 @@ export async function GET() {
     const { data: observations, error: observationsError } = await supabase
       .from("observations")
       .select(
-        "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, raw_name, raw_value_text, raw_unit, raw_reference_text, source_page, source_text, ref_low, ref_high, observed_at, document_id, value_kind, value_text, ordinal, specimen, modifier, documents(id, original_filename), source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(record_status, lifecycle_reason_code, superseded_at, superseded_by_processing_attempt_id, is_current), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence, measurement_override)"
+        "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, raw_name, raw_value_text, raw_unit, raw_reference_text, source_page, source_text, ref_low, ref_high, observed_at, document_id, value_kind, value_text, ordinal, specimen, modifier, documents(id, original_filename), source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(record_status, lifecycle_reason_code, superseded_at, superseded_by_processing_attempt_id, is_current, is_published), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence, measurement_override)"
       )
       .eq("profile_id", profileId)
       .eq("observation_kind", "lab")

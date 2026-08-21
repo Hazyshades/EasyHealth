@@ -5,7 +5,8 @@ import { ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SurfaceCard } from "@/components/ui/surface-card";
-import type { ReviewRowSourceLocation } from "@/lib/documents/observation-review-workspace";
+import { type ReviewRowSourceLocation } from "@/lib/documents/observation-review-workspace";
+import { sourceRegionCanRender } from "@/lib/documents/source-region";
 import { SourceHighlightOverlay } from "@/components/documents/source-highlight-overlay";
 
 const MIN_ZOOM = 0.5;
@@ -24,22 +25,15 @@ export type DocumentSourcePaneProps = {
   pageLoading: boolean;
   pageError: string | null;
   onRetryPage: () => void;
-  /** Source location of the row the reviewer selected, if any. */
-  activeSource: ReviewRowSourceLocation | null;
+  /** Source location of the explicitly selected row, if any. */
+  pinnedSource: ReviewRowSourceLocation | null;
+  /** Ephemeral exact same-page source preview, if any. */
+  previewSource: ReviewRowSourceLocation | null;
 };
 
 /**
- * Left pane of the EH-117 workspace. Renders the pre-rasterized page preview
- * with page navigation and zoom, and echoes the selected row's source
- * provenance underneath.
- *
- * EH-118 adds the region highlight: when the selected row was grounded to a
- * rectangle on the displayed page, that rectangle is drawn over the preview.
- * Provenance degrades to page + snippet when no region could be grounded, and
- * to a document-level notice when the extraction did not record a page.
- *
- * This pane owns preview scrolling outright. It scrolls only its own container,
- * so it never competes with the row-list scroll in `ObservationReviewList`.
+ * Left pane of the review workspace. Pinned provenance owns preview scrolling;
+ * hover/focus preview is decorative and never navigates or scrolls.
  */
 export function DocumentSourcePane({
   filename,
@@ -53,48 +47,66 @@ export function DocumentSourcePane({
   pageLoading,
   pageError,
   onRetryPage,
-  activeSource,
+  pinnedSource,
+  previewSource,
 }: DocumentSourcePaneProps) {
   const [zoom, setZoom] = useState(1);
   const [imageReady, setImageReady] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const highlightRef = useRef<HTMLDivElement | null>(null);
+  const pinnedHighlightRef = useRef<HTMLDivElement | null>(null);
   const isImage = mimeType?.startsWith("image/") ?? false;
   const isPdf = mimeType === "application/pdf";
   const showPagePreviews = pageCount > 0 && Boolean(pageUrl);
 
-  const highlightRegion =
-    activeSource?.region && activeSource.region.page === currentPage
-      ? activeSource.region
+  const pinnedRegion =
+    pinnedSource &&
+    sourceRegionCanRender(pinnedSource.region, currentPage)
+      ? pinnedSource.region
       : null;
-  // Object identity churns on every parent render; the geometry does not.
-  const highlightKey = highlightRegion
-    ? `${highlightRegion.page}:${highlightRegion.x}:${highlightRegion.y}:${highlightRegion.w}:${highlightRegion.h}`
+  const previewRegion =
+    previewSource &&
+    sourceRegionCanRender(previewSource.region, currentPage)
+      ? previewSource.region
+      : null;
+  const pinnedKey = pinnedRegion
+    ? `${pinnedRegion.page}:${pinnedRegion.rects.map((rect) => `${rect.x}:${rect.y}:${rect.w}:${rect.h}`).join("|")}`
     : null;
 
   useEffect(() => {
     setImageReady(false);
+    setImageError(false);
   }, [pageUrl]);
 
-  /**
-   * This pane is the only owner of preview scrolling. It moves its own
-   * scroll container and never calls `scrollIntoView`, which would also scroll
-   * the review list and the window and fight the row-list scroll in
-   * `ObservationReviewList`.
-   */
+  /** Only an explicit pin may scroll the source preview. */
   useEffect(() => {
-    if (!highlightKey || !imageReady) return;
+    if (!pinnedKey || !imageReady || imageError) return;
     const scroller = scrollerRef.current;
-    const box = highlightRef.current;
+    const box = pinnedHighlightRef.current;
     if (!scroller || !box) return;
     const view = scroller.getBoundingClientRect();
     const target = box.getBoundingClientRect();
     scroller.scrollTo({
-      top: Math.max(0, scroller.scrollTop + (target.top - view.top) - (view.height - target.height) / 2),
-      left: Math.max(0, scroller.scrollLeft + (target.left - view.left) - (view.width - target.width) / 2),
+      top: Math.max(
+        0,
+        scroller.scrollTop +
+          (target.top - view.top) -
+          (view.height - target.height) / 2,
+      ),
+      left: Math.max(
+        0,
+        scroller.scrollLeft +
+          (target.left - view.left) -
+          (view.width - target.width) / 2,
+      ),
       behavior: "smooth",
     });
-  }, [highlightKey, imageReady, zoom]);
+  }, [pinnedKey, imageReady, imageError, zoom]);
+
+  function retryPage() {
+    setImageError(false);
+    onRetryPage();
+  }
 
   return (
     <SurfaceCard
@@ -172,7 +184,7 @@ export function DocumentSourcePane({
             className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center"
           >
             <p className="text-sm text-red-600">{pageError}</p>
-            <Button variant="outline" size="sm" onClick={onRetryPage}>
+            <Button variant="outline" size="sm" onClick={retryPage}>
               Retry page preview
             </Button>
           </div>
@@ -187,29 +199,54 @@ export function DocumentSourcePane({
           </div>
         ) : showPagePreviews ? (
           <div ref={scrollerRef} className="h-full overflow-auto">
-            {/* The wrapper is exactly the size of the page image and carries the
-                zoom transform, so the percentage-positioned overlay scales with
-                the page instead of drifting off the text. */}
-            <div
-              className="mx-auto w-fit max-w-full transition-transform"
-              style={{
-                transform: `scale(${zoom})`,
-                transformOrigin: "top center",
-              }}
-            >
-              <div className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={pageUrl!}
-                  alt={`Page ${currentPage} of ${filename}`}
-                  className="block max-w-full"
-                  onLoad={() => setImageReady(true)}
-                />
-                {highlightRegion ? (
-                  <SourceHighlightOverlay ref={highlightRef} region={highlightRegion} />
-                ) : null}
+            {imageError ? (
+              <div
+                role="alert"
+                className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center"
+              >
+                <p className="text-sm text-red-600">
+                  This page preview could not be loaded.
+                </p>
+                <Button variant="outline" size="sm" onClick={retryPage}>
+                  Retry page preview
+                </Button>
               </div>
-            </div>
+            ) : (
+              <div
+                className="mx-auto w-fit max-w-full transition-transform"
+                style={{
+                  transform: `scale(${zoom})`,
+                  transformOrigin: "top center",
+                }}
+              >
+                <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={pageUrl!}
+                    alt={`Page ${currentPage} of ${filename}`}
+                    className="block max-w-full"
+                    onLoad={() => setImageReady(true)}
+                    onError={() => {
+                      setImageReady(false);
+                      setImageError(true);
+                    }}
+                  />
+                  {imageReady && pinnedRegion ? (
+                    <SourceHighlightOverlay
+                      ref={pinnedHighlightRef}
+                      region={pinnedRegion}
+                      variant="pinned"
+                    />
+                  ) : null}
+                  {imageReady && previewRegion ? (
+                    <SourceHighlightOverlay
+                      region={previewRegion}
+                      variant="preview"
+                    />
+                  ) : null}
+                </div>
+              </div>
+            )}
           </div>
         ) : isImage && originalUrl ? (
           <div className="h-full overflow-auto">
@@ -241,18 +278,18 @@ export function DocumentSourcePane({
         )}
       </div>
 
-      {activeSource ? (
+      {pinnedSource ? (
         <div
           aria-live="polite"
           className="mt-3 shrink-0 rounded-lg bg-slate-100 px-3 py-2 text-xs text-[var(--eh-text-secondary)]"
         >
           <p className="font-medium text-[var(--eh-text-primary)]">
-            {activeSource.label}
+            {pinnedSource.label}
           </p>
-          {activeSource.snippet ? (
-            <p className="mt-1 max-w-[65ch]">“{activeSource.snippet}”</p>
+          {pinnedSource.snippet ? (
+            <p className="mt-1 max-w-[65ch]">“{pinnedSource.snippet}”</p>
           ) : null}
-          {activeSource.precision === "document" ? (
+          {pinnedSource.precision === "document" ? (
             <p className="mt-1 text-[var(--eh-text-muted)]">
               This result is linked to the document but not to a specific page.
             </p>
@@ -261,9 +298,9 @@ export function DocumentSourcePane({
               Page previews are unavailable for this file, so the embedded PDF
               does not jump to the page automatically.
             </p>
-          ) : activeSource.precision === "region" ? (
+          ) : pinnedSource.precision === "region" ? (
             <p className="mt-1 text-[var(--eh-text-muted)]">
-              The source region is highlighted on the page.
+              The exact source region is highlighted on the page.
             </p>
           ) : (
             <p className="mt-1 text-[var(--eh-text-muted)]">

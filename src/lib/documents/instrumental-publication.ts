@@ -22,7 +22,7 @@ export type InstrumentalSnapshotFinding = {
 };
 
 export type InstrumentalSnapshotInput = {
-  study_date: string;
+  study_date: string | null;
   modality: string | null;
   body_region: string | null;
   facility_name: string | null;
@@ -186,7 +186,7 @@ function requireNormalized(value: string, field: string): string {
  * normalization point.
  */
 export function normalizeInstrumentalSnapshot(input: {
-  study_date: string;
+  study_date: string | null;
   modality: string | null;
   body_region: string | null;
   facility_name: string | null;
@@ -196,8 +196,8 @@ export function normalizeInstrumentalSnapshot(input: {
   measures: InstrumentalMeasureMaterializationInput[];
   findings: InstrumentalSnapshotFinding[];
 }): InstrumentalSnapshotInput {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.study_date)) {
-    throw new Error("Instrumental snapshot requires a YYYY-MM-DD study date");
+  if (input.study_date !== null && !/^\d{4}-\d{2}-\d{2}$/.test(input.study_date)) {
+    throw new Error("Instrumental snapshot day projection must be YYYY-MM-DD or null");
   }
 
   const occurrences = new Set<string>();

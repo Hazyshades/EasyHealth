@@ -302,6 +302,7 @@ async function materializeRow(options: {
       "id, document_id, profile_id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, confidence, specimen, modifier, source_page, source_text, bounding_box, reported_alt_value, reported_alt_unit, raw_value_text, method, processing_version"
     )
     .eq("id", options.pendingRow.extracted_biomarker_id)
+    .eq("is_published", true)
     .single();
   if (extractedError) throw extractedError;
 
@@ -309,6 +310,14 @@ async function materializeRow(options: {
     profile_id: string;
     document_id: string;
   };
+  const { data: documentRaw, error: documentError } = await supabase
+    .from("documents")
+    .select("observed_at")
+    .eq("id", row.document_id)
+    .eq("profile_id", row.profile_id)
+    .single();
+  if (documentError) throw documentError;
+
 
   const activeRevision = await getActiveNormalizationRevision(row.id);
   const useCorrectionPath =
@@ -320,7 +329,7 @@ async function materializeRow(options: {
     const result = await writeExtractedBiomarkerNormalization({
       profileId: row.profile_id,
       documentId: row.document_id,
-      observedAt: new Date().toISOString().slice(0, 10),
+      observedAt: documentRaw.observed_at,
       row,
       actorId: options.actorId,
       writeKind: useCorrectionPath ? "correction" : "acceptance",

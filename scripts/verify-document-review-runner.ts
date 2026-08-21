@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { measurementMappingGuidance, measurementMappingLabel, resolveBiomarkerPanelMode, resolveBiomarkerReviewAction, reviewDataErrorMessage, validateObservationFallbackConfirmation } from "../src/lib/documents/biomarker-review-state";
+import { readFileSync } from "node:fs";
+import { measurementMappingGuidance, measurementMappingLabel, resolveBiomarkerPanelMode, resolveBiomarkerReviewAction, reviewDataErrorMessage, shouldCompleteDocumentReview, validateObservationFallbackConfirmation } from "../src/lib/documents/biomarker-review-state";
 import {
   buildPersistedResolverDecisionTrace,
   resolveMeasurementDefinition,
@@ -12,8 +13,19 @@ assert.match(measurementMappingGuidance("partial"), /required context is missing
 assert.match(measurementMappingGuidance("resolved"), /not medical certainty/);
 assert.equal(resolveBiomarkerPanelMode({ extractedCount: 0, observationCount: 3 }), "observations-fallback");
 assert.equal(resolveBiomarkerReviewAction({ mode: "extracted-review", documentStatus: "needs_review", reviewableExtractedCount: 2 }), "accept-extracted");
+assert.equal(shouldCompleteDocumentReview({ documentStatus: "needs_review", reviewableExtractedCount: 0 }), true);
+assert.equal(shouldCompleteDocumentReview({ documentStatus: "needs_review", reviewableExtractedCount: 1 }), false);
+assert.equal(shouldCompleteDocumentReview({ documentStatus: "ready", reviewableExtractedCount: 0 }), false);
 assert.equal(reviewDataErrorMessage({ message: "query failed" }), "Biomarker review data could not be loaded.");
 assert.deepEqual(validateObservationFallbackConfirmation({ documentStatus: "needs_review", submittedObservationIds: ["a"], linkedObservationIds: ["a"], reviewableExtractedCount: 0 }), { ok: true });
+
+const acceptanceRoute = readFileSync(
+  "src/app/api/documents/[id]/biomarkers/accept/route.ts",
+  "utf8",
+);
+assert.match(acceptanceRoute, /shouldCompleteDocumentReview/);
+assert.match(acceptanceRoute, /processing_status: "ready"/);
+assert.match(acceptanceRoute, /status: "completed"/);
 
 const persistedTrace = buildPersistedResolverDecisionTrace(
   resolveMeasurementDefinition({

@@ -59,10 +59,11 @@ export async function POST(req: Request, context: RouteContext) {
   const supabase = createAdminClient();
   const { data: source, error: sourceError } = await supabase
     .from("document_extracted_biomarkers")
-    .select("id, created_at, profile_id, document_id, record_status, is_current")
+    .select("id, created_at, profile_id, document_id, record_status, is_current, is_published")
     .eq("id", extractedBiomarkerId)
     .eq("document_id", documentId)
     .eq("profile_id", profileId)
+    .eq("is_published", true)
     .maybeSingle();
   if (sourceError) return NextResponse.json({ error: sourceError.message }, { status: 500 });
   if (!source) return NextResponse.json({ error: "Extracted biomarker not found" }, { status: 404 });
