@@ -325,6 +325,20 @@ as $$
 declare
   v_event public.medical_events%rowtype;
 begin
+  -- Document deletion first detaches observations, while event deletion may
+  -- happen before or after that child update. Clear the event link whenever
+  -- the document link is being removed, and never re-infer during FK cleanup.
+  if tg_op = 'UPDATE' and new.document_id is null and old.document_id is not null then
+    new.medical_event_id := null;
+    return new;
+  end if;
+  if tg_op = 'UPDATE'
+    and new.medical_event_id is null
+    and old.medical_event_id is not null
+    and new.document_id is not distinct from old.document_id
+    and new.profile_id is not distinct from old.profile_id then
+    return new;
+  end if;
   if new.medical_event_id is not null then
     select * into v_event
     from public.medical_events
