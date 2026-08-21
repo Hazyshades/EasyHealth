@@ -77,6 +77,8 @@
     "test:eh120": "tsx scripts/verify-eh120-verification-transitions.ts",
     "test:eh120-db": "supabase test db --local supabase/tests/eh120_verification_transitions.sql",
     "test:eh121": "tsx scripts/verify-eh121-observation-change-history.ts",
+    "test:eh127": "tsx scripts/verify-eh127-health-timeline.ts",
+    "test:eh127-db": "supabase test db --local QA-Db_tests/eh127_health_timeline.sql",
     "test:eh121-db": "supabase test db --local supabase/tests/eh121_observation_change_history.sql",
     "smoke:eh121-history-panel": "tsx scripts/eh121-smoke-history-panel.mts",
     "test:eh123": "tsx scripts/verify-health-profile-lab-input.ts && tsx scripts/verify-eh123-assessment-recalculation.ts",
