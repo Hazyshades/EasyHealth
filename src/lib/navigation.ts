@@ -21,6 +21,10 @@ export const PAGE_TITLES: Record<string, { title: string; subtitle?: string }> =
     title: "Biomarkers",
     subtitle: "Values extracted from your lab documents",
   },
+  "/app/timeline": {
+    title: "Timeline",
+    subtitle: "A chronological view of your profile-owned medical events",
+  },
   "/app/documents": {
     title: "Documents",
     subtitle: "Upload and browse your medical records",
