@@ -26,16 +26,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { DocumentType } from "@/lib/health-systems";
 import { DOCUMENT_TYPE_LABELS } from "@/lib/health-systems";
 import type { DocumentListItem } from "@/lib/documents/list-types";
-import { shouldReuseServerDocuments } from "@/lib/documents/hub-initial-load";
+import {
+  shouldPreserveInitialLoadFailure,
+  shouldReuseServerDocuments,
+} from "@/lib/documents/hub-initial-load";
 import {
   getCachedSignedUrl,
   setCachedSignedUrl,
   thumbnailCacheKey,
 } from "@/lib/documents/signed-url-cache";
-
-type Document = DocumentListItem & {
-  document_type: DocumentType;
-};
 
 const TABS: { id: DocumentType | "dicom"; label: string }[] = [
   { id: "lab_result", label: "Lab results" },
@@ -56,7 +55,24 @@ const UPLOAD_LINKS: Partial<Record<DocumentType, string>> = {
   referral: "/app/upload?type=referral",
 };
 
-function displayStatus(doc: Document): string {
+function cacheThumbnailUrls(
+  docs: readonly Pick<
+    DocumentListItem,
+    "id" | "thumbnail_url" | "thumbnail_expires_in"
+  >[],
+): void {
+  for (const doc of docs) {
+    if (doc.thumbnail_url && doc.thumbnail_expires_in) {
+      setCachedSignedUrl(
+        thumbnailCacheKey(doc.id),
+        doc.thumbnail_url,
+        doc.thumbnail_expires_in,
+      );
+    }
+  }
+}
+
+function displayStatus(doc: DocumentListItem): string {
   return doc.processing_status || doc.status;
 }
 
@@ -152,7 +168,7 @@ function countActiveFilters(
 }
 
 function applyClientFilters(
-  docs: Document[],
+  docs: DocumentListItem[],
   search: string,
   filters: FloatingFilterValues,
 ) {
@@ -200,23 +216,19 @@ type DocumentsHubProps = {
   initialDocuments?: DocumentListItem[];
   initialTab?: DocumentType;
   skipInitialFetch?: boolean;
+  initialLoadFailed?: boolean;
 };
-
-function asDocuments(items: DocumentListItem[]): Document[] {
-  return items.map((doc) => ({
-    ...doc,
-    document_type: doc.document_type as DocumentType,
-  }));
-}
 
 export function DocumentsHub({
   initialDocuments = [],
   initialTab = "lab_result",
   skipInitialFetch = false,
+  initialLoadFailed = false,
 }: DocumentsHubProps) {
   const [activeTab, setActiveTab] = useState<DocumentType | "dicom">(initialTab);
-  const [documents, setDocuments] = useState<Document[]>(() => asDocuments(initialDocuments));
-  const [loading, setLoading] = useState(!skipInitialFetch);
+  const [documents, setDocuments] = useState<DocumentListItem[]>(initialDocuments);
+  const [loading, setLoading] = useState(!skipInitialFetch && !initialLoadFailed);
+  const [loadError, setLoadError] = useState(initialLoadFailed);
   const consumedInitialRef = useRef(false);
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FloatingFilterValues>(
@@ -228,19 +240,18 @@ export function DocumentsHub({
       const soft = Boolean(opts?.soft);
       if (!soft) setLoading(true);
       return fetch(`/api/documents?type=${activeTab}`)
-        .then((r) => r.json())
+        .then((r) => {
+          if (!r.ok) throw new Error(`Documents request failed (${r.status})`);
+          return r.json();
+        })
         .then((data) => {
-          const docs = (data.documents ?? []) as Document[];
-          for (const doc of docs) {
-            if (doc.thumbnail_url && doc.thumbnail_expires_in) {
-              setCachedSignedUrl(
-                thumbnailCacheKey(doc.id),
-                doc.thumbnail_url,
-                doc.thumbnail_expires_in,
-              );
-            }
-          }
+          const docs = (data.documents ?? []) as DocumentListItem[];
+          cacheThumbnailUrls(docs);
           setDocuments(docs);
+          setLoadError(false);
+        })
+        .catch(() => {
+          setLoadError(true);
         })
         .finally(() => {
           if (!soft) setLoading(false);
@@ -257,6 +268,17 @@ export function DocumentsHub({
       return;
     }
     if (
+      shouldPreserveInitialLoadFailure({
+        initialLoadFailed,
+        activeTab,
+        initialTab,
+        alreadyConsumedInitial: consumedInitialRef.current,
+      })
+    ) {
+      consumedInitialRef.current = true;
+      return;
+    }
+    if (
       shouldReuseServerDocuments({
         skipInitialFetch,
         activeTab,
@@ -265,20 +287,19 @@ export function DocumentsHub({
       })
     ) {
       consumedInitialRef.current = true;
-      for (const doc of initialDocuments) {
-        if (doc.thumbnail_url && doc.thumbnail_expires_in) {
-          setCachedSignedUrl(
-            thumbnailCacheKey(doc.id),
-            doc.thumbnail_url,
-            doc.thumbnail_expires_in,
-          );
-        }
-      }
+      cacheThumbnailUrls(initialDocuments);
       return;
     }
     consumedInitialRef.current = true;
     void loadDocuments({ soft: false });
-  }, [activeTab, loadDocuments, skipInitialFetch, initialTab, initialDocuments]);
+  }, [
+    activeTab,
+    initialLoadFailed,
+    loadDocuments,
+    skipInitialFetch,
+    initialTab,
+    initialDocuments,
+  ]);
 
   const hasProcessing = useMemo(
     () => documents.some((d) => displayStatus(d) === "processing"),
@@ -372,6 +393,20 @@ export function DocumentsHub({
             <Skeleton className="h-10 w-full" />
           </div>
           <Skeleton className="h-10 w-32" />
+        </SurfaceCard>
+      ) : loadError ? (
+        <SurfaceCard padding="lg" className="text-center">
+          <p className="text-sm text-[var(--eh-text-secondary)]">
+            We couldn&apos;t load your documents. Check your connection and
+            try again.
+          </p>
+          <Button
+            variant="outline"
+            className="mt-4 rounded-xl"
+            onClick={() => void loadDocuments({ soft: false })}
+          >
+            Retry
+          </Button>
         </SurfaceCard>
       ) : filteredDocuments.length === 0 ? (
         <SurfaceCard padding="lg" className="text-center">

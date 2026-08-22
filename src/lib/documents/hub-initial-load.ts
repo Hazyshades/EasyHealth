@@ -11,3 +11,16 @@ export function shouldReuseServerDocuments(input: {
     input.activeTab !== "dicom"
   );
 }
+
+export function shouldPreserveInitialLoadFailure(input: {
+  initialLoadFailed: boolean;
+  activeTab: string;
+  initialTab: string;
+  alreadyConsumedInitial: boolean;
+}): boolean {
+  return (
+    input.initialLoadFailed &&
+    input.activeTab === input.initialTab &&
+    !input.alreadyConsumedInitial
+  );
+}

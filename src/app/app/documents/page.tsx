@@ -13,6 +13,7 @@ export default async function DocumentsPage() {
       initialTab="lab_result"
       initialDocuments={result.ok ? result.documents : []}
       skipInitialFetch={result.ok}
+      initialLoadFailed={!result.ok}
     />
   );
 }
