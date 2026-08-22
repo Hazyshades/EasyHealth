@@ -155,7 +155,8 @@ export async function buildDocumentStructuredContext(
     .select(
       "id, original_filename, document_type, observed_at, lab_name, document_summary, processing_status, status, modality"
     )
-    .eq("profile_id", profileId);
+    .eq("profile_id", profileId)
+    .is("archived_at", null);
 
   if (documentIds?.length) {
     docQuery = docQuery.in("id", documentIds);

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CircleAlert, ChevronLeft, Download, RotateCcw } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { SurfaceCard } from "@/components/ui/surface-card";
@@ -17,6 +17,7 @@ import {
   PrescriptionInsightsPanel,
   ReferralInsightsPanel,
 } from "@/components/documents/document-insight-panels";
+import { DuplicateCandidateCard } from "@/components/documents/duplicate-candidate-card";
 import { TypeMismatchBanner } from "@/components/documents/type-mismatch-banner";
 import { DocumentSourcePane } from "@/components/documents/review/document-source-pane";
 import { ObservationReviewList } from "@/components/documents/review/observation-review-list";
@@ -61,6 +62,7 @@ import {
   type ExtractedBiomarkerMeasurementRow,
 } from "@/lib/documents/observation-measurement-correction";
 import type { LaboratoryResolutionDetails } from "@/lib/documents/incomplete-laboratory-outcomes";
+import type { DuplicateCandidate } from "@/lib/documents/duplicate-detection";
 import {
   indexObservationChangeEntries,
   type ObservationChangeEntry,
@@ -219,6 +221,7 @@ type BootstrapPayload = {
   review_data_error?: string | null;
   workerOffline?: boolean;
   batch_verification?: BatchVerificationProjection;
+  duplicate_candidates?: DuplicateCandidate[];
   file?: {
     url: string;
     mimeType: string;
@@ -306,6 +309,7 @@ function rejectionErrorMessage(code: string | undefined, fallback?: string): str
 }
 
 export function DocumentViewer({ documentId }: { documentId: string }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialPage = Number.parseInt(searchParams.get("page") ?? "1", 10);
   const startPage =
@@ -336,6 +340,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchVerification, setBatchVerification] =
     useState<BatchVerificationProjection | null>(null);
+  const [duplicateCandidates, setDuplicateCandidates] = useState<DuplicateCandidate[]>([]);
   const [batchSelectedIds, setBatchSelectedIds] = useState<Set<string>>(new Set());
   const [batchConfirmationOpen, setBatchConfirmationOpen] = useState(false);
   const [batchVerifying, setBatchVerifying] = useState(false);
@@ -411,6 +416,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
       const projection = data.batch_verification ?? null;
       setBatchVerification(projection);
       setBatchSelectedIds(new Set(projection?.eligible_ids ?? []));
+      setDuplicateCandidates(data.duplicate_candidates ?? []);
 
       if (data.file?.url) {
         setOriginalUrl(data.file.url);
@@ -1308,6 +1314,23 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
           {actionFeedback}
         </p>
       )}
+      {duplicateCandidates.length > 0 ? (
+        <DuplicateCandidateCard
+          candidates={duplicateCandidates}
+          currentDocumentId={documentId}
+          onResolved={({ archivedDocumentId, decision }) => {
+            if (archivedDocumentId === documentId) {
+              router.push("/app/documents");
+              return;
+            }
+            setActionFeedback(
+              decision === "keep_both"
+                ? "Both documents were retained."
+                : "The duplicate was archived and removed from active views.",
+            );
+          }}
+        />
+      ) : null}
 
       {showProcessingRecovery && (
         <div

@@ -50,6 +50,7 @@ export async function GET(req: NextRequest) {
       "id, original_filename, status, document_type, lab_name, observed_at, created_at, error_message, mime_type, file_kind, thumbnail_storage_path, page_count, processing_status, processing_version, processing_error"
     )
     .eq("profile_id", profileId)
+    .is("archived_at", null)
     .order("created_at", { ascending: false });
 
   if (typeParam) {

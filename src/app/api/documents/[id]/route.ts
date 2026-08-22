@@ -29,6 +29,7 @@ import {
   measurementInputFromWriterRow,
   type ExtractedBiomarkerWriterRow,
 } from "@/lib/documents/observation-normalization-writer";
+import { getDuplicateCandidatesForDocument } from "@/lib/documents/duplicate-candidates";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -233,6 +234,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
     };
   });
   const extractedCount = enrichedExtractedItems.length;
+  const duplicateCandidates = await getDuplicateCandidatesForDocument(profileId, id);
   const file =
     fileSigned != null
       ? {
@@ -295,6 +297,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
       })),
       excluded_counts: batchEligibility.excludedCounts,
     },
+    duplicate_candidates: duplicateCandidates,
 
     review_data_error: reviewDataError,
     file,

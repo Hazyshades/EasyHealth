@@ -53,8 +53,9 @@ export async function getEligibleDocumentIds(profileId: string): Promise<string[
 
   const { data: documents, error: docError } = await supabase
     .from("documents")
-    .select("id, status, processing_status")
+    .select("id, status, processing_status, archived_at")
     .eq("profile_id", profileId)
+    .is("archived_at", null)
     .in("id", candidateIds);
 
   if (docError) throw new Error(docError.message);

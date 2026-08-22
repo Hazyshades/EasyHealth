@@ -96,6 +96,8 @@
     "test:eh122": "tsx scripts/verify-eh122-batch-verification.ts && tsx scripts/verify-eh122-batch-service.ts",
     "test:eh126": "tsx scripts/verify-eh126-medical-events.ts",
     "test:eh126-db": "supabase test db --local supabase/tests/eh126_normalized_medical_events.sql",
+    "test:eh130": "tsx scripts/verify-eh130-duplicate-documents.ts",
+    "test:eh130-db": "supabase test db --local supabase/tests/eh130_duplicate_document_detection.sql",
     "test:writer-seam": "supabase test db --local supabase/tests/writer_rpc_seam.sql",
     "check:ci-suite-coverage": "tsx scripts/verify-ci-suite-coverage.ts",
     "check:ci-suite-coverage-contract": "tsx scripts/verify-ci-suite-coverage-contract.ts"
