@@ -9,12 +9,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { BiomarkerTable } from "@/components/biomarker-table";
-import { BiomarkerChart } from "@/components/biomarker-chart";
+import { BiomarkerChart, type BiomarkerChartPoint } from "@/components/biomarker-chart";
+import { ContextBreadcrumbs } from "@/components/layout/context-breadcrumbs";
 import { PageHeader } from "@/components/layout/page-header";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { SearchInput } from "@/components/ui/search-input";
 import { Button } from "@/components/ui/button";
+import {
+  buildHealthNavigationPath,
+  healthRouteLabel,
+  readHealthNavigationContext,
+  type HealthNavigationContext,
+} from "@/lib/health-navigation";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 
 type LabUnitSystem = "us" | "si";
@@ -56,6 +63,13 @@ const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
   { id: "high", label: "High" },
 ];
 
+const EMPTY_NAVIGATION_CONTEXT: HealthNavigationContext = {
+  system: null,
+  measurement: null,
+  observation: null,
+  returnTo: null,
+};
+
 function observationStatus(o: Observation): StatusFilter {
   if (!o.registry_binding_ready) return "mapping";
   if (o.value_kind && o.value_kind !== "numeric") return "normal";
@@ -73,12 +87,33 @@ function matchesStatusFilter(o: Observation, filter: StatusFilter): boolean {
 }
 
 export default function BiomarkersPage() {
+  const [navigationContext, setNavigationContext] =
+    useState<HealthNavigationContext>(EMPTY_NAVIGATION_CONTEXT);
   const [observations, setObservations] = useState<Observation[]>([]);
-  const [selectedKey, setSelectedKey] = useState<string>("");
+  const [selectedKey, setSelectedKey] = useState("");
+  const [selectedObservationId, setSelectedObservationId] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [labUnitSystem, setLabUnitSystem] = useState<LabUnitSystem>("si");
   const [savingUnits, setSavingUnits] = useState(false);
+  const [navigationReady, setNavigationReady] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setNavigationContext(
+      readHealthNavigationContext(new URLSearchParams(window.location.search)),
+    );
+    setNavigationReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (navigationContext.measurement) {
+      setSelectedKey(navigationContext.measurement);
+    }
+    if (navigationContext.observation) {
+      setSelectedObservationId(navigationContext.observation);
+    }
+  }, [navigationContext.measurement, navigationContext.observation]);
 
   const loadObservations = useCallback(() => {
     return fetch("/api/biomarkers")
@@ -90,6 +125,17 @@ export default function BiomarkersPage() {
           setLabUnitSystem(data.lab_unit_system);
         }
         setSelectedKey((prev) => {
+          const requested = navigationContext.measurement;
+          if (
+            requested &&
+            obs.some(
+              (o: Observation) =>
+                o.measurement_definition_key === requested &&
+                o.trend_eligible === true,
+            )
+          ) {
+            return requested;
+          }
           if (
             prev &&
             obs.some(
@@ -107,11 +153,41 @@ export default function BiomarkersPage() {
           return resolved?.measurement_definition_key ?? "";
         });
       });
-  }, []);
+  }, [navigationContext.measurement]);
 
   useEffect(() => {
+    if (!navigationReady) return;
     void loadObservations();
-  }, [loadObservations]);
+  }, [loadObservations, navigationReady]);
+
+  useEffect(() => {
+    if (!selectedObservationId || !observations.length) return;
+    const selectedBelongsToSeries = observations.some(
+      (observation) =>
+        observation.id === selectedObservationId &&
+        observation.measurement_definition_key === selectedKey &&
+        observation.trend_eligible === true,
+    );
+    if (!selectedBelongsToSeries) setSelectedObservationId("");
+  }, [observations, selectedKey, selectedObservationId]);
+
+  useEffect(() => {
+    if (!observations.length || typeof window === "undefined") return;
+    const href = buildHealthNavigationPath("/app/biomarkers", {
+      system: navigationContext.system,
+      measurement: selectedKey || null,
+      observation: selectedObservationId || null,
+      returnTo: navigationContext.returnTo,
+    });
+    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (href !== current) window.history.replaceState(null, "", href);
+  }, [
+    navigationContext.returnTo,
+    navigationContext.system,
+    observations.length,
+    selectedKey,
+    selectedObservationId,
+  ]);
 
   async function setUnitSystem(next: LabUnitSystem) {
     if (next === labUnitSystem) return;
@@ -171,17 +247,42 @@ export default function BiomarkersPage() {
       o.trend_eligible === true &&
       o.measurement_definition_key === selectedKey
   );
-  const chartData = selectedSeries
+  const biomarkerContextPath = buildHealthNavigationPath("/app/biomarkers", {
+    system: navigationContext.system,
+    measurement: selectedKey || null,
+    observation: selectedObservationId || null,
+    returnTo: navigationContext.returnTo,
+  });
+  const chartData: BiomarkerChartPoint[] = selectedSeries
     .filter((o) => o.value != null && (!o.value_kind || o.value_kind === "numeric"))
-    .map((o) => ({ observed_at: o.observed_at, value: Number(o.value) }));
+    .map((o) => ({
+      id: o.id,
+      observed_at: o.observed_at,
+      value: Number(o.value),
+      sourceHref: o.documents?.id
+        ? buildHealthNavigationPath(`/app/documents/${o.documents.id}`, {
+            system: navigationContext.system,
+            measurement: selectedKey,
+            observation: o.id,
+            returnTo: biomarkerContextPath,
+          })
+        : null,
+      sourceLabel: o.documents?.original_filename ?? null,
+    }));
   const chartIsQualitativeOnly =
     selectedSeries.length > 0 && chartData.length === 0;
   const hasResolvedTrendSeries = keys.length > 0;
+  const originPath = navigationContext.returnTo ?? "/app";
 
   return (
     <div>
+      <ContextBreadcrumbs
+        items={[
+          { href: originPath, label: healthRouteLabel(originPath) },
+          { label: "Biomarkers" },
+        ]}
+      />
       <PageHeader subtitle="Values extracted from your uploaded lab documents" />
-
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <SearchInput
           placeholder="Search biomarker…"
@@ -226,7 +327,11 @@ export default function BiomarkersPage() {
         ))}
       </div>
 
-      <BiomarkerTable observations={filtered} />
+      <BiomarkerTable
+        observations={filtered}
+        selectedObservationId={selectedObservationId}
+        sourceReturnTo={biomarkerContextPath}
+      />
 
       <SurfaceCard padding="lg" className="mt-8">
         <div className="mb-4 flex flex-wrap items-center gap-4">
@@ -237,7 +342,8 @@ export default function BiomarkersPage() {
             </SelectTrigger>
             <SelectContent>
               {keys.map((key) => {
-                const name = observations.find((o) => o.measurement_definition_key === key)?.name ?? key;
+                const name =
+                  observations.find((o) => o.measurement_definition_key === key)?.name ?? key;
                 return (
                   <SelectItem key={key} value={key}>
                     {name}
@@ -257,7 +363,11 @@ export default function BiomarkersPage() {
             available.
           </p>
         ) : (
-          <BiomarkerChart data={chartData} biomarkerName={selectedName} />
+          <BiomarkerChart
+            data={chartData}
+            biomarkerName={selectedName}
+            selectedObservationId={selectedObservationId}
+          />
         )}
       </SurfaceCard>
 
