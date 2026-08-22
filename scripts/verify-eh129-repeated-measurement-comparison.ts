@@ -170,7 +170,7 @@ assert.equal(
 
 const apiRoute = readFileSync("src/app/api/biomarkers/route.ts", "utf8");
 assert.match(apiRoute, /projectActiveRegistryV2LaboratoryBinding/);
-assert.match(apiRoute, /documents\(id, original_filename, lab_name\)/);
+assert.match(apiRoute, /documents\(id, original_filename, lab_name(?:, archived_at)?\)/);
 assert.match(apiRoute, /conversion_eligible/);
 assert.match(apiRoute, /original_ref_low/);
 assert.match(apiRoute, /original_ref_high/);
