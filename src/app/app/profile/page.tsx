@@ -8,7 +8,8 @@ import { FilterChip } from "@/components/ui/filter-chip";
 import { Button } from "@/components/ui/button";
 import { OverallAssessmentCard } from "@/components/overall-assessment-card";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
-import { resolveBodyMapLayout } from "@/lib/health-systems";
+import { buildHealthNavigationPath, readHealthNavigationContext } from "@/lib/health-navigation";
+import { normalizeBodySystemId, resolveBodyMapLayout } from "@/lib/health-systems";
 import type { BodySystemId, HealthProfileResult } from "@/lib/health-systems";
 
 type AssessmentStatus = {
@@ -25,6 +26,8 @@ export default function HealthProfilePage() {
   const [profile, setProfile] = useState<HealthProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeChip, setActiveChip] = useState<BodySystemId | null>(null);
+  const [requestedSystem, setRequestedSystem] = useState<string | null>(null);
+  const [profileReturnTo, setProfileReturnTo] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
 
@@ -37,6 +40,39 @@ export default function HealthProfilePage() {
   useEffect(() => {
     loadProfile().finally(() => setLoading(false));
   }, [loadProfile]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const context = readHealthNavigationContext(
+      new URLSearchParams(window.location.search),
+    );
+    setRequestedSystem(context.system);
+    setProfileReturnTo(context.returnTo);
+  }, []);
+
+  useEffect(() => {
+    if (!profile || !requestedSystem) return;
+    const normalized = normalizeBodySystemId(requestedSystem);
+    setActiveChip(
+      profile.systems.some((system) => system.id === normalized) ? normalized : null,
+    );
+  }, [profile, requestedSystem]);
+
+  function handleSystemSelection(next: BodySystemId | null) {
+    setActiveChip(next);
+    if (typeof window === "undefined") return;
+    const context = readHealthNavigationContext(
+      new URLSearchParams(window.location.search),
+    );
+    window.history.replaceState(
+      null,
+      "",
+      buildHealthNavigationPath("/app/profile", {
+        system: next,
+        returnTo: context.returnTo,
+      }),
+    );
+  }
 
   async function handleRefreshSynthesis() {
     setRefreshError(null);
@@ -230,7 +266,7 @@ export default function HealthProfilePage() {
 
                   active={activeChip === system.id}
 
-                  onClick={() => setActiveChip((prev) => (prev === system.id ? null : system.id))}
+                  onClick={() => handleSystemSelection(activeChip === system.id ? null : system.id)}
 
                 >
 
@@ -262,7 +298,8 @@ export default function HealthProfilePage() {
 
                 externalSelectedId={activeChip}
 
-                onExternalSelect={setActiveChip}
+                onExternalSelect={handleSystemSelection}
+                navigationReturnTo={profileReturnTo}
 
               />
 

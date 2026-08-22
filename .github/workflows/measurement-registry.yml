@@ -142,6 +142,8 @@ jobs:
         run: pnpm test:eh129
       - name: Verify EH-130 duplicate-document contracts
         run: pnpm test:eh130
+      - name: Verify EH-131 health navigation
+        run: pnpm test:eh131
 
       - name: Publish Registry 2.0 candidate-release evidence
         run: |

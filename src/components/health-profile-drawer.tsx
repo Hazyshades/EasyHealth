@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
+import { buildHealthNavigationPath } from "@/lib/health-navigation";
 import {
   assessmentStatusLabel,
   type BodySystemId,
@@ -25,11 +26,11 @@ function formatSourceDate(iso: string | null): string {
     year: "numeric",
   });
 }
-
 type HealthProfileDrawerProps = {
   system: SystemInsight | null;
   layoutLabel: string;
   open: boolean;
+  navigationReturnTo?: string | null;
   onClose: () => void;
 };
 
@@ -37,6 +38,7 @@ export function HealthProfileDrawer({
   system,
   layoutLabel,
   open,
+  navigationReturnTo,
   onClose,
 }: HealthProfileDrawerProps) {
   useEffect(() => {
@@ -64,6 +66,25 @@ export function HealthProfileDrawer({
           : system.state_score == null
             ? "Not scored - incomplete core"
             : null;
+  const profilePath = buildHealthNavigationPath("/app/profile", {
+    system: system.id,
+    returnTo: navigationReturnTo,
+  });
+  const primarySourceMeasurement =
+    system.primary_source
+      ? system.markers.find(
+          (marker) =>
+            marker.document_id === system.primary_source?.id &&
+            marker.measurement_definition_key,
+        )?.measurement_definition_key ?? null
+      : null;
+  const primarySourceHref = system.primary_source
+    ? buildHealthNavigationPath(`/app/documents/${system.primary_source.id}`, {
+        system: system.id,
+        measurement: primarySourceMeasurement,
+        returnTo: profilePath,
+      })
+    : null;
 
   return (
     <>
@@ -179,12 +200,14 @@ export function HealthProfileDrawer({
                     {formatSourceDate(system.primary_source.observed_at)}
                   </p>
                 )}
-                <Link
-                  href="/app/documents"
-                  className="mt-2 inline-block text-teal-700 hover:underline"
-                >
-                  View documents
-                </Link>
+                {primarySourceHref ? (
+                  <Link
+                    href={primarySourceHref}
+                    className="mt-2 inline-block rounded-sm text-teal-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+                  >
+                    Open source document
+                  </Link>
+                ) : null}
               </div>
             </section>
           )}
@@ -192,43 +215,87 @@ export function HealthProfileDrawer({
           <section>
             <h3 className="font-semibold">Data</h3>
             <ul className="mt-3 space-y-3">
-              {system.markers.map((marker) => (
-                <li key={marker.key} className="rounded-lg border p-3 text-sm">
-                  <p className="font-medium">{marker.name}</p>
-                  <p>
-                    {marker.value_kind && marker.value_kind !== "numeric"
-                      ? marker.value_text ?? "—"
-                      : marker.value != null
-                        ? `${marker.value} ${marker.unit}`
-                        : marker.value_text ?? "—"}
-                  </p>
-                  {marker.specimen && marker.specimen !== "unspecified" && (
-                    <p className="text-xs text-muted-foreground">Specimen: {marker.specimen}</p>
-                  )}
-                  {marker.converted && marker.original_unit != null && (
-                    <p className="text-xs text-muted-foreground" title={marker.conversion_note ?? undefined}>
-                      Converted for display · Original: {marker.original_value} {marker.original_unit}
+              {system.markers.map((marker) => {
+                const measurementHref = marker.measurement_definition_key
+                  ? buildHealthNavigationPath("/app/biomarkers", {
+                      system: system.id,
+                      measurement: marker.measurement_definition_key,
+                      returnTo: profilePath,
+                    })
+                  : null;
+                const sourceHref = marker.source
+                  ? buildHealthNavigationPath(`/app/documents/${marker.source.id}`, {
+                      system: system.id,
+                      measurement: marker.measurement_definition_key,
+                      returnTo: profilePath,
+                    })
+                  : null;
+
+                return (
+                  <li key={marker.key} className="rounded-lg border p-3 text-sm">
+                    {measurementHref ? (
+                      <Link
+                        href={measurementHref}
+                        className="font-medium text-teal-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+                      >
+                        {marker.name}
+                      </Link>
+                    ) : (
+                      <p className="font-medium">{marker.name}</p>
+                    )}
+                    <p>
+                      {marker.value_kind && marker.value_kind !== "numeric"
+                        ? marker.value_text ?? "—"
+                        : marker.value != null
+                          ? `${marker.value} ${marker.unit}`
+                          : marker.value_text ?? "—"}
                     </p>
-                  )}
-                  <p className="text-xs text-muted-foreground">{statusLabel(marker.status)}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Observed {marker.observed_at}
-                  </p>
-                  {marker.observation_kind === "instrumental" ? (
-                    <p className="text-xs font-medium text-teal-700">
-                      From imaging/functional study
+                    {marker.specimen && marker.specimen !== "unspecified" && (
+                      <p className="text-xs text-muted-foreground">Specimen: {marker.specimen}</p>
+                    )}
+                    {marker.converted && marker.original_unit != null && (
+                      <p className="text-xs text-muted-foreground" title={marker.conversion_note ?? undefined}>
+                        Converted for display · Original: {marker.original_value} {marker.original_unit}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground">{statusLabel(marker.status)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Observed {marker.observed_at}
                     </p>
-                  ) : null}
-                  {marker.source && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Source: {marker.source.original_filename}
-                      {marker.source.observed_at
-                        ? ` · ${formatSourceDate(marker.source.observed_at)}`
-                        : ""}
-                    </p>
-                  )}
-                </li>
-              ))}
+                    {marker.observation_kind === "instrumental" ? (
+                      <p className="text-xs font-medium text-teal-700">
+                        From imaging/functional study
+                      </p>
+                    ) : null}
+                    {marker.source ? (
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                        <span>
+                          Source: {marker.source.original_filename}
+                          {marker.source.observed_at
+                            ? ` · ${formatSourceDate(marker.source.observed_at)}`
+                            : ""}
+                        </span>
+                        {sourceHref ? (
+                          <Link
+                            href={sourceHref}
+                            className="font-medium text-teal-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+                          >
+                            Open source
+                          </Link>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {measurementHref ? (
+                      <Link
+                        href={measurementHref}
+                        className="mt-2 inline-block text-xs font-medium text-teal-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+                      >
+                        View measurement history
+                      </Link>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ul>
           </section>
 
