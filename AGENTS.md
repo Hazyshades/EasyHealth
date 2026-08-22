@@ -61,3 +61,13 @@ change complete:
 If remote Wiki or GitHub access is unavailable, finish all local work but do not
 silently skip the publication/issue gate or claim completion. Leave the exact
 handoff and blocker in the tracking record.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues at `Hazyshades/EasyHealth` via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` glossary at the repo root, ADRs under `docs/adr/`. Read them before exploring an area. See `docs/agents/domain.md`.

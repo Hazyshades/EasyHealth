@@ -71,15 +71,31 @@ Signed-in users moving around `/app`, especially **Documents**, should not wait 
 **Result:** `Pass | Fail | Blocked | N/A`
 **Notes / evidence link:** `________`
 
-### NAV-UI-04: List load failure shows an error card with Retry
+### NAV-UI-04: Server initial list failure is immediately recoverable
 
-**Precondition:** `NAV-01` is signed in. Ability to block `GET /api/documents` (DevTools Network → Block request URL) or stop the backend.
+**Precondition:** `NAV-01` is signed in to a non-production environment with a QA profile containing no sensitive documents. Before navigation, make the server's `listDocumentsForProfile` dependency unavailable (for example, stop the local Supabase service); DevTools request blocking alone does not exercise this scenario.
 
-1. Open **Documents** with the list request blocked, or switch tabs while blocked.
-2. Confirm an error card with a **Retry** button appears instead of "No lab results yet".
-3. Unblock requests and click **Retry**.
+1. Open `/app/documents` directly while the server dependency is unavailable.
+2. In DevTools Network, confirm the page did not automatically call `GET /api/documents`.
+3. Confirm the first list content is the generic error card with **Retry**, not a loading skeleton or "No lab results yet".
+4. Restore the server dependency and click **Retry**.
 
-**Expected result:** The error card clears and the normal list (or genuine empty state) returns. No server error details are shown in the copy.
+**Expected result:** Retry clears the error and shows the normal list or a genuine empty state. The error copy contains no server details.
+
+**Result:** `Pass | Fail | Blocked | N/A`
+**Notes / evidence link:** `________`
+
+### NAV-UI-05: Client list and periodic refresh failures are recoverable
+
+**Precondition:** `NAV-01` is signed in to a non-production environment. For periodic refresh, use a harmless QA document that remains **processing**. DevTools can block `GET /api/documents`.
+
+1. Open **Documents** with requests unblocked, then block `GET /api/documents` and switch to another document-type tab.
+2. Confirm the generic error card with **Retry** replaces the list; no empty-state copy is shown.
+3. Unblock requests and click **Retry**. Confirm the normal list or genuine empty state returns.
+4. With a processing QA document visible, block `GET /api/documents` again and wait for the 10-second periodic refresh.
+5. Confirm the same error card appears without a full-page loading skeleton. Unblock requests and click **Retry**.
+
+**Expected result:** Both client failures show generic error copy and a working **Retry** action. A successful Retry removes the error; a successful periodic refresh never flashes a full-page loading state.
 
 **Result:** `Pass | Fail | Blocked | N/A`
 **Notes / evidence link:** `________`
@@ -88,7 +104,7 @@ Signed-in users moving around `/app`, especially **Documents**, should not wait 
 
 - [ ] `pnpm test:app-navigation-hot-path` passes: fail-closed callback, missing-profile gate, Documents first paint without `/api/profile`, expiry-gated refresh skip on warm tokens, and source guards that `/app/layout` never calls `ensureProfile`.
 - [ ] `pnpm harness:app-navigation-hot-path` against `next start` (not only `next dev`): n≥10 warm authenticated `/app/documents` RSC, p50 ≤ 80ms, p95 ≤ 150ms, profile row unchanged, stale-token response sets auth cookies. Set `APP_BASE_URL` if the server is already running. Use `SKIP_RSC_BUDGET=1` only when the attached server is `next dev`.
-- [ ] `pnpm typecheck` and `openspec validate --change collapse-app-navigation-auth-waterfall --strict` pass.
+- [ ] `pnpm typecheck`, `pnpm test:app-navigation-hot-path`, and `openspec validate documents-hub-failure-state-fixes --strict` pass.
 
 ## Out of scope or not manually testable yet
 

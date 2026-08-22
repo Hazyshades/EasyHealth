@@ -10,7 +10,10 @@ import path from "node:path";
 import { resolveAppShellRedirect } from "../src/lib/auth/app-shell-gate";
 import { resolveAuthCallbackPath } from "../src/lib/auth/callback-redirect";
 import { shouldRefreshAuthCookies } from "../src/lib/auth/session-cookie";
-import { shouldReuseServerDocuments } from "../src/lib/documents/hub-initial-load";
+import {
+  shouldPreserveInitialLoadFailure,
+  shouldReuseServerDocuments,
+} from "../src/lib/documents/hub-initial-load";
 
 function readRepo(rel: string): string {
   return readFileSync(path.join(process.cwd(), rel), "utf8");
@@ -115,6 +118,36 @@ function testDocumentsFirstPaintReusesServerList(): void {
       activeTab: "lab_result",
       initialTab: "lab_result",
       alreadyConsumedInitial: false,
+    }),
+    false,
+  );
+}
+
+function testDocumentsFailureState(): void {
+  assert.equal(
+    shouldPreserveInitialLoadFailure({
+      initialLoadFailed: true,
+      activeTab: "lab_result",
+      initialTab: "lab_result",
+      alreadyConsumedInitial: false,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldPreserveInitialLoadFailure({
+      initialLoadFailed: true,
+      activeTab: "prescription",
+      initialTab: "lab_result",
+      alreadyConsumedInitial: false,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldPreserveInitialLoadFailure({
+      initialLoadFailed: true,
+      activeTab: "lab_result",
+      initialTab: "lab_result",
+      alreadyConsumedInitial: true,
     }),
     false,
   );
@@ -263,6 +296,18 @@ function testSourceGuards(): void {
   const hub = readRepo("src/app/app/documents/documents-hub.tsx");
   assert.match(hub, /shouldReuseServerDocuments/);
   assert.match(hub, /\/api\/documents\?type=/);
+  assert.match(hub, /shouldPreserveInitialLoadFailure/);
+  assert.match(
+    hub,
+    /\.catch\(\(\) => \{\s+setLoadError\(true\);/,
+    "soft and hard document list fetch failures must surface an error",
+  );
+  assert.match(
+    hub,
+    /if \(!soft\) setLoading\(false\);/,
+    "soft document refreshes must not become hard loading states",
+  );
+  assert.doesNotMatch(hub, /if \(!soft\) setLoadError\(true\)/);
 }
 
 function main(): void {
@@ -273,6 +318,7 @@ function main(): void {
   testNearExpiryAndExpiredRefresh();
   testNoCookieAndMissingRefreshSkipTax();
   testChunkedCookieIsReassembled();
+  testDocumentsFailureState();
   testSourceGuards();
   console.log("verify-app-navigation-hot-path: all checks passed");
 }

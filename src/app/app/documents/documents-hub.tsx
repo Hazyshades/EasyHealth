@@ -26,7 +26,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { DocumentType } from "@/lib/health-systems";
 import { DOCUMENT_TYPE_LABELS } from "@/lib/health-systems";
 import type { DocumentListItem } from "@/lib/documents/list-types";
-import { shouldReuseServerDocuments } from "@/lib/documents/hub-initial-load";
+import {
+  shouldPreserveInitialLoadFailure,
+  shouldReuseServerDocuments,
+} from "@/lib/documents/hub-initial-load";
 import {
   getCachedSignedUrl,
   setCachedSignedUrl,
@@ -224,7 +227,7 @@ export function DocumentsHub({
 }: DocumentsHubProps) {
   const [activeTab, setActiveTab] = useState<DocumentType | "dicom">(initialTab);
   const [documents, setDocuments] = useState<DocumentListItem[]>(initialDocuments);
-  const [loading, setLoading] = useState(!skipInitialFetch);
+  const [loading, setLoading] = useState(!skipInitialFetch && !initialLoadFailed);
   const [loadError, setLoadError] = useState(initialLoadFailed);
   const consumedInitialRef = useRef(false);
   const [search, setSearch] = useState("");
@@ -248,7 +251,7 @@ export function DocumentsHub({
           setLoadError(false);
         })
         .catch(() => {
-          if (!soft) setLoadError(true);
+          setLoadError(true);
         })
         .finally(() => {
           if (!soft) setLoading(false);
@@ -265,6 +268,17 @@ export function DocumentsHub({
       return;
     }
     if (
+      shouldPreserveInitialLoadFailure({
+        initialLoadFailed,
+        activeTab,
+        initialTab,
+        alreadyConsumedInitial: consumedInitialRef.current,
+      })
+    ) {
+      consumedInitialRef.current = true;
+      return;
+    }
+    if (
       shouldReuseServerDocuments({
         skipInitialFetch,
         activeTab,
@@ -278,7 +292,14 @@ export function DocumentsHub({
     }
     consumedInitialRef.current = true;
     void loadDocuments({ soft: false });
-  }, [activeTab, loadDocuments, skipInitialFetch, initialTab, initialDocuments]);
+  }, [
+    activeTab,
+    initialLoadFailed,
+    loadDocuments,
+    skipInitialFetch,
+    initialTab,
+    initialDocuments,
+  ]);
 
   const hasProcessing = useMemo(
     () => documents.some((d) => displayStatus(d) === "processing"),
