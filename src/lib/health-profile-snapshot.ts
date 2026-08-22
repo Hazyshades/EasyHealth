@@ -41,7 +41,8 @@ export async function buildHealthProfileSnapshot(options: {
     supabase
       .from("documents")
       .select("id, original_filename, observed_at, lab_name, document_type, processing_status, status")
-      .eq("profile_id", options.profileId),
+      .eq("profile_id", options.profileId)
+      .is("archived_at", null),
   ]);
   if (obsError) throw new Error(obsError.message);
   if (docError) throw new Error(docError.message);

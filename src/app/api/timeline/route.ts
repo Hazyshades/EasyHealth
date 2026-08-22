@@ -50,6 +50,7 @@ async function getHealthTimelinePage(request: NextRequest) {
     .from("documents")
     .select(DOCUMENT_SELECT)
     .eq("profile_id", profileId)
+    .is("archived_at", null)
     .order("created_at", { ascending: false });
 
   if (documentsError) {

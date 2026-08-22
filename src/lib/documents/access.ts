@@ -31,10 +31,13 @@ export type DocumentRow = {
   detected_document_type: string | null;
   type_mismatch_warning: boolean | null;
   type_mismatch_reason: string | null;
+  content_sha256?: string | null;
+  archived_at?: string | null;
+  archive_reason?: string | null;
 };
 
 const DOCUMENT_SELECT =
-  "id, profile_id, storage_path, original_storage_path, original_filename, status, document_type, lab_name, observed_at, created_at, error_message, mime_type, file_size_bytes, thumbnail_storage_path, page_count, processing_status, processing_error, processing_version, extraction_model, processed_at, file_kind, document_summary, modality, detected_document_type, type_mismatch_warning, type_mismatch_reason";
+  "id, profile_id, storage_path, original_storage_path, original_filename, status, document_type, lab_name, observed_at, created_at, error_message, mime_type, file_size_bytes, thumbnail_storage_path, page_count, processing_status, processing_error, processing_version, extraction_model, processed_at, file_kind, document_summary, modality, detected_document_type, type_mismatch_warning, type_mismatch_reason, content_sha256, archived_at, archive_reason";
 
 export function isLegacyDocument(doc: DocumentRow): boolean {
   return doc.processing_version == null;
@@ -58,6 +61,7 @@ export async function getOwnedDocument(
     .select(DOCUMENT_SELECT)
     .eq("id", documentId)
     .eq("profile_id", profileId)
+    .is("archived_at", null)
     .maybeSingle();
 
   if (error) throw new Error(error.message);

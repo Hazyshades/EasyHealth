@@ -128,12 +128,20 @@ jobs:
         run: pnpm test:eh121
       - name: Verify EH-123 assessment recalculation contracts
         run: pnpm test:eh123
+      - name: Verify app navigation hot path contracts
+        run: pnpm test:app-navigation-hot-path
       - name: Verify batch verification contracts
         run: pnpm test:eh122
       - name: Verify EH-126 medical-event contracts
         run: pnpm test:eh126
       - name: Verify EH-127 health timeline contracts
         run: pnpm test:eh127
+      - name: Verify EH-128 laboratory panel grouping
+        run: pnpm test:eh128
+      - name: Verify EH-129 repeated measurement comparison
+        run: pnpm test:eh129
+      - name: Verify EH-130 duplicate-document contracts
+        run: pnpm test:eh130
 
       - name: Publish Registry 2.0 candidate-release evidence
         run: |
@@ -216,6 +224,8 @@ jobs:
         run: pnpm test:eh126-db
       - name: Run EH-127 health timeline database contract
         run: pnpm test:eh127-db
+      - name: Run EH-130 duplicate-document database contract
+        run: pnpm test:eh130-db
       - name: Run PR2 instrumental database contracts
         run: pnpm test:pr2-db
       - name: Run resolver trace v2 database contract

@@ -19,6 +19,12 @@ type LaboratoryMeasureSource = {
   is_published?: boolean | null;
 };
 
+type BiomarkerDocumentSource = {
+  id: string;
+  original_filename: string;
+  lab_name?: string | null;
+};
+
 type BiomarkerObservation = {
   id: string;
   observation_kind: "lab" | "instrumental";
@@ -43,7 +49,20 @@ type BiomarkerObservation = {
   raw_reference_text: string | null;
   source_page: number | null;
   source_text: string | null;
-  documents: { id: string; original_filename: string } | { id: string; original_filename: string }[] | null;
+  documents:
+    | {
+        id: string;
+        original_filename: string;
+        lab_name?: string | null;
+        archived_at: string | null;
+      }
+    | {
+        id: string;
+        original_filename: string;
+        lab_name?: string | null;
+        archived_at: string | null;
+      }[]
+    | null;
   normalization_revision:
     | RegistryV2NormalizationRevisionReadBoundary
     | RegistryV2NormalizationRevisionReadBoundary[]
@@ -53,7 +72,12 @@ type BiomarkerObservation = {
 
 function firstDocument(
   relation: BiomarkerObservation["documents"]
-): { id: string; original_filename: string } | null {
+): {
+  id: string;
+  original_filename: string;
+  lab_name?: string | null;
+  archived_at: string | null;
+} | null {
   return Array.isArray(relation) ? relation[0] ?? null : relation;
 }
 
@@ -73,7 +97,7 @@ export async function GET() {
     const { data: observations, error: observationsError } = await supabase
       .from("observations")
       .select(
-        "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, raw_name, raw_value_text, raw_unit, raw_reference_text, source_page, source_text, ref_low, ref_high, observed_at, document_id, value_kind, value_text, ordinal, specimen, modifier, documents(id, original_filename), source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(record_status, lifecycle_reason_code, superseded_at, superseded_by_processing_attempt_id, is_current, is_published), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence, measurement_override)"
+        "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, raw_name, raw_value_text, raw_unit, raw_reference_text, source_page, source_text, ref_low, ref_high, observed_at, document_id, value_kind, value_text, ordinal, specimen, modifier, documents(id, original_filename, lab_name, archived_at), source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(record_status, lifecycle_reason_code, superseded_at, superseded_by_processing_attempt_id, is_current, is_published), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence, measurement_override)"
       )
       .eq("profile_id", profileId)
       .eq("observation_kind", "lab")
@@ -86,12 +110,17 @@ export async function GET() {
       );
     }
     const presented = ((observations ?? []) as BiomarkerObservation[])
-      .filter((observation) =>
-        isCurrentDocumentObservation({
-          observation_kind: observation.observation_kind,
-          source_extracted_biomarker: observation.source_extracted_biomarker,
-        }),
-      )
+      .filter((observation) => {
+        if (
+          !isCurrentDocumentObservation({
+            observation_kind: observation.observation_kind,
+            source_extracted_biomarker: observation.source_extracted_biomarker,
+          })
+        ) {
+          return false;
+        }
+        return firstDocument(observation.documents)?.archived_at == null;
+      })
       .map(
         ({ normalization_revision, documents, source_extracted_biomarker, ...row }) => {
       const laboratorySource = Array.isArray(source_extracted_biomarker)

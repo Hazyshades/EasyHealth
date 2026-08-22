@@ -1,8 +1,18 @@
 project_id = "easyhealth"
 
 [auth]
+enabled = true
+# Keep this host identical to the URL you open in the browser.
+# localhost and 127.0.0.1 are different origins for PKCE / magic links.
 site_url = "http://localhost:3000"
 additional_redirect_urls = [
+  "http://localhost:3000",
   "http://localhost:3000/auth/callback",
+  "http://127.0.0.1:3000",
   "http://127.0.0.1:3000/auth/callback",
 ]
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false

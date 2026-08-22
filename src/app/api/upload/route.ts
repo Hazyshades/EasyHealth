@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureLabDocumentsBucket, LAB_DOCUMENTS_BUCKET } from "@/lib/supabase/storage";
@@ -61,6 +62,7 @@ export async function POST(req: NextRequest) {
   const documentId = crypto.randomUUID();
   const storagePath = originalObjectPath(profileId, documentId, file.name);
   const buffer = Buffer.from(await file.arrayBuffer());
+  const contentSha256 = createHash("sha256").update(buffer).digest("hex");
 
   const { error: uploadError } = await supabase.storage
     .from(LAB_DOCUMENTS_BUCKET)
@@ -87,6 +89,7 @@ export async function POST(req: NextRequest) {
       processing_status: "processing",
       mime_type: mimeType,
       file_size_bytes: file.size,
+      content_sha256: contentSha256,
     })
     .select("id")
     .single();

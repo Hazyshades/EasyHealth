@@ -1,4 +1,4 @@
-import { getProfileById } from "@/lib/auth/profile";
+import { findProfileById, getProfileById, type ProfileRow } from "@/lib/auth/profile";
 
 export type ProfileOnboardingState = {
   profileId: string;
@@ -14,10 +14,7 @@ export type ProfileOnboardingState = {
   showSuccessBanner: boolean;
 };
 
-export async function getProfileOnboardingState(
-  profileId: string
-): Promise<ProfileOnboardingState> {
-  const profile = await getProfileById(profileId);
+export function profileOnboardingStateFromRow(profile: ProfileRow): ProfileOnboardingState {
   const needsProfileGate = !profile.first_name?.trim();
   const needsConsentGate = !needsProfileGate && !profile.terms_accepted_at;
   const showWizard =
@@ -42,4 +39,19 @@ export async function getProfileOnboardingState(
     showWizard,
     showSuccessBanner,
   };
+}
+
+export async function getProfileOnboardingState(
+  profileId: string
+): Promise<ProfileOnboardingState> {
+  const profile = await getProfileById(profileId);
+  return profileOnboardingStateFromRow(profile);
+}
+
+export async function getProfileOnboardingStateIfPresent(
+  profileId: string
+): Promise<ProfileOnboardingState | null> {
+  const profile = await findProfileById(profileId);
+  if (!profile) return null;
+  return profileOnboardingStateFromRow(profile);
 }

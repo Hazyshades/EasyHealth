@@ -781,6 +781,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
       await finalizeInstrumentalPublicationRpc(job, documentId, prepared, documentSummary, {
         page_count: pages.length,
         thumbnail_storage_path: thumbPath,
+        content_sha256: sourceSha256,
         ocr_status: ocrText ? "completed" : "skipped",
         extraction_status: "completed",
         detected_document_type: detectedDocumentType,
@@ -1002,8 +1003,8 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         thumbnail_storage_path: thumbPath,
         processing_version: DOCUMENT_PROCESSING_VERSION,
         extraction_model: extractionModel,
+        content_sha256: sourceSha256,
         lab_name: labName,
-        observed_at: calendarDateProjection(observedAt),
         document_summary: documentSummary,
         ocr_status: ocrText ? "completed" : "skipped",
         extraction_status: "completed",
