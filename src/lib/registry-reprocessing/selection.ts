@@ -61,7 +61,7 @@ export async function selectExtractedRowsForReprocessBatch(
     .select(EXTRACTED_COLUMNS)
     .eq("record_status", "active")
     .eq("is_current", true)
-    .order("id", { ascending: true })
+    .eq("is_published", true)
     .limit(inputs.batchLimit);
   if (inputs.scope.kind === "document") {
     extractedQuery = extractedQuery.eq("document_id", inputs.scope.documentId);

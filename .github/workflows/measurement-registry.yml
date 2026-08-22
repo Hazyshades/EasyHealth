@@ -19,6 +19,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Install worker dependencies
+        run: pnpm --dir worker install --frozen-lockfile
       - name: Verify CI suite coverage contract
         run: pnpm check:ci-suite-coverage-contract
       - name: Verify every test suite is workflow-reachable
@@ -65,8 +67,12 @@ jobs:
           OPENAI_API_KEY: ci-placeholder
           NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      - name: Verify EH-162 source-region hover contract
+        run: pnpm test:eh162
       - name: Validate Registry 2.0 candidate-release evidence
         run: pnpm check:registry-v2-candidate-corpus-technical
+      - name: Verify EH-163 Mistral OCR contract
+        run: pnpm test:eh163-ocr
       - name: Verify CBC measurement regression suite
         run: pnpm test:cbc-regression
       - name: Verify static Registry 2.0 panel membership
@@ -122,8 +128,14 @@ jobs:
         run: pnpm test:eh121
       - name: Verify EH-123 assessment recalculation contracts
         run: pnpm test:eh123
+      - name: Verify app navigation hot path contracts
+        run: pnpm test:app-navigation-hot-path
       - name: Verify batch verification contracts
         run: pnpm test:eh122
+      - name: Verify EH-126 medical-event contracts
+        run: pnpm test:eh126
+      - name: Verify EH-127 health timeline contracts
+        run: pnpm test:eh127
 
       - name: Publish Registry 2.0 candidate-release evidence
         run: |
@@ -131,6 +143,7 @@ jobs:
           pnpm report:registry-v2-candidate-corpus > .artifacts/registry-v2-candidate-release.json
           cp registry/candidate-release/v1/approvals.json .artifacts/registry-v2-candidate-release-approvals.json
           cp registry/candidate-release/v1/reset-rollback.md .artifacts/registry-v2-candidate-release-reset-rollback.md
+
       - name: Upload Registry 2.0 candidate-release evidence
         uses: actions/upload-artifact@v4
         with:
@@ -191,10 +204,20 @@ jobs:
         run: pnpm test:eh122-db
       - name: Run EH-118 source region database contract
         run: pnpm test:eh118-db
+      - name: Run EH-162 source region match database contract
+        run: pnpm test:eh162-db
+      - name: Run EH-163 Mistral OCR database contract
+        run: pnpm test:eh163-db
+      - name: Run service-role access database contract
+        run: pnpm test:service-role-access-db
       - name: Run EH-113 CBC method evidence database contract
         run: pnpm test:eh113-db
       - name: Run EH-116 registry reprocess database contract
         run: pnpm test:eh116-db
+      - name: Run EH-126 medical-event database contract
+        run: pnpm test:eh126-db
+      - name: Run EH-127 health timeline database contract
+        run: pnpm test:eh127-db
       - name: Run PR2 instrumental database contracts
         run: pnpm test:pr2-db
       - name: Run resolver trace v2 database contract

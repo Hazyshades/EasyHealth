@@ -2,6 +2,48 @@ export function documentStoragePrefix(profileId: string, documentId: string): st
   return `${profileId}/${documentId}`;
 }
 
+export function attemptStoragePrefix(
+  profileId: string,
+  documentId: string,
+  processingAttemptId: string,
+): string {
+  return `${documentStoragePrefix(profileId, documentId)}/attempts/${processingAttemptId}`;
+}
+
+export function attemptThumbnailObjectPath(
+  profileId: string,
+  documentId: string,
+  processingAttemptId: string,
+): string {
+  return `${attemptStoragePrefix(profileId, documentId, processingAttemptId)}/thumb.webp`;
+}
+
+export function attemptPagePreviewObjectPath(
+  profileId: string,
+  documentId: string,
+  processingAttemptId: string,
+  pageNumber: number,
+): string {
+  return `${attemptStoragePrefix(profileId, documentId, processingAttemptId)}/pages/page-${pageNumber}.webp`;
+}
+
+export function attemptOcrFulltextPath(
+  profileId: string,
+  documentId: string,
+  processingAttemptId: string,
+): string {
+  return `${attemptStoragePrefix(profileId, documentId, processingAttemptId)}/ocr/fulltext.txt`;
+}
+
+export function attemptOcrPageJsonPath(
+  profileId: string,
+  documentId: string,
+  processingAttemptId: string,
+  pageNumber: number,
+): string {
+  return `${attemptStoragePrefix(profileId, documentId, processingAttemptId)}/ocr/page-${pageNumber}.json`;
+}
+
 export function originalObjectPath(
   profileId: string,
   documentId: string,

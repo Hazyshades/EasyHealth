@@ -80,7 +80,7 @@ export type MeasurementOverride = {
   readonly unit?: string;
   readonly ref_low?: number | null;
   readonly ref_high?: number | null;
-  readonly observed_at?: string;
+  readonly observed_at?: string | null;
 };
 
 export type BaseMeasurement = {
@@ -91,7 +91,7 @@ export type BaseMeasurement = {
   readonly unit: string | null;
   readonly refLow: number | null;
   readonly refHigh: number | null;
-  readonly observedAt: string;
+  readonly observedAt: string | null;
 };
 
 export type ExtractedBiomarkerMeasurementRow = Readonly<{
@@ -118,7 +118,7 @@ function finiteMeasurementValue(
  */
 export function baseMeasurementFromExtractedRow(
   row: ExtractedBiomarkerMeasurementRow,
-  observedAt: string,
+  observedAt: string | null,
 ): BaseMeasurement {
   let value = finiteMeasurementValue(row.value_numeric);
   let valueText = row.value_text?.trim() || null;
@@ -359,7 +359,7 @@ export function parseMeasurementOverride(
     }
   }
 
-  if ("observed_at" in candidate) {
+  if ("observed_at" in candidate && candidate.observed_at !== null) {
     if (
       typeof candidate.observed_at !== "string" ||
       !isCalendarDate(candidate.observed_at)
@@ -505,11 +505,7 @@ export function validateMeasurementCorrection(options: {
     );
   }
 
-  if ("observed_at" in override) {
-    const parsedDate = new Date(`${measurement.observedAt}T00:00:00Z`);
-    if (Number.isNaN(parsedDate.getTime())) {
-      return fail("observed_at_invalid", "observed_at", "The date must be a calendar date.");
-    }
+  if ("observed_at" in override && measurement.observedAt !== null) {
     if (measurement.observedAt > (options.now ?? new Date()).toISOString().slice(0, 10)) {
       return fail("observed_at_in_future", "observed_at", "The date cannot be in the future.");
     }

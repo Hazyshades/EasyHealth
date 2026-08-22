@@ -78,6 +78,7 @@ supabase/.temp
 
 # local generated Wiki staging and Supabase branch state
 /.tmp-biomarker-wiki-handoff/
+.tmp/
 /supabase/.branches/
 
 # local laboratory PDFs; already tracked fixtures remain tracked

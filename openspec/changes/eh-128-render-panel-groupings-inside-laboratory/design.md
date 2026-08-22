@@ -12,7 +12,7 @@ The implementation must preserve the existing source-of-truth boundaries: panel 
 - Detect panels from observed Registry 2.0 definition keys, render members in catalog order, and retain shared many-to-many membership.
 - Keep every observation visible exactly once in either one or more panel groups or the ungrouped section.
 - Render absent members with neutral copy and no warning/error treatment.
-- Provide a usable `/app/timeline` host with authenticated profile data, event-date ordering, document-type/date filters, incremental pagination, and source-document/page links.
+- Provide a usable `/app/timeline` host with authenticated profile data, event-date ordering, document-type/date filters, bounded server pagination, and source-document/page links.
 - Exercise the contract with a focused TypeScript verification runner and synthetic fixtures.
 
 **Non-Goals:**
@@ -49,7 +49,7 @@ Detected panels render a compact reported count and every member row. A missing 
 
 ### 5. Add a thin timeline host for the missing dependency
 
-Add `/app/timeline`, a `Timeline` navigation item, and page metadata. The page renders all supported document types as chronological event cards. Laboratory cards use the panel grouping projection; other event types retain a simple source-linked card so the page remains useful while future EH-127 structured event projections mature. Filters are client-side over the authenticated document result: type chips, an exact observed-date input, and a “Load more” page window.
+Add `/app/timeline`, a `Health Timeline` navigation item, and page metadata. The page uses the authenticated timeline event API for supported document types and the normalized-biomarker read API for laboratory panel grouping. It supports server-side document-type/date-range filtering and bounded Previous/Next pagination.
 
 **Alternative:** put panels inside the Documents table. Rejected because EH-128 explicitly targets laboratory events and the roadmap's product flow is a single chronological timeline; a table row cannot represent panel member grouping without duplicating the timeline model.
 

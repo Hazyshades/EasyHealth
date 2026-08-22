@@ -6,7 +6,7 @@
 ## 2. Timeline presentation
 
 - [x] 2.1 Add the laboratory event card that renders panel headings, role/order metadata, observed values, neutral not-reported rows, ungrouped measurements, and source links without clinical warning styling.
-- [x] 2.2 Add the authenticated `/app/timeline` page with document and biomarker API composition, medical-date ordering, document-type/date filters, bounded incremental pagination, and loading/error/empty states for all supported event types.
+- [x] 2.2 Add the authenticated `/app/timeline` page with timeline-event and biomarker API composition, medical-date ordering, document-type/date-range filters, bounded pagination, and loading/error/empty states for all supported event types.
 - [x] 2.3 Add the Timeline navigation item and page metadata without changing existing navigation behavior.
 
 ## 3. Regression and QA evidence

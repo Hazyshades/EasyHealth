@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
-import { assertDocumentOwner } from "@/lib/documents/access";
+import {
+  assertDocumentOwner,
+  resolveDisplayProcessingStatus,
+} from "@/lib/documents/access";
+import { shouldCompleteDocumentReview } from "@/lib/documents/biomarker-review-state";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   acceptExtractedBiomarkers,
   BiomarkerAcceptanceError,
@@ -24,7 +29,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: "No biomarker ids provided" }, { status: 400 });
   }
 
-  const observedAt = doc!.observed_at ?? new Date().toISOString().slice(0, 10);
+  const observedAt = doc!.observed_at;
 
   try {
     const result = await acceptExtractedBiomarkers({
@@ -33,11 +38,53 @@ export async function POST(req: NextRequest, context: RouteContext) {
       observedAt,
       ids,
     });
-    return NextResponse.json(result, {
-      // A selected row may legitimately lose the v2 CAS while another row in
-      // the same ids[] request commits its own independent transaction.
-      status: result.failures.length ? 207 : 200,
-    });
+    const currentProcessingStatus = resolveDisplayProcessingStatus(doc!);
+    let processingStatus = currentProcessingStatus;
+
+    if (result.failures.length === 0) {
+      const supabase = createAdminClient();
+      const { count, error: pendingReviewError } = await supabase
+        .from("document_extracted_biomarkers")
+        .select("id", { count: "exact", head: true })
+        .eq("document_id", id)
+        .eq("profile_id", profileId)
+        .eq("is_current", true)
+        .eq("is_published", true)
+        .eq("record_status", "active")
+        .in("status", ["needs_review", "pending_review"]);
+
+      if (pendingReviewError) {
+        throw new BiomarkerAcceptanceError(pendingReviewError.message);
+      }
+
+      if (
+        shouldCompleteDocumentReview({
+          documentStatus: currentProcessingStatus,
+          reviewableExtractedCount: count ?? 0,
+        })
+      ) {
+        const { error: updateError } = await supabase
+          .from("documents")
+          .update({ processing_status: "ready", status: "completed" })
+          .eq("id", id)
+          .eq("profile_id", profileId)
+          .eq("processing_status", "needs_review");
+
+        if (updateError) {
+          throw new BiomarkerAcceptanceError(updateError.message);
+        }
+        processingStatus = "ready";
+      }
+    }
+
+    return NextResponse.json(
+      { ...result, processingStatus },
+      {
+        // A selected row may legitimately lose the v2 CAS while another row in
+        // the same ids[] request commits its own independent transaction.
+        status: result.failures.length ? 207 : 200,
+      },
+    );
   } catch (error) {
     if (error instanceof BiomarkerAcceptanceError) {
       return NextResponse.json({ error: error.message }, { status: error.status });

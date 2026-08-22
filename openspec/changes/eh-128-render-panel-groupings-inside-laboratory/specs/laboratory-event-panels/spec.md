@@ -78,11 +78,11 @@ Every laboratory event SHALL link to its owning source document. A member observ
 
 ### Requirement: The Health Timeline SHALL present profile-owned events around the panel groups
 
-The application SHALL expose a `/app/timeline` page and navigation entry. It SHALL load only the active profile's existing document and normalized biomarker read surfaces, order events by observed medical date with upload-date fallback, support document-type and exact-date filtering, and provide bounded incremental pagination plus loading, error, and empty states.
+The application SHALL expose a `/app/timeline` page and navigation entry. It SHALL load only the active profile's existing timeline-event and normalized biomarker read surfaces, order events by observed medical date with upload-date fallback, support document-type and date-range filtering, and provide bounded pagination plus loading, error, and empty states.
 
-#### Scenario: A user filters laboratory events by date
+#### Scenario: A user filters laboratory events by date range
 
-- **WHEN** the user selects the Lab results filter and an exact event date
+- **WHEN** the user selects the Lab results filter and sets the same valid date in the From and To controls
 - **THEN** only profile-owned laboratory documents with that observed date remain visible
 - **AND** each visible laboratory event can open its source document
 

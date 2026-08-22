@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { DocumentType } from "@/lib/health-systems";
-import type { RegistryV2NormalizationRevisionReadBoundary } from "@/lib/documents/observation-read-boundaries";
+import {
+  isCurrentDocumentObservation,
+  type RegistryV2NormalizationRevisionReadBoundary,
+} from "@/lib/documents/observation-read-boundaries";
 import { projectLaboratoryOutcome } from "@/lib/documents/incomplete-laboratory-outcomes";
 
 export type StructuredBiomarkerContext = {
@@ -197,7 +200,7 @@ export async function buildDocumentStructuredContext(
     supabase
       .from("observations")
       .select(
-        "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, document_id, source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(record_status, is_current), documents(original_filename), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence)"
+        "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, document_id, source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(record_status, is_current, is_published), documents(original_filename), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence)"
       )
       .eq("profile_id", profileId)
       .in("document_id", eligibleIds)
@@ -214,19 +217,22 @@ export async function buildDocumentStructuredContext(
       .select("*")
       .eq("profile_id", profileId)
       .in("document_id", eligibleIds)
-      .eq("status", "accepted"),
+      .eq("status", "accepted")
+      .eq("is_published", true),
     supabase
       .from("document_extracted_prescriptions")
       .select("*")
       .eq("profile_id", profileId)
       .in("document_id", eligibleIds)
-      .eq("status", "accepted"),
+      .eq("status", "accepted")
+      .eq("is_published", true),
     supabase
       .from("document_extracted_referrals")
       .select("*")
       .eq("profile_id", profileId)
       .in("document_id", eligibleIds)
-      .eq("status", "accepted"),
+      .eq("status", "accepted")
+      .eq("is_published", true),
   ]);
 
   for (const obs of observations ?? []) {
@@ -237,6 +243,14 @@ export async function buildDocumentStructuredContext(
         | RegistryV2NormalizationRevisionReadBoundary[]
         | null,
     });
+    if (
+      !isCurrentDocumentObservation({
+        observation_kind: obs.observation_kind,
+        source_extracted_biomarker: obs.source_extracted_biomarker,
+      })
+    ) {
+      continue;
+    }
     if (!outcome.resolutionDetails.eligibility.structuredContextEligible) {
       continue;
     }

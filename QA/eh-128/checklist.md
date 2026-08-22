@@ -23,7 +23,7 @@ This checklist covers the Health Timeline presentation of profile-owned laborato
 | `EH128-CBC-PARTIAL` | Synthetic CBC report containing hemoglobin, hematocrit, and WBC; omit RBC and at least one optional differential member. | Normal panel detection with missing members. |
 | `EH128-SHARED-IRON` | Synthetic iron report containing serum iron and hemoglobin, with source pages on both rows. | Many-to-many CBC/iron membership and provenance. |
 | `EH128-UNGROUPED` | Synthetic lab report containing one normalized definition outside all panels and one unresolved row; use a filename containing “CBC” without CBC member rows. | Ungrouped preservation and alias/text non-detection. |
-| `EH128-MULTI-EVENT` | At least 11 synthetic documents with different event dates and document types. | Date/type filters and incremental pagination. |
+| `EH128-MULTI-EVENT` | At least 11 synthetic documents with different event dates and document types. | Date/type filters and bounded pagination. |
 
 ## Interface checks
 
@@ -88,17 +88,17 @@ This checklist covers the Health Timeline presentation of profile-owned laborato
 **Precondition:** `EH128-MULTI-EVENT` is available with at least 11 documents across dates and document types.
 
 1. Open **Timeline** and select **Lab results**.
-2. Enter an exact event date.
+2. Enter the same exact event date in **From** and **To**.
 3. Confirm only laboratory events on that date remain.
-4. Clear the date and select another document type.
-5. Use **Load more events** when more than one page is available.
+4. Clear the dates and select another document type.
+5. Use **Next** when more than one page is available, then use **Previous** to return.
 6. Choose a date with no matching event.
 7. Select **Clear filters**.
 
-**Expected result:** Type/date filters are applied to profile-owned events, incremental pagination reveals additional events without duplicating cards, the no-match state is explicit, and clearing filters restores the event list.
+**Expected result:** Type/date filters are applied to profile-owned events, bounded pagination reveals additional events without duplicating cards, the no-match state is explicit, and clearing filters restores the event list.
 
 **Result:** `Pass`
-**Notes / evidence link:** Eight safe, direct database copies of existing `checklist.pdf` were created as `EH128-PAGINATION-01-COPY.pdf` through `EH128-PAGINATION-08-COPY.pdf`; no upload, worker, or LLM call ran. The Timeline initially showed 10 of 12 events with **Load more events**. Selecting it showed 12 of 12, exposed fixture 08, and removed the control. Prior live checks verified type/date filters, empty state, and **Clear filters**.
+**Notes / evidence link:** Eight safe, direct database copies of existing `checklist.pdf` were created as `EH128-PAGINATION-01-COPY.pdf` through `EH128-PAGINATION-08-COPY.pdf`; no upload, worker, or LLM call ran. The Timeline showed 1–10 of 12 events on page 1. Selecting **Next** showed 11–12 of 12 events on page 2, enabled **Previous**, and disabled **Next**. Prior live checks verified type/date filters, empty state, and **Clear filters**.
 
 ## Developer evidence required
 

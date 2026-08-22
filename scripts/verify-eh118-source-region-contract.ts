@@ -1,9 +1,8 @@
 /**
- * EH-118 source region contract.
+ * EH-118/EH-162 source region contract regression coverage.
  *
- * Behavioural coverage for the single accepted `bounding_box` shape: what is
- * accepted, what is rejected, and how a stored region is degraded when it
- * cannot be trusted. Run with `pnpm test:eh118`.
+ * Covers canonical EH-162 payloads, legacy EH-118 compatibility, persistence
+ * page coherence, and the exact-only rendering boundary.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -12,14 +11,14 @@ import {
   isSourceRegion,
   padBbox,
   parseSourceRegion,
+  sourceRegionCanRender,
   sourceRegionMatchesPage,
   unionBbox,
   SOURCE_REGION_SCHEMA_VERSION,
-  type SourceRegion,
 } from "../src/lib/documents/source-region";
 import { resolveSourceLocation } from "../src/lib/documents/observation-review-workspace";
 
-function region(overrides: Partial<Record<keyof SourceRegion, unknown>> = {}) {
+function legacyRegion(overrides: Record<string, unknown> = {}) {
   return {
     schema_version: 1,
     space: "normalized",
@@ -33,88 +32,112 @@ function region(overrides: Partial<Record<keyof SourceRegion, unknown>> = {}) {
   };
 }
 
-// ── accepted shape ──
-const parsed = parseSourceRegion(region());
-assert.ok(parsed, "a well-formed normalized region must be accepted");
-assert.deepEqual(parsed, {
-  schema_version: SOURCE_REGION_SCHEMA_VERSION,
-  space: "normalized",
-  page: 2,
-  x: 0.1,
-  y: 0.2,
-  w: 0.3,
-  h: 0.05,
-  origin: "ocr_exact",
-});
-assert.ok(isSourceRegion(region()), "the type guard must agree with the parser");
-
-for (const origin of ["ocr_exact", "ocr_fuzzy", "model"]) {
-  assert.ok(parseSourceRegion(region({ origin })), `origin ${origin} must be accepted`);
+function canonicalRegion(overrides: Record<string, unknown> = {}) {
+  return {
+    schema_version: SOURCE_REGION_SCHEMA_VERSION,
+    coordinate_space: "normalized",
+    origin: "top-left",
+    page: 2,
+    rects: [{ x: 0.1, y: 0.2, w: 0.3, h: 0.05 }],
+    match: {
+      strategy: "exact",
+      score: 1,
+      engine: "pdf-text-bbox",
+      resolver_version: "1",
+    },
+    ...overrides,
+  };
 }
+
+// ── canonical and legacy accepted shapes ──
+const parsed = parseSourceRegion(canonicalRegion());
+assert.ok(parsed, "a canonical normalized region must be accepted");
+assert.deepEqual(parsed, canonicalRegion());
+assert.ok(isSourceRegion(canonicalRegion()), "the type guard must agree with the parser");
+
+const legacy = parseSourceRegion(legacyRegion());
+assert.ok(legacy, "an EH-118 region must remain readable");
+assert.equal(legacy.origin, "top-left");
+assert.equal(legacy.match.strategy, "exact");
+assert.deepEqual(legacy.rects[0], { x: 0.1, y: 0.2, w: 0.3, h: 0.05 });
+
+const fuzzy = parseSourceRegion(legacyRegion({ origin: "ocr_fuzzy" }));
+const model = parseSourceRegion(legacyRegion({ origin: "model" }));
+assert.equal(fuzzy?.match.strategy, "fuzzy");
+assert.equal(model?.match.strategy, "unresolved");
+assert.equal(sourceRegionCanRender(fuzzy, 2), false);
+assert.equal(sourceRegionCanRender(model, 2), false);
 
 // ── rejected shapes ──
 const rejections: Array<[string, unknown]> = [
   ["null", null],
-  ["array", [region()]],
-  ["string", JSON.stringify(region())],
-  ["unknown schema version", region({ schema_version: 2 })],
-  ["missing schema version", region({ schema_version: undefined })],
-  ["pixel coordinate space", region({ space: "pixel" })],
-  ["unknown origin", region({ origin: "guess" })],
-  ["page zero", region({ page: 0 })],
-  ["negative page", region({ page: -1 })],
-  ["fractional page", region({ page: 1.5 })],
-  ["string page", region({ page: "2" })],
-  ["NaN width", region({ w: Number.NaN })],
-  ["infinite height", region({ h: Number.POSITIVE_INFINITY })],
-  ["zero width", region({ w: 0 })],
-  ["negative height", region({ h: -0.1 })],
-  ["x beyond the page", region({ x: 1.5 })],
-  ["box overflowing the page", region({ x: 0.9, w: 0.5 })],
-  ["pixel-space rectangle", region({ x: 120, y: 340, w: 220, h: 18 })],
-  ["pdf-point rectangle", region({ x: 56.8, y: 72, w: 41.2, h: 12 })],
-  ["degenerate sliver", region({ w: 0.0001, h: 0.0001 })],
+  ["array", [canonicalRegion()]],
+  ["string", JSON.stringify(canonicalRegion())],
+  ["unknown schema version", canonicalRegion({ schema_version: 2 })],
+  ["missing schema version", canonicalRegion({ schema_version: undefined })],
+  ["pixel coordinate space", canonicalRegion({ coordinate_space: "pixel" })],
+  ["wrong origin", canonicalRegion({ origin: "bottom-left" })],
+  ["unknown strategy", canonicalRegion({ match: { ...canonicalRegion().match, strategy: "guess" } })],
+  ["page zero", canonicalRegion({ page: 0 })],
+  ["negative page", canonicalRegion({ page: -1 })],
+  ["fractional page", canonicalRegion({ page: 1.5 })],
+  ["string page", canonicalRegion({ page: "2" })],
+  ["empty exact rectangles", canonicalRegion({ rects: [] })],
+  ["NaN width", canonicalRegion({ rects: [{ x: 0.1, y: 0.2, w: Number.NaN, h: 0.05 }] })],
+  ["infinite height", canonicalRegion({ rects: [{ x: 0.1, y: 0.2, w: 0.3, h: Number.POSITIVE_INFINITY }] })],
+  ["zero width", canonicalRegion({ rects: [{ x: 0.1, y: 0.2, w: 0, h: 0.05 }] })],
+  ["negative height", canonicalRegion({ rects: [{ x: 0.1, y: 0.2, w: 0.3, h: -0.1 }] })],
+  ["x beyond the page", canonicalRegion({ rects: [{ x: 1.5, y: 0.2, w: 0.1, h: 0.05 }] })],
+  ["box overflowing the page", canonicalRegion({ rects: [{ x: 0.9, y: 0.2, w: 0.5, h: 0.05 }] })],
+  ["pixel-space rectangle", canonicalRegion({ rects: [{ x: 120, y: 340, w: 220, h: 18 }] })],
+  ["degenerate sliver", canonicalRegion({ rects: [{ x: 0.1, y: 0.2, w: 0.0001, h: 0.0001 }] })],
 ];
 for (const [label, value] of rejections) {
   assert.equal(parseSourceRegion(value), null, `${label} must be rejected`);
 }
 
 // ── rounding tolerance ──
-// OCR glyph overhang pushes a box a hair outside the page; that is clamped, not
-// rejected, because the alternative is losing a correct highlight.
-const clamped = parseSourceRegion(region({ x: -0.005, y: 0.98, w: 0.4, h: 0.03 }));
-assert.ok(clamped, "a box a fraction outside the page must be clamped");
-assert.equal(clamped.x, 0);
-assert.ok(clamped.y + clamped.h <= 1, "clamping must keep the box inside the page");
-
-// Coordinates are canonicalized so equal geometry produces equal JSON.
-const rounded = parseSourceRegion(region({ x: 0.1234567891 }));
-assert.equal(rounded?.x, 0.123457, "coordinates must be rounded to a stable precision");
-
-// ── page coherence ──
-const onPageTwo = parseSourceRegion(region({ page: 2 }));
-assert.equal(sourceRegionMatchesPage(onPageTwo, 2), true);
-assert.equal(
-  sourceRegionMatchesPage(onPageTwo, 3),
-  false,
-  "a region must never be rendered on a page it was not measured against"
+const clamped = parseSourceRegion(
+  canonicalRegion({ rects: [{ x: -0.005, y: 0.98, w: 0.4, h: 0.03 }] }),
 );
+assert.ok(clamped, "a box a fraction outside the page must be clamped");
+assert.equal(clamped.rects[0].x, 0);
+assert.ok(
+  clamped.rects[0].y + clamped.rects[0].h <= 1,
+  "clamping must keep the box inside the page",
+);
+const rounded = parseSourceRegion(
+  canonicalRegion({ rects: [{ x: 0.1234567891, y: 0.2, w: 0.3, h: 0.05 }] }),
+);
+assert.equal(rounded?.rects[0].x, 0.123457);
+
+// ── page coherence and exact-only renderability ──
+const onPageTwo = parseSourceRegion(canonicalRegion({ page: 2 }));
+assert.equal(sourceRegionMatchesPage(onPageTwo, 2), true);
+assert.equal(sourceRegionCanRender(onPageTwo, 2), true);
+assert.equal(sourceRegionMatchesPage(onPageTwo, 3), false);
+assert.equal(sourceRegionCanRender(onPageTwo, 3), false);
 assert.equal(sourceRegionMatchesPage(onPageTwo, null), false);
 assert.equal(sourceRegionMatchesPage(null, 2), false);
 
-// ── builder ──
+// ── builder and geometry helpers ──
 const built = buildSourceRegion({
   page: 1,
-  bbox: { x: 0.2, y: 0.3, w: 0.1, h: 0.02 },
-  origin: "ocr_fuzzy",
+  rects: [
+    { x: 0.2, y: 0.3, w: 0.1, h: 0.02 },
+    { x: 0.2, y: 0.34, w: 0.1, h: 0.02 },
+  ],
+  match: { strategy: "fuzzy", score: 0.8 },
 });
 assert.ok(built);
 assert.equal(built.page, 1);
-assert.equal(built.origin, "ocr_fuzzy");
+assert.equal(built.origin, "top-left");
+assert.equal(built.match.strategy, "fuzzy");
+assert.equal(built.rects.length, 2);
 assert.equal(
   buildSourceRegion({ page: 0, bbox: { x: 0, y: 0, w: 0.1, h: 0.1 }, origin: "model" }),
   null,
-  "the builder must apply the same page invariant as the parser"
+  "the builder must apply the same page invariant as the parser",
 );
 assert.equal(unionBbox([]), null);
 const union = unionBbox([
@@ -130,7 +153,7 @@ for (const [axis, expected] of [
 ] as const) {
   assert.ok(
     Math.abs(union[axis] - expected) < 1e-9,
-    `union ${axis} must cover both boxes (got ${union[axis]})`
+    `union ${axis} must cover both boxes (got ${union[axis]})`,
   );
 }
 const padded = padBbox({ x: 0, y: 0.5, w: 0.2, h: 0.02 }, 0.01);
@@ -140,13 +163,15 @@ assert.ok(padded.h > 0.02, "padding must grow the box");
 // ── boundary enforcement is not viewer-only ──
 const migration = readFileSync(
   "supabase/migrations/044_eh118_observation_source_region.sql",
-  "utf8"
+  "utf8",
 );
-assert.match(
-  migration,
-  /create or replace function public\.eh118_is_source_region/,
-  "the region contract must also be enforced in the database"
+assert.match(migration, /create or replace function public\.eh118_is_source_region/);
+const eh162Migration = readFileSync(
+  "supabase/migrations/063_eh162_source_region_match_contract.sql",
+  "utf8",
 );
+assert.match(eh162Migration, /coordinate_space/);
+assert.match(eh162Migration, /jsonb_array_elements/);
 for (const constraint of [
   "observations_source_region_valid",
   "extracted_biomarkers_source_region_valid",
@@ -161,93 +186,70 @@ const writer = readFileSync("src/lib/documents/observation-normalization-writer.
 assert.match(
   writer,
   /sourceRegionMatchesPage\(region, row\.source_page \?\? null\)/,
-  "acceptance must only copy a region that belongs to the recorded source page"
+  "acceptance must only copy a region that belongs to the recorded source page",
 );
 assert.match(
   writer,
   /if \(row\.source_page == null\) \{\s*\n\s*throw new ObservationNormalizationWriterError\(/,
-  "acceptance must refuse a document-sourced row that has no source page"
+  "acceptance must refuse a document-sourced row that has no source page",
 );
 
 const observationsRoute = readFileSync(
   "src/app/api/documents/[id]/observations/route.ts",
-  "utf8"
+  "utf8",
 );
-assert.match(
-  observationsRoute,
-  /source_page, source_text, bounding_box/,
-  "the observations API must expose source page and region provenance"
-);
+assert.match(observationsRoute, /source_page, source_text, bounding_box/);
 
-// ── EH-117 review workspace integration ──
-// The workspace reserved `"region"` precision for EH-118; these assert the seam
-// is now filled and still degrades in the documented order.
+// ── review workspace integration ──
 const grounded = resolveSourceLocation(
   2,
   "Hemoglobin 156 g/L",
-  region({ page: 2, origin: "ocr_exact" })
+  legacyRegion({ page: 2, origin: "ocr_exact" }),
 );
-assert.equal(grounded.precision, "region", "a grounded row must report region precision");
+assert.equal(grounded.precision, "region");
 assert.equal(grounded.page, 2);
-assert.equal(grounded.label, "Page 2");
-assert.ok(grounded.region, "a region-precision row must carry the geometry");
-assert.equal(grounded.region.page, 2);
+assert.ok(grounded.region);
+assert.equal(grounded.region.match.strategy, "exact");
 
 const pageOnly = resolveSourceLocation(2, "Hemoglobin 156 g/L", null);
-assert.equal(pageOnly.precision, "page", "no region means page precision");
+assert.equal(pageOnly.precision, "page");
 assert.equal(pageOnly.region, null);
-
 assert.equal(
-  resolveSourceLocation(2, "x", region({ page: 3 })).precision,
+  resolveSourceLocation(2, "x", legacyRegion({ page: 2, origin: "ocr_fuzzy" })).precision,
   "page",
-  "a region measured on another page must not be presented as region precision"
+);
+assert.equal(
+  resolveSourceLocation(2, "x", legacyRegion({ page: 3 })).precision,
+  "page",
 );
 assert.equal(
   resolveSourceLocation(2, "x", { x: 10, y: 20, w: 30, h: 40 }).precision,
   "page",
-  "a free-form rectangle must not be presented as region precision"
 );
-assert.equal(
-  resolveSourceLocation(null, "x", region({ page: 1 })).precision,
-  "document",
-  "without a page there is nothing to highlight against"
-);
+assert.equal(resolveSourceLocation(null, "x", legacyRegion()).precision, "document");
 
-// ── scroll ownership ──
-// Two components scrolling on selection produces visible jank. The source pane
-// owns preview scrolling; the overlay is presentational; the row list keeps its
-// own list-scoped scroll.
+// ── scroll ownership and overlay variants ──
 const overlay = readFileSync("src/components/documents/source-highlight-overlay.tsx", "utf8");
-assert.doesNotMatch(
-  overlay,
-  /\.scrollIntoView\(/,
-  "the highlight overlay must not scroll: it would move every ancestor and the window"
-);
+assert.doesNotMatch(overlay, /\.scrollIntoView\(/);
+assert.match(overlay, /variant/);
+assert.match(overlay, /region\.rects\.map/);
+assert.match(overlay, /pointer-events-none/);
+assert.match(overlay, /aria-hidden/);
 
 const sourcePane = readFileSync(
   "src/components/documents/review/document-source-pane.tsx",
-  "utf8"
+  "utf8",
 );
-assert.match(sourcePane, /<SourceHighlightOverlay/, "the source pane must draw the region");
-assert.match(
-  sourcePane,
-  /scroller\.scrollTo\(/,
-  "the source pane must scroll its own container rather than the page"
-);
-assert.doesNotMatch(
-  sourcePane,
-  /\.scrollIntoView\(/,
-  "the source pane must not delegate scrolling to the browser's ancestor walk"
-);
+assert.match(sourcePane, /<SourceHighlightOverlay/);
+assert.match(sourcePane, /pinnedSource/);
+assert.match(sourcePane, /previewSource/);
+assert.match(sourcePane, /scroller\.scrollTo\(/);
+assert.doesNotMatch(sourcePane, /\.scrollIntoView\(/);
 
 const reviewList = readFileSync(
   "src/components/documents/review/observation-review-list.tsx",
-  "utf8"
+  "utf8",
 );
-assert.match(
-  reviewList,
-  /scrollIntoView\(\{ block: "nearest" \}\)/,
-  "the row list keeps its list-scoped scroll; EH-118 must not widen it"
-);
+assert.match(reviewList, /scrollIntoView\(\{ block: "nearest" \}\)/);
 
 console.log("verify-eh118-source-region-contract: passed");

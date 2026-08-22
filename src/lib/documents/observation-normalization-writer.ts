@@ -110,7 +110,7 @@ export class ObservationNormalizationWriterError extends Error {
 
 function baseMeasurementFromWriterRow(
   row: ExtractedBiomarkerWriterRow,
-  observedAt: string,
+  observedAt: string | null,
 ): BaseMeasurement {
   try {
     return baseMeasurementFromExtractedRow(row, observedAt);
@@ -471,7 +471,7 @@ export function buildNormalizationWriterRequestHash(options: {
 export async function writeExtractedBiomarkerNormalization(options: {
   profileId: string;
   documentId: string;
-  observedAt: string;
+  observedAt: string | null;
   row: ExtractedBiomarkerWriterRow;
   actorId: string;
   writeKind: ObservationNormalizationWriteKind;
@@ -596,7 +596,7 @@ export type AutomaticVerificationResult =
 export async function writeAutomaticBiomarkerVerification(options: {
   profileId: string;
   documentId: string;
-  observedAt: string;
+  observedAt: string | null;
   row: ExtractedBiomarkerWriterRow;
   expectedActiveRevision?: NormalizationRevision | null;
   qualityGateApproved: boolean;

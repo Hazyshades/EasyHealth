@@ -346,6 +346,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const [undoBatchReason, setUndoBatchReason] = useState("");
   const [undoingBatch, setUndoingBatch] = useState(false);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+    const [previewedRowId, setPreviewedRowId] = useState<string | null>(null);
   const [insightSource, setInsightSource] =
     useState<ReviewRowSourceLocation | null>(null);
   const [manualReasons, setManualReasons] = useState<Record<string, string>>({});
@@ -633,19 +634,48 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
 
   // Document -> list synchronization: keep the selected row anchored to the page in view.
   useEffect(() => {
-    setSelectedRowId((prev) =>
-      resolveSelectionForPage(reviewRows, currentPage, prev),
-    );
-  }, [reviewRows, currentPage]);
+      setSelectedRowId((prev) =>
+        resolveSelectionForPage(reviewRows, currentPage, prev),
+      );
+    }, [reviewRows, currentPage]);
+
+    useEffect(() => {
+      setPreviewedRowId((previous) => {
+        const preview = findReviewRow(reviewRows, previous);
+        return preview?.source.precision === "region" &&
+          preview.source.page === currentPage
+          ? previous
+          : null;
+      });
+    }, [reviewRows, currentPage]);
 
   const selectedRow = findReviewRow(reviewRows, selectedRowId);
-  const activeSource = selectedRow?.source ?? insightSource;
+  const pinnedSource = selectedRow?.source ?? insightSource;
+    const previewRow = findReviewRow(reviewRows, previewedRowId);
+    const previewSource =
+      previewRow && previewRow.id !== selectedRowId ? previewRow.source : null;
 
   const handleActivateRow = useCallback((row: ReviewRow) => {
-    setSelectedRowId(row.id);
-    setInsightSource(null);
-    if (row.source.page !== null) setCurrentPage(row.source.page);
-  }, []);
+      setSelectedRowId(row.id);
+      setPreviewedRowId(null);
+      setInsightSource(null);
+      if (row.source.page !== null) setCurrentPage(row.source.page);
+    }, []);
+
+    const handlePreviewStart = useCallback(
+      (row: ReviewRow) => {
+        if (row.source.precision !== "region" || row.source.page !== currentPage) {
+          setPreviewedRowId(null);
+          return;
+        }
+        setPreviewedRowId(row.id);
+      },
+      [currentPage],
+    );
+
+    const handlePreviewEnd = useCallback((row: ReviewRow) => {
+      setPreviewedRowId((current) => (current === row.id ? null : current));
+    }, []);
 
   const handleCorrectionDraftChange = useCallback(
     (extractedBiomarkerId: string, draft: ObservationCorrectionDraft) => {
@@ -1170,7 +1200,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
       item.id,
       baseMeasurementFromExtractedRow(
         item as unknown as ExtractedBiomarkerMeasurementRow,
-        doc.observed_at ?? new Date().toISOString().slice(0, 10),
+        doc.observed_at,
       ),
     ]),
   );
@@ -1336,20 +1366,17 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
       ) : null}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-stretch xl:grid-cols-[minmax(0,1fr)_420px]">
-        <DocumentSourcePane
-          filename={doc.original_filename}
-          processingStatus={doc.processing_status}
-          mimeType={originalMime}
-          pageUrl={pageUrl}
-          originalUrl={originalUrl}
-          pageCount={pageCount}
-          currentPage={currentPage}
-          onPageChange={setCurrentPage}
-          pageLoading={pageLoading}
-          pageError={pageError}
-          onRetryPage={() => void loadPageUrl(currentPage)}
-          activeSource={activeSource}
-        />
+        <DocumentSourcePane filename={doc.original_filename}
+        processingStatus={doc.processing_status}
+        mimeType={originalMime}
+        pageUrl={pageUrl}
+        originalUrl={originalUrl}
+        pageCount={pageCount}
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        pageLoading={pageLoading}
+        pageError={pageError}
+        onRetryPage={() => void loadPageUrl(currentPage)} pinnedSource={pinnedSource} previewSource={previewSource} />
 
         <SurfaceCard padding="sm" className="min-w-0">
           <h2 className="mb-1 font-semibold text-[var(--eh-text-primary)]">
@@ -1458,237 +1485,233 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                             ) ?? null
                           : null;
                       return (
-                        <ObservationReviewRow
-                          key={row.id}
-                          row={row}
-                          selected={row.id === selectedRowId}
-                          onActivate={() => setSelectedRowId(row.id)}
-                          correction={
-                            row.reviewable && correctionBaseById.get(row.id) ? (
-                              <ObservationCorrectionForm
-                                base={correctionBaseById.get(row.id)!}
-                                activeOverride={
-                                  activeRevision?.measurement_override ?? null
-                                }
-                                activeRevisionId={activeRevision?.id ?? null}
-                                disabled={
-                                  normalizingId === row.id ||
-                                  correctingRowId === row.id
-                                }
-                                draft={correctionDrafts[row.id]}
-                                onDraftChange={(draft) =>
-                                  handleCorrectionDraftChange(row.id, draft)
-                                }
-                                onSave={(request) =>
-                                  handleCorrectMeasurement(row.id, request)
-                                }
-                                previousRevision={
-                                  previousRevision
-                                    ? {
-                                        id: previousRevision.id,
-                                        createdAt: previousRevision.created_at,
-                                        measurementOverride:
-                                          previousRevision.measurement_override ?? null,
-                                      }
-                                    : null
-                                }
-                                onUndo={(request) =>
-                                  handleUndoCorrection(row.id, request)
-                                }
-                              />
-                            ) : null
-                          }
-                          rejection={
-                            row.sourceKind === "extracted" &&
-                            row.actionAvailability?.reject.available === true ? (
-                              <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-slate-100 pt-2">
-                                <label className="flex min-w-[14rem] flex-1 flex-col gap-1 text-xs text-[var(--eh-text-secondary)]">
-                                  <span>Reject source</span>
-                                  <select
-                                    value={rejectionReasons[row.id] ?? ""}
-                                    onChange={(event) =>
-                                      setRejectionReasons((current) => ({
-                                        ...current,
-                                        [row.id]: event.target.value as
-                                          | RejectionReasonCode
-                                          | "",
-                                      }))
+                        <ObservationReviewRow key={row.id}
+                        row={row}
+                        selected={row.id === selectedRowId} onActivate={handleActivateRow} onPreviewStart={handlePreviewStart} onPreviewEnd={handlePreviewEnd} correction={
+                          row.reviewable && correctionBaseById.get(row.id) ? (
+                            <ObservationCorrectionForm
+                              base={correctionBaseById.get(row.id)!}
+                              activeOverride={
+                                activeRevision?.measurement_override ?? null
+                              }
+                              activeRevisionId={activeRevision?.id ?? null}
+                              disabled={
+                                normalizingId === row.id ||
+                                correctingRowId === row.id
+                              }
+                              draft={correctionDrafts[row.id]}
+                              onDraftChange={(draft) =>
+                                handleCorrectionDraftChange(row.id, draft)
+                              }
+                              onSave={(request) =>
+                                handleCorrectMeasurement(row.id, request)
+                              }
+                              previousRevision={
+                                previousRevision
+                                  ? {
+                                      id: previousRevision.id,
+                                      createdAt: previousRevision.created_at,
+                                      measurementOverride:
+                                        previousRevision.measurement_override ?? null,
                                     }
-                                    className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs"
-                                    aria-label={`Rejection reason for ${row.rawEvidence.displayName}`}
-                                  >
-                                    <option value="">Choose a reason…</option>
-                                    {Object.entries(REJECTION_REASON_LABELS).map(
-                                      ([code, label]) => (
-                                        <option key={code} value={code}>
-                                          {label}
-                                        </option>
-                                      ),
-                                    )}
-                                  </select>
-                                </label>
+                                  : null
+                              }
+                              onUndo={(request) =>
+                                handleUndoCorrection(row.id, request)
+                              }
+                            />
+                          ) : null
+                        }
+                        rejection={
+                          row.sourceKind === "extracted" &&
+                          row.actionAvailability?.reject.available === true ? (
+                            <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-slate-100 pt-2">
+                              <label className="flex min-w-[14rem] flex-1 flex-col gap-1 text-xs text-[var(--eh-text-secondary)]">
+                                <span>Reject source</span>
+                                <select
+                                  value={rejectionReasons[row.id] ?? ""}
+                                  onChange={(event) =>
+                                    setRejectionReasons((current) => ({
+                                      ...current,
+                                      [row.id]: event.target.value as
+                                        | RejectionReasonCode
+                                        | "",
+                                    }))
+                                  }
+                                  className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs"
+                                  aria-label={`Rejection reason for ${row.rawEvidence.displayName}`}
+                                >
+                                  <option value="">Choose a reason…</option>
+                                  {Object.entries(REJECTION_REASON_LABELS).map(
+                                    ([code, label]) => (
+                                      <option key={code} value={code}>
+                                        {label}
+                                      </option>
+                                    ),
+                                  )}
+                                </select>
+                              </label>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={
+                                  !rejectionReasons[row.id] ||
+                                  rejectingRowId === row.id
+                                }
+                                onClick={() => handleReject(row)}
+                              >
+                                {rejectingRowId === row.id
+                                  ? "Rejecting…"
+                                  : "Reject source"}
+                              </Button>
+                            </div>
+                          ) : null
+                        }
+                        selection={
+                          row.reviewable
+                            ? {
+                                checked: selectedIds.has(row.id),
+                                onChange: (next) =>
+                                  setSelectedIds((prev) => {
+                                    const updated = new Set(prev);
+                                    if (next) updated.add(row.id);
+                                    else updated.delete(row.id);
+                                    return updated;
+                                  }),
+                              }
+                            : undefined
+                        }
+                        batchVerification={
+                          batchVerification &&
+                          row.sourceKind === "extracted" &&
+                          row.sourceIsCurrent
+                            ? {
+                                eligible: batchEligibleIds.has(row.id),
+                                checked: batchSelectedIds.has(row.id),
+                                reason: (batchExclusionsById.get(row.id) ?? [])
+                                  .map(
+                                    (code) =>
+                                      BATCH_VERIFICATION_EXCLUSION_LABELS[code],
+                                  )
+                                  .join(" "),
+                                onChange: batchEligibleIds.has(row.id)
+                                  ? (next) => {
+                                      setBatchSelectedIds((current) => {
+                                        const updated = new Set(current);
+                                        if (next) updated.add(row.id);
+                                        else updated.delete(row.id);
+                                        return updated;
+                                      });
+                                      setBatchOperationId(null);
+                                    }
+                                  : undefined,
+                              }
+                            : undefined
+                        }
+                        technicalDetails={
+                          <ReviewTechnicalDetails
+                            details={row.resolutionDetails}
+                            decisionTrace={normalization?.decisionTrace}
+                            previewCandidateEvidence={
+                              normalization?.previewCandidateEvidence
+                            }
+                          >
+                            {row.actionAvailability?.correct.available &&
+                            normalization &&
+                            normalization.manualOptions.length > 0 ? (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <select
+                                  value={manualSelections[row.id] ?? ""}
+                                  onChange={(event) =>
+                                    setManualSelections((current) => ({
+                                      ...current,
+                                      [row.id]: event.target.value,
+                                    }))
+                                  }
+                                  className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs"
+                                  aria-label={`Choose compatible mapping for ${row.rawEvidence.displayName}`}
+                                >
+                                  <option value="">
+                                    Select only if the report states the
+                                    specimen
+                                  </option>
+                                  {normalization.manualOptions.map(
+                                    (option) => (
+                                      <option
+                                        key={option.key}
+                                        value={option.key}
+                                      >
+                                        {option.displayName}
+                                      </option>
+                                    ),
+                                  )}
+                                </select>
+                                <input
+                                  type="text"
+                                  value={manualReasons[row.id] ?? ""}
+                                  onChange={(event) =>
+                                    setManualReasons((current) => ({
+                                      ...current,
+                                      [row.id]: event.target.value,
+                                    }))
+                                  }
+                                  placeholder="Why is this mapping correct?"
+                                  aria-label={`Reason for mapping ${row.rawEvidence.displayName}`}
+                                  className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs"
+                                  disabled={normalizingId === row.id}
+                                />
                                 <Button
                                   variant="outline"
                                   size="sm"
                                   disabled={
-                                    !rejectionReasons[row.id] ||
-                                    rejectingRowId === row.id
+                                    !manualSelections[row.id] ||
+                                    !manualReasons[row.id]?.trim() ||
+                                    normalizingId === row.id
                                   }
-                                  onClick={() => handleReject(row)}
+                                  onClick={() =>
+                                    handleManualCorrection(row.id)
+                                  }
                                 >
-                                  {rejectingRowId === row.id
-                                    ? "Rejecting…"
-                                    : "Reject source"}
+                                  {normalizingId === row.id
+                                    ? "Saving…"
+                                    : "Use mapping"}
                                 </Button>
                               </div>
-                            ) : null
-                          }
-                          selection={
-                            row.reviewable
-                              ? {
-                                  checked: selectedIds.has(row.id),
-                                  onChange: (next) =>
-                                    setSelectedIds((prev) => {
-                                      const updated = new Set(prev);
-                                      if (next) updated.add(row.id);
-                                      else updated.delete(row.id);
-                                      return updated;
-                                    }),
-                                }
-                              : undefined
-                          }
-                          batchVerification={
-                            batchVerification &&
-                            row.sourceKind === "extracted" &&
-                            row.sourceIsCurrent
-                              ? {
-                                  eligible: batchEligibleIds.has(row.id),
-                                  checked: batchSelectedIds.has(row.id),
-                                  reason: (batchExclusionsById.get(row.id) ?? [])
-                                    .map(
-                                      (code) =>
-                                        BATCH_VERIFICATION_EXCLUSION_LABELS[code],
-                                    )
-                                    .join(" "),
-                                  onChange: batchEligibleIds.has(row.id)
-                                    ? (next) => {
-                                        setBatchSelectedIds((current) => {
-                                          const updated = new Set(current);
-                                          if (next) updated.add(row.id);
-                                          else updated.delete(row.id);
-                                          return updated;
-                                        });
-                                        setBatchOperationId(null);
+                            ) : null}
+                            {row.actionAvailability?.reverse.available &&
+                            normalization?.activeRevision
+                              ? normalization.revisions
+                                  .filter((revision) => !revision.is_active)
+                                  .map((revision) => (
+                                    <Button
+                                      key={revision.id}
+                                      variant="ghost"
+                                      size="sm"
+                                      className="mt-2"
+                                      disabled={normalizingId === row.id}
+                                      onClick={() =>
+                                        handleUndoCorrection(row.id, {
+                                          revertToRevisionId: revision.id,
+                                          correctionReason: "",
+                                          expectedActiveRevisionId:
+                                            activeRevision?.id ?? null,
+                                        })
                                       }
-                                    : undefined,
-                                }
-                              : undefined
-                          }
-                          technicalDetails={
-                            <ReviewTechnicalDetails
-                              details={row.resolutionDetails}
-                              decisionTrace={normalization?.decisionTrace}
-                              previewCandidateEvidence={
-                                normalization?.previewCandidateEvidence
-                              }
-                            >
-                              {row.actionAvailability?.correct.available &&
-                              normalization &&
-                              normalization.manualOptions.length > 0 ? (
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                  <select
-                                    value={manualSelections[row.id] ?? ""}
-                                    onChange={(event) =>
-                                      setManualSelections((current) => ({
-                                        ...current,
-                                        [row.id]: event.target.value,
-                                      }))
-                                    }
-                                    className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs"
-                                    aria-label={`Choose compatible mapping for ${row.rawEvidence.displayName}`}
-                                  >
-                                    <option value="">
-                                      Select only if the report states the
-                                      specimen
-                                    </option>
-                                    {normalization.manualOptions.map(
-                                      (option) => (
-                                        <option
-                                          key={option.key}
-                                          value={option.key}
-                                        >
-                                          {option.displayName}
-                                        </option>
-                                      ),
-                                    )}
-                                  </select>
-                                  <input
-                                    type="text"
-                                    value={manualReasons[row.id] ?? ""}
-                                    onChange={(event) =>
-                                      setManualReasons((current) => ({
-                                        ...current,
-                                        [row.id]: event.target.value,
-                                      }))
-                                    }
-                                    placeholder="Why is this mapping correct?"
-                                    aria-label={`Reason for mapping ${row.rawEvidence.displayName}`}
-                                    className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs"
-                                    disabled={normalizingId === row.id}
-                                  />
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={
-                                      !manualSelections[row.id] ||
-                                      !manualReasons[row.id]?.trim() ||
-                                      normalizingId === row.id
-                                    }
-                                    onClick={() =>
-                                      handleManualCorrection(row.id)
-                                    }
-                                  >
-                                    {normalizingId === row.id
-                                      ? "Saving…"
-                                      : "Use mapping"}
-                                  </Button>
-                                </div>
-                              ) : null}
-                              {row.actionAvailability?.reverse.available &&
-                              normalization?.activeRevision
-                                ? normalization.revisions
-                                    .filter((revision) => !revision.is_active)
-                                    .map((revision) => (
-                                      <Button
-                                        key={revision.id}
-                                        variant="ghost"
-                                        size="sm"
-                                        className="mt-2"
-                                        disabled={normalizingId === row.id}
-                                        onClick={() =>
-                                          handleUndoCorrection(row.id, {
-                                            revertToRevisionId: revision.id,
-                                            correctionReason: "",
-                                            expectedActiveRevisionId:
-                                              activeRevision?.id ?? null,
-                                          })
-                                        }
-                                      >
-                                        Restore{" "}
-                                        {revision.measurement_definition_key ??
-                                          "raw extraction"}
-                                      </Button>
-                                    ))
-                                : null}
-                            </ReviewTechnicalDetails>
-                          }
-                          history={
-                            <ObservationChangeHistoryPanel
-                              entries={changeHistoryByRow.get(row.id) ?? []}
-                              loading={changeHistoryLoading}
-                            />
-                          }
-                        />
+                                    >
+                                      Restore{" "}
+                                      {revision.measurement_definition_key ??
+                                        "raw extraction"}
+                                    </Button>
+                                  ))
+                              : null}
+                          </ReviewTechnicalDetails>
+                        }
+                        history={
+                          <ObservationChangeHistoryPanel
+                            entries={changeHistoryByRow.get(row.id) ?? []}
+                            loading={changeHistoryLoading}
+                          />
+                        } />
                       );
                     }}
                   />
@@ -1708,23 +1731,19 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                     selectedRowId={selectedRowId}
                     onSelectPage={setCurrentPage}
                     renderRow={(row) => (
-                      <ObservationReviewRow
-                        key={row.id}
-                        row={row}
-                        selected={row.id === selectedRowId}
-                        onActivate={handleActivateRow}
-                        technicalDetails={
-                          <ReviewTechnicalDetails
-                            details={row.resolutionDetails}
-                          />
-                        }
-                        history={
-                          <ObservationChangeHistoryPanel
-                            entries={changeHistoryByRow.get(row.id) ?? []}
-                            loading={changeHistoryLoading}
-                          />
-                        }
-                      />
+                      <ObservationReviewRow key={row.id}
+                      row={row}
+                      selected={row.id === selectedRowId} onActivate={handleActivateRow} onPreviewStart={handlePreviewStart} onPreviewEnd={handlePreviewEnd} technicalDetails={
+                        <ReviewTechnicalDetails
+                          details={row.resolutionDetails}
+                        />
+                      }
+                      history={
+                        <ObservationChangeHistoryPanel
+                          entries={changeHistoryByRow.get(row.id) ?? []}
+                          loading={changeHistoryLoading}
+                        />
+                      } />
                     )}
                   />
                   {hasIncompleteLaboratoryOutcomes && reprocessButton}

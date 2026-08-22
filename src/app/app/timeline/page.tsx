@@ -1,312 +1,481 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ExternalLink, RotateCcw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ArrowUpRight,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  RefreshCw,
+  SlidersHorizontal,
+} from "lucide-react";
 import { LaboratoryEventCard } from "@/components/timeline/laboratory-event-card";
 import { PageHeader } from "@/components/layout/page-header";
-import { Button } from "@/components/ui/button";
-import { FilterChip } from "@/components/ui/filter-chip";
-import { Skeleton } from "@/components/ui/skeleton";
-import { StatusChip } from "@/components/ui/status-chip";
 import { SurfaceCard } from "@/components/ui/surface-card";
+import { StatusChip } from "@/components/ui/status-chip";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   DOCUMENT_TYPE_LABELS,
-  DOCUMENT_TYPES,
   type DocumentType,
 } from "@/lib/health-systems";
+import {
+  TIMELINE_EVENT_TYPES,
+  type TimelineEvent,
+  type TimelineEventType,
+} from "@/lib/timeline";
 import {
   groupLaboratoryObservations,
   type TimelineLaboratoryObservation,
 } from "@/lib/timeline/panel-grouping";
 
-const PAGE_SIZE = 10;
-type TimelineTypeFilter = DocumentType | "all";
+type TimelineFilterType = "all" | TimelineEventType;
 
-type TimelineDocument = Readonly<{
-  id: string;
-  original_filename: string;
-  status: string;
-  processing_status: string;
-  document_type: DocumentType;
-  lab_name: string | null;
-  observed_at: string | null;
-  created_at: string;
-  error_message: string | null;
-}>;
+type TimelineResponse = {
+  profile?: { id: string; label: string };
+  events?: TimelineEvent[];
+  pagination?: {
+    page: number;
+    pageSize: number;
+    total: number;
+    hasNext: boolean;
+  };
+  error?: string;
+};
 
-const DOCUMENT_FILTERS: { id: TimelineTypeFilter; label: string }[] = [
-  { id: "all", label: "All events" },
-  ...DOCUMENT_TYPES.filter((type) => type !== "dicom").map((type) => ({
-    id: type,
-    label: DOCUMENT_TYPE_LABELS[type],
-  })),
-];
+type ObservationsResponse = {
+  observations?: TimelineLaboratoryObservation[];
+  error?: string;
+};
 
-function eventDateValue(document: TimelineDocument): string {
-  return document.observed_at ?? document.created_at.slice(0, 10);
+const EMPTY_PAGINATION = {
+  page: 1,
+  pageSize: 10,
+  total: 0,
+  hasNext: false,
+};
+
+function formatEventDate(value: string | null): string {
+  if (!value) return "Date not available";
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return "Date not available";
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(date);
 }
 
-function compareTimelineDocuments(left: TimelineDocument, right: TimelineDocument): number {
-  const dateOrder = eventDateValue(right).localeCompare(eventDateValue(left));
-  if (dateOrder !== 0) return dateOrder;
-  const createdOrder = right.created_at.localeCompare(left.created_at);
-  if (createdOrder !== 0) return createdOrder;
-  return left.id.localeCompare(right.id);
+function statusVariant(
+  status: string,
+): "success" | "warning" | "error" | "neutral" {
+  if (status === "completed" || status === "ready") return "success";
+  if (status === "failed") return "error";
+  if (status === "processing") return "warning";
+  return "neutral";
 }
 
-function formatEventDate(document: TimelineDocument): string {
-  const date = eventDateValue(document);
-  const parsed = new Date(`${date}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) return date;
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeZone: "UTC",
-  }).format(parsed);
+function eventStatus(event: TimelineEvent): string | null {
+  if (event.processingStatus === "processing") return "Processing";
+  if (event.processingStatus === "failed") return "Processing failed";
+  return null;
 }
 
-function eventDateLabel(document: TimelineDocument): string {
-  return document.observed_at ? "Event date" : "Uploaded";
-}
-
-function displayDocumentStatus(document: TimelineDocument): string {
-  return document.processing_status || document.status || "available";
-}
-
-function SimpleTimelineEvent({ document }: { document: TimelineDocument }) {
-  const eventHref = `/app/documents/${encodeURIComponent(document.id)}`;
+function TimelineSkeleton() {
   return (
-    <SurfaceCard padding="md" className="space-y-3" data-testid="timeline-event-card">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-wide text-[var(--eh-text-muted)]">
-            {DOCUMENT_TYPE_LABELS[document.document_type] ?? document.document_type}
-          </p>
-          <h2 className="mt-1 truncate text-base font-semibold text-[var(--eh-text-primary)]">
-            {document.original_filename}
-          </h2>
-          <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
-            {[eventDateLabel(document), formatEventDate(document), document.lab_name]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
+    <div className="space-y-4" aria-label="Loading health timeline" role="status">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <SurfaceCard key={index} padding="lg" className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+          <Skeleton className="h-6 w-2/3" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-4/5" />
+        </SurfaceCard>
+      ))}
+    </div>
+  );
+}
+
+function TimelineEventCard({ event }: { event: TimelineEvent }) {
+  const processingLabel = eventStatus(event);
+  const location = event.provider ?? event.labName;
+
+  return (
+    <article className="relative pl-5 sm:pl-8">
+      <span
+        className="absolute left-0 top-6 size-3 rounded-full border-2 border-white bg-[var(--eh-brand)] shadow-[0_0_0_2px_var(--eh-brand-soft)] sm:left-1.5"
+        aria-hidden
+      />
+      <SurfaceCard padding="lg" className="transition-colors hover:border-[var(--eh-brand)]">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusChip variant="neutral">{event.typeLabel}</StatusChip>
+              {processingLabel ? (
+                <StatusChip variant={statusVariant(event.processingStatus)}>
+                  {processingLabel}
+                </StatusChip>
+              ) : null}
+            </div>
+            <h3 className="mt-3 break-words text-lg font-semibold text-[var(--eh-text-primary)]">
+              {event.title}
+            </h3>
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[var(--eh-text-secondary)]">
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarDays className="size-4" aria-hidden />
+                {formatEventDate(event.eventDate)}
+              </span>
+              {location ? <span>· {location}</span> : null}
+            </p>
+          </div>
+          <Link
+            href={event.source.href}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-[var(--eh-brand)] transition-colors hover:bg-[var(--eh-brand-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--eh-brand)]"
+            aria-label={`Open source document ${event.source.filename}`}
+          >
+            Open source
+            <ArrowUpRight className="size-4" aria-hidden />
+          </Link>
         </div>
-        <Link
-          href={eventHref}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--eh-border)] px-2.5 py-1.5 text-xs font-medium text-[var(--eh-text-secondary)] hover:border-[var(--eh-brand)] hover:text-[var(--eh-brand)]"
-        >
-          Open document
-          <ExternalLink className="size-3.5" aria-hidden />
-        </Link>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <StatusChip variant="neutral">{displayDocumentStatus(document)}</StatusChip>
-        {document.error_message ? (
-          <p className="text-xs text-[var(--eh-text-secondary)]">{document.error_message}</p>
+
+        {event.summary ? (
+          <p className="mt-4 text-sm leading-6 text-[var(--eh-text-secondary)]">{event.summary}</p>
         ) : null}
-      </div>
-    </SurfaceCard>
+
+        {event.measurements.length > 0 ? (
+          <div className="mt-4 rounded-xl border border-[var(--eh-border)] bg-[var(--eh-canvas-bg)] p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--eh-text-muted)]">
+              Measurements{event.measurementCount > event.measurements.length ? ` · ${event.measurementCount} total` : ""}
+            </p>
+            <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+              {event.measurements.map((measurement) => (
+                <li key={measurement.id} className="flex min-w-0 items-baseline justify-between gap-3 text-sm">
+                  <span className="truncate text-[var(--eh-text-secondary)]">{measurement.name}</span>
+                  <span className="shrink-0 font-medium text-[var(--eh-text-primary)]">
+                    {measurement.value ?? "—"}
+                    {measurement.unit ? ` ${measurement.unit}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {event.details.length > 0 ? (
+          <ul className="mt-4 space-y-1.5 text-sm text-[var(--eh-text-secondary)]">
+            {event.details.map((detail) => (
+              <li key={detail} className="leading-5">
+                {detail}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-[var(--eh-border)] pt-3 text-xs text-[var(--eh-text-muted)]">
+          <span>{event.source.filename}</span>
+          {event.datePrecision === "unknown" ? <span>Medical date not recorded</span> : null}
+          {event.status !== "completed" && event.status !== "ready" ? (
+            <span>{event.status}</span>
+          ) : null}
+        </div>
+      </SurfaceCard>
+    </article>
   );
 }
 
 export default function TimelinePage() {
-  const [documents, setDocuments] = useState<TimelineDocument[]>([]);
+  const [filterType, setFilterType] = useState<TimelineFilterType>("all");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [page, setPage] = useState(1);
+  const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [observations, setObservations] = useState<TimelineLaboratoryObservation[]>([]);
-  const [activeType, setActiveType] = useState<TimelineTypeFilter>("all");
-  const [activeDate, setActiveDate] = useState("");
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [profileLabel, setProfileLabel] = useState("Loading profile…");
+  const [pagination, setPagination] = useState(EMPTY_PAGINATION);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const requestVersion = useRef(0);
 
-  const loadTimeline = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [documentsResponse, observationsResponse] = await Promise.all([
-        fetch("/api/documents"),
-        fetch("/api/biomarkers"),
-      ]);
-      const documentsData = (await documentsResponse.json().catch(() => ({}))) as {
-        documents?: TimelineDocument[];
-        error?: string;
-      };
-      const observationsData = (await observationsResponse.json().catch(() => ({}))) as {
-        observations?: TimelineLaboratoryObservation[];
-        error?: string;
-      };
-      if (!documentsResponse.ok) {
-        throw new Error(documentsData.error ?? "Failed to load timeline events");
+  const loadTimeline = useCallback(
+    async (requestedPage: number) => {
+      const version = requestVersion.current + 1;
+      requestVersion.current = version;
+      setLoading(true);
+      setError(null);
+      const params = new URLSearchParams({
+        type: filterType,
+        page: String(requestedPage),
+        pageSize: String(EMPTY_PAGINATION.pageSize),
+      });
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
+
+      try {
+        const [timelineResponse, observationsResponse] = await Promise.all([
+          fetch(`/api/timeline?${params.toString()}`, { cache: "no-store" }),
+          fetch("/api/biomarkers", { cache: "no-store" }),
+        ]);
+        const data = (await timelineResponse.json().catch(() => ({}))) as TimelineResponse;
+        const observationsData = (await observationsResponse.json().catch(() => ({}))) as ObservationsResponse;
+        if (!timelineResponse.ok) throw new Error(data.error ?? "Unable to load your health timeline");
+        if (!observationsResponse.ok) {
+          throw new Error(observationsData.error ?? "Unable to load laboratory measurements");
+        }
+        if (version !== requestVersion.current) return;
+        setEvents(data.events ?? []);
+        setObservations(observationsData.observations ?? []);
+        setPagination(data.pagination ?? EMPTY_PAGINATION);
+        setProfileLabel(data.profile?.label ?? "Active profile");
+      } catch (requestError) {
+        if (version !== requestVersion.current) return;
+        setError(
+          requestError instanceof Error
+            ? requestError.message
+            : "Unable to load your health timeline",
+        );
+      } finally {
+        if (version === requestVersion.current) setLoading(false);
       }
-      if (!observationsResponse.ok) {
-        throw new Error(observationsData.error ?? "Failed to load laboratory measurements");
-      }
-      setDocuments(documentsData.documents ?? []);
-      setObservations(observationsData.observations ?? []);
-      setVisibleCount(PAGE_SIZE);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load timeline");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadTimeline();
-  }, [loadTimeline]);
-
-  const filteredDocuments = useMemo(
-    () =>
-      documents
-        .filter((document) => activeType === "all" || document.document_type === activeType)
-        .filter((document) => !activeDate || document.observed_at === activeDate)
-        .sort(compareTimelineDocuments),
-    [activeDate, activeType, documents],
+    },
+    [filterType, from, to],
   );
 
-  const visibleDocuments = filteredDocuments.slice(0, visibleCount);
-  const hasMore = visibleDocuments.length < filteredDocuments.length;
+  useEffect(() => {
+    setPage(1);
+  }, [filterType, from, to]);
+
+  useEffect(() => {
+    void loadTimeline(page);
+  }, [loadTimeline, page]);
+
+  const hasActiveFilters = Boolean(filterType !== "all" || from || to);
+  const firstResult = pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.pageSize + 1;
+  const lastResult = Math.min(pagination.page * pagination.pageSize, pagination.total);
   const observationsByDocument = useMemo(() => {
-    const byDocument = new Map<string, TimelineLaboratoryObservation[]>();
+    const grouped = new Map<string, TimelineLaboratoryObservation[]>();
     for (const observation of observations) {
       if (!observation.document_id) continue;
-      const documentObservations = byDocument.get(observation.document_id) ?? [];
+      const documentObservations = grouped.get(observation.document_id) ?? [];
       documentObservations.push(observation);
-      byDocument.set(observation.document_id, documentObservations);
+      grouped.set(observation.document_id, documentObservations);
     }
-    return byDocument;
+    return grouped;
   }, [observations]);
 
   function clearFilters() {
-    setActiveType("all");
-    setActiveDate("");
-    setVisibleCount(PAGE_SIZE);
+    setFilterType("all");
+    setFrom("");
+    setTo("");
+    setPage(1);
   }
 
   return (
-    <div className="space-y-6 pb-8">
-      <PageHeader subtitle="A chronological view of your profile-owned medical events" />
+    <div className="pb-8">
+      <PageHeader
+        title="Health Timeline"
+        subtitle="Your medical events in chronological order"
+        actions={
+          <Button
+            asChild
+            className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90"
+          >
+            <Link href="/app/upload">Add document</Link>
+          </Button>
+        }
+      />
 
-      <SurfaceCard padding="sm" className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-[var(--eh-text-primary)]">Filter timeline</p>
-            <p className="mt-0.5 text-xs text-[var(--eh-text-muted)]">
-              Laboratory panels use normalized Registry 2.0 measurement identities.
+      <div className="mb-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <SurfaceCard padding="sm" className="flex items-center gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--eh-brand-soft)] text-[var(--eh-brand)]">
+            <FileText className="size-4" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-medium uppercase tracking-wide text-[var(--eh-text-muted)]">
+              Active profile
             </p>
+            <p className="truncate text-sm font-semibold text-[var(--eh-text-primary)]">
+              {profileLabel}
+            </p>
+          </div>
+        </SurfaceCard>
+        <p className="text-xs leading-5 text-[var(--eh-text-muted)] lg:max-w-xs lg:text-right">
+          Dates reflect the medical record. Missing dates are shown explicitly.
+        </p>
+      </div>
+
+      <SurfaceCard padding="sm" className="mb-6">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[12rem] flex-1">
+            <label className="mb-1.5 block text-xs font-medium text-[var(--eh-text-secondary)]" htmlFor="timeline-type">
+              Document type
+            </label>
+            <Select
+              value={filterType}
+              onValueChange={(value) => setFilterType(value as TimelineFilterType)}
+            >
+              <SelectTrigger id="timeline-type" className="w-full rounded-xl">
+                <SelectValue placeholder="All document types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All document types</SelectItem>
+                {TIMELINE_EVENT_TYPES.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {DOCUMENT_TYPE_LABELS[type as DocumentType]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[var(--eh-text-secondary)]" htmlFor="timeline-from">
+              From
+            </label>
+            <div className="relative">
+              <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--eh-text-muted)]" aria-hidden />
+              <input
+                id="timeline-from"
+                type="date"
+                value={from}
+                onChange={(event) => setFrom(event.target.value)}
+                className="h-10 rounded-xl border border-[var(--eh-border)] bg-white py-2 pl-9 pr-3 text-sm text-[var(--eh-text-primary)] outline-none transition focus:border-[var(--eh-brand)] focus:ring-2 focus:ring-[var(--eh-brand)]/20"
+                aria-label="Timeline start date"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-[var(--eh-text-secondary)]" htmlFor="timeline-to">
+              To
+            </label>
+            <div className="relative">
+              <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--eh-text-muted)]" aria-hidden />
+              <input
+                id="timeline-to"
+                type="date"
+                value={to}
+                onChange={(event) => setTo(event.target.value)}
+                className="h-10 rounded-xl border border-[var(--eh-border)] bg-white py-2 pl-9 pr-3 text-sm text-[var(--eh-text-primary)] outline-none transition focus:border-[var(--eh-brand)] focus:ring-2 focus:ring-[var(--eh-brand)]/20"
+                aria-label="Timeline end date"
+              />
+            </div>
           </div>
           <Button
             type="button"
             variant="outline"
-            size="sm"
-            className="rounded-lg"
-            onClick={() => void loadTimeline()}
-            disabled={loading}
+            onClick={clearFilters}
+            disabled={!hasActiveFilters}
+            className="h-10 rounded-xl"
           >
-            <RotateCcw className="size-3.5" aria-hidden />
-            Refresh
+            <SlidersHorizontal className="size-4" aria-hidden />
+            Clear filters
           </Button>
         </div>
-        <div className="flex flex-wrap gap-2" aria-label="Filter by document type">
-          {DOCUMENT_FILTERS.map((filter) => (
-            <FilterChip
-              key={filter.id}
-              active={activeType === filter.id}
-              onClick={() => {
-                setActiveType(filter.id);
-                setVisibleCount(PAGE_SIZE);
-              }}
-            >
-              {filter.label}
-            </FilterChip>
-          ))}
-        </div>
-        <label className="flex max-w-xs flex-col gap-1 text-xs font-medium text-[var(--eh-text-secondary)]">
-          Event date
-          <input
-            type="date"
-            value={activeDate}
-            onChange={(event) => {
-              setActiveDate(event.target.value);
-              setVisibleCount(PAGE_SIZE);
-            }}
-            className="rounded-xl border border-[var(--eh-border)] bg-white px-3 py-2 text-sm font-normal text-[var(--eh-text-primary)] outline-none focus:border-[var(--eh-brand)] focus:ring-2 focus:ring-[var(--eh-brand)]/20"
-            aria-label="Filter by event date"
-          />
-        </label>
       </SurfaceCard>
 
       {error ? (
-        <SurfaceCard padding="lg" className="border-red-200 bg-red-50/40">
-          <p className="text-sm font-semibold text-red-800">Timeline could not be loaded</p>
-          <p className="mt-1 text-sm text-red-700">{error}</p>
+        <SurfaceCard padding="lg" className="border-red-200 bg-red-50/40 text-center" role="alert">
+          <h2 className="font-semibold text-[var(--eh-text-primary)]">Timeline unavailable</h2>
+          <p className="mt-2 text-sm text-[var(--eh-text-secondary)]">{error}</p>
           <Button
             type="button"
             variant="outline"
-            className="mt-4 rounded-xl"
-            onClick={() => void loadTimeline()}
+            onClick={() => void loadTimeline(page)}
+            className="mt-5 rounded-xl"
           >
+            <RefreshCw className="size-4" aria-hidden />
             Try again
           </Button>
         </SurfaceCard>
       ) : loading ? (
-        <SurfaceCard padding="md" className="space-y-4">
-          <Skeleton className="h-5 w-48" />
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
-        </SurfaceCard>
-      ) : filteredDocuments.length === 0 ? (
-        <SurfaceCard padding="lg" className="border-dashed text-center">
-          <p className="text-sm font-semibold text-[var(--eh-text-primary)]">No timeline events found</p>
-          <p className="mx-auto mt-1 max-w-md text-sm text-[var(--eh-text-secondary)]">
-            Upload a record or clear the filters to see profile-owned events here.
+        <TimelineSkeleton />
+      ) : pagination.total === 0 ? (
+        <SurfaceCard padding="lg" className="text-center">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-[var(--eh-brand-soft)] text-[var(--eh-brand)]">
+            <CalendarDays className="size-6" aria-hidden />
+          </div>
+          <h2 className="mt-4 text-lg font-semibold text-[var(--eh-text-primary)]">
+            {hasActiveFilters ? "No events match your filters" : "No timeline events yet"}
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-[var(--eh-text-secondary)]">
+            {hasActiveFilters
+              ? "Try a different document type or date range."
+              : "Upload a medical document to start building your chronological health record."}
           </p>
-          <Button type="button" variant="outline" className="mt-4 rounded-xl" onClick={clearFilters}>
-            Clear filters
-          </Button>
+          {hasActiveFilters ? (
+            <Button type="button" variant="outline" onClick={clearFilters} className="mt-5 rounded-xl">
+              Clear filters
+            </Button>
+          ) : (
+            <Button asChild className="mt-5 rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
+              <Link href="/app/upload">Upload document</Link>
+            </Button>
+          )}
         </SurfaceCard>
       ) : (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm text-[var(--eh-text-secondary)]">
-              Showing {visibleDocuments.length} of {filteredDocuments.length} event
-              {filteredDocuments.length === 1 ? "" : "s"}
-            </p>
-            {activeType !== "all" || activeDate ? (
-              <Button type="button" variant="ghost" size="sm" onClick={clearFilters}>
-                Clear filters
-              </Button>
-            ) : null}
+        <>
+          <div className="relative space-y-4 before:absolute before:bottom-6 before:left-[5px] before:top-6 before:w-px before:bg-[var(--eh-border)] sm:before:left-[11px]">
+            {events.map((event) => {
+              if (event.type === "lab_result") {
+                const eventObservations = observationsByDocument.get(event.documentId) ?? [];
+                const grouped = groupLaboratoryObservations(eventObservations);
+                return (
+                  <LaboratoryEventCard
+                    key={event.id}
+                    document={{
+                      id: event.documentId,
+                      original_filename: event.source.filename,
+                      lab_name: event.labName,
+                    }}
+                    panels={grouped.panels}
+                    ungrouped={grouped.ungrouped}
+                    totalObservationCount={eventObservations.length}
+                    eventHref={event.source.href}
+                  />
+                );
+              }
+              return <TimelineEventCard key={event.id} event={event} />;
+            })}
           </div>
-          {visibleDocuments.map((document) => {
-            const eventObservations = observationsByDocument.get(document.id) ?? [];
-            if (document.document_type === "lab_result") {
-              const grouped = groupLaboratoryObservations(eventObservations);
-              return (
-                <LaboratoryEventCard
-                  key={document.id}
-                  document={document}
-                  panels={grouped.panels}
-                  ungrouped={grouped.ungrouped}
-                  totalObservationCount={eventObservations.length}
-                  eventHref={`/app/documents/${encodeURIComponent(document.id)}`}
-                />
-              );
-            }
-            return <SimpleTimelineEvent key={document.id} document={document} />;
-          })}
-          {hasMore ? (
-            <div className="flex justify-center pt-2">
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-[var(--eh-text-secondary)]">
+              Showing {firstResult}–{lastResult} of {pagination.total} events
+            </p>
+            <div className="flex items-center gap-2">
               <Button
                 type="button"
                 variant="outline"
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                disabled={loading || pagination.page <= 1}
                 className="rounded-xl"
-                onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
               >
-                Load more events
+                <ChevronLeft className="size-4" aria-hidden />
+                Previous
+              </Button>
+              <span className="px-1 text-sm text-[var(--eh-text-muted)]">Page {pagination.page}</span>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPage((current) => current + 1)}
+                disabled={loading || !pagination.hasNext}
+                className="rounded-xl"
+              >
+                Next
+                <ChevronRight className="size-4" aria-hidden />
               </Button>
             </div>
-          ) : null}
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

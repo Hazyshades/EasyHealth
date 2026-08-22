@@ -1,3 +1,9 @@
+import type { LanguageModel } from "ai";
+import type { PipelineLlmContext } from "../../src/lib/ai/pipeline-trace.js";
+import { workerEnv } from "./env.js";
+import { processMistralOcr } from "./ocr/mistral.js";
+import { selectOcrSource } from "./ocr/select.js";
+import { OcrProviderError, type OcrDocument } from "./ocr/types.js";
 import { createHash } from "node:crypto";
 import {
   DOCUMENT_PROCESSING_VERSION,
@@ -36,7 +42,7 @@ import {
   extractReferralFromText,
 } from "../../src/lib/documents/referral-extraction.js";
 import {
-  buildPageOcrArtifact,
+  buildPageOcrArtifactV2,
   type PageOcrBlock,
 } from "../../src/lib/biomarkers/ocr-artifact.js";
 import {
@@ -49,11 +55,11 @@ import {
   type SourceIndexPage,
 } from "../../src/lib/documents/source-region-match.js";
 import {
-  ocrFulltextPath,
-  ocrPageJsonPath,
-  pagePreviewObjectPath,
+  attemptOcrFulltextPath,
+  attemptOcrPageJsonPath,
+  attemptPagePreviewObjectPath,
+  attemptThumbnailObjectPath,
   resolveOriginalStoragePath,
-  thumbnailObjectPath,
 } from "../../src/lib/documents/paths.js";
 import {
   classifyDocumentFromImage,
@@ -71,6 +77,12 @@ import {
   type PrepareInstrumentalPublicationArgs,
   type PrepareInstrumentalPublicationRow,
 } from "../../src/lib/documents/instrumental-publication.js";
+import {
+  buildMedicalEventDateSync,
+  calendarDateProjection,
+  type MedicalEventDateRole,
+  type MedicalEventDateSync,
+} from "../../src/lib/documents/medical-events.js";
 import { finalizeDocumentProcessing } from "./document-completion.js";
 import { modelIdForStage, resolveModelForStage, type AiProviderId } from "./ai.js";
 import {
@@ -112,6 +124,31 @@ function requireMutationSuccess<T extends SupabaseMutationResult>(
     throw new Error(`${operation}: ${result.error.message}`);
   }
   return result;
+}
+
+function consistentSourceDate(values: readonly unknown[]): string | null {
+  const candidates = values.flatMap((value) =>
+    typeof value === "string" && value.trim() ? [value.trim()] : []
+  );
+  if (candidates.length === 0) return null;
+  const first = candidates[0];
+  return candidates.every((candidate) => candidate === first) ? first : null;
+}
+
+async function syncMedicalEventDates(
+  documentId: string,
+  dates: Partial<Record<MedicalEventDateRole, unknown>>,
+): Promise<void> {
+  const payload: MedicalEventDateSync[] = Object.entries(dates).map(([role, value]) =>
+    buildMedicalEventDateSync(role as MedicalEventDateRole, value)
+  );
+  const { error } = await supabase.rpc("eh126_sync_document_event_dates", {
+    p_document_id: documentId,
+    p_dates: payload,
+  });
+  if (error) {
+    throw new Error(`sync medical event dates: ${error.message}`);
+  }
 }
 
 async function uploadToLabDocuments(
@@ -162,15 +199,15 @@ async function runTextOrImageExtraction<T>(
   filename: string,
   fromText: (
     text: string,
-    model: import("ai").LanguageModel,
+    model: LanguageModel,
     filename: string,
-    ctx: import("../../src/lib/ai/pipeline-trace.js").PipelineLlmContext
+    ctx: PipelineLlmContext
   ) => Promise<T>,
   fromImage: (
     buffer: Buffer,
-    model: import("ai").LanguageModel,
+    model: LanguageModel,
     filename: string,
-    ctx: import("../../src/lib/ai/pipeline-trace.js").PipelineLlmContext
+    ctx: PipelineLlmContext
   ) => Promise<T>
 ): Promise<{ result: T; modelId: string }> {
   return runStageTextOrImage({
@@ -187,39 +224,6 @@ async function runTextOrImageExtraction<T>(
   });
 }
 
-async function clearPriorExtractions(documentId: string, documentType: string) {
-  if (documentType !== "lab_result") {
-    requireMutationSuccess(
-      await supabase.from("document_extracted_biomarkers").delete().eq("document_id", documentId),
-      "clear prior extracted biomarkers"
-    );
-    // EH-105 owns instrumental replacement in a single database transaction.
-    // Deleting observations here would erase the prior current source snapshot
-    // before its replacement has been safely materialized.
-    if (documentType !== "instrumental_report") {
-      requireMutationSuccess(
-        await supabase.from("observations").delete().eq("document_id", documentId),
-        "clear prior non-instrumental observations"
-      );
-    }
-  }
-  requireMutationSuccess(
-    await supabase.from("document_extracted_clinical_notes").delete().eq("document_id", documentId),
-    "clear prior extracted clinical notes"
-  );
-  requireMutationSuccess(
-    await supabase.from("document_extracted_prescriptions").delete().eq("document_id", documentId),
-    "clear prior extracted prescriptions"
-  );
-  requireMutationSuccess(
-    await supabase.from("document_extracted_referrals").delete().eq("document_id", documentId),
-    "clear prior extracted referrals"
-  );
-  requireMutationSuccess(
-    await supabase.from("document_pages").delete().eq("document_id", documentId),
-    "clear prior document pages"
-  );
-}
 
 async function prepareInstrumentalPublicationRpc(
   job: JobRow,
@@ -245,10 +249,63 @@ async function prepareInstrumentalPublicationRpc(
   }
   return row;
 }
+function layoutPagesFromOcrDocument(
+  ocrDocument: OcrDocument,
+  renderedPages: readonly { pageNumber: number; width: number; height: number }[],
+): PdfLayoutPage[] {
+  return ocrDocument.pages.map((page) => {
+    const rendered = renderedPages[page.pageNumber - 1];
+    return {
+      page_number: page.pageNumber,
+      width: page.width ?? rendered?.width ?? 1,
+      height: page.height ?? rendered?.height ?? 1,
+      text: page.plainText,
+      lines: [],
+    };
+  });
+}
+
+async function recordOcrInvocation(input: {
+  profileId: string;
+  documentId: string;
+  processingAttemptId: string;
+  modelId: string | null;
+  inputBytes: number;
+  pagesProcessed: number;
+  latencyMs: number;
+  success: boolean;
+  errorCode: string | null;
+  requestId: string | null;
+}): Promise<void> {
+  const { error } = await supabase.from("ai_invocations").insert({
+    profile_id: input.profileId,
+    document_id: input.documentId,
+    stage: "ocr",
+    provider: "mistral",
+    model_id: input.modelId ?? workerEnv.mistralOcrModel,
+    latency_ms: input.latencyMs,
+    input_tokens: null,
+    output_tokens: null,
+    success: input.success,
+    error_code: input.errorCode,
+    provider_switch: false,
+    region: workerEnv.mistralOcrRegion,
+    input_bytes: input.inputBytes,
+    pages_processed: input.pagesProcessed,
+    request_id: input.requestId,
+    estimated_cost_usd: input.pagesProcessed * workerEnv.mistralOcrPageCostUsd,
+    processing_attempt_id: input.processingAttemptId,
+  });
+  if (error) {
+    console.error("[pipeline] OCR invocation telemetry write failed:", error.message);
+  }
+}
 
 async function finalizeInstrumentalPublicationRpc(
   job: JobRow,
   documentId: string,
+
+
   prepared: PrepareInstrumentalPublicationRow,
   summaryText: string | null,
   completion: InstrumentalPublicationCompletion
@@ -311,8 +368,6 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
     })
     .eq("id", doc.id), "mark document processing");
 
-  await clearPriorExtractions(doc.id, documentType);
-
   const { data: fileData, error: downloadError } = await supabase.storage
     .from(LAB_DOCUMENTS_BUCKET)
     .download(storagePath);
@@ -325,6 +380,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
   const buffer = Buffer.from(await fileData.arrayBuffer());
   const profileId = doc.profile_id;
   const documentId = doc.id;
+  const processingAttemptId = job.processing_attempt_id;
 
   let pages;
   try {
@@ -336,50 +392,142 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
   }
 
   const thumbBuffer = await generateThumbnail(pages[0].buffer);
-  const thumbPath = thumbnailObjectPath(profileId, documentId);
+  const thumbPath = attemptThumbnailObjectPath(profileId, documentId, processingAttemptId);
   await uploadToLabDocuments(thumbPath, thumbBuffer, "image/webp");
 
   // EH-118: the page index is the provenance ground truth. Word geometry comes
-  // from poppler when the PDF has a text layer; otherwise only per-page text
-  // survives and region highlights degrade to page-only provenance.
+  // from poppler when the PDF has a complete text layer; Mistral blocks remain
+  // coarse metadata and do not become exact clinical row geometry.
   let layoutPages: PdfLayoutPage[] = [];
   if (mimeType === "application/pdf") {
     layoutPages = await extractPdfPageIndex(buffer);
   }
-  const hasPageText = layoutPages.some((page) => page.text.trim().length > 0);
-  // Extraction input carries explicit page markers so the model's `source_page`
-  // is read off the input instead of guessed from one undifferentiated blob.
-  const ocrText = hasPageText ? buildPageMarkedText(layoutPages) : "";
-  if (mimeType === "application/pdf") {
-    await uploadToLabDocuments(ocrFulltextPath(profileId, documentId), ocrText, "text/plain");
+  const popplerPageMarkedText =
+    layoutPages.length > 0 ? buildPageMarkedText(layoutPages) : "";
+  const pageCount = pages.length;
+  const ocrSelection = selectOcrSource({
+    mimeType,
+    renderedPageCount: pageCount,
+    layoutPages,
+    pageMarkedText: popplerPageMarkedText,
+    mistralEnabled: workerEnv.mistralOcrEnabled,
+  });
+
+  let sourceTextOrigin = ocrSelection.sourceTextOrigin;
+  let ocrText = ocrSelection.kind === "poppler" ? popplerPageMarkedText : "";
+  let ocrDocument: OcrDocument | null = null;
+  const sourceSha256 = createHash("sha256").update(buffer).digest("hex");
+
+  if (ocrSelection.kind === "mistral") {
+    const startedAt = Date.now();
+    try {
+      ocrDocument = await processMistralOcr({
+        buffer,
+        mimeType,
+        expectedPageCount: pageCount,
+      });
+      layoutPages = layoutPagesFromOcrDocument(ocrDocument, pages);
+      ocrText = buildPageMarkedText(layoutPages);
+      await recordOcrInvocation({
+        profileId,
+        documentId,
+        processingAttemptId,
+        modelId: ocrDocument.model,
+        inputBytes: buffer.length,
+        pagesProcessed: ocrDocument.usage.pagesProcessed ?? pageCount,
+        latencyMs: Date.now() - startedAt,
+        success: true,
+        errorCode: null,
+        requestId: null,
+      });
+    } catch (error) {
+      const providerError =
+        error instanceof OcrProviderError
+          ? error
+          : new OcrProviderError("ocr_provider_unavailable");
+      await recordOcrInvocation({
+        profileId,
+        documentId,
+        processingAttemptId,
+        modelId: null,
+        inputBytes: buffer.length,
+        pagesProcessed: pageCount,
+        latencyMs: Date.now() - startedAt,
+        success: false,
+        errorCode: providerError.code,
+        requestId: providerError.requestId,
+      });
+      if (
+        workerEnv.mistralOcrFailureMode !== "legacy_vision" ||
+        process.env.NODE_ENV === "production"
+      ) {
+        await failJob(job, providerError.code);
+        return "failed";
+      }
+      sourceTextOrigin = "vision_model";
+      layoutPages = [];
+    }
+  } else if (ocrSelection.kind === "unavailable") {
+    if (process.env.NODE_ENV === "production") {
+      await failJob(job, "ocr_provider_unavailable");
+      return "failed";
+    }
+    layoutPages = [];
+  }
+
+  if (ocrText.trim()) {
+    await uploadToLabDocuments(
+      attemptOcrFulltextPath(profileId, documentId, processingAttemptId),
+      ocrText,
+      "text/plain"
+    );
   }
   const sourceIndex: SourceIndexPage[] = buildSourceIndex(layoutPages);
-  const pageCount = pages.length;
+  const ocrProvider = ocrDocument ? "mistral" : ocrSelection.kind === "poppler" ? "poppler" : null;
+  const ocrModel = ocrDocument?.model ?? null;
+  const ocrAdapterVersion = ocrDocument?.adapterVersion ?? workerEnv.mistralOcrAdapterVersion;
 
   for (const page of pages) {
-    const previewPath = pagePreviewObjectPath(profileId, documentId, page.pageNumber);
+    const previewPath = attemptPagePreviewObjectPath(
+      profileId,
+      documentId,
+      processingAttemptId,
+      page.pageNumber
+    );
     await uploadToLabDocuments(previewPath, page.buffer, "image/webp");
 
-    // Page OCR artifact (schema_version 1), one per page, with normalized word
-    // geometry whenever the text layer provided it.
     const layout = layoutPages.find((candidate) => candidate.page_number === page.pageNumber);
+    const ocrPage = ocrDocument?.pages.find((candidate) => candidate.pageNumber === page.pageNumber);
     const pageText = layout?.text.trim() ? layout.text : "";
+    const blocks: PageOcrBlock[] =
+      ocrPage?.blocks.map((block) => ({
+        text: block.text,
+        confidence: block.confidence,
+        bbox: block.bbox,
+      })) ??
+      layout?.lines.map((line) => ({ text: line.text, bbox: line.bbox })) ??
+      [];
     let ocrJsonPath: string | null = null;
-    if (pageText) {
-      const blocks: PageOcrBlock[] | undefined =
-        layout && layout.lines.length > 0
-          ? layout.lines.map((line) => ({ text: line.text, bbox: line.bbox }))
-          : undefined;
-      const artifact = buildPageOcrArtifact({
-        engine: blocks ? "poppler-bbox-layout" : "pdf-text",
+    if (ocrProvider && (ocrPage || pageText)) {
+      const artifact = buildPageOcrArtifactV2({
+        provider: ocrProvider,
+        engine: ocrDocument?.engine ?? "poppler-bbox-layout",
+        model: ocrModel,
+        adapter_version: ocrAdapterVersion,
+        source_sha256: ocrDocument?.sourceSha256 ?? sourceSha256,
         page_number: page.pageNumber,
+        width: layout?.width ?? page.width,
+        height: layout?.height ?? page.height,
         full_text: pageText,
-        width: page.width,
-        height: page.height,
+        markdown: ocrPage?.markdown ?? pageText,
         blocks,
-        coordinate_space: blocks ? "normalized" : undefined,
       });
-      ocrJsonPath = ocrPageJsonPath(profileId, documentId, page.pageNumber);
+      ocrJsonPath = attemptOcrPageJsonPath(
+        profileId,
+        documentId,
+        processingAttemptId,
+        page.pageNumber
+      );
       await uploadToLabDocuments(
         ocrJsonPath,
         Buffer.from(JSON.stringify(artifact), "utf8"),
@@ -391,6 +539,8 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
       await supabase.from("document_pages").insert({
         document_id: documentId,
         profile_id: profileId,
+        processing_attempt_id: processingAttemptId,
+        is_current: false,
         page_number: page.pageNumber,
         width: page.width,
         height: page.height,
@@ -452,6 +602,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
   let structuredPayload: unknown = null;
   let extractionModel: string | null = null;
 
+  const pendingAutomaticVerificationRows: ExtractedBiomarkerWriterRow[] = [];
   try {
     if (documentType === "lab_result") {
       const { result: extraction, modelId } = await runTextOrImageExtraction(
@@ -470,6 +621,11 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
       structuredPayload = extraction;
       observedAt = extraction.observed_at;
       labName = extraction.lab_name;
+      await syncMedicalEventDates(documentId, {
+        occurred: observedAt,
+        collected: consistentSourceDate(extraction.biomarkers.map((row) => row.collected_at)),
+        authored: consistentSourceDate(extraction.biomarkers.map((row) => row.reported_at)),
+      });
 
       if (extraction.biomarkers.length > 0) {
         const insertedBiomarkers = requireMutationSuccess(
@@ -495,13 +651,15 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
                   modifier?: string | null;
                   reported_alt_value?: number | null;
                   reported_alt_unit?: string | null;
+                  collected_at?: string | null;
+                  reported_at?: string | null;
                   inferred_axes?: unknown;
                 };
                 const provenance = resolveProvenance(anyB.source_page, anyB.source_text);
                 return {
                   document_id: documentId,
                   profile_id: profileId,
-                  processing_attempt_id: job.processing_attempt_id,
+                  processing_attempt_id: processingAttemptId,
                   biomarker_key: anyB.key,
                   biomarker_name: anyB.name,
                   raw_name: anyB.raw_name ?? anyB.name,
@@ -519,17 +677,24 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
                   bounding_box: provenance.region,
                   source_text: anyB.source_text,
                   confidence: anyB.confidence,
-                  specimen: anyB.specimen ?? null,
-                  modifier: anyB.modifier ?? null,
                   reported_alt_value: anyB.reported_alt_value ?? null,
                   reported_alt_unit: anyB.reported_alt_unit ?? null,
+                  collected_at: calendarDateProjection(anyB.collected_at),
+                  reported_at: calendarDateProjection(anyB.reported_at),
                   // #106: observability only, never read by the resolver.
                   inferred_axes: anyB.inferred_axes ?? null,
                   extraction_method: "llm",
                   processing_version: DOCUMENT_PROCESSING_VERSION,
                   extraction_model: extractionModel,
+                  source_text_origin: sourceTextOrigin,
+                  ocr_provider: ocrProvider,
+                  ocr_model: ocrModel,
+                  ocr_adapter_version: ocrProvider ? ocrAdapterVersion : null,
+                  ocr_artifact_schema_version: ocrProvider ? 2 : null,
+                  ocr_source_sha256: ocrProvider ? sourceSha256 : null,
                   status: "needs_review",
                   is_current: true,
+                  is_published: false,
                 };
               })
             )
@@ -540,26 +705,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         if (insertedRows.length !== extraction.biomarkers.length) {
           throw new Error("write extracted laboratory biomarkers returned an incomplete row set");
         }
-        if (isAutomaticVerificationReleaseApproved()) {
-          const automaticObservedAt =
-            observedAt ?? new Date().toISOString().slice(0, 10);
-          for (const row of insertedRows) {
-            const result = await writeAutomaticBiomarkerVerification({
-              profileId,
-              documentId,
-              observedAt: automaticObservedAt,
-              row,
-              qualityGateApproved: true,
-            });
-            if (!("promoted" in result)) {
-              console.info("[pipeline] Automatically verified extracted biomarker", {
-                documentId,
-                extractedBiomarkerId: row.id,
-                revisionId: result.revisionId,
-              });
-            }
-            }
-          }
+        pendingAutomaticVerificationRows.push(...insertedRows);
         processingStatus = "needs_review";
       }
 
@@ -590,16 +736,13 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
       observedAt = extraction.study_date;
       labName = extraction.facility_name;
       modality = extraction.modality;
+      await syncMedicalEventDates(documentId, { occurred: observedAt });
 
-      // Stage the immutable snapshot (measures, findings, impression) as an
-      // inactive prepared publication; readers keep seeing the prior current
-      // version until the finalizer commits.
-      // EH-118: page and region are re-grounded against the page index before
-      // the snapshot is normalized. The source locator stays exactly as
-      // extracted because it carries EH-105 source identity.
+      // The legacy instrumental publication snapshot has a day-level date
+      // projection. The event row above retains any month/year precision.
+      // Missing/partial source dates therefore stay null in the snapshot.
       const snapshot = normalizeInstrumentalSnapshot({
-        study_date:
-          extraction.study_date ?? new Date().toISOString().slice(0, 10),
+        study_date: calendarDateProjection(extraction.study_date),
         modality: extraction.modality,
         body_region: extraction.body_region,
         facility_name: extraction.facility_name,
@@ -663,24 +806,30 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
       structuredPayload = extraction;
       observedAt = extraction.visit_date;
       labName = extraction.provider_name;
+      await syncMedicalEventDates(documentId, { occurred: observedAt });
 
-      await supabase.from("document_extracted_clinical_notes").insert({
-        document_id: documentId,
-        profile_id: profileId,
-        note_kind: "consultation",
-        provider_name: extraction.provider_name,
-        visit_date: extraction.visit_date,
-        chief_complaint: extraction.chief_complaint,
-        history_summary: extraction.history_summary,
-        exam_findings: extraction.exam_findings,
-        documented_problems: extraction.documented_problems,
-        recommendations: extraction.recommendations,
-        follow_up_plan: extraction.follow_up_plan,
-        extraction_method: "llm",
-        processing_version: DOCUMENT_PROCESSING_VERSION,
-        extraction_model: extractionModel,
-        status: "accepted",
-      });
+      requireMutationSuccess(
+        await supabase.from("document_extracted_clinical_notes").insert({
+          document_id: documentId,
+          profile_id: profileId,
+          processing_attempt_id: processingAttemptId,
+          is_published: false,
+          note_kind: "consultation",
+          provider_name: extraction.provider_name,
+          visit_date: extraction.visit_date,
+          chief_complaint: extraction.chief_complaint,
+          history_summary: extraction.history_summary,
+          exam_findings: extraction.exam_findings,
+          documented_problems: extraction.documented_problems,
+          recommendations: extraction.recommendations,
+          follow_up_plan: extraction.follow_up_plan,
+          extraction_method: "llm",
+          processing_version: DOCUMENT_PROCESSING_VERSION,
+          extraction_model: extractionModel,
+          status: "accepted",
+        }),
+        "write extracted clinical note"
+      );
 
       documentSummary = await generateDocumentSummary(
         resolveModelForStage(provider, "summarize"),
@@ -701,35 +850,43 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         (image, model, filename, ctx) =>
           extractDischargeFromImage(image, "image/webp", model, filename, ctx)
       );
-
       extractionModel = modelId;
       structuredPayload = extraction;
-      observedAt = extraction.discharge_date ?? extraction.admission_date;
+      observedAt = extraction.admission_date ?? extraction.discharge_date;
       labName = extraction.provider_name;
-
-      await supabase.from("document_extracted_clinical_notes").insert({
-        document_id: documentId,
-        profile_id: profileId,
-        note_kind: "discharge",
-        provider_name: extraction.provider_name,
-        visit_date: extraction.discharge_date,
-        admission_date: extraction.admission_date,
-        discharge_date: extraction.discharge_date,
-        hospital_course: extraction.hospital_course,
-        discharge_diagnoses: extraction.discharge_diagnoses,
-        discharge_medications: extraction.discharge_medications,
-        follow_up_instructions: extraction.follow_up_instructions,
-        chief_complaint: null,
-        history_summary: extraction.history_summary,
-        exam_findings: extraction.exam_findings,
-        documented_problems: extraction.documented_problems,
-        recommendations: extraction.recommendations,
-        follow_up_plan: extraction.follow_up_plan,
-        extraction_method: "llm",
-        processing_version: DOCUMENT_PROCESSING_VERSION,
-        extraction_model: extractionModel,
-        status: "accepted",
+      await syncMedicalEventDates(documentId, {
+        occurred: extraction.admission_date,
+        occurred_end: extraction.discharge_date,
       });
+
+      requireMutationSuccess(
+        await supabase.from("document_extracted_clinical_notes").insert({
+          document_id: documentId,
+          profile_id: profileId,
+          processing_attempt_id: processingAttemptId,
+          is_published: false,
+          note_kind: "discharge",
+          provider_name: extraction.provider_name,
+          visit_date: extraction.discharge_date,
+          admission_date: extraction.admission_date,
+          discharge_date: extraction.discharge_date,
+          hospital_course: extraction.hospital_course,
+          discharge_diagnoses: extraction.discharge_diagnoses,
+          discharge_medications: extraction.discharge_medications,
+          follow_up_instructions: extraction.follow_up_instructions,
+          chief_complaint: null,
+          history_summary: extraction.history_summary,
+          exam_findings: extraction.exam_findings,
+          documented_problems: extraction.documented_problems,
+          recommendations: extraction.recommendations,
+          follow_up_plan: extraction.follow_up_plan,
+          extraction_method: "llm",
+          processing_version: DOCUMENT_PROCESSING_VERSION,
+          extraction_model: extractionModel,
+          status: "accepted",
+        }),
+        "write extracted discharge note"
+      );
 
       documentSummary = await generateDocumentSummary(
         resolveModelForStage(provider, "summarize"),
@@ -750,23 +907,28 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         (image, model, filename, ctx) =>
           extractPrescriptionFromImage(image, "image/webp", model, filename, ctx)
       );
-
       extractionModel = modelId;
       structuredPayload = extraction;
       observedAt = extraction.prescribed_at;
       labName = extraction.prescriber_name;
+      await syncMedicalEventDates(documentId, { occurred: observedAt });
 
-      await supabase.from("document_extracted_prescriptions").insert({
-        document_id: documentId,
-        profile_id: profileId,
-        prescriber_name: extraction.prescriber_name,
-        prescribed_at: extraction.prescribed_at,
-        medications: extraction.medications,
-        extraction_method: "llm",
-        processing_version: DOCUMENT_PROCESSING_VERSION,
-        extraction_model: extractionModel,
-        status: "accepted",
-      });
+      requireMutationSuccess(
+        await supabase.from("document_extracted_prescriptions").insert({
+          document_id: documentId,
+          profile_id: profileId,
+          processing_attempt_id: processingAttemptId,
+          is_published: false,
+          prescriber_name: extraction.prescriber_name,
+          prescribed_at: extraction.prescribed_at,
+          medications: extraction.medications,
+          extraction_method: "llm",
+          processing_version: DOCUMENT_PROCESSING_VERSION,
+          extraction_model: extractionModel,
+          status: "accepted",
+        }),
+        "write extracted prescription"
+      );
 
       documentSummary = await generateDocumentSummary(
         resolveModelForStage(provider, "summarize"),
@@ -787,27 +949,32 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         (image, model, filename, ctx) =>
           extractReferralFromImage(image, "image/webp", model, filename, ctx)
       );
-
       extractionModel = modelId;
       structuredPayload = extraction;
       observedAt = extraction.referral_date;
       labName = extraction.referring_provider;
+      await syncMedicalEventDates(documentId, { occurred: observedAt });
 
-      await supabase.from("document_extracted_referrals").insert({
-        document_id: documentId,
-        profile_id: profileId,
-        referring_provider: extraction.referring_provider,
-        referred_to_specialty: extraction.referred_to_specialty,
-        referred_to_provider: extraction.referred_to_provider,
-        referral_date: extraction.referral_date,
-        reason_for_referral: extraction.reason_for_referral,
-        clinical_summary: extraction.clinical_summary,
-        urgency: extraction.urgency,
-        extraction_method: "llm",
-        processing_version: DOCUMENT_PROCESSING_VERSION,
-        extraction_model: extractionModel,
-        status: "accepted",
-      });
+      requireMutationSuccess(
+        await supabase.from("document_extracted_referrals").insert({
+          document_id: documentId,
+          profile_id: profileId,
+          processing_attempt_id: processingAttemptId,
+          is_published: false,
+          referring_provider: extraction.referring_provider,
+          referred_to_specialty: extraction.referred_to_specialty,
+          referred_to_provider: extraction.referred_to_provider,
+          referral_date: extraction.referral_date,
+          reason_for_referral: extraction.reason_for_referral,
+          clinical_summary: extraction.clinical_summary,
+          urgency: extraction.urgency,
+          extraction_method: "llm",
+          processing_version: DOCUMENT_PROCESSING_VERSION,
+          extraction_model: extractionModel,
+          status: "accepted",
+        }),
+        "write extracted referral"
+      );
 
       documentSummary = await generateDocumentSummary(
         resolveModelForStage(provider, "summarize"),
@@ -836,8 +1003,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         processing_version: DOCUMENT_PROCESSING_VERSION,
         extraction_model: extractionModel,
         lab_name: labName,
-        observed_at: observedAt,
-        modality,
+        observed_at: calendarDateProjection(observedAt),
         document_summary: documentSummary,
         ocr_status: ocrText ? "completed" : "skipped",
         extraction_status: "completed",
@@ -869,6 +1035,36 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
     },
   });
   if (completionOutcome === "failed") return "failed";
+  if (
+    isAutomaticVerificationReleaseApproved() &&
+    sourceTextOrigin !== "mistral_ocr"
+  ) {
+    const automaticObservedAt = calendarDateProjection(observedAt);
+    for (const row of pendingAutomaticVerificationRows) {
+      try {
+        const result = await writeAutomaticBiomarkerVerification({
+          profileId,
+          documentId,
+          observedAt: automaticObservedAt,
+          row,
+          qualityGateApproved: true,
+        });
+        if (!("promoted" in result)) {
+          console.info("[pipeline] Automatically verified extracted biomarker", {
+            documentId,
+            extractedBiomarkerId: row.id,
+            revisionId: result.revisionId,
+          });
+        }
+      } catch (error) {
+        console.error("[pipeline] Automatic biomarker verification skipped:", {
+          documentId,
+          error: error instanceof Error ? error.message : "unknown error",
+        });
+      }
+    }
+  }
+
 
   void structuredPayload;
 

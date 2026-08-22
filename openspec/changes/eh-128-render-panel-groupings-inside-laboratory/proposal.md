@@ -5,7 +5,7 @@ The static panel registry and normalized laboratory observations now exist, but 
 ## What Changes
 
 - Add a reusable, deterministic laboratory-observation grouping projection driven only by reviewed `measurement_definition_key` membership from the existing EH-125 panel registry; panel alternate names and document headings are never treated as detection evidence.
-- Add a Health Timeline page and navigation entry that uses the authenticated documents and normalized-biomarker read APIs, orders events by the medical event date with upload-date fallback, supports document-type/date filtering, incremental pagination, and loading/error/empty states.
+- Add a Health Timeline page and navigation entry that uses the authenticated timeline-event and normalized-biomarker read APIs, orders events by the medical event date with upload-date fallback, supports document-type/date-range filtering, bounded pagination, and loading/error/empty states.
 - Render laboratory events with stable panel headings, ordered member rows, neutral `Not reported in this event` placeholders for absent required or optional members, and an `Other measurements` section for observations that do not belong to any panel (including unresolved rows).
 - Preserve many-to-many membership in the projection: a concrete observation may appear in each owning panel, while it is excluded from the ungrouped section once it has a panel membership.
 - Add document and page provenance links for every rendered laboratory event/measurement, retaining the existing source-page deep link contract.
