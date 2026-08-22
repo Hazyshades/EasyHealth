@@ -110,8 +110,11 @@ assert.match(resolutionRoute, /eh130_resolve_duplicate_candidate/);
 assert.match(resolutionRoute, /isDuplicateDecision/);
 assert.match(resolutionRoute, /status: 409/);
 
+const documentsRoute = readFileSync("src/app/api/documents/route.ts", "utf8");
+assert.match(documentsRoute, /listDocumentsForProfile/);
+
 for (const path of [
-  "src/app/api/documents/route.ts",
+  "src/lib/documents/list.ts",
   "src/app/api/timeline/route.ts",
   "src/lib/health-profile-snapshot.ts",
   "src/lib/reports.ts",
