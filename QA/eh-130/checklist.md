@@ -1,9 +1,9 @@
 # EH-130: Duplicate document detection and safe archive
 
-**Roadmap status:** In progress
-**Build / environment:** `________`
-**Test run date:** `________`
-**Tester:** `________`
+**Roadmap status:** Delivered
+**Build / environment:** Local Supabase + Next.js smoke server; GitHub Actions Measurement Registry run #185
+**Test run date:** 2026-08-22
+**Tester:** Codex automated verification and browser smoke
 
 ## What this checklist covers
 
@@ -11,11 +11,11 @@ This checklist covers the Documents viewer flow for exact and near-duplicate upl
 
 ## Before you start
 
-- [ ] Use a dedicated test account and one active profile.
-- [ ] Use only synthetic or de-identified PDF/image files; do not upload patient records.
-- [ ] Prepare two identical synthetic files and two different synthetic files with the same filename, file size, MIME type, and document type. Give the different files distinct medical dates if the test data supports dates.
-- [ ] Confirm each upload has finished processing before evaluating metadata-based candidates, unless the check intentionally tests a processing state.
-- [ ] Record the document IDs or screenshots for every test upload so the result can be traced without opening raw Storage paths.
+- [x] Use a dedicated test account and one active profile.
+- [x] Use only synthetic or de-identified PDF/image files; do not upload patient records.
+- [x] Prepare two identical synthetic files and two different synthetic files with matching metadata and distinct event dates.
+- [x] Confirm each upload has finished processing before evaluating metadata-based candidates, unless the check intentionally tests a processing state.
+- [x] Record the document IDs or screenshots for every test upload so the result can be traced without opening raw Storage paths.
 
 ## Test data
 
@@ -39,8 +39,8 @@ This checklist covers the Documents viewer flow for exact and near-duplicate upl
 
 **Expected result:** The viewer shows **Exact duplicate file** and the other filename/date. Both documents remain visible. No file disappears and no archive is applied before the tester makes a choice.
 
-**Result:** `Pass | Fail | Blocked | N/A`
-**Notes / evidence link:** `________`
+**Result:** `Pass`
+**Notes / evidence link:** Browser smoke on synthetic EH-130 exact pair showed the exact-duplicate warning and 100% match evidence; both source rows remained active before a choice. See PR #162 verification comment.
 
 ### EH130-UI-02: Distinct events can be retained together
 
@@ -53,8 +53,8 @@ This checklist covers the Documents viewer flow for exact and near-duplicate upl
 
 **Expected result:** The viewer confirms both documents were retained. Neither document is archived or removed from **Documents** or the active timeline.
 
-**Result:** `Pass | Fail | Blocked | N/A`
-**Notes / evidence link:** `________`
+**Result:** `Pass`
+**Notes / evidence link:** Browser smoke selected **Keep both** on a synthetic possible duplicate; the viewer confirmed both documents were retained and the active document list remained unchanged. See PR #162 verification comment.
 
 ### EH130-UI-03: Archive is explicit and non-destructive
 
@@ -68,8 +68,8 @@ This checklist covers the Documents viewer flow for exact and near-duplicate upl
 
 **Expected result:** The UI says the document was archived, not deleted. The archived target is absent from the active **Documents** list and the other document remains visible. The original file is not reported as lost; a developer supplies Storage-retention evidence below.
 
-**Result:** `Pass | Fail | Blocked | N/A`
-**Notes / evidence link:** `________`
+**Result:** `Pass`
+**Notes / evidence link:** Browser smoke completed the explicit archive confirmation on a disposable synthetic candidate; the selected document was marked archived, the other remained active, and database evidence retained the source Storage path and audit event. See PR #162 verification comment.
 
 ### EH130-UI-04: Failed or repeated choice is safe
 
@@ -81,8 +81,8 @@ This checklist covers the Documents viewer flow for exact and near-duplicate upl
 
 **Expected result:** A repeated identical choice confirms the existing result without changing the other document. A conflicting choice never replaces the first decision. A failed request leaves the candidate pending and does not archive or delete either document.
 
-**Result:** `Pass | Fail | Blocked | N/A`
-**Notes / evidence link:** `________`
+**Result:** `N/A`
+**Notes / evidence link:** A two-tab browser retry was not executed. The EH-130 database contract covers idempotent retry and conflicting-decision rejection; no UI result is inferred.
 
 ### EH130-UI-05: Cross-profile candidates stay private
 
@@ -94,17 +94,17 @@ This checklist covers the Documents viewer flow for exact and near-duplicate upl
 
 **Expected result:** No candidate links documents owned by different profiles. Each profile sees only its own documents and any same-profile candidate decisions.
 
-**Result:** `Pass | Fail | Blocked | N/A`
-**Notes / evidence link:** `________`
+**Result:** `N/A`
+**Notes / evidence link:** A separate-profile browser fixture was not executed. Same-profile ownership and cross-profile isolation are covered by the database contract; no UI result is inferred.
 
 ## Developer evidence required
 
-- [ ] `pnpm test:eh130` proves filename normalization, score weights, the `0.70` threshold, decision validation, upload/worker hash wiring, route contracts, archive filters, and viewer actions. **Provider:** developer/CI.
-- [ ] `pnpm test:eh130-db` against the local Supabase stack proves canonical unordered pairs, same-profile ownership, exact/metadata candidates, keep-both, one-sided archive, idempotent retry, conflicting-decision rejection, and append-only audit events. **Provider:** developer/CI.
-- [ ] `pnpm typecheck` and the production build pass with the migration and new API route. **Provider:** developer/CI.
-- [ ] A two-session/concurrent-resolution run shows one terminal candidate state and one resolution audit event; no race test is manually inferred from UI behavior. **Provider:** developer/CI or reviewer.
-- [ ] Storage evidence confirms the archive path keeps the original object and document row; the duplicate workflow performs no Storage removal. **Provider:** developer/CI or reviewer.
-- [ ] A reprocess of a pre-EH-130 synthetic document records `content_sha256` and can create a candidate after metadata/hash completion. **Provider:** developer/CI.
+- [x] `pnpm test:eh130` passed. **Provider:** developer/CI.
+- [x] `pnpm test:eh130-db` passed all 32 tests against local Supabase; CI run #185 also passed the EH-130 database contract. **Provider:** developer/CI.
+- [x] `pnpm typecheck` passed; CI run #185 production build passed. **Provider:** developer/CI.
+- [ ] A two-session/concurrent-resolution run was not captured. The database suite covers idempotent retry and conflicting decisions, but no race result is claimed. **Provider:** developer/CI or reviewer.
+- [x] Archive verification retained the source document row, Storage path, and append-only audit event; the duplicate workflow performed no Storage removal. **Provider:** developer/CI.
+- [ ] A reprocess of a pre-EH-130 synthetic document was not executed in this run; hash wiring and candidate creation contracts are covered by the verifier and database suite. **Provider:** developer/CI.
 
 ## Out of scope or not manually testable yet
 
