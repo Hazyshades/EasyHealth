@@ -159,6 +159,33 @@
       "reason": "Service-role grants for AI invocation logging and observation source embeds require pgTAP."
     },
     {
+      "script": "test:eh132",
+      "verificationFiles": ["scripts/verify-eh132-timeline-panel-release.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "quality",
+      "reason": "EH-132 cross-feature timeline, comparison, panel, and performance release validation."
+    },
+    {
+      "script": "test:eh132-fixtures",
+      "verificationFiles": ["scripts/verify-eh132-qa-fixtures.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "quality",
+      "reason": "EH-132 synthetic timeline, comparison, and performance fixture integrity is release evidence."
+    },
+    {
+      "script": "test:eh132-db",
+      "verificationFiles": ["QA-Db_tests/eh132_timeline_panel_release.sql"],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "quality",
+      "reason": "EH-132 duplicate, precision, ownership, and profile-isolation release contracts require pgTAP."
+    },
+    {
       "script": "test:eh130",
       "verificationFiles": [
         "scripts/verify-eh130-duplicate-documents.ts"
