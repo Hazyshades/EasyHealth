@@ -157,6 +157,28 @@
       "localOnly": false,
       "owner": "documents",
       "reason": "Service-role grants for AI invocation logging and observation source embeds require pgTAP."
+    },
+    {
+      "script": "test:eh130",
+      "verificationFiles": [
+        "scripts/verify-eh130-duplicate-documents.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "documents",
+      "reason": "Duplicate-document detection and safe-archive contracts require explicit CI triage."
+    },
+    {
+      "script": "test:eh130-db",
+      "verificationFiles": [
+        "supabase/tests/eh130_duplicate_document_detection.sql"
+      ],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "documents",
+      "reason": "Duplicate candidate persistence, resolution, and audit contracts require pgTAP."
     }
   ],
   "localOnly": []
