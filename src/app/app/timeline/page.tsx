@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
   CalendarDays,
@@ -11,6 +11,7 @@ import {
   RefreshCw,
   SlidersHorizontal,
 } from "lucide-react";
+import { LaboratoryEventCard } from "@/components/timeline/laboratory-event-card";
 import { PageHeader } from "@/components/layout/page-header";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { StatusChip } from "@/components/ui/status-chip";
@@ -32,6 +33,10 @@ import {
   type TimelineEvent,
   type TimelineEventType,
 } from "@/lib/timeline";
+import {
+  groupLaboratoryObservations,
+  type TimelineLaboratoryObservation,
+} from "@/lib/timeline/panel-grouping";
 
 type TimelineFilterType = "all" | TimelineEventType;
 
@@ -44,6 +49,11 @@ type TimelineResponse = {
     total: number;
     hasNext: boolean;
   };
+  error?: string;
+};
+
+type ObservationsResponse = {
+  observations?: TimelineLaboratoryObservation[];
   error?: string;
 };
 
@@ -191,6 +201,7 @@ export default function TimelinePage() {
   const [to, setTo] = useState("");
   const [page, setPage] = useState(1);
   const [events, setEvents] = useState<TimelineEvent[]>([]);
+  const [observations, setObservations] = useState<TimelineLaboratoryObservation[]>([]);
   const [profileLabel, setProfileLabel] = useState("Loading profile…");
   const [pagination, setPagination] = useState(EMPTY_PAGINATION);
   const [loading, setLoading] = useState(true);
@@ -212,13 +223,19 @@ export default function TimelinePage() {
       if (to) params.set("to", to);
 
       try {
-        const response = await fetch(`/api/timeline?${params.toString()}`, {
-          cache: "no-store",
-        });
-        const data = (await response.json().catch(() => ({}))) as TimelineResponse;
-        if (!response.ok) throw new Error(data.error ?? "Unable to load your health timeline");
+        const [timelineResponse, observationsResponse] = await Promise.all([
+          fetch(`/api/timeline?${params.toString()}`, { cache: "no-store" }),
+          fetch("/api/biomarkers", { cache: "no-store" }),
+        ]);
+        const data = (await timelineResponse.json().catch(() => ({}))) as TimelineResponse;
+        const observationsData = (await observationsResponse.json().catch(() => ({}))) as ObservationsResponse;
+        if (!timelineResponse.ok) throw new Error(data.error ?? "Unable to load your health timeline");
+        if (!observationsResponse.ok) {
+          throw new Error(observationsData.error ?? "Unable to load laboratory measurements");
+        }
         if (version !== requestVersion.current) return;
         setEvents(data.events ?? []);
+        setObservations(observationsData.observations ?? []);
         setPagination(data.pagination ?? EMPTY_PAGINATION);
         setProfileLabel(data.profile?.label ?? "Active profile");
       } catch (requestError) {
@@ -246,6 +263,16 @@ export default function TimelinePage() {
   const hasActiveFilters = Boolean(filterType !== "all" || from || to);
   const firstResult = pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.pageSize + 1;
   const lastResult = Math.min(pagination.page * pagination.pageSize, pagination.total);
+  const observationsByDocument = useMemo(() => {
+    const grouped = new Map<string, TimelineLaboratoryObservation[]>();
+    for (const observation of observations) {
+      if (!observation.document_id) continue;
+      const documentObservations = grouped.get(observation.document_id) ?? [];
+      documentObservations.push(observation);
+      grouped.set(observation.document_id, documentObservations);
+    }
+    return grouped;
+  }, [observations]);
 
   function clearFilters() {
     setFilterType("all");
@@ -398,9 +425,27 @@ export default function TimelinePage() {
       ) : (
         <>
           <div className="relative space-y-4 before:absolute before:bottom-6 before:left-[5px] before:top-6 before:w-px before:bg-[var(--eh-border)] sm:before:left-[11px]">
-            {events.map((event) => (
-              <TimelineEventCard key={event.id} event={event} />
-            ))}
+            {events.map((event) => {
+              if (event.type === "lab_result") {
+                const eventObservations = observationsByDocument.get(event.documentId) ?? [];
+                const grouped = groupLaboratoryObservations(eventObservations);
+                return (
+                  <LaboratoryEventCard
+                    key={event.id}
+                    document={{
+                      id: event.documentId,
+                      original_filename: event.source.filename,
+                      lab_name: event.labName,
+                    }}
+                    panels={grouped.panels}
+                    ungrouped={grouped.ungrouped}
+                    totalObservationCount={eventObservations.length}
+                    eventHref={event.source.href}
+                  />
+                );
+              }
+              return <TimelineEventCard key={event.id} event={event} />;
+            })}
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-[var(--eh-text-secondary)]">
