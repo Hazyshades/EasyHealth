@@ -128,6 +128,8 @@ jobs:
         run: pnpm test:eh121
       - name: Verify EH-123 assessment recalculation contracts
         run: pnpm test:eh123
+      - name: Verify app navigation hot path contracts
+        run: pnpm test:app-navigation-hot-path
       - name: Verify batch verification contracts
         run: pnpm test:eh122
       - name: Verify EH-126 medical-event contracts

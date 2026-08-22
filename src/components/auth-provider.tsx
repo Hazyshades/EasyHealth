@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type { User } from "@supabase/supabase-js";
@@ -82,9 +83,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [lastName, setLastName] = useState<string | null>(null);
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+  const appliedUserIdRef = useRef<string | null>(null);
 
   const applyIdentity = useCallback(async (user: User | null) => {
     if (!user) {
+      appliedUserIdRef.current = null;
       setProfileId(null);
       setDisplayName(null);
       setLastName(null);
@@ -112,6 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLastName(meta.lastName);
       setAccountEmail(meta.email);
     }
+    appliedUserIdRef.current = user.id;
   }, []);
 
   const refreshAccountIdentity = useCallback(async () => {
@@ -139,8 +143,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      void applyIdentity(session?.user ?? null);
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      const user = session?.user ?? null;
+      const userId = user?.id ?? null;
+      if (
+        (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") &&
+        appliedUserIdRef.current === userId
+      ) {
+        return;
+      }
+      void applyIdentity(user);
     });
 
     return () => {

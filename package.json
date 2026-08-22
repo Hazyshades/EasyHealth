@@ -7,6 +7,8 @@
     "build": "next build --turbopack",
     "start": "next start",
     "typecheck": "tsc --noEmit",
+    "test:app-navigation-hot-path": "tsx scripts/verify-app-navigation-hot-path.ts",
+    "harness:app-navigation-hot-path": "tsx scripts/app-navigation-hot-path-harness.ts",
     "test:biomarkers": "tsx scripts/verify-biomarkers-runner.ts",
     "test:cbc-regression": "tsx scripts/verify-cbc-measurement-regression-runner.ts",
     "test:measurement-registry": "tsx scripts/verify-measurement-registry-runner.ts",

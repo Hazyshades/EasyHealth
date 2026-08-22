@@ -120,15 +120,22 @@ export async function ensureProfile(user: User): Promise<string> {
   return data.id as string;
 }
 
-export async function getProfileById(profileId: string): Promise<ProfileRow> {
+export async function findProfileById(profileId: string): Promise<ProfileRow | null> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("profiles")
     .select(PROFILE_SELECT)
     .eq("id", profileId)
-    .single();
+    .maybeSingle();
   if (error) throw error;
+  if (!data) return null;
   return mapProfileRow(data as Record<string, unknown>);
+}
+
+export async function getProfileById(profileId: string): Promise<ProfileRow> {
+  const profile = await findProfileById(profileId);
+  if (!profile) throw new Error("Profile not found");
+  return profile;
 }
 
 export async function updateProfileDisplayName(profileId: string, displayName: string) {
