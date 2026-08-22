@@ -138,6 +138,8 @@ jobs:
         run: pnpm test:eh127
       - name: Verify EH-128 laboratory panel grouping
         run: pnpm test:eh128
+      - name: Verify EH-129 repeated measurement comparison
+        run: pnpm test:eh129
 
       - name: Publish Registry 2.0 candidate-release evidence
         run: |

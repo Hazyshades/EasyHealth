@@ -30,12 +30,12 @@ type Observation = {
   documents?: { id: string; original_filename: string } | null;
   converted?: boolean;
   conversion_note?: string | null;
-  original_value?: number;
-  original_unit?: string;
-  value_kind?: string;
+  original_value?: number | null;
+  original_unit?: string | null;
+  value_kind?: string | null;
   value_text?: string | null;
-  specimen?: string;
-  modifier?: string;
+  specimen?: string | null;
+  modifier?: string | null;
 };
 
 type StatusInfo = {
