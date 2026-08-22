@@ -68,6 +68,7 @@ export async function listDocumentsForProfile(
     .from("documents")
     .select(DOCUMENT_LIST_SELECT)
     .eq("profile_id", profileId)
+    .is("archived_at", null)
     .order("created_at", { ascending: false });
 
   if (query.type) {
