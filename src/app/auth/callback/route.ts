@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { resolveAuthCallbackPath } from "@/lib/auth/callback-redirect";
 import { ensureProfile } from "@/lib/auth/profile";
 import { getProfileOnboardingState } from "@/lib/auth/onboarding";
 
@@ -15,7 +16,15 @@ export async function GET(request: Request) {
     if (error) {
       console.error("[auth/callback] exchange failed:", error.message);
       return NextResponse.redirect(
-        `${origin}/?signin=error&message=${encodeURIComponent(error.message)}`
+        `${origin}${resolveAuthCallbackPath({
+          hasCode: true,
+          exchangeError: error.message,
+          userId: null,
+          ensureFailed: false,
+          next,
+          needsProfileGate: false,
+          needsConsentGate: false,
+        })}`,
       );
     }
 
@@ -27,23 +36,43 @@ export async function GET(request: Request) {
       try {
         const profileId = await ensureProfile(user);
         const onboarding = await getProfileOnboardingState(profileId);
-
-        if (next && next.startsWith("/") && !next.startsWith("//")) {
-          return NextResponse.redirect(`${origin}${next}`);
-        }
-        if (onboarding.needsProfileGate) {
-          return NextResponse.redirect(`${origin}/onboarding/profile`);
-        }
-        if (onboarding.needsConsentGate) {
-          return NextResponse.redirect(`${origin}/onboarding/consent`);
-        }
-        return NextResponse.redirect(`${origin}/app`);
+        return NextResponse.redirect(
+          `${origin}${resolveAuthCallbackPath({
+            hasCode: true,
+            exchangeError: null,
+            userId: user.id,
+            ensureFailed: false,
+            next,
+            needsProfileGate: onboarding.needsProfileGate,
+            needsConsentGate: onboarding.needsConsentGate,
+          })}`,
+        );
       } catch (e) {
         console.error("[auth/callback] ensureProfile failed:", e);
-        return NextResponse.redirect(`${origin}/app`);
+        return NextResponse.redirect(
+          `${origin}${resolveAuthCallbackPath({
+            hasCode: true,
+            exchangeError: null,
+            userId: user.id,
+            ensureFailed: true,
+            next,
+            needsProfileGate: false,
+            needsConsentGate: false,
+          })}`,
+        );
       }
     }
   }
 
-  return NextResponse.redirect(`${origin}/?signin=error`);
+  return NextResponse.redirect(
+    `${origin}${resolveAuthCallbackPath({
+      hasCode: Boolean(code),
+      exchangeError: null,
+      userId: null,
+      ensureFailed: false,
+      next,
+      needsProfileGate: false,
+      needsConsentGate: false,
+    })}`,
+  );
 }

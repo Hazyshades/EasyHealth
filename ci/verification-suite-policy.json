@@ -3,7 +3,9 @@
   "suites": [
     {
       "script": "test:document-worker",
-      "verificationFiles": ["scripts/verify-document-worker-reliability.ts"],
+      "verificationFiles": [
+        "scripts/verify-document-worker-reliability.ts"
+      ],
       "job": "verify",
       "environment": "node-only",
       "localOnly": false,
@@ -11,8 +13,21 @@
       "reason": "Worker reliability and model-capability boundary are release verification."
     },
     {
+      "script": "test:app-navigation-hot-path",
+      "verificationFiles": [
+        "scripts/verify-app-navigation-hot-path.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "auth-shell",
+      "reason": "Authenticated /app navigation hot-path contracts are release verification."
+    },
+    {
       "script": "test:eh111",
-      "verificationFiles": ["scripts/verify-eh111-clinical-compatibility-runner.ts"],
+      "verificationFiles": [
+        "scripts/verify-eh111-clinical-compatibility-runner.ts"
+      ],
       "job": "verify",
       "environment": "node-only",
       "localOnly": false,
@@ -21,7 +36,9 @@
     },
     {
       "script": "test:eh113",
-      "verificationFiles": ["scripts/verify-eh113-cbc-launch-catalog.ts"],
+      "verificationFiles": [
+        "scripts/verify-eh113-cbc-launch-catalog.ts"
+      ],
       "job": "verify",
       "environment": "node-only",
       "localOnly": false,
@@ -30,7 +47,9 @@
     },
     {
       "script": "test:eh116",
-      "verificationFiles": ["scripts/verify-eh116-reprocess-batch.ts"],
+      "verificationFiles": [
+        "scripts/verify-eh116-reprocess-batch.ts"
+      ],
       "job": "verify",
       "environment": "node-only",
       "localOnly": false,
@@ -39,7 +58,9 @@
     },
     {
       "script": "test:eh113-db",
-      "verificationFiles": ["supabase/tests/eh113_cbc_method_evidence.sql"],
+      "verificationFiles": [
+        "supabase/tests/eh113_cbc_method_evidence.sql"
+      ],
       "job": "database",
       "environment": "local-supabase-db",
       "localOnly": false,
@@ -48,7 +69,9 @@
     },
     {
       "script": "test:eh116-db",
-      "verificationFiles": ["supabase/tests/eh116_registry_reprocess_batches.sql"],
+      "verificationFiles": [
+        "supabase/tests/eh116_registry_reprocess_batches.sql"
+      ],
       "job": "database",
       "environment": "local-supabase-db",
       "localOnly": false,
@@ -57,7 +80,9 @@
     },
     {
       "script": "test:eh120",
-      "verificationFiles": ["scripts/verify-eh120-verification-transitions.ts"],
+      "verificationFiles": [
+        "scripts/verify-eh120-verification-transitions.ts"
+      ],
       "job": "verify",
       "environment": "node-only",
       "localOnly": false,
@@ -66,7 +91,9 @@
     },
     {
       "script": "test:eh120-db",
-      "verificationFiles": ["supabase/tests/eh120_verification_transitions.sql"],
+      "verificationFiles": [
+        "supabase/tests/eh120_verification_transitions.sql"
+      ],
       "job": "database",
       "environment": "local-supabase-db",
       "localOnly": false,
@@ -90,7 +117,9 @@
     },
     {
       "script": "test:postgrest-embeds",
-      "verificationFiles": ["scripts/verify-postgrest-revision-embeds.ts"],
+      "verificationFiles": [
+        "scripts/verify-postgrest-revision-embeds.ts"
+      ],
       "job": "integration",
       "environment": "local-supabase-postgrest",
       "localOnly": false,
@@ -111,7 +140,9 @@
     },
     {
       "script": "test:eh122-db",
-      "verificationFiles": ["supabase/tests/eh122_batch_verification.sql"],
+      "verificationFiles": [
+        "supabase/tests/eh122_batch_verification.sql"
+      ],
       "job": "database",
       "environment": "local-supabase-db",
       "localOnly": false,
@@ -153,6 +184,28 @@
       "localOnly": false,
       "owner": "quality",
       "reason": "EH-132 duplicate, precision, ownership, and profile-isolation release contracts require pgTAP."
+    },
+    {
+      "script": "test:eh130",
+      "verificationFiles": [
+        "scripts/verify-eh130-duplicate-documents.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "documents",
+      "reason": "Duplicate-document detection and safe-archive contracts require explicit CI triage."
+    },
+    {
+      "script": "test:eh130-db",
+      "verificationFiles": [
+        "supabase/tests/eh130_duplicate_document_detection.sql"
+      ],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "documents",
+      "reason": "Duplicate candidate persistence, resolution, and audit contracts require pgTAP."
     }
   ],
   "localOnly": []

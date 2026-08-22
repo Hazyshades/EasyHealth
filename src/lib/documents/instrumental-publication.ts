@@ -64,6 +64,7 @@ export type PrepareInstrumentalPublicationRow = {
 export type InstrumentalPublicationCompletion = {
   page_count: number;
   thumbnail_storage_path: string;
+  content_sha256: string;
   ocr_status: string;
   extraction_status: string;
   detected_document_type: string | null;

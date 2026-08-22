@@ -33,8 +33,8 @@ type BodyMapProps = {
   mapScale?: number;
   externalSelectedId?: BodySystemId | null;
   onExternalSelect?: (id: BodySystemId | null) => void;
+  navigationReturnTo?: string | null;
 };
-
 export function BodyMap({
   systems,
   overallStateScore,
@@ -43,6 +43,7 @@ export function BodyMap({
   mapScale,
   externalSelectedId,
   onExternalSelect,
+  navigationReturnTo,
 }: BodyMapProps) {
   const [internalSelectedId, setInternalSelectedId] = useState<BodySystemId | null>(null);
 
@@ -198,11 +199,11 @@ export function BodyMap({
           Select a point on the map to view factual marker details and source documents.
         </p>
       )}
-
       <HealthProfileDrawer
         system={selected}
         layoutLabel={selectedLayout?.label ?? selected?.name ?? ""}
         open={selectedId != null}
+        navigationReturnTo={navigationReturnTo}
         onClose={() => {
           if (onExternalSelect) onExternalSelect(null);
           else setInternalSelectedId(null);

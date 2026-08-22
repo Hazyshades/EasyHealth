@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { buildHealthNavigationPath } from "@/lib/health-navigation";
 import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/status-chip";
 import { SurfaceCard } from "@/components/ui/surface-card";
@@ -30,12 +31,12 @@ type Observation = {
   documents?: { id: string; original_filename: string } | null;
   converted?: boolean;
   conversion_note?: string | null;
-  original_value?: number;
-  original_unit?: string;
-  value_kind?: string;
+  original_value?: number | null;
+  original_unit?: string | null;
+  value_kind?: string | null;
   value_text?: string | null;
-  specimen?: string;
-  modifier?: string;
+  specimen?: string | null;
+  modifier?: string | null;
 };
 
 type StatusInfo = {
@@ -74,8 +75,25 @@ function biomarkerStatus(o: Observation): StatusInfo {
   if (o.value > o.ref_high) return { label: "Attention", variant: "warning" };
   return { label: "Normal", variant: "success" };
 }
+function observationSourceHref(observation: Observation, returnTo: string): string | null {
+  if (!observation.documents?.id) return null;
+  return buildHealthNavigationPath(`/app/documents/${observation.documents.id}`, {
+    measurement: observation.measurement_definition_key,
+    observation: observation.id,
+    returnTo,
+  });
+}
 
-export function BiomarkerTable({ observations }: { observations: Observation[] }) {
+
+export function BiomarkerTable({
+  observations,
+  selectedObservationId = null,
+  sourceReturnTo = "/app/biomarkers",
+}: {
+  observations: Observation[];
+  selectedObservationId?: string | null;
+  sourceReturnTo?: string;
+}) {
   if (!observations.length) {
     return (
       <SurfaceCard padding="lg" className="border-dashed text-center">
@@ -104,8 +122,13 @@ export function BiomarkerTable({ observations }: { observations: Observation[] }
           <DataTableBody>
             {observations.map((o) => {
               const status = biomarkerStatus(o);
+              const selected = o.id === selectedObservationId;
+              const sourceHref = observationSourceHref(o, sourceReturnTo);
               return (
-                <DataTableRow key={o.id}>
+                <DataTableRow
+                  key={o.id}
+                  className={selected ? "bg-[var(--eh-brand-soft)]" : undefined}
+                >
                   <DataTableCell className="font-medium">
                     {o.name}
                     {(o.specimen && o.specimen !== "unspecified") ||
@@ -140,12 +163,13 @@ export function BiomarkerTable({ observations }: { observations: Observation[] }
                     {o.observed_at}
                   </DataTableCell>
                   <DataTableCell className="text-[var(--eh-text-secondary)]">
-                    {o.documents?.id ? (
+                    {sourceHref ? (
                       <Link
-                        href={`/app/documents/${o.documents.id}`}
-                        className="text-[var(--eh-brand)] hover:underline"
+                        href={sourceHref}
+                        aria-current={selected ? "true" : undefined}
+                        className="text-[var(--eh-brand)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--eh-brand)]"
                       >
-                        {o.documents.original_filename}
+                        {o.documents?.original_filename}
                       </Link>
                     ) : (
                       o.documents?.original_filename ?? "—"
@@ -161,9 +185,14 @@ export function BiomarkerTable({ observations }: { observations: Observation[] }
       <ul className="space-y-3 md:hidden">
         {observations.map((o) => {
           const status = biomarkerStatus(o);
+          const selected = o.id === selectedObservationId;
+          const sourceHref = observationSourceHref(o, sourceReturnTo);
           return (
             <li key={o.id}>
-              <SurfaceCard padding="sm">
+              <SurfaceCard
+                padding="sm"
+                className={selected ? "border-[var(--eh-brand)] bg-[var(--eh-brand-soft)]" : undefined}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-medium text-[var(--eh-text-primary)]">{o.name}</p>
@@ -177,14 +206,15 @@ export function BiomarkerTable({ observations }: { observations: Observation[] }
                     </p>
                     <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
                       {o.observed_at}
-                      {o.documents?.id ? (
+                      {sourceHref ? (
                         <>
                           {" · "}
                           <Link
-                            href={`/app/documents/${o.documents.id}`}
-                            className="text-[var(--eh-brand)] hover:underline"
+                            href={sourceHref}
+                            aria-current={selected ? "true" : undefined}
+                            className="text-[var(--eh-brand)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--eh-brand)]"
                           >
-                            {o.documents.original_filename}
+                            {o.documents?.original_filename}
                           </Link>
                         </>
                       ) : o.documents?.original_filename ? (

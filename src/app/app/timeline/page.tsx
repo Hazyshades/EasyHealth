@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
   CalendarDays,
@@ -11,6 +11,8 @@ import {
   RefreshCw,
   SlidersHorizontal,
 } from "lucide-react";
+import { ContextBreadcrumbs } from "@/components/layout/context-breadcrumbs";
+import { LaboratoryEventCard } from "@/components/timeline/laboratory-event-card";
 import { PageHeader } from "@/components/layout/page-header";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { StatusChip } from "@/components/ui/status-chip";
@@ -29,9 +31,20 @@ import {
 } from "@/lib/health-systems";
 import {
   TIMELINE_EVENT_TYPES,
+  parseTimelineQuery,
   type TimelineEvent,
   type TimelineEventType,
 } from "@/lib/timeline";
+import {
+  buildHealthNavigationPath,
+  healthRouteLabel,
+  readHealthNavigationContext,
+  type HealthNavigationContext,
+} from "@/lib/health-navigation";
+import {
+  groupLaboratoryObservations,
+  type TimelineLaboratoryObservation,
+} from "@/lib/timeline/panel-grouping";
 
 type TimelineFilterType = "all" | TimelineEventType;
 
@@ -47,11 +60,22 @@ type TimelineResponse = {
   error?: string;
 };
 
+type ObservationsResponse = {
+  observations?: TimelineLaboratoryObservation[];
+  error?: string;
+};
+
 const EMPTY_PAGINATION = {
   page: 1,
   pageSize: 10,
   total: 0,
   hasNext: false,
+};
+const EMPTY_NAVIGATION_CONTEXT: HealthNavigationContext = {
+  system: null,
+  measurement: null,
+  observation: null,
+  returnTo: null,
 };
 
 function formatEventDate(value: string | null): string {
@@ -98,10 +122,17 @@ function TimelineSkeleton() {
   );
 }
 
-function TimelineEventCard({ event }: { event: TimelineEvent }) {
+function TimelineEventCard({
+  event,
+  sourceHref,
+  timelineReturnPath,
+}: {
+  event: TimelineEvent;
+  sourceHref: string;
+  timelineReturnPath: string;
+}) {
   const processingLabel = eventStatus(event);
   const location = event.provider ?? event.labName;
-
   return (
     <article className="relative pl-5 sm:pl-8">
       <span
@@ -131,7 +162,7 @@ function TimelineEventCard({ event }: { event: TimelineEvent }) {
             </p>
           </div>
           <Link
-            href={event.source.href}
+            href={sourceHref}
             className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-[var(--eh-brand)] transition-colors hover:bg-[var(--eh-brand-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--eh-brand)]"
             aria-label={`Open source document ${event.source.filename}`}
           >
@@ -150,15 +181,32 @@ function TimelineEventCard({ event }: { event: TimelineEvent }) {
               Measurements{event.measurementCount > event.measurements.length ? ` · ${event.measurementCount} total` : ""}
             </p>
             <ul className="mt-2 grid gap-2 sm:grid-cols-2">
-              {event.measurements.map((measurement) => (
-                <li key={measurement.id} className="flex min-w-0 items-baseline justify-between gap-3 text-sm">
-                  <span className="truncate text-[var(--eh-text-secondary)]">{measurement.name}</span>
-                  <span className="shrink-0 font-medium text-[var(--eh-text-primary)]">
-                    {measurement.value ?? "—"}
-                    {measurement.unit ? ` ${measurement.unit}` : ""}
-                  </span>
-                </li>
-              ))}
+              {event.measurements.map((measurement) => {
+                const measurementHref = buildHealthNavigationPath(
+                  `/app/documents/${event.documentId}`,
+                  {
+                    observation: measurement.id,
+                    returnTo: timelineReturnPath,
+                  },
+                );
+                return (
+                  <li
+                    key={measurement.id}
+                    className="flex min-w-0 items-baseline justify-between gap-3 text-sm"
+                  >
+                    <Link
+                      href={measurementHref}
+                      className="truncate text-[var(--eh-text-secondary)] hover:text-[var(--eh-brand)] hover:underline"
+                    >
+                      {measurement.name}
+                    </Link>
+                    <span className="shrink-0 font-medium text-[var(--eh-text-primary)]">
+                      {measurement.value ?? "—"}
+                      {measurement.unit ? ` ${measurement.unit}` : ""}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ) : null}
@@ -186,16 +234,34 @@ function TimelineEventCard({ event }: { event: TimelineEvent }) {
 }
 
 export default function TimelinePage() {
+  const [navigationContext, setNavigationContext] =
+    useState<HealthNavigationContext>(EMPTY_NAVIGATION_CONTEXT);
   const [filterType, setFilterType] = useState<TimelineFilterType>("all");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [page, setPage] = useState(1);
   const [events, setEvents] = useState<TimelineEvent[]>([]);
+  const [observations, setObservations] = useState<TimelineLaboratoryObservation[]>([]);
   const [profileLabel, setProfileLabel] = useState("Loading profile…");
   const [pagination, setPagination] = useState(EMPTY_PAGINATION);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [navigationReady, setNavigationReady] = useState(false);
   const requestVersion = useRef(0);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const searchParams = new URLSearchParams(window.location.search);
+    setNavigationContext(readHealthNavigationContext(searchParams));
+    const parsedQuery = parseTimelineQuery(searchParams);
+    if ("value" in parsedQuery) {
+      setFilterType(parsedQuery.value.type ?? "all");
+      setFrom(parsedQuery.value.from ?? "");
+      setTo(parsedQuery.value.to ?? "");
+      setPage(parsedQuery.value.page);
+    }
+    setNavigationReady(true);
+  }, []);
 
   const loadTimeline = useCallback(
     async (requestedPage: number) => {
@@ -212,13 +278,19 @@ export default function TimelinePage() {
       if (to) params.set("to", to);
 
       try {
-        const response = await fetch(`/api/timeline?${params.toString()}`, {
-          cache: "no-store",
-        });
-        const data = (await response.json().catch(() => ({}))) as TimelineResponse;
-        if (!response.ok) throw new Error(data.error ?? "Unable to load your health timeline");
+        const [timelineResponse, observationsResponse] = await Promise.all([
+          fetch(`/api/timeline?${params.toString()}`, { cache: "no-store" }),
+          fetch("/api/biomarkers", { cache: "no-store" }),
+        ]);
+        const data = (await timelineResponse.json().catch(() => ({}))) as TimelineResponse;
+        const observationsData = (await observationsResponse.json().catch(() => ({}))) as ObservationsResponse;
+        if (!timelineResponse.ok) throw new Error(data.error ?? "Unable to load your health timeline");
+        if (!observationsResponse.ok) {
+          throw new Error(observationsData.error ?? "Unable to load laboratory measurements");
+        }
         if (version !== requestVersion.current) return;
         setEvents(data.events ?? []);
+        setObservations(observationsData.observations ?? []);
         setPagination(data.pagination ?? EMPTY_PAGINATION);
         setProfileLabel(data.profile?.label ?? "Active profile");
       } catch (requestError) {
@@ -236,16 +308,23 @@ export default function TimelinePage() {
   );
 
   useEffect(() => {
-    setPage(1);
-  }, [filterType, from, to]);
-
-  useEffect(() => {
+    if (!navigationReady) return;
     void loadTimeline(page);
-  }, [loadTimeline, page]);
-
+  }, [loadTimeline, navigationReady, page]);
   const hasActiveFilters = Boolean(filterType !== "all" || from || to);
+
   const firstResult = pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.pageSize + 1;
   const lastResult = Math.min(pagination.page * pagination.pageSize, pagination.total);
+  const observationsByDocument = useMemo(() => {
+    const grouped = new Map<string, TimelineLaboratoryObservation[]>();
+    for (const observation of observations) {
+      if (!observation.document_id) continue;
+      const documentObservations = grouped.get(observation.document_id) ?? [];
+      documentObservations.push(observation);
+      grouped.set(observation.document_id, documentObservations);
+    }
+    return grouped;
+  }, [observations]);
 
   function clearFilters() {
     setFilterType("all");
@@ -253,9 +332,27 @@ export default function TimelinePage() {
     setTo("");
     setPage(1);
   }
+  const timelineQuery = new URLSearchParams({
+    type: filterType,
+    page: String(pagination.page),
+    pageSize: String(pagination.pageSize),
+  });
+  if (from) timelineQuery.set("from", from);
+  if (to) timelineQuery.set("to", to);
+  const timelineReturnPath = buildHealthNavigationPath(
+    `/app/timeline?${timelineQuery.toString()}`,
+    { returnTo: navigationContext.returnTo },
+  );
+  const originPath = navigationContext.returnTo ?? "/app";
 
   return (
     <div className="pb-8">
+      <ContextBreadcrumbs
+        items={[
+          { href: originPath, label: healthRouteLabel(originPath) },
+          { label: "Health Timeline" },
+        ]}
+      />
       <PageHeader
         title="Health Timeline"
         subtitle="Your medical events in chronological order"
@@ -296,7 +393,10 @@ export default function TimelinePage() {
             </label>
             <Select
               value={filterType}
-              onValueChange={(value) => setFilterType(value as TimelineFilterType)}
+              onValueChange={(value) => {
+                setFilterType(value as TimelineFilterType);
+                setPage(1);
+              }}
             >
               <SelectTrigger id="timeline-type" className="w-full rounded-xl">
                 <SelectValue placeholder="All document types" />
@@ -321,7 +421,10 @@ export default function TimelinePage() {
                 id="timeline-from"
                 type="date"
                 value={from}
-                onChange={(event) => setFrom(event.target.value)}
+                onChange={(event) => {
+                  setFrom(event.target.value);
+                  setPage(1);
+                }}
                 className="h-10 rounded-xl border border-[var(--eh-border)] bg-white py-2 pl-9 pr-3 text-sm text-[var(--eh-text-primary)] outline-none transition focus:border-[var(--eh-brand)] focus:ring-2 focus:ring-[var(--eh-brand)]/20"
                 aria-label="Timeline start date"
               />
@@ -337,7 +440,10 @@ export default function TimelinePage() {
                 id="timeline-to"
                 type="date"
                 value={to}
-                onChange={(event) => setTo(event.target.value)}
+                onChange={(event) => {
+                  setTo(event.target.value);
+                  setPage(1);
+                }}
                 className="h-10 rounded-xl border border-[var(--eh-border)] bg-white py-2 pl-9 pr-3 text-sm text-[var(--eh-text-primary)] outline-none transition focus:border-[var(--eh-brand)] focus:ring-2 focus:ring-[var(--eh-brand)]/20"
                 aria-label="Timeline end date"
               />
@@ -398,9 +504,37 @@ export default function TimelinePage() {
       ) : (
         <>
           <div className="relative space-y-4 before:absolute before:bottom-6 before:left-[5px] before:top-6 before:w-px before:bg-[var(--eh-border)] sm:before:left-[11px]">
-            {events.map((event) => (
-              <TimelineEventCard key={event.id} event={event} />
-            ))}
+            {events.map((event) => {
+              const sourceHref = buildHealthNavigationPath(event.source.href, {
+                returnTo: timelineReturnPath,
+              });
+              if (event.type === "lab_result") {
+                const eventObservations = observationsByDocument.get(event.documentId) ?? [];
+                const grouped = groupLaboratoryObservations(eventObservations);
+                return (
+                  <LaboratoryEventCard
+                    key={event.id}
+                    document={{
+                      id: event.documentId,
+                      original_filename: event.source.filename,
+                      lab_name: event.labName,
+                    }}
+                    panels={grouped.panels}
+                    ungrouped={grouped.ungrouped}
+                    totalObservationCount={eventObservations.length}
+                    eventHref={sourceHref}
+                  />
+                );
+              }
+              return (
+                <TimelineEventCard
+                  key={event.id}
+                  event={event}
+                  sourceHref={sourceHref}
+                  timelineReturnPath={timelineReturnPath}
+                />
+              );
+            })}
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-[var(--eh-text-secondary)]">

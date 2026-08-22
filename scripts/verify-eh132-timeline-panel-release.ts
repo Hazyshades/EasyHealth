@@ -388,7 +388,12 @@ function assertComparisonCompatibility(): void {
   assert.match(biomarkerPage, /measurement_definition_key === selectedKey/);
   const biomarkerTable = readFileSync("src/components/biomarker-table.tsx", "utf8");
   assert.match(biomarkerTable, /Reference/);
-  assert.match(biomarkerTable, /\/app\/documents\/\$\{o\.documents\.id\}/);
+  assert.match(biomarkerTable, /function observationSourceHref\(/);
+  assert.match(
+    biomarkerTable,
+    /buildHealthNavigationPath\(`\/app\/documents\/\$\{observation\.documents\.id\}/,
+  );
+  assert.match(biomarkerTable, /const sourceHref = observationSourceHref\(o, sourceReturnTo\)/);
 }
 
 function assertPanelContracts(): void {

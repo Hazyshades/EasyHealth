@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { CalendarDays, SlidersHorizontal } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -9,12 +10,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { BiomarkerTable } from "@/components/biomarker-table";
-import { BiomarkerChart } from "@/components/biomarker-chart";
+import { BiomarkerChart, type BiomarkerChartPoint } from "@/components/biomarker-chart";
+import { ContextBreadcrumbs } from "@/components/layout/context-breadcrumbs";
 import { PageHeader } from "@/components/layout/page-header";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { SearchInput } from "@/components/ui/search-input";
 import { Button } from "@/components/ui/button";
+import {
+  buildHealthNavigationPath,
+  healthRouteLabel,
+  readHealthNavigationContext,
+  type HealthNavigationContext,
+} from "@/lib/health-navigation";
+import {
+  buildMeasurementComparisonSeries,
+  filterMeasurementComparisonSeries,
+} from "@/lib/biomarker-comparison";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 
 type LabUnitSystem = "us" | "si";
@@ -28,21 +40,24 @@ type Observation = {
   verification_status?: string | null;
   registry_binding_ready?: boolean;
   trend_eligible?: boolean;
+  conversion_eligible?: boolean;
   value: number | null;
   unit: string;
   ref_low: number | null;
   ref_high: number | null;
   observed_at: string;
   document_id: string | null;
-  documents?: { id: string; original_filename: string } | null;
+  documents?: { id: string; original_filename: string; lab_name?: string | null } | null;
   converted?: boolean;
   conversion_note?: string | null;
-  original_value?: number;
-  original_unit?: string;
-  value_kind?: string;
+  original_value?: number | null;
+  original_unit?: string | null;
+  original_ref_low?: number | null;
+  original_ref_high?: number | null;
+  value_kind?: string | null;
   value_text?: string | null;
-  specimen?: string;
-  modifier?: string;
+  specimen?: string | null;
+  modifier?: string | null;
 };
 
 type StatusFilter = "all" | "normal" | "attention" | "low" | "high" | "mapping";
@@ -55,6 +70,13 @@ const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
   { id: "low", label: "Low" },
   { id: "high", label: "High" },
 ];
+
+const EMPTY_NAVIGATION_CONTEXT: HealthNavigationContext = {
+  system: null,
+  measurement: null,
+  observation: null,
+  returnTo: null,
+};
 
 function observationStatus(o: Observation): StatusFilter {
   if (!o.registry_binding_ready) return "mapping";
@@ -73,12 +95,36 @@ function matchesStatusFilter(o: Observation, filter: StatusFilter): boolean {
 }
 
 export default function BiomarkersPage() {
+  const [navigationContext, setNavigationContext] =
+    useState<HealthNavigationContext>(EMPTY_NAVIGATION_CONTEXT);
   const [observations, setObservations] = useState<Observation[]>([]);
-  const [selectedKey, setSelectedKey] = useState<string>("");
+  const [selectedKey, setSelectedKey] = useState("");
+  const [selectedObservationId, setSelectedObservationId] = useState("");
+  const [selectedSeriesId, setSelectedSeriesId] = useState("");
+  const [comparisonFrom, setComparisonFrom] = useState("");
+  const [comparisonTo, setComparisonTo] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [labUnitSystem, setLabUnitSystem] = useState<LabUnitSystem>("si");
   const [savingUnits, setSavingUnits] = useState(false);
+  const [navigationReady, setNavigationReady] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setNavigationContext(
+      readHealthNavigationContext(new URLSearchParams(window.location.search)),
+    );
+    setNavigationReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (navigationContext.measurement) {
+      setSelectedKey(navigationContext.measurement);
+    }
+    if (navigationContext.observation) {
+      setSelectedObservationId(navigationContext.observation);
+    }
+  }, [navigationContext.measurement, navigationContext.observation]);
 
   const loadObservations = useCallback(() => {
     return fetch("/api/biomarkers")
@@ -90,6 +136,17 @@ export default function BiomarkersPage() {
           setLabUnitSystem(data.lab_unit_system);
         }
         setSelectedKey((prev) => {
+          const requested = navigationContext.measurement;
+          if (
+            requested &&
+            obs.some(
+              (o: Observation) =>
+                o.measurement_definition_key === requested &&
+                o.trend_eligible === true,
+            )
+          ) {
+            return requested;
+          }
           if (
             prev &&
             obs.some(
@@ -107,11 +164,41 @@ export default function BiomarkersPage() {
           return resolved?.measurement_definition_key ?? "";
         });
       });
-  }, []);
+  }, [navigationContext.measurement]);
 
   useEffect(() => {
+    if (!navigationReady) return;
     void loadObservations();
-  }, [loadObservations]);
+  }, [loadObservations, navigationReady]);
+
+  useEffect(() => {
+    if (!selectedObservationId || !observations.length) return;
+    const selectedBelongsToSeries = observations.some(
+      (observation) =>
+        observation.id === selectedObservationId &&
+        observation.measurement_definition_key === selectedKey &&
+        observation.trend_eligible === true,
+    );
+    if (!selectedBelongsToSeries) setSelectedObservationId("");
+  }, [observations, selectedKey, selectedObservationId]);
+
+  useEffect(() => {
+    if (!observations.length || typeof window === "undefined") return;
+    const href = buildHealthNavigationPath("/app/biomarkers", {
+      system: navigationContext.system,
+      measurement: selectedKey || null,
+      observation: selectedObservationId || null,
+      returnTo: navigationContext.returnTo,
+    });
+    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (href !== current) window.history.replaceState(null, "", href);
+  }, [
+    navigationContext.returnTo,
+    navigationContext.system,
+    observations.length,
+    selectedKey,
+    selectedObservationId,
+  ]);
 
   async function setUnitSystem(next: LabUnitSystem) {
     if (next === labUnitSystem) return;
@@ -144,44 +231,108 @@ export default function BiomarkersPage() {
         o.name.toLowerCase().includes(q) ||
         o.measurement_definition_key?.toLowerCase().includes(q) ||
         o.analyte_key?.toLowerCase().includes(q) ||
-        (o.documents?.original_filename ?? "").toLowerCase().includes(q)
+        (o.documents?.original_filename ?? "").toLowerCase().includes(q) ||
+        (o.documents?.lab_name ?? "").toLowerCase().includes(q)
       );
     });
   }, [observations, search, statusFilter]);
 
-  const keys = useMemo(
+  const comparisonSeries = useMemo(
+    () => buildMeasurementComparisonSeries(observations),
+    [observations],
+  );
+
+  useEffect(() => {
+    setSelectedSeriesId((current) => {
+      const requested = navigationContext.measurement;
+      const requestedSeries = requested
+        ? comparisonSeries.find(
+            (series) => series.measurementDefinitionKey === requested,
+          )
+        : undefined;
+      if (requestedSeries) return requestedSeries.id;
+      if (comparisonSeries.some((series) => series.id === current)) {
+        return current;
+      }
+      const currentDefinitionKey = current.split("::", 1)[0];
+      return (
+        comparisonSeries.find(
+          (series) => series.measurementDefinitionKey === currentDefinitionKey,
+        )?.id ??
+        comparisonSeries[0]?.id ??
+        ""
+      );
+    });
+  }, [comparisonSeries, navigationContext.measurement]);
+
+  const selectedSeries = comparisonSeries.find((series) => series.id === selectedSeriesId);
+  const filteredComparisonSeries = useMemo(
     () =>
-      [
-        ...new Set(
-          observations
-            .filter(
-              (o) => o.measurement_definition_key && o.trend_eligible === true,
-            )
-            .map((o) => o.measurement_definition_key as string)
-        ),
-      ],
-    [observations]
+      filterMeasurementComparisonSeries(comparisonSeries, {
+        from: comparisonFrom || null,
+        to: comparisonTo || null,
+      }),
+    [comparisonFrom, comparisonTo, comparisonSeries],
   );
-
-  const selectedName =
-    observations.find((o) => o.measurement_definition_key === selectedKey)?.name ?? selectedKey;
-
-  const selectedSeries = observations.filter(
-    (o) =>
-      o.trend_eligible === true &&
-      o.measurement_definition_key === selectedKey
+  const selectedFilteredSeries = filteredComparisonSeries.find(
+    (series) => series.id === selectedSeriesId,
   );
-  const chartData = selectedSeries
-    .filter((o) => o.value != null && (!o.value_kind || o.value_kind === "numeric"))
-    .map((o) => ({ observed_at: o.observed_at, value: Number(o.value) }));
-  const chartIsQualitativeOnly =
-    selectedSeries.length > 0 && chartData.length === 0;
-  const hasResolvedTrendSeries = keys.length > 0;
+  const biomarkerContextPath = buildHealthNavigationPath("/app/biomarkers", {
+    system: navigationContext.system,
+    measurement: selectedKey || null,
+    observation: selectedObservationId || null,
+    returnTo: navigationContext.returnTo,
+  });
+  const selectedPoints = selectedFilteredSeries?.points ?? [];
+  const chartData = selectedPoints.map((point) => ({
+    observed_at: point.observedAt,
+    value: point.displayValue,
+  }));
+  const chartPoints: BiomarkerChartPoint[] = selectedPoints.map((point) => {
+    const observation = observations.find((item) => item.id === point.id);
+    const sourceHref = observation?.documents?.id
+      ? buildHealthNavigationPath(`/app/documents/${observation.documents.id}`, {
+          system: navigationContext.system,
+          measurement: selectedSeries?.measurementDefinitionKey ?? selectedKey,
+          observation: point.id,
+          returnTo: biomarkerContextPath,
+        })
+      : point.source?.href ?? null;
+    return {
+      id: point.id,
+      observed_at: point.observedAt,
+      value: point.displayValue,
+      unit: point.displayUnit,
+      native_value: point.nativeValue,
+      native_unit: point.nativeUnit,
+      native_ref_low: point.nativeReferenceLow,
+      native_ref_high: point.nativeReferenceHigh,
+      laboratory: point.source?.laboratory ?? null,
+      sourceHref,
+      sourceLabel:
+        observation?.documents?.original_filename ?? point.source?.filename ?? null,
+      source: point.source
+        ? { ...point.source, href: sourceHref ?? point.source.href }
+        : null,
+    };
+  });
+  const hasActiveComparisonRange = Boolean(comparisonFrom || comparisonTo);
+
+  function clearComparisonRange() {
+    setComparisonFrom("");
+    setComparisonTo("");
+  }
+  const originPath = navigationContext.returnTo ?? "/app";
 
   return (
     <div>
+      <ContextBreadcrumbs
+        items={[
+          { href: originPath, label: healthRouteLabel(originPath) },
+          { label: "Biomarkers" },
+        ]}
+      />
       <PageHeader subtitle="Values extracted from your uploaded lab documents" />
-
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <SearchInput
           placeholder="Search biomarker…"
@@ -226,38 +377,125 @@ export default function BiomarkersPage() {
         ))}
       </div>
 
-      <BiomarkerTable observations={filtered} />
+      <BiomarkerTable
+        observations={filtered}
+        selectedObservationId={selectedObservationId}
+        sourceReturnTo={biomarkerContextPath}
+      />
 
       <SurfaceCard padding="lg" className="mt-8">
         <div className="mb-4 flex flex-wrap items-center gap-4">
-          <span className="text-sm font-semibold text-[var(--eh-text-primary)]">Trend chart</span>
-          <Select value={selectedKey} onValueChange={setSelectedKey}>
-            <SelectTrigger className="w-52 rounded-xl border-[var(--eh-border)]">
-              <SelectValue placeholder="Select biomarker" />
-            </SelectTrigger>
-            <SelectContent>
-              {keys.map((key) => {
-                const name = observations.find((o) => o.measurement_definition_key === key)?.name ?? key;
-                return (
-                  <SelectItem key={key} value={key}>
-                    {name}
+          <span className="text-sm font-semibold text-[var(--eh-text-primary)]">
+            Repeated measurement comparison
+          </span>
+          {comparisonSeries.length > 0 ? (
+            <Select value={selectedSeriesId} onValueChange={setSelectedSeriesId}>
+              <SelectTrigger className="min-w-56 rounded-xl border-[var(--eh-border)]">
+                <SelectValue placeholder="Select measurement series" />
+              </SelectTrigger>
+              <SelectContent>
+                {comparisonSeries.map((series) => (
+                  <SelectItem key={series.id} value={series.id}>
+                    {series.label}
                   </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
         </div>
-        {!hasResolvedTrendSeries ? (
+
+        {comparisonSeries.length === 0 ? (
           <p className="text-sm text-[var(--eh-text-secondary)]">
-            No resolved measurement definitions are available for trends yet.
-          </p>
-        ) : chartIsQualitativeOnly ? (
-          <p className="text-sm text-[var(--eh-text-secondary)]">
-            This biomarker has text or qualitative results only — numeric trend chart is not
-            available.
+            No resolved numeric measurement definitions are available for comparison yet.
           </p>
         ) : (
-          <BiomarkerChart data={chartData} biomarkerName={selectedName} />
+          <>
+            <div className="mb-4 flex flex-wrap items-end gap-3">
+              <div>
+                <label
+                  className="mb-1.5 block text-xs font-medium text-[var(--eh-text-secondary)]"
+                  htmlFor="comparison-from"
+                >
+                  From
+                </label>
+                <div className="relative">
+                  <CalendarDays
+                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--eh-text-muted)]"
+                    aria-hidden
+                  />
+                  <input
+                    id="comparison-from"
+                    type="date"
+                    value={comparisonFrom}
+                    onChange={(event) => setComparisonFrom(event.target.value)}
+                    className="h-10 rounded-xl border border-[var(--eh-border)] bg-white py-2 pl-9 pr-3 text-sm text-[var(--eh-text-primary)] outline-none transition focus:border-[var(--eh-brand)] focus:ring-2 focus:ring-[var(--eh-brand)]/20"
+                    aria-label="Comparison start date"
+                  />
+                </div>
+              </div>
+              <div>
+                <label
+                  className="mb-1.5 block text-xs font-medium text-[var(--eh-text-secondary)]"
+                  htmlFor="comparison-to"
+                >
+                  To
+                </label>
+                <div className="relative">
+                  <CalendarDays
+                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--eh-text-muted)]"
+                    aria-hidden
+                  />
+                  <input
+                    id="comparison-to"
+                    type="date"
+                    value={comparisonTo}
+                    onChange={(event) => setComparisonTo(event.target.value)}
+                    className="h-10 rounded-xl border border-[var(--eh-border)] bg-white py-2 pl-9 pr-3 text-sm text-[var(--eh-text-primary)] outline-none transition focus:border-[var(--eh-brand)] focus:ring-2 focus:ring-[var(--eh-brand)]/20"
+                    aria-label="Comparison end date"
+                  />
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={clearComparisonRange}
+                disabled={!hasActiveComparisonRange}
+                className="h-10 rounded-xl"
+              >
+                <SlidersHorizontal className="size-4" aria-hidden />
+                Clear range
+              </Button>
+            </div>
+
+            <p className="mb-4 text-xs leading-5 text-[var(--eh-text-muted)]">
+              {selectedSeries?.normalized
+                ? `Values are normalized to ${selectedSeries.unit ?? "the reviewed display unit"} by the server's reviewed conversion binding. Each point retains its laboratory value and range.`
+                : `Values are shown in ${selectedSeries?.unit ?? "their native units"}. Unit variants without a reviewed conversion remain separate series.`}
+            </p>
+
+            {!selectedFilteredSeries ? (
+              <SurfaceCard padding="lg" className="border-dashed text-center">
+                <p className="text-sm text-[var(--eh-text-secondary)]">
+                  No measurements match the selected date range.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={clearComparisonRange}
+                  className="mt-4 rounded-xl"
+                >
+                  Clear range
+                </Button>
+              </SurfaceCard>
+            ) : (
+              <BiomarkerChart
+                data={chartData}
+                points={chartPoints}
+                biomarkerName={selectedSeries?.label ?? "Measurement"}
+                selectedObservationId={selectedObservationId}
+              />
+            )}
+          </>
         )}
       </SurfaceCard>
 

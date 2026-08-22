@@ -54,6 +54,7 @@ QA checklists (qa-tests.md)          ← verification status
 
 ### Architecture
 - [Architecture overview](./02-architecture/architecture-overview.md)
+- [Document and timeline deepening review](./02-architecture/document-and-timeline-deepening-review.md)
 - [Document processing pipeline](./02-architecture/document-processing-pipeline.md)
 - [AI pipeline](./02-architecture/ai-pipeline.md)
 - [Data flow](./02-architecture/data-flow.md)

@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CircleAlert, ChevronLeft, Download, RotateCcw } from "lucide-react";
+import { ContextBreadcrumbs } from "@/components/layout/context-breadcrumbs";
 import { PageHeader } from "@/components/layout/page-header";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import {
   PrescriptionInsightsPanel,
   ReferralInsightsPanel,
 } from "@/components/documents/document-insight-panels";
+import { DuplicateCandidateCard } from "@/components/documents/duplicate-candidate-card";
 import { TypeMismatchBanner } from "@/components/documents/type-mismatch-banner";
 import { DocumentSourcePane } from "@/components/documents/review/document-source-pane";
 import { ObservationReviewList } from "@/components/documents/review/observation-review-list";
@@ -31,6 +33,10 @@ import {
   type ObservationCorrectionDraft,
 } from "@/components/documents/review/observation-correction-form";
 import { ReviewWorkspaceSkeleton } from "@/components/documents/review/review-workspace-skeleton";
+import {
+  healthRouteLabel,
+  readHealthNavigationContext,
+} from "@/lib/health-navigation";
 import { normalizeDocumentType, type DocumentType } from "@/lib/health-systems";
 import {
   fileCacheKey,
@@ -61,6 +67,7 @@ import {
   type ExtractedBiomarkerMeasurementRow,
 } from "@/lib/documents/observation-measurement-correction";
 import type { LaboratoryResolutionDetails } from "@/lib/documents/incomplete-laboratory-outcomes";
+import type { DuplicateCandidate } from "@/lib/documents/duplicate-detection";
 import {
   indexObservationChangeEntries,
   type ObservationChangeEntry,
@@ -125,6 +132,7 @@ type PageMeta = {
 
 type Observation = {
   id: string;
+  source_extracted_biomarker_id?: string | null;
   observation_kind?: "lab" | "instrumental";
   analyte_key: string | null;
   measurement_definition_key: string | null;
@@ -219,6 +227,7 @@ type BootstrapPayload = {
   review_data_error?: string | null;
   workerOffline?: boolean;
   batch_verification?: BatchVerificationProjection;
+  duplicate_candidates?: DuplicateCandidate[];
   file?: {
     url: string;
     mimeType: string;
@@ -306,7 +315,11 @@ function rejectionErrorMessage(code: string | undefined, fallback?: string): str
 }
 
 export function DocumentViewer({ documentId }: { documentId: string }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
+  const navigationContext = readHealthNavigationContext(searchParams);
+  const backHref = navigationContext.returnTo ?? "/app/documents";
+  const backLabel = healthRouteLabel(backHref);
   const initialPage = Number.parseInt(searchParams.get("page") ?? "1", 10);
   const startPage =
     Number.isFinite(initialPage) && initialPage > 0 ? initialPage : 1;
@@ -336,6 +349,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchVerification, setBatchVerification] =
     useState<BatchVerificationProjection | null>(null);
+  const [duplicateCandidates, setDuplicateCandidates] = useState<DuplicateCandidate[]>([]);
   const [batchSelectedIds, setBatchSelectedIds] = useState<Set<string>>(new Set());
   const [batchConfirmationOpen, setBatchConfirmationOpen] = useState(false);
   const [batchVerifying, setBatchVerifying] = useState(false);
@@ -411,6 +425,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
       const projection = data.batch_verification ?? null;
       setBatchVerification(projection);
       setBatchSelectedIds(new Set(projection?.eligible_ids ?? []));
+      setDuplicateCandidates(data.duplicate_candidates ?? []);
 
       if (data.file?.url) {
         setOriginalUrl(data.file.url);
@@ -623,6 +638,22 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     return [];
   }, [biomarkerPanelMode, extractedRows, observationRows]);
 
+  const deepLinkedRowId = useMemo(() => {
+    const observationId = navigationContext.observation;
+    if (!observationId) return null;
+
+    const directRow = findReviewRow(reviewRows, observationId);
+    if (directRow) return directRow.id;
+
+    const observation = observations.find((item) => item.id === observationId);
+    return findReviewRow(
+      reviewRows,
+      observation?.source_extracted_biomarker_id ?? null,
+    )?.id ?? null;
+  }, [navigationContext.observation, observations, reviewRows]);
+
+  const deepLinkedRow = findReviewRow(reviewRows, deepLinkedRowId);
+
   const reviewGroups = useMemo(
     () => groupReviewRowsByPage(reviewRows),
     [reviewRows],
@@ -638,6 +669,13 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
         resolveSelectionForPage(reviewRows, currentPage, prev),
       );
     }, [reviewRows, currentPage]);
+  useEffect(() => {
+    if (!deepLinkedRow) return;
+    setSelectedRowId(deepLinkedRow.id);
+    if (deepLinkedRow.source.page !== null) {
+      setCurrentPage(deepLinkedRow.source.page);
+    }
+  }, [deepLinkedRow]);
 
     useEffect(() => {
       setPreviewedRowId((previous) => {
@@ -1160,7 +1198,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
             {retryingLoad ? "Retrying…" : "Retry"}
           </Button>
           <Button asChild variant="outline" className="rounded-xl">
-            <Link href="/app/documents">Back to documents</Link>
+            <Link href={backHref}>Back to {backLabel.toLowerCase()}</Link>
           </Button>
         </div>
       </SurfaceCard>
@@ -1247,6 +1285,12 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
 
   return (
     <div className="space-y-4">
+      <ContextBreadcrumbs
+        items={[
+          { href: backHref, label: backLabel },
+          { label: doc.original_filename },
+        ]}
+      />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Button
@@ -1255,9 +1299,9 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
             size="sm"
             className="mb-2 -ml-2 rounded-xl"
           >
-            <Link href="/app/documents">
+            <Link href={backHref} aria-label={`Back to ${backLabel}`}>
               <ChevronLeft className="size-4" aria-hidden />
-              Documents
+              {backLabel}
             </Link>
           </Button>
           <PageHeader
@@ -1268,6 +1312,9 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--eh-text-muted)]">
             <span>Uploaded {doc.created_at.slice(0, 10)}</span>
             {doc.observed_at && <span>· Lab date {doc.observed_at}</span>}
+            {navigationContext.measurement ? (
+              <span>· Measurement context: {navigationContext.measurement}</span>
+            ) : null}
             <StatusChip variant={statusVariant(doc.processing_status)}>
               {doc.processing_status}
             </StatusChip>
@@ -1308,6 +1355,23 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
           {actionFeedback}
         </p>
       )}
+      {duplicateCandidates.length > 0 ? (
+        <DuplicateCandidateCard
+          candidates={duplicateCandidates}
+          currentDocumentId={documentId}
+          onResolved={({ archivedDocumentId, decision }) => {
+            if (archivedDocumentId === documentId) {
+              router.push("/app/documents");
+              return;
+            }
+            setActionFeedback(
+              decision === "keep_both"
+                ? "Both documents were retained."
+                : "The duplicate was archived and removed from active views.",
+            );
+          }}
+        />
+      ) : null}
 
       {showProcessingRecovery && (
         <div
