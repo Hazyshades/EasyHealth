@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { noStoreJson } from "@/lib/documents/access";
 import {
   buildTimelineEvents,
+  collectTimelinePages,
   filterTimelineEvents,
   paginateTimelineEvents,
   parseTimelineQuery,
@@ -20,6 +21,7 @@ const DOCUMENT_SELECT =
   "id, original_filename, document_type, lab_name, observed_at, created_at, status, processing_status, error_message, processing_error, document_summary, modality";
 const OBSERVATION_SELECT =
   "id, document_id, observation_kind, name, value, value_text, value_kind, unit, observed_at, source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(record_status, is_current)";
+const TIMELINE_DOCUMENT_PAGE_SIZE = 500;
 
 function isHealthTimelinePageRequest(request: NextRequest): boolean {
   return ["type", "from", "to", "page", "pageSize"].some((key) =>
@@ -46,36 +48,41 @@ async function getHealthTimelinePage(request: NextRequest) {
     return noStoreJson({ error: message }, { status: 500 });
   }
 
-  const { data: documents, error: documentsError } = await supabase
-    .from("documents")
-    .select(DOCUMENT_SELECT)
-    .eq("profile_id", profileId)
-    .order("created_at", { ascending: false });
-
-  if (documentsError) {
-    return noStoreJson({ error: documentsError.message }, { status: 500 });
+  let rows: TimelineDocumentRow[];
+  try {
+    rows = await collectTimelinePages(
+      async (offset, limit) => {
+        const { data, error } = await supabase
+          .from("documents")
+          .select(DOCUMENT_SELECT)
+          .eq("profile_id", profileId)
+          .order("created_at", { ascending: false })
+          .range(offset, offset + limit - 1);
+        if (error) throw new Error(error.message);
+        return (data ?? []) as TimelineDocumentRow[];
+      },
+      TIMELINE_DOCUMENT_PAGE_SIZE,
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to load timeline documents";
+    return noStoreJson({ error: message }, { status: 500 });
   }
-
-  const rows = (documents ?? []) as TimelineDocumentRow[];
-  const documentIds = rows.map((document) => document.id);
   const emptyResult = Promise.resolve({ data: [], error: null });
-  const observationsResult = documentIds.length
+  const observationsResult = rows.length
     ? supabase
         .from("observations")
         .select(OBSERVATION_SELECT)
         .eq("profile_id", profileId)
         .eq("observation_kind", "lab")
-        .in("document_id", documentIds)
     : emptyResult;
-  const findingsResult = documentIds.length
+  const findingsResult = rows.length
     ? supabase
         .from("document_extracted_findings")
         .select("id, document_id, modality, body_region, finding_text, impression, source_page")
         .eq("profile_id", profileId)
         .eq("status", "accepted")
-        .in("document_id", documentIds)
     : emptyResult;
-  const clinicalNotesResult = documentIds.length
+  const clinicalNotesResult = rows.length
     ? supabase
         .from("document_extracted_clinical_notes")
         .select(
@@ -83,17 +90,15 @@ async function getHealthTimelinePage(request: NextRequest) {
         )
         .eq("profile_id", profileId)
         .eq("status", "accepted")
-        .in("document_id", documentIds)
     : emptyResult;
-  const prescriptionsResult = documentIds.length
+  const prescriptionsResult = rows.length
     ? supabase
         .from("document_extracted_prescriptions")
         .select("id, document_id, prescriber_name, prescribed_at, medications")
         .eq("profile_id", profileId)
         .eq("status", "accepted")
-        .in("document_id", documentIds)
     : emptyResult;
-  const referralsResult = documentIds.length
+  const referralsResult = rows.length
     ? supabase
         .from("document_extracted_referrals")
         .select(
@@ -101,7 +106,6 @@ async function getHealthTimelinePage(request: NextRequest) {
         )
         .eq("profile_id", profileId)
         .eq("status", "accepted")
-        .in("document_id", documentIds)
     : emptyResult;
 
   const [

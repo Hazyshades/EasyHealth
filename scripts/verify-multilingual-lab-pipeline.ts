@@ -372,6 +372,37 @@ check("parser keeps the Russian label verbatim", () => {
   assert.equal(parsed.biomarkers[0]!.key, "hemoglobin");
 });
 
+check("parser preserves specimen explicitly captured in row provenance", () => {
+  const parsed = parsePipelineExtraction({
+    biomarkers: [
+      {
+        raw_name: "Hemoglobin (HGB)",
+        key: "hemoglobin",
+        value: 150,
+        unit: "g/L",
+        specimen: null,
+        source_text:
+          "Specimen: whole_blood | Analyte: Hemoglobin (HGB) | Result: 150 | Unit: g/L",
+      },
+      {
+        raw_name: "Glucose",
+        key: "urine_glucose",
+        value: 5.1,
+        unit: "mmol/L",
+        specimen: null,
+        source_text: "Analyte: Glucose | Result: 5.1 | Unit: mmol/L",
+      },
+    ],
+  });
+  assert.equal(parsed.biomarkers[0]!.specimen, "whole_blood");
+  assert.equal(parsed.biomarkers[0]!.inferred_axes, null);
+  assert.equal(
+    parsed.biomarkers[1]!.specimen,
+    "unspecified",
+    "a key-derived specimen without row evidence must remain absent",
+  );
+});
+
 check("parser keeps Spanish accents in the verbatim label", () => {
   const parsed = parsePipelineExtraction({
     biomarkers: [{ raw_name: "Triglicéridos", value: 1.2, unit: "mmol/L" }],

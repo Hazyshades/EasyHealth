@@ -134,6 +134,10 @@ jobs:
         run: pnpm test:eh126
       - name: Verify EH-127 health timeline contracts
         run: pnpm test:eh127
+      - name: Verify EH-132 synthetic fixture pack
+        run: pnpm test:eh132-fixtures
+      - name: Verify EH-132 timeline and panel release validation
+        run: pnpm test:eh132
 
       - name: Publish Registry 2.0 candidate-release evidence
         run: |
@@ -216,6 +220,8 @@ jobs:
         run: pnpm test:eh126-db
       - name: Run EH-127 health timeline database contract
         run: pnpm test:eh127-db
+      - name: Run EH-132 timeline and panel database release contract
+        run: pnpm test:eh132-db
       - name: Run PR2 instrumental database contracts
         run: pnpm test:pr2-db
       - name: Run resolver trace v2 database contract

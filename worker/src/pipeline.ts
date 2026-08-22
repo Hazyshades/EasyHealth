@@ -649,6 +649,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
                   confidence?: number | null;
                   specimen?: string | null;
                   modifier?: string | null;
+                  method?: string | null;
                   reported_alt_value?: number | null;
                   reported_alt_unit?: string | null;
                   collected_at?: string | null;
@@ -677,6 +678,9 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
                   bounding_box: provenance.region,
                   source_text: anyB.source_text,
                   confidence: anyB.confidence,
+                  specimen: anyB.specimen ?? "unspecified",
+                  modifier: anyB.modifier ?? "none",
+                  method: anyB.method ?? null,
                   reported_alt_value: anyB.reported_alt_value ?? null,
                   reported_alt_unit: anyB.reported_alt_unit ?? null,
                   collected_at: calendarDateProjection(anyB.collected_at),

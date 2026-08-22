@@ -96,6 +96,10 @@
     "test:eh122": "tsx scripts/verify-eh122-batch-verification.ts && tsx scripts/verify-eh122-batch-service.ts",
     "test:eh126": "tsx scripts/verify-eh126-medical-events.ts",
     "test:eh126-db": "supabase test db --local supabase/tests/eh126_normalized_medical_events.sql",
+    "test:eh132": "tsx scripts/verify-eh132-timeline-panel-release.ts",
+    "test:eh132-db": "supabase test db --local QA-Db_tests/eh132_timeline_panel_release.sql",
+    "generate:eh132-fixtures": "tsx scripts/generate-eh132-qa-fixtures.mts",
+    "test:eh132-fixtures": "tsx scripts/verify-eh132-qa-fixtures.ts",
     "test:writer-seam": "supabase test db --local supabase/tests/writer_rpc_seam.sql",
     "check:ci-suite-coverage": "tsx scripts/verify-ci-suite-coverage.ts",
     "check:ci-suite-coverage-contract": "tsx scripts/verify-ci-suite-coverage-contract.ts"
