@@ -1,23 +1,40 @@
 "use client";
 
+import Link from "next/link";
 import {
-  LineChart,
+  CartesianGrid,
   Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
 } from "recharts";
 
-type Point = { observed_at: string; value: number };
+export type BiomarkerChartPoint = {
+  id: string;
+  observed_at: string;
+  value: number;
+  unit: string | null;
+  native_value: number;
+  native_unit: string | null;
+  native_ref_low: number | null;
+  native_ref_high: number | null;
+  laboratory: string | null;
+  source: {
+    href: string;
+    filename: string;
+  } | null;
+};
 
 export function BiomarkerChart({
   data,
   biomarkerName,
+  points = [],
 }: {
-  data: Point[];
+  data: Array<{ observed_at: string; value: number }>;
   biomarkerName: string;
+  points?: BiomarkerChartPoint[];
 }) {
   if (!data.length) {
     return (
@@ -48,6 +65,50 @@ export function BiomarkerChart({
           Upload more labs with this biomarker to see a trend line.
         </p>
       )}
+      {points.length > 0 ? (
+        <div className="mt-5 border-t pt-4">
+          <h4 className="text-sm font-semibold text-[var(--eh-text-primary)]">Point evidence</h4>
+          <ol className="mt-3 space-y-3" aria-label={`${biomarkerName} point evidence`}>
+            {points.map((point) => {
+              const nativeRange =
+                point.native_ref_low != null && point.native_ref_high != null
+                  ? `${point.native_ref_low}–${point.native_ref_high}${point.native_unit ? ` ${point.native_unit}` : ""}`
+                  : "Range not available";
+              return (
+                <li
+                  key={point.id}
+                  className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 rounded-lg bg-[var(--eh-canvas-bg)] px-3 py-2 text-sm"
+                >
+                  <div>
+                    <p className="font-medium text-[var(--eh-text-primary)]">
+                      {point.observed_at} · {point.value}
+                      {point.unit ? ` ${point.unit}` : ""}
+                    </p>
+                    <p className="text-xs text-[var(--eh-text-secondary)]">
+                      Lab value: {point.native_value}
+                      {point.native_unit ? ` ${point.native_unit}` : ""} · Native range: {nativeRange}
+                    </p>
+                    {point.laboratory ? (
+                      <p className="text-xs text-[var(--eh-text-muted)]">{point.laboratory}</p>
+                    ) : null}
+                  </div>
+                  {point.source ? (
+                    <Link
+                      href={point.source.href}
+                      className="shrink-0 rounded-md px-1 py-0.5 text-xs font-medium text-[var(--eh-brand)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--eh-brand)]"
+                      aria-label={`Open source document ${point.source.filename}`}
+                    >
+                      Open source
+                    </Link>
+                  ) : (
+                    <span className="shrink-0 text-xs text-[var(--eh-text-muted)]">Source unavailable</span>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      ) : null}
     </div>
   );
 }
