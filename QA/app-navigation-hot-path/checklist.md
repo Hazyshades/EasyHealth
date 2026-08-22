@@ -71,6 +71,19 @@ Signed-in users moving around `/app`, especially **Documents**, should not wait 
 **Result:** `Pass | Fail | Blocked | N/A`
 **Notes / evidence link:** `________`
 
+### NAV-UI-04: List load failure shows an error card with Retry
+
+**Precondition:** `NAV-01` is signed in. Ability to block `GET /api/documents` (DevTools Network → Block request URL) or stop the backend.
+
+1. Open **Documents** with the list request blocked, or switch tabs while blocked.
+2. Confirm an error card with a **Retry** button appears instead of "No lab results yet".
+3. Unblock requests and click **Retry**.
+
+**Expected result:** The error card clears and the normal list (or genuine empty state) returns. No server error details are shown in the copy.
+
+**Result:** `Pass | Fail | Blocked | N/A`
+**Notes / evidence link:** `________`
+
 ## Developer evidence required
 
 - [ ] `pnpm test:app-navigation-hot-path` passes: fail-closed callback, missing-profile gate, Documents first paint without `/api/profile`, expiry-gated refresh skip on warm tokens, and source guards that `/app/layout` never calls `ensureProfile`.
