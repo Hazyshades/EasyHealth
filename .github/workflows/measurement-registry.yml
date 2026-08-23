@@ -55,6 +55,8 @@ jobs:
         run: pnpm test:eh113
       - name: Verify EH-116 registry reprocess batch
         run: pnpm test:eh116
+      - name: Verify EH-141 score-required groups
+        run: pnpm test:eh141
       - run: pnpm test:eh106
         env:
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder

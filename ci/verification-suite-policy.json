@@ -179,6 +179,17 @@
       "localOnly": false,
       "owner": "documents",
       "reason": "Duplicate candidate persistence, resolution, and audit contracts require pgTAP."
+    },
+    {
+      "script": "test:eh141",
+      "verificationFiles": [
+        "scripts/verify-eh141-score-required-groups.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "health-profile",
+      "reason": "EH-141 score-required group readiness policy and alternatives require release verification."
     }
   ],
   "localOnly": []
