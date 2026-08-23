@@ -14,6 +14,7 @@
 - [x] 3.1 Add focused EH-142 TypeScript regression coverage and its package script for every eligibility gate and safe label.
 - [x] 3.2 Add a disposable EH-142 database migration-contract test and package script.
 - [x] 3.3 Create the tester-facing `QA/eh-142/checklist.md` with developer-only evidence for the migration and automated checks.
+- [x] 3.4 Register EH-142 TypeScript and pgTAP suites in the Measurement Registry CI workflow and coverage policy.
 
 ## 4. Registry documentation synchronization
 
