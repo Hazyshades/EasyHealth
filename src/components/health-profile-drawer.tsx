@@ -52,20 +52,31 @@ export function HealthProfileDrawer({
 
   if (!open || !system) return null;
 
-  const status = assessmentStatusLabel(system.state_score, system.data_confidence);
-  const missingGroups = system.score_readiness.missing_groups;
-  const unavailableKeys = new Set(system.score_readiness.present_without_reference);
+  const readinessReasons = system.score_readiness.reasons;
+  const missingGroups = readinessReasons.flatMap((reason) =>
+    reason.code === "missing" && reason.required_group
+      ? [reason.required_group]
+      : []
+  );
+  const invalidKeys = new Set(
+    readinessReasons.flatMap((reason) =>
+      reason.code === "invalid" ? reason.present_keys : []
+    )
+  );
+  const isOutdated = readinessReasons.some((reason) => reason.code === "outdated");
   const supportingMarkers = system.markers.filter((marker) => marker.score_role !== "core");
   const drawerState =
-    system.id === "general"
-      ? "Not scored - supporting / specialty data"
-      : system.markers.length === 0
-        ? "No data"
-        : system.scoreability === "non_scoreable"
-          ? "Not scored - individual markers only"
-          : system.state_score == null
-            ? "Not scored - incomplete core"
-            : null;
+    isOutdated
+      ? "Assessment updating"
+      : system.id === "general"
+        ? "Not scored - supporting / specialty data"
+        : system.markers.length === 0
+          ? "No data"
+          : system.scoreability === "non_scoreable"
+            ? "Not scored - individual markers only"
+            : system.state_score == null
+              ? "Not scored - incomplete core"
+              : null;
   const profilePath = buildHealthNavigationPath("/app/profile", {
     system: system.id,
     returnTo: navigationReturnTo,
@@ -148,6 +159,11 @@ export function HealthProfileDrawer({
                   These supporting or specialty markers do not drive named-system assessments.
                 </p>
               ) : null}
+              {isOutdated ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Updated records are being assessed. The previous score is not shown as current.
+                </p>
+              ) : null}
               {missingGroups.length > 0 ? (
                 <div className="mt-3 text-sm text-muted-foreground">
                   <p className="font-medium text-slate-800">Needed for this assessment</p>
@@ -158,14 +174,16 @@ export function HealthProfileDrawer({
                   </ul>
                 </div>
               ) : null}
-              {unavailableKeys.size > 0 ? (
+              {invalidKeys.size > 0 ? (
                 <p className="mt-3 text-sm text-muted-foreground">
-                  Present without a usable lab reference range: {[...unavailableKeys].join(", ")}.
+                  Present but not usable for this assessment: {[...invalidKeys].join(", ")}.
                 </p>
               ) : null}
-              <Button asChild variant="outline" className="mt-4">
-                <Link href="/app/upload">Upload a document</Link>
-              </Button>
+              {!isOutdated ? (
+                <Button asChild variant="outline" className="mt-4">
+                  <Link href="/app/upload">Upload a document</Link>
+                </Button>
+              ) : null}
             </section>
           ) : null}
 

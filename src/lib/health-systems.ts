@@ -167,17 +167,29 @@ export type SystemInsight = {
   markers: SystemMarker[];
 };
 
+export type ScoreReadinessReasonCode = "missing" | "invalid" | "outdated";
+
+export type ScoreReadinessReason = {
+  code: ScoreReadinessReasonCode;
+  required_group: string[] | null;
+  present_keys: string[];
+};
+
 export type ScoreReadinessGroup = {
   keys: string[];
-  status: "satisfied" | "missing" | "present_without_reference";
+  status: "satisfied" | "missing" | "invalid";
   satisfied_by: string | null;
-  present_without_reference: string[];
+  present_keys: string[];
 };
 
 export type SystemScoreReadiness = {
   required_groups: ScoreReadinessGroup[];
-  missing_groups: string[][];
-  present_without_reference: string[];
+  reasons: ScoreReadinessReason[];
+};
+
+export type SystemScoreReadinessEvaluation = {
+  scoreability: SystemScoreability;
+  readiness: SystemScoreReadiness;
 };
 
 export type ProfileDisplayState =
@@ -199,6 +211,7 @@ export type HealthProfileResult = {
   overall_state_score: number | null;
   overall_data_confidence: number;
   scoreable_named_system_count: number;
+  assessment_freshness: "current" | "outdated";
   scoreable_named_system_total: number;
   overall_assessment_dismissal_key?: string;
   systems: SystemInsight[];
@@ -319,28 +332,6 @@ function isNumericMarker(marker: SystemMarker): boolean {
   return kind === "numeric" && marker.value != null && Number.isFinite(marker.value);
 }
 
-/** Core markers with known lab ref status — preferred score drivers. */
-function isCoreScoreEligible(marker: SystemMarker): boolean {
-  return isNumericMarker(marker) && markerRole(marker) === "core" && marker.status !== "unknown";
-}
-
-/**
- * Soft drivers used only when a system has no core markers at all
- * (e.g. General with unmapped/specialty labs, or blood differentials alone).
- * Without this fallback, systems with only display/extended markers scored 0/100
- * and were labeled "Needs attention" even when every value was in range.
- */
-function isSoftScoreEligible(marker: SystemMarker): boolean {
-  return isNumericMarker(marker) && marker.status !== "unknown";
-}
-
-function averageMarkerStateScores(markers: SystemMarker[]): number {
-  return average(
-    markers.map((marker) =>
-      markerStateScore(marker.status, marker.value, marker.ref_low, marker.ref_high)
-    )
-  );
-}
 
 function hasUsableDocumentReference(marker: SystemMarker): boolean {
   return marker.ref_low != null || marker.ref_high != null;
@@ -370,68 +361,73 @@ function pickUsableMarker(keys: readonly string[], markers: SystemMarker[]): Sys
 }
 
 function resolveReadinessGroup(keys: readonly string[], markers: SystemMarker[]): ScoreReadinessGroup {
-  const satisfied = pickUsableMarker(keys, markers);
+  const groupMarkers = markers.filter((marker) => keys.includes(marker.key));
+  const satisfied = pickUsableMarker(keys, groupMarkers);
+  const presentKeys = [...new Set(groupMarkers.map((marker) => marker.key))];
+
   if (satisfied) {
     return {
       keys: [...keys],
       status: "satisfied",
       satisfied_by: satisfied.key,
-      present_without_reference: [],
+      present_keys: presentKeys,
     };
   }
 
-  const presentWithoutReference = markers
-    .filter((marker) => keys.includes(marker.key) && !isUsableCoreMarker(marker))
-    .map((marker) => marker.key);
-
   return {
     keys: [...keys],
-    status: presentWithoutReference.length > 0 ? "present_without_reference" : "missing",
+    status: presentKeys.length > 0 ? "invalid" : "missing",
     satisfied_by: null,
-    present_without_reference: [...new Set(presentWithoutReference)],
+    present_keys: presentKeys,
   };
 }
 
 export function evaluateSystemScoreReadiness(
   systemId: BodySystemId,
   markers: SystemMarker[]
-): { scoreability: SystemScoreability; readiness: SystemScoreReadiness } {
+): SystemScoreReadinessEvaluation {
   if (systemId === "general") {
     return {
       scoreability: "supporting_only",
-      readiness: { required_groups: [], missing_groups: [], present_without_reference: [] },
+      readiness: { required_groups: [], reasons: [] },
     };
   }
 
   if (NON_SCOREABLE_SYSTEMS.has(systemId)) {
     return {
       scoreability: "non_scoreable",
-      readiness: { required_groups: [], missing_groups: [], present_without_reference: [] },
+      readiness: { required_groups: [], reasons: [] },
     };
   }
 
   const groups = getRegistryV2ScoreReadinessGroups(systemId).map((keys) =>
     resolveReadinessGroup(keys, markers)
   );
-  const missingGroups = groups.filter((group) => group.status === "missing").map((group) => group.keys);
-  const withoutReference = groups.flatMap((group) => group.present_without_reference);
+  const reasons = groups.flatMap((group) =>
+    group.status === "satisfied"
+      ? []
+      : [{
+          code: group.status,
+          required_group: group.keys,
+          present_keys: group.present_keys,
+        }]
+  );
 
   return {
     scoreability: groups.every((group) => group.status === "satisfied") ? "scoreable" : "incomplete",
     readiness: {
       required_groups: groups,
-      missing_groups: missingGroups,
-      present_without_reference: [...new Set(withoutReference)],
+      reasons,
     },
   };
 }
 
 export function computeSystemStateScore(
   systemId: BodySystemId,
-  markers: SystemMarker[]
+  markers: SystemMarker[],
+  evaluation: SystemScoreReadinessEvaluation = evaluateSystemScoreReadiness(systemId, markers)
 ): number | null {
-  const { scoreability } = evaluateSystemScoreReadiness(systemId, markers);
-  if (scoreability !== "scoreable" || systemId === "general") return null;
+  if (evaluation.scoreability !== "scoreable") return null;
 
   const contributionScores = getRegistryV2ScoreContributionGroups(systemId)
     .map((group) => pickUsableMarker(group.keys, markers))
@@ -439,34 +435,6 @@ export function computeSystemStateScore(
     .map((marker) => markerStateScore(marker.status, marker.value, marker.ref_low, marker.ref_high));
 
   return contributionScores.length > 0 ? average(contributionScores) : null;
-
-  // 1) Prefer core markers with known reference ranges
-  const coreEligible = markers.filter(isCoreScoreEligible);
-  if (coreEligible.length > 0) {
-    return averageMarkerStateScores(coreEligible);
-  }
-
-  // 2) Core present but all unknown-ref → mild unknown score (do not drop to 0)
-  const core = markers.filter((m) => markerRole(m) === "core" && isNumericMarker(m));
-  if (core.length > 0) {
-    return averageMarkerStateScores(core);
-  }
-
-  // 3) No core drivers: soft-score any numeric markers with known refs
-  //    (display/extended/unmapped). Keeps General & specialty-only systems honest.
-  const softEligible = markers.filter(isSoftScoreEligible);
-  if (softEligible.length > 0) {
-    return averageMarkerStateScores(softEligible);
-  }
-
-  // 4) Only numeric-without-ref → mild unknown average
-  const numericOnly = markers.filter(isNumericMarker);
-  if (numericOnly.length > 0) {
-    return averageMarkerStateScores(numericOnly);
-  }
-
-  // Truly nothing scoreable (empty / qualitative-only)
-  return 0;
 }
 
 export function computeSystemDataConfidence(
@@ -593,15 +561,15 @@ export function buildHealthProfile(
     if (latest.size === 0 || (systemId === "general" && markers.length === 0)) continue;
 
     const name = systemId === "general" ? "General" : BODY_SYSTEMS[systemId].name;
-    const { scoreability, readiness } = evaluateSystemScoreReadiness(systemId, markers);
+    const evaluation = evaluateSystemScoreReadiness(systemId, markers);
 
     systems.push({
       id: systemId,
       name,
-      state_score: computeSystemStateScore(systemId, markers),
+      state_score: computeSystemStateScore(systemId, markers, evaluation),
       data_confidence: computeSystemDataConfidence(systemId, markers),
-      scoreability,
-      score_readiness: readiness,
+      scoreability: evaluation.scoreability,
+      score_readiness: evaluation.readiness,
       primary_source: selectPrimarySource(markers),
       why_highlighted: buildWhyHighlighted(markers),
       markers,
@@ -625,6 +593,7 @@ export function buildHealthProfile(
         : sources.length > 0
           ? "no_recognized_biomarkers"
           : "onboarding",
+    assessment_freshness: "current",
     overall_state_score:
       scoreableSystems.length >= 3 ? average(scoreableSystems.map((system) => system.state_score)) : null,
     overall_data_confidence: average(confidenceScores),
@@ -632,6 +601,40 @@ export function buildHealthProfile(
     scoreable_named_system_total: NAMED_BODY_SYSTEMS.length,
     systems,
     sources,
+  };
+}
+
+/**
+ * A queued recalculation supersedes persisted scores. Keep factual evidence,
+ * but never present an obsolete current-state assessment as current.
+ */
+export function suppressOutdatedHealthProfileAssessment(
+  profile: Omit<HealthProfileResult, "holistic_synthesis">
+): Omit<HealthProfileResult, "holistic_synthesis"> {
+  if (profile.assessment_freshness === "outdated") return profile;
+
+  return {
+    ...profile,
+    assessment_freshness: "outdated",
+    overall_state_score: null,
+    systems: profile.systems.map((system) => {
+      if (system.id === "general") return system;
+      if (system.score_readiness.reasons.some((reason) => reason.code === "outdated")) {
+        return { ...system, state_score: null };
+      }
+
+      return {
+        ...system,
+        state_score: null,
+        score_readiness: {
+          ...system.score_readiness,
+          reasons: [
+            ...system.score_readiness.reasons,
+            { code: "outdated", required_group: null, present_keys: [] },
+          ],
+        },
+      };
+    }),
   };
 }
 
