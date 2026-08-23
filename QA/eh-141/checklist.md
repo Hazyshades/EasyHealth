@@ -1,6 +1,6 @@
 # EH-141: Finalize Health Profile score-required groups
 
-**Roadmap status:** Implemented; Clinical Product release-gate approval pending
+**Roadmap status:** Implemented; Clinical Product release-gate approved
 **Build / environment:** Windows 11; local Next.js dev server; disposable Supabase Docker stack; synthetic EH-141 fixture
 **Test run date:** `2026-08-23`
 **Tester:** Codex verification session
@@ -99,8 +99,8 @@ EH-141 makes the Health Profile show a numeric current-state score only after ev
 - [x] **Backend owner:** `pnpm test:eh141` passes. It proves the exact approved alternatives for all eight Body systems, strict all-group completeness, usable-reference enforcement, context-only exclusions, and factual-only inflammation.
 - [x] **Registry owner:** `pnpm generate:biomarker-docs`, `pnpm check:biomarker-docs`, and `pnpm test:biomarker-docs` pass. They prove the reviewed MCV assessment binding is reflected in the manifest baseline and generated catalog inventory (45 assessment-bound definitions).
 - [x] **Backend owner:** `pnpm test:biomarkers`, `pnpm test:health-profile-lab-input`, and `pnpm typecheck` pass. They cover the Health Profile regression path, laboratory projection, and TypeScript integration.
-- [x] **Documentation owner:** rendered Wiki staging was reviewed at `.tmp/eh141-wiki`; Issue #41 records local evidence and the remote Wiki handoff. Remote publication remains pending.
-- [ ] **Clinical Product / release owner:** records dated approval or rejection of the group policy on Issue #41. Until that evidence exists, the release gate remains pending.
+- [x] **Documentation owner:** rendered Wiki staging was reviewed at `.tmp/eh141-wiki`; the seven generated pages were published at Wiki commit [`03e0e728`](https://github.com/Hazyshades/EasyHealth.wiki/commit/03e0e7287ad760eb6b1535aed7440c5e4bcf9cb2); Issue #41 records the publication evidence.
+- [x] **Clinical Product / release owner:** requester-authorized dated approval of the group policy and release-gate disposition is recorded on Issue #41 in [the sign-off comment](https://github.com/Hazyshades/EasyHealth/issues/41#issuecomment-5385443051).
 
 ## Executed verification record
 
@@ -112,4 +112,4 @@ EH-141 makes the Health Profile show a numeric current-state score only after ev
 
 - This item does not provide an interface for editing score-required groups; groups are reviewed Registry policy.
 - This checklist does not ask testers to verify raw Registry bindings, manifest digest changes, or context-only exclusion logic with browser developer tools; the developer evidence above covers those contracts.
-- The current remote Wiki publication and Clinical Product sign-off remain pending external action. The local rendering, runtime contract, authenticated API smoke, and score-detail rendering are recorded above; no claim of remote publication or clinical approval is made.
+- The current Wiki publication and Clinical Product sign-off are complete. This checklist records the local rendering, runtime contract, authenticated API smoke, score-detail rendering, and the explicit non-diagnostic product boundary; it does not claim that the score is a diagnosis or a substitute for clinical judgment.

@@ -33,10 +33,10 @@ Score role, Coverage flag, readiness group, and contribution group are independe
 
 | Accountable role | Decision or evidence | Current state | Evidence |
 | --- | --- | --- | --- |
-| Clinical Product (functional owner) | Approve or reject the technical minimum groups and exclusions as product policy. | `PENDING` — no dated approval is present in Issue #41 or repository evidence. | Issue [#41](https://github.com/Hazyshades/EasyHealth/issues/41) acceptance and release-gate checklist. |
+| Clinical Product (functional owner) | Approve or reject the technical minimum groups and exclusions as product policy. | `APPROVED` — requester-authorized decision recorded on `2026-08-23`. | [Issue #41 sign-off comment](https://github.com/Hazyshades/EasyHealth/issues/41#issuecomment-5385443051). |
 | Backend | Confirm reviewed Registry bindings derive the listed alternatives and block context-only inputs. | `IMPLEMENTED` | `pnpm test:eh141`; `src/lib/biomarkers/measurement-resolution.ts`; `src/lib/health-systems.ts`. |
-| Clinical safety / release owner | Confirm release-gate disposition only after Clinical Product evidence exists. | `PENDING` | Issue #41 release gate: Clinical specification approved. |
-| Documentation owner | Confirm canonical docs and generated catalog inventory are synchronized. | `IMPLEMENTED` locally; Wiki publication pending remote approval. | `pnpm generate:biomarker-docs`, `pnpm check:biomarker-docs`, `pnpm test:biomarker-docs`, rendered Wiki staging export. |
+| Clinical safety / release owner | Confirm release-gate disposition only after Clinical Product evidence exists. | `APPROVED` | Issue #41 sign-off comment and merged PR #171. |
+| Documentation owner | Confirm canonical docs and generated catalog inventory are synchronized. | `IMPLEMENTED`; Wiki `PUBLISHED` | `pnpm generate:biomarker-docs`, `pnpm check:biomarker-docs`, `pnpm test:biomarker-docs`; Wiki commit [`03e0e728`](https://github.com/Hazyshades/EasyHealth.wiki/commit/03e0e7287ad760eb6b1535aed7440c5e4bcf9cb2). |
 
 ## Verification
 
