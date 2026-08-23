@@ -217,6 +217,28 @@
       "localOnly": false,
       "owner": "health-profile",
       "reason": "EH-141 score-required group readiness policy and alternatives require release verification."
+    },
+    {
+      "script": "test:eh142",
+      "verificationFiles": [
+        "scripts/verify-eh142-assessment-eligibility.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "health-profile",
+      "reason": "EH-142 fail-closed assessment eligibility and user-safe exclusion guidance require release verification."
+    },
+    {
+      "script": "test:eh142-db",
+      "verificationFiles": [
+        "QA-Db_tests/eh142_assessment_eligibility.sql"
+      ],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "health-profile",
+      "reason": "EH-142 durable assessment recalculation and append-only version contracts require pgTAP."
     }
   ],
   "localOnly": []

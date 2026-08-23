@@ -21,6 +21,7 @@ function observation(overrides: Record<string, unknown> = {}) {
     unit: "mg/dL",
     ref_low: 70,
     ref_high: 99,
+    raw_reference_text: "70–99",
     observed_at: "2026-08-01",
     document_id: "fixture-document",
     value_kind: "numeric",
@@ -109,26 +110,16 @@ assert.equal(
   "a reviewed definition without a compatible assessment binding must not enter Health Profile",
 );
 
-assert.deepEqual(project({ value: null, unit: "positive", value_kind: "qualitative", value_text: "positive" }), {
-  biomarker_key: "glucose",
-  measurement_definition_key: "glucose_serum",
-  name: "Glucose",
-  value: null,
-  unit: "positive",
-  ref_low: 70,
-  ref_high: 99,
-  observed_at: "2026-08-01",
-  document_id: "fixture-document",
-  observation_kind: "lab",
-  value_kind: "qualitative",
-  value_text: "positive",
-  ordinal: null,
-  specimen: "serum",
-  modifier: "none",
-});
-const missingReference = project({ ref_low: null, ref_high: null });
-assert.equal(missingReference?.ref_low, null);
-assert.equal(missingReference?.ref_high, null);
+assert.equal(
+  project({ value: null, unit: "positive", value_kind: "qualitative", value_text: "positive" }),
+  null,
+  "qualitative results must not enter Health Profile assessment input",
+);
+assert.equal(
+  project({ ref_low: null, ref_high: null }),
+  null,
+  "a result without a usable source reference range must not enter Health Profile assessment input",
+);
 
 const profile = buildHealthProfile(resolved ? [resolved] : [], [source]);
 assert.equal(profile.records_used_count, 1);

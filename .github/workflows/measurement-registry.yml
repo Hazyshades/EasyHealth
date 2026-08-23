@@ -57,6 +57,8 @@ jobs:
         run: pnpm test:eh116
       - name: Verify EH-141 score-required groups
         run: pnpm test:eh141
+      - name: Verify EH-142 assessment eligibility
+        run: pnpm test:eh142
       - run: pnpm test:eh106
         env:
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
@@ -234,6 +236,8 @@ jobs:
         run: pnpm test:eh127-db
       - name: Run EH-132 timeline and panel database release contract
         run: pnpm test:eh132-db
+      - name: Run EH-142 assessment eligibility database contract
+        run: pnpm test:eh142-db
       - name: Run EH-130 duplicate-document database contract
         run: pnpm test:eh130-db
       - name: Run PR2 instrumental database contracts

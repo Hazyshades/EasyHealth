@@ -191,6 +191,8 @@ export async function GET() {
           outcome.resolutionDetails.eligibility.conversionEligible,
         assessment_eligible:
           outcome.resolutionDetails.eligibility.assessmentEligible,
+        assessment_exclusion_reason:
+          outcome.resolutionDetails.eligibility.exclusions.assessment,
         value: valueKind === "numeric" ? display.value : null,
         value_kind: valueKind,
         value_text:
