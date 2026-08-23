@@ -34,7 +34,7 @@ export async function buildHealthProfileSnapshot(options: {
     supabase
       .from("observations")
       .select(
-        "id, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier, normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence)",
+        "id, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, raw_reference_text, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier, normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence)",
       )
       .eq("profile_id", options.profileId)
       .eq("observation_kind", "lab"),

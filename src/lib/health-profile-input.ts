@@ -13,6 +13,7 @@ type HealthProfileLaboratoryObservation = RegistryV2LaboratoryBindingSource & {
   unit: string | null;
   ref_low: number | string | null;
   ref_high: number | string | null;
+  raw_reference_text: string | null;
   observed_at: string;
   document_id: string | null;
   value_kind: string | null;
@@ -61,34 +62,8 @@ export function projectHealthProfileLaboratoryInput(options: {
   )?.assessmentInputKey;
   if (!key) return null;
 
-  const valueKind =
-    observation.value_kind === "qualitative" ||
-    observation.value_kind === "ordinal" ||
-    observation.value_kind === "text" ||
-    observation.value_kind === "numeric"
-      ? observation.value_kind
-      : "numeric";
   const numericValue = observation.value != null ? Number(observation.value) : null;
-
-  if (valueKind !== "numeric" || numericValue == null) {
-    return {
-      biomarker_key: key,
-      measurement_definition_key: measurementDefinitionKey,
-      name: observation.name,
-      value: null,
-      unit: observation.unit ?? "",
-      ref_low: observation.ref_low != null ? Number(observation.ref_low) : null,
-      ref_high: observation.ref_high != null ? Number(observation.ref_high) : null,
-      observed_at: observation.observed_at,
-      document_id: observation.document_id,
-      observation_kind: "lab",
-      value_kind: valueKind,
-      value_text: observation.value_text ?? null,
-      ordinal: observation.ordinal != null ? Number(observation.ordinal) : null,
-      specimen: observation.specimen ?? "unspecified",
-      modifier: observation.modifier ?? "none",
-    };
-  }
+  if (numericValue === null || !Number.isFinite(numericValue)) return null;
 
   const display = presentObservation(
     {
