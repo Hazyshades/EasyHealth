@@ -4,8 +4,8 @@
 Canonical reference generated from the typed runtime Registry 2.0 catalog. A measurement definition is not merely an analyte: its identity includes analyte, specimen, property, scale, timing, method, and value kind.
 
 - **Definitions:** 113 (74 reviewed; 39 provisional). **Analytes:** 83.
-- **Aliases:** 637 (en 289; ru 179; es 169). **Assessment-bound definitions:** 44.
-- **Manifest:** `2026-08-12.0` / `c26ced74ec3a031c8d9c8f38a44988587086a328cb5ef62dddc2a89ecc8b48c9`; resolver `11`; normalization `7`.
+- **Aliases:** 637 (en 289; ru 179; es 169). **Assessment-bound definitions:** 45.
+- **Manifest:** `2026-08-23.0` / `daed22bd44454e6e7eeb0c6d54c0e860973dfae5a28a625c0a41684f428371a5`; resolver `11`; normalization `7`.
 
 The [complete alias-governance reference](./biomarker-aliases.md) is authoritative for alias authority, approval, lifecycle, fixture, provenance, and review metadata.
 
@@ -703,8 +703,8 @@ The [complete alias-governance reference](./biomarker-aliases.md) is authoritati
 - **required modifiers / methods:** — / —
 - **Health Profile consumer eligibility:** yes. It requires a lab observation, active `resolved` revision/trace, matching selected candidate and definition key, reviewed Registry v2 provenance, and a reviewed compatible assessment binding.
 - **reviewed binding:** `hematocrit`; system=`blood`; compatibility=`compatible`; status=`reviewed`
-- **score role / readiness / contribution groups:** `core` / `hemoglobin,hematocrit`, `wbc`, `platelets` / `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `red_cell_variation`: `rdw`
-- **reviewed groups:** readiness `hemoglobin,hematocrit`, `wbc`, `platelets`; contribution `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `red_cell_variation`: `rdw`
+- **score role / readiness / contribution groups:** `core` / `hemoglobin,hematocrit`, `wbc`, `platelets`, `mcv` / `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `mcv`: `mcv`; `red_cell_variation`: `rdw`
+- **reviewed groups:** readiness `hemoglobin,hematocrit`, `wbc`, `platelets`, `mcv`; contribution `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `mcv`: `mcv`; `red_cell_variation`: `rdw`
 
 **Compact aliases by locale**
 - **en** (3): Hematocrit (HCT) [`hematocrit_whole_blood:fixture:3`] · hematocrit [`hematocrit_whole_blood:registry:1`] · hct [`hematocrit_whole_blood:registry:2`]
@@ -723,8 +723,8 @@ The [complete alias-governance reference](./biomarker-aliases.md) is authoritati
 - **required modifiers / methods:** — / —
 - **Health Profile consumer eligibility:** yes. It requires a lab observation, active `resolved` revision/trace, matching selected candidate and definition key, reviewed Registry v2 provenance, and a reviewed compatible assessment binding.
 - **reviewed binding:** `hemoglobin`; system=`blood`; compatibility=`compatible`; status=`reviewed`
-- **score role / readiness / contribution groups:** `core` / `hemoglobin,hematocrit`, `wbc`, `platelets` / `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `red_cell_variation`: `rdw`
-- **reviewed groups:** readiness `hemoglobin,hematocrit`, `wbc`, `platelets`; contribution `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `red_cell_variation`: `rdw`
+- **score role / readiness / contribution groups:** `core` / `hemoglobin,hematocrit`, `wbc`, `platelets`, `mcv` / `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `mcv`: `mcv`; `red_cell_variation`: `rdw`
+- **reviewed groups:** readiness `hemoglobin,hematocrit`, `wbc`, `platelets`, `mcv`; contribution `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `mcv`: `mcv`; `red_cell_variation`: `rdw`
 
 **Compact aliases by locale**
 - **en** (4): Hemoglobin (HGB) [`hemoglobin_whole_blood:fixture:4`] · hemoglobin [`hemoglobin_whole_blood:registry:1`] · hgb [`hemoglobin_whole_blood:registry:2`] · hb [`hemoglobin_whole_blood:registry:3`]
@@ -881,10 +881,10 @@ The [complete alias-governance reference](./biomarker-aliases.md) is authoritati
 - **unit dimensions:** `volume`; **accepted units:** `fl`; **canonical unit:** `fl`
 - **conversion policy:** `—`; **missing-unit behavior:** `ambiguous`; **conversion:** none (no reviewed conversion rule)
 - **required modifiers / methods:** — / —
-- **Health Profile consumer eligibility:** no. It requires a lab observation, active `resolved` revision/trace, matching selected candidate and definition key, reviewed Registry v2 provenance, and a reviewed compatible assessment binding.
-- **reviewed binding:** —
-- **score role / readiness / contribution groups:** `display` / — / —
-- **reviewed groups:** readiness —; contribution —
+- **Health Profile consumer eligibility:** yes. It requires a lab observation, active `resolved` revision/trace, matching selected candidate and definition key, reviewed Registry v2 provenance, and a reviewed compatible assessment binding.
+- **reviewed binding:** `mcv`; system=`blood`; compatibility=`compatible`; status=`reviewed`
+- **score role / readiness / contribution groups:** `core` / `hemoglobin,hematocrit`, `wbc`, `platelets`, `mcv` / `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `mcv`: `mcv`; `red_cell_variation`: `rdw`
+- **reviewed groups:** readiness `hemoglobin,hematocrit`, `wbc`, `platelets`, `mcv`; contribution `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `mcv`: `mcv`; `red_cell_variation`: `rdw`
 
 **Compact aliases by locale**
 - **en** (2): Mean corpuscular volume (MCV) [`mcv_whole_blood:fixture:2`] · mcv [`mcv_whole_blood:registry:1`]
@@ -1083,8 +1083,8 @@ The [complete alias-governance reference](./biomarker-aliases.md) is authoritati
 - **required modifiers / methods:** — / —
 - **Health Profile consumer eligibility:** yes. It requires a lab observation, active `resolved` revision/trace, matching selected candidate and definition key, reviewed Registry v2 provenance, and a reviewed compatible assessment binding.
 - **reviewed binding:** `platelets`; system=`blood`; compatibility=`compatible`; status=`reviewed`
-- **score role / readiness / contribution groups:** `core` / `hemoglobin,hematocrit`, `wbc`, `platelets` / `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `red_cell_variation`: `rdw`
-- **reviewed groups:** readiness `hemoglobin,hematocrit`, `wbc`, `platelets`; contribution `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `red_cell_variation`: `rdw`
+- **score role / readiness / contribution groups:** `core` / `hemoglobin,hematocrit`, `wbc`, `platelets`, `mcv` / `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `mcv`: `mcv`; `red_cell_variation`: `rdw`
+- **reviewed groups:** readiness `hemoglobin,hematocrit`, `wbc`, `platelets`, `mcv`; contribution `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `mcv`: `mcv`; `red_cell_variation`: `rdw`
 
 **Compact aliases by locale**
 - **en** (3): Platelets (PLT) [`platelets_whole_blood:fixture:3`] · platelets [`platelets_whole_blood:registry:1`] · plt [`platelets_whole_blood:registry:2`]
@@ -1143,8 +1143,8 @@ The [complete alias-governance reference](./biomarker-aliases.md) is authoritati
 - **required modifiers / methods:** — / —
 - **Health Profile consumer eligibility:** yes. It requires a lab observation, active `resolved` revision/trace, matching selected candidate and definition key, reviewed Registry v2 provenance, and a reviewed compatible assessment binding.
 - **reviewed binding:** `rbc`; system=`blood`; compatibility=`compatible`; status=`reviewed`
-- **score role / readiness / contribution groups:** `extended` / `hemoglobin,hematocrit`, `wbc`, `platelets` / `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `red_cell_variation`: `rdw`
-- **reviewed groups:** readiness `hemoglobin,hematocrit`, `wbc`, `platelets`; contribution `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `red_cell_variation`: `rdw`
+- **score role / readiness / contribution groups:** `extended` / `hemoglobin,hematocrit`, `wbc`, `platelets`, `mcv` / `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `mcv`: `mcv`; `red_cell_variation`: `rdw`
+- **reviewed groups:** readiness `hemoglobin,hematocrit`, `wbc`, `platelets`, `mcv`; contribution `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `mcv`: `mcv`; `red_cell_variation`: `rdw`
 
 **Compact aliases by locale**
 - **en** (3): Red blood cells (RBC) [`rbc_whole_blood:fixture:3`] · rbc [`rbc_whole_blood:registry:1`] · red_blood_cells [`rbc_whole_blood:registry:2`]
@@ -1163,8 +1163,8 @@ The [complete alias-governance reference](./biomarker-aliases.md) is authoritati
 - **required modifiers / methods:** — / —
 - **Health Profile consumer eligibility:** yes. It requires a lab observation, active `resolved` revision/trace, matching selected candidate and definition key, reviewed Registry v2 provenance, and a reviewed compatible assessment binding.
 - **reviewed binding:** `rdw`; system=`blood`; compatibility=`compatible`; status=`reviewed`
-- **score role / readiness / contribution groups:** `extended` / `hemoglobin,hematocrit`, `wbc`, `platelets` / `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `red_cell_variation`: `rdw`
-- **reviewed groups:** readiness `hemoglobin,hematocrit`, `wbc`, `platelets`; contribution `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `red_cell_variation`: `rdw`
+- **score role / readiness / contribution groups:** `extended` / `hemoglobin,hematocrit`, `wbc`, `platelets`, `mcv` / `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `mcv`: `mcv`; `red_cell_variation`: `rdw`
+- **reviewed groups:** readiness `hemoglobin,hematocrit`, `wbc`, `platelets`, `mcv`; contribution `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `mcv`: `mcv`; `red_cell_variation`: `rdw`
 
 **Compact aliases by locale**
 - **en** (5): Red cell distribution width (RDW) [`rdw_cv:fixture:4`] · Red cell distribution width CV (RDW-CV) [`rdw_cv:fixture:5`] · rdw [`rdw_cv:registry:1`] · rdw_cv [`rdw_cv:registry:2`] · rdw-cv [`rdw_cv:registry:3`]
@@ -1183,8 +1183,8 @@ The [complete alias-governance reference](./biomarker-aliases.md) is authoritati
 - **required modifiers / methods:** — / —
 - **Health Profile consumer eligibility:** yes. It requires a lab observation, active `resolved` revision/trace, matching selected candidate and definition key, reviewed Registry v2 provenance, and a reviewed compatible assessment binding.
 - **reviewed binding:** `rdw`; system=`blood`; compatibility=`compatible`; status=`reviewed`
-- **score role / readiness / contribution groups:** `extended` / `hemoglobin,hematocrit`, `wbc`, `platelets` / `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `red_cell_variation`: `rdw`
-- **reviewed groups:** readiness `hemoglobin,hematocrit`, `wbc`, `platelets`; contribution `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `red_cell_variation`: `rdw`
+- **score role / readiness / contribution groups:** `extended` / `hemoglobin,hematocrit`, `wbc`, `platelets`, `mcv` / `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `mcv`: `mcv`; `red_cell_variation`: `rdw`
+- **reviewed groups:** readiness `hemoglobin,hematocrit`, `wbc`, `platelets`, `mcv`; contribution `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `mcv`: `mcv`; `red_cell_variation`: `rdw`
 
 **Compact aliases by locale**
 - **en** (4): Red cell distribution width SD (RDW-SD) [`rdw_sd:fixture:4`] · rdw [`rdw_sd:registry:1`] · rdw_sd [`rdw_sd:registry:2`] · rdw-sd [`rdw_sd:registry:3`]
@@ -1483,8 +1483,8 @@ The [complete alias-governance reference](./biomarker-aliases.md) is authoritati
 - **required modifiers / methods:** — / —
 - **Health Profile consumer eligibility:** yes. It requires a lab observation, active `resolved` revision/trace, matching selected candidate and definition key, reviewed Registry v2 provenance, and a reviewed compatible assessment binding.
 - **reviewed binding:** `wbc`; system=`blood`; compatibility=`compatible`; status=`reviewed`
-- **score role / readiness / contribution groups:** `core` / `hemoglobin,hematocrit`, `wbc`, `platelets` / `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `red_cell_variation`: `rdw`
-- **reviewed groups:** readiness `hemoglobin,hematocrit`, `wbc`, `platelets`; contribution `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `red_cell_variation`: `rdw`
+- **score role / readiness / contribution groups:** `core` / `hemoglobin,hematocrit`, `wbc`, `platelets`, `mcv` / `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `mcv`: `mcv`; `red_cell_variation`: `rdw`
+- **reviewed groups:** readiness `hemoglobin,hematocrit`, `wbc`, `platelets`, `mcv`; contribution `red_cell_mass`: `hemoglobin`, `hematocrit`, `rbc`; `white_cells`: `wbc`; `platelets`: `platelets`; `mcv`: `mcv`; `red_cell_variation`: `rdw`
 
 **Compact aliases by locale**
 - **en** (3): White blood cells (WBC) [`wbc_whole_blood:fixture:3`] · wbc [`wbc_whole_blood:registry:1`] · white_blood_cells [`wbc_whole_blood:registry:2`]
