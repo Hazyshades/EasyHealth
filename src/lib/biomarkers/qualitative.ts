@@ -114,7 +114,7 @@ export function inferSpecimen(
     return "urine";
   }
   if (/plasma|плазм/i.test(blob)) return "plasma";
-  if (/whole\s*blood|цельной?\s*кров|sangre\s*(total|entera)/i.test(blob)) return "whole_blood";
+  if (/whole[\s_-]*blood|цельной?\s*кров|sangre\s*(total|entera)/i.test(blob)) return "whole_blood";
   if (/serum|сыворот|suero/i.test(blob)) return "serum";
   return "unspecified";
 }

@@ -55,6 +55,8 @@ jobs:
         run: pnpm test:eh113
       - name: Verify EH-116 registry reprocess batch
         run: pnpm test:eh116
+      - name: Verify EH-141 score-required groups
+        run: pnpm test:eh141
       - run: pnpm test:eh106
         env:
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
@@ -136,6 +138,10 @@ jobs:
         run: pnpm test:eh126
       - name: Verify EH-127 health timeline contracts
         run: pnpm test:eh127
+      - name: Verify EH-132 synthetic fixture pack
+        run: pnpm test:eh132-fixtures
+      - name: Verify EH-132 timeline and panel release validation
+        run: pnpm test:eh132
       - name: Verify EH-128 laboratory panel grouping
         run: pnpm test:eh128
       - name: Verify EH-129 repeated measurement comparison
@@ -226,6 +232,8 @@ jobs:
         run: pnpm test:eh126-db
       - name: Run EH-127 health timeline database contract
         run: pnpm test:eh127-db
+      - name: Run EH-132 timeline and panel database release contract
+        run: pnpm test:eh132-db
       - name: Run EH-130 duplicate-document database contract
         run: pnpm test:eh130-db
       - name: Run PR2 instrumental database contracts

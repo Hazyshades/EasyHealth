@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "fixturePack": "EH132",
+  "disclaimer": "Fictional de-identified QA fixture; not a medical record or clinical advice.",
+  "syntheticOnly": true,
+  "timeline": {
+    "requiredTypes": [
+      "lab_result",
+      "instrumental_report",
+      "consultation_note",
+      "discharge_summary",
+      "prescription",
+      "referral"
+    ],
+    "explicitDateFixtures": [
+      {
+        "id": "EH132-TIMELINE-01-LAB",
+        "filename": "EH132-TIMELINE-01-LAB-2026-08-13.pdf",
+        "documentType": "lab_result",
+        "purpose": "Laboratory event with an explicit collection date.",
+        "lines": [
+          "EasyHealth Synthetic QA Fixture",
+          "Fictional de-identified QA fixture; not a medical record or clinical advice.",
+          "Fixture ID: EH132-TIMELINE-01-LAB",
+          "Document type: Laboratory result",
+          "Collection date: 2026-08-13",
+          "Laboratory: Example Diagnostics (fictional)",
+          "Specimen: whole blood | Analyte: Hemoglobin (HGB) | Result: 150 | Unit: g/L | Reference: 130 - 170",
+          "Specimen: whole blood | Analyte: White blood cells (WBC) | Result: 6.2 | Unit: x10^9/L | Reference: 4.0 - 10.0",
+          "Source note: Medical date is the collection date; upload time is intentionally different."
+        ]
+      },
+      {
+        "id": "EH132-TIMELINE-01-INSTRUMENTAL",
+        "filename": "EH132-TIMELINE-01-INSTRUMENTAL-2026-07-22.pdf",
+        "documentType": "instrumental_report",
+        "purpose": "Instrumental report event with an explicit study date.",
+        "lines": [
+          "EasyHealth Synthetic QA Fixture",
+          "Fictional de-identified QA fixture; not a medical record or clinical advice.",
+          "Fixture ID: EH132-TIMELINE-01-INSTRUMENTAL",
+          "Document type: Instrumental report",
+          "Study date: 2026-07-22",
+          "Facility: Synthetic Imaging Center",
+          "Modality: MRI",
+          "Body region: left knee",
+          "Finding: Mild synthetic signal change; no acute finding in this fictional report.",
+          "Impression: Fictional stable study for timeline ordering only."
+        ]
+      },
+      {
+        "id": "EH132-TIMELINE-01-CONSULTATION",
+        "filename": "EH132-TIMELINE-01-CONSULTATION-2026-06-16.pdf",
+        "documentType": "consultation_note",
+        "purpose": "Consultation event with an explicit visit date.",
+        "lines": [
+          "EasyHealth Synthetic QA Fixture",
+          "Fictional de-identified QA fixture; not a medical record or clinical advice.",
+          "Fixture ID: EH132-TIMELINE-01-CONSULTATION",
+          "Document type: Consultation note",
+          "Visit date: 2026-06-16",
+          "Provider: Dr. Synthetic Reviewer",
+          "Chief complaint: Fictional routine follow-up",
+          "History summary: Synthetic history included only to exercise document extraction.",
+          "Assessment: No clinical conclusion; this is a test fixture.",
+          "Follow-up plan: Repeat synthetic review if needed."
+        ]
+      },
+      {
+        "id": "EH132-TIMELINE-01-DISCHARGE",
+        "filename": "EH132-TIMELINE-01-DISCHARGE-2026-05-08.pdf",
+        "documentType": "discharge_summary",
+        "purpose": "Discharge event with an admission/discharge date range.",
+        "lines": [
+          "EasyHealth Synthetic QA Fixture",
+          "Fictional de-identified QA fixture; not a medical record or clinical advice.",
+          "Fixture ID: EH132-TIMELINE-01-DISCHARGE",
+          "Document type: Discharge summary",
+          "Admission date: 2026-05-06",
+          "Discharge date: 2026-05-08",
+          "Provider: Synthetic Hospital",
+          "Hospital course: Fictional stable course used for date-range projection.",
+          "Discharge diagnoses: Synthetic diagnosis A; synthetic diagnosis B.",
+          "Recommendations: Follow the synthetic follow-up plan."
+        ]
+      },
+      {
+        "id": "EH132-TIMELINE-01-PRESCRIPTION",
+        "filename": "EH132-TIMELINE-01-PRESCRIPTION-2026-04-19.pdf",
+        "documentType": "prescription",
+        "purpose": "Prescription event with an explicit prescribed date.",
+        "lines": [
+          "EasyHealth Synthetic QA Fixture",
+          "Fictional de-identified QA fixture; not a medical record or clinical advice.",
+          "Fixture ID: EH132-TIMELINE-01-PRESCRIPTION",
+          "Document type: Prescription",
+          "Prescribed date: 2026-04-19",
+          "Prescriber: Synthetic Prescriber",
+          "Medication: Fictional study medication | Dose: 1 tablet | Frequency: once daily | Duration: 7 days",
+          "Instructions: This medication line is synthetic and must not be used clinically."
+        ]
+      },
+      {
+        "id": "EH132-TIMELINE-01-REFERRAL",
+        "filename": "EH132-TIMELINE-01-REFERRAL-2026-03-11.pdf",
+        "documentType": "referral",
+        "purpose": "Referral event with an explicit referral date.",
+        "lines": [
+          "EasyHealth Synthetic QA Fixture",
+          "Fictional de-identified QA fixture; not a medical record or clinical advice.",
+          "Fixture ID: EH132-TIMELINE-01-REFERRAL",
+          "Document type: Referral",
+          "Referral date: 2026-03-11",
+          "Referring provider: Synthetic Primary Care",
+          "Referred to specialty: Synthetic Cardiology",
+          "Reason for referral: Fictional review of a synthetic result.",
+          "Urgency: routine"
+        ]
+      }
+    ],
+    "unknownDateFixture": "EH132-TIMELINE-02-UNKNOWN-DATE.pdf"
+  },
+  "comparison": {
+    "compatibleSources": [
+      "EH132-COMPARE-01-LAB-A-2026-08-13.pdf",
+      "EH132-COMPARE-01-LAB-B-2026-08-15.pdf"
+    ],
+    "controls": "EH132-COMPARE-02-CONTROLS-2026-08-16.pdf",
+    "concreteDefinition": "Hemoglobin / whole_blood"
+  },
+  "performance": {
+    "file": "EH132-PERF-01.json",
+    "eventCount": 2000,
+    "pageSize": 25,
+    "targetBudgetMs": 2000,
+    "profileIdPlaceholder": "<dedicated-synthetic-profile-id>"
+  },
+  "uploadNotes": [
+    "Use a dedicated test profile and synthetic documents only.",
+    "For timeline fixtures, choose the manifest documentType in the upload form.",
+    "Process normal-path documents before running the manual UI checks.",
+    "The performance JSON is a deterministic seed definition; bind its profile placeholder only in an approved synthetic performance environment."
+  ]
+}

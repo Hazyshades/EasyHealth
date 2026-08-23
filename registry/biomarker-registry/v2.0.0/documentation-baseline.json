@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1",
   "catalog": {
-    "manifestVersion": "2026-08-12.0",
-    "manifestDigest": "c26ced74ec3a031c8d9c8f38a44988587086a328cb5ef62dddc2a89ecc8b48c9",
+    "manifestVersion": "2026-08-23.0",
+    "manifestDigest": "daed22bd44454e6e7eeb0c6d54c0e860973dfae5a28a625c0a41684f428371a5",
     "counts": {
       "definitions": 113,
       "reviewedDefinitions": 74,
@@ -10,7 +10,7 @@
       "retiredDefinitions": 0,
       "analytes": 83,
       "aliases": 637,
-      "assessmentBoundDefinitions": 44,
+      "assessmentBoundDefinitions": 45,
       "aliasesByLocale": {
         "en": 289,
         "ru": 179,

@@ -102,7 +102,7 @@ Rules:
 - For qualitative results, put the lab's verbatim text in "value" as a string (do not translate Отрицательно/Negativo into English).
 - For quantitative results, put a number in "value".
 - If dual units are printed (e.g. 90 mg/dL / 5.0 mmol/L), store primary in value/unit and alternate in reported_alt_value/reported_alt_unit.
-- Emit specimen only when the report explicitly states it on the row itself or in a labelled line (for example "Material: serum"); do not infer it from the analyte label, from a section heading, or from which specimen the test is usually measured in. When the report does not state it, use null. A section heading is not accepted as evidence: it is not captured with the row, so a specimen taken from it cannot be verified and is discarded before resolution.
+- Emit specimen only when the report explicitly states it on the row itself or in a labelled line (for example "Material: serum" or "Specimen: whole blood"); preserve that printed wording in source_text so the provenance gate can verify it. Do not infer it from the analyte label, from a section heading, or from which specimen the test is usually measured in. When the report does not state it, use null. A section heading is not accepted as evidence: it is not captured with the row, so a specimen taken from it cannot be verified and is discarded before resolution.
 - For CBC differentials, emit method only when the report explicitly states automated or manual; do not infer it from the analyte label.
 - EXCLUDE vital signs (blood pressure, pulse, respirations, temperature, SpO2).
 - EXCLUDE physical examination measurements and narrative clinical notes.
@@ -120,6 +120,22 @@ type ExtractedAxes = {
 };
 
 /**
+ * The model sometimes preserves a row's explicit specimen wording in
+ * `source_text` but omits the structured field. Recover only that captured
+ * lexical evidence; `statedAxisValue` remains the final provenance gate.
+ */
+function specimenFromCapturedProvenance(
+  key: string,
+  name: string,
+  explicit: string | null,
+  sourceText: string | null,
+): string {
+  const structured = inferSpecimen(key, name, explicit);
+  if (structured !== "unspecified") return structured;
+  return inferSpecimen(key, `${name} ${sourceText ?? ""}`);
+}
+
+/**
  * #106: keep only the clinical axes the document evidences.
  *
  * `inferSpecimen` and `inferModifier` are provenance-based on their own, but
@@ -134,10 +150,11 @@ function statedAxesFromRow(
   sourceText: string | null,
 ): ExtractedAxes {
   const provenance: RowProvenance = { label: name, sourceText };
-  const specimen = inferSpecimen(
+  const specimen = specimenFromCapturedProvenance(
     key,
     name,
     typeof row.specimen === "string" ? row.specimen : null,
+    sourceText,
   );
   const modifier = inferModifier(
     key,
