@@ -8,6 +8,7 @@ import {
   type HealthProfileResult,
   type HealthProfileSource,
 } from "@/lib/health-systems";
+import { HEALTH_PROFILE_FRESHNESS_POLICY } from "@/lib/health-profile-freshness";
 import { projectHealthProfileLaboratoryInput } from "@/lib/health-profile-input";
 import { isLaboratoryObservation } from "@/lib/documents/observation-read-boundaries";
 
@@ -20,6 +21,8 @@ export type HealthProfileSnapshot = Readonly<{
   inputHash: string;
   profile: HealthProfileAssessment;
   sourceDocumentIds: string[];
+  freshnessPolicyVersion: string;
+  freshnessEvaluatedAt: string;
 }>;
 
 export { compareSnapshotRows, hashHealthProfileSnapshotInput };
@@ -78,7 +81,24 @@ export async function buildHealthProfileSnapshot(options: {
       });
       return input ? [input] : [];
     });
-  const profile = buildHealthProfile(inputs, sources);
-  const inputHash = hashHealthProfileSnapshotInput({ inputs, sources });
-  return { inputHash, profile, sourceDocumentIds: sources.map((source) => source.id) };
+  const freshnessEvaluatedAt = new Date().toISOString();
+  const freshnessAsOf = freshnessEvaluatedAt.slice(0, 10);
+  const profile = buildHealthProfile(inputs, sources, {
+    freshnessAsOf,
+    freshnessEvaluatedAt,
+    freshnessPolicy: HEALTH_PROFILE_FRESHNESS_POLICY,
+  });
+  const inputHash = hashHealthProfileSnapshotInput({
+    freshness_policy_version: HEALTH_PROFILE_FRESHNESS_POLICY.version,
+    freshness_as_of: freshnessAsOf,
+    inputs,
+    sources,
+  });
+  return {
+    inputHash,
+    profile,
+    sourceDocumentIds: sources.map((source) => source.id),
+    freshnessPolicyVersion: HEALTH_PROFILE_FRESHNESS_POLICY.version,
+    freshnessEvaluatedAt,
+  };
 }

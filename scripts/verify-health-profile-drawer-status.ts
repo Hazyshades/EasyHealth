@@ -28,6 +28,7 @@ const MARKER: SystemMarker = {
   ref_low: 0,
   ref_high: 100,
   status: "in_range",
+  freshness_status: "current",
   observed_at: "2026-08-01",
   document_id: null,
   source: null,

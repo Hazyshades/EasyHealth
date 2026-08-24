@@ -261,6 +261,28 @@
       "localOnly": false,
       "owner": "health-profile",
       "reason": "EH-142 durable assessment recalculation and append-only version contracts require pgTAP."
+    },
+    {
+      "script": "test:eh144",
+      "verificationFiles": [
+        "scripts/verify-eh144-freshness-policy.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "health-profile",
+      "reason": "Versioned freshness, unknown-date, outdated, and non-prescriptive Health Profile contracts require explicit CI coverage."
+    },
+    {
+      "script": "test:eh144-db",
+      "verificationFiles": [
+        "supabase/tests/eh144_freshness_policy.sql"
+      ],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "health-profile",
+      "reason": "Assessment freshness policy version stamping and completion RPC behavior require pgTAP."
     }
   ],
   "localOnly": []

@@ -18,8 +18,20 @@ import {
 } from "@/components/body-silhouette";
 import { HealthProfileDrawer } from "@/components/health-profile-drawer";
 import { cn } from "@/lib/utils";
+import type { FreshnessStatus } from "@/lib/health-profile-freshness";
 
 const MAP_CENTER = { x: 231, y: 182 };
+function unavailableFreshnessStatus(system: SystemInsight): FreshnessStatus | undefined {
+  if (system.state_score != null) return undefined;
+  if (system.markers.some((marker) => marker.freshness_status === "outdated")) return "outdated";
+  if (
+    system.score_readiness.reasons.some((reason) => reason.code === "unknown_date")
+    || system.markers.some((marker) => marker.freshness_status === "unknown_date")
+  ) {
+    return "unknown_date";
+  }
+  return undefined;
+}
 const DEFAULT_MAP_SCALE = 0.88;
 const EMBEDDED_MAP_SCALE = 0.898;
 
@@ -142,6 +154,7 @@ export function BodyMap({
                     x={layout.x}
                     y={layout.y}
                     score={system.state_score}
+                    freshnessStatus={unavailableFreshnessStatus(system)}
                     label={layout.label}
                     active={active}
                     dimmed={dimmed}

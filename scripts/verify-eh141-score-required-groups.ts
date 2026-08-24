@@ -40,6 +40,7 @@ function usableMarker(key: string, hasReference = true): SystemMarker {
     ref_low: hasReference ? 0 : null,
     ref_high: hasReference ? 2 : null,
     status: hasReference ? "in_range" : "unknown",
+    freshness_status: "current",
     observed_at: "2026-01-01",
     document_id: null,
     source: null,

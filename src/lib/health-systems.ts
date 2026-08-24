@@ -1,4 +1,5 @@
 import { observationIdentityKey, type BodySystemId, type SystemScoreability, type ValueKind } from "@/lib/biomarkers";
+import { getReviewedAssessmentBinding } from "@/lib/biomarkers";
 import {
   BODY_SYSTEM_LABELS,
   getRegistryV2ExpectedSpecimen,
@@ -10,7 +11,13 @@ import {
   NAMED_BODY_SYSTEMS,
   NON_SCOREABLE_SYSTEMS,
 } from "@/lib/biomarkers/registry-v2-runtime";
-import { getReviewedAssessmentBinding } from "@/lib/biomarkers";
+import {
+  HEALTH_PROFILE_FRESHNESS_POLICY,
+  evaluateSystemObservationFreshness,
+  isCompleteCalendarDate,
+  type FreshnessStatus,
+  type HealthProfileFreshnessPolicy,
+} from "@/lib/health-profile-freshness";
 
 export type DocumentType =
   | "lab_result"
@@ -97,6 +104,8 @@ export type MarkerStatus = "in_range" | "out_of_range" | "unknown";
 
 export type ObservationInput = {
   biomarker_key: string;
+  /** Stable source row identity used for deterministic latest selection. */
+  observation_id?: string | null;
   /** Required Registry 2.0 identity for concrete assessment inputs. */
   measurement_definition_key?: string | null;
   resolution_status?: "resolved" | "partial" | "ambiguous" | "unmapped" | null;
@@ -105,7 +114,7 @@ export type ObservationInput = {
   unit: string;
   ref_low: number | null;
   ref_high: number | null;
-  observed_at: string;
+  observed_at: string | null;
   document_id: string | null;
   observation_kind?: "lab" | "instrumental";
   value_kind?: ValueKind;
@@ -139,7 +148,8 @@ export type SystemMarker = {
   ref_low: number | null;
   ref_high: number | null;
   status: MarkerStatus;
-  observed_at: string;
+  freshness_status: FreshnessStatus;
+  observed_at: string | null;
   document_id: string | null;
   observation_kind?: "lab" | "instrumental";
   source: MarkerSource | null;
@@ -167,7 +177,7 @@ export type SystemInsight = {
   markers: SystemMarker[];
 };
 
-export type ScoreReadinessReasonCode = "missing" | "invalid" | "outdated";
+export type ScoreReadinessReasonCode = "missing" | "invalid" | "outdated" | "unknown_date";
 
 export type ScoreReadinessReason = {
   code: ScoreReadinessReasonCode;
@@ -177,7 +187,7 @@ export type ScoreReadinessReason = {
 
 export type ScoreReadinessGroup = {
   keys: string[];
-  status: "satisfied" | "missing" | "invalid";
+  status: "satisfied" | "missing" | "invalid" | "outdated" | "unknown_date";
   satisfied_by: string | null;
   present_keys: string[];
 };
@@ -214,6 +224,8 @@ export type HealthProfileResult = {
   assessment_freshness: "current" | "outdated";
   scoreable_named_system_total: number;
   overall_assessment_dismissal_key?: string;
+  freshness_policy_version?: string;
+  freshness_evaluated_at?: string;
   systems: SystemInsight[];
   sources: HealthProfileSource[];
   holistic_synthesis: HolisticSynthesis | null;
@@ -291,6 +303,23 @@ export function markerStateScore(
   return Math.max(OUT_OF_RANGE_MIN, Math.round(OUT_OF_RANGE_BASE - deviation * 35));
 }
 
+function compareObservationRecency(left: ObservationInput, right: ObservationInput): number {
+  const leftDate = left.observed_at;
+  const rightDate = right.observed_at;
+  const leftHasDate = isCompleteCalendarDate(leftDate);
+  const rightHasDate = isCompleteCalendarDate(rightDate);
+  if (!leftHasDate && rightHasDate) return -1;
+  if (leftHasDate && !rightHasDate) return 1;
+  if (leftHasDate && rightHasDate) {
+    const byDate = leftDate.trim().localeCompare(rightDate.trim());
+    if (byDate !== 0) return byDate;
+  }
+
+  const leftTie = `${left.observation_id ?? ""}:${left.document_id ?? ""}`;
+  const rightTie = `${right.observation_id ?? ""}:${right.document_id ?? ""}`;
+  return leftTie.localeCompare(rightTie);
+}
+
 function latestByIdentity(observations: ObservationInput[]): Map<string, ObservationInput> {
   const map = new Map<string, ObservationInput>();
   for (const obs of observations) {
@@ -304,7 +333,7 @@ function latestByIdentity(observations: ObservationInput[]): Map<string, Observa
     const modifier = obs.modifier ?? "none";
     const id = observationIdentityKey(key, specimen, modifier);
     const existing = map.get(id);
-    if (!existing || obs.observed_at > existing.observed_at) {
+    if (!existing || compareObservationRecency(obs, existing) > 0) {
       map.set(id, {
         ...obs,
         biomarker_key: key,
@@ -345,6 +374,7 @@ function matchesReviewedSpecimen(marker: SystemMarker): boolean {
 
 function isUsableCoreMarker(marker: SystemMarker): boolean {
   return (
+    marker.freshness_status === "current" &&
     isNumericMarker(marker) &&
     markerRole(marker) === "core" &&
     hasUsableDocumentReference(marker) &&
@@ -364,6 +394,12 @@ function resolveReadinessGroup(keys: readonly string[], markers: SystemMarker[])
   const groupMarkers = markers.filter((marker) => keys.includes(marker.key));
   const satisfied = pickUsableMarker(keys, groupMarkers);
   const presentKeys = [...new Set(groupMarkers.map((marker) => marker.key))];
+  const hasUnknownDateMarker = groupMarkers.some(
+    (marker) => marker.freshness_status === "unknown_date",
+  );
+  const hasOutdatedMarker = groupMarkers.some(
+    (marker) => marker.freshness_status === "outdated",
+  );
 
   if (satisfied) {
     return {
@@ -376,7 +412,13 @@ function resolveReadinessGroup(keys: readonly string[], markers: SystemMarker[])
 
   return {
     keys: [...keys],
-    status: presentKeys.length > 0 ? "invalid" : "missing",
+    status: presentKeys.length === 0
+      ? "missing"
+      : hasUnknownDateMarker
+        ? "unknown_date"
+        : hasOutdatedMarker
+          ? "outdated"
+          : "invalid",
     satisfied_by: null,
     present_keys: presentKeys,
   };
@@ -435,6 +477,7 @@ export function computeSystemStateScore(
     .map((marker) => markerStateScore(marker.status, marker.value, marker.ref_low, marker.ref_high));
 
   return contributionScores.length > 0 ? average(contributionScores) : null;
+
 }
 
 export function computeSystemDataConfidence(
@@ -501,7 +544,7 @@ export function buildWhyHighlighted(markers: SystemMarker[]): string[] {
   if (outOfRange.length > 0) {
     return outOfRange.map(
       (marker) =>
-        `${marker.name}: ${marker.value} ${marker.unit} (outside lab reference range, observed ${marker.observed_at})`
+        `${marker.name}: ${marker.value} ${marker.unit} (outside lab reference range, observed ${marker.observed_at ?? "date unavailable"})`
     );
   }
 
@@ -512,10 +555,23 @@ export function buildWhyHighlighted(markers: SystemMarker[]): string[] {
   return [];
 }
 
+export type HealthProfileBuildOptions = Readonly<{
+  freshnessAsOf?: string;
+  freshnessEvaluatedAt?: string;
+  freshnessPolicy?: HealthProfileFreshnessPolicy;
+}>;
+
 export function buildHealthProfile(
   observations: ObservationInput[],
-  sources: HealthProfileSource[]
+  sources: HealthProfileSource[],
+  options: HealthProfileBuildOptions = {},
 ): Omit<HealthProfileResult, "holistic_synthesis"> {
+  const freshnessEvaluatedAt =
+    options.freshnessEvaluatedAt ?? new Date().toISOString();
+  const freshnessAsOf =
+    options.freshnessAsOf ?? freshnessEvaluatedAt.slice(0, 10);
+  const freshnessPolicy =
+    options.freshnessPolicy ?? HEALTH_PROFILE_FRESHNESS_POLICY;
   const sourceById = new Map(sources.map((source) => [source.id, source]));
   const latest = latestByIdentity(observations);
   const bySystem = new Map<BodySystemId, SystemMarker[]>();
@@ -535,6 +591,12 @@ export function buildHealthProfile(
       ref_low: obs.ref_low,
       ref_high: obs.ref_high,
       status: getMarkerStatus(numericValue, obs.ref_low, obs.ref_high, valueKind),
+      freshness_status: evaluateSystemObservationFreshness({
+        systemId,
+        measuredAt: obs.observed_at,
+        asOf: freshnessAsOf,
+        policy: freshnessPolicy,
+      }),
       observed_at: obs.observed_at,
       document_id: obs.document_id,
       observation_kind: obs.observation_kind,
@@ -599,6 +661,8 @@ export function buildHealthProfile(
     overall_data_confidence: average(confidenceScores),
     scoreable_named_system_count: scoreableSystems.length,
     scoreable_named_system_total: NAMED_BODY_SYSTEMS.length,
+    freshness_policy_version: freshnessPolicy.version,
+    freshness_evaluated_at: freshnessEvaluatedAt,
     systems,
     sources,
   };

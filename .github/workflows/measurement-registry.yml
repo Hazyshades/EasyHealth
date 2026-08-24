@@ -21,6 +21,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Install worker dependencies
         run: pnpm --dir worker install --frozen-lockfile
+      - name: Typecheck document worker
+        run: pnpm typecheck:worker
       - name: Verify CI suite coverage contract
         run: pnpm check:ci-suite-coverage-contract
       - name: Verify every test suite is workflow-reachable
@@ -156,6 +158,8 @@ jobs:
         run: pnpm test:eh143
       - name: Verify Health Profile drawer status rendering
         run: pnpm test:health-profile-drawer-status
+      - name: Verify EH-144 freshness policy
+        run: pnpm test:eh144
 
       - name: Publish Registry 2.0 candidate-release evidence
         run: |
@@ -220,6 +224,8 @@ jobs:
         run: pnpm test:eh121-db
       - name: Run EH-123 assessment recalculation database contract
         run: pnpm test:eh123-db
+      - name: Run EH-144 freshness policy database contract
+        run: pnpm test:eh144-db
       - name: Run EH-122 batch verification database contract
         run: pnpm test:eh122-db
       - name: Run EH-118 source region database contract
