@@ -109,7 +109,7 @@ These contracts are not manually testable through the product interface and requ
 - [x] `pnpm test:eh144-db` proves the assessment-version column/default, five-argument completion RPC, explicit/default policy stamping, payload/row agreement validation, and append-only version rows.
 - [x] `pnpm typecheck` proves the Health Profile API, worker completion call, body map, drawer, and projection types compile together.
 - [x] `pnpm check:ci-suite-coverage && pnpm check:ci-suite-coverage-contract` proves both EH-144 suites are reachable from the `verify` and `database` jobs.
-- [x] Migration evidence proves `supabase/migrations/074_eh144_versioned_freshness_policy.sql` was applied before the database contract ran in the local target environment.
+- [x] Migration evidence proves `supabase/migrations/075_eh144_versioned_freshness_policy.sql` was applied before the database contract ran in the local target environment.
 - [x] API evidence proves `/api/health-profile` returns `assessment.freshness_policy_version` and `assessment.freshness_evaluated_at` for both a saved version and deterministic fallback — 2026-08-24 full run served worker-computed saved versions for all four disposable accounts (`assessment.version_id` set, `fallback=false`, policy `eh-144.v1`, `freshness_evaluated_at` stamped); deterministic fallback metadata was observed in the 2026-08-23 smoke before saved versions existed.
 - [x] Static accessibility contract evidence verifies the body-map badge names distinguish outdated evidence, unavailable medical dates, and generic unavailable assessments.
 
