@@ -1,22 +1,13 @@
-export const FRESHNESS_POLICY_SYSTEMS = [
-  "cardiovascular",
-  "metabolic",
-  "thyroid",
-  "liver",
-  "kidney",
-  "blood",
-  "nutrients",
-  "inflammation",
-] as const;
-
-export type FreshnessPolicySystem = (typeof FRESHNESS_POLICY_SYSTEMS)[number];
+import { type NamedBodySystemId } from "@/lib/biomarkers";
+import { NAMED_BODY_SYSTEMS } from "@/lib/biomarkers/registry-v2-runtime";
 
 export type FreshnessStatus = "current" | "outdated" | "unknown_date";
 
 export type HealthProfileFreshnessPolicy = Readonly<{
   version: string;
+  /** Applies only to systems outside the Registry-v2 named set (general/supporting data). */
   defaultMaxAgeDays: number;
-  maxAgeDaysBySystem: Readonly<Record<FreshnessPolicySystem, number>>;
+  maxAgeDaysBySystem: Readonly<Record<NamedBodySystemId, number>>;
 }>;
 
 /**
@@ -41,7 +32,7 @@ export const HEALTH_PROFILE_FRESHNESS_POLICY: HealthProfileFreshnessPolicy = {
 export const FRESHNESS_STATUS_LABELS: Readonly<Record<FreshnessStatus, string>> = {
   current: "Current under this assessment policy",
   outdated: "Outdated under this assessment policy",
-  unknown_date: "Observed date unavailable",
+  unknown_date: "Currentness could not be evaluated",
 };
 
 function calendarDayNumber(value: unknown): number | null {
@@ -75,10 +66,10 @@ export function getFreshnessMaxAgeDays(
   systemId: string,
   policy: HealthProfileFreshnessPolicy = HEALTH_PROFILE_FRESHNESS_POLICY,
 ): number {
-  return (
-    policy.maxAgeDaysBySystem[systemId as FreshnessPolicySystem] ??
-    policy.defaultMaxAgeDays
-  );
+  if (!(NAMED_BODY_SYSTEMS as readonly string[]).includes(systemId)) {
+    return policy.defaultMaxAgeDays;
+  }
+  return policy.maxAgeDaysBySystem[systemId as NamedBodySystemId];
 }
 
 export function evaluateObservationFreshness(options: {
