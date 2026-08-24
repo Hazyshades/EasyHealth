@@ -305,9 +305,11 @@ export function HealthProfileDrawer({
                     <p className="text-xs text-muted-foreground">
                       {freshnessLabel(marker.freshness_status)}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      Observed {marker.observed_at ?? "date unavailable"}
-                    </p>
+                    {marker.observed_at ? (
+                      <p className="text-xs text-muted-foreground">
+                        Observed {marker.observed_at}
+                      </p>
+                    ) : null}
                     {marker.observation_kind === "instrumental" ? (
                       <p className="text-xs font-medium text-teal-700">
                         From imaging/functional study
