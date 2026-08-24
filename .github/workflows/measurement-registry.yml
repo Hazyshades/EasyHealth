@@ -154,6 +154,8 @@ jobs:
         run: pnpm test:eh131
       - name: Verify EH-143 readiness and null-result contract
         run: pnpm test:eh143
+      - name: Verify Health Profile drawer status rendering
+        run: pnpm test:health-profile-drawer-status
 
       - name: Publish Registry 2.0 candidate-release evidence
         run: |

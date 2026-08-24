@@ -197,7 +197,7 @@ export default function HealthProfilePage() {
               : "Health Profile update in progress"}
           </p>
           <p className="mt-1">
-            {profile.assessment.error_message ?? "Scores are hidden until the current assessment finishes."}
+            {profile.assessment.error_message ?? "Health Profile assessment is updating. The previous score is not shown as current."}
           </p>
           {(profile.assessment.status === "failed" || profile.assessment.status === "retryable_failed") ? (
             <Button type="button" variant="outline" className="mt-3" onClick={() => handleRetryAssessment()}>

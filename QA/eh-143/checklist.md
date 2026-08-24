@@ -96,11 +96,26 @@ When a recalculation is in progress after source data changes, the prior assessm
 **Result:** `Pass | Fail | Blocked | N/A`
 **Notes / evidence link:** `________`
 
+### EH143-UI-06: Drawer status chip reflects assessment state
+
+**Precondition:** Any dedicated test account; states from EH143-UI-01 through EH143-UI-05 can be reused.
+
+1. Go to **Health Profile**.
+2. Open a named-system drawer whose required groups are incomplete.
+3. Open a named-system drawer that has a complete readiness evaluation.
+4. While an update is processing, open any named-system drawer.
+
+**Expected result:** In every case the status chip shows non-empty text derived from the canonical status helper: `Assessment unavailable` for incomplete and outdated systems, the numeric-derived label (for example `Stable`) for scored systems. The chip never renders blank or without its color styling. An outdated drawer shows the shared updating headline and states that the previous score is not shown as current.
+
+**Result:** `Pass | Fail | Blocked | N/A`
+**Notes / evidence link:** `________`
+
 ## Developer evidence required
 
 - [x] Engineering ran `pnpm test:eh143` on 2026-08-23. It passed and proves every scoreable named system requires all runtime readiness groups, approved alternatives satisfy only their own group, context-only input cannot unlock readiness, unavailable scores are `null`, and stale-score suppression adds the `outdated` reason. **Provider:** engineering.
 - [x] Engineering ran `pnpm test:health-profile-lab-input` and `pnpm test:biomarkers` on 2026-08-23. Both passed and prove the existing Registry-v2 Health Profile projection and biomarker aggregation regression contracts still pass. **Provider:** engineering.
-- [x] Engineering ran `pnpm typecheck` on 2026-08-23. It passed and proves all first-party API and presentation consumers migrated away from the retired readiness arrays. **Provider:** engineering.
+- [x] Engineering ran `pnpm typecheck` on 2026-08-23. It passed and proves API and data-layer consumers migrated away from the retired readiness arrays. Typecheck cannot catch DOM-global shadowing (a dropped local binding silently resolves to `lib.dom`'s global `var status`), which is why EH143-UI-06 and the render-level drawer suite exist. **Provider:** engineering.
+- [x] Engineering ran `pnpm test:health-profile-drawer-status` on 2026-08-24. It passed and proves the system drawer renders its status chip from `assessmentStatusLabel` with non-empty text across unavailable, scored, and outdated states, guarding the DOM-global shadowing regression class. **Provider:** engineering.
 - [x] Engineering ran `pnpm check:ci-suite-coverage` and `pnpm check:ci-suite-coverage-contract` on 2026-08-23. Both passed; `test:eh143` is registered in the `verify` CI job and policy. **Provider:** engineering.
 - [x] Controlled local backend capture completed on 2026-08-23. With one authenticated dedicated user, a persisted canonical assessment, and each of `queued`, `processing`, `retryable_failed`, and `failed`, `GET /api/health-profile` returned `assessment_freshness: "outdated"`, `null` named-system and overall scores, an `outdated` reason for every named system, and retained source evidence. Restoring `succeeded` returned three numeric named scores and the numeric overall score. **Provider:** engineering.
 - [x] Database-test applicability confirmed on 2026-08-23. EH-143 changes no schema, constraint, RPC, or persistence boundary; `pnpm test:eh123-db` passed all 20 assessment-job and version-persistence tests after the approved disposable `supabase db reset --local`. **Provider:** engineering.

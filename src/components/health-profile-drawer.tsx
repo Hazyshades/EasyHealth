@@ -52,6 +52,8 @@ export function HealthProfileDrawer({
 
   if (!open || !system) return null;
 
+  const status = assessmentStatusLabel(system.state_score, system.data_confidence);
+
   const readinessReasons = system.score_readiness.reasons;
   const missingGroups = readinessReasons.flatMap((reason) =>
     reason.code === "missing" && reason.required_group
@@ -67,7 +69,7 @@ export function HealthProfileDrawer({
   const supportingMarkers = system.markers.filter((marker) => marker.score_role !== "core");
   const drawerState =
     isOutdated
-      ? "Assessment updating"
+      ? "Health Profile assessment is updating"
       : system.id === "general"
         ? "Not scored - supporting / specialty data"
         : system.markers.length === 0
@@ -161,7 +163,7 @@ export function HealthProfileDrawer({
               ) : null}
               {isOutdated ? (
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Updated records are being assessed. The previous score is not shown as current.
+                  The previous score is not shown as current while updated records are assessed.
                 </p>
               ) : null}
               {missingGroups.length > 0 ? (

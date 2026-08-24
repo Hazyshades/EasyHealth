@@ -89,6 +89,7 @@ export async function GET() {
       { status: 500, headers: { "Cache-Control": "no-store" } },
     );
   }
+  const persistedVersion = persistedProfile ? version : null;
   const assessmentIsOutdated =
     version != null && job != null && job.status !== "succeeded";
   const responseProfile = assessmentIsOutdated
@@ -101,9 +102,9 @@ export async function GET() {
     lab_unit_system: labUnitSystem,
     overall_assessment_dismissal_key: profileId,
     assessment: {
-      version_id: persistedProfile ? version?.id ?? null : null,
-      input_hash: persistedProfile ? version?.input_hash ?? null : fallback?.inputHash ?? null,
-      generated_at: persistedProfile ? version?.generated_at ?? null : null,
+      version_id: persistedVersion?.id ?? null,
+      input_hash: persistedVersion?.input_hash ?? fallback?.inputHash ?? null,
+      generated_at: persistedVersion?.generated_at ?? null,
       status: job?.status ?? (persistedProfile ? "succeeded" : "queued"),
       attempts: job?.attempts ?? 0,
       max_attempts: job?.max_attempts ?? 0,

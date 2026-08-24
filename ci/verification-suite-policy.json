@@ -208,6 +208,17 @@
       "reason": "Score-readiness, null-result, and stale-assessment contracts are release verification."
     },
     {
+      "script": "test:health-profile-drawer-status",
+      "verificationFiles": [
+        "scripts/verify-health-profile-drawer-status.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "health-profile",
+      "reason": "Drawer status-chip rendering guards readiness presentation against DOM-global shadowing regressions."
+    },
+    {
       "script": "test:eh130-db",
       "verificationFiles": [
         "supabase/tests/eh130_duplicate_document_detection.sql"
