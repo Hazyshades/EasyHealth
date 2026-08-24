@@ -4,6 +4,7 @@ import { getProfileById } from "@/lib/auth/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { type HealthProfileAssessment, buildHealthProfileSnapshot } from "@/lib/health-profile-snapshot";
 import { getLatestHolisticSynthesis } from "@/lib/holistic-synthesis";
+import { resolveAssessmentDisplayState } from "@/lib/health-profile-assessment-state";
 
 export async function GET() {
   const profileId = await getSessionProfileId();
@@ -39,8 +40,18 @@ export async function GET() {
       { status: 500, headers: { "Cache-Control": "no-store" } },
     );
   }
-  const fallback = version ? null : await buildHealthProfileSnapshot({ profileId, labUnitSystem });
+
+  const hasCurrentVersion = version != null;
+  const assessmentStatus = job?.status ?? (hasCurrentVersion ? "succeeded" : "queued");
+  const assessmentDisplayState = resolveAssessmentDisplayState(
+    assessmentStatus,
+    hasCurrentVersion,
+  );
+  const fallback = hasCurrentVersion
+    ? null
+    : await buildHealthProfileSnapshot({ profileId, labUnitSystem });
   const profile = (version?.payload ?? fallback?.profile) as HealthProfileAssessment;
+
   return NextResponse.json({
     ...profile,
     holistic_synthesis: synthesis.synthesis,
@@ -51,12 +62,14 @@ export async function GET() {
       version_id: version?.id ?? null,
       input_hash: version?.input_hash ?? fallback?.inputHash ?? null,
       generated_at: version?.generated_at ?? null,
-      status: job?.status ?? (version ? "succeeded" : "queued"),
+      status: assessmentStatus,
+      display_state: assessmentDisplayState,
+      has_current_version: hasCurrentVersion,
       attempts: job?.attempts ?? 0,
       max_attempts: job?.max_attempts ?? 0,
       error_code: job?.last_error_code ?? null,
       error_message: job?.last_error_message ?? null,
-      fallback: version == null,
+      fallback: !hasCurrentVersion,
     },
   }, { headers: { "Cache-Control": "no-store" } });
 }

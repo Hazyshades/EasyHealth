@@ -732,7 +732,7 @@ export function stateScoreStroke(score: number | null): string {
 
 export function assessmentStatusLabel(stateScore: number | null, dataConfidence: number): string {
   if (stateScore == null) return "Assessment unavailable";
-  if (dataConfidence < 40) return "Limited data";
-  if (stateScore >= 70) return "Stable";
-  return "Needs attention";
+  if (dataConfidence < 40) return "Limited evidence";
+  if (stateScore >= 70) return "Mostly within reference ranges";
+  return "Some values outside reference ranges";
 }

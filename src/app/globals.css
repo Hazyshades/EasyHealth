@@ -433,6 +433,14 @@
   .app-content {
     padding: 24px 16px 88px;
   }
+
+  .app-content:has(> .profile-page) {
+    padding: 16px 12px 88px;
+  }
+
+  .app-main:has(.app-content > .profile-page) .topbar {
+    padding-inline: 12px;
+  }
 }
 /* Shared motion utilities (refactor-animation) */
 .eh-press {

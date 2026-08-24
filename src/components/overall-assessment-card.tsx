@@ -8,6 +8,11 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { Button } from "@/components/ui/button";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { cn } from "@/lib/utils";
+import {
+  assessmentDisplayStateDescription,
+  assessmentDisplayStateLabel,
+  type HealthProfileAssessmentDisplayState,
+} from "@/lib/health-profile-assessment-state";
 
 type OverallAssessmentCardProps = {
   overallStateScore: number | null;
@@ -20,7 +25,38 @@ type OverallAssessmentCardProps = {
   lastUpdated?: string | null;
   showProfileLink?: boolean;
   variant?: "compact" | "detailed";
+  assessmentState?: HealthProfileAssessmentDisplayState;
+  assessmentError?: string | null;
 };
+
+type LifecycleNoticeProps = {
+  state: HealthProfileAssessmentDisplayState;
+  errorMessage?: string | null;
+  compact?: boolean;
+};
+
+function LifecycleNotice({ state, errorMessage, compact = false }: LifecycleNoticeProps) {
+  if (state === "current") return null;
+
+  const label = assessmentDisplayStateLabel(state);
+  const description = assessmentDisplayStateDescription(state);
+
+  return (
+    <div
+      className={cn(
+        "mt-3 space-y-1 rounded-lg border border-slate-200 bg-slate-50 p-3",
+        compact ? "text-xs" : "text-sm",
+      )}
+      aria-live="polite"
+    >
+      <StatusChip variant={state === "error" ? "warning" : "info"}>{label}</StatusChip>
+      <p className="text-[var(--eh-text-secondary)]">{description}</p>
+      {state === "error" && errorMessage ? (
+        <p className="text-[var(--eh-text-secondary)]">{errorMessage}</p>
+      ) : null}
+    </div>
+  );
+}
 
 function AssessmentStats({
   overallDataConfidence,
@@ -61,7 +97,6 @@ function AssessmentStats({
     </div>
   );
 }
-
 export function OverallAssessmentCard({
   overallStateScore,
   overallDataConfidence,
@@ -73,8 +108,11 @@ export function OverallAssessmentCard({
   lastUpdated,
   showProfileLink = false,
   variant = "detailed",
+  assessmentState = "current",
+  assessmentError,
 }: OverallAssessmentCardProps) {
   const isCompact = variant === "compact";
+  const lifecycleState = assessmentState;
   const { iconRef, hoverProps } = useAnimatedIconHover();
   const storageKey = dismissalKey ? `easyhealth:overall-assessment:${dismissalKey}` : null;
   const canDismiss = dismissible && storageKey != null;
@@ -105,6 +143,14 @@ export function OverallAssessmentCard({
         </p>
         <p className="mt-4 text-sm font-medium text-[var(--eh-text-primary)]">
           Based on {scoreableNamedSystemCount} of {scoreableNamedSystemTotal} systems
+        </p>
+        <LifecycleNotice
+          state={lifecycleState}
+          errorMessage={assessmentError}
+          compact={isCompact}
+        />
+        <p className="mt-4 text-xs text-[var(--eh-text-muted)]">
+          This is not a diagnosis or disease-risk score.
         </p>
         {canDismiss ? (
           <Button
@@ -137,12 +183,20 @@ export function OverallAssessmentCard({
         <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
           Based on {scoreableNamedSystemCount} of {scoreableNamedSystemTotal} systems
         </p>
+        <LifecycleNotice
+          state={lifecycleState}
+          errorMessage={assessmentError}
+          compact
+        />
         <AssessmentStats
           overallDataConfidence={overallDataConfidence}
           recordsUsedCount={recordsUsedCount}
           lastUpdated={lastUpdated}
           compact
         />
+        <p className="mt-3 text-xs text-[var(--eh-text-muted)]">
+          This is not a diagnosis or disease-risk score.
+        </p>
         {showProfileLink && (
           <div className="mt-auto pt-6">
             <Button
@@ -170,11 +224,18 @@ export function OverallAssessmentCard({
       <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
         Based on {scoreableNamedSystemCount} of {scoreableNamedSystemTotal} systems
       </p>
+      <LifecycleNotice
+        state={lifecycleState}
+        errorMessage={assessmentError}
+      />
       <AssessmentStats
         overallDataConfidence={overallDataConfidence}
         recordsUsedCount={recordsUsedCount}
         lastUpdated={lastUpdated}
       />
+      <p className="mt-3 text-xs text-[var(--eh-text-muted)]">
+        This is not a diagnosis or disease-risk score.
+      </p>
       {showProfileLink && (
         <div className="mt-6">
           <Button asChild variant="outline" className="w-full rounded-xl border-[var(--eh-border)] bg-white">

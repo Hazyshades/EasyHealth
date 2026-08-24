@@ -28,7 +28,7 @@ function EmptyAssessmentCard() {
 }
 
 export function HealthAssessmentWidget({ data }: DashboardWidgetProps) {
-  const { healthProfile, lastUpdated } = data;
+  const { healthProfile, lastUpdated, assessmentState, assessmentError } = data;
 
   if (!healthProfile) {
     return <EmptyAssessmentCard />;
@@ -45,6 +45,8 @@ export function HealthAssessmentWidget({ data }: DashboardWidgetProps) {
       lastUpdated={lastUpdated}
       variant="compact"
       showProfileLink
+      assessmentState={assessmentState}
+      assessmentError={assessmentError}
     />
   );
 }
