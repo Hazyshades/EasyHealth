@@ -49,8 +49,8 @@ assert.match(
 );
 assert.match(
   snapshotBuilder,
-  /hashHealthProfileSnapshotInput\(\{ inputs, sources \}\)/,
-  "the shared snapshot builder stamps the canonical input hash",
+  /hashHealthProfileSnapshotInput\(\{[\s\S]*?inputs,[\s\S]*?sources,[\s\S]*?excludedObservations[\s\S]*?\}\)/,
+  "the shared snapshot builder hashes score-affecting observations and exclusions",
 );
 assert.match(
   healthProfileRoute,

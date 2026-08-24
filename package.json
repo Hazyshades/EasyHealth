@@ -87,6 +87,8 @@
     "test:eh121-db": "supabase test db --local supabase/tests/eh121_observation_change_history.sql",
     "smoke:eh121-history-panel": "tsx scripts/eh121-smoke-history-panel.mts",
     "test:eh123": "tsx scripts/verify-health-profile-lab-input.ts && tsx scripts/verify-eh123-assessment-recalculation.ts",
+    "test:eh145": "tsx scripts/verify-eh145-score-provenance.ts",
+    "smoke:eh145": "tsx scripts/eh145-smoke-provenance-panel.mts",
     "test:eh123-db": "supabase test db --local supabase/tests/eh123_assessment_recalculation.sql",
     "test:alias-order": "tsx scripts/verify-alias-order-insensitivity.ts",
     "test:alias-order-db": "supabase test db --local supabase/tests/alias_token_set_trace_code.sql",

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
+import { ScoreProvenancePanel } from "@/components/score-provenance-panel";
 import { buildHealthNavigationPath } from "@/lib/health-navigation";
 import {
   assessmentStatusLabel,
@@ -139,6 +140,12 @@ export function HealthProfileDrawer({
               </span>
             </div>
           </div>
+          <ScoreProvenancePanel
+            systemId={system.id}
+            stateScore={system.state_score}
+            provenance={system.score_provenance}
+            navigationReturnTo={navigationReturnTo}
+          />
 
           {drawerState ? (
             <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
