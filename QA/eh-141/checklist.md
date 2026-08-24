@@ -96,7 +96,7 @@ EH-141 makes the Health Profile show a numeric current-state score only after ev
 
 ## Developer evidence required
 
-- [x] **Backend owner:** `pnpm test:eh141` passes. It proves the exact approved alternatives for all eight Body systems, strict all-group completeness, usable-reference enforcement, context-only exclusions, and factual-only inflammation.
+- [x] **Backend owner:** `pnpm test:eh141` passes. It proves the exact approved alternatives for all eight Body systems, strict all-group completeness, usable-reference enforcement, context-only exclusions — including that a context-only input cannot replace a required group in an otherwise complete set — and factual-only inflammation.
 - [x] **Registry owner:** `pnpm generate:biomarker-docs`, `pnpm check:biomarker-docs`, and `pnpm test:biomarker-docs` pass. They prove the reviewed MCV assessment binding is reflected in the manifest baseline and generated catalog inventory (45 assessment-bound definitions).
 - [x] **Backend owner:** `pnpm test:biomarkers`, `pnpm test:health-profile-lab-input`, and `pnpm typecheck` pass. They cover the Health Profile regression path, laboratory projection, and TypeScript integration.
 - [x] **Documentation owner:** rendered Wiki staging was reviewed at `.tmp/eh141-wiki`; the seven generated pages were published at Wiki commit [`03e0e728`](https://github.com/Hazyshades/EasyHealth.wiki/commit/03e0e7287ad760eb6b1535aed7440c5e4bcf9cb2); Issue #41 records the publication evidence.

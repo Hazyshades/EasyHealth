@@ -49,7 +49,6 @@ function usableMarker(key: string, hasReference = true): SystemMarker {
   };
 }
 
-
 for (const system of NAMED_BODY_SYSTEMS) {
   assert.deepEqual(
     getRegistryV2ScoreReadinessGroups(system),
@@ -107,6 +106,20 @@ for (const system of NAMED_BODY_SYSTEMS.filter((candidate) => candidate !== "inf
       `${system} context-only input ${contextOnly} must not satisfy readiness`
     );
     assert.equal(computeSystemStateScore(system, contextOnlyMarkers), null);
+  }
+
+  for (const contextOnly of CONTEXT_ONLY_INPUTS[system] ?? []) {
+    for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
+      const swapped = complete.map((marker, index) =>
+        index === groupIndex ? usableMarker(contextOnly) : marker
+      );
+      assert.equal(
+        evaluateSystemScoreReadiness(system, swapped).scoreability,
+        "incomplete",
+        `${system} context-only input ${contextOnly} must not replace required group ${groupIndex + 1}`
+      );
+      assert.equal(computeSystemStateScore(system, swapped), null);
+    }
   }
 }
 
