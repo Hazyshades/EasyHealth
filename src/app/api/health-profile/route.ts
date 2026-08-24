@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { getProfileById } from "@/lib/auth/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { HEALTH_PROFILE_FRESHNESS_POLICY } from "@/lib/health-profile-freshness";
 import { type HealthProfileAssessment, buildHealthProfileSnapshot } from "@/lib/health-profile-snapshot";
 import { getLatestHolisticSynthesis } from "@/lib/holistic-synthesis";
 import { suppressOutdatedHealthProfileAssessment } from "@/lib/health-systems";
@@ -11,8 +12,12 @@ function hasCanonicalReadinessContract(value: unknown): value is HealthProfileAs
     !value ||
     typeof value !== "object" ||
     !("assessment_freshness" in value) ||
-    !("systems" in value)
+    !("systems" in value) ||
+    !("freshness_policy_version" in value)
   ) {
+    return false;
+  }
+  if (value.freshness_policy_version !== HEALTH_PROFILE_FRESHNESS_POLICY.version) {
     return false;
   }
   if (
@@ -58,7 +63,7 @@ export async function GET() {
   }
 
   const [{ data: version, error: versionError }, { data: job, error: jobError }, synthesis] = await Promise.all([
-    supabase.from("health_profile_assessment_versions").select("id, payload, generated_at, input_hash").eq("profile_id", profileId).order("generated_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("health_profile_assessment_versions").select("id, payload, generated_at, input_hash, freshness_policy_version").eq("profile_id", profileId).order("generated_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("assessment_recalculation_jobs").select("status, attempts, max_attempts, last_error_code, last_error_message, updated_at").eq("profile_id", profileId).eq("output_kind", "health_profile").maybeSingle(),
     getLatestHolisticSynthesis(profileId),
   ]);
@@ -104,7 +109,16 @@ export async function GET() {
     assessment: {
       version_id: persistedVersion?.id ?? null,
       input_hash: persistedVersion?.input_hash ?? fallback?.inputHash ?? null,
-      generated_at: persistedVersion?.generated_at ?? null,
+      generated_at: persistedVersion?.generated_at ?? fallback?.freshnessEvaluatedAt ?? null,
+      freshness_policy_version:
+        persistedVersion?.freshness_policy_version ??
+        fallback?.freshnessPolicyVersion ??
+        profile.freshness_policy_version ??
+        null,
+      freshness_evaluated_at:
+        profile.freshness_evaluated_at ??
+        fallback?.freshnessEvaluatedAt ??
+        null,
       status: job?.status ?? (persistedProfile ? "succeeded" : "queued"),
       attempts: job?.attempts ?? 0,
       max_attempts: job?.max_attempts ?? 0,

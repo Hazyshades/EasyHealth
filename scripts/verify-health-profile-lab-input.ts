@@ -58,6 +58,7 @@ const project = (observationOverrides: Record<string, unknown> = {}, relationOve
 const resolved = project();
 assert.deepEqual(resolved, {
   biomarker_key: "glucose",
+  observation_id: null,
   measurement_definition_key: "glucose_serum",
   name: "Glucose",
   value: 5,

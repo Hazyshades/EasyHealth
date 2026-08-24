@@ -381,10 +381,9 @@ export default function HealthProfilePage() {
               </p>
 
               <p className="mt-0.5 text-xs text-[var(--eh-text-muted)]">
-
-                {[source.lab_name, source.observed_at].filter(Boolean).join(" · ")}
-
+                {[source.lab_name, source.observed_at ?? "Date unavailable"].filter(Boolean).join(" · ")}
               </p>
+
 
             </li>
 

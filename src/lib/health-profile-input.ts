@@ -7,13 +7,14 @@ import {
 import { projectLaboratoryOutcome } from "@/lib/documents/incomplete-laboratory-outcomes";
 
 type HealthProfileLaboratoryObservation = RegistryV2LaboratoryBindingSource & {
+  id?: string | null;
   name: string;
   value: number | string | null;
   unit: string | null;
   ref_low: number | string | null;
   ref_high: number | string | null;
   raw_reference_text: string | null;
-  observed_at: string;
+  observed_at: string | null;
   document_id: string | null;
   value_kind: string | null;
   value_text: string | null;
@@ -64,6 +65,7 @@ export function projectHealthProfileLaboratoryInput(options: {
   );
   return {
     biomarker_key: assessmentInputKey,
+    observation_id: observation.id ?? null,
     measurement_definition_key: outcome.measurementDefinitionKey,
     name: observation.name,
     value: display.value,

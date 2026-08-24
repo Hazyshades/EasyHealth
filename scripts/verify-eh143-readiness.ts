@@ -28,6 +28,7 @@ function markerFor(key: string): SystemMarker {
     ref_low: 0,
     ref_high: 100,
     status: "in_range",
+    freshness_status: "current",
     observed_at: OBSERVED_AT,
     document_id: null,
     source: null,

@@ -5,11 +5,11 @@ import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 import { buildHealthNavigationPath } from "@/lib/health-navigation";
+import { assessmentStatusLabel, type BodySystemId, type SystemInsight } from "@/lib/health-systems";
 import {
-  assessmentStatusLabel,
-  type BodySystemId,
-  type SystemInsight,
-} from "@/lib/health-systems";
+  FRESHNESS_STATUS_LABELS,
+  type FreshnessStatus,
+} from "@/lib/health-profile-freshness";
 import { cn } from "@/lib/utils";
 
 function statusLabel(status: string): string {
@@ -26,6 +26,12 @@ function formatSourceDate(iso: string | null): string {
     year: "numeric",
   });
 }
+function freshnessLabel(status: FreshnessStatus | undefined): string {
+  return status
+    ? FRESHNESS_STATUS_LABELS[status]
+    : "Freshness not evaluated for this saved version";
+}
+
 type HealthProfileDrawerProps = {
   system: SystemInsight | null;
   layoutLabel: string;
@@ -65,10 +71,13 @@ export function HealthProfileDrawer({
       reason.code === "invalid" ? reason.present_keys : []
     )
   );
-  const isOutdated = readinessReasons.some((reason) => reason.code === "outdated");
+  const isUpdating = readinessReasons.some((reason) => reason.code === "outdated" && reason.required_group == null);
+  const hasStaleObservation = system.markers.some((marker) => marker.freshness_status === "outdated");
+  const hasUnknownDate = readinessReasons.some((reason) => reason.code === "unknown_date")
+    || system.markers.some((marker) => marker.freshness_status === "unknown_date");
   const supportingMarkers = system.markers.filter((marker) => marker.score_role !== "core");
   const drawerState =
-    isOutdated
+    isUpdating
       ? "Health Profile assessment is updating"
       : system.id === "general"
         ? "Not scored - supporting / specialty data"
@@ -76,9 +85,13 @@ export function HealthProfileDrawer({
           ? "No data"
           : system.scoreability === "non_scoreable"
             ? "Not scored - individual markers only"
-            : system.state_score == null
-              ? "Not scored - incomplete core"
-              : null;
+            : hasStaleObservation
+              ? "Not scored - outdated data"
+              : hasUnknownDate
+                ? "Not scored - date unavailable"
+                : system.state_score == null
+                  ? "Not scored - incomplete core"
+                  : null;
   const profilePath = buildHealthNavigationPath("/app/profile", {
     system: system.id,
     returnTo: navigationReturnTo,
@@ -161,9 +174,19 @@ export function HealthProfileDrawer({
                   These supporting or specialty markers do not drive named-system assessments.
                 </p>
               ) : null}
-              {isOutdated ? (
+              {isUpdating ? (
                 <p className="mt-2 text-sm text-muted-foreground">
                   The previous score is not shown as current while updated records are assessed.
+                </p>
+              ) : null}
+              {hasStaleObservation && !isUpdating ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Required observations older than the current assessment policy do not unlock a numeric score.
+                </p>
+              ) : null}
+              {hasUnknownDate ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  A required observation has no available medical date, so its currentness cannot be evaluated.
                 </p>
               ) : null}
               {missingGroups.length > 0 ? (
@@ -181,7 +204,7 @@ export function HealthProfileDrawer({
                   Present but not usable for this assessment: {[...invalidKeys].join(", ")}.
                 </p>
               ) : null}
-              {!isOutdated ? (
+              {!isUpdating ? (
                 <Button asChild variant="outline" className="mt-4">
                   <Link href="/app/upload">Upload a document</Link>
                 </Button>
@@ -280,7 +303,10 @@ export function HealthProfileDrawer({
                     )}
                     <p className="text-xs text-muted-foreground">{statusLabel(marker.status)}</p>
                     <p className="text-xs text-muted-foreground">
-                      Observed {marker.observed_at}
+                      {freshnessLabel(marker.freshness_status)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Observed {marker.observed_at ?? "date unavailable"}
                     </p>
                     {marker.observation_kind === "instrumental" ? (
                       <p className="text-xs font-medium text-teal-700">

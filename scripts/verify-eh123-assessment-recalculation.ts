@@ -49,8 +49,8 @@ assert.match(
 );
 assert.match(
   snapshotBuilder,
-  /hashHealthProfileSnapshotInput\(\{ inputs, sources \}\)/,
-  "the shared snapshot builder stamps the canonical input hash",
+  /hashHealthProfileSnapshotInput\(\{[\s\S]*?freshness_policy_version: HEALTH_PROFILE_FRESHNESS_POLICY\.version[\s\S]*?inputs,[\s\S]*?sources/,
+  "the shared snapshot builder includes freshness policy identity in the canonical hash",
 );
 assert.match(
   healthProfileRoute,
@@ -91,6 +91,11 @@ assert.match(
   worker,
   /claim_assessment_recalculation_job[\s\S]*?buildHealthProfileSnapshot[\s\S]*?complete_assessment_recalculation_job/,
   "the worker claims, calculates, and completes assessment jobs",
+);
+assert.match(
+  worker,
+  /complete_assessment_recalculation_job[\s\S]*?p_freshness_policy_version: snapshot\.freshnessPolicyVersion/,
+  "the worker persists the snapshot freshness policy version",
 );
 assert.match(
   worker,
