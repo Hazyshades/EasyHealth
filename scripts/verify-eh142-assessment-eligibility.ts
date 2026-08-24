@@ -194,6 +194,31 @@ const directEligibility = evaluateAssessmentEligibility({
 });
 assert.deepEqual(directEligibility, { eligible: true, exclusionReason: null });
 
+for (const resolutionStatus of ["partial", "ambiguous", "unmapped"] as const) {
+  const shared = outcome({}, {
+    resolver_result: resolutionStatus,
+    outcome: resolutionStatus,
+  });
+  assert.equal(
+    shared.resolutionDetails.eligibility.exclusions.trend,
+    shared.resolutionDetails.eligibility.exclusions.assessment,
+    `${resolutionStatus} reports one identity-gate reason across consumer surfaces`,
+  );
+}
+
+const noRevision = projectLaboratoryOutcome({ observation: observation(), relation: null });
+assert.equal(noRevision.resolutionDetails.source, "none");
+assert.equal(noRevision.resolutionDetails.eligibility.exclusions.trend, "no_active_revision");
+assert.equal(noRevision.resolutionDetails.eligibility.exclusions.assessment, "no_active_revision");
+assert.equal(noRevision.assessmentInputKey, null);
+
+const eligibleOutcome = outcome({});
+assert.equal(typeof eligibleOutcome.assessmentInputKey, "string");
+assert.equal(eligibleOutcome.resolvedMeasurementBinding != null, true);
+
+const unverifiedOutcome = outcome({}, { verification_status: "pending" });
+assert.equal(unverifiedOutcome.assessmentInputKey, null);
+
 for (const label of Object.values(ASSESSMENT_EXCLUSION_LABELS)) {
   assert.equal(label.length > 0, true, "every exclusion code has user-facing guidance");
   assert.equal(

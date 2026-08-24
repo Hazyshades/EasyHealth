@@ -10,10 +10,12 @@ import type {
   ResolverDecisionTrace,
   ResolverResult,
   VerificationStatus,
+  ResolvedReviewedMeasurementBinding,
 } from "@/lib/biomarkers";
-import { classifyIncompleteReason, incompleteReasonClass, minimalBlockingAxes } from "@/lib/biomarkers";
+import { classifyIncompleteReason, incompleteReasonClass, minimalBlockingAxes, type ValueKind } from "@/lib/biomarkers";
 import {
   evaluateAssessmentEligibility,
+  ineligibleAssessmentEligibility,
   type AssessmentEligibility,
   type AssessmentExclusionReason,
 } from "@/lib/health-profile-assessment-eligibility";
@@ -25,18 +27,14 @@ import {
 export type LaboratoryOutcomeSource = "active_revision" | "preview" | "none";
 
 /**
- * Consumer eligibility exclusions. `unreviewed_definition` was declared here and
- * never produced — `baseExclusion` short-circuits every non-resolved outcome to
- * `incomplete_resolution` first. #114 removed it: the specificity it promised now
- * lives in `IncompleteReasonClass`, and keeping a second, parallel taxonomy on the
- * eligibility axis would only let the two drift.
+ * Consumer eligibility exclusions. The shared identity gates are evaluated
+ * exactly once by the assessment eligibility predicate; every consumer surface
+ * derives its exclusion from that result, and only `conversion_unavailable`
+ * stays consumer-local so the two axes cannot drift.
  */
 export type LaboratoryConsumerExclusionReason =
-  | "no_active_revision"
-  | "incomplete_resolution"
-  | "candidate_only_identity"
-  | "conversion_unavailable"
-  | "assessment_binding_ineligible";
+  | AssessmentExclusionReason
+  | "conversion_unavailable";
 
 export type LaboratoryConsumerEligibility = Readonly<{
   trendEligible: boolean;
@@ -45,10 +43,10 @@ export type LaboratoryConsumerEligibility = Readonly<{
   structuredContextEligible: boolean;
   assessmentEligible: boolean;
   exclusions: Readonly<{
-    trend: LaboratoryConsumerExclusionReason | null;
+    trend: AssessmentExclusionReason | null;
     conversion: LaboratoryConsumerExclusionReason | null;
-    report: LaboratoryConsumerExclusionReason | null;
-    structuredContext: LaboratoryConsumerExclusionReason | null;
+    report: AssessmentExclusionReason | null;
+    structuredContext: AssessmentExclusionReason | null;
     assessment: AssessmentExclusionReason | null;
   }>;
 }>;
@@ -91,6 +89,8 @@ export type LaboratoryOutcomeSummary = Readonly<{
   measurementDefinitionKey: string | null;
   analyteKey: string | null;
   registryBindingReady: boolean;
+  assessmentInputKey: string | null;
+  resolvedMeasurementBinding: ResolvedReviewedMeasurementBinding | null;
   resolutionDetails: LaboratoryResolutionDetails;
 }>;
 
@@ -177,28 +177,36 @@ function summarizeTrace(trace: DecisionTraceLike | null | undefined) {
   };
 }
 
-function baseExclusion(options: {
-  hasActiveRevision: boolean;
-  outcome: ResolverResult | null;
-  registryBindingReady: boolean;
-}): LaboratoryConsumerExclusionReason | null {
-  if (!options.hasActiveRevision) return "no_active_revision";
-  if (options.outcome !== "resolved") return "incomplete_resolution";
-  if (!options.registryBindingReady) return "candidate_only_identity";
-  return null;
+const SHARED_IDENTITY_EXCLUSIONS = new Set<AssessmentExclusionReason>([
+  "no_active_revision",
+  "incomplete_resolution",
+  "candidate_only_identity",
+]);
+
+function parseObservationValueKind(value: string | null | undefined): ValueKind | null {
+  switch (value) {
+    case "numeric":
+    case "qualitative":
+    case "ordinal":
+    case "text":
+      return value;
+    default:
+      return null;
+  }
 }
 
 function buildEligibility(options: {
-  hasActiveRevision: boolean;
-  outcome: ResolverResult | null;
-  registryBindingReady: boolean;
   conversionEligible: boolean;
   assessmentEligibility: AssessmentEligibility;
 }): LaboratoryConsumerEligibility {
-  const sharedExclusion = baseExclusion(options);
+  const assessmentExclusion = options.assessmentEligibility.exclusionReason;
+  const sharedExclusion =
+    assessmentExclusion !== null && SHARED_IDENTITY_EXCLUSIONS.has(assessmentExclusion)
+      ? assessmentExclusion
+      : null;
   const trendEligible = sharedExclusion === null;
-  const conversionExclusion = sharedExclusion ??
-    (options.conversionEligible ? null : "conversion_unavailable");
+  const conversionExclusion =
+    sharedExclusion ?? (options.conversionEligible ? null : "conversion_unavailable");
 
   return {
     trendEligible,
@@ -211,7 +219,7 @@ function buildEligibility(options: {
       conversion: conversionExclusion,
       report: sharedExclusion,
       structuredContext: sharedExclusion,
-      assessment: options.assessmentEligibility.exclusionReason,
+      assessment: assessmentExclusion,
     },
   };
 }
@@ -229,28 +237,24 @@ export function projectLaboratoryOutcome(
     const trace = activeRevision.resolver_evidence as DecisionTraceLike | null;
     const { admissibilityRejections, selectableCount, ...traceFields } = summarizeTrace(trace);
     const definition = binding.measurementDefinition;
-    const hasReviewedAssessmentBinding =
-      definition?.assessmentBindings.some(
-        (assessmentBinding) =>
-          assessmentBinding.status === "reviewed" &&
-          assessmentBinding.compatibility === "compatible"
-      ) === true;
+    const reviewedAssessmentBinding = definition?.assessmentBindings.find(
+      (assessmentBinding) =>
+        assessmentBinding.status === "reviewed" &&
+        assessmentBinding.compatibility === "compatible"
+    );
     const assessmentEligibility = evaluateAssessmentEligibility({
       hasActiveRevision: true,
       outcome: binding.resolutionStatus as ResolverResult | null,
       registryBindingReady: binding.registryBindingReady,
-      hasReviewedAssessmentBinding,
+      hasReviewedAssessmentBinding: reviewedAssessmentBinding != null,
       verificationStatus: binding.verificationStatus,
-      valueKind: options.observation.value_kind,
+      valueKind: parseObservationValueKind(options.observation.value_kind),
       value: options.observation.value,
       rawReferenceText: options.observation.raw_reference_text,
       refLow: options.observation.ref_low,
       refHigh: options.observation.ref_high,
     });
     const eligibility = buildEligibility({
-      hasActiveRevision: true,
-      outcome: binding.resolutionStatus as ResolverResult | null,
-      registryBindingReady: binding.registryBindingReady,
       conversionEligible: binding.resolvedMeasurementBinding !== null,
       assessmentEligibility,
     });
@@ -263,6 +267,10 @@ export function projectLaboratoryOutcome(
         ? (definition?.analyteKey ?? null)
         : null,
       registryBindingReady: binding.registryBindingReady,
+      assessmentInputKey: assessmentEligibility.eligible
+        ? reviewedAssessmentBinding?.assessmentInputKey ?? null
+        : null,
+      resolvedMeasurementBinding: binding.resolvedMeasurementBinding,
       resolutionDetails: {
         source: "active_revision",
         outcome: binding.resolutionStatus as ResolverResult | null,
@@ -295,22 +303,8 @@ export function projectLaboratoryOutcome(
   if (options.preview) {
     const { admissibilityRejections, selectableCount, ...traceFields } = summarizeTrace(options.preview.decisionTrace);
     const eligibility = buildEligibility({
-      hasActiveRevision: false,
-      outcome: options.preview.result,
-      registryBindingReady: false,
       conversionEligible: false,
-      assessmentEligibility: evaluateAssessmentEligibility({
-        hasActiveRevision: false,
-        outcome: options.preview.result,
-        registryBindingReady: false,
-        hasReviewedAssessmentBinding: false,
-        verificationStatus: "pending",
-        valueKind: options.observation.value_kind,
-        value: options.observation.value,
-        rawReferenceText: options.observation.raw_reference_text,
-        refLow: options.observation.ref_low,
-        refHigh: options.observation.ref_high,
-      }),
+      assessmentEligibility: ineligibleAssessmentEligibility(),
     });
     return {
       outcome: options.preview.result,
@@ -318,6 +312,8 @@ export function projectLaboratoryOutcome(
       measurementDefinitionKey: null,
       analyteKey: null,
       registryBindingReady: false,
+      assessmentInputKey: null,
+      resolvedMeasurementBinding: null,
       resolutionDetails: {
         source: "preview",
         outcome: options.preview.result,
@@ -349,22 +345,8 @@ export function projectLaboratoryOutcome(
   }
 
   const eligibility = buildEligibility({
-    hasActiveRevision: false,
-    outcome: null,
-    registryBindingReady: false,
     conversionEligible: false,
-    assessmentEligibility: evaluateAssessmentEligibility({
-      hasActiveRevision: false,
-      outcome: null,
-      registryBindingReady: false,
-      hasReviewedAssessmentBinding: false,
-      verificationStatus: null,
-      valueKind: options.observation.value_kind,
-      value: options.observation.value,
-      rawReferenceText: options.observation.raw_reference_text,
-      refLow: options.observation.ref_low,
-      refHigh: options.observation.ref_high,
-    }),
+    assessmentEligibility: ineligibleAssessmentEligibility(),
   });
   return {
     outcome: null,
@@ -372,6 +354,8 @@ export function projectLaboratoryOutcome(
     measurementDefinitionKey: null,
     analyteKey: null,
     registryBindingReady: false,
+    assessmentInputKey: null,
+    resolvedMeasurementBinding: null,
     resolutionDetails: {
       source: "none",
       outcome: null,

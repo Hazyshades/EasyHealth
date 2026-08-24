@@ -1,4 +1,4 @@
-import type { ResolverResult, VerificationStatus } from "@/lib/biomarkers";
+import type { ResolverResult, VerificationStatus, ValueKind } from "@/lib/biomarkers";
 
 export const ASSESSMENT_EXCLUSION_REASONS = [
   "no_active_revision",
@@ -27,7 +27,7 @@ export type AssessmentEligibilityInput = Readonly<{
   registryBindingReady: boolean;
   hasReviewedAssessmentBinding: boolean;
   verificationStatus: VerificationStatus | string | null | undefined;
-  valueKind: string | null | undefined;
+  valueKind: ValueKind | null | undefined;
   value: unknown;
   rawReferenceText: string | null | undefined;
   refLow: unknown;
@@ -126,4 +126,13 @@ export function evaluateAssessmentEligibility(
   if (rangeExclusion) return { eligible: false, exclusionReason: rangeExclusion };
 
   return { eligible: true, exclusionReason: null };
+}
+
+/**
+ * Shared outcome for rows whose first gate already failed: preview and
+ * no-revision branches have no identity to assess, so later gates never run
+ * and observation value/range inputs would be dead data.
+ */
+export function ineligibleAssessmentEligibility(): AssessmentEligibility {
+  return { eligible: false, exclusionReason: "no_active_revision" };
 }

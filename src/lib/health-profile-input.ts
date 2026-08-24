@@ -1,7 +1,6 @@
 import { presentObservation, type LabUnitSystem } from "@/lib/biomarkers";
 import { buildHealthProfile } from "@/lib/health-systems";
 import {
-  projectActiveRegistryV2LaboratoryBinding,
   type RegistryV2LaboratoryBindingSource,
   type RegistryV2NormalizationRevisionReadBoundary,
 } from "@/lib/documents/observation-read-boundaries";
@@ -33,8 +32,8 @@ export type HealthProfileLaboratoryInput = Parameters<typeof buildHealthProfile>
 
 /**
  * Projects a scoped laboratory observation into the exact input accepted by
- * buildHealthProfile. All admission gates remain delegated to the production
- * outcome and Registry-v2 binding projections.
+ * buildHealthProfile. All admission gates remain delegated to the single
+ * production outcome projection.
  */
 export function projectHealthProfileLaboratoryInput(options: {
   observation: HealthProfileLaboratoryObservation;
@@ -43,31 +42,19 @@ export function projectHealthProfileLaboratoryInput(options: {
 }): HealthProfileLaboratoryInput | null {
   const { observation, relation, labUnitSystem } = options;
   const outcome = projectLaboratoryOutcome({ observation, relation });
-  const binding = projectActiveRegistryV2LaboratoryBinding(observation, relation);
-  const measurementDefinitionKey = binding.measurementDefinitionKey;
-  const definition = binding.measurementDefinition;
-  const resolvedMeasurementBinding = binding.resolvedMeasurementBinding;
-  if (
-    !outcome.resolutionDetails.eligibility.assessmentEligible ||
-    !measurementDefinitionKey ||
-    !definition
-  ) {
+  // The projection nulls assessmentInputKey unless the row passes every
+  // assessment gate, so key presence is the whole admission decision.
+  const assessmentInputKey = outcome.assessmentInputKey;
+  if (!assessmentInputKey) {
     return null;
   }
-
-  const key = definition.assessmentBindings.find(
-    (assessmentBinding) =>
-      assessmentBinding.status === "reviewed" &&
-      assessmentBinding.compatibility === "compatible",
-  )?.assessmentInputKey;
-  if (!key) return null;
 
   const numericValue = observation.value != null ? Number(observation.value) : null;
   if (numericValue === null || !Number.isFinite(numericValue)) return null;
 
   const display = presentObservation(
     {
-      resolved_measurement_binding: resolvedMeasurementBinding,
+      resolved_measurement_binding: outcome.resolvedMeasurementBinding,
       value: numericValue,
       unit: observation.unit ?? "",
       ref_low: observation.ref_low != null ? Number(observation.ref_low) : null,
@@ -76,8 +63,8 @@ export function projectHealthProfileLaboratoryInput(options: {
     labUnitSystem,
   );
   return {
-    biomarker_key: key,
-    measurement_definition_key: measurementDefinitionKey,
+    biomarker_key: assessmentInputKey,
+    measurement_definition_key: outcome.measurementDefinitionKey,
     name: observation.name,
     value: display.value,
     unit: display.unit,
