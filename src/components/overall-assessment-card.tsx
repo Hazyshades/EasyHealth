@@ -20,11 +20,14 @@ type OverallAssessmentCardProps = {
   recordsUsedCount: number;
   scoreableNamedSystemCount: number;
   scoreableNamedSystemTotal: number;
+  /** Observation-level freshness axis from EH-144 (kept for callers). */
+  assessmentFreshness?: "current" | "outdated";
   dismissalKey?: string;
   dismissible?: boolean;
   lastUpdated?: string | null;
   showProfileLink?: boolean;
   variant?: "compact" | "detailed";
+  /** Job/version lifecycle axis from EH-146. */
   assessmentState?: HealthProfileAssessmentDisplayState;
   assessmentError?: string | null;
 };
@@ -97,12 +100,14 @@ function AssessmentStats({
     </div>
   );
 }
+
 export function OverallAssessmentCard({
   overallStateScore,
   overallDataConfidence,
   recordsUsedCount,
   scoreableNamedSystemCount,
   scoreableNamedSystemTotal,
+  assessmentFreshness = "current",
   dismissalKey,
   dismissible = true,
   lastUpdated,
@@ -113,6 +118,10 @@ export function OverallAssessmentCard({
 }: OverallAssessmentCardProps) {
   const isCompact = variant === "compact";
   const lifecycleState = assessmentState;
+  // Keep scores visible during job updates (EH-146). Observation freshness
+  // may still null scores via the snapshot itself; do not hide completed scores
+  // solely because assessmentFreshness is outdated.
+  void assessmentFreshness;
   const { iconRef, hoverProps } = useAnimatedIconHover();
   const storageKey = dismissalKey ? `easyhealth:overall-assessment:${dismissalKey}` : null;
   const canDismiss = dismissible && storageKey != null;
@@ -129,7 +138,7 @@ export function OverallAssessmentCard({
       return;
     }
     setDismissed(localStorage.getItem(storageKey) === "dismissed");
-  }, [overallStateScore, storageKey]);
+  }, [canDismiss, overallStateScore, storageKey]);
 
   if (overallStateScore == null) {
     if (canDismiss && dismissed) return null;

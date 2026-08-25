@@ -6,7 +6,7 @@ import {
   reclaimStaleJobs,
   type ReclaimableJob,
 } from "./job-reliability.js";
-import { buildHealthProfileSnapshot } from "../../src/lib/health-profile-snapshot";
+import { buildHealthProfileSnapshot } from "../../src/lib/health-profile-snapshot.js";
 
 type JobRow = {
   id: string;
@@ -146,6 +146,7 @@ async function processAssessmentJob() {
         p_input_hash: snapshot.inputHash,
         p_payload: snapshot.profile,
         p_source_document_ids: snapshot.sourceDocumentIds,
+        p_freshness_policy_version: snapshot.freshnessPolicyVersion,
       },
     );
     if (completeError) throw new Error(completeError.message);

@@ -2,9 +2,54 @@ import { NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { getProfileById } from "@/lib/auth/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { type HealthProfileAssessment, buildHealthProfileSnapshot } from "@/lib/health-profile-snapshot";
+import { HEALTH_PROFILE_FRESHNESS_POLICY } from "@/lib/health-profile-freshness";
+import {
+  type HealthProfileAssessment,
+  buildHealthProfileSnapshot,
+} from "@/lib/health-profile-snapshot";
 import { getLatestHolisticSynthesis } from "@/lib/holistic-synthesis";
 import { resolveAssessmentDisplayState } from "@/lib/health-profile-assessment-state";
+
+function hasCanonicalReadinessContract(value: unknown): value is HealthProfileAssessment {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !("assessment_freshness" in value) ||
+    !("systems" in value) ||
+    !("freshness_policy_version" in value)
+  ) {
+    return false;
+  }
+  if (value.freshness_policy_version !== HEALTH_PROFILE_FRESHNESS_POLICY.version) {
+    return false;
+  }
+  if (
+    value.assessment_freshness !== "current" &&
+    value.assessment_freshness !== "outdated"
+  ) {
+    return false;
+  }
+  return (
+    Array.isArray(value.systems) &&
+    value.systems.every((system) => {
+      if (
+        !system ||
+        typeof system !== "object" ||
+        !("score_readiness" in system) ||
+        !system.score_readiness ||
+        typeof system.score_readiness !== "object" ||
+        !("required_groups" in system.score_readiness) ||
+        !("reasons" in system.score_readiness)
+      ) {
+        return false;
+      }
+      return (
+        Array.isArray(system.score_readiness.required_groups) &&
+        Array.isArray(system.score_readiness.reasons)
+      );
+    })
+  );
+}
 
 export async function GET() {
   const profileId = await getSessionProfileId();
@@ -23,11 +68,23 @@ export async function GET() {
     // A profile created before the unit migration safely uses SI.
   }
 
-  const [{ data: version, error: versionError }, { data: job, error: jobError }, synthesis] = await Promise.all([
-    supabase.from("health_profile_assessment_versions").select("id, payload, generated_at, input_hash").eq("profile_id", profileId).order("generated_at", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("assessment_recalculation_jobs").select("status, attempts, max_attempts, last_error_code, last_error_message, updated_at").eq("profile_id", profileId).eq("output_kind", "health_profile").maybeSingle(),
-    getLatestHolisticSynthesis(profileId),
-  ]);
+  const [{ data: version, error: versionError }, { data: job, error: jobError }, synthesis] =
+    await Promise.all([
+      supabase
+        .from("health_profile_assessment_versions")
+        .select("id, payload, generated_at, input_hash, freshness_policy_version")
+        .eq("profile_id", profileId)
+        .order("generated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("assessment_recalculation_jobs")
+        .select("status, attempts, max_attempts, last_error_code, last_error_message, updated_at")
+        .eq("profile_id", profileId)
+        .eq("output_kind", "health_profile")
+        .maybeSingle(),
+      getLatestHolisticSynthesis(profileId),
+    ]);
   if (versionError) {
     return NextResponse.json(
       { error: versionError.message },
@@ -41,35 +98,62 @@ export async function GET() {
     );
   }
 
-  const hasCurrentVersion = version != null;
-  const assessmentStatus = job?.status ?? (hasCurrentVersion ? "succeeded" : "queued");
+  const persistedProfile = hasCanonicalReadinessContract(version?.payload)
+    ? version.payload
+    : null;
+  // Rebuild only legacy or malformed payloads so the API never leaks a retired
+  // readiness shape; ordinary reads remain persisted-snapshot reads.
+  const fallback = persistedProfile
+    ? null
+    : await buildHealthProfileSnapshot({ profileId, labUnitSystem });
+  const profile = persistedProfile ?? fallback?.profile;
+  if (!profile) {
+    return NextResponse.json(
+      { error: "Unable to build Health Profile assessment" },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  // EH-146: a completed version remains visible while a newer job runs.
+  // Do not suppress scores for job freshness — that is a separate display axis.
+  const hasCurrentVersion = persistedProfile != null;
+  const assessmentStatus =
+    job?.status ?? (hasCurrentVersion ? "succeeded" : "queued");
   const assessmentDisplayState = resolveAssessmentDisplayState(
     assessmentStatus,
     hasCurrentVersion,
   );
-  const fallback = hasCurrentVersion
-    ? null
-    : await buildHealthProfileSnapshot({ profileId, labUnitSystem });
-  const profile = (version?.payload ?? fallback?.profile) as HealthProfileAssessment;
+  const persistedVersion = persistedProfile ? version : null;
 
-  return NextResponse.json({
-    ...profile,
-    holistic_synthesis: synthesis.synthesis,
-    synthesis_stale: synthesis.stale,
-    lab_unit_system: labUnitSystem,
-    overall_assessment_dismissal_key: profileId,
-    assessment: {
-      version_id: version?.id ?? null,
-      input_hash: version?.input_hash ?? fallback?.inputHash ?? null,
-      generated_at: version?.generated_at ?? null,
-      status: assessmentStatus,
-      display_state: assessmentDisplayState,
-      has_current_version: hasCurrentVersion,
-      attempts: job?.attempts ?? 0,
-      max_attempts: job?.max_attempts ?? 0,
-      error_code: job?.last_error_code ?? null,
-      error_message: job?.last_error_message ?? null,
-      fallback: !hasCurrentVersion,
+  return NextResponse.json(
+    {
+      ...profile,
+      holistic_synthesis: synthesis.synthesis,
+      synthesis_stale: synthesis.stale,
+      lab_unit_system: labUnitSystem,
+      overall_assessment_dismissal_key: profileId,
+      assessment: {
+        version_id: persistedVersion?.id ?? null,
+        input_hash: persistedVersion?.input_hash ?? fallback?.inputHash ?? null,
+        generated_at:
+          persistedVersion?.generated_at ?? fallback?.freshnessEvaluatedAt ?? null,
+        freshness_policy_version:
+          persistedVersion?.freshness_policy_version ??
+          fallback?.freshnessPolicyVersion ??
+          profile.freshness_policy_version ??
+          null,
+        freshness_evaluated_at:
+          profile.freshness_evaluated_at ?? fallback?.freshnessEvaluatedAt ?? null,
+        status: assessmentStatus,
+        display_state: assessmentDisplayState,
+        has_current_version: hasCurrentVersion,
+        attempts: job?.attempts ?? 0,
+        max_attempts: job?.max_attempts ?? 0,
+        error_code: job?.last_error_code ?? null,
+        error_message: job?.last_error_message ?? null,
+        fallback: fallback !== null,
+      },
     },
-  }, { headers: { "Cache-Control": "no-store" } });
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }

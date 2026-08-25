@@ -5,6 +5,7 @@ import {
   type HealthProfileAssessmentDisplayState,
 } from "@/lib/health-profile-assessment-state";
 import { cn } from "@/lib/utils";
+import type { FreshnessStatus } from "@/lib/health-profile-freshness";
 
 /** Framed viewBox for silhouette + side badges (bounds from path + badges, pad 16). */
 export const BODY_MAP_VIEWBOX = "126 49 210 407";
@@ -192,6 +193,7 @@ type HealthSystemBadgeProps = {
   dimmed?: boolean;
   index?: number;
   scoreClassName: string;
+  freshnessStatus?: FreshnessStatus;
   assessmentLifecycleState?: HealthProfileAssessmentDisplayState;
   onSelect?: () => void;
 };
@@ -212,14 +214,20 @@ export function HealthSystemBadge({
   dimmed,
   index = 0,
   scoreClassName,
+  freshnessStatus,
   assessmentLifecycleState = "current",
   onSelect,
 }: HealthSystemBadgeProps) {
-  const scoreLabel = score == null ? "insufficient data" : `${score} of 100`;
+  const unavailableReason =
+    freshnessStatus === "outdated"
+      ? "outdated evidence"
+      : freshnessStatus === "unknown_date"
+        ? "medical date unavailable"
+        : "insufficient data";
+  const scoreLabel =
+    score == null ? unavailableReason : `${score} of 100 current-state assessment`;
   const lifecycleLabel = assessmentDisplayStateLabel(assessmentLifecycleState);
-  const badgeDescription = `${label}: ${scoreLabel} ${
-    score == null ? "current-state assessment unavailable" : "current-state assessment"
-  }. Assessment status: ${lifecycleLabel}. ${assessmentDisplayStateDescription(assessmentLifecycleState)}`;
+  const badgeDescription = `${label}: ${scoreLabel}. Assessment status: ${lifecycleLabel}. ${assessmentDisplayStateDescription(assessmentLifecycleState)}`;
   return (
     <g
       className={cn("body-map-badge", active && "is-active", dimmed && "is-dimmed")}

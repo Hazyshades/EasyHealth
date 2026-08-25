@@ -38,9 +38,9 @@ for (const state of ["current", "processing", "outdated", "error"] as const) {
 
 assert.equal(stateScoreColor(null), "fill-slate-300 stroke-slate-400");
 assert.equal(assessmentStatusLabel(null, 100), "Assessment unavailable");
-assert.equal(assessmentStatusLabel(85, 100), "Mostly within reference ranges");
-assert.equal(assessmentStatusLabel(45, 100), "Some values outside reference ranges");
-assert.equal(assessmentStatusLabel(85, 20), "Limited evidence");
+assert.equal(assessmentStatusLabel(85, 100), "Stable");
+assert.equal(assessmentStatusLabel(45, 100), "Needs attention");
+assert.equal(assessmentStatusLabel(85, 20), "Limited data");
 
 const sources = [
   {

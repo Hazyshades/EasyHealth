@@ -8,6 +8,7 @@ import { FilterChip } from "@/components/ui/filter-chip";
 import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/status-chip";
 import { OverallAssessmentCard } from "@/components/overall-assessment-card";
+import { ExcludedObservationsPanel } from "@/components/score-provenance-panel";
 import {
   assessmentDisplayStateDescription,
   assessmentDisplayStateLabel,
@@ -347,6 +348,7 @@ export default function HealthProfilePage() {
                 recordsUsedCount={profile!.records_used_count}
                 scoreableNamedSystemCount={profile!.scoreable_named_system_count}
                 scoreableNamedSystemTotal={profile!.scoreable_named_system_total}
+                assessmentFreshness={profile!.assessment_freshness}
                 dismissalKey={profile!.overall_assessment_dismissal_key}
                 lastUpdated={lastUpdated}
                 assessmentState={assessmentState}
@@ -407,7 +409,7 @@ export default function HealthProfilePage() {
 
               <p className="mt-0.5 text-xs text-[var(--eh-text-muted)]">
 
-                {[source.lab_name, source.observed_at].filter(Boolean).join(" · ")}
+                {[source.lab_name, source.observed_at ?? "Date unavailable"].filter(Boolean).join(" · ")}
 
               </p>
 
@@ -418,6 +420,11 @@ export default function HealthProfilePage() {
         </ul>
 
       </div>
+
+      <ExcludedObservationsPanel
+        provenance={profile?.score_provenance}
+        navigationReturnTo={profileReturnTo}
+      />
 
     </div>
 
