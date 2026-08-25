@@ -49,8 +49,8 @@ assert.match(
 );
 assert.match(
   snapshotBuilder,
-  /hashHealthProfileSnapshotInput\(\{[\s\S]*?inputs,[\s\S]*?sources,[\s\S]*?excludedObservations[\s\S]*?\}\)/,
-  "the shared snapshot builder hashes score-affecting observations and exclusions",
+  /hashHealthProfileSnapshotInput\(\{[\s\S]*?freshness_policy_version: HEALTH_PROFILE_FRESHNESS_POLICY\.version[\s\S]*?inputs,[\s\S]*?sources,[\s\S]*?excludedObservations[\s\S]*?\}\)/,
+  "the shared snapshot builder hashes freshness policy identity, score-affecting observations, and exclusions",
 );
 assert.match(
   healthProfileRoute,
@@ -91,6 +91,11 @@ assert.match(
   worker,
   /claim_assessment_recalculation_job[\s\S]*?buildHealthProfileSnapshot[\s\S]*?complete_assessment_recalculation_job/,
   "the worker claims, calculates, and completes assessment jobs",
+);
+assert.match(
+  worker,
+  /complete_assessment_recalculation_job[\s\S]*?p_freshness_policy_version: snapshot\.freshnessPolicyVersion/,
+  "the worker persists the snapshot freshness policy version",
 );
 assert.match(
   worker,

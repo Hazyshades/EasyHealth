@@ -108,17 +108,21 @@ function ReadinessGroups({ provenance }: { provenance: SystemScoreProvenance }) 
               <span className="shrink-0 text-xs font-medium text-slate-600">
                 {group.status === "satisfied"
                   ? "Ready"
-                  : group.status === "present_without_reference"
-                    ? "Reference needed"
-                    : "Missing"}
+                  : group.status === "invalid"
+                    ? "Present but not usable"
+                    : group.status === "outdated"
+                      ? "Outdated data"
+                      : group.status === "unknown_date"
+                        ? "Date unavailable"
+                        : "Missing"}
               </span>
             </div>
             {group.satisfied_by ? (
               <p className="mt-1 text-xs text-slate-500">Satisfied by {group.satisfied_by}</p>
             ) : null}
-            {group.present_without_reference.length > 0 ? (
+            {group.present_keys.length > 0 ? (
               <p className="mt-1 text-xs text-slate-500">
-                Present without usable range: {group.present_without_reference.join(", ")}
+                Present but not usable for this assessment: {group.present_keys.join(", ")}
               </p>
             ) : null}
           </li>
@@ -200,7 +204,7 @@ function ExclusionList({
                 {item.reason_detail ? ` · ${item.reason_detail}` : ""}
               </p>
               <p className="mt-1 text-xs text-slate-600">
-                {formatValue(item)} · Observed {item.observed_at}
+                {formatValue(item)} · Observed {item.observed_at ?? "date unavailable"}
               </p>
               <SourceEvidence
                 item={item}

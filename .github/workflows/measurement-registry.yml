@@ -21,6 +21,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Install worker dependencies
         run: pnpm --dir worker install --frozen-lockfile
+      - name: Typecheck document worker
+        run: pnpm typecheck:worker
       - name: Verify CI suite coverage contract
         run: pnpm check:ci-suite-coverage-contract
       - name: Verify every test suite is workflow-reachable
@@ -55,6 +57,10 @@ jobs:
         run: pnpm test:eh113
       - name: Verify EH-116 registry reprocess batch
         run: pnpm test:eh116
+      - name: Verify EH-141 score-required groups
+        run: pnpm test:eh141
+      - name: Verify EH-142 assessment eligibility
+        run: pnpm test:eh142
       - run: pnpm test:eh106
         env:
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
@@ -136,6 +142,10 @@ jobs:
         run: pnpm test:eh126
       - name: Verify EH-127 health timeline contracts
         run: pnpm test:eh127
+      - name: Verify EH-132 synthetic fixture pack
+        run: pnpm test:eh132-fixtures
+      - name: Verify EH-132 timeline and panel release validation
+        run: pnpm test:eh132
       - name: Verify EH-128 laboratory panel grouping
         run: pnpm test:eh128
       - name: Verify EH-129 repeated measurement comparison
@@ -144,6 +154,12 @@ jobs:
         run: pnpm test:eh130
       - name: Verify EH-131 health navigation
         run: pnpm test:eh131
+      - name: Verify EH-143 readiness and null-result contract
+        run: pnpm test:eh143
+      - name: Verify Health Profile drawer status rendering
+        run: pnpm test:health-profile-drawer-status
+      - name: Verify EH-144 freshness policy
+        run: pnpm test:eh144
 
       - name: Publish Registry 2.0 candidate-release evidence
         run: |
@@ -208,6 +224,8 @@ jobs:
         run: pnpm test:eh121-db
       - name: Run EH-123 assessment recalculation database contract
         run: pnpm test:eh123-db
+      - name: Run EH-144 freshness policy database contract
+        run: pnpm test:eh144-db
       - name: Run EH-122 batch verification database contract
         run: pnpm test:eh122-db
       - name: Run EH-118 source region database contract
@@ -226,6 +244,10 @@ jobs:
         run: pnpm test:eh126-db
       - name: Run EH-127 health timeline database contract
         run: pnpm test:eh127-db
+      - name: Run EH-132 timeline and panel database release contract
+        run: pnpm test:eh132-db
+      - name: Run EH-142 assessment eligibility database contract
+        run: pnpm test:eh142-db
       - name: Run EH-130 duplicate-document database contract
         run: pnpm test:eh130-db
       - name: Run PR2 instrumental database contracts

@@ -5,6 +5,7 @@ import {
   type SystemScoreability,
   type ValueKind,
 } from "@/lib/biomarkers";
+import { getReviewedAssessmentBinding } from "@/lib/biomarkers";
 import {
   BODY_SYSTEM_LABELS,
   getRegistryV2ExpectedSpecimen,
@@ -16,8 +17,14 @@ import {
   NAMED_BODY_SYSTEMS,
   NON_SCOREABLE_SYSTEMS,
 } from "@/lib/biomarkers/registry-v2-runtime";
-import { getReviewedAssessmentBinding } from "@/lib/biomarkers";
 import type { SourceRegion } from "@/lib/documents/source-region";
+import {
+  HEALTH_PROFILE_FRESHNESS_POLICY,
+  evaluateSystemObservationFreshness,
+  isCompleteCalendarDate,
+  type FreshnessStatus,
+  type HealthProfileFreshnessPolicy,
+} from "@/lib/health-profile-freshness";
 
 export type DocumentType =
   | "lab_result"
@@ -114,7 +121,7 @@ export type ObservationInput = {
   unit: string;
   ref_low: number | null;
   ref_high: number | null;
-  observed_at: string;
+  observed_at: string | null;
   document_id: string | null;
   observation_kind?: "lab" | "instrumental";
   value_kind?: ValueKind;
@@ -153,7 +160,8 @@ export type SystemMarker = {
   ref_low: number | null;
   ref_high: number | null;
   status: MarkerStatus;
-  observed_at: string;
+  freshness_status: FreshnessStatus;
+  observed_at: string | null;
   document_id: string | null;
   observation_kind?: "lab" | "instrumental";
   source: MarkerSource | null;
@@ -199,7 +207,7 @@ type ScoreEvidenceItem = {
   ref_low: number | null;
   ref_high: number | null;
   status: MarkerStatus;
-  observed_at: string;
+  observed_at: string | null;
   document_id: string | null;
   source: MarkerSource | null;
   source_page: number | null;
@@ -243,17 +251,29 @@ export type SystemInsight = {
   markers: SystemMarker[];
 };
 
+export type ScoreReadinessReasonCode = "missing" | "invalid" | "outdated" | "unknown_date";
+
+export type ScoreReadinessReason = {
+  code: ScoreReadinessReasonCode;
+  required_group: string[] | null;
+  present_keys: string[];
+};
+
 export type ScoreReadinessGroup = {
   keys: string[];
-  status: "satisfied" | "missing" | "present_without_reference";
+  status: "satisfied" | "missing" | "invalid" | "outdated" | "unknown_date";
   satisfied_by: string | null;
-  present_without_reference: string[];
+  present_keys: string[];
 };
 
 export type SystemScoreReadiness = {
   required_groups: ScoreReadinessGroup[];
-  missing_groups: string[][];
-  present_without_reference: string[];
+  reasons: ScoreReadinessReason[];
+};
+
+export type SystemScoreReadinessEvaluation = {
+  scoreability: SystemScoreability;
+  readiness: SystemScoreReadiness;
 };
 
 export type ProfileDisplayState =
@@ -275,10 +295,13 @@ export type HealthProfileResult = {
   overall_state_score: number | null;
   overall_data_confidence: number;
   scoreable_named_system_count: number;
+  assessment_freshness: "current" | "outdated";
   scoreable_named_system_total: number;
   score_algorithm_version: string;
   score_provenance: HealthProfileScoreProvenance;
   overall_assessment_dismissal_key?: string;
+  freshness_policy_version?: string;
+  freshness_evaluated_at?: string;
   systems: SystemInsight[];
   sources: HealthProfileSource[];
   holistic_synthesis: HolisticSynthesis | null;
@@ -356,6 +379,23 @@ export function markerStateScore(
   return Math.max(OUT_OF_RANGE_MIN, Math.round(OUT_OF_RANGE_BASE - deviation * 35));
 }
 
+function compareObservationRecency(left: ObservationInput, right: ObservationInput): number {
+  const leftDate = left.observed_at;
+  const rightDate = right.observed_at;
+  const leftHasDate = isCompleteCalendarDate(leftDate);
+  const rightHasDate = isCompleteCalendarDate(rightDate);
+  if (!leftHasDate && rightHasDate) return -1;
+  if (leftHasDate && !rightHasDate) return 1;
+  if (leftHasDate && rightHasDate) {
+    const byDate = leftDate.trim().localeCompare(rightDate.trim());
+    if (byDate !== 0) return byDate;
+  }
+
+  const leftTie = `${left.observation_id ?? ""}:${left.document_id ?? ""}`;
+  const rightTie = `${right.observation_id ?? ""}:${right.document_id ?? ""}`;
+  return leftTie.localeCompare(rightTie);
+}
+
 function latestByIdentity(observations: ObservationInput[]): Map<string, ObservationInput> {
   const map = new Map<string, ObservationInput>();
   for (const obs of observations) {
@@ -369,7 +409,7 @@ function latestByIdentity(observations: ObservationInput[]): Map<string, Observa
     const modifier = obs.modifier ?? "none";
     const id = observationIdentityKey(key, specimen, modifier);
     const existing = map.get(id);
-    if (!existing || obs.observed_at > existing.observed_at) {
+    if (!existing || compareObservationRecency(obs, existing) > 0) {
       map.set(id, {
         ...obs,
         biomarker_key: key,
@@ -410,6 +450,7 @@ function matchesReviewedSpecimen(marker: SystemMarker): boolean {
 
 function isUsableCoreMarker(marker: SystemMarker): boolean {
   return (
+    marker.freshness_status === "current" &&
     isNumericMarker(marker) &&
     markerRole(marker) === "core" &&
     hasUsableDocumentReference(marker) &&
@@ -608,68 +649,86 @@ function buildSystemScoreExplanations(
 }
 
 function resolveReadinessGroup(keys: readonly string[], markers: SystemMarker[]): ScoreReadinessGroup {
-  const satisfied = pickUsableMarker(keys, markers);
+  const groupMarkers = markers.filter((marker) => keys.includes(marker.key));
+  const satisfied = pickUsableMarker(keys, groupMarkers);
+  const presentKeys = [...new Set(groupMarkers.map((marker) => marker.key))];
+  const hasUnknownDateMarker = groupMarkers.some(
+    (marker) => marker.freshness_status === "unknown_date",
+  );
+  const hasOutdatedMarker = groupMarkers.some(
+    (marker) => marker.freshness_status === "outdated",
+  );
+
   if (satisfied) {
     return {
       keys: [...keys],
       status: "satisfied",
       satisfied_by: satisfied.key,
-      present_without_reference: [],
+      present_keys: presentKeys,
     };
   }
 
-  const presentWithoutReference = markers
-    .filter((marker) => keys.includes(marker.key) && !isUsableCoreMarker(marker))
-    .map((marker) => marker.key);
-
   return {
     keys: [...keys],
-    status: presentWithoutReference.length > 0 ? "present_without_reference" : "missing",
+    status: presentKeys.length === 0
+      ? "missing"
+      : hasUnknownDateMarker
+        ? "unknown_date"
+        : hasOutdatedMarker
+          ? "outdated"
+          : "invalid",
     satisfied_by: null,
-    present_without_reference: [...new Set(presentWithoutReference)],
+    present_keys: presentKeys,
   };
 }
 
 export function evaluateSystemScoreReadiness(
   systemId: BodySystemId,
   markers: SystemMarker[]
-): { scoreability: SystemScoreability; readiness: SystemScoreReadiness } {
+): SystemScoreReadinessEvaluation {
   if (systemId === "general") {
     return {
       scoreability: "supporting_only",
-      readiness: { required_groups: [], missing_groups: [], present_without_reference: [] },
+      readiness: { required_groups: [], reasons: [] },
     };
   }
 
   if (NON_SCOREABLE_SYSTEMS.has(systemId)) {
     return {
       scoreability: "non_scoreable",
-      readiness: { required_groups: [], missing_groups: [], present_without_reference: [] },
+      readiness: { required_groups: [], reasons: [] },
     };
   }
 
   const groups = getRegistryV2ScoreReadinessGroups(systemId).map((keys) =>
     resolveReadinessGroup(keys, markers)
   );
-  const missingGroups = groups.filter((group) => group.status === "missing").map((group) => group.keys);
-  const withoutReference = groups.flatMap((group) => group.present_without_reference);
+  const reasons = groups.flatMap((group) =>
+    group.status === "satisfied"
+      ? []
+      : [{
+          code: group.status,
+          required_group: group.keys,
+          present_keys: group.present_keys,
+        }]
+  );
 
   return {
     scoreability: groups.every((group) => group.status === "satisfied") ? "scoreable" : "incomplete",
     readiness: {
       required_groups: groups,
-      missing_groups: missingGroups,
-      present_without_reference: [...new Set(withoutReference)],
+      reasons,
     },
   };
 }
 
 export function computeSystemStateScore(
   systemId: BodySystemId,
-  markers: SystemMarker[]
+  markers: SystemMarker[],
+  evaluation: SystemScoreReadinessEvaluation = evaluateSystemScoreReadiness(systemId, markers)
 ): number | null {
-  const { scoreability } = evaluateSystemScoreReadiness(systemId, markers);
-  if (scoreability !== "scoreable" || systemId === "general") return null;
+  if (evaluation.scoreability !== "scoreable") return null;
+
   return computeContributionScore(systemId, markers);
 }
 
@@ -737,7 +796,7 @@ export function buildWhyHighlighted(markers: SystemMarker[]): string[] {
   if (outOfRange.length > 0) {
     return outOfRange.map(
       (marker) =>
-        `${marker.name}: ${marker.value} ${marker.unit} (outside lab reference range, observed ${marker.observed_at})`
+        `${marker.name}: ${marker.value} ${marker.unit} (outside lab reference range, observed ${marker.observed_at ?? "date unavailable"})`
     );
   }
 
@@ -748,15 +807,25 @@ export function buildWhyHighlighted(markers: SystemMarker[]): string[] {
   return [];
 }
 
-export type BuildHealthProfileOptions = {
+export type HealthProfileBuildOptions = Readonly<{
+  /** Exclusions captured before Health Profile projection (EH-145). */
   excludedObservations?: readonly ScoreExclusion[];
-};
+  freshnessAsOf?: string;
+  freshnessEvaluatedAt?: string;
+  freshnessPolicy?: HealthProfileFreshnessPolicy;
+}>;
 
 export function buildHealthProfile(
   observations: ObservationInput[],
   sources: HealthProfileSource[],
-  options: BuildHealthProfileOptions = {},
+  options: HealthProfileBuildOptions = {},
 ): Omit<HealthProfileResult, "holistic_synthesis"> {
+  const freshnessEvaluatedAt =
+    options.freshnessEvaluatedAt ?? new Date().toISOString();
+  const freshnessAsOf =
+    options.freshnessAsOf ?? freshnessEvaluatedAt.slice(0, 10);
+  const freshnessPolicy =
+    options.freshnessPolicy ?? HEALTH_PROFILE_FRESHNESS_POLICY;
   const sourceById = new Map(sources.map((source) => [source.id, source]));
   const latest = latestByIdentity(observations);
   const bySystem = new Map<BodySystemId, SystemMarker[]>();
@@ -777,6 +846,12 @@ export function buildHealthProfile(
       ref_low: obs.ref_low,
       ref_high: obs.ref_high,
       status: getMarkerStatus(numericValue, obs.ref_low, obs.ref_high, valueKind),
+      freshness_status: evaluateSystemObservationFreshness({
+        systemId,
+        measuredAt: obs.observed_at,
+        asOf: freshnessAsOf,
+        policy: freshnessPolicy,
+      }),
       observed_at: obs.observed_at,
       document_id: obs.document_id,
       observation_kind: obs.observation_kind,
@@ -806,13 +881,13 @@ export function buildHealthProfile(
     if (latest.size === 0 || (systemId === "general" && markers.length === 0)) continue;
 
     const name = systemId === "general" ? "General" : BODY_SYSTEMS[systemId].name;
-    const { scoreability, readiness } = evaluateSystemScoreReadiness(systemId, markers);
-    const stateScore = computeSystemStateScore(systemId, markers);
+    const evaluation = evaluateSystemScoreReadiness(systemId, markers);
+    const stateScore = computeSystemStateScore(systemId, markers, evaluation);
     const scoreProvenance = buildSystemScoreExplanations(
       systemId,
       markers,
-      scoreability,
-      readiness,
+      evaluation.scoreability,
+      evaluation.readiness,
       stateScore,
     );
     const preProjectionExclusions =
@@ -823,8 +898,8 @@ export function buildHealthProfile(
       name,
       state_score: stateScore,
       data_confidence: computeSystemDataConfidence(systemId, markers),
-      scoreability,
-      score_readiness: readiness,
+      scoreability: evaluation.scoreability,
+      score_readiness: evaluation.readiness,
       score_provenance: {
         ...scoreProvenance,
         excluded: [...scoreProvenance.excluded, ...preProjectionExclusions],
@@ -859,6 +934,7 @@ export function buildHealthProfile(
         : sources.length > 0
           ? "no_recognized_biomarkers"
           : "onboarding",
+    assessment_freshness: "current",
     overall_state_score:
       scoreableSystems.length >= 3 ? average(scoreableSystems.map((system) => system.state_score)) : null,
     overall_data_confidence: average(confidenceScores),
@@ -869,8 +945,44 @@ export function buildHealthProfile(
       algorithm_version: HEALTH_PROFILE_SCORE_ALGORITHM_VERSION,
       excluded_observations: profileExcluded,
     },
+    freshness_policy_version: freshnessPolicy.version,
+    freshness_evaluated_at: freshnessEvaluatedAt,
     systems,
     sources,
+  };
+}
+
+/**
+ * A queued recalculation supersedes persisted scores. Keep factual evidence,
+ * but never present an obsolete current-state assessment as current.
+ */
+export function suppressOutdatedHealthProfileAssessment(
+  profile: Omit<HealthProfileResult, "holistic_synthesis">
+): Omit<HealthProfileResult, "holistic_synthesis"> {
+  if (profile.assessment_freshness === "outdated") return profile;
+
+  return {
+    ...profile,
+    assessment_freshness: "outdated",
+    overall_state_score: null,
+    systems: profile.systems.map((system) => {
+      if (system.id === "general") return system;
+      if (system.score_readiness.reasons.some((reason) => reason.code === "outdated")) {
+        return { ...system, state_score: null };
+      }
+
+      return {
+        ...system,
+        state_score: null,
+        score_readiness: {
+          ...system.score_readiness,
+          reasons: [
+            ...system.score_readiness.reasons,
+            { code: "outdated", required_group: null, present_keys: [] },
+          ],
+        },
+      };
+    }),
   };
 }
 

@@ -1,6 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import {
+  ASSESSMENT_EXCLUSION_LABELS,
+  type AssessmentExclusionReason,
+} from "@/lib/health-profile-assessment-eligibility";
 import { buildHealthNavigationPath } from "@/lib/health-navigation";
 import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/status-chip";
@@ -22,6 +26,8 @@ type Observation = {
   resolution_status: string | null;
   verification_status?: string | null;
   registry_binding_ready?: boolean;
+  assessment_eligible?: boolean;
+  assessment_exclusion_reason?: AssessmentExclusionReason | null;
   value: number | null;
   unit: string;
   ref_low: number | null;
@@ -68,11 +74,15 @@ function biomarkerStatus(o: Observation): StatusInfo {
   if (o.value_kind && o.value_kind !== "numeric") {
     return { label: "Text result", variant: "neutral" };
   }
-  if (o.value == null || o.ref_low == null || o.ref_high == null) {
+  if (o.value == null || (o.ref_low == null && o.ref_high == null)) {
     return { label: "No range", variant: "neutral" };
   }
-  if (o.value < o.ref_low) return { label: "Low", variant: "info" };
-  if (o.value > o.ref_high) return { label: "Attention", variant: "warning" };
+  if (o.ref_low != null && o.value < o.ref_low) {
+    return { label: "Low", variant: "info" };
+  }
+  if (o.ref_high != null && o.value > o.ref_high) {
+    return { label: "Attention", variant: "warning" };
+  }
   return { label: "Normal", variant: "success" };
 }
 function observationSourceHref(observation: Observation, returnTo: string): string | null {
@@ -124,6 +134,9 @@ export function BiomarkerTable({
               const status = biomarkerStatus(o);
               const selected = o.id === selectedObservationId;
               const sourceHref = observationSourceHref(o, sourceReturnTo);
+              const assessmentExclusion = o.assessment_exclusion_reason
+                ? ASSESSMENT_EXCLUSION_LABELS[o.assessment_exclusion_reason]
+                : null;
               return (
                 <DataTableRow
                   key={o.id}
@@ -154,10 +167,19 @@ export function BiomarkerTable({
                   <DataTableCell className="text-[var(--eh-text-secondary)]">
                     {o.ref_low != null && o.ref_high != null
                       ? `${o.ref_low} – ${o.ref_high}`
-                      : "—"}
+                      : o.ref_low != null
+                        ? `≥ ${o.ref_low}`
+                        : o.ref_high != null
+                          ? `≤ ${o.ref_high}`
+                          : "—"}
                   </DataTableCell>
                   <DataTableCell>
                     <StatusChip variant={status.variant}>{status.label}</StatusChip>
+                    {assessmentExclusion ? (
+                      <p className="mt-1 max-w-56 text-xs text-[var(--eh-text-muted)]">
+                        Not used in assessment: {assessmentExclusion}
+                      </p>
+                    ) : null}
                   </DataTableCell>
                   <DataTableCell className="text-[var(--eh-text-secondary)]">
                     {o.observed_at}
@@ -187,6 +209,9 @@ export function BiomarkerTable({
           const status = biomarkerStatus(o);
           const selected = o.id === selectedObservationId;
           const sourceHref = observationSourceHref(o, sourceReturnTo);
+          const assessmentExclusion = o.assessment_exclusion_reason
+            ? ASSESSMENT_EXCLUSION_LABELS[o.assessment_exclusion_reason]
+            : null;
           return (
             <li key={o.id}>
               <SurfaceCard
@@ -222,7 +247,14 @@ export function BiomarkerTable({
                       ) : null}
                     </p>
                   </div>
-                  <StatusChip variant={status.variant}>{status.label}</StatusChip>
+                  <div className="max-w-52 text-right">
+                    <StatusChip variant={status.variant}>{status.label}</StatusChip>
+                    {assessmentExclusion ? (
+                      <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
+                        Not used in assessment: {assessmentExclusion}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
               </SurfaceCard>
             </li>

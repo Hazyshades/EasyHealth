@@ -465,6 +465,30 @@ export function paginateTimelineEvents(
   };
 }
 
+export type TimelinePageLoader<T> = (
+  offset: number,
+  limit: number,
+) => Promise<readonly T[]>;
+
+export async function collectTimelinePages<T>(
+  loadPage: TimelinePageLoader<T>,
+  pageSize: number,
+): Promise<T[]> {
+  if (!Number.isSafeInteger(pageSize) || pageSize < 1) {
+    throw new RangeError("Timeline page size must be a positive integer");
+  }
+
+  const items: T[] = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const page = await loadPage(offset, pageSize);
+    if (page.length > pageSize) {
+      throw new RangeError("Timeline page loader returned more items than requested");
+    }
+    items.push(...page);
+    if (page.length < pageSize) return items;
+  }
+}
+
 export function parseTimelineQuery(
   searchParams: URLSearchParams,
 ): { value: TimelineQuery } | { error: string } {

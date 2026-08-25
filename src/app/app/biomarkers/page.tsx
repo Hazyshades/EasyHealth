@@ -28,6 +28,7 @@ import {
   filterMeasurementComparisonSeries,
 } from "@/lib/biomarker-comparison";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
+import type { AssessmentExclusionReason } from "@/lib/health-profile-assessment-eligibility";
 
 type LabUnitSystem = "us" | "si";
 
@@ -41,6 +42,8 @@ type Observation = {
   registry_binding_ready?: boolean;
   trend_eligible?: boolean;
   conversion_eligible?: boolean;
+  assessment_eligible?: boolean;
+  assessment_exclusion_reason?: AssessmentExclusionReason | null;
   value: number | null;
   unit: string;
   ref_low: number | null;

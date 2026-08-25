@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 import { ScoreProvenancePanel } from "@/components/score-provenance-panel";
 import { buildHealthNavigationPath } from "@/lib/health-navigation";
+import { assessmentStatusLabel, type BodySystemId, type SystemInsight } from "@/lib/health-systems";
 import {
-  assessmentStatusLabel,
-  type BodySystemId,
-  type SystemInsight,
-} from "@/lib/health-systems";
+  FRESHNESS_STATUS_LABELS,
+  type FreshnessStatus,
+} from "@/lib/health-profile-freshness";
 import { cn } from "@/lib/utils";
 
 function statusLabel(status: string): string {
@@ -27,6 +27,12 @@ function formatSourceDate(iso: string | null): string {
     year: "numeric",
   });
 }
+function freshnessLabel(status: FreshnessStatus | undefined): string {
+  return status
+    ? FRESHNESS_STATUS_LABELS[status]
+    : "Freshness not evaluated for this saved version";
+}
+
 type HealthProfileDrawerProps = {
   system: SystemInsight | null;
   layoutLabel: string;
@@ -54,19 +60,39 @@ export function HealthProfileDrawer({
   if (!open || !system) return null;
 
   const status = assessmentStatusLabel(system.state_score, system.data_confidence);
-  const missingGroups = system.score_readiness.missing_groups;
-  const unavailableKeys = new Set(system.score_readiness.present_without_reference);
+
+  const readinessReasons = system.score_readiness.reasons;
+  const missingGroups = readinessReasons.flatMap((reason) =>
+    reason.code === "missing" && reason.required_group
+      ? [reason.required_group]
+      : []
+  );
+  const invalidKeys = new Set(
+    readinessReasons.flatMap((reason) =>
+      reason.code === "invalid" ? reason.present_keys : []
+    )
+  );
+  const isUpdating = readinessReasons.some((reason) => reason.code === "outdated" && reason.required_group == null);
+  const hasStaleObservation = system.markers.some((marker) => marker.freshness_status === "outdated");
+  const hasUnknownDate = readinessReasons.some((reason) => reason.code === "unknown_date")
+    || system.markers.some((marker) => marker.freshness_status === "unknown_date");
   const supportingMarkers = system.markers.filter((marker) => marker.score_role !== "core");
   const drawerState =
-    system.id === "general"
-      ? "Not scored - supporting / specialty data"
-      : system.markers.length === 0
-        ? "No data"
-        : system.scoreability === "non_scoreable"
-          ? "Not scored - individual markers only"
-          : system.state_score == null
-            ? "Not scored - incomplete core"
-            : null;
+    isUpdating
+      ? "Health Profile assessment is updating"
+      : system.id === "general"
+        ? "Not scored - supporting / specialty data"
+        : system.markers.length === 0
+          ? "No data"
+          : system.scoreability === "non_scoreable"
+            ? "Not scored - individual markers only"
+            : hasStaleObservation
+              ? "Not scored - outdated data"
+              : hasUnknownDate
+                ? "Not scored - date unavailable"
+                : system.state_score == null
+                  ? "Not scored - incomplete core"
+                  : null;
   const profilePath = buildHealthNavigationPath("/app/profile", {
     system: system.id,
     returnTo: navigationReturnTo,
@@ -155,6 +181,21 @@ export function HealthProfileDrawer({
                   These supporting or specialty markers do not drive named-system assessments.
                 </p>
               ) : null}
+              {isUpdating ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  The previous score is not shown as current while updated records are assessed.
+                </p>
+              ) : null}
+              {hasStaleObservation && !isUpdating ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Required observations older than the current assessment policy do not unlock a numeric score.
+                </p>
+              ) : null}
+              {hasUnknownDate ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  A required observation has no available medical date, so its currentness cannot be evaluated.
+                </p>
+              ) : null}
               {missingGroups.length > 0 ? (
                 <div className="mt-3 text-sm text-muted-foreground">
                   <p className="font-medium text-slate-800">Needed for this assessment</p>
@@ -165,14 +206,16 @@ export function HealthProfileDrawer({
                   </ul>
                 </div>
               ) : null}
-              {unavailableKeys.size > 0 ? (
+              {invalidKeys.size > 0 ? (
                 <p className="mt-3 text-sm text-muted-foreground">
-                  Present without a usable lab reference range: {[...unavailableKeys].join(", ")}.
+                  Present but not usable for this assessment: {[...invalidKeys].join(", ")}.
                 </p>
               ) : null}
-              <Button asChild variant="outline" className="mt-4">
-                <Link href="/app/upload">Upload a document</Link>
-              </Button>
+              {!isUpdating ? (
+                <Button asChild variant="outline" className="mt-4">
+                  <Link href="/app/upload">Upload a document</Link>
+                </Button>
+              ) : null}
             </section>
           ) : null}
 
@@ -267,8 +310,13 @@ export function HealthProfileDrawer({
                     )}
                     <p className="text-xs text-muted-foreground">{statusLabel(marker.status)}</p>
                     <p className="text-xs text-muted-foreground">
-                      Observed {marker.observed_at}
+                      {freshnessLabel(marker.freshness_status)}
                     </p>
+                    {marker.observed_at ? (
+                      <p className="text-xs text-muted-foreground">
+                        Observed {marker.observed_at}
+                      </p>
+                    ) : null}
                     {marker.observation_kind === "instrumental" ? (
                       <p className="text-xs font-medium text-teal-700">
                         From imaging/functional study

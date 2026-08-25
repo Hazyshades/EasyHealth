@@ -198,7 +198,7 @@ export default function HealthProfilePage() {
               : "Health Profile update in progress"}
           </p>
           <p className="mt-1">
-            {profile.assessment.error_message ?? "Your last completed assessment remains available while we update it."}
+            {profile.assessment.error_message ?? "Health Profile assessment is updating. The previous score is not shown as current."}
           </p>
           {(profile.assessment.status === "failed" || profile.assessment.status === "retryable_failed") ? (
             <Button type="button" variant="outline" className="mt-3" onClick={() => handleRetryAssessment()}>
@@ -321,6 +321,7 @@ export default function HealthProfilePage() {
                 scoreableNamedSystemCount={profile!.scoreable_named_system_count}
 
                 scoreableNamedSystemTotal={profile!.scoreable_named_system_total}
+                assessmentFreshness={profile!.assessment_freshness}
 
                 dismissalKey={profile!.overall_assessment_dismissal_key}
 
@@ -381,10 +382,9 @@ export default function HealthProfilePage() {
               </p>
 
               <p className="mt-0.5 text-xs text-[var(--eh-text-muted)]">
-
-                {[source.lab_name, source.observed_at].filter(Boolean).join(" · ")}
-
+                {[source.lab_name, source.observed_at ?? "Date unavailable"].filter(Boolean).join(" · ")}
               </p>
+
 
             </li>
 

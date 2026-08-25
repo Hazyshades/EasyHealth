@@ -159,6 +159,33 @@
       "reason": "Service-role grants for AI invocation logging and observation source embeds require pgTAP."
     },
     {
+      "script": "test:eh132",
+      "verificationFiles": ["scripts/verify-eh132-timeline-panel-release.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "quality",
+      "reason": "EH-132 cross-feature timeline, comparison, panel, and performance release validation."
+    },
+    {
+      "script": "test:eh132-fixtures",
+      "verificationFiles": ["scripts/verify-eh132-qa-fixtures.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "quality",
+      "reason": "EH-132 synthetic timeline, comparison, and performance fixture integrity is release evidence."
+    },
+    {
+      "script": "test:eh132-db",
+      "verificationFiles": ["QA-Db_tests/eh132_timeline_panel_release.sql"],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "quality",
+      "reason": "EH-132 duplicate, precision, ownership, and profile-isolation release contracts require pgTAP."
+    },
+    {
       "script": "test:eh130",
       "verificationFiles": [
         "scripts/verify-eh130-duplicate-documents.ts"
@@ -170,6 +197,28 @@
       "reason": "Duplicate-document detection and safe-archive contracts require explicit CI triage."
     },
     {
+      "script": "test:eh143",
+      "verificationFiles": [
+        "scripts/verify-eh143-readiness.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "health-profile",
+      "reason": "Score-readiness, null-result, and stale-assessment contracts are release verification."
+    },
+    {
+      "script": "test:health-profile-drawer-status",
+      "verificationFiles": [
+        "scripts/verify-health-profile-drawer-status.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "health-profile",
+      "reason": "Drawer status-chip rendering guards readiness presentation against DOM-global shadowing regressions."
+    },
+    {
       "script": "test:eh130-db",
       "verificationFiles": [
         "supabase/tests/eh130_duplicate_document_detection.sql"
@@ -179,6 +228,61 @@
       "localOnly": false,
       "owner": "documents",
       "reason": "Duplicate candidate persistence, resolution, and audit contracts require pgTAP."
+    },
+    {
+      "script": "test:eh141",
+      "verificationFiles": [
+        "scripts/verify-eh141-score-required-groups.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "health-profile",
+      "reason": "EH-141 score-required group readiness policy and alternatives require release verification."
+    },
+    {
+      "script": "test:eh142",
+      "verificationFiles": [
+        "scripts/verify-eh142-assessment-eligibility.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "health-profile",
+      "reason": "EH-142 fail-closed assessment eligibility and user-safe exclusion guidance require release verification."
+    },
+    {
+      "script": "test:eh142-db",
+      "verificationFiles": [
+        "QA-Db_tests/eh142_assessment_eligibility.sql"
+      ],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "health-profile",
+      "reason": "EH-142 durable assessment recalculation and append-only version contracts require pgTAP."
+    },
+    {
+      "script": "test:eh144",
+      "verificationFiles": [
+        "scripts/verify-eh144-freshness-policy.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "health-profile",
+      "reason": "Versioned freshness, unknown-date, outdated, and non-prescriptive Health Profile contracts require explicit CI coverage."
+    },
+    {
+      "script": "test:eh144-db",
+      "verificationFiles": [
+        "supabase/tests/eh144_freshness_policy.sql"
+      ],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "health-profile",
+      "reason": "Assessment freshness policy version stamping and completion RPC behavior require pgTAP."
     }
   ],
   "localOnly": []

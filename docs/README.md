@@ -77,6 +77,7 @@ QA checklists (qa-tests.md)          ← verification status
 - [Biomarker Registry v1.0.0 baseline](../registry/biomarker-registry/v1.0.0/AUDIT.md)
 - [AI providers](./06-ai/ai-providers.md)
 - [Registry 2.0 biomarker catalog](./05-data/biomarker-catalog.md)
+- [Health Profile score-readiness policy](./05-data/score-required-groups.md)
 - [Registry 2.0 biomarker aliases](./05-data/biomarker-aliases.md)
 - [Registry 2.0 corpus evidence](./05-data/biomarker-corpus-evidence.md)
 - [Medical safety](./06-ai/medical-safety.md)

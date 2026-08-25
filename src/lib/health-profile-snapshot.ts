@@ -27,6 +27,7 @@ import {
   type ScoreExclusion,
 } from "@/lib/health-systems";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { HEALTH_PROFILE_FRESHNESS_POLICY } from "@/lib/health-profile-freshness";
 import { projectHealthProfileLaboratoryInput } from "@/lib/health-profile-input";
 
 type SnapshotLaboratorySource = {
@@ -45,6 +46,7 @@ type SnapshotObservationRow = {
   unit: string | null;
   ref_low: number | string | null;
   ref_high: number | string | null;
+  raw_reference_text: string | null;
   observed_at: string;
   document_id: string | null;
   observation_kind: "lab";
@@ -71,6 +73,8 @@ export type HealthProfileSnapshot = Readonly<{
   inputHash: string;
   profile: HealthProfileAssessment;
   sourceDocumentIds: string[];
+  freshnessPolicyVersion: string;
+  freshnessEvaluatedAt: string;
 }>;
 
 export { compareSnapshotRows, hashHealthProfileSnapshotInput };
@@ -85,7 +89,7 @@ export async function buildHealthProfileSnapshot(options: {
     supabase
       .from("observations")
       .select(
-        "id, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier, source_page, source_text, bounding_box, source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(record_status, is_current, is_published), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence)",
+        "id, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, raw_reference_text, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier, source_page, source_text, bounding_box, source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(record_status, is_current, is_published), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence)",
       )
       .eq("profile_id", options.profileId)
       .eq("observation_kind", "lab"),
@@ -207,13 +211,26 @@ export async function buildHealthProfileSnapshot(options: {
       });
       return [];
     });
+  const freshnessEvaluatedAt = new Date().toISOString();
+  const freshnessAsOf = freshnessEvaluatedAt.slice(0, 10);
   const profile = buildHealthProfile(inputs, sources, {
     excludedObservations,
+    freshnessAsOf,
+    freshnessEvaluatedAt,
+    freshnessPolicy: HEALTH_PROFILE_FRESHNESS_POLICY,
   });
   const inputHash = hashHealthProfileSnapshotInput({
+    freshness_policy_version: HEALTH_PROFILE_FRESHNESS_POLICY.version,
+    freshness_as_of: freshnessAsOf,
     inputs,
     sources,
     excludedObservations,
   });
-  return { inputHash, profile, sourceDocumentIds: sources.map((source) => source.id) };
+  return {
+    inputHash,
+    profile,
+    sourceDocumentIds: sources.map((source) => source.id),
+    freshnessPolicyVersion: HEALTH_PROFILE_FRESHNESS_POLICY.version,
+    freshnessEvaluatedAt,
+  };
 }

@@ -1,5 +1,6 @@
 import type { KeyboardEvent, SVGProps } from "react";
 import { cn } from "@/lib/utils";
+import type { FreshnessStatus } from "@/lib/health-profile-freshness";
 
 /** Framed viewBox for silhouette + side badges (bounds from path + badges, pad 16). */
 export const BODY_MAP_VIEWBOX = "126 49 210 407";
@@ -187,6 +188,7 @@ type HealthSystemBadgeProps = {
   dimmed?: boolean;
   index?: number;
   scoreClassName: string;
+  freshnessStatus?: FreshnessStatus;
   onSelect?: () => void;
 };
 
@@ -206,8 +208,16 @@ export function HealthSystemBadge({
   dimmed,
   index = 0,
   scoreClassName,
+  freshnessStatus,
   onSelect,
 }: HealthSystemBadgeProps) {
+  const unavailableReason =
+    freshnessStatus === "outdated"
+      ? "outdated evidence"
+      : freshnessStatus === "unknown_date"
+        ? "medical date unavailable"
+        : "assessment unavailable";
+
   return (
     <g
       className={cn("body-map-badge", active && "is-active", dimmed && "is-dimmed")}
@@ -218,7 +228,7 @@ export function HealthSystemBadge({
       onKeyDown={(event) => handleBadgeKeyDown(event, onSelect)}
       aria-label={
         score == null
-          ? `${label}: current state assessment unavailable`
+          ? `${label}: ${unavailableReason}`
           : `${label}: ${score} current state assessment`
       }
       aria-pressed={active}

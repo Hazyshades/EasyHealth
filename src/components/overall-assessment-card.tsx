@@ -15,6 +15,7 @@ type OverallAssessmentCardProps = {
   recordsUsedCount: number;
   scoreableNamedSystemCount: number;
   scoreableNamedSystemTotal: number;
+  assessmentFreshness?: "current" | "outdated";
   dismissalKey?: string;
   dismissible?: boolean;
   lastUpdated?: string | null;
@@ -68,6 +69,7 @@ export function OverallAssessmentCard({
   recordsUsedCount,
   scoreableNamedSystemCount,
   scoreableNamedSystemTotal,
+  assessmentFreshness = "current",
   dismissalKey,
   dismissible = true,
   lastUpdated,
@@ -75,9 +77,10 @@ export function OverallAssessmentCard({
   variant = "detailed",
 }: OverallAssessmentCardProps) {
   const isCompact = variant === "compact";
+  const isOutdated = assessmentFreshness === "outdated";
   const { iconRef, hoverProps } = useAnimatedIconHover();
   const storageKey = dismissalKey ? `easyhealth:overall-assessment:${dismissalKey}` : null;
-  const canDismiss = dismissible && storageKey != null;
+  const canDismiss = dismissible && storageKey != null && !isOutdated;
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
@@ -91,21 +94,28 @@ export function OverallAssessmentCard({
       return;
     }
     setDismissed(localStorage.getItem(storageKey) === "dismissed");
-  }, [overallStateScore, storageKey]);
+  }, [canDismiss, overallStateScore, storageKey]);
 
-  if (overallStateScore == null) {
+  if (overallStateScore == null || isOutdated) {
+
     if (canDismiss && dismissed) return null;
     return (
       <SurfaceCard padding="lg" className={cn("flex h-full flex-col", !isCompact && "shadow-sm")}>
         <p className="text-sm font-medium text-[var(--eh-text-secondary)]">
-          Insufficient data for overall assessment
+          {isOutdated
+            ? "Health Profile assessment is updating"
+            : "Insufficient data for overall assessment"}
         </p>
         <p className="mt-2 text-sm text-[var(--eh-text-secondary)]">
-          A numeric overall assessment appears after at least three named systems have complete lab evidence.
+          {isOutdated
+            ? "The previous score is not shown as current while updated records are assessed."
+            : "A numeric overall assessment appears after at least three named systems have complete lab evidence."}
         </p>
-        <p className="mt-4 text-sm font-medium text-[var(--eh-text-primary)]">
-          Based on {scoreableNamedSystemCount} of {scoreableNamedSystemTotal} systems
-        </p>
+        {!isOutdated ? (
+          <p className="mt-4 text-sm font-medium text-[var(--eh-text-primary)]">
+            Based on {scoreableNamedSystemCount} of {scoreableNamedSystemTotal} systems
+          </p>
+        ) : null}
         {canDismiss ? (
           <Button
             type="button"
