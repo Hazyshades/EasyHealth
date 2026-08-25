@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { Button } from "@/components/ui/button";
 import { OverallAssessmentCard } from "@/components/overall-assessment-card";
+import { ExcludedObservationsPanel } from "@/components/score-provenance-panel";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 import { buildHealthNavigationPath, readHealthNavigationContext } from "@/lib/health-navigation";
 import { normalizeBodySystemId, resolveBodyMapLayout } from "@/lib/health-systems";
@@ -392,6 +393,10 @@ export default function HealthProfilePage() {
         </ul>
 
       </div>
+      <ExcludedObservationsPanel
+        provenance={profile?.score_provenance}
+        navigationReturnTo={profileReturnTo}
+      />
 
     </div>
 

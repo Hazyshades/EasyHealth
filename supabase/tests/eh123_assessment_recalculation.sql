@@ -42,12 +42,22 @@ select is(
 select throws_ok($$select public.complete_assessment_recalculation_job((select id from public.assessment_recalculation_jobs where profile_id = '00000000-0000-0000-0000-000000000231'), 'invalid', '{}'::jsonb, '{}')$$, 'invalid_assessment_snapshot', 'invalid completion does not produce an output');
 select lives_ok($$select public.complete_assessment_recalculation_job((select id from public.assessment_recalculation_jobs where profile_id = '00000000-0000-0000-0000-000000000231'), repeat('a', 64), '{}'::jsonb, '{}')$$, 'claimed job writes a version');
 select is((select count(*)::int from public.health_profile_assessment_versions where profile_id = '00000000-0000-0000-0000-000000000231'), 1, 'one immutable assessment version exists');
-select is(
-  (select freshness_policy_version from public.health_profile_assessment_versions where profile_id = '00000000-0000-0000-0000-000000000231'),
+select is((select freshness_policy_version from public.health_profile_assessment_versions where profile_id = '00000000-0000-0000-0000-000000000231'),
   'eh-144.v1',
   'the legacy completion call receives the default freshness policy version'
 );
-select is((select count(*)::int from public.health_profile_assessment_event_receipts), 1, 'captured source event receives one receipt');
+select is(
+  (
+    select count(*)::int
+    from public.health_profile_assessment_event_receipts
+    where dependency_event_id in (
+      select id from public.assessment_dependency_events
+      where source_change_event_id = '00000000-0000-0000-0000-000000000233'
+    )
+  ),
+  1,
+  'captured source event receives one receipt'
+);
 select is((select status::text from public.assessment_recalculation_jobs where profile_id = '00000000-0000-0000-0000-000000000231'), 'succeeded', 'completed job reaches succeeded');
 
 select throws_ok(

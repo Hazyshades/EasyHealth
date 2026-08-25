@@ -42,6 +42,12 @@ function fixtureSystem(overrides: Partial<SystemInsight>): SystemInsight {
     data_confidence: 80,
     scoreability: "incomplete",
     score_readiness: { required_groups: [], reasons: [] },
+    score_provenance: {
+      algorithm_version: "fixture-score-v1",
+      readiness_groups: [],
+      contributors: [],
+      excluded: [],
+    },
     primary_source: null,
     why_highlighted: [],
     markers: [MARKER],

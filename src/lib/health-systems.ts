@@ -1,4 +1,10 @@
-import { observationIdentityKey, type BodySystemId, type SystemScoreability, type ValueKind } from "@/lib/biomarkers";
+import {
+  observationIdentityKey,
+  type BodySystemId,
+  type ScoreContributionGroup,
+  type SystemScoreability,
+  type ValueKind,
+} from "@/lib/biomarkers";
 import { getReviewedAssessmentBinding } from "@/lib/biomarkers";
 import {
   BODY_SYSTEM_LABELS,
@@ -11,6 +17,7 @@ import {
   NAMED_BODY_SYSTEMS,
   NON_SCOREABLE_SYSTEMS,
 } from "@/lib/biomarkers/registry-v2-runtime";
+import type { SourceRegion } from "@/lib/documents/source-region";
 import {
   HEALTH_PROFILE_FRESHNESS_POLICY,
   evaluateSystemObservationFreshness,
@@ -103,9 +110,9 @@ export type LegacyBodySystemId = "vitamins";
 export type MarkerStatus = "in_range" | "out_of_range" | "unknown";
 
 export type ObservationInput = {
-  biomarker_key: string;
-  /** Stable source row identity used for deterministic latest selection. */
+  /** Stable source observation id when the persistence read provides one. */
   observation_id?: string | null;
+  biomarker_key: string;
   /** Required Registry 2.0 identity for concrete assessment inputs. */
   measurement_definition_key?: string | null;
   resolution_status?: "resolved" | "partial" | "ambiguous" | "unmapped" | null;
@@ -122,6 +129,10 @@ export type ObservationInput = {
   ordinal?: number | null;
   specimen?: string;
   modifier?: string;
+  /** Source provenance copied from the write-once observation row. */
+  source_page?: number | null;
+  source_text?: string | null;
+  source_region?: SourceRegion | null;
   /** Present when unit conversion was applied for display. */
   converted?: boolean;
   conversion_note?: string | null;
@@ -140,6 +151,7 @@ export type HealthProfileSource = {
 export type MarkerSource = HealthProfileSource;
 
 export type SystemMarker = {
+  observation_id?: string | null;
   key: string;
   measurement_definition_key?: string | null;
   name: string;
@@ -153,6 +165,9 @@ export type SystemMarker = {
   document_id: string | null;
   observation_kind?: "lab" | "instrumental";
   source: MarkerSource | null;
+  source_page?: number | null;
+  source_text?: string | null;
+  source_region?: SourceRegion | null;
   score_role?: "core" | "extended" | "display";
   value_kind?: ValueKind;
   value_text?: string | null;
@@ -164,6 +179,64 @@ export type SystemMarker = {
   original_value?: number;
   original_unit?: string;
 };
+export const HEALTH_PROFILE_SCORE_ALGORITHM_VERSION = "eh145-score-v1" as const;
+
+export type ScoreExclusionReason =
+  | "no_active_revision"
+  | "incomplete_resolution"
+  | "candidate_only_identity"
+  | "assessment_binding_ineligible"
+  | "non_numeric_value"
+  | "missing_reference_range"
+  | "specimen_mismatch"
+  | "not_core"
+  | "duplicate_contribution_group"
+  | "not_in_contribution_group"
+  | "score_not_available"
+  | "system_not_scoreable";
+
+type ScoreEvidenceItem = {
+  observation_id: string | null;
+  system_id: BodySystemId;
+  key: string;
+  measurement_definition_key: string | null;
+  name: string;
+  value: number | null;
+  value_text: string | null;
+  unit: string;
+  ref_low: number | null;
+  ref_high: number | null;
+  status: MarkerStatus;
+  observed_at: string | null;
+  document_id: string | null;
+  source: MarkerSource | null;
+  source_page: number | null;
+  source_text: string | null;
+  source_region: SourceRegion | null;
+};
+
+export type ScoreContributor = ScoreEvidenceItem & {
+  contribution_group: string;
+  contribution_score: number;
+};
+
+export type ScoreExclusion = ScoreEvidenceItem & {
+  reason: ScoreExclusionReason;
+  reason_detail: string | null;
+  contribution_group: string | null;
+};
+
+export type SystemScoreProvenance = {
+  algorithm_version: string;
+  readiness_groups: ScoreReadinessGroup[];
+  contributors: ScoreContributor[];
+  excluded: ScoreExclusion[];
+};
+
+export type HealthProfileScoreProvenance = {
+  algorithm_version: string;
+  excluded_observations: ScoreExclusion[];
+};
 
 export type SystemInsight = {
   id: BodySystemId;
@@ -172,6 +245,7 @@ export type SystemInsight = {
   data_confidence: number;
   scoreability: SystemScoreability;
   score_readiness: SystemScoreReadiness;
+  score_provenance: SystemScoreProvenance;
   primary_source: MarkerSource | null;
   why_highlighted: string[];
   markers: SystemMarker[];
@@ -223,6 +297,8 @@ export type HealthProfileResult = {
   scoreable_named_system_count: number;
   assessment_freshness: "current" | "outdated";
   scoreable_named_system_total: number;
+  score_algorithm_version: string;
+  score_provenance: HealthProfileScoreProvenance;
   overall_assessment_dismissal_key?: string;
   freshness_policy_version?: string;
   freshness_evaluated_at?: string;
@@ -390,6 +466,188 @@ function pickUsableMarker(keys: readonly string[], markers: SystemMarker[]): Sys
   return null;
 }
 
+type ContributionSelection = {
+  group: ScoreContributionGroup;
+  marker: SystemMarker;
+};
+
+function selectContributionMarkers(
+  systemId: BodySystemId,
+  markers: SystemMarker[],
+): ContributionSelection[] {
+  return getRegistryV2ScoreContributionGroups(systemId).flatMap((group) => {
+    const marker = pickUsableMarker(group.keys, markers);
+    return marker ? [{ group, marker }] : [];
+  });
+}
+
+function toScoreEvidenceItem(
+  systemId: BodySystemId,
+  marker: SystemMarker,
+): ScoreEvidenceItem {
+  return {
+    observation_id: marker.observation_id ?? null,
+    system_id: systemId,
+    key: marker.key,
+    measurement_definition_key: marker.measurement_definition_key ?? null,
+    name: marker.name,
+    value: marker.value,
+    value_text: marker.value_text ?? null,
+    unit: marker.unit,
+    ref_low: marker.ref_low,
+    ref_high: marker.ref_high,
+    status: marker.status,
+    observed_at: marker.observed_at,
+    document_id: marker.document_id,
+    source: marker.source,
+    source_page: marker.source_page ?? null,
+    source_text: marker.source_text ?? null,
+    source_region: marker.source_region ?? null,
+  };
+}
+
+function buildSystemScoreProvenance(
+  systemId: BodySystemId,
+  markers: SystemMarker[],
+  readiness: SystemScoreReadiness,
+  stateScore: number | null,
+): SystemScoreProvenance {
+  const selections =
+    stateScore == null ? [] : selectContributionMarkers(systemId, markers);
+  const selectedMarkers = new Set(selections.map((selection) => selection.marker));
+  const contributors: ScoreContributor[] = selections.map(({ group, marker }) => ({
+    ...toScoreEvidenceItem(systemId, marker),
+    contribution_group: group.id,
+    contribution_score: markerStateScore(
+      marker.status,
+      marker.value,
+      marker.ref_low,
+      marker.ref_high,
+    ),
+  }));
+  const contributionGroups = getRegistryV2ScoreContributionGroups(systemId);
+  const excluded = markers.flatMap((marker): ScoreExclusion[] => {
+    if (selectedMarkers.has(marker)) return [];
+
+    let reason: ScoreExclusionReason;
+    let reasonDetail: string | null = null;
+    let contributionGroup: string | null = null;
+
+    if (systemId === "general" || NON_SCOREABLE_SYSTEMS.has(systemId)) {
+      reason = "system_not_scoreable";
+    } else if (!isNumericMarker(marker)) {
+      reason = "non_numeric_value";
+    } else if (markerRole(marker) !== "core") {
+      reason = "not_core";
+    } else if (!hasUsableDocumentReference(marker)) {
+      reason = "missing_reference_range";
+    } else if (!matchesReviewedSpecimen(marker)) {
+      reason = "specimen_mismatch";
+    } else if (stateScore == null) {
+      reason = "score_not_available";
+      reasonDetail = "required_readiness_group_incomplete";
+    } else {
+      const duplicate = contributionGroups.find(
+        (group) =>
+          group.keys.includes(marker.key) &&
+          selections.some(
+            (selection) =>
+              selection.group.id === group.id && selection.marker !== marker,
+          ),
+      );
+      if (duplicate) {
+        reason = "duplicate_contribution_group";
+        contributionGroup = duplicate.id;
+      } else {
+        reason = "not_in_contribution_group";
+      }
+    }
+
+    return [{
+      ...toScoreEvidenceItem(systemId, marker),
+      reason,
+      reason_detail: reasonDetail,
+      contribution_group: contributionGroup,
+    }];
+  });
+
+  return {
+    algorithm_version: HEALTH_PROFILE_SCORE_ALGORITHM_VERSION,
+    readiness_groups: readiness.required_groups,
+    contributors,
+    excluded,
+  };
+}
+
+function buildProfileScoreExclusion(
+  systemId: BodySystemId,
+  marker: SystemMarker,
+  reason: ScoreExclusionReason,
+  reasonDetail: string | null = null,
+  contributionGroup: string | null = null,
+): ScoreExclusion {
+  return {
+    ...toScoreEvidenceItem(systemId, marker),
+    reason,
+    reason_detail: reasonDetail,
+    contribution_group: contributionGroup,
+  };
+}
+
+function computeContributionScore(
+  systemId: BodySystemId,
+  markers: SystemMarker[],
+): number | null {
+  const selections = selectContributionMarkers(systemId, markers);
+  const scores = selections.map(({ marker }) =>
+    markerStateScore(marker.status, marker.value, marker.ref_low, marker.ref_high),
+  );
+  return scores.length > 0 ? average(scores) : null;
+}
+
+function buildSystemScoreExplanations(
+  systemId: BodySystemId,
+  markers: SystemMarker[],
+  scoreability: SystemScoreability,
+  readiness: SystemScoreReadiness,
+  stateScore: number | null,
+): SystemScoreProvenance {
+  if (markers.length === 0) {
+    return {
+      algorithm_version: HEALTH_PROFILE_SCORE_ALGORITHM_VERSION,
+      readiness_groups: readiness.required_groups,
+      contributors: [],
+      excluded: [],
+    };
+  }
+  if (scoreability === "scoreable") {
+    return buildSystemScoreProvenance(systemId, markers, readiness, stateScore);
+  }
+  return {
+    algorithm_version: HEALTH_PROFILE_SCORE_ALGORITHM_VERSION,
+    readiness_groups: readiness.required_groups,
+    contributors: [],
+    excluded: markers.map((marker) =>
+      buildProfileScoreExclusion(
+        systemId,
+        marker,
+        systemId === "general" || NON_SCOREABLE_SYSTEMS.has(systemId)
+          ? "system_not_scoreable"
+          : !isNumericMarker(marker)
+            ? "non_numeric_value"
+            : markerRole(marker) !== "core"
+              ? "not_core"
+              : !hasUsableDocumentReference(marker)
+                ? "missing_reference_range"
+                : !matchesReviewedSpecimen(marker)
+                  ? "specimen_mismatch"
+                  : "score_not_available",
+        stateScore == null && isNumericMarker(marker) ? "required_readiness_group_incomplete" : null,
+      ),
+    ),
+  };
+}
+
 function resolveReadinessGroup(keys: readonly string[], markers: SystemMarker[]): ScoreReadinessGroup {
   const groupMarkers = markers.filter((marker) => keys.includes(marker.key));
   const satisfied = pickUsableMarker(keys, groupMarkers);
@@ -471,13 +729,7 @@ export function computeSystemStateScore(
 ): number | null {
   if (evaluation.scoreability !== "scoreable") return null;
 
-  const contributionScores = getRegistryV2ScoreContributionGroups(systemId)
-    .map((group) => pickUsableMarker(group.keys, markers))
-    .filter((marker): marker is SystemMarker => marker !== null)
-    .map((marker) => markerStateScore(marker.status, marker.value, marker.ref_low, marker.ref_high));
-
-  return contributionScores.length > 0 ? average(contributionScores) : null;
-
+  return computeContributionScore(systemId, markers);
 }
 
 export function computeSystemDataConfidence(
@@ -556,6 +808,8 @@ export function buildWhyHighlighted(markers: SystemMarker[]): string[] {
 }
 
 export type HealthProfileBuildOptions = Readonly<{
+  /** Exclusions captured before Health Profile projection (EH-145). */
+  excludedObservations?: readonly ScoreExclusion[];
   freshnessAsOf?: string;
   freshnessEvaluatedAt?: string;
   freshnessPolicy?: HealthProfileFreshnessPolicy;
@@ -583,6 +837,7 @@ export function buildHealthProfile(
     const numericValue = obs.value != null ? Number(obs.value) : null;
     const markers = bySystem.get(systemId) ?? [];
     markers.push({
+      observation_id: obs.observation_id ?? null,
       key,
       measurement_definition_key: obs.measurement_definition_key ?? null,
       name: obs.name,
@@ -601,6 +856,9 @@ export function buildHealthProfile(
       document_id: obs.document_id,
       observation_kind: obs.observation_kind,
       source: obs.document_id ? sourceById.get(obs.document_id) ?? null : null,
+      source_page: obs.source_page ?? null,
+      source_text: obs.source_text ?? null,
+      source_region: obs.source_region ?? null,
       score_role: getRegistryV2ScoreRole(obs.measurement_definition_key ?? key),
       value_kind: valueKind,
       value_text: obs.value_text ?? null,
@@ -624,14 +882,28 @@ export function buildHealthProfile(
 
     const name = systemId === "general" ? "General" : BODY_SYSTEMS[systemId].name;
     const evaluation = evaluateSystemScoreReadiness(systemId, markers);
+    const stateScore = computeSystemStateScore(systemId, markers, evaluation);
+    const scoreProvenance = buildSystemScoreExplanations(
+      systemId,
+      markers,
+      evaluation.scoreability,
+      evaluation.readiness,
+      stateScore,
+    );
+    const preProjectionExclusions =
+      options.excludedObservations?.filter((item) => item.system_id === systemId) ?? [];
 
     systems.push({
       id: systemId,
       name,
-      state_score: computeSystemStateScore(systemId, markers, evaluation),
+      state_score: stateScore,
       data_confidence: computeSystemDataConfidence(systemId, markers),
       scoreability: evaluation.scoreability,
       score_readiness: evaluation.readiness,
+      score_provenance: {
+        ...scoreProvenance,
+        excluded: [...scoreProvenance.excluded, ...preProjectionExclusions],
+      },
       primary_source: selectPrimarySource(markers),
       why_highlighted: buildWhyHighlighted(markers),
       markers,
@@ -645,6 +917,13 @@ export function buildHealthProfile(
   const namedSystems = systems.filter((system) => system.id !== "general");
   const confidenceScores = namedSystems.map((system) => system.data_confidence);
   const biomarkerObservationCount = latest.size;
+  const renderedSystemIds = new Set(systems.map((system) => system.id));
+  const profileExcluded = [
+    ...systems.flatMap((system) => system.score_provenance.excluded),
+    ...(options.excludedObservations ?? []).filter(
+      (item) => !renderedSystemIds.has(item.system_id),
+    ),
+  ];
 
   return {
     records_used_count: sources.length,
@@ -661,6 +940,11 @@ export function buildHealthProfile(
     overall_data_confidence: average(confidenceScores),
     scoreable_named_system_count: scoreableSystems.length,
     scoreable_named_system_total: NAMED_BODY_SYSTEMS.length,
+    score_algorithm_version: HEALTH_PROFILE_SCORE_ALGORITHM_VERSION,
+    score_provenance: {
+      algorithm_version: HEALTH_PROFILE_SCORE_ALGORITHM_VERSION,
+      excluded_observations: profileExcluded,
+    },
     freshness_policy_version: freshnessPolicy.version,
     freshness_evaluated_at: freshnessEvaluatedAt,
     systems,

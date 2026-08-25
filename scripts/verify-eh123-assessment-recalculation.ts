@@ -49,8 +49,8 @@ assert.match(
 );
 assert.match(
   snapshotBuilder,
-  /hashHealthProfileSnapshotInput\(\{[\s\S]*?freshness_policy_version: HEALTH_PROFILE_FRESHNESS_POLICY\.version[\s\S]*?inputs,[\s\S]*?sources/,
-  "the shared snapshot builder includes freshness policy identity in the canonical hash",
+  /hashHealthProfileSnapshotInput\(\{[\s\S]*?freshness_policy_version: HEALTH_PROFILE_FRESHNESS_POLICY\.version[\s\S]*?inputs,[\s\S]*?sources,[\s\S]*?excludedObservations[\s\S]*?\}\)/,
+  "the shared snapshot builder hashes freshness policy identity, score-affecting observations, and exclusions",
 );
 assert.match(
   healthProfileRoute,
