@@ -6,8 +6,15 @@ import { BodyMap, BodyMapLegend } from "@/components/body-map";
 import { PageHeader } from "@/components/layout/page-header";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { Button } from "@/components/ui/button";
+import { StatusChip } from "@/components/ui/status-chip";
 import { OverallAssessmentCard } from "@/components/overall-assessment-card";
 import { ExcludedObservationsPanel } from "@/components/score-provenance-panel";
+import {
+  assessmentDisplayStateDescription,
+  assessmentDisplayStateLabel,
+  resolveAssessmentDisplayState,
+  type HealthProfileAssessmentDisplayState,
+} from "@/lib/health-profile-assessment-state";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 import { buildHealthNavigationPath, readHealthNavigationContext } from "@/lib/health-navigation";
 import { normalizeBodySystemId, resolveBodyMapLayout } from "@/lib/health-systems";
@@ -15,6 +22,11 @@ import type { BodySystemId, HealthProfileResult } from "@/lib/health-systems";
 
 type AssessmentStatus = {
   status: "queued" | "processing" | "retryable_failed" | "failed" | "succeeded";
+  display_state?: HealthProfileAssessmentDisplayState;
+  has_current_version?: boolean;
+  version_id?: string | null;
+  generated_at?: string | null;
+  error_code?: string | null;
   error_message: string | null;
   fallback: boolean;
 };
@@ -44,11 +56,18 @@ export default function HealthProfilePage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const context = readHealthNavigationContext(
-      new URLSearchParams(window.location.search),
-    );
-    setRequestedSystem(context.system);
-    setProfileReturnTo(context.returnTo);
+
+    const syncNavigationContext = () => {
+      const context = readHealthNavigationContext(
+        new URLSearchParams(window.location.search),
+      );
+      setRequestedSystem(context.system);
+      setProfileReturnTo(context.returnTo);
+    };
+
+    syncNavigationContext();
+    window.addEventListener("popstate", syncNavigationContext);
+    return () => window.removeEventListener("popstate", syncNavigationContext);
   }, []);
 
   useEffect(() => {
@@ -169,7 +188,12 @@ export default function HealthProfilePage() {
 
 
   const layouts = resolveBodyMapLayout(profile!.systems.map((s) => s.id));
-
+  const assessment = profile!.assessment;
+  const hasCurrentVersion = assessment?.has_current_version ?? !assessment?.fallback;
+  const assessmentState =
+    assessment?.display_state ??
+    resolveAssessmentDisplayState(assessment?.status, hasCurrentVersion);
+  const assessmentDescription = assessmentDisplayStateDescription(assessmentState);
   const lastUpdated = profile!.sources[0]?.observed_at ?? null;
 
 
@@ -190,18 +214,27 @@ export default function HealthProfilePage() {
 
       </div>
 
-      {profile.assessment && profile.assessment.status !== "succeeded" ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-          <p className="font-medium">
-            {profile.assessment.status === "failed"
-              ? "Health Profile update failed"
-              : "Health Profile update in progress"}
-          </p>
-          <p className="mt-1">
-            {profile.assessment.error_message ?? "Health Profile assessment is updating. The previous score is not shown as current."}
-          </p>
-          {(profile.assessment.status === "failed" || profile.assessment.status === "retryable_failed") ? (
-            <Button type="button" variant="outline" className="mt-3" onClick={() => handleRetryAssessment()}>
+      {assessmentState !== "current" ? (
+        <div
+          className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800"
+          aria-live="polite"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusChip variant={assessmentState === "error" ? "warning" : "info"}>
+              {assessmentDisplayStateLabel(assessmentState)}
+            </StatusChip>
+          </div>
+          <p className="mt-2">{assessmentDescription}</p>
+          {assessment?.error_message ? (
+            <p className="mt-2 text-slate-600">{assessment.error_message}</p>
+          ) : null}
+          {assessment?.status === "failed" || assessment?.status === "retryable_failed" ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-3"
+              onClick={() => handleRetryAssessment()}
+            >
               Retry update
             </Button>
           ) : null}
@@ -262,17 +295,21 @@ export default function HealthProfilePage() {
               return (
 
                 <FilterChip
-
                   key={system.id}
-
                   active={activeChip === system.id}
-
+                  title={
+                    system.state_score == null
+                      ? `${layout?.label ?? system.name}: insufficient data; select for readiness details`
+                      : `${layout?.label ?? system.name}: ${system.state_score}/100 current state assessment`
+                  }
+                  aria-label={
+                    system.state_score == null
+                      ? `${layout?.label ?? system.name}: insufficient data; assessment unavailable`
+                      : `${layout?.label ?? system.name}: ${system.state_score} of 100 current state assessment`
+                  }
                   onClick={() => handleSystemSelection(activeChip === system.id ? null : system.id)}
-
                 >
-
-                  {layout?.label ?? system.name}: {system.state_score ?? "-"}
-
+                  {layout?.label ?? system.name}: {system.state_score ?? "—"}
                 </FilterChip>
 
               );
@@ -285,23 +322,18 @@ export default function HealthProfilePage() {
 
           <div className="grid grid-cols-1 gap-6 min-[1100px]:grid-cols-[1fr_320px]">
 
-            <div className="flex min-h-[600px] items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm min-[1100px]:min-h-[calc(100vh-260px)] min-[1100px]:max-h-[760px]">
+            <div className="flex min-h-[460px] items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:min-h-[540px] min-[1100px]:min-h-[calc(100vh-260px)] min-[1100px]:max-h-[760px]">
 
               <BodyMap
-
                 systems={profile!.systems}
-
                 overallStateScore={profile!.overall_state_score}
-
                 overallDataConfidence={profile!.overall_data_confidence}
-
                 embedded
-
                 externalSelectedId={activeChip}
-
                 onExternalSelect={handleSystemSelection}
                 navigationReturnTo={profileReturnTo}
-
+                assessmentState={assessmentState}
+                assessmentError={assessment?.error_message}
               />
 
             </div>
@@ -311,22 +343,16 @@ export default function HealthProfilePage() {
             <div className="space-y-5">
 
               <OverallAssessmentCard
-
                 overallStateScore={profile!.overall_state_score}
-
                 overallDataConfidence={profile!.overall_data_confidence}
-
                 recordsUsedCount={profile!.records_used_count}
-
                 scoreableNamedSystemCount={profile!.scoreable_named_system_count}
-
                 scoreableNamedSystemTotal={profile!.scoreable_named_system_total}
                 assessmentFreshness={profile!.assessment_freshness}
-
                 dismissalKey={profile!.overall_assessment_dismissal_key}
-
                 lastUpdated={lastUpdated}
-
+                assessmentState={assessmentState}
+                assessmentError={assessment?.error_message}
               />
 
 
@@ -382,9 +408,10 @@ export default function HealthProfilePage() {
               </p>
 
               <p className="mt-0.5 text-xs text-[var(--eh-text-muted)]">
-                {[source.lab_name, source.observed_at ?? "Date unavailable"].filter(Boolean).join(" · ")}
-              </p>
 
+                {[source.lab_name, source.observed_at ?? "Date unavailable"].filter(Boolean).join(" · ")}
+
+              </p>
 
             </li>
 
@@ -393,6 +420,7 @@ export default function HealthProfilePage() {
         </ul>
 
       </div>
+
       <ExcludedObservationsPanel
         provenance={profile?.score_provenance}
         navigationReturnTo={profileReturnTo}

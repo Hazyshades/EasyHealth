@@ -1,8 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  assessmentDisplayStateDescription,
+  assessmentDisplayStateLabel,
+  type HealthProfileAssessmentDisplayState,
+} from "@/lib/health-profile-assessment-state";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 import { ScoreProvenancePanel } from "@/components/score-provenance-panel";
 import { buildHealthNavigationPath } from "@/lib/health-navigation";
@@ -38,6 +43,8 @@ type HealthProfileDrawerProps = {
   layoutLabel: string;
   open: boolean;
   navigationReturnTo?: string | null;
+  assessmentLifecycleState?: HealthProfileAssessmentDisplayState;
+  assessmentError?: string | null;
   onClose: () => void;
 };
 
@@ -46,10 +53,15 @@ export function HealthProfileDrawer({
   layoutLabel,
   open,
   navigationReturnTo,
+  assessmentLifecycleState = "current",
+  assessmentError,
   onClose,
 }: HealthProfileDrawerProps) {
+  const drawerRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!open) return;
+    drawerRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
@@ -60,6 +72,8 @@ export function HealthProfileDrawer({
   if (!open || !system) return null;
 
   const status = assessmentStatusLabel(system.state_score, system.data_confidence);
+  const lifecycleLabel = assessmentDisplayStateLabel(assessmentLifecycleState);
+  const lifecycleDescription = assessmentDisplayStateDescription(assessmentLifecycleState);
 
   const readinessReasons = system.score_readiness.reasons;
   const missingGroups = readinessReasons.flatMap((reason) =>
@@ -122,10 +136,13 @@ export function HealthProfileDrawer({
         onClick={onClose}
       />
       <aside
+        ref={drawerRef}
+        id="health-profile-drawer"
         role="dialog"
         aria-modal="true"
         aria-labelledby="health-profile-drawer-title"
-        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l bg-white shadow-xl"
+        tabIndex={-1}
+        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l bg-white shadow-xl outline-none"
       >
         <div className="flex items-center justify-between border-b px-4 py-3">
           <button
@@ -142,11 +159,24 @@ export function HealthProfileDrawer({
         </div>
 
         <div className="flex-1 space-y-6 overflow-y-auto px-4 py-5">
+          {assessmentLifecycleState !== "current" ? (
+            <section
+              id="health-profile-drawer-lifecycle"
+              className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+              aria-live="polite"
+            >
+              <h3 className="font-semibold">{lifecycleLabel}</h3>
+              <p className="mt-2 text-sm text-muted-foreground">{lifecycleDescription}</p>
+              {assessmentError ? (
+                <p className="mt-2 text-sm text-muted-foreground">{assessmentError}</p>
+              ) : null}
+            </section>
+          ) : null}
           <div className="grid grid-cols-2 gap-3 rounded-xl border bg-slate-50 p-4">
             <div>
               <p className="text-xs text-muted-foreground">Current state assessment</p>
               <p className="text-2xl font-bold">
-                {system.state_score == null ? "-" : `${system.state_score}/100`}
+                {system.state_score == null ? "—" : `${system.state_score}/100`}
               </p>
             </div>
             <div>
@@ -159,7 +189,8 @@ export function HealthProfileDrawer({
                   "inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium",
                   status === "Stable" && "bg-emerald-100 text-emerald-800",
                   status === "Needs attention" && "bg-amber-100 text-amber-800",
-                  status === "Limited data" && "bg-slate-200 text-slate-700"
+                  (status === "Limited data" || status === "Assessment unavailable") &&
+                    "bg-slate-200 text-slate-700"
                 )}
               >
                 {status}

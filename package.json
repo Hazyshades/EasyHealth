@@ -26,6 +26,7 @@
     "test:document-persistence-boundaries": "tsx scripts/verify-laboratory-persistence-boundaries.ts",
     "test:eh163-db": "supabase test db --local QA-Db_tests/eh163_mistral_ocr.sql",
     "test:health-profile-lab-input": "tsx scripts/verify-health-profile-lab-input.ts",
+    "test:eh146": "tsx scripts/verify-eh146-system-states.ts",
     "test:eh105": "tsx scripts/verify-eh105-instrumental-lineage.ts && tsx scripts/verify-eh105-worker-safety.ts && tsx scripts/verify-pr2-reader-boundaries.ts",
     "test:eh106": "tsx scripts/verify-eh106-writer-boundary.ts && tsx scripts/verify-eh106-acceptance-batch.ts && tsx scripts/verify-eh106-consumer-cutover.ts && tsx scripts/verify-registry-v2-runtime-cutover.ts && tsx scripts/verify-registry-v2-candidate-corpus-runner.ts && tsx scripts/registry-v2-candidate-corpus.ts --technical-check && tsx scripts/verify-cbc-measurement-regression-runner.ts",
     "test:eh106-writer": "tsx scripts/verify-eh106-writer-boundary.ts && tsx scripts/verify-eh106-acceptance-batch.ts",

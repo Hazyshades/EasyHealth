@@ -12,6 +12,14 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { greetingLabel } from "@/lib/display-name";
 import type { HealthProfileResult } from "@/lib/health-systems";
+import type { HealthProfileAssessmentDisplayState } from "@/lib/health-profile-assessment-state";
+
+type DashboardHealthProfileResponse = HealthProfileResult & {
+  assessment?: {
+    display_state?: HealthProfileAssessmentDisplayState;
+    error_message?: string | null;
+  };
+};
 
 type Document = {
   id: string;
@@ -36,6 +44,9 @@ function timeGreeting(): string {
 export default function DashboardPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [profile, setProfile] = useState<HealthProfileResult | null>(null);
+  const [assessmentState, setAssessmentState] =
+    useState<HealthProfileAssessmentDisplayState>("current");
+  const [assessmentError, setAssessmentError] = useState<string | null>(null);
   const [accountProfile, setAccountProfile] =
     useState<ProfileOnboarding | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,8 +60,16 @@ export default function DashboardPage() {
       fetch("/api/health-profile").then((r) => r.json()),
       fetch("/api/profile").then((r) => r.json()),
     ]).then(([documentsData, profileData, accountData]) => {
+      const healthProfileData =
+        profileData as DashboardHealthProfileResponse;
       setDocuments(documentsData.documents ?? []);
-      setProfile(profileData?.records_used_count > 0 ? profileData : null);
+      setProfile(
+        healthProfileData?.records_used_count > 0 ? healthProfileData : null,
+      );
+      setAssessmentState(
+        healthProfileData?.assessment?.display_state ?? "current",
+      );
+      setAssessmentError(healthProfileData?.assessment?.error_message ?? null);
       setAccountProfile(accountData);
 
       const wizardOpen =
@@ -178,6 +197,8 @@ export default function DashboardPage() {
               completedDocuments: completed,
               healthProfile: profile,
               lastUpdated,
+              assessmentState,
+              assessmentError,
             }}
           />
         </>
@@ -187,6 +208,8 @@ export default function DashboardPage() {
             completedDocuments: completed,
             healthProfile: profile,
             lastUpdated,
+            assessmentState,
+            assessmentError,
           }}
         />
       )}

@@ -1,4 +1,9 @@
 import type { KeyboardEvent, SVGProps } from "react";
+import {
+  assessmentDisplayStateDescription,
+  assessmentDisplayStateLabel,
+  type HealthProfileAssessmentDisplayState,
+} from "@/lib/health-profile-assessment-state";
 import { cn } from "@/lib/utils";
 import type { FreshnessStatus } from "@/lib/health-profile-freshness";
 
@@ -189,11 +194,12 @@ type HealthSystemBadgeProps = {
   index?: number;
   scoreClassName: string;
   freshnessStatus?: FreshnessStatus;
+  assessmentLifecycleState?: HealthProfileAssessmentDisplayState;
   onSelect?: () => void;
 };
 
 function handleBadgeKeyDown(event: KeyboardEvent<SVGGElement>, onSelect?: () => void) {
-  if (event.key === "Enter" || event.key === " ") {
+  if (event.key === "Enter" || event.key === " " || event.key === "Spacebar") {
     event.preventDefault();
     onSelect?.();
   }
@@ -209,6 +215,7 @@ export function HealthSystemBadge({
   index = 0,
   scoreClassName,
   freshnessStatus,
+  assessmentLifecycleState = "current",
   onSelect,
 }: HealthSystemBadgeProps) {
   const unavailableReason =
@@ -216,8 +223,11 @@ export function HealthSystemBadge({
       ? "outdated evidence"
       : freshnessStatus === "unknown_date"
         ? "medical date unavailable"
-        : "assessment unavailable";
-
+        : "insufficient data";
+  const scoreLabel =
+    score == null ? unavailableReason : `${score} of 100 current-state assessment`;
+  const lifecycleLabel = assessmentDisplayStateLabel(assessmentLifecycleState);
+  const badgeDescription = `${label}: ${scoreLabel}. Assessment status: ${lifecycleLabel}. ${assessmentDisplayStateDescription(assessmentLifecycleState)}`;
   return (
     <g
       className={cn("body-map-badge", active && "is-active", dimmed && "is-dimmed")}
@@ -225,14 +235,15 @@ export function HealthSystemBadge({
       onClick={onSelect}
       role="button"
       tabIndex={0}
+      focusable="true"
       onKeyDown={(event) => handleBadgeKeyDown(event, onSelect)}
-      aria-label={
-        score == null
-          ? `${label}: ${unavailableReason}`
-          : `${label}: ${score} current state assessment`
-      }
+      aria-label={badgeDescription}
+      aria-haspopup="dialog"
+      aria-controls="health-profile-drawer"
       aria-pressed={active}
+      data-assessment-state={assessmentLifecycleState}
     >
+      <title>{badgeDescription}</title>
       <circle cx={0} cy={0} r={16} fill="transparent" className="cursor-pointer" />
       <g
         className="body-map-badge-inner"
@@ -252,7 +263,7 @@ export function HealthSystemBadge({
           dominantBaseline="middle"
           className="body-map-badge-score pointer-events-none"
         >
-          {score ?? "-"}
+          {score ?? "—"}
         </text>
       </g>
       <text

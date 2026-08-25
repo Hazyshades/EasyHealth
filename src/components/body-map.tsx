@@ -2,6 +2,11 @@
 
 import { useState } from "react";
 import {
+  assessmentDisplayStateDescription,
+  assessmentDisplayStateLabel,
+  type HealthProfileAssessmentDisplayState,
+} from "@/lib/health-profile-assessment-state";
+import {
   resolveBodyMapLayout,
   stateScoreColor,
   stateScoreStroke,
@@ -46,6 +51,8 @@ type BodyMapProps = {
   externalSelectedId?: BodySystemId | null;
   onExternalSelect?: (id: BodySystemId | null) => void;
   navigationReturnTo?: string | null;
+  assessmentState?: HealthProfileAssessmentDisplayState;
+  assessmentError?: string | null;
 };
 export function BodyMap({
   systems,
@@ -56,6 +63,8 @@ export function BodyMap({
   externalSelectedId,
   onExternalSelect,
   navigationReturnTo,
+  assessmentState = "current",
+  assessmentError,
 }: BodyMapProps) {
   const [internalSelectedId, setInternalSelectedId] = useState<BodySystemId | null>(null);
 
@@ -96,7 +105,7 @@ export function BodyMap({
           viewBox={BODY_MAP_VIEWBOX}
           preserveAspectRatio="xMidYMid meet"
           role="img"
-          aria-label="Health profile body map"
+          aria-label={`Health profile body map. ${assessmentDisplayStateLabel(assessmentState)}. ${assessmentDisplayStateDescription(assessmentState)}`}
           className={cn(
             embedded
               ? "h-full w-full max-h-full"
@@ -160,6 +169,7 @@ export function BodyMap({
                     dimmed={dimmed}
                     index={index}
                     scoreClassName={stateScoreColor(system.state_score)}
+                    assessmentLifecycleState={assessmentState}
                     onSelect={() => selectSystem(system.id)}
                   />
                 );
@@ -170,13 +180,19 @@ export function BodyMap({
         </svg>
 
         {!embedded && (
-          <div className="body-map-summary absolute right-0 top-0 rounded-xl border border-slate-200/80 bg-white/95 p-3 shadow-sm backdrop-blur-sm">
+          <div
+            className="body-map-summary absolute right-0 top-0 rounded-xl border border-slate-200/80 bg-white/95 p-3 shadow-sm backdrop-blur-sm"
+            title={assessmentDisplayStateDescription(assessmentState)}
+          >
             <p className="text-xs text-muted-foreground">Overall current state assessment</p>
             <p className="text-3xl font-bold tabular-nums tracking-tight text-slate-900">
-              {overallStateScore ?? "-"}
+              {overallStateScore ?? "—"}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               Data confidence {overallDataConfidence}%
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {assessmentDisplayStateLabel(assessmentState)}
             </p>
           </div>
         )}
@@ -192,14 +208,29 @@ export function BodyMap({
                 <button
                   type="button"
                   className={cn(
-                    "body-map-list-item inline-block rounded-md px-1 py-0.5 text-left text-[var(--eh-health)]",
-                    isSelected && "is-selected"
+                    "body-map-list-item inline-block rounded-md px-1 py-0.5 text-left",
+                    system.state_score == null
+                      ? "text-slate-500"
+                      : "text-[var(--eh-health)]",
+                    isSelected && "is-selected",
                   )}
                   onClick={() => selectSystem(system.id)}
                   aria-current={isSelected ? "true" : undefined}
+                  title={
+                    system.state_score == null
+                      ? `${layout?.label ?? system.name}: insufficient data. Select for readiness details.`
+                      : `${layout?.label ?? system.name}: ${system.state_score}/100 current state assessment.`
+                  }
+                  aria-label={
+                    system.state_score == null
+                      ? `${layout?.label ?? system.name}: insufficient data; assessment unavailable`
+                      : `${layout?.label ?? system.name}: ${system.state_score} of 100 current state assessment`
+                  }
                 >
-                  {layout?.label ?? system.name}: {system.state_score ?? "-"}
-                  {system.state_score == null ? " current state assessment unavailable" : "/100 current state assessment"}
+                  {layout?.label ?? system.name}: {system.state_score ?? "—"}
+                  {system.state_score == null
+                    ? " · assessment unavailable"
+                    : "/100 current state assessment"}
                 </button>
               </li>
             );
@@ -221,6 +252,8 @@ export function BodyMap({
           if (onExternalSelect) onExternalSelect(null);
           else setInternalSelectedId(null);
         }}
+        assessmentLifecycleState={assessmentState}
+        assessmentError={assessmentError}
       />
     </>
   );
@@ -230,7 +263,8 @@ export function BodyMapLegend() {
   return (
     <p className="text-xs text-[var(--eh-text-muted)]">
       Scores show a current state assessment from your uploaded lab records. Data confidence
-      reflects how complete the evidence is. This is not a diagnosis or disease-risk score.
+      reflects how complete the evidence is. Processing, outdated, and error labels describe
+      assessment freshness only. This is not a diagnosis or disease-risk score.
     </p>
   );
 }
