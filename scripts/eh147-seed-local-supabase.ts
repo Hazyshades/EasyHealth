@@ -62,8 +62,10 @@ function uuidFrom(seed: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 
+type AdminClient = ReturnType<(typeof import("../src/lib/supabase/admin"))["createAdminClient"]>;
+
 async function ensureUser(
-  admin: Awaited<ReturnType<typeof import("../src/lib/supabase/admin")>["createAdminClient"]>,
+  admin: AdminClient,
   id: string,
   email: string,
   firstName: string,
@@ -97,7 +99,7 @@ async function ensureUser(
 }
 
 async function seedCase(
-  admin: Awaited<ReturnType<typeof import("../src/lib/supabase/admin")>["createAdminClient"]>,
+  admin: AdminClient,
   spec: (typeof CASES)[keyof typeof CASES],
   golden: GoldenCase,
 ) {
