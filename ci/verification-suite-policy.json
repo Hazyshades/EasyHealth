@@ -151,7 +151,9 @@
     },
     {
       "script": "test:service-role-access-db",
-      "verificationFiles": ["QA-Db_tests/service_role_access_contract.sql"],
+      "verificationFiles": [
+        "QA-Db_tests/service_role_access_contract.sql"
+      ],
       "job": "database",
       "environment": "local-supabase-db",
       "localOnly": false,
@@ -160,7 +162,9 @@
     },
     {
       "script": "test:eh132",
-      "verificationFiles": ["scripts/verify-eh132-timeline-panel-release.ts"],
+      "verificationFiles": [
+        "scripts/verify-eh132-timeline-panel-release.ts"
+      ],
       "job": "verify",
       "environment": "node-only",
       "localOnly": false,
@@ -169,7 +173,9 @@
     },
     {
       "script": "test:eh132-fixtures",
-      "verificationFiles": ["scripts/verify-eh132-qa-fixtures.ts"],
+      "verificationFiles": [
+        "scripts/verify-eh132-qa-fixtures.ts"
+      ],
       "job": "verify",
       "environment": "node-only",
       "localOnly": false,
@@ -178,7 +184,9 @@
     },
     {
       "script": "test:eh132-db",
-      "verificationFiles": ["QA-Db_tests/eh132_timeline_panel_release.sql"],
+      "verificationFiles": [
+        "QA-Db_tests/eh132_timeline_panel_release.sql"
+      ],
       "job": "database",
       "environment": "local-supabase-db",
       "localOnly": false,
@@ -283,6 +291,17 @@
       "localOnly": false,
       "owner": "health-profile",
       "reason": "Assessment freshness policy version stamping and completion RPC behavior require pgTAP."
+    },
+    {
+      "script": "test:eh147",
+      "verificationFiles": [
+        "scripts/verify-eh147-assessment-golden.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "health-profile",
+      "reason": "Assessment golden dataset is the Health Profile v1 scoring/readiness release gate."
     }
   ],
   "localOnly": []

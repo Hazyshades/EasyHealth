@@ -164,6 +164,8 @@ jobs:
         run: pnpm test:eh145
       - name: Verify EH-146 system states and body-map behavior
         run: pnpm test:eh146
+      - name: Verify EH-147 assessment golden dataset
+        run: pnpm test:eh147
 
       - name: Publish Registry 2.0 candidate-release evidence
         run: |
