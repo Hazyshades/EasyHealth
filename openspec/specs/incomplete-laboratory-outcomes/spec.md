@@ -25,15 +25,17 @@ A current-catalog preview MAY be returned for an extracted row without an active
 ### Requirement: Raw result and provenance visibility
 The system SHALL preserve and expose raw laboratory evidence independently of semantic resolution. For every outcome, the document review surface SHALL retain the source label, raw value text or numeric value, raw and normalized unit where present, raw reference range, specimen, modifier, page/source text, extraction confidence, extraction model/version, and stable extracted-row identity available from the existing provenance contract.
 
-The UI SHALL render raw evidence before mapping explanation and SHALL NOT replace an incomplete raw result with a candidate display name, converted value, inferred unit, inferred specimen, or inferred reference range. Specimen, modifier and method SHALL be rendered only when the source document stated them; the stored `unspecified` and `none` defaults SHALL NOT be rendered as reported evidence. The same raw-evidence block SHALL be used for extracted rows and for the observations-only recovery list, and the per-document observations read SHALL therefore expose extraction confidence.
+The Health Profile reported-results projection SHALL use the same current-row lineage and SHALL link to the authenticated document review surface rather than replacing raw evidence with a profile-specific inferred record. The document review UI SHALL render raw evidence before mapping explanation and SHALL NOT replace an incomplete raw result with a candidate display name, converted value, inferred unit, inferred specimen, or inferred reference range. Specimen, modifier, and method SHALL be rendered only when the source document stated them; the stored `unspecified` and `none` defaults SHALL NOT be rendered as reported evidence. The same raw-evidence block SHALL be used for extracted rows and for the observations-only recovery list, and the per-document observations read SHALL therefore expose extraction confidence.
 
-#### Scenario: Unmapped row remains visible
-- **WHEN** no authorized Registry 2.0 candidate matches a laboratory row
+#### Scenario: Unmapped row remains visible from the profile recovery entry point
+- **WHEN** no authorized Registry 2.0 candidate matches a laboratory row and the Health Profile summary links to its document
 - **THEN** the document review surface SHALL show the original result and provenance with `Measurement not recognized`
+- **AND** the profile summary SHALL NOT present a candidate key as the row's confirmed identity
 
 #### Scenario: Partial row keeps missing context visible
 - **WHEN** a recognized row is partial because a required unit, value kind, specimen, modifier, timing, or method is missing
 - **THEN** the UI SHALL preserve the raw result and list the missing context without claiming compatibility or conflict
+- **AND** the row SHALL remain excluded from Health Profile scoring
 
 #### Scenario: Ambiguous row does not choose a display identity
 - **WHEN** multiple reviewed candidates remain admissible
@@ -46,6 +48,7 @@ The UI SHALL render raw evidence before mapping explanation and SHALL NOT replac
 #### Scenario: Recovery list renders the same raw evidence
 - **WHEN** the document has no current extracted rows and linked observations are listed instead
 - **THEN** each observation SHALL show the same reported name, value, reference range, provenance and extraction confidence as an extracted row
+- **AND** a Health Profile recovery link SHALL open that source document without changing the observation's raw values
 
 ### Requirement: Safe English wording and technical details
 The system SHALL use distinct English labels and guidance for all four outcomes. `resolved` SHALL use `Matched measurement`; `partial` SHALL use `More details needed`; `ambiguous` SHALL use `Multiple possible matches`; and `unmapped` SHALL use `Measurement not recognized`.
