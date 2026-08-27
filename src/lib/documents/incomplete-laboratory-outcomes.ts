@@ -128,6 +128,7 @@ type DecisionTraceLike = Partial<ResolverDecisionTrace> & {
 type AssessmentEligibilityObservation = RegistryV2LaboratoryBindingSource & {
   value?: unknown;
   value_kind?: string | null;
+  value_text?: string | null;
   ref_low?: unknown;
   ref_high?: unknown;
   raw_reference_text?: string | null;
@@ -250,6 +251,7 @@ export function projectLaboratoryOutcome(
       verificationStatus: binding.verificationStatus,
       valueKind: parseObservationValueKind(options.observation.value_kind),
       value: options.observation.value,
+      valueText: options.observation.value_text,
       rawReferenceText: options.observation.raw_reference_text,
       refLow: options.observation.ref_low,
       refHigh: options.observation.ref_high,

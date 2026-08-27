@@ -80,6 +80,8 @@ export type ReviewRowRawEvidence = Readonly<{
   method: string | null;
   /** Extraction confidence in [0,1]; distinct from mapping confidence. */
   extractionConfidence: number | null;
+  /** Day-precision collected date from the extracted row, when present. */
+  collectedAt: string | null;
 }>;
 
 export type ReviewRowSourceLocation = Readonly<{
@@ -423,6 +425,7 @@ export type ExtractedReviewRowInput = {
   specimen?: string | null;
   modifier?: string | null;
   method?: string | null;
+  collected_at?: string | null;
   confidence: number | null;
   source_page: number | null;
   source_text: string | null;
@@ -525,6 +528,7 @@ export function buildExtractedReviewRow(
       modifier: statedAxis(item.modifier, UNSTATED_MODIFIER),
       method: statedAxis(item.method, NOTHING_UNSTATED),
       extractionConfidence: item.confidence,
+      collectedAt: item.collected_at?.trim() || null,
     },
     source: resolveSourceLocation(item.source_page, item.source_text, item.bounding_box),
     mapping: buildMappingState({
@@ -638,6 +642,7 @@ export function buildObservationReviewRow(
       modifier: statedAxis(item.modifier, UNSTATED_MODIFIER),
       method: null,
       extractionConfidence: item.confidence ?? null,
+      collectedAt: null,
     },
     source: resolveSourceLocation(item.source_page, item.source_text, item.bounding_box),
     mapping: buildMappingState({

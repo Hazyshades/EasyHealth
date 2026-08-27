@@ -1,3 +1,5 @@
+import { isCensoredLabValueCell } from "@/lib/biomarkers";
+
 export type ComparisonDocumentSource = {
   id: string;
   original_filename: string;
@@ -18,6 +20,7 @@ export type ComparisonObservation = {
   document_id: string | null;
   documents?: ComparisonDocumentSource | null;
   value_kind?: string | null;
+  value_text?: string | null;
   original_value?: number | string | null;
   original_unit?: string | null;
   original_ref_low?: number | string | null;
@@ -106,6 +109,9 @@ function pointSource(observation: ComparisonObservation): MeasurementComparisonP
 }
 
 function projectPoint(observation: ComparisonObservation): MeasurementComparisonPoint | null {
+  if (isCensoredLabValueCell(observation.value_text) || isCensoredLabValueCell(observation.value)) {
+    return null;
+  }
   if (observation.value_kind && observation.value_kind !== "numeric") return null;
   if (!observation.trend_eligible || !observation.measurement_definition_key) return null;
   if (!isComparisonIsoDate(observation.observed_at)) return null;

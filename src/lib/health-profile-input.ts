@@ -1,4 +1,4 @@
-import { presentObservation, type LabUnitSystem } from "@/lib/biomarkers";
+import { getReviewedAssessmentBinding, isCensoredLabValueCell, presentObservation, type LabUnitSystem } from "@/lib/biomarkers";
 import { buildHealthProfile } from "@/lib/health-systems";
 import {
   type RegistryV2LaboratoryBindingSource,
@@ -43,11 +43,43 @@ export function projectHealthProfileLaboratoryInput(options: {
 }): HealthProfileLaboratoryInput | null {
   const { observation, relation, labUnitSystem } = options;
   const outcome = projectLaboratoryOutcome({ observation, relation });
-  // The projection nulls assessmentInputKey unless the row passes every
-  // assessment gate, so key presence is the whole admission decision.
-  const assessmentInputKey = outcome.assessmentInputKey;
-  if (!assessmentInputKey) {
-    return null;
+  const censoredValueText =
+    [observation.value_text, typeof observation.value === "string" ? observation.value : null]
+      .map((candidate) => (typeof candidate === "string" ? candidate.trim() : ""))
+      .find((candidate) => isCensoredLabValueCell(candidate)) ?? null;
+  const canPreserveCensoredMarker =
+    censoredValueText !== null &&
+    outcome.resolutionDetails.eligibility.exclusions.assessment === "non_numeric_value";
+  const assessmentInputKey =
+    outcome.assessmentInputKey ??
+    (canPreserveCensoredMarker && outcome.measurementDefinitionKey
+      ? getReviewedAssessmentBinding(outcome.measurementDefinitionKey)?.binding.assessmentInputKey ?? null
+      : null);
+  if (!assessmentInputKey) return null;
+
+  if (censoredValueText) {
+    const refLow = observation.ref_low == null ? null : Number(observation.ref_low);
+    const refHigh = observation.ref_high == null ? null : Number(observation.ref_high);
+    return {
+      biomarker_key: assessmentInputKey,
+      observation_id: observation.id ?? null,
+      measurement_definition_key: outcome.measurementDefinitionKey,
+      name: observation.name,
+      value: null,
+      unit: observation.unit ?? "",
+      ref_low: refLow != null && Number.isFinite(refLow) ? refLow : null,
+      ref_high: refHigh != null && Number.isFinite(refHigh) ? refHigh : null,
+      observed_at: observation.observed_at,
+      document_id: observation.document_id,
+      observation_kind: "lab",
+      value_kind: "text",
+      value_text: censoredValueText,
+      ordinal: null,
+      specimen: observation.specimen ?? "unspecified",
+      modifier: observation.modifier ?? "none",
+      converted: false,
+      conversion_note: null,
+    };
   }
 
   const numericValue = observation.value != null ? Number(observation.value) : null;

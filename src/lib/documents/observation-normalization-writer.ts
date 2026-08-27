@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   buildPersistedResolverDecisionTrace,
+  coerceClinicalModifier,
   getMeasurementDefinition,
   MEASUREMENT_CATALOG_MANIFEST_VERSION,
   MEASUREMENT_NORMALIZATION_VERSION,
@@ -30,7 +31,7 @@ import {
   decideAutomaticPromotion,
   isAutomaticVerificationReleaseApproved,
 } from "./normalization-policy";
-
+import { observationDateFromExtractedRow } from "@/lib/documents/observation-date";
 import {
   parseSourceRegion,
   sourceRegionMatchesPage,
@@ -73,6 +74,7 @@ export type ExtractedBiomarkerWriterRow = {
   raw_value_text: string | null;
   method?: string | null;
   processing_version: string | null;
+  collected_at?: string | null;
   record_status?: "active" | "rejected" | "superseded" | null;
   is_current?: boolean | null;
 };
@@ -329,7 +331,7 @@ function buildObservationPayload(options: {
     ref_high: measurement.refHigh,
     observed_at: measurement.observedAt,
     specimen: row.specimen ?? "unspecified",
-    modifier: row.modifier ?? "none",
+    modifier: coerceClinicalModifier(row.modifier),
     // Raw provenance below. None of it is correctable, and
     // `observation_provenance_write_once` rejects any UPDATE that moves it, so
     // these values are only ever written when the observation is created.
@@ -502,7 +504,10 @@ export async function writeExtractedBiomarkerNormalization(options: {
   const resolution = options.resolution ?? resolveMeasurementDefinition(input);
   const reviewedMeasurementDefinition = isReviewedResolution(resolution);
   const measurement = applyMeasurementOverride(
-    baseMeasurementFromWriterRow(options.row, options.observedAt),
+    baseMeasurementFromWriterRow(
+      options.row,
+      observationDateFromExtractedRow(options.row, options.observedAt),
+    ),
     measurementOverride
   );
   const mappingClassification =
@@ -636,7 +641,10 @@ export async function writeAutomaticBiomarkerVerification(options: {
   }
 
   const measurement = applyMeasurementOverride(
-    baseMeasurementFromWriterRow(options.row, options.observedAt),
+    baseMeasurementFromWriterRow(
+      options.row,
+      observationDateFromExtractedRow(options.row, options.observedAt),
+    ),
     measurementOverride,
   );
   const inputEvidenceHash = buildInputEvidenceHash(input);

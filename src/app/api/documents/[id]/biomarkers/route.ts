@@ -9,6 +9,7 @@ import {
   type MeasurementOverride,
 } from "@/lib/documents/observation-measurement-correction";
 import { assertDocumentOwner } from "@/lib/documents/access";
+import { observationDateFromExtractedRow } from "@/lib/documents/observation-date";
 import {
   compatibleManualDefinitions,
   getActiveNormalizationRevision,
@@ -44,7 +45,7 @@ export async function GET(_req: Request, context: RouteContext) {
   const { data: items, error: listError } = await supabase
     .from("document_extracted_biomarkers")
     .select(
-      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, source_page, source_text, bounding_box, confidence, status, processing_version, extraction_model, source_text_origin, ocr_provider, ocr_model, ocr_adapter_version, ocr_artifact_schema_version, ocr_source_sha256, specimen, modifier, method, reported_alt_value, reported_alt_unit, raw_value_text, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, resolver_evidence, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, verification_status, record_status, lifecycle_reason_code, superseded_at, superseded_by_processing_attempt_id, processing_attempt_id, is_current, is_published, created_at"
+      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, source_page, source_text, bounding_box, confidence, status, processing_version, extraction_model, source_text_origin, ocr_provider, ocr_model, ocr_adapter_version, ocr_artifact_schema_version, ocr_source_sha256, specimen, modifier, method, reported_alt_value, reported_alt_unit, raw_value_text, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, resolver_evidence, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, verification_status, record_status, lifecycle_reason_code, superseded_at, superseded_by_processing_attempt_id, processing_attempt_id, is_current, is_published, created_at, collected_at"
     )
     .eq("document_id", id)
     .eq("profile_id", profileId)
@@ -137,7 +138,7 @@ export async function PATCH(req: Request, context: RouteContext) {
   const { data, error: extractedError } = await supabase
     .from("document_extracted_biomarkers")
     .select(
-      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, confidence, specimen, modifier, method, source_page, source_text, bounding_box, reported_alt_value, reported_alt_unit, raw_value_text, processing_version",
+      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, confidence, specimen, modifier, method, source_page, source_text, bounding_box, reported_alt_value, reported_alt_unit, raw_value_text, processing_version, collected_at",
     )
     .eq("id", body.extractedBiomarkerId)
     .eq("document_id", id)
@@ -236,7 +237,7 @@ export async function PATCH(req: Request, context: RouteContext) {
       const validation = validateMeasurementCorrection({
         base: baseMeasurementFromExtractedRow(
           row,
-          doc!.observed_at,
+          observationDateFromExtractedRow(row, doc!.observed_at),
         ),
         override: effectiveOverride,
         correctionReason: body.correctionReason,

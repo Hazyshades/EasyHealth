@@ -156,10 +156,14 @@ Rules:
 - name is an optional English-oriented display hint; when unsure, omit or repeat raw_name.
 - Prefer common lab keys when emitting key hints (e.g. hba1c, sodium, potassium, bicarbonate, crp, hs_crp, uacr, ferritin, ldl, free_t4, transferrin_saturation, urine_ketones, psa).
 - Use YYYY, YYYY-MM, or YYYY-MM-DD for observed_at, collected_at, and reported_at when visible. Do not fill missing month/day values.
+- If a table has dated columns or dated headers, emit one candidate per printed value per date. Copy that column or header date into collected_at. Do not collapse several dated cells of the same analyte into one candidate.
+- When a column or value has no date, leave collected_at null. Do not copy observed_at onto the row and do not invent today's date.
 - Include quantitative lab results AND qualitative/semi-quantitative results (Negative, Trace, 1+, Positive, Отрицательно, Negativo).
 - For qualitative results, put the lab's verbatim text in "value" as a string (do not translate Отрицательно/Negativo into English).
 - For quantitative results, put a number in "value".
 - raw_reference_range is the verbatim printed reference range when visible; use null when absent. Keep ref_low/ref_high as parsed numeric bounds when present.
+- For printed comparators or detection limits (< 0.20, > 10, <= 0.05, >= 10), copy that exact printed text into "value" as a string. Do not strip the comparator and do not invent a bare number.
+- modifier is a clinical axis only (fasting, free, total, random, none). Never put <, >, <=, >=, less than, or greater than on modifier; those belong on value.
 - If dual units are printed (e.g. 90 mg/dL / 5.0 mmol/L), store primary in value/unit and alternate in reported_alt_value/reported_alt_unit.
 - Emit specimen only when the report explicitly states it on the row itself or in a labelled line (for example "Material: serum" or "Specimen: whole blood"); preserve that printed wording in source_text so the provenance gate can verify it. Do not infer it from the analyte label or from which specimen the test is usually measured in. When the report does not state it, use null.
 - section_context is optional verbatim document text for a labelled section or panel heading directly associated with the row. Preserve it only when visibly captured; use null when absent. It is evidence for review and resolver policy, not permission to invent a specimen, method, unit, timing, value kind, or range.
