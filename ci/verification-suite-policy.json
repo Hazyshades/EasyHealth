@@ -302,6 +302,17 @@
       "localOnly": false,
       "owner": "health-profile",
       "reason": "Assessment freshness policy version stamping and completion RPC behavior require pgTAP."
+    },
+    {
+      "script": "test:eh147",
+      "verificationFiles": [
+        "scripts/verify-eh147-assessment-golden.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "health-profile",
+      "reason": "Assessment golden dataset is the Health Profile v1 scoring/readiness release gate."
     }
   ],
   "localOnly": []

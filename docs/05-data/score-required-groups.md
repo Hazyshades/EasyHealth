@@ -40,4 +40,4 @@ Score role, Coverage flag, readiness group, and contribution group are independe
 
 ## Verification
 
-Run `pnpm test:eh141` to verify approved groups, alternatives, strict completeness, context-only exclusions, usable references, and factual-only inflammation. Run the Registry documentation commands in the sign-off evidence before release; the generated catalog inventory is derived from the reviewed Registry and does not replace this rationale reference.
+Run `pnpm test:eh141` to verify approved groups, alternatives, strict completeness, context-only exclusions, usable references, and factual-only inflammation. Run `pnpm test:eh147` for the Health Profile v1 golden dataset (representative ranges, SI/US units, missing groups, and pending vs `manually_corrected` admission). `pnpm check:eh147` is the product-acceptance command and stays fail-closed until Clinical Product sign-off is hash-bound to the golden pack. Run the Registry documentation commands in the sign-off evidence before release; the generated catalog inventory is derived from the reviewed Registry and does not replace this rationale reference.

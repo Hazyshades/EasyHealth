@@ -1,0 +1,1439 @@
+{
+  "packVersion": "eh147-golden-v1",
+  "algorithmVersion": "eh145-score-v1",
+  "cases": {
+    "complete-in-range-eight-systems": {
+      "overall_state_score": 95,
+      "systems": {
+        "cardiovascular": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "ldl|non_hdl_cholesterol": "ldl",
+            "hdl": "hdl",
+            "triglycerides": "triglycerides"
+          }
+        },
+        "metabolic": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "fasting_glucose|hba1c": "fasting_glucose"
+          }
+        },
+        "thyroid": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "tsh": "tsh",
+            "free_t4": "free_t4"
+          }
+        },
+        "liver": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "alt": "alt",
+            "ast": "ast",
+            "alp": "alp",
+            "bilirubin": "bilirubin",
+            "albumin": "albumin"
+          }
+        },
+        "kidney": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "egfr|creatinine": "egfr",
+            "uacr": "uacr"
+          }
+        },
+        "blood": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "hemoglobin|hematocrit": "hemoglobin",
+            "wbc": "wbc",
+            "platelets": "platelets",
+            "mcv": "mcv"
+          }
+        },
+        "nutrients": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "vitamin_d": "vitamin_d",
+            "b12": "b12",
+            "folate": "folate"
+          }
+        },
+        "inflammation": {
+          "scoreability": "non_scoreable",
+          "state_score": null,
+          "readiness_codes": []
+        }
+      }
+    },
+    "complete-out-of-range-eight-systems": {
+      "overall_state_score": 20,
+      "systems": {
+        "cardiovascular": {
+          "scoreability": "scoreable",
+          "state_score": 20,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "ldl|non_hdl_cholesterol": "ldl",
+            "hdl": "hdl",
+            "triglycerides": "triglycerides"
+          }
+        },
+        "metabolic": {
+          "scoreability": "scoreable",
+          "state_score": 20,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "fasting_glucose|hba1c": "fasting_glucose"
+          }
+        },
+        "thyroid": {
+          "scoreability": "scoreable",
+          "state_score": 20,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "tsh": "tsh",
+            "free_t4": "free_t4"
+          }
+        },
+        "liver": {
+          "scoreability": "scoreable",
+          "state_score": 20,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "alt": "alt",
+            "ast": "ast",
+            "alp": "alp",
+            "bilirubin": "bilirubin",
+            "albumin": "albumin"
+          }
+        },
+        "kidney": {
+          "scoreability": "scoreable",
+          "state_score": 20,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "egfr|creatinine": "egfr",
+            "uacr": "uacr"
+          }
+        },
+        "blood": {
+          "scoreability": "scoreable",
+          "state_score": 20,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "hemoglobin|hematocrit": "hemoglobin",
+            "wbc": "wbc",
+            "platelets": "platelets",
+            "mcv": "mcv"
+          }
+        },
+        "nutrients": {
+          "scoreability": "scoreable",
+          "state_score": 20,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "vitamin_d": "vitamin_d",
+            "b12": "b12",
+            "folate": "folate"
+          }
+        },
+        "inflammation": {
+          "scoreability": "non_scoreable",
+          "state_score": null,
+          "readiness_codes": []
+        }
+      }
+    },
+    "si-us-fasting-glucose-si": {
+      "overall_state_score": null,
+      "systems": {
+        "cardiovascular": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing",
+            "missing"
+          ]
+        },
+        "metabolic": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "fasting_glucose|hba1c": "fasting_glucose"
+          }
+        },
+        "thyroid": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing"
+          ]
+        },
+        "liver": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing",
+            "missing",
+            "missing",
+            "missing"
+          ]
+        },
+        "kidney": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing"
+          ]
+        },
+        "blood": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing",
+            "missing",
+            "missing"
+          ]
+        },
+        "nutrients": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing",
+            "missing"
+          ]
+        },
+        "inflammation": {
+          "scoreability": "non_scoreable",
+          "state_score": null,
+          "readiness_codes": []
+        }
+      },
+      "markers": {
+        "fasting_glucose": {
+          "unit": "mmol/L",
+          "status": "in_range",
+          "converted": true
+        }
+      }
+    },
+    "si-us-fasting-glucose-us": {
+      "overall_state_score": null,
+      "systems": {
+        "cardiovascular": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing",
+            "missing"
+          ]
+        },
+        "metabolic": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "fasting_glucose|hba1c": "fasting_glucose"
+          }
+        },
+        "thyroid": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing"
+          ]
+        },
+        "liver": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing",
+            "missing",
+            "missing",
+            "missing"
+          ]
+        },
+        "kidney": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing"
+          ]
+        },
+        "blood": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing",
+            "missing",
+            "missing"
+          ]
+        },
+        "nutrients": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing",
+            "missing"
+          ]
+        },
+        "inflammation": {
+          "scoreability": "non_scoreable",
+          "state_score": null,
+          "readiness_codes": []
+        }
+      },
+      "markers": {
+        "fasting_glucose": {
+          "unit": "mg/dL",
+          "status": "in_range",
+          "converted": false
+        }
+      }
+    },
+    "missing-group-cardiovascular": {
+      "overall_state_score": 95,
+      "systems": {
+        "cardiovascular": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing"
+          ],
+          "satisfied_by": {
+            "hdl": "hdl",
+            "triglycerides": "triglycerides"
+          }
+        },
+        "metabolic": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "fasting_glucose|hba1c": "fasting_glucose"
+          }
+        },
+        "thyroid": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "tsh": "tsh",
+            "free_t4": "free_t4"
+          }
+        },
+        "liver": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "alt": "alt",
+            "ast": "ast",
+            "alp": "alp",
+            "bilirubin": "bilirubin",
+            "albumin": "albumin"
+          }
+        },
+        "kidney": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "egfr|creatinine": "egfr",
+            "uacr": "uacr"
+          }
+        },
+        "blood": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "hemoglobin|hematocrit": "hemoglobin",
+            "wbc": "wbc",
+            "platelets": "platelets",
+            "mcv": "mcv"
+          }
+        },
+        "nutrients": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "vitamin_d": "vitamin_d",
+            "b12": "b12",
+            "folate": "folate"
+          }
+        },
+        "inflammation": {
+          "scoreability": "non_scoreable",
+          "state_score": null,
+          "readiness_codes": []
+        }
+      }
+    },
+    "missing-group-metabolic": {
+      "overall_state_score": 95,
+      "systems": {
+        "cardiovascular": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "ldl|non_hdl_cholesterol": "ldl",
+            "hdl": "hdl",
+            "triglycerides": "triglycerides"
+          }
+        },
+        "metabolic": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing"
+          ]
+        },
+        "thyroid": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "tsh": "tsh",
+            "free_t4": "free_t4"
+          }
+        },
+        "liver": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "alt": "alt",
+            "ast": "ast",
+            "alp": "alp",
+            "bilirubin": "bilirubin",
+            "albumin": "albumin"
+          }
+        },
+        "kidney": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "egfr|creatinine": "egfr",
+            "uacr": "uacr"
+          }
+        },
+        "blood": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "hemoglobin|hematocrit": "hemoglobin",
+            "wbc": "wbc",
+            "platelets": "platelets",
+            "mcv": "mcv"
+          }
+        },
+        "nutrients": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "vitamin_d": "vitamin_d",
+            "b12": "b12",
+            "folate": "folate"
+          }
+        },
+        "inflammation": {
+          "scoreability": "non_scoreable",
+          "state_score": null,
+          "readiness_codes": []
+        }
+      }
+    },
+    "missing-group-thyroid": {
+      "overall_state_score": 95,
+      "systems": {
+        "cardiovascular": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "ldl|non_hdl_cholesterol": "ldl",
+            "hdl": "hdl",
+            "triglycerides": "triglycerides"
+          }
+        },
+        "metabolic": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "fasting_glucose|hba1c": "fasting_glucose"
+          }
+        },
+        "thyroid": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing"
+          ],
+          "satisfied_by": {
+            "free_t4": "free_t4"
+          }
+        },
+        "liver": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "alt": "alt",
+            "ast": "ast",
+            "alp": "alp",
+            "bilirubin": "bilirubin",
+            "albumin": "albumin"
+          }
+        },
+        "kidney": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "egfr|creatinine": "egfr",
+            "uacr": "uacr"
+          }
+        },
+        "blood": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "hemoglobin|hematocrit": "hemoglobin",
+            "wbc": "wbc",
+            "platelets": "platelets",
+            "mcv": "mcv"
+          }
+        },
+        "nutrients": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "vitamin_d": "vitamin_d",
+            "b12": "b12",
+            "folate": "folate"
+          }
+        },
+        "inflammation": {
+          "scoreability": "non_scoreable",
+          "state_score": null,
+          "readiness_codes": []
+        }
+      }
+    },
+    "missing-group-liver": {
+      "overall_state_score": 95,
+      "systems": {
+        "cardiovascular": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "ldl|non_hdl_cholesterol": "ldl",
+            "hdl": "hdl",
+            "triglycerides": "triglycerides"
+          }
+        },
+        "metabolic": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "fasting_glucose|hba1c": "fasting_glucose"
+          }
+        },
+        "thyroid": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "tsh": "tsh",
+            "free_t4": "free_t4"
+          }
+        },
+        "liver": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing"
+          ],
+          "satisfied_by": {
+            "ast": "ast",
+            "alp": "alp",
+            "bilirubin": "bilirubin",
+            "albumin": "albumin"
+          }
+        },
+        "kidney": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "egfr|creatinine": "egfr",
+            "uacr": "uacr"
+          }
+        },
+        "blood": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "hemoglobin|hematocrit": "hemoglobin",
+            "wbc": "wbc",
+            "platelets": "platelets",
+            "mcv": "mcv"
+          }
+        },
+        "nutrients": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "vitamin_d": "vitamin_d",
+            "b12": "b12",
+            "folate": "folate"
+          }
+        },
+        "inflammation": {
+          "scoreability": "non_scoreable",
+          "state_score": null,
+          "readiness_codes": []
+        }
+      }
+    },
+    "missing-group-kidney": {
+      "overall_state_score": 95,
+      "systems": {
+        "cardiovascular": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "ldl|non_hdl_cholesterol": "ldl",
+            "hdl": "hdl",
+            "triglycerides": "triglycerides"
+          }
+        },
+        "metabolic": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "fasting_glucose|hba1c": "fasting_glucose"
+          }
+        },
+        "thyroid": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "tsh": "tsh",
+            "free_t4": "free_t4"
+          }
+        },
+        "liver": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "alt": "alt",
+            "ast": "ast",
+            "alp": "alp",
+            "bilirubin": "bilirubin",
+            "albumin": "albumin"
+          }
+        },
+        "kidney": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing"
+          ],
+          "satisfied_by": {
+            "uacr": "uacr"
+          }
+        },
+        "blood": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "hemoglobin|hematocrit": "hemoglobin",
+            "wbc": "wbc",
+            "platelets": "platelets",
+            "mcv": "mcv"
+          }
+        },
+        "nutrients": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "vitamin_d": "vitamin_d",
+            "b12": "b12",
+            "folate": "folate"
+          }
+        },
+        "inflammation": {
+          "scoreability": "non_scoreable",
+          "state_score": null,
+          "readiness_codes": []
+        }
+      }
+    },
+    "missing-group-blood": {
+      "overall_state_score": 95,
+      "systems": {
+        "cardiovascular": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "ldl|non_hdl_cholesterol": "ldl",
+            "hdl": "hdl",
+            "triglycerides": "triglycerides"
+          }
+        },
+        "metabolic": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "fasting_glucose|hba1c": "fasting_glucose"
+          }
+        },
+        "thyroid": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "tsh": "tsh",
+            "free_t4": "free_t4"
+          }
+        },
+        "liver": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "alt": "alt",
+            "ast": "ast",
+            "alp": "alp",
+            "bilirubin": "bilirubin",
+            "albumin": "albumin"
+          }
+        },
+        "kidney": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "egfr|creatinine": "egfr",
+            "uacr": "uacr"
+          }
+        },
+        "blood": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing"
+          ],
+          "satisfied_by": {
+            "wbc": "wbc",
+            "platelets": "platelets",
+            "mcv": "mcv"
+          }
+        },
+        "nutrients": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "vitamin_d": "vitamin_d",
+            "b12": "b12",
+            "folate": "folate"
+          }
+        },
+        "inflammation": {
+          "scoreability": "non_scoreable",
+          "state_score": null,
+          "readiness_codes": []
+        }
+      }
+    },
+    "missing-group-nutrients": {
+      "overall_state_score": 95,
+      "systems": {
+        "cardiovascular": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "ldl|non_hdl_cholesterol": "ldl",
+            "hdl": "hdl",
+            "triglycerides": "triglycerides"
+          }
+        },
+        "metabolic": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "fasting_glucose|hba1c": "fasting_glucose"
+          }
+        },
+        "thyroid": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "tsh": "tsh",
+            "free_t4": "free_t4"
+          }
+        },
+        "liver": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "alt": "alt",
+            "ast": "ast",
+            "alp": "alp",
+            "bilirubin": "bilirubin",
+            "albumin": "albumin"
+          }
+        },
+        "kidney": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "egfr|creatinine": "egfr",
+            "uacr": "uacr"
+          }
+        },
+        "blood": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "hemoglobin|hematocrit": "hemoglobin",
+            "wbc": "wbc",
+            "platelets": "platelets",
+            "mcv": "mcv"
+          }
+        },
+        "nutrients": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing"
+          ],
+          "satisfied_by": {
+            "b12": "b12",
+            "folate": "folate"
+          }
+        },
+        "inflammation": {
+          "scoreability": "non_scoreable",
+          "state_score": null,
+          "readiness_codes": []
+        }
+      }
+    },
+    "invalid-reference-liver-alt": {
+      "overall_state_score": 95,
+      "systems": {
+        "cardiovascular": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "ldl|non_hdl_cholesterol": "ldl",
+            "hdl": "hdl",
+            "triglycerides": "triglycerides"
+          }
+        },
+        "metabolic": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "fasting_glucose|hba1c": "fasting_glucose"
+          }
+        },
+        "thyroid": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "tsh": "tsh",
+            "free_t4": "free_t4"
+          }
+        },
+        "liver": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "invalid"
+          ],
+          "satisfied_by": {
+            "ast": "ast",
+            "alp": "alp",
+            "bilirubin": "bilirubin",
+            "albumin": "albumin"
+          }
+        },
+        "kidney": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "egfr|creatinine": "egfr",
+            "uacr": "uacr"
+          }
+        },
+        "blood": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "hemoglobin|hematocrit": "hemoglobin",
+            "wbc": "wbc",
+            "platelets": "platelets",
+            "mcv": "mcv"
+          }
+        },
+        "nutrients": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "vitamin_d": "vitamin_d",
+            "b12": "b12",
+            "folate": "folate"
+          }
+        },
+        "inflammation": {
+          "scoreability": "non_scoreable",
+          "state_score": null,
+          "readiness_codes": []
+        }
+      }
+    },
+    "context-only-metabolic-glucose": {
+      "overall_state_score": null,
+      "systems": {
+        "cardiovascular": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing",
+            "missing"
+          ]
+        },
+        "metabolic": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing"
+          ]
+        },
+        "thyroid": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing"
+          ]
+        },
+        "liver": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing",
+            "missing",
+            "missing",
+            "missing"
+          ]
+        },
+        "kidney": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing"
+          ]
+        },
+        "blood": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing",
+            "missing",
+            "missing"
+          ]
+        },
+        "nutrients": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing",
+            "missing"
+          ]
+        },
+        "inflammation": {
+          "scoreability": "non_scoreable",
+          "state_score": null,
+          "readiness_codes": []
+        }
+      }
+    },
+    "context-only-cardiovascular-total-cholesterol": {
+      "overall_state_score": 95,
+      "systems": {
+        "cardiovascular": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing"
+          ],
+          "satisfied_by": {
+            "hdl": "hdl",
+            "triglycerides": "triglycerides"
+          }
+        },
+        "metabolic": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "fasting_glucose|hba1c": "fasting_glucose"
+          }
+        },
+        "thyroid": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "tsh": "tsh",
+            "free_t4": "free_t4"
+          }
+        },
+        "liver": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "alt": "alt",
+            "ast": "ast",
+            "alp": "alp",
+            "bilirubin": "bilirubin",
+            "albumin": "albumin"
+          }
+        },
+        "kidney": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "egfr|creatinine": "egfr",
+            "uacr": "uacr"
+          }
+        },
+        "blood": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "hemoglobin|hematocrit": "hemoglobin",
+            "wbc": "wbc",
+            "platelets": "platelets",
+            "mcv": "mcv"
+          }
+        },
+        "nutrients": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "vitamin_d": "vitamin_d",
+            "b12": "b12",
+            "folate": "folate"
+          }
+        },
+        "inflammation": {
+          "scoreability": "non_scoreable",
+          "state_score": null,
+          "readiness_codes": []
+        }
+      }
+    },
+    "alternatives-metabolic-hba1c": {
+      "overall_state_score": 95,
+      "systems": {
+        "cardiovascular": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "ldl|non_hdl_cholesterol": "ldl",
+            "hdl": "hdl",
+            "triglycerides": "triglycerides"
+          }
+        },
+        "metabolic": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "fasting_glucose|hba1c": "hba1c"
+          }
+        },
+        "thyroid": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "tsh": "tsh",
+            "free_t4": "free_t4"
+          }
+        },
+        "liver": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "alt": "alt",
+            "ast": "ast",
+            "alp": "alp",
+            "bilirubin": "bilirubin",
+            "albumin": "albumin"
+          }
+        },
+        "kidney": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "egfr|creatinine": "egfr",
+            "uacr": "uacr"
+          }
+        },
+        "blood": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "hemoglobin|hematocrit": "hemoglobin",
+            "wbc": "wbc",
+            "platelets": "platelets",
+            "mcv": "mcv"
+          }
+        },
+        "nutrients": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "vitamin_d": "vitamin_d",
+            "b12": "b12",
+            "folate": "folate"
+          }
+        },
+        "inflammation": {
+          "scoreability": "non_scoreable",
+          "state_score": null,
+          "readiness_codes": []
+        }
+      }
+    },
+    "alternatives-blood-hematocrit": {
+      "overall_state_score": 95,
+      "systems": {
+        "cardiovascular": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "ldl|non_hdl_cholesterol": "ldl",
+            "hdl": "hdl",
+            "triglycerides": "triglycerides"
+          }
+        },
+        "metabolic": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "fasting_glucose|hba1c": "fasting_glucose"
+          }
+        },
+        "thyroid": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "tsh": "tsh",
+            "free_t4": "free_t4"
+          }
+        },
+        "liver": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "alt": "alt",
+            "ast": "ast",
+            "alp": "alp",
+            "bilirubin": "bilirubin",
+            "albumin": "albumin"
+          }
+        },
+        "kidney": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "egfr|creatinine": "egfr",
+            "uacr": "uacr"
+          }
+        },
+        "blood": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "hemoglobin|hematocrit": "hematocrit",
+            "wbc": "wbc",
+            "platelets": "platelets",
+            "mcv": "mcv"
+          }
+        },
+        "nutrients": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "vitamin_d": "vitamin_d",
+            "b12": "b12",
+            "folate": "folate"
+          }
+        },
+        "inflammation": {
+          "scoreability": "non_scoreable",
+          "state_score": null,
+          "readiness_codes": []
+        }
+      }
+    },
+    "alternatives-kidney-creatinine": {
+      "overall_state_score": 95,
+      "systems": {
+        "cardiovascular": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "ldl|non_hdl_cholesterol": "ldl",
+            "hdl": "hdl",
+            "triglycerides": "triglycerides"
+          }
+        },
+        "metabolic": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "fasting_glucose|hba1c": "fasting_glucose"
+          }
+        },
+        "thyroid": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "tsh": "tsh",
+            "free_t4": "free_t4"
+          }
+        },
+        "liver": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "alt": "alt",
+            "ast": "ast",
+            "alp": "alp",
+            "bilirubin": "bilirubin",
+            "albumin": "albumin"
+          }
+        },
+        "kidney": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "egfr|creatinine": "creatinine",
+            "uacr": "uacr"
+          }
+        },
+        "blood": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "hemoglobin|hematocrit": "hemoglobin",
+            "wbc": "wbc",
+            "platelets": "platelets",
+            "mcv": "mcv"
+          }
+        },
+        "nutrients": {
+          "scoreability": "scoreable",
+          "state_score": 95,
+          "readiness_codes": [],
+          "satisfied_by": {
+            "vitamin_d": "vitamin_d",
+            "b12": "b12",
+            "folate": "folate"
+          }
+        },
+        "inflammation": {
+          "scoreability": "non_scoreable",
+          "state_score": null,
+          "readiness_codes": []
+        }
+      }
+    },
+    "inflammation-crp-factual-only": {
+      "overall_state_score": null,
+      "systems": {
+        "cardiovascular": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing",
+            "missing"
+          ]
+        },
+        "metabolic": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing"
+          ]
+        },
+        "thyroid": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing"
+          ]
+        },
+        "liver": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing",
+            "missing",
+            "missing",
+            "missing"
+          ]
+        },
+        "kidney": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing"
+          ]
+        },
+        "blood": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing",
+            "missing",
+            "missing"
+          ]
+        },
+        "nutrients": {
+          "scoreability": "incomplete",
+          "state_score": null,
+          "readiness_codes": [
+            "missing",
+            "missing",
+            "missing"
+          ]
+        },
+        "inflammation": {
+          "scoreability": "non_scoreable",
+          "state_score": null,
+          "readiness_codes": []
+        }
+      }
+    },
+    "correction-pending-excluded": {
+      "eligible": false,
+      "exclusionReason": "verification_required"
+    },
+    "correction-manually-corrected-admitted": {
+      "eligible": true,
+      "exclusionReason": null
+    },
+    "invalid-inverted-document-range": {
+      "eligible": false,
+      "exclusionReason": "invalid_document_reference_range"
+    },
+    "invalid-missing-document-range": {
+      "eligible": false,
+      "exclusionReason": "missing_document_reference_range"
+    }
+  }
+}
