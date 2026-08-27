@@ -1,9 +1,9 @@
 # EH-164: Preserve censored lab results as printed text
 
 **Roadmap status:** In progress ([#183](https://github.com/Hazyshades/EasyHealth/issues/183); Registry docs [#188](https://github.com/Hazyshades/EasyHealth/issues/188))
-**Build / environment:** `________`
-**Test run date:** `________`
-**Tester:** `________`
+**Build / environment:** Local TypeScript verifier and static documentation checks; no authenticated product UI environment available
+**Test run date:** `2026-08-27`
+**Tester:** Implementer (developer evidence only)
 
 ## What this checklist covers
 
@@ -37,7 +37,7 @@ Printed detection-limit results such as `< 0.20` and `> 10` must stay as the pri
 
 **Expected result:** The value is the printed text (for example `< 0.20`), not `0.2` or `0.20` without the comparator. The status chip is **Threshold result**, not **Normal**, **Attention**, or **Low**.
 
-**Result:** `Not run`
+**Result:** **Blocked** — no authenticated Documents/Biomarkers/Health Profile environment is available in this workspace; manual execution remains required.
 **Notes / evidence link:** `________`
 
 ### EH164-UI-02: Trend does not plot the threshold as 0.20
@@ -50,7 +50,7 @@ Printed detection-limit results such as `< 0.20` and `> 10` must stay as the pri
 
 **Expected result:** The censored result is not a connected numeric point at `0.20`. The printed text remains visible in the table.
 
-**Result:** `Not run`
+**Result:** **Blocked** — no authenticated Documents/Biomarkers/Health Profile environment is available in this workspace; manual execution remains required.
 **Notes / evidence link:** `________`
 
 ### EH164-UI-03: Health Profile does not score the censored result
@@ -62,7 +62,7 @@ Printed detection-limit results such as `< 0.20` and `> 10` must stay as the pri
 
 **Expected result:** The row is not used as a finite numeric assessment input. The profile does not treat `< 0.20` as exactly `0.20`.
 
-**Result:** `Not run`
+**Result:** **Blocked** — no authenticated Documents/Biomarkers/Health Profile environment is available in this workspace; manual execution remains required.
 **Notes / evidence link:** `________`
 
 ### EH164-UI-04: Restating the printed comparator stays text
@@ -76,7 +76,7 @@ Printed detection-limit results such as `< 0.20` and `> 10` must stay as the pri
 
 **Expected result:** The observation remains printed text. No exact `0.20` is synthesised. Status remains **Threshold result**.
 
-**Result:** `Not run`
+**Result:** **Blocked** — no authenticated Documents/Biomarkers/Health Profile environment is available in this workspace; manual execution remains required.
 **Notes / evidence link:** `________`
 
 ### EH164-UI-05: Dipstick `2+` is unchanged
@@ -88,19 +88,20 @@ Printed detection-limit results such as `< 0.20` and `> 10` must stay as the pri
 
 **Expected result:** The result is a graded/ordinal text value, not a threshold number and not stripped to `2`.
 
-**Result:** `Not run`
+**Result:** **Blocked** — no authenticated Documents/Biomarkers/Health Profile environment is available in this workspace; manual execution remains required.
 **Notes / evidence link:** `________`
 
 ## Developer evidence required
 
-- [ ] `pnpm test:eh164` — parser, extraction rescue, modifier coercion, correction base, comparison exclusion, Health Profile admission. Owner: implementer/CI.
-- [ ] `pnpm test:eh119` — existing correction contract still refuses numeric restatement of comparator text.
-- [ ] `pnpm typecheck` — compilation of parser, extraction, UI, and Health Profile changes.
-- [ ] `openspec validate eh-164-preserve-censored-lab-results --strict` — change artifacts valid.
-- [ ] `pnpm check:ci-suite-coverage` — `test:eh164` is workflow-reachable on the verify job.
-- [ ] Read-only audit: `scripts/audit-eh164-censored-results.sql` lists already-corrupted rows; no UPDATE. Owner: operator against a disposable snapshot.
-- [ ] Registry documentation: `pnpm generate:biomarker-docs`, `pnpm check:biomarker-docs`, `pnpm test:biomarker-docs`. Wiki publication status recorded on the Registry docs tracking issue.
-- [ ] Database tests: **not applicable**. No migration, constraint, RLS, or writer RPC was added. Persistence is the existing `value_kind` / `value_text` / nullable `value` contract.
+- [x] `pnpm test:eh164` — parser, extraction rescue, modifier coercion, correction base, comparison exclusion, Health Profile admission. Passed. Owner: implementer/CI.
+- [x] `pnpm test:eh119` — existing correction contract still refuses numeric restatement of comparator text. Passed.
+- [x] Related regressions: `pnpm test:eh142`, `pnpm test:eh129`, `pnpm test:health-profile-lab-input`, `pnpm test:biomarkers`. All passed.
+- [x] `pnpm typecheck` — compilation of parser, extraction, UI, and Health Profile changes. Passed.
+- [x] `openspec validate eh-164-preserve-censored-lab-results --strict` — change artifacts valid.
+- [x] `pnpm check:ci-suite-coverage` — `test:eh164` is workflow-reachable on the verify job; 84 covered, 0 local-only, 0 orphaned, 0 partial, 0 invalid.
+- [ ] Read-only audit: `scripts/audit-eh164-censored-results.sql` lists already-corrupted rows; no UPDATE. **Blocked** — no disposable database snapshot was available; `pnpm test:eh164` verified the SQL comparator-policy parity statically.
+- [x] Registry documentation: `pnpm generate:biomarker-docs`, `pnpm check:biomarker-docs`, `pnpm test:biomarker-docs`. Passed; generated canonical outputs are current. Wiki publication status is recorded as **PENDING** on Registry docs tracking issue [#188](https://github.com/Hazyshades/EasyHealth/issues/188).
+- [x] Database tests: **not applicable**. No migration, constraint, RLS, or writer RPC was added. Persistence is the existing `value_kind` / `value_text` / nullable `value` contract.
 
 ## Out of scope or not manually testable yet
 
