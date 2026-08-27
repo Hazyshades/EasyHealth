@@ -118,42 +118,51 @@ const eligibility = evaluateAssessmentEligibility({
 assert.equal(eligibility.eligible, false);
 assert.equal(eligibility.exclusionReason, "non_numeric_value");
 
+const censoredObservation = {
+  name: "Fasting glucose",
+  value: 0.2,
+  unit: "mg/dL",
+  ref_low: 70,
+  ref_high: 99,
+  raw_reference_text: "70–99",
+  observed_at: "2026-08-01",
+  document_id: "00000000-0000-4000-8000-000000000002",
+  value_kind: "numeric",
+  value_text: "< 0.20",
+  ordinal: null,
+  specimen: "serum",
+  modifier: "fasting",
+  observation_kind: "lab" as const,
+  measurement_definition_key: "fasting_glucose",
+  resolution_status: "resolved",
+};
+const censoredRelation = {
+  resolver_result: "resolved",
+  verification_status: "user_verified",
+  measurement_definition_key: "fasting_glucose",
+  is_active: true,
+  resolver_evidence: {
+    version: 2,
+    selectedCandidateKey: "fasting_glucose",
+    outcome: "resolved",
+  },
+};
 const censoredInput = projectHealthProfileLaboratoryInput({
-  observation: {
-    name: "Fasting glucose",
-    value: 0.2,
-    unit: "mg/dL",
-    ref_low: 70,
-    ref_high: 99,
-    raw_reference_text: "70–99",
-    observed_at: "2026-08-01",
-    document_id: "00000000-0000-4000-8000-000000000002",
-    value_kind: "numeric",
-    value_text: "< 0.20",
-    ordinal: null,
-    specimen: "serum",
-    modifier: "fasting",
-    observation_kind: "lab",
-    measurement_definition_key: "fasting_glucose",
-    resolution_status: "resolved",
-  },
-  relation: {
-    resolver_result: "resolved",
-    verification_status: "user_verified",
-    measurement_definition_key: "fasting_glucose",
-    is_active: true,
-    resolver_evidence: {
-      version: 2,
-      selectedCandidateKey: "fasting_glucose",
-      outcome: "resolved",
-    },
-  },
+  observation: censoredObservation,
+  relation: censoredRelation,
   labUnitSystem: "si",
 });
 assert.equal(censoredInput?.biomarker_key, "fasting_glucose");
 assert.equal(censoredInput?.value, null);
 assert.equal(censoredInput?.value_kind, "text");
 assert.equal(censoredInput?.value_text, "< 0.20");
+
+const unverifiedCensoredInput = projectHealthProfileLaboratoryInput({
+  observation: censoredObservation,
+  relation: { ...censoredRelation, verification_status: "pending" },
+  labUnitSystem: "si",
+});
+assert.equal(unverifiedCensoredInput, null);
 
 const censoredProfile = buildHealthProfile(
   censoredInput ? [censoredInput] : [],

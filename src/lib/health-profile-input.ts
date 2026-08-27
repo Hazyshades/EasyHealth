@@ -47,9 +47,12 @@ export function projectHealthProfileLaboratoryInput(options: {
     [observation.value_text, typeof observation.value === "string" ? observation.value : null]
       .map((candidate) => (typeof candidate === "string" ? candidate.trim() : ""))
       .find((candidate) => isCensoredLabValueCell(candidate)) ?? null;
+  const canPreserveCensoredMarker =
+    censoredValueText !== null &&
+    outcome.resolutionDetails.eligibility.exclusions.assessment === "non_numeric_value";
   const assessmentInputKey =
     outcome.assessmentInputKey ??
-    (censoredValueText && outcome.measurementDefinitionKey
+    (canPreserveCensoredMarker && outcome.measurementDefinitionKey
       ? getReviewedAssessmentBinding(outcome.measurementDefinitionKey)?.binding.assessmentInputKey ?? null
       : null);
   if (!assessmentInputKey) return null;
