@@ -28,6 +28,7 @@ import {
   extractPipelineBiomarkersFromImage,
   extractPipelineBiomarkersFromText,
   mapPipelineBiomarkerEvidence,
+  type PipelineBiomarker,
 } from "../../src/lib/documents/extraction.js";
 import {
   extractInstrumentalFromImage,
@@ -639,7 +640,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
                   raw_name?: string | null;
                   value: number | null;
                   value_text?: string | null;
-                  value_kind?: string | null;
+                  value_kind?: PipelineBiomarker["value_kind"];
                   ordinal?: number | null;
                   unit: string;
                   ref_low?: number | null;
@@ -669,8 +670,12 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
                       value_kind:
                         anyB.value_kind ?? (anyB.value != null ? "numeric" : "text"),
                       ordinal: anyB.ordinal ?? null,
+                      ref_low: anyB.ref_low ?? null,
+                      ref_high: anyB.ref_high ?? null,
                       raw_reference_range: anyB.raw_reference_range ?? null,
+                      source_text: anyB.source_text ?? null,
                       section_context: anyB.section_context ?? null,
+                      confidence: anyB.confidence ?? null,
                       specimen: anyB.specimen ?? "unspecified",
                       modifier: anyB.modifier ?? "none",
                       method: anyB.method ?? null,
