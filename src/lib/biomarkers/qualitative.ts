@@ -12,24 +12,24 @@ const LEADING_COMPARATOR = /^(?:<=|>=|<|>|≤|≥)\s*/;
 export function hasLeadingComparator(raw: unknown): boolean {
   return typeof raw === "string" && LEADING_COMPARATOR.test(raw.trim());
 }
-const COMPARATOR_MODIFIER_TOKENS = new Set([
-  "<",
-  ">",
-  "<=",
-  ">=",
-  "≤",
-  "≥",
-  "lt",
-  "gt",
-  "less",
-  "greater",
-  "less than",
-  "greater than",
-  "less_than",
-  "greater_than",
-  "less-than",
-  "greater-than",
-]);
+export const COMPARATOR_MODIFIER_TOKENS: Readonly<Record<string, true>> = {
+  "<": true,
+  ">": true,
+  "<=": true,
+  ">=": true,
+  "≤": true,
+  "≥": true,
+  lt: true,
+  gt: true,
+  less: true,
+  greater: true,
+  "less than": true,
+  "greater than": true,
+  less_than: true,
+  greater_than: true,
+  "less-than": true,
+  "greater-than": true,
+};
 
 /**
  * True when a lab cell is a printed detection-limit / threshold result
@@ -54,7 +54,7 @@ export function coerceClinicalModifier(modifier: string | null | undefined): Mod
   const trimmed = modifier.trim();
   if (!trimmed) return "none";
   const folded = trimmed.toLowerCase();
-  if (/^[<>≤≥=]+$/.test(folded) || COMPARATOR_MODIFIER_TOKENS.has(folded)) {
+  if (/^[<>≤≥=]+$/.test(folded) || COMPARATOR_MODIFIER_TOKENS[folded] === true) {
     return "none";
   }
   return folded;

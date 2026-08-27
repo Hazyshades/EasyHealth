@@ -19,7 +19,8 @@ WHERE
   OR COALESCE(e.raw_value_text, '') ~ '[<>≤≥]'
   OR e.modifier IN (
     '<', '>', '<=', '>=', '≤', '≥',
-    'less than', 'greater than', 'less_than', 'greater_than'
+    'lt', 'gt', 'less', 'greater', 'less than', 'greater than',
+    'less_than', 'greater_than', 'less-than', 'greater-than'
   )
 
 UNION ALL
@@ -43,7 +44,8 @@ WHERE
     OR COALESCE(o.raw_value_text, '') ~ '[<>≤≥]'
     OR o.modifier IN (
       '<', '>', '<=', '>=', '≤', '≥',
-      'less than', 'greater than', 'less_than', 'greater_than'
+      'lt', 'gt', 'less', 'greater', 'less than', 'greater than',
+      'less_than', 'greater_than', 'less-than', 'greater-than'
     )
   )
 

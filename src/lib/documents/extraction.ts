@@ -7,7 +7,6 @@ import type { PipelineLlmContext } from "@/lib/ai/pipeline-trace";
 import {
   inferModifier,
   inferSpecimen,
-  isCensoredLabValueCell,
   normalizeBiomarkerKeyToken,
   parseLabValueCell,
   type ValueKind,

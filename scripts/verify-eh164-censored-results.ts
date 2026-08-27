@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
+  COMPARATOR_MODIFIER_TOKENS,
   coerceClinicalModifier,
   inferModifier,
   isCensoredLabValueCell,
@@ -48,6 +50,14 @@ assert.equal(coerceClinicalModifier("greater than"), "none");
 assert.equal(inferModifier("crp", "CRP", "<"), "none");
 assert.equal(inferModifier("glucose", "Glucose", "fasting"), "fasting");
 
+const auditSql = readFileSync(new URL("./audit-eh164-censored-results.sql", import.meta.url), "utf8");
+for (const comparatorToken of Object.keys(COMPARATOR_MODIFIER_TOKENS)) {
+  assert.equal(
+    auditSql.includes(`'${comparatorToken}'`),
+    true,
+    `audit SQL must include comparator modifier ${comparatorToken}`,
+  );
+}
 const extracted = parsePipelineExtraction({
   biomarkers: [
     {
