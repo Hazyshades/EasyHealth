@@ -1,4 +1,4 @@
-import type { ResolverResult, VerificationStatus, ValueKind } from "@/lib/biomarkers";
+import { isCensoredLabValueCell, type ResolverResult, type VerificationStatus, type ValueKind } from "@/lib/biomarkers";
 
 export const ASSESSMENT_EXCLUSION_REASONS = [
   "no_active_revision",
@@ -29,6 +29,7 @@ export type AssessmentEligibilityInput = Readonly<{
   verificationStatus: VerificationStatus | string | null | undefined;
   valueKind: ValueKind | null | undefined;
   value: unknown;
+  valueText?: string | null;
   rawReferenceText: string | null | undefined;
   refLow: unknown;
   refHigh: unknown;
@@ -114,6 +115,12 @@ export function evaluateAssessmentEligibility(
   }
   if (VERIFIED_ASSESSMENT_STATUSES[options.verificationStatus ?? ""] !== true) {
     return { eligible: false, exclusionReason: "verification_required" };
+  }
+  if (
+    isCensoredLabValueCell(options.valueText) ||
+    isCensoredLabValueCell(options.value)
+  ) {
+    return { eligible: false, exclusionReason: "non_numeric_value" };
   }
   if (options.valueKind !== "numeric") {
     return { eligible: false, exclusionReason: "non_numeric_value" };

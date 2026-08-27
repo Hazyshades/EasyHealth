@@ -23,6 +23,7 @@
 import {
   evaluateUnitCompatibility,
   getMeasurementDefinition,
+  isCensoredLabValueCell,
   normalizeMeasurementUnit,
   parseLabValueCell,
 } from "@/lib/biomarkers";
@@ -102,6 +103,7 @@ export type ExtractedBiomarkerMeasurementRow = Readonly<{
   unit: string | null;
   reference_range: string | null;
   raw_reference_range: string | null;
+  raw_value_text?: string | null;
 }>;
 
 function finiteMeasurementValue(
@@ -125,7 +127,17 @@ export function baseMeasurementFromExtractedRow(
   let valueKind = row.value_kind ?? null;
   let ordinal = row.ordinal ?? null;
 
-  if (value == null && valueText) {
+  const printedComparator =
+    [row.value_text, row.raw_value_text, typeof row.value_numeric === "string" ? row.value_numeric : null]
+      .map((candidate) => (typeof candidate === "string" ? candidate.trim() : ""))
+      .find((candidate) => isCensoredLabValueCell(candidate)) ?? null;
+
+  if (printedComparator) {
+    value = null;
+    valueText = printedComparator;
+    valueKind = "text";
+    ordinal = null;
+  } else if (value == null && valueText) {
     const parsed = parseLabValueCell(valueText);
     if (parsed) {
       value = parsed.value;

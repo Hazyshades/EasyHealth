@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { isCensoredLabValueCell } from "@/lib/biomarkers";
 import {
   ASSESSMENT_EXCLUSION_LABELS,
   type AssessmentExclusionReason,
@@ -51,6 +52,9 @@ type StatusInfo = {
 };
 
 function displayValue(o: Observation): string {
+  if (isCensoredLabValueCell(o.value_text)) {
+    return o.value_text?.trim() || "—";
+  }
   if (o.value_kind && o.value_kind !== "numeric") {
     return o.value_text?.trim() || "—";
   }
@@ -70,6 +74,9 @@ function biomarkerStatus(o: Observation): StatusInfo {
       return { label: "Measurement not recognized", variant: "neutral" };
     }
     return { label: "Needs review", variant: "warning" };
+  }
+  if (isCensoredLabValueCell(o.value_text)) {
+    return { label: "Threshold result", variant: "neutral" };
   }
   if (o.value_kind && o.value_kind !== "numeric") {
     return { label: "Text result", variant: "neutral" };

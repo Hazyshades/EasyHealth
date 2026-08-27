@@ -7,6 +7,55 @@ export type ParsedLabValue = {
   ordinal: number | null;
 };
 
+
+const LEADING_COMPARATOR = /^(?:<=|>=|<|>|≤|≥)\s*/;
+const COMPARATOR_MODIFIER_TOKENS = new Set([
+  "<",
+  ">",
+  "<=",
+  ">=",
+  "≤",
+  "≥",
+  "lt",
+  "gt",
+  "less",
+  "greater",
+  "less than",
+  "greater than",
+  "less_than",
+  "greater_than",
+  "less-than",
+  "greater-than",
+]);
+
+/**
+ * True when a lab cell is a printed detection-limit / threshold result
+ * (`< 0.20`, `> 10`, `≤0.05`), not a magnitude.
+ */
+export function isCensoredLabValueCell(raw: unknown): boolean {
+  if (typeof raw !== "string") return false;
+  const text = raw.trim();
+  if (!text) return false;
+  const stripped = text.replace(LEADING_COMPARATOR, "");
+  if (stripped === text) return false;
+  const numericPart = stripped.replace(/,/g, "").trim();
+  if (!/^-?\d/.test(numericPart)) return false;
+  return Number.isFinite(Number.parseFloat(numericPart));
+}
+
+/**
+ * Comparators are part of the printed value, never a clinical modifier axis.
+ */
+export function coerceClinicalModifier(modifier: string | null | undefined): Modifier {
+  if (typeof modifier !== "string") return "none";
+  const trimmed = modifier.trim();
+  if (!trimmed) return "none";
+  const folded = trimmed.toLowerCase();
+  if (/^[<>≤≥=]+$/.test(folded) || COMPARATOR_MODIFIER_TOKENS.has(folded)) {
+    return "none";
+  }
+  return folded;
+}
 /** Dipstick / semi-quant ordinal map (design D1). */
 const ORDINAL_MAP: Array<{ pattern: RegExp; ordinal: number; kind: ValueKind }> = [
   { pattern: /^(negative|neg|none|absent|негативн|отриц|negativ)/i, ordinal: 0, kind: "ordinal" },
@@ -43,9 +92,16 @@ export function parseLabValueCell(raw: unknown): ParsedLabValue | null {
       };
     }
   }
+  if (isCensoredLabValueCell(text)) {
+    return {
+      value_kind: "text",
+      value: null,
+      value_text: text,
+      ordinal: null,
+    };
+  }
 
-  // Numeric with optional comparison operators
-  const cleaned = text.replace(/^[<>≤≥]+\s*/, "").replace(/,/g, "");
+  const cleaned = text.replace(/,/g, "");
   const parsed = Number.parseFloat(cleaned);
   if (Number.isFinite(parsed) && /^-?\d/.test(cleaned)) {
     return {
@@ -124,7 +180,7 @@ export function inferModifier(
   name = "",
   explicit?: string | null
 ): Modifier {
-  if (explicit && explicit.trim()) return explicit.trim().toLowerCase();
+  if (explicit && explicit.trim()) return coerceClinicalModifier(explicit);
   const blob = `${key} ${name}`.toLowerCase();
   if (/fasting|натощак|fpg|ayunas|basal/i.test(blob)) return "fasting";
   if (/random|случай|azar/i.test(blob)) return "random";

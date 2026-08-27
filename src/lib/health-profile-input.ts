@@ -1,4 +1,4 @@
-import { presentObservation, type LabUnitSystem } from "@/lib/biomarkers";
+import { isCensoredLabValueCell, presentObservation, type LabUnitSystem } from "@/lib/biomarkers";
 import { buildHealthProfile } from "@/lib/health-systems";
 import {
   type RegistryV2LaboratoryBindingSource,
@@ -47,6 +47,13 @@ export function projectHealthProfileLaboratoryInput(options: {
   // assessment gate, so key presence is the whole admission decision.
   const assessmentInputKey = outcome.assessmentInputKey;
   if (!assessmentInputKey) {
+    return null;
+  }
+
+  if (
+    isCensoredLabValueCell(observation.value_text) ||
+    isCensoredLabValueCell(observation.value)
+  ) {
     return null;
   }
 
