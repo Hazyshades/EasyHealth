@@ -23,6 +23,8 @@
 import {
   evaluateUnitCompatibility,
   getMeasurementDefinition,
+  hasLeadingComparator,
+  isCensoredLabValueCell,
   normalizeMeasurementUnit,
   parseLabValueCell,
 } from "@/lib/biomarkers";
@@ -70,7 +72,6 @@ function isCalendarDate(value: string): boolean {
  * not be able to make that worse with their name attached, so the flow keeps
  * the printed string and refuses to synthesize a number from it.
  */
-const COMPARATOR = /[<>≤≥]/;
 
 export type MeasurementOverride = {
   readonly value?: number | null;
@@ -102,6 +103,7 @@ export type ExtractedBiomarkerMeasurementRow = Readonly<{
   unit: string | null;
   reference_range: string | null;
   raw_reference_range: string | null;
+  raw_value_text?: string | null;
 }>;
 
 function finiteMeasurementValue(
@@ -125,7 +127,17 @@ export function baseMeasurementFromExtractedRow(
   let valueKind = row.value_kind ?? null;
   let ordinal = row.ordinal ?? null;
 
-  if (value == null && valueText) {
+  const printedComparator =
+    [row.value_text, row.raw_value_text, typeof row.value_numeric === "string" ? row.value_numeric : null]
+      .map((candidate) => (typeof candidate === "string" ? candidate.trim() : ""))
+      .find((candidate) => isCensoredLabValueCell(candidate)) ?? null;
+
+  if (printedComparator) {
+    value = null;
+    valueText = printedComparator;
+    valueKind = "text";
+    ordinal = null;
+  } else if (value == null && valueText) {
     const parsed = parseLabValueCell(valueText);
     if (parsed) {
       value = parsed.value;
@@ -405,7 +417,7 @@ export function applyMeasurementOverride(
  * and leaves a number the laboratory never reported.
  */
 export function isCensoredValueText(valueText: string | null | undefined): boolean {
-  return typeof valueText === "string" && COMPARATOR.test(valueText);
+  return hasLeadingComparator(valueText);
 }
 
 export function validateMeasurementCorrection(options: {

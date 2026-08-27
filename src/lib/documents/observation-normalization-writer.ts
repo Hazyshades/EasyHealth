@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   buildPersistedResolverDecisionTrace,
+  coerceClinicalModifier,
   getMeasurementDefinition,
   MEASUREMENT_CATALOG_MANIFEST_RELEASE,
   MEASUREMENT_CATALOG_MANIFEST_VERSION,
@@ -330,7 +331,7 @@ function buildObservationPayload(options: {
     ref_high: measurement.refHigh,
     observed_at: measurement.observedAt,
     specimen: row.specimen ?? "unspecified",
-    modifier: row.modifier ?? "none",
+    modifier: coerceClinicalModifier(row.modifier),
     // Raw provenance below. None of it is correctable, and
     // `observation_provenance_write_once` rejects any UPDATE that moves it, so
     // these values are only ever written when the observation is created.

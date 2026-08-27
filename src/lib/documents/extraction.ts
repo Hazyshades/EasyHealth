@@ -103,6 +103,8 @@ Rules:
 - Include quantitative lab results AND qualitative/semi-quantitative results (Negative, Trace, 1+, Positive, Отрицательно, Negativo).
 - For qualitative results, put the lab's verbatim text in "value" as a string (do not translate Отрицательно/Negativo into English).
 - For quantitative results, put a number in "value".
+- For printed comparators or detection limits (< 0.20, > 10, <= 0.05, >= 10), copy that exact printed text into "value" as a string. Do not strip the comparator and do not invent a bare number.
+- modifier is a clinical axis only (fasting, free, total, random, none). Never put <, >, <=, >=, less than, or greater than on modifier; those belong on value.
 - If dual units are printed (e.g. 90 mg/dL / 5.0 mmol/L), store primary in value/unit and alternate in reported_alt_value/reported_alt_unit.
 - Emit specimen only when the report explicitly states it on the row itself or in a labelled line (for example "Material: serum" or "Specimen: whole blood"); preserve that printed wording in source_text so the provenance gate can verify it. Do not infer it from the analyte label, from a section heading, or from which specimen the test is usually measured in. When the report does not state it, use null. A section heading is not accepted as evidence: it is not captured with the row, so a specimen taken from it cannot be verified and is discarded before resolution.
 - For CBC differentials, emit method only when the report explicitly states automated or manual; do not infer it from the analyte label.
