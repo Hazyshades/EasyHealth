@@ -1,6 +1,6 @@
 # EH-147: Assessment golden dataset and release gate
 
-**Roadmap status:** In progress
+**Roadmap status:** Done
 **Build / environment:** local `corepack pnpm` on the EH-147 worktree; EasyHealth Next on `localhost:3001`; Docker Supabase (`127.0.0.1:54321` API, `54322` DB, Mailpit `54324`)
 **Test run date:** 2026-08-26
 **Tester:** local EH-147 UI+backend run (synthetic accounts only)
@@ -66,13 +66,13 @@ The Health Profile already scores eight named body systems when every required g
 ## Developer evidence required
 
 - [x] `pnpm test:eh147` — committed golden cases match production admission, readiness, scores, and SI/US presentation. Owner: implementer. Result: passed locally on 2026-08-26, pack hash `6fcbe8567c0173062bfbfce6a9c9f9469843ff49d02faba60369f51be506a7ed`, 22/22 cases.
-- [x] `pnpm check:eh147` — fail-closed without Clinical Product hash-bound approval. Owner: implementer. Result: failed as required on 2026-08-26 (`PENDING` sign-off).
+- [x] `pnpm check:eh147` — Clinical Product hash-bound approval recorded on 2026-08-27 for pack `6fcbe8567c0173062bfbfce6a9c9f9469843ff49d02faba60369f51be506a7ed`. Owner: Clinical Product (Project Owner). Result: passed after sign-off.
 - [x] Database tests — EH-147 itself does not persist rows. Related local Docker DB gates on 2026-08-26: `pnpm test:eh144-db` 14/14; `pnpm test:eh123-db` 21/21; `pnpm test:eh119-db` 39/39.
 - [x] `pnpm test:eh141`, `pnpm test:eh142`, `pnpm test:eh143`, `pnpm test:eh145`, `pnpm test:eh119`, `pnpm test:eh144`, `pnpm test:health-profile-lab-input`, `pnpm test:health-profile-drawer-status` passed on 2026-08-26. `pnpm typecheck`, `pnpm check:ci-suite-coverage`, `pnpm check:ci-suite-coverage-contract`, and `openspec validate eh-147-create-assessment-golden-dataset-and-release-gate --strict` passed on 2026-08-26 (implementer run).
-- [x] Registry documentation generate/check/test passed on 2026-08-26. Wiki remote publication is `PENDING` on tracking issue [#185](https://github.com/Hazyshades/EasyHealth/issues/185); local staging export is under `tmp/eh147-wiki-staging`.
+- [x] Registry documentation generate/check/test passed on 2026-08-26. Wiki remote publication is `PUBLISHED` on tracking issue [#185](https://github.com/Hazyshades/EasyHealth/issues/185) at Wiki `6e610d83`.
 
 ## Out of scope or not manually testable yet
 
-- Clinical Product hash-bound acceptance of Health Profile v1. Recorded as `PENDING` until `QA/eh-147/approvals.json` matches the current pack hash.
+- Clinical Product hash-bound acceptance of Health Profile v1 is recorded as `APPROVED` in `QA/eh-147/approvals.json` for pack hash `6fcbe8567c0173062bfbfce6a9c9f9469843ff49d02faba60369f51be506a7ed` (2026-08-27).
 - Changing score formulas, Registry bindings, or adding a new Health Profile API.
 - Diagnoses, disease-risk labels, or test-ordering advice.
