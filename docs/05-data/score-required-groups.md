@@ -29,6 +29,23 @@ Score role, Coverage flag, readiness group, and contribution group are independe
 - This policy does not infer fasting confirmation, pregnancy, age, assay interference, diagnoses, or any clinical threshold absent from the Observation.
 - The numeric score uses only runtime-approved contribution groups after readiness passes. This document does not change that formula.
 
+## Reported laboratory outcomes
+
+A processed document may contain current extracted laboratory rows that are still incomplete, ambiguous, unmapped, or awaiting verification. Those rows remain reviewable on the authenticated document surface and are excluded from Health Profile scoring until the existing Registry, evidence, range, and verification gates pass.
+
+`GET /api/health-profile` exposes an explanatory `reported_results` summary without changing any score or readiness calculation:
+
+- `reported_count` — current extracted rows with a numeric or text result;
+- `ready_for_scoring_count` — rows represented by an admitted assessment input;
+- `needs_document_details_count` — rows blocked by missing or conflicting document axes;
+- `awaiting_catalog_review_count` — rows without a reviewed catalog match;
+- `awaiting_verification_count` — reviewed rows excluded pending verification;
+- `source_document_count` — distinct processed source documents.
+
+The profile display precedence is `onboarding` when no processed source exists, `no_recognized_biomarkers` when a processed source has no reported laboratory rows, `reported_but_not_scoreable` when reported rows exist but none are ready, and `body_map` otherwise. In mixed coverage, the reported-results notice is additive: existing body-map scores and readiness explanations remain unchanged. Reported counts are not a score, and this surface does not infer a specimen, method, timing, unit, value kind, or clinical meaning.
+
+The review-results and clearer-report actions are recovery entry points only. Reviewed panel specimen policy remains deferred to #111, and broader reported-results product ownership remains tracked by #127.
+
 ## Sign-off matrix
 
 | Accountable role | Decision or evidence | Current state | Evidence |
