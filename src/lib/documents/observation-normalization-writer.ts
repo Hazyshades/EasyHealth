@@ -3,13 +3,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   buildPersistedResolverDecisionTrace,
   getMeasurementDefinition,
-  MEASUREMENT_CATALOG_MANIFEST_RELEASE,
   MEASUREMENT_CATALOG_MANIFEST_VERSION,
   MEASUREMENT_NORMALIZATION_VERSION,
   MEASUREMENT_RESOLVER_VERSION,
   OBSERVATION_PROVENANCE_SCHEMA_VERSION,
   resolveMeasurementDefinition,
 } from "@/lib/biomarkers";
+import { MEASUREMENT_CATALOG_MANIFEST_RELEASE } from "@/lib/biomarkers/measurement-registry-release";
 import type {
   CandidateEvidence,
   MappingChangeClassification,

@@ -63,8 +63,14 @@ export default function DashboardPage() {
       const healthProfileData =
         profileData as DashboardHealthProfileResponse;
       setDocuments(documentsData.documents ?? []);
+      const hasReportedResults =
+        (healthProfileData?.reported_results?.reported_count ?? 0) > 0;
       setProfile(
-        healthProfileData?.records_used_count > 0 ? healthProfileData : null,
+        healthProfileData &&
+        healthProfileData.profile_display_state !== "onboarding" &&
+        (healthProfileData.records_used_count > 0 || hasReportedResults)
+          ? healthProfileData
+          : null,
       );
       setAssessmentState(
         healthProfileData?.assessment?.display_state ?? "current",
@@ -104,6 +110,9 @@ export default function DashboardPage() {
   }
 
   const completed = documents.filter((d) => d.status === "completed").length;
+  const processingDocuments = documents.some(
+    (document) => document.status === "processing" || document.status === "queued",
+  );
   const lastUpdated = profile?.sources[0]?.observed_at ?? null;
   const name = greetingLabel(
     accountProfile?.first_name,
@@ -172,7 +181,7 @@ export default function DashboardPage() {
             ))}
           </div>
         </>
-      ) : completed === 0 ? (
+      ) : completed === 0 && !processingDocuments && !profile ? (
         <>
           <SurfaceCard padding="lg" className="mb-6 text-center">
             <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-[var(--eh-brand-soft)] text-[var(--eh-brand)]">
@@ -195,6 +204,7 @@ export default function DashboardPage() {
           <DashboardWidgetGrid
             data={{
               completedDocuments: completed,
+              processingDocuments,
               healthProfile: profile,
               lastUpdated,
               assessmentState,
@@ -206,6 +216,7 @@ export default function DashboardPage() {
         <DashboardWidgetGrid
           data={{
             completedDocuments: completed,
+            processingDocuments,
             healthProfile: profile,
             lastUpdated,
             assessmentState,

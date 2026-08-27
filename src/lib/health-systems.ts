@@ -18,13 +18,8 @@ import {
   NON_SCOREABLE_SYSTEMS,
 } from "@/lib/biomarkers/registry-v2-runtime";
 import type { SourceRegion } from "@/lib/documents/source-region";
-import {
-  HEALTH_PROFILE_FRESHNESS_POLICY,
-  evaluateSystemObservationFreshness,
-  isCompleteCalendarDate,
-  type FreshnessStatus,
-  type HealthProfileFreshnessPolicy,
-} from "@/lib/health-profile-freshness";
+import { HEALTH_PROFILE_FRESHNESS_POLICY, evaluateSystemObservationFreshness, isCompleteCalendarDate, type FreshnessStatus, type HealthProfileFreshnessPolicy } from "@/lib/health-profile-freshness";
+import type { HealthProfileReportedResults } from "@/lib/health-profile-reported-results";
 
 export type DocumentType =
   | "lab_result"
@@ -276,10 +271,7 @@ export type SystemScoreReadinessEvaluation = {
   readiness: SystemScoreReadiness;
 };
 
-export type ProfileDisplayState =
-  | "onboarding"
-  | "no_recognized_biomarkers"
-  | "body_map";
+export type ProfileDisplayState = | "onboarding" | "no_recognized_biomarkers" | "reported_but_not_scoreable" | "body_map";
 
 export type HolisticSynthesis = {
   text: string;
@@ -292,6 +284,7 @@ export type HealthProfileResult = {
   records_used_count: number;
   biomarker_observation_count: number;
   profile_display_state: ProfileDisplayState;
+  reported_results: HealthProfileReportedResults;
   overall_state_score: number | null;
   overall_data_confidence: number;
   scoreable_named_system_count: number;
@@ -810,6 +803,8 @@ export function buildWhyHighlighted(markers: SystemMarker[]): string[] {
 export type HealthProfileBuildOptions = Readonly<{
   /** Exclusions captured before Health Profile projection (EH-145). */
   excludedObservations?: readonly ScoreExclusion[];
+  /** Reported extracted rows kept separate from score admission. */
+  reportedResults?: HealthProfileReportedResults;
   freshnessAsOf?: string;
   freshnessEvaluatedAt?: string;
   freshnessPolicy?: HealthProfileFreshnessPolicy;
@@ -931,9 +926,20 @@ export function buildHealthProfile(
     profile_display_state:
       biomarkerObservationCount > 0
         ? "body_map"
-        : sources.length > 0
-          ? "no_recognized_biomarkers"
-          : "onboarding",
+        : (options.reportedResults?.reported_count ?? 0) > 0 &&
+            (options.reportedResults?.ready_for_scoring_count ?? 0) === 0
+          ? "reported_but_not_scoreable"
+          : sources.length > 0
+            ? "no_recognized_biomarkers"
+            : "onboarding",
+    reported_results: options.reportedResults ?? {
+      reported_count: 0,
+      ready_for_scoring_count: 0,
+      needs_document_details_count: 0,
+      awaiting_catalog_review_count: 0,
+      awaiting_verification_count: 0,
+      source_document_count: 0,
+    },
     assessment_freshness: "current",
     overall_state_score:
       scoreableSystems.length >= 3 ? average(scoreableSystems.map((system) => system.state_score)) : null,

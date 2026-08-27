@@ -1,10 +1,10 @@
 import {
-  MEASUREMENT_CATALOG_MANIFEST_RELEASE,
   MEASUREMENT_CATALOG_MANIFEST_VERSION,
   MEASUREMENT_COMPATIBILITY_POLICY_VERSION,
   MEASUREMENT_NORMALIZATION_VERSION,
   MEASUREMENT_RESOLVER_VERSION,
 } from "@/lib/biomarkers";
+import { MEASUREMENT_CATALOG_MANIFEST_RELEASE } from "@/lib/biomarkers/measurement-registry-release";
 import type { DeployedRegistryRelease } from "./types";
 
 /**

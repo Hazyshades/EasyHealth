@@ -3,6 +3,7 @@ import type { HealthProfileResult } from "@/lib/health-systems";
 
 export type DashboardWidgetData = {
   completedDocuments: number;
+  processingDocuments: boolean;
   healthProfile: HealthProfileResult | null;
   lastUpdated: string | null;
   assessmentState?: HealthProfileAssessmentDisplayState;
