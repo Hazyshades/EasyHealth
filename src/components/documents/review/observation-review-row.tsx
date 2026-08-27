@@ -183,6 +183,7 @@ export function ObservationReviewRow({
             {rawEvidence.specimen ? ` · ${rawEvidence.specimen}` : ""}
             {rawEvidence.modifier ? ` · ${rawEvidence.modifier}` : ""}
             {rawEvidence.method ? ` · ${rawEvidence.method}` : ""}
+            {rawEvidence.collectedAt ? ` · collected ${rawEvidence.collectedAt}` : ""}
             {rawEvidence.extractionConfidence != null
               ? ` · ${Math.round(rawEvidence.extractionConfidence * 100)}% extraction confidence`
               : ""}

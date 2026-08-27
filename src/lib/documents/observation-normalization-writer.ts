@@ -30,7 +30,7 @@ import {
   decideAutomaticPromotion,
   isAutomaticVerificationReleaseApproved,
 } from "./normalization-policy";
-
+import { observationDateFromExtractedRow } from "@/lib/documents/observation-date";
 import {
   parseSourceRegion,
   sourceRegionMatchesPage,
@@ -73,6 +73,7 @@ export type ExtractedBiomarkerWriterRow = {
   raw_value_text: string | null;
   method?: string | null;
   processing_version: string | null;
+  collected_at?: string | null;
   record_status?: "active" | "rejected" | "superseded" | null;
   is_current?: boolean | null;
 };
@@ -502,7 +503,10 @@ export async function writeExtractedBiomarkerNormalization(options: {
   const resolution = options.resolution ?? resolveMeasurementDefinition(input);
   const reviewedMeasurementDefinition = isReviewedResolution(resolution);
   const measurement = applyMeasurementOverride(
-    baseMeasurementFromWriterRow(options.row, options.observedAt),
+    baseMeasurementFromWriterRow(
+      options.row,
+      observationDateFromExtractedRow(options.row, options.observedAt),
+    ),
     measurementOverride
   );
   const mappingClassification =
@@ -636,7 +640,10 @@ export async function writeAutomaticBiomarkerVerification(options: {
   }
 
   const measurement = applyMeasurementOverride(
-    baseMeasurementFromWriterRow(options.row, options.observedAt),
+    baseMeasurementFromWriterRow(
+      options.row,
+      observationDateFromExtractedRow(options.row, options.observedAt),
+    ),
     measurementOverride,
   );
   const inputEvidenceHash = buildInputEvidenceHash(input);

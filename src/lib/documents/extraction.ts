@@ -98,6 +98,8 @@ Rules:
 - name is an optional English-oriented display hint; when unsure, omit or repeat raw_name.
 - Prefer common lab keys when emitting key hints (e.g. hba1c, sodium, potassium, bicarbonate, crp, hs_crp, uacr, ferritin, ldl, free_t4, transferrin_saturation, urine_ketones, psa).
 - Use YYYY, YYYY-MM, or YYYY-MM-DD for observed_at, collected_at, and reported_at when visible. Do not fill missing month/day values.
+- If a table has dated columns or dated headers, emit one candidate per printed value per date. Copy that column or header date into collected_at. Do not collapse several dated cells of the same analyte into one candidate.
+- When a column or value has no date, leave collected_at null. Do not copy observed_at onto the row and do not invent today's date.
 - Include quantitative lab results AND qualitative/semi-quantitative results (Negative, Trace, 1+, Positive, Отрицательно, Negativo).
 - For qualitative results, put the lab's verbatim text in "value" as a string (do not translate Отрицательно/Negativo into English).
 - For quantitative results, put a number in "value".

@@ -109,6 +109,7 @@
     "test:eh122-db": "supabase test db --local supabase/tests/eh122_batch_verification.sql",
     "test:eh122": "tsx scripts/verify-eh122-batch-verification.ts && tsx scripts/verify-eh122-batch-service.ts",
     "test:eh126": "tsx scripts/verify-eh126-medical-events.ts",
+    "test:eh165": "tsx scripts/verify-eh165-row-level-observation-dates.ts",
     "test:eh126-db": "supabase test db --local supabase/tests/eh126_normalized_medical_events.sql",
     "test:eh132": "tsx scripts/verify-eh132-timeline-panel-release.ts",
     "test:eh132-db": "supabase test db --local QA-Db_tests/eh132_timeline_panel_release.sql",
