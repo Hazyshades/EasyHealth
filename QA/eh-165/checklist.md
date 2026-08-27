@@ -81,21 +81,21 @@ A laboratory history table can print the same test on several dates. After proce
 **Result:** `Pass | Fail | Blocked | N/A`
 **Notes / evidence link:** `________`
 
-### EH165-UI-05: Same marker on the same day still upserts
+### EH165-UI-05: Same-day repeats remain two source rows
 
-**Precondition:** Signed in; a synthetic document repeats the same Glucose value twice on `2026-01-08`.
+**Precondition:** Signed in; a synthetic document prints two Glucose cells on `2026-01-08` (two extracted rows).
 
 1. Accept both extracted rows.
 2. Go to **Biomarkers** and open Glucose.
 
-**Expected result:** One observation exists for that day, not two duplicate same-day rows.
+**Expected result:** Two Glucose observations exist on `2026-01-08`. The product does not merge them because they are different extracted rows.
 
 **Result:** `Pass | Fail | Blocked | N/A`
 **Notes / evidence link:** `________`
 
 ## Developer evidence required
 
-- [x] `pnpm test:eh165` passed (2026-08-26): proves the date helper (row day → document day → null, never today), EH-119 override still wins, parser fixtures for 1×3 / 3×3 / header-only / undated / same-day uniqueness keys, extraction prompt rules, and writer SELECT wiring.
+- [x] `pnpm test:eh165` passed (2026-08-26): proves the date helper (row day → document day → null, never today), EH-119 override still wins, parser fixtures for 1×3 / 3×3 / header-only / undated / same-day source-row identity, extraction prompt rules, and writer SELECT wiring.
 - [ ] Database tests are not applicable: no schema, uniqueness, or RPC change. `collected_at` storage and observation uniqueness already exist.
 
 ## Out of scope or not manually testable yet

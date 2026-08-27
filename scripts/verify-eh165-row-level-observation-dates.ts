@@ -10,22 +10,6 @@ import { applyMeasurementOverride } from "../src/lib/documents/observation-measu
 const TODAY = new Date().toISOString().slice(0, 10);
 const DOCUMENT_DAY = "2026-01-08";
 
-function uniquenessKey(options: {
-  profileId: string;
-  biomarkerKey: string;
-  observedAt: string | null;
-  specimen: string;
-  modifier: string;
-}): string {
-  return [
-    options.profileId,
-    options.biomarkerKey,
-    options.observedAt ?? "",
-    options.specimen,
-    options.modifier,
-  ].join("|");
-}
-
 function glucoseRow(collectedAt: string | null, value: number) {
   return {
     raw_name: "Glucose",
@@ -146,34 +130,29 @@ assert.equal(
 const sameDay = parsePipelineExtraction({
   biomarkers: [glucoseRow("2026-01-08", 99), glucoseRow("2026-01-08", 101)],
 });
-const keys = sameDay.biomarkers.map((row) =>
-  uniquenessKey({
-    profileId: "profile",
-    biomarkerKey: "glucose",
-    observedAt: observationDateFromExtractedRow(row, DOCUMENT_DAY),
-    specimen: "unspecified",
-    modifier: "none",
-  }),
+assert.equal(sameDay.biomarkers.length, 2);
+assert.equal(
+  observationDateFromExtractedRow(sameDay.biomarkers[0]!, DOCUMENT_DAY),
+  DOCUMENT_DAY,
 );
-assert.equal(keys[0], keys[1]);
-assert.notEqual(
-  uniquenessKey({
-    profileId: "profile",
-    biomarkerKey: "glucose",
-    observedAt: "2023-01-10",
-    specimen: "unspecified",
-    modifier: "none",
-  }),
-  uniquenessKey({
-    profileId: "profile",
-    biomarkerKey: "glucose",
-    observedAt: "2026-01-08",
-    specimen: "unspecified",
-    modifier: "none",
-  }),
+assert.equal(
+  observationDateFromExtractedRow(sameDay.biomarkers[1]!, DOCUMENT_DAY),
+  DOCUMENT_DAY,
 );
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const writerRpc = readFileSync(
+  join(root, "supabase/migrations/060_eh120_verification_transitions.sql"),
+  "utf8",
+);
+assert.match(writerRpc, /on conflict \(source_extracted_biomarker_id\)/);
+const sourceIdentity = readFileSync(
+  join(root, "supabase/migrations/025_registry_v2_hard_cutover.sql"),
+  "utf8",
+);
+assert.match(sourceIdentity, /observations_source_extracted_biomarker_unique/);
+assert.match(sourceIdentity, /on public\.observations \(source_extracted_biomarker_id\)/);
+
 const writer = readFileSync(join(root, "src/lib/documents/observation-normalization-writer.ts"), "utf8");
 assert.match(writer, /observationDateFromExtractedRow\(options\.row, options\.observedAt\)/);
 assert.equal(

@@ -1,6 +1,6 @@
 ## Context
 
-The worker already writes `document_extracted_biomarkers.collected_at` from extraction (`calendarDateProjection` of the parsed row date). Observation uniqueness is `(profile_id, biomarker_key, observed_at, specimen, modifier)`. Every promotion path currently passes `documents.observed_at` (or its day projection) into `writeExtractedBiomarkerNormalization` / `writeAutomaticBiomarkerVerification` and never SELECTs `collected_at`. `ExtractedBiomarkerWriterRow` has no date field.
+The worker already writes `document_extracted_biomarkers.collected_at` from extraction (`calendarDateProjection` of the parsed row date). Laboratory observation uniqueness is one observation per extracted row (`observations.source_extracted_biomarker_id`). The older composite `(profile_id, biomarker_key, observed_at, specimen, modifier)` key is gone. Every promotion path currently passes `documents.observed_at` (or its day projection) into `writeExtractedBiomarkerNormalization` / `writeAutomaticBiomarkerVerification` and never SELECTs `collected_at`. `ExtractedBiomarkerWriterRow` has no date field.
 
 The extraction prompt stores `collected_at` when visible but does not tell the model to expand a history table (one analyte, several dated columns) into separate candidates.
 
@@ -13,7 +13,7 @@ EH-126 remains the event-date contract: one medical event per document; `consist
 - Each promoted laboratory value uses its own collected calendar day when the extracted row has one.
 - Missing or partial row dates fall back to the document day, then null — never the current day.
 - History tables extract one candidate per biomarker × dated column.
-- Same marker on the same day still upserts.
+- Replay of the same extracted row still upserts. Two extracted rows on the same day remain two observations.
 - Re-accepting a previously collapsed document does not silently delete the old observation.
 
 **Non-Goals:**
@@ -39,7 +39,7 @@ Export `observationDateFromExtractedRow(row, documentObservedAt)` from `src/lib/
 
 **Alternative rejected:** only changing accept-route `observedAt`. Confirm, PATCH, batch verification, reprocessing, and automatic verification would keep collapsing history tables.
 
-**Alternative rejected:** changing uniqueness to include extracted-row id. That would duplicate same-day repeats and leave collapsed rows unfixed for new accepts.
+**Alternative rejected:** restoring composite uniqueness `(profile, key, observed_at, specimen, modifier)` so same-day repeats silently merge. EH-106 already keys observations by extracted-row id; this change only stamps truthful days.
 
 ### 2. `collected_at` is a writer-row field, not a new RPC argument
 
@@ -79,14 +79,14 @@ Uniqueness, `collected_at` storage, and nullable `observed_at` already exist (EH
 
 - [ collides with a previously collapsed observation on the document day ] → undated columns still fall back to the document day by design; dated columns no longer collide. Testers must not expect auto-delete of the old row.
 - [ model still emits one candidate for a history table ] → prompt + parser tests; extraction quality remains model-dependent. The writer still cannot invent extra years if extraction did not emit them.
-- [ year-only headers stay null and several years upsert together ] → same as EH-126; out of scope to invent 1 January.
+- [ year-only headers stay null and several years share a missing day ] → same as EH-126; out of scope to invent 1 January.
 - [ PATCH correction base uses document date while writer uses row date ] → PATCH validation MUST use the same helper so EH-119 date edits are relative to the row day.
 
 ## Migration Plan
 
 1. Ship helper + writer SELECT wiring + prompt.
 2. Reprocess or newly extract documents to get per-row `collected_at`.
-3. Accept dated rows; uniqueness creates one observation per day.
+3. Accept dated rows; source-row uniqueness creates one observation per extracted candidate, each with its own day.
 4. Rollback: revert the application change; stored `collected_at` is unused again. No database rollback.
 
 ## Open Questions

@@ -11,7 +11,7 @@
 ## 3. Extraction prompt and parser
 
 - [x] 3.1 Update `PIPELINE_EXTRACTION_INSTRUCTIONS` so a biomarker × dated column is a separate candidate, header dates apply, and undated columns stay null.
-- [x] 3.2 Add parser/helper coverage for 1×3 dates, 3×3 dates, header-only dates, undated columns, and same-marker same-day upsert identity.
+- [x] 3.2 Add parser/helper coverage for 1×3 dates, 3×3 dates, header-only dates, undated columns, and same-day repeats remaining two extracted rows under source-row identity.
 
 ## 4. Verification and QA
 

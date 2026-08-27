@@ -22,10 +22,11 @@ When promoting an extracted laboratory row to an observation, the system SHALL s
 - **THEN** the promoted observation has `observed_at` null
 - **AND** the write does not use the current calendar day
 
-#### Scenario: Same marker on the same day still upserts
+#### Scenario: Same-day repeats stay one observation per extracted row
 
 - **WHEN** two extracted rows share analyte identity, specimen, modifier, and the same observation day
-- **THEN** uniqueness still upserts them onto one observation
+- **THEN** each extracted row maps to its own observation keyed by `source_extracted_biomarker_id`
+- **AND** the write does not merge them by `(profile, key, observed_at, specimen, modifier)`
 
 #### Scenario: EH-119 date override still wins
 
