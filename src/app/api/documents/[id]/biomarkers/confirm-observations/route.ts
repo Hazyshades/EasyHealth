@@ -88,7 +88,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
   const { data: sourceRows, error: sourceError } = await supabase
     .from("document_extracted_biomarkers")
     .select(
-      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, confidence, specimen, modifier, method, source_page, source_text, bounding_box, reported_alt_value, reported_alt_unit, raw_value_text, processing_version"
+      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, confidence, specimen, modifier, method, source_page, source_text, bounding_box, reported_alt_value, reported_alt_unit, raw_value_text, processing_version, collected_at"
     )
     .eq("document_id", id)
     .eq("profile_id", profileId)

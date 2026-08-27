@@ -1,0 +1,29 @@
+{
+  "packVersion": "eh147-golden-v1",
+  "algorithmVersion": "eh145-score-v1",
+  "caseIds": [
+    "complete-in-range-eight-systems",
+    "complete-out-of-range-eight-systems",
+    "si-us-fasting-glucose-si",
+    "si-us-fasting-glucose-us",
+    "missing-group-cardiovascular",
+    "missing-group-metabolic",
+    "missing-group-thyroid",
+    "missing-group-liver",
+    "missing-group-kidney",
+    "missing-group-blood",
+    "missing-group-nutrients",
+    "invalid-reference-liver-alt",
+    "context-only-metabolic-glucose",
+    "context-only-cardiovascular-total-cholesterol",
+    "alternatives-metabolic-hba1c",
+    "alternatives-blood-hematocrit",
+    "alternatives-kidney-creatinine",
+    "inflammation-crp-factual-only",
+    "correction-pending-excluded",
+    "correction-manually-corrected-admitted",
+    "invalid-inverted-document-range",
+    "invalid-missing-document-range"
+  ],
+  "packHash": "6fcbe8567c0173062bfbfce6a9c9f9469843ff49d02faba60369f51be506a7ed"
+}

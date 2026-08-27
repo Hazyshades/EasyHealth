@@ -44,7 +44,7 @@ type BatchExtractedRow = ExtractedBiomarkerWriterRow & {
 };
 
 const BATCH_EXTRACTED_BIOMARKER_SELECT =
-  "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, status, record_status, source_page, source_text, bounding_box, confidence, specimen, modifier, method, reported_alt_value, reported_alt_unit, raw_value_text, processing_version, created_at, is_current";
+  "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, status, record_status, source_page, source_text, bounding_box, confidence, specimen, modifier, method, reported_alt_value, reported_alt_unit, raw_value_text, processing_version, collected_at, created_at, is_current";
 
 export class BatchVerificationError extends Error {
   constructor(message: string, public readonly status: number) {

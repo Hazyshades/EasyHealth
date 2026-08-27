@@ -140,6 +140,8 @@ jobs:
         run: pnpm test:eh122
       - name: Verify EH-126 medical-event contracts
         run: pnpm test:eh126
+      - name: Verify EH-165 row-level observation dates
+        run: pnpm test:eh165
       - name: Verify EH-127 health timeline contracts
         run: pnpm test:eh127
       - name: Verify EH-132 synthetic fixture pack
@@ -166,6 +168,8 @@ jobs:
         run: pnpm test:eh145
       - name: Verify EH-146 system states and body-map behavior
         run: pnpm test:eh146
+      - name: Verify EH-147 assessment golden dataset
+        run: pnpm test:eh147
 
       - name: Publish Registry 2.0 candidate-release evidence
         run: |

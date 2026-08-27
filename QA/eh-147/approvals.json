@@ -1,0 +1,13 @@
+{
+  "packVersion": "eh147-golden-v1",
+  "packHash": "6fcbe8567c0173062bfbfce6a9c9f9469843ff49d02faba60369f51be506a7ed",
+  "approvals": [
+    {
+      "role": "Clinical Product",
+      "status": "approved",
+      "packHash": "6fcbe8567c0173062bfbfce6a9c9f9469843ff49d02faba60369f51be506a7ed",
+      "approvedAt": "2026-08-27T06:25:00Z",
+      "note": "Project Owner, performing Clinical Product for EH-147, approves Health Profile v1 golden pack eh147-golden-v1 at this pack hash. Golden cases, expected outputs, and score formulas are unchanged."
+    }
+  ]
+}
