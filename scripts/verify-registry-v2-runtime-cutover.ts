@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import {
-  MEASUREMENT_CATALOG_MANIFEST_DIGEST,
   MEASUREMENT_DEFINITIONS,
   getReviewedAssessmentBinding,
   presentObservation,
   resolveMeasurementDefinition,
   validateMeasurementRegistry,
 } from "../src/lib/biomarkers";
+import { MEASUREMENT_CATALOG_MANIFEST_DIGEST } from "../src/lib/biomarkers/measurement-registry-release";
 import { buildHealthProfile, getSystemForMarker } from "../src/lib/health-systems";
 import { projectActiveRegistryV2LaboratoryBinding } from "../src/lib/documents/observation-read-boundaries";
 

@@ -1,8 +1,8 @@
 # EH-147: Assessment golden dataset and release gate
 
 **Roadmap status:** Done
-**Build / environment:** local `corepack pnpm` on the EH-147 worktree; EasyHealth Next on `localhost:3001`; Docker Supabase (`127.0.0.1:54321` API, `54322` DB, Mailpit `54324`)
-**Test run date:** 2026-08-26
+**Build / environment:** local `corepack pnpm` on the EH-147 worktree; baseline EasyHealth Next on `localhost:3001` and worktree UI smoke on `localhost:3100`; Docker Supabase (`127.0.0.1:54321` API, `54322` DB, Mailpit `54324`)
+**Test run date:** 2026-08-27
 **Tester:** local EH-147 UI+backend run (synthetic accounts only)
 
 ## What this checklist covers
@@ -60,19 +60,38 @@ The Health Profile already scores eight named body systems when every required g
 
 **Expected result:** After correction, a usable fasting/glycemia input can satisfy Metabolic readiness when the rest of the group policy is met. The raw laboratory value is never labeled invalid merely because it was pending.
 
-**Result:** `Pass`
-**Notes / evidence link:** Session `eh147-correct@easyhealth.local` (`EH147 C.`). Before correction: Biomarkers `fasting_glucose` `5 mmol/l` Normal with `Not used in assessment: This result is not verified yet.`; Metabolic `insufficient data; assessment unavailable`. After EH-119 `PATCH /api/documents/{id}/biomarkers` `edit-value` on extracted row `26b9e2c6-…`, revision `3d96439a-…` is `manually_corrected` + `resolved` `fasting_glucose`. Recalculation via `complete_assessment_recalculation_job`. Health Profile Metabolic `95/100` with `fasting_glucose` `5 mmol/l` in the drawer. Biomarkers still `5 mmol/l` Normal and no longer shows `not verified yet`. Seed script now stores extracted measurement fields so this path can be re-run.
+**Result:** `Blocked`
+**Notes / evidence link:** Session `eh147-correct@easyhealth.local` (`EH147 C.`). The pending row and exclusion guidance were visible, but the live EH-119 `edit-value` correction on the OCR-less synthetic document did not retain the reviewed `fasting_glucose` identity: the row became `partial`/`unmapped` because specimen/timing evidence was absent. This is a seed/provenance limitation, not a scoring defect. The correction admission remains covered by the EH-147 golden pack plus `pnpm test:eh119` and `pnpm test:eh119-db`.
+
+### EH147-UI-04: Reported-results recovery notice
+
+**Precondition:** A processed synthetic report contains at least one current extracted laboratory row with a safe non-score reason; for mixed coverage, the same account also has at least one ready observation.
+
+1. Go to **Health Profile**.
+2. Confirm the reported-results notice shows reported and ready-for-scoring counts plus the document-detail/catalog-review buckets.
+3. Open **Review results** and confirm navigation stays on the authenticated documents surface.
+4. On **Dashboard**, confirm an existing processed report does not produce the duplicate `Upload your lab` prompt.
+
+**Expected result:** The notice preserves factual result context, explains why unresolved rows do not affect scores, and leaves any existing body-map scores/readiness unchanged.
+
+**Result:** `Blocked`
+**Notes / evidence link:** Local browser smoke on `localhost:3100` authenticated as `EH147 M.` reached the mixed-capability `body_map` route and `GET /api/health-profile` returned `reported_count: 20`, `ready_for_scoring_count: 20`, and `source_document_count: 1`; no build error occurred. The local seed did not provide a current unresolved extracted row for the notice branch, so the notice/review-link interaction was not claimed as manually passed. Pure contract coverage is recorded below; a prepared unresolved-row fixture is required for a manual Pass.
 
 ## Developer evidence required
 
-- [x] `pnpm test:eh147` — committed golden cases match production admission, readiness, scores, and SI/US presentation. Owner: implementer. Result: passed locally on 2026-08-26, pack hash `6fcbe8567c0173062bfbfce6a9c9f9469843ff49d02faba60369f51be506a7ed`, 22/22 cases.
-- [x] `pnpm check:eh147` — Clinical Product hash-bound approval recorded on 2026-08-27 for pack `6fcbe8567c0173062bfbfce6a9c9f9469843ff49d02faba60369f51be506a7ed`. Owner: Clinical Product (Project Owner). Result: passed after sign-off.
-- [x] Database tests — EH-147 itself does not persist rows. Related local Docker DB gates on 2026-08-26: `pnpm test:eh144-db` 14/14; `pnpm test:eh123-db` 21/21; `pnpm test:eh119-db` 39/39.
-- [x] `pnpm test:eh141`, `pnpm test:eh142`, `pnpm test:eh143`, `pnpm test:eh145`, `pnpm test:eh119`, `pnpm test:eh144`, `pnpm test:health-profile-lab-input`, `pnpm test:health-profile-drawer-status` passed on 2026-08-26. `pnpm typecheck`, `pnpm check:ci-suite-coverage`, `pnpm check:ci-suite-coverage-contract`, and `openspec validate eh-147-create-assessment-golden-dataset-and-release-gate --strict` passed on 2026-08-26 (implementer run).
-- [x] Registry documentation generate/check/test passed on 2026-08-26. Wiki remote publication is `PUBLISHED` on tracking issue [#185](https://github.com/Hazyshades/EasyHealth/issues/185) at Wiki `6e610d83`.
+- [x] `pnpm test:eh147` — 22/22 golden cases passed on 2026-08-27 with pack hash `6fcbe8567c0173062bfbfce6a9c9f9469843ff49d02faba60369f51be506a7ed`.
+- [x] `pnpm check:eh147` — passed on 2026-08-27; `QA/eh-147/approvals.json` contains the matching Clinical Product approval for the same pack hash.
+- [x] `pnpm test:health-profile-reported-results` — zero, mixed, all-ready summaries and onboarding/no-recognized/reported-only/body-map display states passed on 2026-08-27.
+- [x] Focused application contracts — `scripts/verify-document-review-runner.ts`, `scripts/verify-eh122-batch-service.ts`, and `scripts/verify-health-profile-drawer-status.ts` all passed on 2026-08-27 with the repository env file; the import-boundary client smoke on `localhost:3100` returned HTTP 200 without a Next build error.
+- [x] `pnpm typecheck` — passed on 2026-08-27.
+- [x] Local Docker Supabase database contracts — `pnpm test:eh119-db` 39/39, `pnpm test:eh122-db` 19/19, `pnpm test:eh123-db` 21/21, `pnpm test:eh142-db` 8/8, and `pnpm test:eh144-db` 14/14 passed on 2026-08-27.
+- [x] CI registration — `pnpm check:ci-suite-coverage` reported `85 covered, 0 local-only, 0 orphaned, 0 partial, 0 invalid`; `pnpm check:ci-suite-coverage-contract` passed on 2026-08-27.
+- [x] Existing EH-119 correction and EH-147 golden checks remain available for the pending/`manually_corrected` admission boundary; the blocked UI correction is not replaced by an OCR-less shortcut.
+- [x] Registry documentation generate/check/test passed on 2026-08-26. Tracking issue [#185](https://github.com/Hazyshades/EasyHealth/issues/185) records Wiki status `PUBLISHED` at Wiki commit `6e610d83`; canonical documentation and generated mirror remain synchronized.
 
 ## Out of scope or not manually testable yet
 
-- Clinical Product hash-bound acceptance of Health Profile v1 is recorded as `APPROVED` in `QA/eh-147/approvals.json` for pack hash `6fcbe8567c0173062bfbfce6a9c9f9469843ff49d02faba60369f51be506a7ed` (2026-08-27).
+- The manual `EH147-UI-03` correction transition and `EH147-UI-04` unresolved-results notice interaction remain blocked by the available synthetic fixture/provenance; use a real OCR-like document or a seed row with retained source context, then rerun the interface steps.
+- Deferred reviewed panel specimen policy remains owned by #111; reported-results product ownership remains tracked by #127. Neither is described here as implemented.
 - Changing score formulas, Registry bindings, or adding a new Health Profile API.
 - Diagnoses, disease-risk labels, or test-ordering advice.

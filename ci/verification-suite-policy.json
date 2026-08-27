@@ -315,6 +315,28 @@
       "reason": "Assessment freshness policy version stamping and completion RPC behavior require pgTAP."
     },
     {
+      "script": "test:document-review",
+      "verificationFiles": [
+        "scripts/verify-document-review-runner.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "document-review",
+      "reason": "Document review hook-order and raw-evidence fallback contracts are release verification."
+    },
+    {
+      "script": "test:health-profile-reported-results",
+      "verificationFiles": [
+        "scripts/verify-health-profile-reported-results.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "health-profile",
+      "reason": "Reported-result recovery counts and display-state precedence are release verification."
+    },
+    {
       "script": "test:eh147",
       "verificationFiles": [
         "scripts/verify-eh147-assessment-golden.ts"

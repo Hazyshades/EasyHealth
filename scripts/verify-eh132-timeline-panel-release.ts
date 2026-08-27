@@ -5,7 +5,6 @@ import {
   MEASUREMENT_DEFINITIONS,
   PANEL_DEFINITIONS,
   REQUIRED_PANEL_KEYS,
-  digestMeasurementRegistryManifest,
   evaluateSpecimenCompatibility,
   evaluateUnitCompatibility,
   getMeasurementConversionPolicy,
@@ -21,6 +20,7 @@ import {
   validatePanelRegistry,
   type PanelDefinition,
 } from "../src/lib/biomarkers";
+import { digestMeasurementRegistryManifest } from "../src/lib/biomarkers/measurement-registry-release";
 import {
   calendarDateProjection,
   parseMedicalEventDate,

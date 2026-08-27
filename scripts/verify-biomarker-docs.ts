@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
-  MEASUREMENT_CATALOG_MANIFEST_DIGEST,
   MEASUREMENT_CATALOG_MANIFEST_VERSION,
   MEASUREMENT_DEFINITIONS,
   type MeasurementDefinition,
 } from "../src/lib/biomarkers";
+import { MEASUREMENT_CATALOG_MANIFEST_DIGEST } from "../src/lib/biomarkers/measurement-registry-release";
 import {
   BIOMARKER_DOCUMENT_PATHS,
   buildBiomarkerDocumentation,

@@ -39,6 +39,26 @@ assert.equal(batchVerificationAggregateStatus([{ outcome: "excluded" }]), "no_op
 
 const service = readFileSync("src/lib/documents/batch-verification-service.ts", "utf8");
 assert.match(service, /aggregate_status: "executing"/, "new batch operations start in an executing state");
+const operationInsertStart = service.indexOf("  const created = await supabase");
+const rowProcessingStart = service.indexOf("  const rowResult = await supabase", operationInsertStart);
+assert.ok(operationInsertStart >= 0, "batch operation initialization must be present");
+assert.ok(rowProcessingStart > operationInsertStart, "row processing must follow operation initialization");
+const initializationBlock = service.slice(operationInsertStart, rowProcessingStart);
+assert.match(
+  initializationBlock,
+  /aggregate_status: "executing"/,
+  "a new operation records executing status before row processing",
+);
+assert.match(
+  initializationBlock,
+  /if \(created\.error \|\| !created\.data\)[\s\S]*?throw new BatchVerificationError/,
+  "operation initialization failure must throw before row processing",
+);
+assert.doesNotMatch(
+  initializationBlock,
+  /document_extracted_biomarkers|writeExtractedBiomarkerNormalization|batch_verification_operation_rows/,
+  "initialization failure path must not mutate verification rows",
+);
 assert.match(service, /existing\.data\.request_hash !== hash/, "a reused operation id rejects a conflicting selection");
 assert.match(service, /evaluateBatchVerificationEligibility/, "execution re-evaluates server-side eligibility rather than trusting the client");
 assert.match(service, /record_status,/, "batch reads the source lifecycle state");

@@ -1,10 +1,10 @@
 import {
-  MEASUREMENT_CATALOG_MANIFEST_RELEASE,
   getMeasurementDefinition,
   resolveMeasurementDefinition,
   type MeasurementResolution,
   type MeasurementResolutionInput,
 } from "@/lib/biomarkers";
+import { MEASUREMENT_CATALOG_MANIFEST_RELEASE } from "@/lib/biomarkers/measurement-registry-release";
 import type { MappingChangeClassification } from "@/lib/biomarkers";
 import type { RecordStatus } from "./observation-verification-workflow";
 

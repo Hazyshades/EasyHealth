@@ -114,4 +114,33 @@ assert.ok(
 );
 assert.doesNotMatch(outdated, EMPTY_CHIP_PATTERN, "chip must never render empty");
 
+const unknownDate = renderDrawer(
+  fixtureSystem({
+    markers: [{ ...MARKER, observed_at: null, freshness_status: "unknown_date" }],
+    score_readiness: {
+      required_groups: [],
+      reasons: [{ code: "unknown_date", required_group: null, present_keys: [] }],
+    },
+  }),
+);
+assert.ok(
+  unknownDate.includes(">Not scored - date unavailable<"),
+  "unknown-date markers must expose one semantic date-unavailable state",
+);
+assert.equal(
+  (unknownDate.match(/Currentness could not be evaluated/g) ?? []).length,
+  1,
+  "unknown-date markers must render one semantic freshness label",
+);
+assert.equal(
+  (unknownDate.match(/A required observation has no available medical date/g) ?? []).length,
+  1,
+  "unknown-date markers must render one factual explanation",
+);
+assert.equal(
+  (unknownDate.match(/Observed date unavailable/g) ?? []).length,
+  0,
+  "legacy duplicate date-unavailable copy must not return",
+);
+
 console.log("verify-health-profile-drawer-status: all checks passed");

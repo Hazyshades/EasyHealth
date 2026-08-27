@@ -145,16 +145,10 @@ export {
 
 export { SAMPLE_NEWEST_LAUNCH_FIXTURES, buildLaunchCoverageReport, type LaunchResolverFixture } from "./launch-fixtures";
 
-export {
-  MEASUREMENT_CATALOG_MANIFEST_DIGEST,
-  MEASUREMENT_CATALOG_MANIFEST_RELEASE,
-  buildMeasurementCatalogManifestRelease,
-  classifyMeasurementDefinitionChange,
-  digestMeasurementRegistryManifest,
-  serializeMeasurementRegistryManifest,
-  type MappingChangeClassification,
-  type MeasurementRegistryChange,
-  type MeasurementCatalogManifestRelease,
+export type {
+  MappingChangeClassification,
+  MeasurementRegistryChange,
+  MeasurementCatalogManifestRelease,
 } from "./measurement-registry-release";
 
 export {

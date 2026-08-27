@@ -9,6 +9,29 @@ import {
 } from "@/lib/health-profile-snapshot";
 import { getLatestHolisticSynthesis } from "@/lib/holistic-synthesis";
 import { resolveAssessmentDisplayState } from "@/lib/health-profile-assessment-state";
+import type { HealthProfileReportedResults } from "@/lib/health-profile-reported-results";
+
+const REPORTED_RESULT_COUNT_KEYS: readonly (keyof HealthProfileReportedResults)[] = [
+  "reported_count",
+  "ready_for_scoring_count",
+  "needs_document_details_count",
+  "awaiting_catalog_review_count",
+  "awaiting_verification_count",
+  "source_document_count",
+];
+
+function hasCanonicalReportedResults(
+  value: unknown,
+): value is HealthProfileReportedResults {
+  if (!value || typeof value !== "object") return false;
+  const summary = value as Record<string, unknown>;
+  return REPORTED_RESULT_COUNT_KEYS.every(
+    (key) =>
+      typeof summary[key] === "number" &&
+      Number.isInteger(summary[key]) &&
+      summary[key] >= 0,
+  );
+}
 
 function hasCanonicalReadinessContract(value: unknown): value is HealthProfileAssessment {
   if (
@@ -16,7 +39,9 @@ function hasCanonicalReadinessContract(value: unknown): value is HealthProfileAs
     typeof value !== "object" ||
     !("assessment_freshness" in value) ||
     !("systems" in value) ||
-    !("freshness_policy_version" in value)
+    !("freshness_policy_version" in value) ||
+    !("reported_results" in value) ||
+    hasCanonicalReportedResults(value.reported_results) === false
   ) {
     return false;
   }

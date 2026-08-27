@@ -27,7 +27,8 @@ import { generateDocumentSummary } from "../../src/lib/documents/document-summar
 import {
   extractPipelineBiomarkersFromImage,
   extractPipelineBiomarkersFromText,
-  formatReferenceRange,
+  mapPipelineBiomarkerEvidence,
+  type PipelineBiomarker,
 } from "../../src/lib/documents/extraction.js";
 import {
   extractInstrumentalFromImage,
@@ -639,13 +640,15 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
                   raw_name?: string | null;
                   value: number | null;
                   value_text?: string | null;
-                  value_kind?: string | null;
+                  value_kind?: PipelineBiomarker["value_kind"];
                   ordinal?: number | null;
                   unit: string;
                   ref_low?: number | null;
                   ref_high?: number | null;
+                  raw_reference_range?: string | null;
                   source_page?: number | null;
                   source_text?: string | null;
+                  section_context?: string | null;
                   confidence?: number | null;
                   specimen?: string | null;
                   modifier?: string | null;
@@ -658,31 +661,34 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
                 };
                 const provenance = resolveProvenance(anyB.source_page, anyB.source_text);
                 return {
+                  ...mapPipelineBiomarkerEvidence(
+                    {
+                      ...anyB,
+                      raw_name: anyB.raw_name ?? anyB.name,
+                      value_text:
+                        anyB.value_text ?? (anyB.value != null ? String(anyB.value) : null),
+                      value_kind:
+                        anyB.value_kind ?? (anyB.value != null ? "numeric" : "text"),
+                      ordinal: anyB.ordinal ?? null,
+                      ref_low: anyB.ref_low ?? null,
+                      ref_high: anyB.ref_high ?? null,
+                      raw_reference_range: anyB.raw_reference_range ?? null,
+                      source_text: anyB.source_text ?? null,
+                      section_context: anyB.section_context ?? null,
+                      confidence: anyB.confidence ?? null,
+                      specimen: anyB.specimen ?? "unspecified",
+                      modifier: anyB.modifier ?? "none",
+                      method: anyB.method ?? null,
+                      reported_alt_value: anyB.reported_alt_value ?? null,
+                      reported_alt_unit: anyB.reported_alt_unit ?? null,
+                    },
+                    provenance,
+                  ),
                   document_id: documentId,
                   profile_id: profileId,
                   processing_attempt_id: processingAttemptId,
                   biomarker_key: anyB.key,
                   biomarker_name: anyB.name,
-                  raw_name: anyB.raw_name ?? anyB.name,
-                  value_numeric: anyB.value,
-                  value_text: anyB.value_text ?? (anyB.value != null ? String(anyB.value) : null),
-                  value_kind: anyB.value_kind ?? (anyB.value != null ? "numeric" : "text"),
-                  ordinal: anyB.ordinal ?? null,
-                  unit: anyB.unit,
-                  raw_unit: anyB.unit,
-                  raw_value_text: anyB.value_text ?? (anyB.value != null ? String(anyB.value) : null),
-                  reference_range: formatReferenceRange(anyB.ref_low ?? null, anyB.ref_high ?? null),
-                  raw_reference_range: formatReferenceRange(anyB.ref_low ?? null, anyB.ref_high ?? null),
-                  section_context: null,
-                  source_page: provenance.page,
-                  bounding_box: provenance.region,
-                  source_text: anyB.source_text,
-                  confidence: anyB.confidence,
-                  specimen: anyB.specimen ?? "unspecified",
-                  modifier: anyB.modifier ?? "none",
-                  method: anyB.method ?? null,
-                  reported_alt_value: anyB.reported_alt_value ?? null,
-                  reported_alt_unit: anyB.reported_alt_unit ?? null,
                   collected_at: calendarDateProjection(anyB.collected_at),
                   reported_at: calendarDateProjection(anyB.reported_at),
                   // #106: observability only, never read by the resolver.

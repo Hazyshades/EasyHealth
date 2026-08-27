@@ -2,7 +2,6 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import {
   ANALYTES,
-  MEASUREMENT_CATALOG_MANIFEST_DIGEST,
   MEASUREMENT_CATALOG_MANIFEST_VERSION,
   MEASUREMENT_DEFINITIONS,
   MEASUREMENT_NORMALIZATION_VERSION,
@@ -21,6 +20,7 @@ import {
   type AliasDefinition,
   type MeasurementDefinition,
 } from "../src/lib/biomarkers";
+import { MEASUREMENT_CATALOG_MANIFEST_DIGEST } from "../src/lib/biomarkers/measurement-registry-release";
 import { projectHealthProfileLaboratoryInput } from "../src/lib/health-profile-input";
 import {
   projectActiveRegistryV2LaboratoryBinding,

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 
 import {
-  MEASUREMENT_CATALOG_MANIFEST_DIGEST,
   MEASUREMENT_CATALOG_MANIFEST_VERSION,
   MEASUREMENT_RESOLVER_VERSION,
   RESOLVER_DECISION_TRACE_SCHEMA_VERSION,
@@ -12,6 +11,7 @@ import {
   type PersistedResolverDecisionTrace,
   type PersistedResolverDecisionTraceV2,
 } from "../src/lib/biomarkers";
+import { MEASUREMENT_CATALOG_MANIFEST_DIGEST } from "../src/lib/biomarkers/measurement-registry-release";
 import { buildNormalizationReview } from "../src/lib/documents/normalization-review";
 import type { NormalizationRevisionSummary } from "../src/lib/documents/normalization-review";
 import { buildNormalizationResolutionPayload } from "../src/lib/documents/observation-normalization-writer";

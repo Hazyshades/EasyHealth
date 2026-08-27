@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import {
-  MEASUREMENT_CATALOG_MANIFEST_DIGEST,
   buildPageOcrArtifact,
   getAnalyte,
   getMeasurementDefinitionsForAnalyte,
@@ -9,9 +8,12 @@ import {
   parseLabValueCell,
   presentObservation,
   resolveMeasurementDefinition,
-  serializeMeasurementRegistryManifest,
   validateMeasurementRegistry,
 } from "../src/lib/biomarkers";
+import {
+  MEASUREMENT_CATALOG_MANIFEST_DIGEST,
+  serializeMeasurementRegistryManifest,
+} from "../src/lib/biomarkers/measurement-registry-release";
 import { buildHealthProfile, computeSystemStateScore, getSystemForMarker } from "../src/lib/health-systems";
 import { projectActiveRegistryV2LaboratoryBinding } from "../src/lib/documents/observation-read-boundaries";
 

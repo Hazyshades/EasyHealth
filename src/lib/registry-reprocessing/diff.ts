@@ -1,11 +1,11 @@
 import {
-  MEASUREMENT_CATALOG_MANIFEST_RELEASE,
   MEASUREMENT_CATALOG_MANIFEST_VERSION,
   MEASUREMENT_RESOLVER_VERSION,
   RESOLVER_DECISION_TRACE_SCHEMA_VERSION,
   buildPersistedResolverDecisionTrace,
   resolveMeasurementDefinition,
 } from "@/lib/biomarkers";
+import { MEASUREMENT_CATALOG_MANIFEST_RELEASE } from "@/lib/biomarkers/measurement-registry-release";
 import type { MappingChangeClassification } from "@/lib/biomarkers";
 import {
   buildInputEvidenceHash,

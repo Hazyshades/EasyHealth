@@ -19,6 +19,7 @@ import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 import { buildHealthNavigationPath, readHealthNavigationContext } from "@/lib/health-navigation";
 import { normalizeBodySystemId, resolveBodyMapLayout } from "@/lib/health-systems";
 import type { BodySystemId, HealthProfileResult } from "@/lib/health-systems";
+import type { HealthProfileReportedResults } from "@/lib/health-profile-reported-results";
 
 type AssessmentStatus = {
   status: "queued" | "processing" | "retryable_failed" | "failed" | "succeeded";
@@ -32,6 +33,7 @@ type AssessmentStatus = {
 };
 
 type HealthProfileResponse = HealthProfileResult & {
+  reported_results: HealthProfileReportedResults;
   assessment?: AssessmentStatus;
 };
 
@@ -194,7 +196,12 @@ export default function HealthProfilePage() {
     assessment?.display_state ??
     resolveAssessmentDisplayState(assessment?.status, hasCurrentVersion);
   const assessmentDescription = assessmentDisplayStateDescription(assessmentState);
-  const lastUpdated = profile!.sources[0]?.observed_at ?? null;
+  const lastUpdated = profile.sources[0]?.observed_at ?? null;
+  const reportedResults = profile.reported_results;
+  const pendingReportedResults = Math.max(
+    0,
+    reportedResults.reported_count - reportedResults.ready_for_scoring_count,
+  );
 
 
 
@@ -241,7 +248,57 @@ export default function HealthProfilePage() {
         </div>
       ) : null}
 
-
+      {pendingReportedResults > 0 ? (
+        <div
+          className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5 shadow-sm"
+          aria-live="polite"
+          data-testid="health-profile-reported-results-notice"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-amber-950">
+              {profile.profile_display_state === "reported_but_not_scoreable"
+                ? "Report found, scoring not ready"
+                : "Some reported results need review"}
+            </h2>
+            <Link
+              href="/app/documents"
+              className="text-sm font-medium text-amber-900 underline underline-offset-2"
+            >
+              Review results
+            </Link>
+          </div>
+          <p className="mt-2 text-sm text-amber-900">
+            Reported values are preserved, but excluded from scoring until they pass the existing
+            safety and assessment eligibility checks.
+          </p>
+          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-amber-950 sm:grid-cols-4">
+            <div>
+              <dt className="font-medium">Reported results</dt>
+              <dd className="tabular-nums">{reportedResults.reported_count}</dd>
+            </div>
+            <div>
+              <dt className="font-medium">Ready for scoring</dt>
+              <dd className="tabular-nums">{reportedResults.ready_for_scoring_count}</dd>
+            </div>
+            <div>
+              <dt className="font-medium">Need document details</dt>
+              <dd className="tabular-nums">{reportedResults.needs_document_details_count}</dd>
+            </div>
+            <div>
+              <dt className="font-medium">Await catalog review</dt>
+              <dd className="tabular-nums">{reportedResults.awaiting_catalog_review_count}</dd>
+            </div>
+          </dl>
+          {reportedResults.awaiting_verification_count > 0 ? (
+            <p className="mt-2 text-xs text-amber-900">
+              Awaiting verification: {reportedResults.awaiting_verification_count}
+            </p>
+          ) : null}
+          <Button asChild variant="outline" className="mt-4 border-amber-300 bg-white text-amber-950 hover:bg-amber-100">
+            <Link href="/app/upload?type=lab_result">Upload a clearer report</Link>
+          </Button>
+        </div>
+      ) : null}
 
       {profile!.holistic_synthesis?.text ? (
         <div className="rounded-2xl border border-teal-100 bg-teal-50/50 p-5 shadow-sm">
