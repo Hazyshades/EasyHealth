@@ -26,7 +26,7 @@ Consumers already treat non-numeric `value_kind` as non-plottable and assessment
 
 ## Decisions
 
-1. **Text kind, not a new enum.** Censored results use existing `value_kind = "text"` so Health Profile and comparison already fail closed. A dedicated `censored` kind would require catalog/resolver/DB churn for no extra safety.
+1. **Text kind, not a new enum.** Censored results use existing `value_kind = "text"` so Health Profile and comparison already fail closed. A dedicated `censored` kind would require catalog/resolver/DB churn for no extra safety. A row with a valid reviewed assessment binding remains a text marker with a null numeric value in Health Profile input so readiness reports it as present-but-invalid; it never enters numeric contributors.
 
 2. **Shared detector in `qualitative.ts`.** One leading-comparator test (`<`, `>`, `≤`, `≥`, `<=`, `>=` plus a number) is used by the cell parser, extraction rescue, modifier coercion, correction base, UI status, and Health Profile projection. `parseLabNumber` keeps stripping comparators only for reference-range bounds.
 

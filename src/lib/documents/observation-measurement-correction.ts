@@ -23,6 +23,7 @@
 import {
   evaluateUnitCompatibility,
   getMeasurementDefinition,
+  hasLeadingComparator,
   isCensoredLabValueCell,
   normalizeMeasurementUnit,
   parseLabValueCell,
@@ -71,7 +72,6 @@ function isCalendarDate(value: string): boolean {
  * not be able to make that worse with their name attached, so the flow keeps
  * the printed string and refuses to synthesize a number from it.
  */
-const COMPARATOR = /[<>≤≥]/;
 
 export type MeasurementOverride = {
   readonly value?: number | null;
@@ -417,7 +417,7 @@ export function applyMeasurementOverride(
  * and leaves a number the laboratory never reported.
  */
 export function isCensoredValueText(valueText: string | null | undefined): boolean {
-  return typeof valueText === "string" && COMPARATOR.test(valueText);
+  return hasLeadingComparator(valueText);
 }
 
 export function validateMeasurementCorrection(options: {

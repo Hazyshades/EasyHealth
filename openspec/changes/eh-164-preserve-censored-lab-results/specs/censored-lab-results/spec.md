@@ -84,10 +84,12 @@ The Biomarkers table SHALL show status `Threshold result` for a comparator-beari
 
 Health Profile laboratory admission SHALL NOT treat a comparator-bearing result as a finite numeric assessment input. A row whose printed text includes a result comparator SHALL be excluded even if a stale numeric `value` is still present.
 
-#### Scenario: Censored text is not admitted
+#### Scenario: Censored text remains present but unusable
 
-- **WHEN** a laboratory observation has printed value `< 0.20`
-- **THEN** `projectHealthProfileLaboratoryInput` returns null
+- **WHEN** a laboratory observation has printed value `< 0.20` and a valid reviewed assessment binding
+- **THEN** `projectHealthProfileLaboratoryInput` returns a marker for that binding with `value_kind` `text`
+- **AND** the marker keeps `< 0.20` in `value_text` and has a null numeric `value`
+- **AND** the marker's readiness group reports `invalid` with the present assessment key
 - **AND** assessment eligibility does not treat the row as a usable numeric value
 
 #### Scenario: Stale numeric plus comparator text is still excluded

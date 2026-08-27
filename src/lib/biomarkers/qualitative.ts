@@ -7,8 +7,11 @@ export type ParsedLabValue = {
   ordinal: number | null;
 };
 
-
 const LEADING_COMPARATOR = /^(?:<=|>=|<|>|≤|≥)\s*/;
+
+export function hasLeadingComparator(raw: unknown): boolean {
+  return typeof raw === "string" && LEADING_COMPARATOR.test(raw.trim());
+}
 const COMPARATOR_MODIFIER_TOKENS = new Set([
   "<",
   ">",
@@ -36,8 +39,8 @@ export function isCensoredLabValueCell(raw: unknown): boolean {
   if (typeof raw !== "string") return false;
   const text = raw.trim();
   if (!text) return false;
+  if (!hasLeadingComparator(text)) return false;
   const stripped = text.replace(LEADING_COMPARATOR, "");
-  if (stripped === text) return false;
   const numericPart = stripped.replace(/,/g, "").trim();
   if (!/^-?\d/.test(numericPart)) return false;
   return Number.isFinite(Number.parseFloat(numericPart));

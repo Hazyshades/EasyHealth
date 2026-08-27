@@ -11,6 +11,7 @@ import { buildMeasurementComparisonSeries } from "../src/lib/biomarker-compariso
 import { evaluateAssessmentEligibility } from "../src/lib/health-profile-assessment-eligibility";
 import { projectHealthProfileLaboratoryInput } from "../src/lib/health-profile-input";
 import { parseLabNumber } from "../src/lib/schemas/biomarkers";
+import { buildHealthProfile } from "../src/lib/health-systems";
 
 const lessThan = parseLabValueCell("< 0.20");
 assert.equal(lessThan?.value_kind, "text");
@@ -117,30 +118,62 @@ const eligibility = evaluateAssessmentEligibility({
 assert.equal(eligibility.eligible, false);
 assert.equal(eligibility.exclusionReason, "non_numeric_value");
 
-assert.equal(
-  projectHealthProfileLaboratoryInput({
-    observation: {
-      name: "CRP",
-      value: 0.2,
-      unit: "mg/L",
-      ref_low: 0,
-      ref_high: 5,
-      raw_reference_text: "< 5.0",
-      observed_at: "2026-08-01",
-      document_id: "00000000-0000-4000-8000-000000000002",
-      value_kind: "numeric",
-      value_text: "< 0.20",
-      ordinal: null,
-      specimen: "serum",
-      modifier: "none",
-      observation_kind: "lab",
-      measurement_definition_key: "crp_serum",
-      resolution_status: "resolved",
+const censoredInput = projectHealthProfileLaboratoryInput({
+  observation: {
+    name: "Fasting glucose",
+    value: 0.2,
+    unit: "mg/dL",
+    ref_low: 70,
+    ref_high: 99,
+    raw_reference_text: "70–99",
+    observed_at: "2026-08-01",
+    document_id: "00000000-0000-4000-8000-000000000002",
+    value_kind: "numeric",
+    value_text: "< 0.20",
+    ordinal: null,
+    specimen: "serum",
+    modifier: "fasting",
+    observation_kind: "lab",
+    measurement_definition_key: "fasting_glucose",
+    resolution_status: "resolved",
+  },
+  relation: {
+    resolver_result: "resolved",
+    verification_status: "user_verified",
+    measurement_definition_key: "fasting_glucose",
+    is_active: true,
+    resolver_evidence: {
+      version: 2,
+      selectedCandidateKey: "fasting_glucose",
+      outcome: "resolved",
     },
-    relation: null,
-    labUnitSystem: "si",
-  }),
-  null,
+  },
+  labUnitSystem: "si",
+});
+assert.equal(censoredInput?.biomarker_key, "fasting_glucose");
+assert.equal(censoredInput?.value, null);
+assert.equal(censoredInput?.value_kind, "text");
+assert.equal(censoredInput?.value_text, "< 0.20");
+
+const censoredProfile = buildHealthProfile(
+  censoredInput ? [censoredInput] : [],
+  [{
+    id: "00000000-0000-4000-8000-000000000002",
+    original_filename: "censored-fasting-glucose.pdf",
+    observed_at: "2026-08-01",
+    lab_name: "Fixture laboratory",
+    document_type: "lab_result",
+  }],
+  {
+    freshnessAsOf: "2026-08-01",
+    freshnessEvaluatedAt: "2026-08-01T00:00:00.000Z",
+  },
 );
+const metabolic = censoredProfile.systems.find((system) => system.id === "metabolic");
+const glucoseReadiness = metabolic?.score_readiness.reasons.find((reason) =>
+  reason.present_keys.includes("fasting_glucose"),
+);
+assert.equal(glucoseReadiness?.code, "invalid");
+assert.equal(metabolic?.state_score, null);
 
 console.log("verify-eh164-censored-results: all checks passed");

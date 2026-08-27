@@ -84,6 +84,7 @@ export { presentObservation, presentObservations, type NativeObservation } from 
 
 export {
   parseLabValueCell,
+  hasLeadingComparator,
   isCensoredLabValueCell,
   coerceClinicalModifier,
   inferSpecimen,

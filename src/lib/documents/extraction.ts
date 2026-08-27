@@ -216,15 +216,7 @@ export function parsePipelineExtraction(raw: unknown): PipelineExtractionResult 
         : null;
     const axes = statedAxesFromRow(key, rawName, row, sourceText);
 
-    let parsed = parseLabValueCell(row.value);
-    if (!parsed && isCensoredLabValueCell(row.value)) {
-      parsed = {
-        value_kind: "text",
-        value: null,
-        value_text: String(row.value).trim(),
-        ordinal: null,
-      };
-    }
+    const parsed = parseLabValueCell(row.value);
     if (!parsed) {
       const numeric = parseLabNumber(row.value);
       if (numeric === null) continue;
