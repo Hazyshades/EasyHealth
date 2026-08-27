@@ -3,7 +3,6 @@ import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { statedAxisValue, unstatedAxes } from "../../src/lib/documents/stated-axis-evidence";
 import {
-  MEASUREMENT_CATALOG_MANIFEST_DIGEST,
   MEASUREMENT_CATALOG_MANIFEST_VERSION,
   MEASUREMENT_NORMALIZATION_VERSION,
   MEASUREMENT_RESOLVER_VERSION,
@@ -14,6 +13,7 @@ import {
   type MeasurementValueKind,
   type ResolverResult,
 } from "../../src/lib/biomarkers";
+import { MEASUREMENT_CATALOG_MANIFEST_DIGEST } from "../../src/lib/biomarkers/measurement-registry-release";
 
 /**
  * Candidate-release governance is intentionally tooling-only.  This module

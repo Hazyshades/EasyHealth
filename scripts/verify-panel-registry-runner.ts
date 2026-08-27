@@ -3,7 +3,6 @@ import {
   MEASUREMENT_DEFINITIONS,
   PANEL_DEFINITIONS,
   REQUIRED_PANEL_KEYS,
-  digestMeasurementRegistryManifest,
   getMeasurementDefinition,
   getPanelDefinition,
   getRegistryV2ScoreContributionGroups,
@@ -12,10 +11,13 @@ import {
   listPanelDefinitions,
   listPanelsForMeasurementDefinition,
   resolveMeasurementDefinition,
-  serializeMeasurementRegistryManifest,
   validatePanelRegistry,
   type PanelDefinition,
 } from "../src/lib/biomarkers";
+import {
+  digestMeasurementRegistryManifest,
+  serializeMeasurementRegistryManifest,
+} from "../src/lib/biomarkers/measurement-registry-release";
 
 const validation = validatePanelRegistry();
 assert.equal(validation.valid, true, validation.errors.join("\n"));

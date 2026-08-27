@@ -19,11 +19,11 @@ import { buildInputEvidenceHash } from "../src/lib/documents/normalization-revis
 import {
   OBSERVATION_PROVENANCE_SCHEMA_VERSION,
   MEASUREMENT_CATALOG_MANIFEST_VERSION,
-  MEASUREMENT_CATALOG_MANIFEST_DIGEST,
   MEASUREMENT_RESOLVER_VERSION,
   MEASUREMENT_NORMALIZATION_VERSION,
   resolveMeasurementDefinition,
 } from "../src/lib/biomarkers";
+import { MEASUREMENT_CATALOG_MANIFEST_DIGEST } from "../src/lib/biomarkers/measurement-registry-release";
 
 function baseSource(overrides: Partial<ObservationUpsertSource> = {}): ObservationUpsertSource {
   return {

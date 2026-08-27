@@ -20,7 +20,11 @@ import path from "node:path";
 import type { NormalizationRevision } from "../src/lib/documents/normalization-revisions";
 import type { ExtractedBiomarkerWriterRow } from "../src/lib/documents/observation-normalization-writer";
 import type * as ReprocessingModule from "../src/lib/registry-reprocessing";
-import type * as BiomarkersModule from "../src/lib/biomarkers";
+import { MEASUREMENT_CATALOG_MANIFEST_RELEASE } from "../src/lib/biomarkers/measurement-registry-release";
+import {
+  MEASUREMENT_CATALOG_MANIFEST_VERSION,
+  MEASUREMENT_RESOLVER_VERSION,
+} from "../src/lib/biomarkers";
 import type { ReprocessDiffClassification } from "../src/lib/registry-reprocessing";
 
 // ── 0. Dummy env for pure-function tests ────────────────────────────────────
@@ -118,7 +122,6 @@ async function main(): Promise<void> {
   // Module-loading-boundary exception: env must be set before the module
   // graph resolves createAdminClient (see file docstring).
   const reprocessing = (await import("../src/lib/registry-reprocessing")) as typeof ReprocessingModule;
-  const biomarkers = (await import("../src/lib/biomarkers")) as typeof BiomarkersModule;
 
   const {
     APPLY_ELIGIBLE_CLASSIFICATIONS,
@@ -126,12 +129,6 @@ async function main(): Promise<void> {
     computeReprocessBatchDiff,
     DEFAULT_RESOLVER_RESULT_FILTER,
   } = reprocessing;
-  const {
-    MEASUREMENT_CATALOG_MANIFEST_RELEASE,
-    MEASUREMENT_CATALOG_MANIFEST_VERSION,
-    MEASUREMENT_RESOLVER_VERSION,
-  } = biomarkers;
-
   // ── 2. Release capture matches runtime constants ────────────────────────
 
   const release = captureDeployedRelease();

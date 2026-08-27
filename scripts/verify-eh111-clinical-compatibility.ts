@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import {
-  MEASUREMENT_CATALOG_MANIFEST_RELEASE,
   MEASUREMENT_CATALOG_MANIFEST_VERSION,
   MEASUREMENT_COMPATIBILITY_POLICY_VERSION,
   MEASUREMENT_NORMALIZATION_VERSION,
@@ -18,6 +17,7 @@ import {
   type MeasurementUnitPolicy,
   type ResolverResult,
 } from "../src/lib/biomarkers";
+import { MEASUREMENT_CATALOG_MANIFEST_RELEASE } from "../src/lib/biomarkers/measurement-registry-release";
 import {
   projectActiveRegistryV2LaboratoryBinding,
   type RegistryV2NormalizationRevisionReadBoundary,

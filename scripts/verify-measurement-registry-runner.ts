@@ -1,20 +1,22 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  MEASUREMENT_CATALOG_MANIFEST_DIGEST,
   buildPersistedResolverDecisionTrace,
   isPersistedResolverDecisionTrace,
   MEASUREMENT_DEFINITIONS,
-  classifyMeasurementDefinitionChange,
-  digestMeasurementRegistryManifest,
   getMeasurementConversionPolicy,
   getMeasurementDefinition,
   findAliasAdmissions,
   normalizeMeasurementUnit,
   resolveMeasurementDefinition,
-  serializeMeasurementRegistryManifest,
   validateMeasurementRegistry,
 } from "../src/lib/biomarkers";
+import {
+  MEASUREMENT_CATALOG_MANIFEST_DIGEST,
+  classifyMeasurementDefinitionChange,
+  digestMeasurementRegistryManifest,
+  serializeMeasurementRegistryManifest,
+} from "../src/lib/biomarkers/measurement-registry-release";
 import { acceptancePathForResolution, decideAutomaticPromotion } from "../src/lib/documents/normalization-policy";
 
 const validation = validateMeasurementRegistry();
