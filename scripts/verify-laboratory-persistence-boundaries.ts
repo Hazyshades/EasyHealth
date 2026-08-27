@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 
 const source = (path: string) => readFileSync(path, "utf8");
 const pipeline = source("worker/src/pipeline.ts");
+const extraction = source("src/lib/documents/extraction.ts");
 const biomarkerRoute = source("src/app/api/documents/[id]/biomarkers/route.ts");
 const observationsRoute = source("src/app/api/documents/[id]/observations/route.ts");
 const acceptanceService = source("src/lib/documents/biomarker-acceptance.ts");
@@ -13,11 +14,12 @@ const reprocessService = source("src/lib/registry-reprocessing/service.ts");
 const pipelineInsert = pipeline.search(/from\("document_extracted_biomarkers"\)\s*\.insert\(/);
 assert.notEqual(pipelineInsert, -1, "initial laboratory extraction must insert source-linked extracted rows");
 const pipelineMappedRows = pipeline.slice(pipelineInsert, pipeline.indexOf("const summaryModel", pipelineInsert));
-assert.match(pipelineMappedRows, /raw_name: anyB\.raw_name \?\? anyB\.name/);
-assert.match(pipelineMappedRows, /raw_value_text:/);
-assert.match(pipelineMappedRows, /raw_unit: anyB\.unit/);
-assert.match(pipelineMappedRows, /source_page: provenance\.page/);
-assert.match(pipelineMappedRows, /source_text: anyB\.source_text/);
+assert.match(pipelineMappedRows, /mapPipelineBiomarkerEvidence\(/);
+assert.match(extraction, /raw_name: biomarker\.raw_name/);
+assert.match(extraction, /raw_value_text: biomarker\.value_text/);
+assert.match(extraction, /raw_unit: biomarker\.unit/);
+assert.match(extraction, /source_page: provenance\.page/);
+assert.match(extraction, /source_text: biomarker\.source_text/);
 assert.match(pipelineMappedRows, /status: "needs_review"/);
 assert.doesNotMatch(
   pipelineMappedRows,
