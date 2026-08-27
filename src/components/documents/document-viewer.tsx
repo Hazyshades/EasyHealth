@@ -66,6 +66,7 @@ import {
   baseMeasurementFromExtractedRow,
   type ExtractedBiomarkerMeasurementRow,
 } from "@/lib/documents/observation-measurement-correction";
+import { observationDateFromExtractedRow } from "@/lib/documents/observation-date";
 import type { LaboratoryResolutionDetails } from "@/lib/documents/incomplete-laboratory-outcomes";
 import type { DuplicateCandidate } from "@/lib/documents/duplicate-detection";
 import {
@@ -192,6 +193,7 @@ type ExtractedBiomarker = {
   specimen?: string | null;
   modifier?: string | null;
   method?: string | null;
+  collected_at?: string | null;
   created_at: string;
   normalization?: NormalizationReview;
 };
@@ -1238,7 +1240,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
       item.id,
       baseMeasurementFromExtractedRow(
         item as unknown as ExtractedBiomarkerMeasurementRow,
-        doc.observed_at,
+        observationDateFromExtractedRow(item, doc.observed_at),
       ),
     ]),
   );

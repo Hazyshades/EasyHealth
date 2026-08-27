@@ -139,6 +139,17 @@
       "reason": "Batch verification eligibility and service contracts are a delivered roadmap regression suite."
     },
     {
+      "script": "test:eh165",
+      "verificationFiles": [
+        "scripts/verify-eh165-row-level-observation-dates.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "documents",
+      "reason": "Row-level observation dates from history tables are release verification."
+    },
+    {
       "script": "test:eh122-db",
       "verificationFiles": [
         "supabase/tests/eh122_batch_verification.sql"
