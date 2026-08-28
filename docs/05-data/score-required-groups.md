@@ -44,7 +44,7 @@ A processed document may contain current extracted laboratory rows that are stil
 
 The profile display precedence is `onboarding` when no processed source exists, `no_recognized_biomarkers` when a processed source has no reported laboratory rows, `reported_but_not_scoreable` when reported rows exist but none are ready, and `body_map` otherwise. In mixed coverage, the reported-results notice is additive: existing body-map scores and readiness explanations remain unchanged. Reported counts are not a score, and this surface does not infer a specimen, method, timing, unit, value kind, or clinical meaning.
 
-The review-results and clearer-report actions are recovery entry points only. Reviewed panel specimen policy remains deferred to #111, and broader reported-results product ownership remains tracked by #127.
+The review-results and clearer-report actions are recovery entry points only. The shared reported-results recovery UX is verified by the EH-147 QA checklist and issue #127; reviewed panel specimen policy remains deferred to #111, while scoped context confirmation and catalog promotion are not shipped.
 
 ## Sign-off matrix
 
