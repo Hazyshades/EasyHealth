@@ -64,6 +64,21 @@ approved Wiki publication path. A local staging directory is evidence for a
 handoff, not proof that the remote Wiki changed. If publication is unavailable,
 record `PENDING` or `BLOCKED` in the tracking issue and name the exact handoff.
 
+Do not probe Wiki existence with `gh repo view Hazyshades/EasyHealth.wiki`.
+GitHub Wikis are not GraphQL Repositories; that command fails even when the
+Wiki git remote is live. Confirm the remote with:
+
+```text
+git ls-remote https://github.com/Hazyshades/EasyHealth.wiki.git
+```
+
+A `[Registry Docs]` issue is an index, not a product feature. When canonical
+docs are already green and the source change has no remaining Registry
+semantic delta, Wiki `PENDING`/`BLOCKED` from that GraphQL miss — or an issue
+left open after Wiki was already `PUBLISHED` — is an ops tail. Close it with
+that disposition. Do not schedule it as the next sprint. Closed examples of
+this class: #150, #158, #159, #167.
+
 ### 4. Create or update the issue
 
 The issue must contain only a concise index and tracking record:
@@ -95,3 +110,4 @@ A change is complete only when all applicable items are true:
 - [ ] One matching GitHub issue was created or updated.
 - [ ] The issue links docs, Wiki status, commands, verification, and gaps.
 - [ ] Environment-dependent checks are reported as blocked rather than passed.
+- [ ] A Wiki-only leftover is not left open as sprint/feature work.

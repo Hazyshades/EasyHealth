@@ -1,4 +1,4 @@
-import type { LanguageModel } from "ai";
+import type { LanguageModel } from "../../src/lib/ai/resolve-model-core.js";
 import { VISION_EXTRACTION_FAILURE_MESSAGE } from "../../src/lib/ai/pipeline-trace.js";
 import type { PipelineLlmContext } from "../../src/lib/ai/pipeline-trace.js";
 import { isNebiusProvider } from "../../src/lib/ai/types.js";

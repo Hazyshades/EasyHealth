@@ -54,5 +54,6 @@ Additional checks:
 ## Remaining gaps and follow-up
 
 <!-- Name deferred behavior, owner, and next action. Do not describe planned behavior as implemented. -->
+<!-- This issue is an index, not a product feature. Wiki PENDING from `gh repo view …wiki` GraphQL failure is an ops tail — probe with git ls-remote on EasyHealth.wiki.git. Do not schedule that leftover as the next sprint. -->
 
 -

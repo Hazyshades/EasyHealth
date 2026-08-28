@@ -34,6 +34,8 @@ A formatting-only change to unrelated code is not in scope.
 - The GitHub Wiki is a generated mirror, not an independent source of truth.
 - A GitHub issue is the tracking and publication record, not a second catalog.
 - Never hand-edit generated catalog, alias, corpus, or Wiki inventory pages.
+- A `[Registry Docs]` issue is not a product feature. Wiki tails are not the
+  next sprint.
 
 ## Required workflow
 
@@ -93,6 +95,16 @@ updated” from a local render alone. If remote publication is unavailable, mark
 the issue and completion gate `BLOCKED` or `PENDING`, include the rendered
 staging evidence, and state exactly what a maintainer must publish.
 
+Do not use `gh repo view owner/repo.wiki` as a Wiki-existence check. GitHub
+Wikis are not GraphQL Repositories. Probe with
+`git ls-remote https://github.com/Hazyshades/EasyHealth.wiki.git`.
+
+A `[Registry Docs]` issue is tracking, not a feature. If canonical docs are
+green and the only leftover is Wiki `PENDING` from that GraphQL miss, or the
+issue is still open after Wiki `PUBLISHED`, close it as an ops tail. Do not
+take it as the next sprint. Historical examples: #150, #158 (PENDING probe);
+#159, #167 (already PUBLISHED, left open).
+
 ### 4. Create or update the tracking issue
 
 Create or update exactly one issue for the logical Registry change. The issue
@@ -144,7 +156,9 @@ true:
 - [ ] Relevant tests/typecheck/database checks ran, with blockers recorded.
 - [ ] No claim of completion relies on an unpublished local file or an imagined
       interface.
+- [ ] A Wiki-only leftover is not left open as sprint/feature work.
 
 If a required remote action cannot be performed, finish all local work, report
 the exact blocker, and leave the issue/documentation status open rather than
-silently skipping the action.
+silently skipping the action. Do not convert that leftover into the next
+sprint.
