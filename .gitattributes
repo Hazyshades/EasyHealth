@@ -1,0 +1,2 @@
+# Synthetic OCR fixtures contain PDF xref padding spaces that are binary data.
+QA/eh-147/fixtures/*.pdf binary
