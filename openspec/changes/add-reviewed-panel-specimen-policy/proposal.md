@@ -107,5 +107,5 @@ specimen locations, and any change to what a document reviewer is asked to do.
 - Affected governance: the manifest digest changes because the catalog gains
   policy entries, so this invalidates the approval hash exactly as #105 and #106
   do. All three should land in one `registry-v2.0.0-candidate.2`.
-- Expected movement on the sample document: 28 CBC rows regain concrete identity;
+- Expected movement on the sample document: 27 CBC rows regain concrete identity; the 28th printed CBC-heading row is ESR and stays `partial`;
   the 16 biochemistry rows stay `partial`, which is the intended outcome.

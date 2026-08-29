@@ -101,13 +101,15 @@
 100:
 101:| | Before policy | After new extraction |
 102:| --- | --- | --- |
-103:| CBC rows with concrete identity | 0 after #106 | expected 28 recovered |
+103:| CBC rows with concrete identity | 0 after #106 | **27** recovered; **ESR** stays partial (not in the 18-analyte allowlist). The PDF prints 28 CBC-heading rows. |
 104:| Biochemistry rows with concrete identity | 0 | stay partial (16) |
 105:
 106:**Recorded run:** `2026-08-29`
 
+Acceptance count: **27 recovered CBC identities**, not 28. ESR is printed under the CBC heading and is excluded from `cbc_whole_blood`. `gpt-4o-mini` emitting 0 CBC rows is an extractor miss and is not the #111 policy result.
+
 - Live worker (`gpt-4o-mini`, Poppler OCR, document `dfb04cd2-d9b5-429e-963a-1eea8ce107c5`): **16 biochemistry/serology rows, 0 CBC**. All `section_context` null. EH-116 dry run on that extract: 0 improved / 16 needsReview.
-- Layout-text + `gpt-4o` probe of the same PDF: **44 extracted rows**. **27 CBC rows resolved** to whole-blood identities with `specimen_from_reviewed_panel`. **ESR stayed `partial`** (not on the 18-analyte allowlist). Biochemistry/serology stayed unmatched for specimen; glucose stayed `partial` (heading transcribed as `Results`, not CBC). Generic heading `Results` was verified in page OCR and did not grant a specimen.
+- Layout-text + `gpt-4o` probe of the same PDF: **44 extracted rows**. **27 CBC rows resolved** to whole-blood identities with `specimen_from_reviewed_panel`. **ESR stayed `partial`**. Biochemistry/serology stayed unmatched for specimen; glucose stayed `partial` (heading transcribed as `Results`, not CBC). Generic heading `Results` was verified in page OCR and did not grant a specimen.
 107:
 108:## Automated regression coverage
 109:
@@ -115,6 +117,7 @@
 111:| --- | --- |
 112:| Policy harness | `pnpm test:panel-specimen` |
 113:| Stated-axis regression | `pnpm test:stated-axis` |
-114:| Trace allowlist | `pnpm test:panel-specimen-db` |
+114:| Trace allowlist + per-page OCR isolation | `pnpm test:panel-specimen-db` |
+| Multi-page worker heading grounding | included in `pnpm test:panel-specimen` (`verify-panel-specimen-page-grounding.ts`) |
 115:| Corpus technical | `pnpm check:registry-v2-candidate-corpus-technical` |
 116:

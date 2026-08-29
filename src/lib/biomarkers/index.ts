@@ -157,6 +157,8 @@ export {
   PANEL_SPECIMEN_POLICY_SCORE_AFFECTING_KEYS,
   headingMatchesForm,
   headingVerifiedInPageText,
+  pageOcrTextByNumber,
+  groundCapturedHeadingToPageOcr,
   matchReviewedPanelSpecimenPolicy,
   validatePanelSpecimenPolicies,
   uncoveredCapturedHeadings,

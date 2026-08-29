@@ -88,7 +88,8 @@ stated-evidence filter must run before a policy can supply anything.
       measurable.
 - [x] 5.5 Add a check that a stored heading occurs in the page text for that
       row's page, using `document_pages.ocr_text`, so a paraphrased or fabricated
-      heading is detectable.
+      heading is detectable. Worker insert uses `groundCapturedHeadingToPageOcr`
+      so a heading from another page is dropped before persistence.
 - [x] 5.6 Bump the extraction `processing_version`.
 
 ## 6. Trace and database
@@ -132,14 +133,18 @@ stated-evidence filter must run before a policy can supply anything.
 - [x] 8.4 Diff the candidate corpus report before and after; record every changed
       classification with its reason.
 - [x] 8.5 Re-extract `sample_lab_report_english_mock.pdf` and record the measured
-      outcome. Expected direction: the 28 CBC rows regain concrete identity, the
-      16 biochemistry rows stay `partial`.
-      Live worker `gpt-4o-mini` (doc `dfb04cd2-d9b5-429e-963a-1eea8ce107c5`): 16
-      biochemistry/serology rows, 0 CBC, all `section_context` null.
-      Layout-text + `gpt-4o` probe: 27 CBC rows resolved via
-      `specimen_from_reviewed_panel`; ESR stayed partial (not on the 18-analyte
-      allowlist); biochemistry stayed unmatched for specimen; glucose stayed
-      partial.
+      outcome. The PDF prints **28** rows under the CBC heading. **27** are
+      allowlisted CBC constituents and regain concrete identity when the heading
+      is captured and page-grounded. **ESR** is the 28th printed row and stays
+      `partial` by design (not in the 18-analyte allowlist). Biochemistry /
+      serology stay `partial`. `gpt-4o-mini` on this PDF emitted 0 CBC rows
+      (extractor miss, all `section_context` null) — that does not fail #111.
+      Layout-text + `gpt-4o`: 27 CBC resolved via `specimen_from_reviewed_panel`,
+      ESR partial, glucose partial.
+- [x] 8.6 Add the multi-page worker/persistence seam: per-page `ocr_text`, heading
+      verified against the row's own page, heading from another page dropped.
+      `pnpm test:panel-specimen` includes `verify-panel-specimen-page-grounding.ts`;
+      `pnpm test:panel-specimen-db` includes `panel_specimen_page_ocr_isolation.sql`.
 
 ## 9. Release with #105 and #106
 

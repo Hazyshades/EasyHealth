@@ -328,7 +328,8 @@
     {
       "script": "test:panel-specimen",
       "verificationFiles": [
-        "scripts/verify-panel-specimen-policy.ts"
+        "scripts/verify-panel-specimen-policy.ts",
+        "scripts/verify-panel-specimen-page-grounding.ts"
       ],
       "job": "verify",
       "environment": "node-only",
@@ -339,7 +340,8 @@
     {
       "script": "test:panel-specimen-db",
       "verificationFiles": [
-        "supabase/tests/panel_specimen_policy_trace_code.sql"
+        "supabase/tests/panel_specimen_policy_trace_code.sql",
+        "supabase/tests/panel_specimen_page_ocr_isolation.sql"
       ],
       "job": "database",
       "environment": "local-supabase-db",

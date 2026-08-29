@@ -30,7 +30,7 @@ import {
   mapPipelineBiomarkerEvidence,
   type PipelineBiomarker,
 } from "../../src/lib/documents/extraction.js";
-import { headingVerifiedInPageText } from "../../src/lib/biomarkers/panel-specimen-policy.js";
+import { groundCapturedHeadingToPageOcr } from "../../src/lib/biomarkers/panel-specimen-policy.js";
 import {
   extractInstrumentalFromImage,
   extractInstrumentalFromText,
@@ -663,11 +663,11 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
                   inferred_axes?: unknown;
                 };
                 const provenance = resolveProvenance(anyB.source_page, anyB.source_text);
-                const rawHeading = anyB.section_context?.trim() || null;
-                const pageOcr = provenance.page != null ? pageTextByNumber.get(provenance.page) ?? "" : "";
-                const sectionContext = rawHeading && headingVerifiedInPageText(rawHeading, pageOcr)
-                  ? rawHeading
-                  : null;
+                const sectionContext = groundCapturedHeadingToPageOcr(
+                  anyB.section_context,
+                  provenance.page,
+                  pageTextByNumber,
+                );
                 return {
                   ...mapPipelineBiomarkerEvidence(
                     {

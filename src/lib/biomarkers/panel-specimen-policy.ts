@@ -101,6 +101,33 @@ export function headingVerifiedInPageText(heading: string, ocrText: string | nul
   return ocrText.includes(captured);
 }
 
+/** Persistable `document_pages` rows → the map the worker uses at insert time. */
+export function pageOcrTextByNumber(
+  pages: ReadonlyArray<{ page_number: number; ocr_text: string | null | undefined }>,
+): Map<number, string> {
+  const map = new Map<number, string>();
+  for (const page of pages) {
+    map.set(page.page_number, page.ocr_text ?? "");
+  }
+  return map;
+}
+
+/**
+ * Worker insert seam: keep a transcribed heading only when it occurs in the
+ * OCR of that row's own page. A heading copied from another page is dropped.
+ */
+export function groundCapturedHeadingToPageOcr(
+  heading: string | null | undefined,
+  pageNumber: number | null | undefined,
+  pageTextByNumber: ReadonlyMap<number, string>,
+): string | null {
+  const captured = heading?.trim() || null;
+  if (!captured) return null;
+  if (pageNumber == null) return null;
+  const pageOcr = pageTextByNumber.get(pageNumber) ?? "";
+  return headingVerifiedInPageText(captured, pageOcr) ? captured : null;
+}
+
 export function matchReviewedPanelSpecimenPolicy(
   heading: string | null | undefined,
   analyteKey: string | null | undefined,
