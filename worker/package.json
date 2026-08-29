@@ -8,10 +8,10 @@
     "dev": "tsx watch src/index.ts"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^2.0.0",
+    "@ai-sdk/openai": "^4.0.47",
     "@mistralai/mistralai": "^2.6.3",
     "@supabase/supabase-js": "^2.108.2",
-    "ai": "^5.0.26",
+    "ai": "^7.0.79",
     "dotenv": "^16.4.7",
     "sharp": "^0.34.2",
     "zod": "^3.25.76"
