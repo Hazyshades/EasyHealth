@@ -10,6 +10,7 @@ import {
   listMissingMultilingualSliceLocales,
   MULTILINGUAL_LAUNCH_SLICE_KEYS,
 } from "./multilingual-launch-slice";
+import { matchReviewedPanelSpecimenPolicy, PANEL_SPECIMEN_POLICIES, validatePanelSpecimenPolicies } from "./panel-specimen-policy";
 import { z } from "zod";
 import type {
   AliasMatchType,
@@ -821,9 +822,31 @@ export function evaluateValueKindCompatibility(
       };
 }
 
+function specimenObservationForCandidate(
+  input: MeasurementResolutionInput,
+  analyteKey: string,
+): [string | null | undefined, "stated" | "reviewed_panel_policy" | null] {
+  const heading = input.capturedHeading ?? null;
+  if (input.specimen && input.specimenSource === "stated") {
+    return [input.specimen, "stated"];
+  }
+  const policy = matchReviewedPanelSpecimenPolicy(heading, analyteKey);
+  if (policy) {
+    return [policy.specimen, "reviewed_panel_policy"];
+  }
+  if (input.specimenSource === "reviewed_panel_policy") {
+    return [null, null];
+  }
+  if (input.specimen) {
+    return [input.specimen, input.specimenSource ?? "stated"];
+  }
+  return [null, null];
+}
+
 export function evaluateSpecimenCompatibility(
   expected: SpecimenKey,
-  observed: string | null | undefined
+  observed: string | null | undefined,
+  source?: "stated" | "reviewed_panel_policy" | null,
 ): CompatibilityEvidenceResult | null {
   if (expected === "unspecified") return null;
   const normalized = snakeCaseToken(observed ?? "");
@@ -842,17 +865,25 @@ export function evaluateSpecimenCompatibility(
       selectable: false,
     };
   }
-  return normalized === expected
-    ? {
-        disposition: "compatible",
-        evidence: evidence("specimen_compatible", "specimen", "strong", 10, normalized, [expected]),
-        selectable: true,
-      }
-    : {
-        disposition: "conflict",
-        evidence: evidence("specimen_conflict", "specimen", "hard", 0, normalized, [expected]),
-        selectable: false,
-      };
+  if (normalized !== expected) {
+    return {
+      disposition: "conflict",
+      evidence: evidence("specimen_conflict", "specimen", "hard", 0, normalized, [expected]),
+      selectable: false,
+    };
+  }
+  if (source === "reviewed_panel_policy") {
+    return {
+      disposition: "compatible",
+      evidence: evidence("specimen_from_reviewed_panel", "specimen", "strong", 8, normalized, [expected]),
+      selectable: true,
+    };
+  }
+  return {
+    disposition: "compatible",
+    evidence: evidence("specimen_compatible", "specimen", "strong", 10, normalized, [expected]),
+    selectable: true,
+  };
 }
 
 function candidateEvidence(
@@ -903,7 +934,10 @@ function candidateEvidence(
 
   applyCompatibility(evaluateValueKindCompatibility(definition.valueKind, input.valueKind));
   applyCompatibility(evaluateUnitCompatibility(definition.unitPolicy, unit));
-  applyCompatibility(evaluateSpecimenCompatibility(definition.specimen, input.specimen));
+  applyCompatibility(evaluateSpecimenCompatibility(
+    definition.specimen,
+    ...specimenObservationForCandidate(input, definition.analyteKey),
+  ));
 
   if (definition.requiredModifiers?.length) {
     const modifier = normalizedMealTimingModifier(input.modifier) ?? snakeCaseToken(input.modifier ?? "");
@@ -1183,6 +1217,7 @@ const TRACE_REASON_CODES: Record<ResolutionReasonCode, true> = {
   unit_unsupported: true,
   unit_missing: true,
   specimen_compatible: true,
+  specimen_from_reviewed_panel: true,
   specimen_conflict: true,
   specimen_unsupported: true,
   modifier_compatible: true,
@@ -1482,6 +1517,11 @@ export type MeasurementRegistryValidation = { valid: boolean; errors: string[]; 
 export function validateMeasurementRegistry(definitions: readonly MeasurementDefinition[] = MEASUREMENT_DEFINITIONS): MeasurementRegistryValidation {
   const errors: string[] = [];
   const warnings: string[] = [];
+  const policyValidation = validatePanelSpecimenPolicies(
+    PANEL_SPECIMEN_POLICIES,
+    new Set(ANALYTES.map((analyte) => analyte.key)),
+  );
+  errors.push(...policyValidation.errors);
   const keys = new Set<string>();
   const reviewedIdentities = new Map<string, string>();
   const aliasKeys = new Set<string>();

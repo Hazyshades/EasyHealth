@@ -1,10 +1,8 @@
 /**
- * Bumped for #106: extraction no longer stores an unstated clinical axis.
- * `-v2`: the prompt no longer offers a section heading as grounds for a
- * specimen. Headings are not captured with the row, so a specimen read from one
- * cannot be verified and was being discarded anyway.
+ * Bumped for #111: captured section headings are grounded against page OCR
+ * text so a fabricated heading cannot unlock a reviewed panel specimen policy.
  */
-export const DOCUMENT_PROCESSING_VERSION = "2026-08-06-v1";
+export const DOCUMENT_PROCESSING_VERSION = "2026-08-28-v1";
 export const SIGNED_URL_TTL_SECONDS = 900;
 
 export type DocumentProcessingStatus =

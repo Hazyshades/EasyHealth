@@ -17,10 +17,10 @@ Complete blood count with manual smear microscopy + ESR
 ```
 
 A clinician reading `Complete blood count` knows the specimen is whole blood.
-The system cannot, for two reasons: the heading is never stored
-(`worker/src/pipeline.ts:460` writes a literal `null`, and the extraction prompt
-has no such field), and even stored, `Complete blood count` does not contain the
-words "whole blood" — the link is medical knowledge, not text.
+The system still cannot use that knowledge. As of 2026-08-28 the heading is
+already transcribed into `section_context` and `document_pages.ocr_text` is
+stored for every page — but a heading is not a specimen word, so #106 still
+leaves the axis missing. The link is medical knowledge, not text.
 
 That knowledge has to live somewhere. Today it lives inside an extraction model,
 re-derived silently for every row, differently on every run, invisible in the
@@ -35,10 +35,10 @@ render for these rows. One approved rule replaces forty-four invisible guesses.
 
 ## What Changes
 
-- Capture the printed section heading. Add `section_context` to the lab
-  extraction contract as a **verbatim transcription** of the heading the row was
-  printed under, and store it instead of `null`. Transcription is checkable
-  against page text; inference is not.
+- Keep the existing `section_context` transcription path. Ground a stored
+  heading against that row's page `ocr_text` so a fabricated heading cannot
+  unlock a policy. Transcription is checkable against page text; inference is
+  not.
 - Introduce `PanelSpecimenPolicy` as a first-class catalog entity in TypeScript,
   therefore inside the release manifest, therefore covered by the manifest digest
   and by the approval hash.

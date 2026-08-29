@@ -198,6 +198,7 @@ export type ResolutionReasonCode =
   | "unit_unsupported"
   | "unit_missing"
   | "specimen_compatible"
+  | "specimen_from_reviewed_panel"
   | "specimen_conflict"
   | "specimen_unsupported"
   | "modifier_compatible"
@@ -406,6 +407,13 @@ export type MeasurementResolutionInput = {
   rawUnit?: string | null;
   rawValueText?: string | null;
   specimen?: string | null;
+  /**
+   * How `specimen` was obtained. Absent means the axis is missing unless a
+   * reviewed panel policy matches `capturedHeading` for the candidate analyte.
+   */
+  specimenSource?: "stated" | "reviewed_panel_policy" | null;
+  /** Verbatim printed section heading; policy matching uses only this field. */
+  capturedHeading?: string | null;
   modifier?: string | null;
   section?: string | null;
   neighbourLabels?: string[];

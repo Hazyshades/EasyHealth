@@ -78,6 +78,16 @@ assert.equal(corpusRows.length, baseline.technicalCorpus.rows, "every technical 
 assert.equal(technical.report.metrics.expectedClassificationRate, 1);
 assert.equal(technical.report.metrics.falseConcreteResolutions, 0);
 assert.equal(technical.report.metrics.processingErrors, 0);
+
+assert.match(first.files.catalog, /## Reviewed panel specimen policies/);
+assert.match(first.files.catalog, /`cbc_whole_blood`/);
+assert.match(first.files.catalog, /specimen_from_reviewed_panel/);
+assert.match(first.files.module, /cbc_whole_blood/);
+assert.match(first.files.module, /specimen_from_reviewed_panel/);
+assert.match(first.files.corpus, /hemoglobin-cbc-heading/);
+assert.match(first.files.corpus, /glucose-cbc-heading/);
+assert.doesNotMatch(first.files.catalog, /Biochemistry => serum|biochemistry heading.*serum/i);
+
 assert.doesNotMatch(first.files.corpus, /approval|launchable/i, "technical evidence must not expose release approval state");
 
 const reviewed = MEASUREMENT_DEFINITIONS.find((definition) => definition.assessmentBindings.length > 0)!;

@@ -12,7 +12,7 @@
  *   pnpm audit:stated-axis -- <documentId>
  */
 import { createClient } from "@supabase/supabase-js";
-import { resolveMeasurementDefinition } from "../src/lib/biomarkers";
+import { resolveMeasurementDefinition, uncoveredCapturedHeadings } from "../src/lib/biomarkers";
 import { auditUnstatedAxes } from "../src/lib/documents/stated-axis-evidence";
 import {
   measurementInputFromWriterRow,
@@ -70,6 +70,14 @@ async function main(): Promise<number> {
     console.log(
       `glucose row -> ${resolution.result} key=${resolution.measurementDefinitionKey ?? "-"} missingAxes=${JSON.stringify(resolution.missingAxes)}`,
     );
+  }
+
+  const uncovered = uncoveredCapturedHeadings(
+    rows.map((row) => ({ heading: row.section_context, count: 1 })),
+  );
+  console.log(`\ncaptured headings with no reviewed panel policy: ${uncovered.length}`);
+  for (const row of uncovered) {
+    console.log(`  ${row.count}× ${row.heading}`);
   }
 
   return findings.length > 0 ? 1 : 0;

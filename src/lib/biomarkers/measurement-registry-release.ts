@@ -8,6 +8,7 @@ import {
   MEASUREMENT_COMPATIBILITY_POLICY_VERSION,
 } from "./measurement-resolution";
 import { PANEL_DEFINITIONS, PANEL_REGISTRY_VERSION } from "./panel-registry";
+import { PANEL_SPECIMEN_POLICIES, type PanelSpecimenPolicy } from "./panel-specimen-policy";
 import type { MeasurementDefinition, PanelDefinition } from "./types";
 
 export type MappingChangeClassification =
@@ -74,9 +75,23 @@ function manifestPanel(panel: PanelDefinition) {
   };
 }
 
+function manifestPanelSpecimenPolicy(policy: PanelSpecimenPolicy) {
+  return {
+    key: policy.key,
+    displayName: policy.displayName,
+    headingForms: policy.headingForms,
+    specimen: policy.specimen,
+    appliesToAnalytes: policy.appliesToAnalytes,
+    maturity: policy.maturity,
+    sourceProvenance: policy.sourceProvenance,
+    reviewReference: policy.reviewReference,
+  };
+}
+
 export function serializeMeasurementRegistryManifest(
   definitions: readonly MeasurementDefinition[] = MEASUREMENT_DEFINITIONS,
   panels: readonly PanelDefinition[] = PANEL_DEFINITIONS,
+  panelSpecimenPolicies: readonly PanelSpecimenPolicy[] = PANEL_SPECIMEN_POLICIES,
 ): string {
   return stableValue({
     registryModel: "launch-catalog-v2-panel-registry",
@@ -84,14 +99,16 @@ export function serializeMeasurementRegistryManifest(
     analytes: ANALYTES,
     definitions: definitions.map(manifestDefinition),
     panels: panels.map(manifestPanel),
+    panelSpecimenPolicies: panelSpecimenPolicies.map(manifestPanelSpecimenPolicy),
   });
 }
 
 export function digestMeasurementRegistryManifest(
   definitions: readonly MeasurementDefinition[] = MEASUREMENT_DEFINITIONS,
   panels: readonly PanelDefinition[] = PANEL_DEFINITIONS,
+  panelSpecimenPolicies: readonly PanelSpecimenPolicy[] = PANEL_SPECIMEN_POLICIES,
 ): string {
-  return createHash("sha256").update(serializeMeasurementRegistryManifest(definitions, panels)).digest("hex");
+  return createHash("sha256").update(serializeMeasurementRegistryManifest(definitions, panels, panelSpecimenPolicies)).digest("hex");
 }
 
 export function classifyMeasurementDefinitionChange(

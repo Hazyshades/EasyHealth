@@ -8,6 +8,8 @@ import {
   MEASUREMENT_RESOLVER_VERSION,
   PANEL_DEFINITIONS,
   PANEL_REGISTRY_VERSION,
+  PANEL_SPECIMEN_POLICIES,
+  PANEL_SPECIMEN_POLICY_SCORE_AFFECTING_KEYS,
   getMeasurementConversionPolicy,
   getMeasurementIdentity,
   getRegistryV2ScoreContributionGroups,
@@ -330,6 +332,31 @@ function renderPanels(): string[] {
   ];
 }
 
+
+function renderPanelSpecimenPolicies(): string[] {
+  const rows = sortBy([...PANEL_SPECIMEN_POLICIES], (policy) => policy.key).map((policy) => [
+    code(policy.key),
+    escapeMarkdownCell(policy.displayName),
+    list(policy.headingForms.map(code)),
+    code(policy.specimen),
+    list(policy.appliesToAnalytes.map(code)),
+    code(policy.maturity),
+    code(policy.reviewReference),
+  ].join(" | "));
+  return [
+    "## Reviewed panel specimen policies",
+    "",
+    "A captured section heading may supply a specimen only through a digest-covered reviewed policy. The policy never pretends the laboratory printed the specimen; decision traces record `specimen_from_reviewed_panel`. Biochemistry, serum, and plasma headings have no launch policy. Glucose and HbA1c stay outside the CBC allowlist. Existing documents are not upgraded by reprocess alone; they need re-extraction that stores a page-OCR-grounded `section_context`.",
+    "",
+    `Score-affecting reach of the launch policy: ${list(PANEL_SPECIMEN_POLICY_SCORE_AFFECTING_KEYS.map(code))}.`,
+    "",
+    "| policy key | display name | heading forms | specimen | analytes | maturity | review |",
+    "| --- | --- | --- | --- | --- | --- | --- |",
+    ...rows.map((row) => `| ${row} |`),
+    "",
+  ];
+}
+
 function renderCatalog(definitions: readonly MeasurementDefinition[], counts: BiomarkerDocumentationCounts): string {
   const reviewed = sortBy(definitions.filter((definition) => definition.maturity === "reviewed"), (definition) => definition.key);
   const provisional = sortBy(definitions.filter((definition) => definition.maturity === "provisional"), (definition) => definition.key);
@@ -354,6 +381,7 @@ function renderCatalog(definitions: readonly MeasurementDefinition[], counts: Bi
     "",
     ...provisional.map(renderDefinition),
     ...renderPanels(),
+    ...renderPanelSpecimenPolicies(),
     "## Registry v1 legacy boundary",
     "",
     "Registry v1 is a frozen compatibility baseline, not a Registry 2.0 runtime source. Its authoritative [v1.0.0 audit](../../registry/biomarker-registry/v1.0.0/AUDIT.md) retains the 113-concept inventory. No v1 concept or alias is automatically promoted or used as a runtime fallback.",
@@ -425,7 +453,7 @@ function renderCorpus(report: CandidateCorpusReport): string {
     "",
     "## Row evidence",
     "",
-    "Unknown-marker rows remain `unmapped`; uploads never silently create definitions or aliases.",
+    "Unknown-marker rows remain `unmapped`; uploads never silently create definitions or aliases. Heading-policy fixtures cover CBC recovery (`hemoglobin-cbc-heading` resolved via `cbc_whole_blood`) and keep glucose / unrecognized headings `partial`. Historical documents are not backfilled.",
     "",
     "| row | language | raw label | unit / value | expected | actual | false-concrete | alias evidence | safety rationale |",
     "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
@@ -444,6 +472,8 @@ function renderModule(counts: BiomarkerDocumentationCounts): string {
     "## Actual lifecycle",
     "",
     "`worker/src/pipeline.ts` extracts laboratory rows with `extractPipelineBiomarkersFromText` or `extractPipelineBiomarkersFromImage` and first inserts raw evidence into `document_extracted_biomarkers` with `status='needs_review'`: raw label, numeric/text value, unit/raw unit, `document_id`, `profile_id`, and source page/text. A clinical axis such as specimen can be preserved only when its lexical form is captured with that row's source text or section context; an omitted structured field may be recovered from that captured row evidence, but the system never fabricates an unstated axis. Initial extraction does not call `resolveMeasurementDefinition` and does not persist a resolver outcome. `document_type` remains on `documents.document_type`, not on an extracted or observation row.",
+    "",
+    "Each page stores `ocr_text`. A transcribed heading is kept as `section_context` only when that heading occurs in the matching page OCR; a fabricated heading cannot unlock a specimen. After the stated-evidence filter, reviewed policy `cbc_whole_blood` may supply `whole_blood` for its 18 CBC analytes and records `specimen_from_reviewed_panel`. Biochemistry headings do not become serum or plasma. Registry reprocessing does not recapture headings on historical rows.",
     "",
     "`GET /api/documents/[id]/biomarkers` returns the raw extracted row and computes a `buildNormalizationReview` preview. Preview is not persistence. Explicit acceptance (`POST .../biomarkers/accept`), correction or confirmation (`PATCH .../biomarkers`), and operator Registry batch reprocessing use `writeExtractedBiomarkerNormalization`, which calls `write_observation_normalization_revision_v2`. Each persists one source-linked observation and an active normalization revision for `resolved`, `partial`, `ambiguous`, or `unmapped`: raw evidence and document linkage remain on the observation; result/trace remain on the revision and project back to the extracted row.",
     "The review UI draws a source-region overlay only for persisted, page-coherent exact positional provenance on the displayed page. Fuzzy, ambiguous, model-origin, cross-page, legacy, missing-layer, and invalid regions remain page-only so the UI never presents an unverified rectangle as fact; pointer hover and keyboard focus do not navigate or scroll, while explicit selection retains the page affordance.",

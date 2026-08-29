@@ -2,7 +2,7 @@
   "schemaVersion": "1",
   "catalog": {
     "manifestVersion": "2026-08-23.0",
-    "manifestDigest": "daed22bd44454e6e7eeb0c6d54c0e860973dfae5a28a625c0a41684f428371a5",
+    "manifestDigest": "0576e6fbc6d5d6d74d93a95ca2e4ec0e653a5f34f6d61ad2127932b7174f983d",
     "counts": {
       "definitions": 113,
       "reviewedDefinitions": 74,
@@ -19,9 +19,9 @@
     }
   },
   "technicalCorpus": {
-    "rows": 72,
+    "rows": 75,
     "rowsByLocale": {
-      "en": 53,
+      "en": 56,
       "ru": 9,
       "es": 10
     }
