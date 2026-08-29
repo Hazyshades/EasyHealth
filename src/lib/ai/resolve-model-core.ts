@@ -8,6 +8,8 @@ import { getNebiusCatalogIds } from "@/lib/ai/model-catalog";
 import type { AiPipelineStage, AiProviderId } from "@/lib/ai/types";
 import { isNebiusProvider } from "@/lib/ai/types";
 
+export type { LanguageModel };
+
 function envOptional(name: string): string | undefined {
   const value = process.env[name]?.trim();
   return value || undefined;

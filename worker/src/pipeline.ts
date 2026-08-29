@@ -1,4 +1,4 @@
-import type { LanguageModel } from "ai";
+import type { LanguageModel } from "../../src/lib/ai/resolve-model-core.js";
 import type { PipelineLlmContext } from "../../src/lib/ai/pipeline-trace.js";
 import { workerEnv } from "./env.js";
 import { processMistralOcr } from "./ocr/mistral.js";

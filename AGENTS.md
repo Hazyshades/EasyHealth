@@ -62,6 +62,14 @@ If remote Wiki or GitHub access is unavailable, finish all local work but do not
 silently skip the publication/issue gate or claim completion. Leave the exact
 handoff and blocker in the tracking record.
 
+Do not treat leftover `[Registry Docs]` Wiki tails as the next sprint. Canonical
+docs already green plus Wiki `PENDING` because `gh repo view …/EasyHealth.wiki`
+does not resolve (Wikis are not GraphQL Repositories) is ops tracking, not a
+feature. Confirm the Wiki git remote with `git ls-remote` on
+`https://github.com/Hazyshades/EasyHealth.wiki.git`. Close such issues rather
+than scheduling them as product work. #150, #158, #159, and #167 are the
+closed examples of this class.
+
 ## Agent skills
 
 ### Issue tracker
