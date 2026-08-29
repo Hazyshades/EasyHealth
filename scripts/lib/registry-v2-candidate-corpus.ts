@@ -28,12 +28,12 @@ export const DEFAULT_CANDIDATE_CORPUS_ROOT = "registry/candidate-release/v1";
  * genuine Cyrillic and Spanish rows (previously 53 English-only rows, some of
  * which were mislabelled as Russian coverage).
  */
-export const REQUIRED_CANDIDATE_CORPUS_ROW_COUNT = 72;
+export const REQUIRED_CANDIDATE_CORPUS_ROW_COUNT = 75;
 
 const RESULTS: readonly ResolverResult[] = ["resolved", "partial", "ambiguous", "unmapped"];
 const VALUE_KINDS: readonly MeasurementValueKind[] = ["numeric", "qualitative", "ordinal", "unspecified"];
 const UNIT_CONFLICTS = new Set(["unit_dimension_conflict", "unit_not_accepted"]);
-const APPROVAL_SCOPES = ["false_concrete_review", "score_affecting_binding", "release_gate"] as const;
+const APPROVAL_SCOPES = ["false_concrete_review", "score_affecting_binding", "release_gate", "panel_specimen_policy"] as const;
 const APPROVAL_STATUSES = ["approved"] as const;
 /** Script/diacritic markers used by the fixture language-authenticity gate. */
 const CYRILLIC = /[\u0400-\u04FF]/;
@@ -136,6 +136,7 @@ export type CandidateReleasePolicy = {
     falseConcreteReviewRoles: string[];
     releaseApprovalRoles: string[];
     scoreAffectingBindingOwners: Record<string, string>;
+    panelSpecimenPolicyOwners?: Record<string, string>;
   };
   releaseEvidence: {
     resetRollbackFile: string;
@@ -787,6 +788,15 @@ function validateApprovals(
       errors.push(`missing hash-bound score-affecting approval for ${definitionKey} from ${owner}`);
     }
   }
+  for (const [policyKey, owner] of Object.entries(policy.approvals.panelSpecimenPolicyOwners ?? {}).sort()) {
+    if (!owner) {
+      errors.push(`reviewed panel specimen policy ${policyKey} has no named approval owner`);
+      continue;
+    }
+    if (!approved("panel_specimen_policy", owner, policyKey)) {
+      errors.push(`missing hash-bound panel specimen policy approval for ${policyKey} from ${owner}`);
+    }
+  }
   for (const approval of evidence.approvals ?? []) {
     if (missingString(approval.id) || missingString(approval.role) || missingString(approval.approvedBy) || missingString(approval.note)) {
       errors.push("approval evidence contains an incomplete approval record");
@@ -800,8 +810,15 @@ function validateApprovals(
     if (approval.scope === "score_affecting_binding" && missingString(approval.bindingKey)) {
       errors.push(`score-affecting approval ${approval.id || "<unknown>"} must name a binding key`);
     }
-    if (approval.scope !== "score_affecting_binding" && approval.bindingKey !== undefined) {
-      errors.push(`non-score approval ${approval.id || "<unknown>"} must not name a binding key`);
+    if (approval.scope === "panel_specimen_policy" && missingString(approval.bindingKey)) {
+      errors.push(`panel specimen policy approval ${approval.id || "<unknown>"} must name a policy key`);
+    }
+    if (
+      approval.scope !== "score_affecting_binding" &&
+      approval.scope !== "panel_specimen_policy" &&
+      approval.bindingKey !== undefined
+    ) {
+      errors.push(`non-binding approval ${approval.id || "<unknown>"} must not name a binding key`);
     }
     if (approval.candidateInputHash !== candidateInputHash) errors.push(`approval ${approval.id || "<unknown>"} is bound to a different candidate input hash`);
   }
@@ -862,11 +879,15 @@ export function runRegistryV2CandidateCorpusTechnical(
       sectionContext: row.sectionContext ?? null,
     };
     try {
+      const statedSpecimen = statedAxisValue("specimen", row.specimen ?? null, provenance);
+      const capturedHeading = row.sectionContext ?? null;
       resolution = resolver({
         rawLabel: row.rawLabel,
         rawUnit: row.rawUnit,
         rawValueText: row.rawValueText,
-        specimen: statedAxisValue("specimen", row.specimen ?? null, provenance),
+        specimen: statedSpecimen,
+        specimenSource: statedSpecimen ? "stated" : null,
+        capturedHeading,
         modifier: statedAxisValue("modifier", row.modifier ?? null, provenance),
         method: statedAxisValue("method", row.method ?? null, provenance),
         section: row.panel,

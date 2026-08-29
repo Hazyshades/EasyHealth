@@ -4,7 +4,7 @@
     "id": "registry-v2-launch-corpus-2026-07-20",
     "registryRelease": "registry-2.0-candidate"
   },
-  "requiredRowCount": 72,
+  "requiredRowCount": 75,
   "rows": [
     {
       "id": "total-protein",
@@ -1025,6 +1025,52 @@
         "classification": "resolved",
         "measurementDefinitionKey": "platelets_whole_blood"
       }
+    },
+    {
+      "id": "hemoglobin-cbc-heading",
+      "documentId": "cbc-en-north",
+      "panel": "cbc",
+      "family": "red-cell",
+      "rawLabel": "Hemoglobin (HGB)",
+      "rawUnit": "g/L",
+      "rawValueText": "138",
+      "valueKind": "numeric",
+      "sectionContext": "Complete blood count with manual smear microscopy + ESR",
+      "expected": {
+        "classification": "resolved",
+        "measurementDefinitionKey": "hemoglobin_whole_blood"
+      },
+      "sourceText": "Hemoglobin (HGB) 138 g/L"
+    },
+    {
+      "id": "glucose-cbc-heading",
+      "documentId": "cbc-en-north",
+      "panel": "cbc",
+      "family": "glucose",
+      "rawLabel": "Glucose",
+      "rawUnit": "mmol/L",
+      "rawValueText": "5.1",
+      "valueKind": "numeric",
+      "sectionContext": "Complete blood count with manual smear microscopy + ESR",
+      "expected": {
+        "classification": "partial"
+      },
+      "sourceText": "Glucose 5.1 mmol/L"
+    },
+    {
+      "id": "hemoglobin-unrecognised-heading",
+      "documentId": "cbc-en-north",
+      "panel": "cbc",
+      "family": "red-cell",
+      "rawLabel": "Hemoglobin (HGB)",
+      "rawUnit": "g/L",
+      "rawValueText": "137",
+      "valueKind": "numeric",
+      "sectionContext": "Miscellaneous laboratory tests",
+      "expected": {
+        "classification": "partial"
+      },
+      "sourceText": "Hemoglobin (HGB) 137 g/L"
     }
   ]
 }

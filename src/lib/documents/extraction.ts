@@ -196,8 +196,8 @@ function specimenFromCapturedProvenance(
 ): string {
   const structured = inferSpecimen(key, name, explicit);
   if (structured !== "unspecified") return structured;
-  // Section headings are preserved as evidence for review and future #111 policy,
-  // but cannot currently manufacture a specimen for the resolver.
+  // Section headings are preserved as captured evidence. #111 supplies a specimen
+  // only through a reviewed panel policy after the stated-axis filter.
   return inferSpecimen(key, `${name} ${sourceText ?? ""}`);
 }
 
@@ -218,8 +218,8 @@ function statedAxesFromRow(
   const provenance: RowProvenance = {
     label: name,
     sourceText,
-    // Captured section context remains persisted, but #111 owns any future
-    // reviewed policy that may consume it as clinical evidence.
+    // Stated-axis filter must not treat a panel heading as a specimen word.
+    // #111 applies reviewed panel policy after this filter, in the input builders.
     sectionContext: null,
   };
   const specimen = specimenFromCapturedProvenance(

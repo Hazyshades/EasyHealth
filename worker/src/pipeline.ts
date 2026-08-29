@@ -30,6 +30,7 @@ import {
   mapPipelineBiomarkerEvidence,
   type PipelineBiomarker,
 } from "../../src/lib/documents/extraction.js";
+import { groundCapturedHeadingToPageOcr } from "../../src/lib/biomarkers/panel-specimen-policy.js";
 import {
   extractInstrumentalFromImage,
   extractInstrumentalFromText,
@@ -483,6 +484,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
       "text/plain"
     );
   }
+  const pageTextByNumber = new Map<number, string>();
   const sourceIndex: SourceIndexPage[] = buildSourceIndex(layoutPages);
   const ocrProvider = ocrDocument ? "mistral" : ocrSelection.kind === "poppler" ? "poppler" : null;
   const ocrModel = ocrDocument?.model ?? null;
@@ -500,6 +502,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
     const layout = layoutPages.find((candidate) => candidate.page_number === page.pageNumber);
     const ocrPage = ocrDocument?.pages.find((candidate) => candidate.pageNumber === page.pageNumber);
     const pageText = layout?.text.trim() ? layout.text : "";
+    pageTextByNumber.set(page.pageNumber, pageText ? pageText.slice(0, 50000) : "");
     const blocks: PageOcrBlock[] =
       ocrPage?.blocks.map((block) => ({
         text: block.text,
@@ -660,6 +663,11 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
                   inferred_axes?: unknown;
                 };
                 const provenance = resolveProvenance(anyB.source_page, anyB.source_text);
+                const sectionContext = groundCapturedHeadingToPageOcr(
+                  anyB.section_context,
+                  provenance.page,
+                  pageTextByNumber,
+                );
                 return {
                   ...mapPipelineBiomarkerEvidence(
                     {
@@ -674,7 +682,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
                       ref_high: anyB.ref_high ?? null,
                       raw_reference_range: anyB.raw_reference_range ?? null,
                       source_text: anyB.source_text ?? null,
-                      section_context: anyB.section_context ?? null,
+                      section_context: sectionContext,
                       confidence: anyB.confidence ?? null,
                       specimen: anyB.specimen ?? "unspecified",
                       modifier: anyB.modifier ?? "none",

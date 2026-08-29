@@ -10,11 +10,12 @@ model on every row of every upload, silently, non-deterministically, and
 invisibly in the result. #106 removes that. This change gives the knowledge a
 place to live where it can be reviewed once and checked forever.
 
-**The heading is printed but discarded.** The document says
-`Complete blood count with manual smear microscopy + ESR`. The column exists,
-the resolver already reads it as `section`, and it is `null` on 44/44 rows
-because the extraction prompt has no such field and the worker writes a literal
-`null`. Capturing it is transcription, which is verifiable, not inference.
+**The heading is captured but unused as clinical knowledge.** The document says
+`Complete blood count with manual smear microscopy + ESR`. The extraction
+contract now transcribes that heading into `section_context`, and the worker
+stores `ocr_text` for every page. The resolver still cannot treat the heading as
+a specimen: it contains no specimen word, and #106 correctly strips unevidenced
+axes. The missing piece is a reviewed rule keyed by that transcription.
 
 **The naive rule is dangerous.** Measured against the current catalog:
 
@@ -198,10 +199,10 @@ Two paths:
 | Re-extract affected documents | one LLM call per document | new extraction, may differ in other ways | model nondeterminism reintroduced |
 | Backfill from stored `ocr_text` | no LLM | deterministic | heading detection is heuristic |
 
-The backfill is genuinely attractive: `document_pages.ocr_text` is populated
-(page 1, truncated at 50k), and each row carries `source_text`, so a row can be
-located inside the page text and the nearest preceding heading taken. It avoids
-LLM cost and avoids re-rolling every other extracted field.
+The backfill is genuinely attractive: `document_pages.ocr_text` is now populated
+for every page (still truncated at 50k), and each row carries `source_text`, so a
+row can be located inside the page text and the nearest preceding heading taken.
+It avoids LLM cost and avoids re-rolling every other extracted field.
 
 It is proposed as an **optional** workstream, ordered last, because heading
 detection in flat OCR text is heuristic and would need its own fixtures. Default

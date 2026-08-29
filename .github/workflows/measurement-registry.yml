@@ -83,6 +83,13 @@ jobs:
         run: pnpm test:cbc-regression
       - name: Verify static Registry 2.0 panel membership
         run: pnpm test:panel-registry
+      - name: Verify reviewed panel specimen policy
+        run: pnpm test:panel-specimen
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+          OPENAI_API_KEY: ci-placeholder
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
       - name: Verify stated-axis evidence policy
         run: pnpm test:stated-axis
         env:
@@ -266,6 +273,8 @@ jobs:
         run: pnpm test:pr2-db
       - name: Run resolver trace v2 database contract
         run: pnpm test:trace-v2-db
+      - name: Run panel specimen policy trace database contract
+        run: pnpm test:panel-specimen-db
       # #117: the only test that runs the writer's real payload against the real
       # RPC. Acceptance was dead for months because nothing crossed this seam.
       - name: Run the writer-to-RPC seam contract

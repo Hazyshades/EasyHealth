@@ -3,19 +3,19 @@
 
 Technical resolver evidence only. This document is independent from the release-governance record.
 
-- **Rows:** 72; **expected classification rate:** 1; **false concrete resolutions:** 0; **processing errors:** 0.
+- **Rows:** 75; **expected classification rate:** 1; **false concrete resolutions:** 0; **processing errors:** 0.
 
 ## Language segments
 
 | language | total | resolved | partial | ambiguous | unmapped | expected failures | false-concrete | processing errors |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| en | 53 | 8 | 45 | 0 | 0 | 0 | 0 | 0 |
+| en | 56 | 9 | 47 | 0 | 0 | 0 | 0 | 0 |
 | es | 10 | 9 | 0 | 0 | 1 | 0 | 0 | 0 |
 | ru | 9 | 6 | 2 | 0 | 1 | 0 | 0 | 0 |
 
 ## Row evidence
 
-Unknown-marker rows remain `unmapped`; uploads never silently create definitions or aliases.
+Unknown-marker rows remain `unmapped`; uploads never silently create definitions or aliases. Heading-policy fixtures cover CBC recovery (`hemoglobin-cbc-heading` resolved via `cbc_whole_blood`) and keep glucose / unrecognized headings `partial`. Historical documents are not backfilled.
 
 | row | language | raw label | unit / value | expected | actual | false-concrete | alias evidence | safety rationale |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -46,6 +46,7 @@ Unknown-marker rows remain `unmapped`; uploads never silently create definitions
 | esr | en | ESR, Westergren automated | mm/hour / 8 | partial | partial | no | alias_exact_match | Safe incomplete outcome: an identity axis remains insufficient. |
 | giardia | en | Giardia antibodies, total | positivity coefficient / 0.4 | partial | partial | no | alias_exact_match | Safe incomplete outcome: an identity axis remains insufficient. |
 | glucose | en | Glucose | mmol/L / 5.3 | resolved / glucose_serum | resolved / glucose_serum | no | alias_normalized_match | Safe concrete resolution: reviewed expected definition selected. |
+| glucose-cbc-heading | en | Glucose | mmol/L / 5.1 | partial | partial | no | alias_normalized_match | Safe incomplete outcome: an identity axis remains insufficient. |
 | glucose-fasting | en | Fasting glucose | mmol/L / 4.8 | resolved / fasting_glucose | resolved / fasting_glucose | no | alias_normalized_match | Safe concrete resolution: reviewed expected definition selected. |
 | glucose-fasting-missing-timing | en | Fasting glucose | mmol/L / 4.7 | partial | partial | no | alias_normalized_match | Safe incomplete outcome: an identity axis remains insufficient. |
 | glucose-incompatible-unit | en | Glucose | % / 5.0 | partial | partial | no | alias_normalized_match | Safe incomplete outcome: an identity axis remains insufficient. |
@@ -56,6 +57,8 @@ Unknown-marker rows remain `unmapped`; uploads never silently create definitions
 | glucose-urine-dipstick | en | Urine glucose | no unit / Positive | resolved / glucose_urine_dipstick | resolved / glucose_urine_dipstick | no | alias_normalized_match, method_compatible | Safe concrete resolution: reviewed expected definition selected. |
 | glucose-whole-blood | en | Glucose | mg/dL / 92 | resolved / glucose_whole_blood | resolved / glucose_whole_blood | no | alias_normalized_match | Safe concrete resolution: reviewed expected definition selected. |
 | hct | en | Hematocrit (HCT) | % / 41 | partial | partial | no | alias_exact_match, alias_normalized_match | Safe incomplete outcome: an identity axis remains insufficient. |
+| hemoglobin-cbc-heading | en | Hemoglobin (HGB) | g/L / 138 | resolved / hemoglobin_whole_blood | resolved / hemoglobin_whole_blood | no | alias_exact_match, alias_normalized_match | Safe concrete resolution: reviewed expected definition selected. |
+| hemoglobin-unrecognised-heading | en | Hemoglobin (HGB) | g/L / 137 | partial | partial | no | alias_exact_match, alias_normalized_match | Safe incomplete outcome: an identity axis remains insufficient. |
 | hgb | en | Hemoglobin (HGB) | g/L / 142 | partial | partial | no | alias_exact_match, alias_normalized_match | Safe incomplete outcome: an identity axis remains insufficient. |
 | lymf-abs | en | Lymphocytes, absolute (LYMF) | x10^9/L / 2.1 | partial | partial | no | alias_exact_match, alias_normalized_match | Safe incomplete outcome: an identity axis remains insufficient. |
 | lymf-percent | en | Lymphocytes (LYMF%) | % / 34 | partial | partial | no | alias_exact_match, alias_normalized_match | Safe incomplete outcome: an identity axis remains insufficient. |

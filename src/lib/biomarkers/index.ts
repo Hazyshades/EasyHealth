@@ -152,6 +152,22 @@ export type {
 } from "./measurement-registry-release";
 
 export {
+  PANEL_SPECIMEN_POLICIES,
+  CBC_WHOLE_BLOOD_PANEL_POLICY,
+  PANEL_SPECIMEN_POLICY_SCORE_AFFECTING_KEYS,
+  headingMatchesForm,
+  headingVerifiedInPageText,
+  pageOcrTextByNumber,
+  groundCapturedHeadingToPageOcr,
+  matchReviewedPanelSpecimenPolicy,
+  validatePanelSpecimenPolicies,
+  uncoveredCapturedHeadings,
+  type PanelSpecimenPolicy,
+  type PanelSpecimenPolicyMaturity,
+  type PanelSpecimenPolicyValidation,
+} from "./panel-specimen-policy";
+
+export {
   PANEL_DEFINITIONS,
   PANEL_REGISTRY_VERSION,
   REQUIRED_PANEL_KEYS,

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1",
-  "requiredLaunchRows": 72,
+  "requiredLaunchRows": 75,
   "thresholds": {
     "minRawPreservationRate": 1,
     "minRecognitionRate": 1,
@@ -12,7 +12,11 @@
     "maxUnclassifiedRows": 0
   },
   "languageThresholds": {
-    "requiredLanguages": ["en", "ru", "es"],
+    "requiredLanguages": [
+      "en",
+      "ru",
+      "es"
+    ],
     "minRowsPerLanguage": 4,
     "minExpectedClassificationRate": 1,
     "maxFalseConcreteResolutions": 0
@@ -38,6 +42,9 @@
       "creatinine_serum": "assessment-owner",
       "triglycerides_serum": "assessment-owner",
       "hba1c_whole_blood": "assessment-owner"
+    },
+    "panelSpecimenPolicyOwners": {
+      "cbc_whole_blood": "assessment-owner"
     }
   },
   "releaseEvidence": {

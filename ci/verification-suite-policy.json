@@ -326,6 +326,30 @@
       "reason": "Document review hook-order and raw-evidence fallback contracts are release verification."
     },
     {
+      "script": "test:panel-specimen",
+      "verificationFiles": [
+        "scripts/verify-panel-specimen-policy.ts",
+        "scripts/verify-panel-specimen-page-grounding.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "measurement-registry",
+      "reason": "Reviewed CBC heading policy must resolve allowlisted analytes and keep glucose/unknown headings partial."
+    },
+    {
+      "script": "test:panel-specimen-db",
+      "verificationFiles": [
+        "supabase/tests/panel_specimen_policy_trace_code.sql",
+        "supabase/tests/panel_specimen_page_ocr_isolation.sql"
+      ],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "measurement-registry",
+      "reason": "specimen_from_reviewed_panel must be accepted by the persisted decision-trace allowlist."
+    },
+    {
       "script": "test:health-profile-reported-results",
       "verificationFiles": [
         "scripts/verify-health-profile-reported-results.ts"

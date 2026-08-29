@@ -2,152 +2,162 @@
   "schemaVersion": "1",
   "approvals": [
     {
-      "id": "registry-safety-review-2026-08-14",
+      "id": "registry-safety-review-2026-08-29",
       "scope": "false_concrete_review",
       "role": "registry-safety-reviewer",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
-      "note": "EH-125 renewal approved after reviewing the candidate input hash and threshold report. The candidate corpus remains 72 rows with expectedClassificationRate 1.0, falseConcreteResolutions 0, and no processing errors. Registry 2.0 now adds six reviewed iron-study identities and a manifest-covered static panel registry; resolver, normalization, persistence, assessment bindings, and corpus expectations are unchanged."
+      "candidateInputHash": "f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807",
+      "note": "Issue #111 candidate renewal bound to input hash f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807. Corpus 72→75 with three heading-policy fixtures; the previous 72-row expectations were not bulk-updated. EH-125 renewal approved after reviewing the candidate input hash and threshold report. The candidate corpus remains 72 rows with expectedClassificationRate 1.0, falseConcreteResolutions 0, and no processing errors. Registry 2.0 now adds six reviewed iron-study identities and a manifest-covered static panel registry; resolver, normalization, persistence, assessment bindings, and corpus expectations are unchanged."
     },
     {
-      "id": "release-gate-2026-08-14",
+      "id": "release-gate-2026-08-29",
       "scope": "release_gate",
       "role": "release-manager",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
-      "note": "EH-125 renewal approved after reviewing the candidate input hash and threshold report. Catalog manifest 2026-08-12.0 includes static panel metadata and six reviewed iron-study definitions, changing the candidate-input hash without changing resolver or normalization versions. The 72-row technical corpus passes every threshold; approval is bound to candidate input hash 55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed."
+      "candidateInputHash": "f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807",
+      "note": "Issue #111 candidate renewal bound to input hash f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807. Corpus 72→75 with three heading-policy fixtures; the previous 72-row expectations were not bulk-updated. EH-125 renewal approved after reviewing the candidate input hash and threshold report. Catalog manifest 2026-08-12.0 includes static panel metadata and six reviewed iron-study definitions, changing the candidate-input hash without changing resolver or normalization versions. The 72-row technical corpus passes every threshold; approval is bound to candidate input hash 55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed."
     },
     {
-      "id": "assessment-alt-serum-catalytic-activity-review-2026-08-14",
+      "id": "assessment-alt-serum-catalytic-activity-review-2026-08-29",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "bindingKey": "alt_serum_catalytic_activity",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
-      "note": "Signature refresh only. Reached by 0 rows automatically: corpus row `alt` (English, unchanged) stays partial and reaches this definition solely through a reviewed manual correction, source manual_correction, consumerEligible false. The multilingual slice adds no row that reaches this binding."
+      "candidateInputHash": "f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807",
+      "note": "Issue #111 candidate renewal bound to input hash f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807. Corpus 72→75 with three heading-policy fixtures; the previous 72-row expectations were not bulk-updated. Signature refresh only. Reached by 0 rows automatically: corpus row `alt` (English, unchanged) stays partial and reaches this definition solely through a reviewed manual correction, source manual_correction, consumerEligible false. The multilingual slice adds no row that reaches this binding."
     },
     {
-      "id": "assessment-fasting-glucose-review-2026-08-14",
+      "id": "assessment-fasting-glucose-review-2026-08-29",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "bindingKey": "fasting_glucose",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
-      "note": "Signature refresh only. Reached by corpus row `glucose-fasting` (English, unchanged), label 'Fasting glucose' mmol/L, expected resolved, actual resolved fasting_glucose, falseConcrete false. The multilingual slice adds no row that reaches this binding."
+      "candidateInputHash": "f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807",
+      "note": "Issue #111 candidate renewal bound to input hash f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807. Corpus 72→75 with three heading-policy fixtures; the previous 72-row expectations were not bulk-updated. Signature refresh only. Reached by corpus row `glucose-fasting` (English, unchanged), label 'Fasting glucose' mmol/L, expected resolved, actual resolved fasting_glucose, falseConcrete false. The multilingual slice adds no row that reaches this binding."
     },
     {
-      "id": "assessment-glucose-plasma-review-2026-08-14",
+      "id": "assessment-glucose-plasma-review-2026-08-29",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "bindingKey": "glucose_plasma",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
-      "note": "Signature refresh only. Reached by corpus row `glucose-plasma` (English, unchanged), label 'Glucose' mmol/L with plasma stated on the row, expected resolved, actual resolved glucose_plasma, falseConcrete false. The multilingual slice adds no row that reaches this binding."
+      "candidateInputHash": "f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807",
+      "note": "Issue #111 candidate renewal bound to input hash f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807. Corpus 72→75 with three heading-policy fixtures; the previous 72-row expectations were not bulk-updated. Signature refresh only. Reached by corpus row `glucose-plasma` (English, unchanged), label 'Glucose' mmol/L with plasma stated on the row, expected resolved, actual resolved glucose_plasma, falseConcrete false. The multilingual slice adds no row that reaches this binding."
     },
     {
-      "id": "assessment-glucose-serum-review-2026-08-14",
+      "id": "assessment-glucose-serum-review-2026-08-29",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "bindingKey": "glucose_serum",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
-      "note": "Reach widened by one Spanish row. Existing English rows `glucose` and `glucose-specimen-by-section` are unchanged. New row `es-glucosa-suero`: label 'Glucosa' mmol/L, specimen serum stated on the row itself by 'Glucosa, suero 5.4 mmol/L', expected resolved glucose_serum, actual resolved glucose_serum, falseConcrete false, alias match alias_normalized_match on a reviewed es alias. No specimen is inferred."
+      "candidateInputHash": "f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807",
+      "note": "Issue #111 candidate renewal bound to input hash f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807. Corpus 72→75 with three heading-policy fixtures; the previous 72-row expectations were not bulk-updated. Reach widened by one Spanish row. Existing English rows `glucose` and `glucose-specimen-by-section` are unchanged. New row `es-glucosa-suero`: label 'Glucosa' mmol/L, specimen serum stated on the row itself by 'Glucosa, suero 5.4 mmol/L', expected resolved glucose_serum, actual resolved glucose_serum, falseConcrete false, alias match alias_normalized_match on a reviewed es alias. No specimen is inferred."
     },
     {
-      "id": "assessment-glucose-whole-blood-review-2026-08-14",
+      "id": "assessment-glucose-whole-blood-review-2026-08-29",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "bindingKey": "glucose_whole_blood",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
-      "note": "Signature refresh only. Reached by corpus row `glucose-whole-blood` (English, unchanged), label 'Glucose' mg/dL with whole blood stated on the row, expected resolved, actual resolved glucose_whole_blood, falseConcrete false. The multilingual slice adds no row that reaches this binding."
+      "candidateInputHash": "f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807",
+      "note": "Issue #111 candidate renewal bound to input hash f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807. Corpus 72→75 with three heading-policy fixtures; the previous 72-row expectations were not bulk-updated. Signature refresh only. Reached by corpus row `glucose-whole-blood` (English, unchanged), label 'Glucose' mg/dL with whole blood stated on the row, expected resolved, actual resolved glucose_whole_blood, falseConcrete false. The multilingual slice adds no row that reaches this binding."
     },
     {
-      "id": "assessment-hemoglobin-whole-blood-review-2026-08-14",
+      "id": "assessment-hemoglobin-whole-blood-review-2026-08-29",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "bindingKey": "hemoglobin_whole_blood",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
-      "note": "Newly reached by two multilingual rows. `ru-hgb-cyrillic`: 'Гемоглобин' g/L, whole blood stated by 'Гемоглобин, цельная кровь 142 g/L', expected resolved, actual resolved hemoglobin_whole_blood, falseConcrete false. `es-hemoglobina-mixed-code`: 'Hemoglobina (HGB)' g/L, whole blood stated by 'Hemoglobina (HGB), sangre total 138 g/L', expected resolved, actual resolved hemoglobin_whole_blood, falseConcrete false. Both admitted by alias_normalized_match on reviewed aliases; contextAvailability provided on both."
+      "candidateInputHash": "f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807",
+      "note": "Issue #111 candidate renewal bound to input hash f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807. Corpus 72→75 with three heading-policy fixtures; the previous 72-row expectations were not bulk-updated. New corpus row `hemoglobin-cbc-heading` reaches hemoglobin_whole_blood through reviewed panel policy cbc_whole_blood (heading 'Complete blood count with manual smear microscopy + ESR', evidence specimen_from_reviewed_panel), not a printed specimen. Prior multilingual stated-whole-blood rows remain: Newly reached by two multilingual rows. `ru-hgb-cyrillic`: 'Гемоглобин' g/L, whole blood stated by 'Гемоглобин, цельная кровь 142 g/L', expected resolved, actual resolved hemoglobin_whole_blood, falseConcrete false. `es-hemoglobina-mixed-code`: 'Hemoglobina (HGB)' g/L, whole blood stated by 'Hemoglobina (HGB), sangre total 138 g/L', expected resolved, actual resolved hemoglobin_whole_blood, falseConcrete false. Both admitted by alias_normalized_match on reviewed aliases; contextAvailability provided on both."
     },
     {
-      "id": "assessment-wbc-whole-blood-review-2026-08-14",
+      "id": "assessment-wbc-whole-blood-review-2026-08-29",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "bindingKey": "wbc_whole_blood",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
-      "note": "Newly reached by two multilingual rows. `ru-wbc-cyrillic`: 'Лейкоциты' x10^9/L, whole blood stated by 'Лейкоциты, цельная кровь 6.2 x10^9/L', expected resolved, actual resolved wbc_whole_blood, falseConcrete false. `es-leucocitos`: 'Leucocitos' x10^9/L, whole blood stated by 'Leucocitos, sangre total 7.1 x10^9/L', expected resolved, actual resolved wbc_whole_blood, falseConcrete false. Both admitted by alias_normalized_match on reviewed aliases."
+      "candidateInputHash": "f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807",
+      "note": "Issue #111 candidate renewal bound to input hash f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807. Corpus 72→75 with three heading-policy fixtures; the previous 72-row expectations were not bulk-updated. This binding is among the seven score-affecting keys the CBC heading policy can reach, but no new corpus row currently selects it via heading. Newly reached by two multilingual rows. `ru-wbc-cyrillic`: 'Лейкоциты' x10^9/L, whole blood stated by 'Лейкоциты, цельная кровь 6.2 x10^9/L', expected resolved, actual resolved wbc_whole_blood, falseConcrete false. `es-leucocitos`: 'Leucocitos' x10^9/L, whole blood stated by 'Leucocitos, sangre total 7.1 x10^9/L', expected resolved, actual resolved wbc_whole_blood, falseConcrete false. Both admitted by alias_normalized_match on reviewed aliases."
     },
     {
-      "id": "assessment-platelets-whole-blood-review-2026-08-14",
+      "id": "assessment-platelets-whole-blood-review-2026-08-29",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "bindingKey": "platelets_whole_blood",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
-      "note": "Newly reached by one multilingual row. `es-plaquetas-mixed-code`: 'Plaquetas (PLT)' x10^9/L, whole blood stated by 'Plaquetas (PLT), sangre total 240 x10^9/L', expected resolved, actual resolved platelets_whole_blood, falseConcrete false, alias_normalized_match on a reviewed es alias."
+      "candidateInputHash": "f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807",
+      "note": "Issue #111 candidate renewal bound to input hash f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807. Corpus 72→75 with three heading-policy fixtures; the previous 72-row expectations were not bulk-updated. This binding is among the seven score-affecting keys the CBC heading policy can reach, but no new corpus row currently selects it via heading. Newly reached by one multilingual row. `es-plaquetas-mixed-code`: 'Plaquetas (PLT)' x10^9/L, whole blood stated by 'Plaquetas (PLT), sangre total 240 x10^9/L', expected resolved, actual resolved platelets_whole_blood, falseConcrete false, alias_normalized_match on a reviewed es alias."
     },
     {
-      "id": "assessment-tsh-serum-review-2026-08-14",
+      "id": "assessment-tsh-serum-review-2026-08-29",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "bindingKey": "tsh_serum",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
-      "note": "Newly reached by one multilingual row. `ru-tsh-cyrillic`: 'ТТГ' mIU/L, serum stated by 'ТТГ, сыворотка 1.8 mIU/L', expected resolved, actual resolved tsh_serum, falseConcrete false, alias_normalized_match on a reviewed ru alias. The abbreviation is pure Cyrillic and could not match at all before this change."
+      "candidateInputHash": "f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807",
+      "note": "Issue #111 candidate renewal bound to input hash f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807. Corpus 72→75 with three heading-policy fixtures; the previous 72-row expectations were not bulk-updated. Newly reached by one multilingual row. `ru-tsh-cyrillic`: 'ТТГ' mIU/L, serum stated by 'ТТГ, сыворотка 1.8 mIU/L', expected resolved, actual resolved tsh_serum, falseConcrete false, alias_normalized_match on a reviewed ru alias. The abbreviation is pure Cyrillic and could not match at all before this change."
     },
     {
-      "id": "assessment-free-t4-serum-review-2026-08-14",
+      "id": "assessment-free-t4-serum-review-2026-08-29",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "bindingKey": "free_t4_serum",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
-      "note": "Newly reached by one multilingual row. `ru-free-t4-cyrillic`: 'Свободный Т4' pmol/L, serum stated by 'Свободный Т4, сыворотка 15 pmol/L', expected resolved, actual resolved free_t4_serum, falseConcrete false, alias_normalized_match on a reviewed ru alias. Under the previous identifier normalization this label collapsed to the bare token '4'; the new label contract rejects such weak tokens outright."
+      "candidateInputHash": "f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807",
+      "note": "Issue #111 candidate renewal bound to input hash f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807. Corpus 72→75 with three heading-policy fixtures; the previous 72-row expectations were not bulk-updated. Newly reached by one multilingual row. `ru-free-t4-cyrillic`: 'Свободный Т4' pmol/L, serum stated by 'Свободный Т4, сыворотка 15 pmol/L', expected resolved, actual resolved free_t4_serum, falseConcrete false, alias_normalized_match on a reviewed ru alias. Under the previous identifier normalization this label collapsed to the bare token '4'; the new label contract rejects such weak tokens outright."
     },
     {
-      "id": "assessment-creatinine-serum-review-2026-08-14",
+      "id": "assessment-creatinine-serum-review-2026-08-29",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "bindingKey": "creatinine_serum",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
-      "note": "Newly reached by one multilingual row. `es-creatinina`: 'Creatinina' umol/L, serum stated by 'Creatinina, suero 78 umol/L', expected resolved, actual resolved creatinine_serum, falseConcrete false, alias_normalized_match on a reviewed es alias."
+      "candidateInputHash": "f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807",
+      "note": "Issue #111 candidate renewal bound to input hash f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807. Corpus 72→75 with three heading-policy fixtures; the previous 72-row expectations were not bulk-updated. Newly reached by one multilingual row. `es-creatinina`: 'Creatinina' umol/L, serum stated by 'Creatinina, suero 78 umol/L', expected resolved, actual resolved creatinine_serum, falseConcrete false, alias_normalized_match on a reviewed es alias."
     },
     {
-      "id": "assessment-triglycerides-serum-review-2026-08-14",
+      "id": "assessment-triglycerides-serum-review-2026-08-29",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "bindingKey": "triglycerides_serum",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
-      "note": "Newly reached by two multilingual rows, one of which exercises the accent-fold fallback. `es-trigliceridos-accented`: 'Triglicéridos' mmol/L, serum stated by 'Triglicéridos, suero 1.2 mmol/L', expected resolved, actual resolved triglycerides_serum, falseConcrete false, matched on the accent-preserving primary form. `es-trigliceridos-ocr-no-accent`: 'Trigliceridos' mmol/L, serum stated by 'Trigliceridos, suero 1.3 mmol/L', expected resolved, actual resolved triglycerides_serum, falseConcrete false, admitted through the collision-gated accent-fold fallback and recorded in the persisted schema-2 trace with aliasFoldFallback true. The fallback fires only when a single analyte owns that folded form."
+      "candidateInputHash": "f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807",
+      "note": "Issue #111 candidate renewal bound to input hash f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807. Corpus 72→75 with three heading-policy fixtures; the previous 72-row expectations were not bulk-updated. Newly reached by two multilingual rows, one of which exercises the accent-fold fallback. `es-trigliceridos-accented`: 'Triglicéridos' mmol/L, serum stated by 'Triglicéridos, suero 1.2 mmol/L', expected resolved, actual resolved triglycerides_serum, falseConcrete false, matched on the accent-preserving primary form. `es-trigliceridos-ocr-no-accent`: 'Trigliceridos' mmol/L, serum stated by 'Trigliceridos, suero 1.3 mmol/L', expected resolved, actual resolved triglycerides_serum, falseConcrete false, admitted through the collision-gated accent-fold fallback and recorded in the persisted schema-2 trace with aliasFoldFallback true. The fallback fires only when a single analyte owns that folded form."
     },
     {
-      "id": "assessment-hba1c-whole-blood-review-2026-08-14",
+      "id": "assessment-hba1c-whole-blood-review-2026-08-29",
       "scope": "score_affecting_binding",
       "role": "assessment-owner",
       "bindingKey": "hba1c_whole_blood",
       "approvedBy": "Project Owner",
       "status": "approved",
-      "candidateInputHash": "55939ab965139d3fe25c78b875201e048e33d7729b6bdb90b690335b7b746eed",
-      "note": "Newly reached by one multilingual row. `es-hba1c`: 'Hemoglobina glucosilada' %, whole blood stated by 'Hemoglobina glucosilada, sangre total 5.6 %', expected resolved, actual resolved hba1c_whole_blood, falseConcrete false, alias_normalized_match on a reviewed es alias."
+      "candidateInputHash": "f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807",
+      "note": "Issue #111 candidate renewal bound to input hash f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807. Corpus 72→75 with three heading-policy fixtures; the previous 72-row expectations were not bulk-updated. Newly reached by one multilingual row. `es-hba1c`: 'Hemoglobina glucosilada' %, whole blood stated by 'Hemoglobina glucosilada, sangre total 5.6 %', expected resolved, actual resolved hba1c_whole_blood, falseConcrete false, alias_normalized_match on a reviewed es alias."
+    },
+    {
+      "id": "assessment-cbc-whole-blood-panel-policy-review-2026-08-29",
+      "scope": "panel_specimen_policy",
+      "role": "assessment-owner",
+      "bindingKey": "cbc_whole_blood",
+      "approvedBy": "Project Owner",
+      "status": "approved",
+      "candidateInputHash": "f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807",
+      "note": "Project Owner, acting as assessment-owner, approves reviewed panel specimen policy cbc_whole_blood for candidate input hash f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807. Heading forms complete blood count / cbc / full blood count / fbc / общий анализ крови / оак, including the fixture heading 'Complete blood count with manual smear microscopy + ESR', may supply whole_blood only for the 18 CBC allowlisted analytes after the #106 stated-evidence filter. Glucose and HbA1c are excluded. Biochemistry headings receive no serum/plasma policy. Score-affecting reach: hemoglobin_whole_blood, hematocrit_whole_blood, rbc_whole_blood, wbc_whole_blood, platelets_whole_blood, rdw_cv, rdw_sd. Evidence is recorded as specimen_from_reviewed_panel, never as a laboratory-printed specimen. Historical documents require re-extraction."
     }
   ]
 }

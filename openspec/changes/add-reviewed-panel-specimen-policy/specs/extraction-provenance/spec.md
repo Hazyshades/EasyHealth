@@ -35,3 +35,17 @@ A captured section heading SHALL be checkable against the stored page text for t
 
 - **WHEN** every stored heading occurs in its page text
 - **THEN** the check passes
+
+#### Scenario: Heading from another page is rejected
+
+- **WHEN** a row is grounded to page 2
+- **AND** its captured heading occurs only in page 1 OCR
+- **THEN** the heading is not stored as `section_context`
+- **AND** no panel specimen policy may use it
+
+#### Scenario: Each page stores its own OCR
+
+- **WHEN** a multi-page document is processed
+- **THEN** each `document_pages` row stores that page's `ocr_text`
+- **AND** heading verification uses the OCR of the row's own page, not concatenated document text
+

@@ -5,7 +5,7 @@ Canonical reference generated from the typed runtime Registry 2.0 catalog. A mea
 
 - **Definitions:** 113 (74 reviewed; 39 provisional). **Analytes:** 83.
 - **Aliases:** 637 (en 289; ru 179; es 169). **Assessment-bound definitions:** 45.
-- **Manifest:** `2026-08-23.0` / `daed22bd44454e6e7eeb0c6d54c0e860973dfae5a28a625c0a41684f428371a5`; resolver `11`; normalization `7`.
+- **Manifest:** `2026-08-23.0` / `0576e6fbc6d5d6d74d93a95ca2e4ec0e653a5f34f6d61ad2127932b7174f983d`; resolver `11`; normalization `7`.
 
 The [complete alias-governance reference](./biomarker-aliases.md) is authoritative for alias authority, approval, lifecycle, fixture, provenance, and review metadata.
 
@@ -2287,6 +2287,16 @@ Panel registry version `2026-08-12.0`. Membership is static catalog metadata; it
 | `lipid` | Lipid panel | Lipid profile, Cholesterol panel | 10. `total_cholesterol_serum` (required)<br>20. `ldl_serum` (required)<br>30. `hdl_serum` (required)<br>40. `triglycerides_serum` (required)<br>50. `non_hdl_cholesterol_serum` (optional) |
 | `liver` | Liver panel | Liver function tests, Hepatic panel | 10. `alt_serum_catalytic_activity` (required)<br>20. `ast_serum_catalytic_activity` (required)<br>30. `bilirubin_serum` (required)<br>40. `albumin_serum` (required)<br>50. `alp_serum_catalytic_activity` (optional)<br>60. `ggt_serum_catalytic_activity` (optional)<br>70. `alt_plasma_catalytic_activity` (optional)<br>80. `ast_plasma_catalytic_activity` (optional)<br>90. `alp_plasma_catalytic_activity` (optional)<br>100. `ggt_plasma_catalytic_activity` (optional) |
 | `thyroid` | Thyroid panel | Thyroid function tests, Thyroid function panel | 10. `tsh_serum` (required)<br>20. `free_t4_serum` (required) |
+
+## Reviewed panel specimen policies
+
+A captured section heading may supply a specimen only through a digest-covered reviewed policy. The policy never pretends the laboratory printed the specimen; decision traces record `specimen_from_reviewed_panel`. Biochemistry, serum, and plasma headings have no launch policy. Glucose and HbA1c stay outside the CBC allowlist. Existing documents are not upgraded by reprocess alone; they need re-extraction that stores a page-OCR-grounded `section_context`.
+
+Score-affecting reach of the launch policy: `hemoglobin_whole_blood`, `hematocrit_whole_blood`, `rbc_whole_blood`, `wbc_whole_blood`, `platelets_whole_blood`, `rdw_cv`, `rdw_sd`.
+
+| policy key | display name | heading forms | specimen | analytes | maturity | review |
+| --- | --- | --- | --- | --- | --- | --- |
+| `cbc_whole_blood` | Complete blood count implies whole blood | `complete blood count`, `cbc`, `full blood count`, `fbc`, `общий анализ крови`, `оак` | `whole_blood` | `basophils`, `eosinophils`, `hematocrit`, `hemoglobin`, `lymphocytes`, `mch`, `mchc`, `mcv`, `monocytes`, `mpv`, `neutrophils`, `pdw`, `plateletcrit`, `platelets`, `rbc`, `red_cell_distribution_width`, `reticulocytes`, `wbc` | `reviewed` | `issue-111` |
 
 ## Registry v1 legacy boundary
 

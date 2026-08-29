@@ -43,6 +43,7 @@ import {
   type NormalizationRevision,
 } from "./normalization-revisions";
 import { statedAxisValue } from "./stated-axis-evidence";
+import { matchReviewedPanelSpecimenPolicy } from "@/lib/biomarkers/panel-specimen-policy";
 import {
   buildResolutionOutcomeMetric,
   emitResolutionOutcomeMetricForWrite,
@@ -208,10 +209,28 @@ export function measurementInputFromWriterRow(
     sourceText: row.source_text ?? null,
     sectionContext: row.section_context ?? null,
   };
+
+function concreteStatedSpecimen(value: string | null | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed || trimmed === "unspecified" || trimmed === "unknown" || trimmed === "none") {
+    return null;
+  }
+  return value;
+}
+
+  const rawStatedSpecimen = statedAxisValue("specimen", row.specimen ?? null, provenance);
+  const statedSpecimen = concreteStatedSpecimen(rawStatedSpecimen);
+  const capturedHeading = row.section_context ?? null;
+  const panelPolicy = statedSpecimen
+    ? null
+    : matchReviewedPanelSpecimenPolicy(capturedHeading, row.biomarker_key);
   return {
     rawLabel: row.raw_name ?? row.biomarker_name,
     rawUnit: override?.unit ?? row.raw_unit ?? row.unit,
-    specimen: statedAxisValue("specimen", row.specimen ?? null, provenance),
+    specimen: panelPolicy?.specimen ?? statedSpecimen ?? rawStatedSpecimen,
+    specimenSource: statedSpecimen ? "stated" : panelPolicy ? "reviewed_panel_policy" : null,
+    capturedHeading,
     modifier: statedAxisValue("modifier", row.modifier ?? null, provenance),
     method: statedAxisValue("method", row.method ?? null, provenance),
     section: row.section_context ?? null,

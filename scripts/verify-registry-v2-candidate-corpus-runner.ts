@@ -59,6 +59,7 @@ assert.deepEqual(
     "glucose-incompatible-unit",
     "ru-glucose-missing-specimen",
     "es-glucosa-suero",
+    "glucose-cbc-heading",
   ]
 );
 // Partition by id rather than by index: the positional form silently mis-split
@@ -297,6 +298,22 @@ try {
   assert.match(missingScoreApproval.manifest.approvals.errors.join("\n"), /score-affecting approval for alt_serum_catalytic_activity/);
 } finally {
   rmSync(missingScoreApprovalRoot, { recursive: true, force: true });
+}
+
+const missingPanelPolicyApprovalRoot = temporaryCandidateRoot();
+try {
+  changeJson(missingPanelPolicyApprovalRoot, "approvals.json", (evidence) => {
+    const approvals = evidence.approvals as Array<Record<string, unknown>>;
+    evidence.approvals = approvals.filter((approval) => approval.scope !== "panel_specimen_policy");
+  });
+  const missingPanelPolicyApproval = runRegistryV2CandidateCorpus({ root: missingPanelPolicyApprovalRoot });
+  assert.equal(missingPanelPolicyApproval.manifest.launchable, false, "unapproved reviewed panel specimen policies must block launchability");
+  assert.match(
+    missingPanelPolicyApproval.manifest.approvals.errors.join("\n"),
+    /missing hash-bound panel specimen policy approval for cbc_whole_blood/,
+  );
+} finally {
+  rmSync(missingPanelPolicyApprovalRoot, { recursive: true, force: true });
 }
 
 const invalidExtraApprovalRoot = temporaryCandidateRoot();
