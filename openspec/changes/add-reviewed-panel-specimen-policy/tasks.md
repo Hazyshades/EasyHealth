@@ -195,3 +195,7 @@ stated-evidence filter must run before a policy can supply anything.
 - [x] 11.5 Record the residual risk: heading wording varies by laboratory, and an
       uncovered heading degrades silently to `partial` — mitigated only by the
       coverage report from 5.4.
+- [x] 11.6 Browser UI QA on local app (`psp.qa@example.com`): PSP-UI-01/02/03/05
+      Pass on `23865961-10dd-407f-a42a-6148207b5d18`. PSP-UI-04 N/A (Reprocess is
+      full re-extraction; historical pre-heading document absent). PSP-03 stated
+      serum not demonstrated in UI because the extractor omitted `Material: serum`.

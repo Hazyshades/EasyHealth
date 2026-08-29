@@ -14,10 +14,10 @@
 13:
 14:## Before you start
 15:
-16:- [ ] Use a dedicated test account.
-17:- [ ] Use only synthetic or de-identified documents.
-18:- [ ] Confirm processing has finished unless the check tests processing.
-19:- [ ] Prefer a **new upload**. Reprocess alone does not recapture headings on old rows.
+16:- [x] Use a dedicated test account.
+17:- [x] Use only synthetic or de-identified documents.
+18:- [x] Confirm processing has finished unless the check tests processing.
+19:- [x] Prefer a **new upload**. Reprocess alone does not recapture headings on old rows.
 20:
 21:## Test data
 22:
