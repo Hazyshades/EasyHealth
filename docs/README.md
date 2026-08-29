@@ -86,6 +86,7 @@ QA checklists (qa-tests.md)          ← verification status
 - [Local development](./07-ops/local-dev.md)
 - [Environment variables](./07-ops/env-vars.md)
 - [Worker runbook](./07-ops/worker-runbook.md)
+- [Local pgTAP against Docker](./07-ops/local-pgtap.md)
 - [Registry documentation synchronization](./07-ops/registry-documentation-sync.md)
 
 ### Decisions

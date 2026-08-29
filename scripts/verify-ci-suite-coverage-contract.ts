@@ -43,7 +43,7 @@ function assertClean(report: CoverageReport): void {
 function testTransitiveScriptResolution(): void {
   const scripts = {
     "test:alpha": "tsx scripts/alpha.ts",
-    "test:db": "supabase test db --local supabase/tests/db.sql",
+    "test:db": "node scripts/run-supabase-db-tests.mjs supabase/tests/db.sql",
     "test:chain": "pnpm test:alpha && pnpm run test:db",
   };
   assert.deepEqual(extractVerificationFiles(scripts["test:db"]), ["supabase/tests/db.sql"]);
