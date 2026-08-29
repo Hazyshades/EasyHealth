@@ -7,7 +7,7 @@ Every new `test:*` package script must be part of the same change as its CI disp
 Use a deterministic command in `package.json`:
 
 - `tsx` commands must name the verification file directly.
-- Database commands must use `supabase test db --local <file.sql>`.
+- Database commands must use `node scripts/run-supabase-db-tests.mjs <file.sql>`. That runner tries `supabase test db --local` first (CI after `supabase db start`), then `--db-url` without `--local`, then the same SQL via `docker exec` `psql`. A TAP failure is a failed suite. Do not invoke `supabase db reset`.
 - Chained commands and `pnpm run <script>` references are resolved transitively, but keep the chain readable.
 - Do not add a silent skip, `continue-on-error`, or a placeholder credential to make a suite pass.
 

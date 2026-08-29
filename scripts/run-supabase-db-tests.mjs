@@ -6,13 +6,15 @@
  * Worktrees that share `supabase_db_easyhealth` on 127.0.0.1:54322 can fail
  * `--local` with LegacyDbConnectError; retry `--db-url` without `--local`,
  * then docker exec. Never runs `supabase db reset`.
+ * A CLI or docker TAP failure is a failed suite, not a connect fallback.
  */
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
 const CONNECT_FAILURE =
   /LegacyDbConnectError|LegacyDockerRunError|LegacyTestDbMutuallyExclusiveFlagsError|failed to connect to postgres|mkdir \/run\/desktop\/mnt\/host/i;
-const TAP_EXECUTED = /Result:\s+(?:PASS|FAIL)|All tests successful|Failed tests/i;
+const CLI_TAP_PASS = /Result:\s+PASS|All tests successful/i;
+const CLI_TAP_FAIL = /Result:\s+FAIL|Failed tests/i;
 
 const files = process.argv.slice(2).filter((arg) => arg !== "--");
 if (files.length === 0) {
@@ -64,15 +66,30 @@ function printCaptured(result) {
   if (result.error) process.stderr.write(`${result.error.message}\n`);
 }
 
-function testsExecuted(result) {
-  return TAP_EXECUTED.test(combinedText(result));
+function cliSucceeded(result) {
+  const text = combinedText(result);
+  if (CLI_TAP_FAIL.test(text)) return false;
+  return (result.status ?? 1) === 0 && CLI_TAP_PASS.test(text);
+}
+
+function dockerTapSucceeded(result) {
+  const text = combinedText(result);
+  if ((result.status ?? 1) !== 0) return false;
+  if (CLI_TAP_FAIL.test(text) || /^not ok\b/m.test(text)) return false;
+  if (CLI_TAP_PASS.test(text)) return true;
+  const plan = text.match(/^1\.\.(\d+)\s*$/m);
+  if (!plan) return false;
+  const expected = Number(plan[1]);
+  const oks = [...text.matchAll(/^ok\b/gm)].length;
+  return expected > 0 && oks >= expected;
 }
 
 function looksLikeConnectFailure(result) {
   const text = combinedText(result);
+  if (CLI_TAP_FAIL.test(text) || /^not ok\b/m.test(text)) return false;
   if (CONNECT_FAILURE.test(text)) return true;
   if (result.error?.code === "ENOENT") return true;
-  if ((result.status ?? 1) !== 0 && !testsExecuted(result)) return true;
+  if ((result.status ?? 1) !== 0 && !CLI_TAP_PASS.test(text)) return true;
   return false;
 }
 
@@ -84,57 +101,62 @@ function runCli(flagArgs) {
   return result;
 }
 
-const forcedUrl = explicitDbUrl();
-if (forcedUrl) {
-  process.stderr.write(`run-supabase-db-tests: using --db-url ${redactUrl(forcedUrl)}\n`);
-  const result = runCli(["--db-url", forcedUrl]);
+function attemptCli(flagArgs) {
+  const result = runCli(flagArgs);
+  if (cliSucceeded(result)) {
+    printCaptured(result);
+    process.exit(0);
+  }
+  return result;
+}
+
+function failCliWithoutFallback(result) {
   printCaptured(result);
   process.exit(result.status ?? 1);
 }
 
-const localResult = runCli(["--local"]);
-if ((localResult.status ?? 1) === 0) {
-  printCaptured(localResult);
+function runDockerFallback() {
+  process.stderr.write(
+    `run-supabase-db-tests: CLI still cannot connect; docker exec -i ${container} psql\n`,
+  );
+  for (const file of files) {
+    const sql = readFileSync(file);
+    const dockerResult = run(
+      dockerBin,
+      ["exec", "-i", container, "psql", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
+      { input: sql, shell: false },
+    );
+    if (dockerResult.error?.code === "ENOENT") {
+      process.stderr.write("docker not found; cannot fall back to in-container psql\n");
+      process.exit(1);
+    }
+    printCaptured(dockerResult);
+    if (!dockerTapSucceeded(dockerResult)) {
+      process.stderr.write(
+        `run-supabase-db-tests: docker pgTAP did not report a passing TAP plan for ${file}\n`,
+      );
+      process.exit(dockerResult.status && dockerResult.status !== 0 ? dockerResult.status : 1);
+    }
+  }
   process.exit(0);
 }
 
-if (!looksLikeConnectFailure(localResult)) {
-  printCaptured(localResult);
-  process.exit(localResult.status ?? 1);
+const forcedUrl = explicitDbUrl();
+if (forcedUrl) {
+  process.stderr.write(`run-supabase-db-tests: using --db-url ${redactUrl(forcedUrl)}\n`);
+  const result = attemptCli(["--db-url", forcedUrl]);
+  if (!looksLikeConnectFailure(result)) failCliWithoutFallback(result);
+  runDockerFallback();
 }
+
+const localResult = attemptCli(["--local"]);
+if (!looksLikeConnectFailure(localResult)) failCliWithoutFallback(localResult);
 
 const fallbackUrl = sharedLocalDbUrl();
 process.stderr.write(
   `run-supabase-db-tests: --local could not run pgTAP; retrying --db-url ${redactUrl(fallbackUrl)}\n`,
 );
-const urlResult = runCli(["--db-url", fallbackUrl]);
-if ((urlResult.status ?? 1) === 0) {
-  printCaptured(urlResult);
-  process.exit(0);
-}
+const urlResult = attemptCli(["--db-url", fallbackUrl]);
+if (!looksLikeConnectFailure(urlResult)) failCliWithoutFallback(urlResult);
 
-if (!looksLikeConnectFailure(urlResult)) {
-  printCaptured(urlResult);
-  process.exit(urlResult.status ?? 1);
-}
-
-process.stderr.write(
-  `run-supabase-db-tests: CLI still cannot connect; docker exec -i ${container} psql\n`,
-);
-for (const file of files) {
-  const sql = readFileSync(file);
-  const dockerResult = run(
-    dockerBin,
-    ["exec", "-i", container, "psql", "-U", "postgres", "-d", "postgres"],
-    { input: sql, shell: false },
-  );
-  if (dockerResult.error?.code === "ENOENT") {
-    process.stderr.write("docker not found; cannot fall back to in-container psql\n");
-    printCaptured(urlResult);
-    process.exit(urlResult.status ?? 1);
-  }
-  printCaptured(dockerResult);
-  if ((dockerResult.status ?? 1) !== 0) process.exit(dockerResult.status ?? 1);
-}
-
-process.exit(0);
+runDockerFallback();

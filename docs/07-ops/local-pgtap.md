@@ -30,4 +30,4 @@ If `--db-url` still returns `LegacyDbConnectError`, `LegacyDockerRunError`, or a
 docker exec -i supabase_db_easyhealth psql -U postgres -d postgres < QA-Db_tests/eh119_observation_measurement_correction.sql
 ```
 
-A pgTAP `PASS` from that path is accepted local evidence. It is not a failed database contract. CI still uses `supabase db start` and `--local`.
+A pgTAP `PASS` from that path is accepted local evidence. TAP `not ok` / `Result: FAIL` is a failed suite even when `psql` exits 0. CLI connect failure is not a failed database contract. CI still uses `supabase db start` and `--local`.
