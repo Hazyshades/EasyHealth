@@ -1,0 +1,13 @@
+node_modules/
+worker/node_modules/
+.next/
+out/
+coverage/
+playwright-report/
+test-results/
+openspec/changes/archive/
+docs/05-data/biomarker-catalog.md
+docs/05-data/biomarker-aliases.md
+docs/03-modules/biomarkers.md
+docs/05-data/biomarker-corpus-evidence.md
+QA/**/fixtures/*.pdf
