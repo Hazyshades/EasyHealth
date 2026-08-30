@@ -1,3 +1,19 @@
+# Normalize every text checkout to LF across supported platforms.
+* text=auto eol=lf
+
+# Binary assets must never undergo text normalization.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+
 # Synthetic OCR fixtures contain PDF xref padding spaces that are binary data.
 QA/eh-147/fixtures/*.pdf binary
 QA/eh-132/fixtures/*.pdf binary
