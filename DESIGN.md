@@ -147,8 +147,7 @@ The palette is built around neutral ink and white, with indigo for primary actio
 
 ### Hierarchy
 - **Headline** (`text-2xl`, weight 700, tracking `-0.01em`, line-height 1.2): Page titles in the TopBar and major section headers.
-- **Title** (`text-xl / md:text-2xl`, weight 600, line-height 1.2, tracking `-0.01em`): `eh-page-title`. Section/page titles in `PageHeader`.
-- **Body** (`text-sm` / `0.9375rem` desktop, weight 400, line-height 1.5): Paragraphs, descriptions, card copy. Max line length 65–75ch for prose.
+- **Title** (`text-xl / md:text-2xl`, weight 600, line-height 1.2, tracking `-0.01em`): `eh-page-title`. Every `PageHeader` renders a required navigation-consistent h1 title.- **Body** (`text-sm` / `0.9375rem` desktop, weight 400, line-height 1.5): Paragraphs, descriptions, card copy. Max line length 65–75ch for prose.
 - **Label** (`text-xs`, weight 500, uppercase, letter-spacing `0.06em`, color text-muted): Data-table headers, filter labels, small captions.
 - **Metric** (`text-4xl`, weight 600, tracking tight): Dashboard metric-card values.
 

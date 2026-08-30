@@ -120,10 +120,7 @@ export default function AccountPage() {
 
   return (
     <div className="space-y-6 pb-8">
-      <PageHeader
-        subtitle="Sign-in details for your EasyHealth account"
-        compact
-      />
+      <PageHeader title="Account" subtitle="Sign-in details for your EasyHealth account" compact />
 
       <SurfaceCard className="space-y-4 p-5">
         <div>

@@ -1,15 +1,13 @@
 import { cn } from "@/lib/utils";
 
 type PageHeaderProps = {
-  title?: string;
+  title: string;
   subtitle?: string;
   actions?: React.ReactNode;
   compact?: boolean;
 };
 
 export function PageHeader({ title, subtitle, actions, compact = false }: PageHeaderProps) {
-  if (!title && !subtitle && !actions) return null;
-
   return (
     <div
       className={cn(
@@ -17,22 +15,10 @@ export function PageHeader({ title, subtitle, actions, compact = false }: PageHe
         compact ? "mb-3" : "mb-6"
       )}
     >
-      {title || subtitle ? (
-        <div className="min-w-0">
-          {title ? (
-            <h2 className="text-2xl font-bold tracking-tight text-[var(--eh-text-primary)]">
-              {title}
-            </h2>
-          ) : null}
-          {subtitle ? (
-            <p className={cn("eh-page-subtitle", title && "mt-1")}>
-              {subtitle}
-            </p>
-          ) : null}
-        </div>
-      ) : (
-        <div />
-      )}
+      <div className="min-w-0">
+        <h1 className="text-2xl font-bold tracking-tight text-[var(--eh-text-primary)]">{title}</h1>
+        {subtitle ? <p className="mt-1 eh-page-subtitle">{subtitle}</p> : null}
+      </div>
       {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );

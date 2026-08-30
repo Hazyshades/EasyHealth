@@ -335,7 +335,7 @@ export default function BiomarkersPage() {
           { label: "Biomarkers" },
         ]}
       />
-      <PageHeader subtitle="Values extracted from your uploaded lab documents" />
+      <PageHeader title="Biomarkers" subtitle="Values extracted from your uploaded lab documents" />
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <SearchInput
           placeholder="Search biomarker…"
