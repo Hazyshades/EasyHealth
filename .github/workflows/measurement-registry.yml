@@ -40,7 +40,23 @@ jobs:
       - run: pnpm check:registry-v2-cutover
       - run: pnpm check:no-legacy-promotion-rpc
       - run: pnpm check:postgrest-embed-hints
-      - run: pnpm verify:registry
+      - name: Verify Registry with failure summary
+        shell: bash
+        run: |
+          set -o pipefail
+          output="$(mktemp)"
+          if pnpm verify:registry 2>&1 | tee "$output"; then
+            exit 0
+          else
+            status=$?
+            {
+              echo "## Registry verification failure"
+              echo "\`\`\`text"
+              tail -n 200 "$output"
+              echo "\`\`\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit "$status"
+          fi
         env:
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
           OPENAI_API_KEY: ci-placeholder
