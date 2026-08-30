@@ -4,5 +4,5 @@
 
 ## 2. Verification
 
-- [ ] 2.1 Run the formatter check without modifying the repository.
+- [x] 2.1 Run the formatter check without modifying the repository (completed 2026-08-30; 875 pre-existing violations remain out of scope).
 - [x] 2.2 Validate the OpenSpec change in strict mode.
