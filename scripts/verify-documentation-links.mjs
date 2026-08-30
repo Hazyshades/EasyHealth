@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { dirname, relative, resolve, sep } from "node:path";
 
 const repositoryRoot = resolve(".");
 const trackedPaths = new Set(
