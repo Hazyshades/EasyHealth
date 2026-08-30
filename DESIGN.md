@@ -189,10 +189,9 @@ The system is mostly flat. Depth is usually conveyed by a slight background shif
 ### StatusChip
 - **Style:** Pill (`rounded-full`), border, small text, color-coded background.
 - **Variants:** default, success (green), warning (amber), error (red), info (sky), neutral (canvas).
-- **Rule:** always use text + hue; never color alone.
+- **Rule:** pair text + hue with a decorative variant icon; never rely on color alone. Success uses Check, warning/error AlertCircle, and info Info. The icon is aria-hidden because the label supplies the accessible name.
 
-### FilterChip
-- **Style:** Pill (`rounded-full`), border.
+### FilterChip- **Style:** Pill (`rounded-full`), border.
 - **Inactive:** white bg, gray border, secondary text.
 - **Active:** indigo border + soft indigo bg + indigo text.
 
