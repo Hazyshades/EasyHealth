@@ -44,11 +44,18 @@ Extend `scripts/verify-ci-suite-coverage-contract.ts` when introducing a new com
 
 The coverage checker must discover the current `package.json` graph and workflow commands; do not maintain a second list of all test suites.
 
-## 5. Verify before review
+## 5. Preserve fail-fast verification
+
+Run `pnpm check:fail-fast-verification` when changing verification scripts or workflow commands. The guard reads package scripts and workflow `run` fields and rejects a verifier followed by `rg`, `grep`, or `findstr` through `;` or `||`, because a later search can mask an earlier failure. A chain joined with `&&` is accepted as fail-fast. Keep executable verifiers and structural checks as independently named workflow steps.
+
+The Measurement Registry workflow wraps `pnpm verify:registry` with Bash `set -o pipefail` and `tee`. When verification fails, the step appends a labeled fenced block containing the last 200 output lines to `$GITHUB_STEP_SUMMARY` and preserves the non-zero exit status. Full output remains in the Actions log; the summary is intentionally bounded and must not expose credentials.
+
+## 6. Verify before review
 
 Run:
 
 ```text
+pnpm check:fail-fast-verification
 pnpm check:ci-suite-coverage-contract
 pnpm check:ci-suite-coverage
 pnpm typecheck
