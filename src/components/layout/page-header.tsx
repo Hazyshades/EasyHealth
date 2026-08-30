@@ -16,7 +16,7 @@ export function PageHeader({ title, subtitle, actions, compact = false }: PageHe
       )}
     >
       <div className="min-w-0">
-        <h1 className="text-2xl font-bold tracking-tight text-[var(--eh-text-primary)]">{title}</h1>
+        <h1 className="eh-page-title">{title}</h1>
         {subtitle ? <p className="mt-1 eh-page-subtitle">{subtitle}</p> : null}
       </div>
       {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
