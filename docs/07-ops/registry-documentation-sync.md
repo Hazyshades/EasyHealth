@@ -50,6 +50,23 @@ evidence, and `docs/README.md`. State unavailable or deferred capabilities as
 unavailable; do not present planned catalog promotion, automatic reprocessing,
 admin review, or provenance workflows as implemented.
 
+### CI verification safeguards
+
+The Measurement Registry workflow runs
+`pnpm check:fail-fast-verification` before suite-coverage checks. The guard
+reads package scripts and workflow `run` fields and rejects a verifier followed
+by `rg`, `grep`, or `findstr` through `;` or `||`, because a later search can
+mask an earlier failure. A chain joined with `&&` is accepted as fail-fast.
+Executable verifiers and structural checks remain independently named workflow
+steps.
+
+The final `verify:registry` step uses Bash `set -o pipefail` and `tee`. On
+failure it appends a labeled fenced block containing the last 200 output lines
+to `$GITHUB_STEP_SUMMARY` and preserves the non-zero exit status. Full output
+remains in the Actions log; the summary is intentionally bounded and must not
+expose credentials. These safeguards change CI diagnostics and command
+composition checks only; they do not change Registry semantics or catalog data.
+
 ### 3. Update the Wiki mirror
 
 Render and stage the Wiki only from canonical docs:
