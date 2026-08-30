@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -55,6 +55,7 @@ export default function CreateReportPage() {
   const [eligibleDocs, setEligibleDocs] = useState<EligibleDocument[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+    const selectionTriggerRef = useRef<HTMLButtonElement>(null);
   const [selectedIds, setSelectedIds] = useState<string[] | null>(null);
   const [abnormalOnly, setAbnormalOnly] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -212,13 +213,7 @@ export default function CreateReportPage() {
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Selected records</label>
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full justify-start"
-            disabled={!hasEligibleDocs || loadingDocs}
-            onClick={() => setModalOpen(true)}
-          >
+          <Button ref={selectionTriggerRef} type="button" variant="outline" className="w-full justify-start" disabled={!hasEligibleDocs || loadingDocs} onClick={() => setModalOpen(true)}>
             {loadingDocs
               ? "Loading documents…"
               : !hasEligibleDocs
@@ -254,7 +249,7 @@ export default function CreateReportPage() {
       </form>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent>
+        <DialogContent onCloseAutoFocus={(event) => { event.preventDefault(); selectionTriggerRef.current?.focus(); }}>
             <div className="border-b p-4">
               <DialogTitle>Select documents for report</DialogTitle>
               <DialogDescription>
