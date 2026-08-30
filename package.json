@@ -134,7 +134,10 @@
     "typecheck:projects": "tsx scripts/verify-typescript-projects.ts",
     "pnpm:bootstrap": "corepack prepare pnpm@9.15.4 --activate",
     "check:package-manager": "node scripts/verify-package-manager.mjs",
-    "check:fail-fast-verification": "node scripts/verify-fail-fast-commands.mjs"
+    "check:fail-fast-verification": "node scripts/verify-fail-fast-commands.mjs",
+    "clean": "node scripts/clean-generated-artifacts.mjs",
+    "pretypecheck": "pnpm clean",
+    "prebuild": "pnpm clean"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.47",
