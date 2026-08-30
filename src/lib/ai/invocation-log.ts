@@ -1,9 +1,9 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AiInvocationClient } from "@/lib/ai/invocation-client";
 import type { AiInvocationRow } from "@/lib/ai/types";
 
 export async function logAiInvocation(
-  supabase: SupabaseClient,
-  row: AiInvocationRow
+  supabase: AiInvocationClient,
+  row: AiInvocationRow,
 ): Promise<void> {
   const { error } = await supabase.from("ai_invocations").insert({
     profile_id: row.profile_id,

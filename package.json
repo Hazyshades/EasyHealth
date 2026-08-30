@@ -130,7 +130,8 @@
     "check:ci-suite-coverage": "tsx scripts/verify-ci-suite-coverage.ts",
     "check:ci-suite-coverage-contract": "tsx scripts/verify-ci-suite-coverage-contract.ts",
     "test:panel-specimen": "tsx scripts/verify-panel-specimen-policy.ts && tsx scripts/verify-panel-specimen-page-grounding.ts",
-    "test:panel-specimen-db": "supabase test db --local supabase/tests/panel_specimen_policy_trace_code.sql && supabase test db --local supabase/tests/panel_specimen_page_ocr_isolation.sql"
+    "test:panel-specimen-db": "supabase test db --local supabase/tests/panel_specimen_policy_trace_code.sql && supabase test db --local supabase/tests/panel_specimen_page_ocr_isolation.sql",
+    "typecheck:projects": "tsx scripts/verify-typescript-projects.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.47",
