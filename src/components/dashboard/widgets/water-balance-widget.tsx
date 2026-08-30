@@ -17,7 +17,7 @@ export function WaterBalanceWidget(_props: DashboardWidgetProps) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-[var(--eh-text-secondary)]">Water balance</p>
-          <span className="mt-1 inline-block rounded-full bg-[var(--eh-brand-soft)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--eh-brand)]">
+          <span className="mt-1 inline-block rounded-full bg-[var(--eh-brand-soft)] px-2 py-0.5 text-caption font-medium uppercase tracking-wide text-[var(--eh-brand)]">
             Coming soon
           </span>
         </div>

@@ -153,7 +153,7 @@ export function BiomarkerTable({
                     {o.name}
                     {(o.specimen && o.specimen !== "unspecified") ||
                     (o.modifier && o.modifier !== "none") ? (
-                      <span className="mt-0.5 block text-[11px] font-normal text-[var(--eh-text-muted)]">
+                      <span className="mt-0.5 block text-caption font-normal text-[var(--eh-text-secondary)]">
                         {[o.specimen !== "unspecified" ? o.specimen : null, o.modifier !== "none" ? o.modifier : null]
                           .filter(Boolean)
                           .join(" · ")}
@@ -164,7 +164,7 @@ export function BiomarkerTable({
                     <span>{displayValue(o)}</span>
                     {o.converted && o.original_unit != null && (
                       <span
-                        className="mt-0.5 block text-[11px] text-[var(--eh-text-muted)]"
+                        className="mt-0.5 block text-caption text-[var(--eh-text-secondary)]"
                         title={o.conversion_note ?? undefined}
                       >
                         Lab: {o.original_value} {o.original_unit}
@@ -231,7 +231,7 @@ export function BiomarkerTable({
                     <p className="mt-1 text-sm text-[var(--eh-text-primary)]">
                       {displayValue(o)}
                       {o.converted && o.original_unit != null && (
-                        <span className="mt-0.5 block text-[11px] text-[var(--eh-text-muted)]">
+                        <span className="mt-0.5 block text-caption text-[var(--eh-text-secondary)]">
                           Lab: {o.original_value} {o.original_unit}
                         </span>
                       )}

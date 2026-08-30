@@ -87,7 +87,7 @@ export function FloatingFilterMenu({
         <Filter className="size-4" aria-hidden />
         Advanced filters
         {activeCount > 0 && (
-          <span className="ml-1 rounded-full bg-[var(--eh-brand)] px-1.5 py-0.5 text-[10px] font-semibold text-white">
+          <span className="ml-1 rounded-full bg-[var(--eh-brand)] px-1.5 py-0.5 text-caption font-semibold text-white">
             {activeCount}
           </span>
         )}
