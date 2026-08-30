@@ -8,4 +8,6 @@ test-results/
 openspec/changes/archive/
 docs/05-data/biomarker-catalog.md
 docs/05-data/biomarker-aliases.md
-QA/eh-147/fixtures/*.pdf
+docs/03-modules/biomarkers.md
+docs/05-data/biomarker-corpus-evidence.md
+QA/**/fixtures/*.pdf
