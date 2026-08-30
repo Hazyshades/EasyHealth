@@ -24,6 +24,8 @@ jobs:
         run: pnpm --dir worker install --frozen-lockfile
       - name: Typecheck document worker
         run: pnpm typecheck:worker
+      - name: Verify fail-fast command composition
+        run: pnpm check:fail-fast-verification
       - name: Verify CI suite coverage contract
         run: pnpm check:ci-suite-coverage-contract
       - name: Verify every test suite is workflow-reachable
