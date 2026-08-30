@@ -328,22 +328,19 @@ export function DocumentsHub({
 
   return (
     <div>
-      <PageHeader
-        subtitle="Upload and browse your medical records"
-        actions={
-          activeTab !== "dicom" && UPLOAD_LINKS[activeTab] ? (
-            <Button
-              asChild
-              className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90"
-            >
-              <Link href={UPLOAD_LINKS[activeTab]!}>
-                <Upload className="size-4" aria-hidden />
-                Upload document
-              </Link>
-            </Button>
-          ) : undefined
-        }
-      />
+      <PageHeader title="Documents" subtitle="Upload and browse your medical records" actions={
+        activeTab !== "dicom" && UPLOAD_LINKS[activeTab] ? (
+          <Button
+            asChild
+            className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90"
+          >
+            <Link href={UPLOAD_LINKS[activeTab]!}>
+              <Upload className="size-4" aria-hidden />
+              Upload document
+            </Link>
+          </Button>
+        ) : undefined
+      } />
 
       <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center">
         <SearchInput

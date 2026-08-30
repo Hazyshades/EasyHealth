@@ -108,7 +108,7 @@ export default function AiSettingsPage() {
     return (
       <div className="space-y-6 pb-8">
         <PageHeader
-          title="AI provider"
+          title="AI Settings"
           subtitle="Choose which model EasyHealth uses for extraction and reports"
           compact
         />
@@ -128,7 +128,7 @@ export default function AiSettingsPage() {
   return (
     <div className="space-y-6 pb-8">
       <PageHeader
-        title="AI provider"
+        title="AI Settings"
         subtitle="Choose which model EasyHealth uses for extraction and reports"
         compact
         actions={

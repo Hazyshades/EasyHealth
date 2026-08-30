@@ -105,7 +105,12 @@ export default function AccountPage() {
   }
 
   if (error && !profile) {
-    return <p className="text-sm text-red-600">{error}</p>;
+    return (
+      <div className="space-y-6 pb-8">
+        <PageHeader title="Account" subtitle="Sign-in details for your EasyHealth account" compact />
+        <p className="text-sm text-red-600">{error}</p>
+      </div>
+    );
   }
 
   if (!profile) {
@@ -120,10 +125,7 @@ export default function AccountPage() {
 
   return (
     <div className="space-y-6 pb-8">
-      <PageHeader
-        subtitle="Sign-in details for your EasyHealth account"
-        compact
-      />
+      <PageHeader title="Account" subtitle="Sign-in details for your EasyHealth account" compact />
 
       <SurfaceCard className="space-y-4 p-5">
         <div>

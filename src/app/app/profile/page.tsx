@@ -143,13 +143,7 @@ export default function HealthProfilePage() {
 
       <div>
 
-        <PageHeader
-
-          subtitle="Educational overview based on your uploaded records"
-
-          compact
-
-        />
+        <PageHeader title="Health Profile" subtitle="Educational overview based on your uploaded records" compact />
 
         <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
 
@@ -211,13 +205,7 @@ export default function HealthProfilePage() {
 
       <div>
 
-        <PageHeader
-
-          subtitle="Current state assessments and holistic synthesis from your records"
-
-          compact
-
-        />
+        <PageHeader title="Health Profile" subtitle="Current state assessments and holistic synthesis from your records" compact />
 
       </div>
 

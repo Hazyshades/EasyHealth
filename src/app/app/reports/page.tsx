@@ -182,17 +182,14 @@ export default function ReportsPage() {
 
   return (
     <div>
-      <PageHeader
-        subtitle="Customizable educational reports for clinicians and specialists"
-        actions={
-          <Button asChild className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
-            <Link href="/app/reports/create">
-              <Sparkles className="size-4" aria-hidden />
-              Create report
-            </Link>
-          </Button>
-        }
-      />
+      <PageHeader title="Reports" subtitle="Customizable educational reports for clinicians and specialists" actions={
+        <Button asChild className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
+          <Link href="/app/reports/create">
+            <Sparkles className="size-4" aria-hidden />
+            Create report
+          </Link>
+        </Button>
+      } />
 
       <SurfaceCard padding="lg" className="mb-8">
         <div className="flex flex-wrap items-start gap-6">
