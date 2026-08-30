@@ -137,7 +137,8 @@
     "check:fail-fast-verification": "node scripts/verify-fail-fast-commands.mjs",
     "clean": "node scripts/clean-generated-artifacts.mjs",
     "pretypecheck": "pnpm clean",
-    "prebuild": "pnpm clean"
+    "prebuild": "pnpm clean",
+    "check:documentation-links": "node scripts/verify-documentation-links.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.47",
