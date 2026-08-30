@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -54,6 +55,7 @@ export default function CreateReportPage() {
   const [eligibleDocs, setEligibleDocs] = useState<EligibleDocument[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+    const selectionTriggerRef = useRef<HTMLButtonElement>(null);
   const [selectedIds, setSelectedIds] = useState<string[] | null>(null);
   const [abnormalOnly, setAbnormalOnly] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -211,13 +213,7 @@ export default function CreateReportPage() {
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Selected records</label>
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full justify-start"
-            disabled={!hasEligibleDocs || loadingDocs}
-            onClick={() => setModalOpen(true)}
-          >
+          <Button ref={selectionTriggerRef} type="button" variant="outline" className="w-full justify-start" disabled={!hasEligibleDocs || loadingDocs} onClick={() => setModalOpen(true)}>
             {loadingDocs
               ? "Loading documents…"
               : !hasEligibleDocs
@@ -252,14 +248,13 @@ export default function CreateReportPage() {
         {error && <p className="text-sm text-red-600">{error}</p>}
       </form>
 
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-xl bg-white shadow-lg">
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent onCloseAutoFocus={(event) => { event.preventDefault(); selectionTriggerRef.current?.focus(); }}>
             <div className="border-b p-4">
-              <h2 className="font-semibold">Select documents for report</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <DialogTitle>Select documents for report</DialogTitle>
+              <DialogDescription>
                 Choose lab results, imaging studies, and consultation notes to include.
-              </p>
+              </DialogDescription>
               <div className="mt-3 flex justify-end gap-3 text-sm">
                 <button
                   type="button"
@@ -338,9 +333,8 @@ export default function CreateReportPage() {
                 Add selected ({modalSelection.length})
               </Button>
             </div>
-          </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
