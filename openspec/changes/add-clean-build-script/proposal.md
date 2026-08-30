@@ -17,4 +17,5 @@ Stale Next.js route-validator output can make a correct source tree fail type-ch
 
 ## Impact
 
+- Target domain: auth-shell (Next.js application build tooling).
 - Package scripts and a cleanup helper; no runtime behavior changes.
