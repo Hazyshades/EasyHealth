@@ -17,6 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://easyhealth.app"),
   title: "EasyHealth - AI-powered personal health record",
   description:
     "Upload labs, track biomarkers, and generate educational health insights.",
