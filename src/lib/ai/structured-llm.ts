@@ -1,5 +1,5 @@
 import { generateText, type LanguageModel, type ModelMessage } from "ai";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AiInvocationClient } from "@/lib/ai/invocation-client";
 import { logAiInvocation } from "@/lib/ai/invocation-log";
 import type { AiInvocationRow, AiPipelineStage, AiProviderId } from "@/lib/ai/types";
 import { isNebiusProvider } from "@/lib/ai/types";
@@ -16,7 +16,7 @@ export type TraceGenerateOptions = {
   temperature?: number;
   structuredJson?: boolean;
   messages: ModelMessage[];
-  supabase?: SupabaseClient;
+  supabase?: AiInvocationClient;
 };
 
 function nebiusUserMetadata(documentId: string | null | undefined, stage: string): string | undefined {

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AiInvocationClient } from "@/lib/ai/invocation-client";
 import type { AiPipelineStage, AiProviderId } from "@/lib/ai/types";
 
 export type PipelineLlmContext = {
@@ -8,7 +8,7 @@ export type PipelineLlmContext = {
   stage: AiPipelineStage;
   modelId: string;
   providerSwitch?: boolean;
-  supabase: SupabaseClient;
+  supabase: AiInvocationClient;
 };
 
 export const VISION_EXTRACTION_FAILURE_MESSAGE =
