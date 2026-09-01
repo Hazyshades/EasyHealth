@@ -230,11 +230,11 @@ function PersonalResults({
         <div>
           <h2
             id="your-results-heading"
-            className="text-lg font-semibold text-[var(--eh-text-primary)]"
+            className="text-balance text-lg font-semibold text-[var(--eh-text-primary)]"
           >
             Your results
           </h2>
-          <p className="mt-1 text-sm leading-6 text-[var(--eh-text-secondary)]">
+          <p className="mt-1 max-w-[75ch] text-pretty text-sm leading-6 text-[var(--eh-text-secondary)]">
             Values below come from your uploaded lab documents. Units follow
             your Biomarkers display preference; this page is educational and not
             a diagnosis.
@@ -407,7 +407,7 @@ export function MeasurementArticle({
             id="interpretation-factors"
             title="Interpretation factors"
           >
-            <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-[var(--eh-text-secondary)]">
+            <ul className="max-w-[75ch] list-disc space-y-2 pl-5 text-pretty text-sm leading-6 text-[var(--eh-text-secondary)]">
               {article.interpretationFactors.map((factor) => (
                 <li key={factor}>{factor}</li>
               ))}
