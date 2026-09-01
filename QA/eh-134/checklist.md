@@ -1,7 +1,7 @@
 # EH-134: Build biomarker article template
 
 **Roadmap status:** In progress
-**Build / environment:** Local EasyHealth workspace; `pnpm test:eh134`, `pnpm typecheck`
+**Build / environment:** Local EasyHealth workspace; `pnpm test:eh134`, `pnpm typecheck:projects`
 **Test run date:** 2026-09-01
 **Tester:** Engineering verification
 
@@ -94,14 +94,14 @@ EH-134 delivers the reviewed-content boundary and page template. It does not pub
 ## Developer evidence required
 
 - [x] `pnpm test:eh134` passes publication gating, HTTPS-source validation, Registry metadata projection, related-link withholding, exact observation filtering, source-less behavior, and same-origin navigation assertions. Evidence: `scripts/verify-eh134-knowledge-base.ts`.
-- [x] `pnpm typecheck` passes the new article schema, view model, route, renderer, and result parsing modules.
+- [x] `pnpm typecheck:projects` passes both the Next.js application and document-worker TypeScript projects for the new article schema, view model, route, renderer, and result parsing modules.
 - [x] `pnpm build` succeeds with `/app/knowledge/measurements/[slug]` in the production route manifest.
 - [x] Scoped Prettier checks pass for the EH-134 source, script, OpenSpec, QA, and package files.
 - [x] The production article catalog is empty by design, so no unreviewed or fabricated clinical content can render. Evidence: `MEASUREMENT_ARTICLES` in `src/lib/knowledge-base/measurement-articles.ts` and EH-136 dependency.
 - [x] The personal-results renderer calls the existing profile-scoped `/api/biomarkers` route and filters its parsed response by exact `measurement_definition_key`. Evidence: `src/components/knowledge-base/measurement-article.tsx` and `src/lib/knowledge-base/measurement-results.ts`.
 - [x] The article route renders only a valid published record and delegates source authorization to the existing document route. Evidence: `src/app/app/knowledge/measurements/[slug]/page.tsx`; cross-profile runtime authorization remains covered by the existing document boundary tests, not this checklist.
-- [x] Registry documentation sync classified this change as a consumer-only read of existing Registry metadata: no definition, alias, unit, resolver, assessment, persistence, or Health Profile projection source changed. `pnpm generate:biomarker-docs`, `pnpm check:biomarker-docs`, and `pnpm test:biomarker-docs` all passed; canonical `docs/` files were intentionally unchanged.
-- [x] `pnpm render:biomarker-wiki` and the explicit local staging export completed, and the generated Home/Architecture pages were reviewed. `git ls-remote https://github.com/Hazyshades/EasyHealth.wiki.git` resolved remote `master` at `66b60b9441a3d2b652b008d2cca4f7588a2d9d52`. No Wiki publication or `[Registry Docs]` tracking issue was required because the Registry source of truth was unchanged.
+- [x] Registry documentation sync reviewed this consumer-only read of existing Registry metadata. The article model reads existing definitions, aliases, units, specimen, panel membership, and related-link state; it changes no definition, alias, unit, resolver, assessment, persistence, or Health Profile projection source. `pnpm generate:biomarker-docs`, `pnpm check:biomarker-docs`, and `pnpm test:biomarker-docs` all passed; canonical `docs/` files were intentionally unchanged.
+- [x] `pnpm render:biomarker-wiki` and the explicit local staging export completed, and the generated Home/Architecture pages were reviewed. `git ls-remote https://github.com/Hazyshades/EasyHealth.wiki.git` resolved remote `master` at `66b60b9441a3d2b652b008d2cca4f7588a2d9d52`; no generated Wiki delta existed to publish.
 - [x] Browser smoke preflight was retried after the user launched `next dev --turbopack` against `http://localhost:3000`. The root page returned `HTTP 200`; the protected route redirected unauthenticated access to `/?signin=required`; the standalone Chromium shell rendered; a synthetic magic link was delivered through Mailpit; onboarding profile and consent were completed; and the authenticated app shell opened. The authenticated unknown/unpublished route and a second nonexistent slug both rendered 404. The browser relay had no matching localhost tab, so standalone Chromium was used; no published-article result is claimed.
 - [x] Supabase preflight was completed with `supabase start`, which reported the local development setup running. Host probes returned `200` for `/rest/v1/`, `/auth/v1/health`, and Mailpit on `54324`; no credentials were exposed. The authenticated magic-link flow completed through the local Mailpit inbox.
 

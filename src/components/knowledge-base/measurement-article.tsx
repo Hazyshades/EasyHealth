@@ -124,7 +124,7 @@ function EducationSection({
     >
       <h2
         id={`${id}-heading`}
-        className="text-lg font-semibold text-[var(--eh-text-primary)]"
+        className="text-balance text-lg font-semibold text-[var(--eh-text-primary)]"
       >
         {title}
       </h2>
@@ -341,7 +341,7 @@ export function MeasurementArticle({
           </h2>
 
           <EducationSection id="what-it-measures" title="What it measures">
-            <div className="max-w-3xl space-y-3 text-[0.9375rem] leading-7 text-[var(--eh-text-secondary)]">
+            <div className="max-w-[75ch] space-y-3 text-pretty text-[0.9375rem] leading-7 text-[var(--eh-text-secondary)]">
               {article.whatItMeasures.map((paragraph) => (
                 <p key={paragraph}>{paragraph}</p>
               ))}
