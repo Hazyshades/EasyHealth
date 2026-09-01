@@ -454,7 +454,7 @@ export function MeasurementArticle({
         </aside>
       </div>
 
-      <p className="mt-8 max-w-3xl border-t border-[var(--eh-border-soft)] pt-5 text-xs leading-5 text-[var(--eh-text-muted)]">
+      <p className="mt-8 max-w-[75ch] border-t border-[var(--eh-border-soft)] pt-5 text-xs leading-5 text-[var(--eh-text-muted)]">
         {MEDICAL_DISCLAIMER}
       </p>
     </div>
