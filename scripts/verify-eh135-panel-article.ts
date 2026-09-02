@@ -205,13 +205,15 @@ const template = readRepo(
   "src/components/knowledge/panel-article-template.tsx",
 );
 assert.match(template, /Panel composition varies/);
-assert.match(template, /Your CBC results/);
+assert.match(template, /Your \{resultLabel\} results/);
+assert.match(template, /Measurements in \{panel\.displayName\}/);
 assert.match(template, /Sources/);
 assert.match(template, /article\.disclaimer/);
 assert.doesNotMatch(template, /reference range|diagnos|abnormal/i);
 
 const route = readRepo("src/app/app/knowledge/panels/cbc/page.tsx");
 assert.match(route, /fetch\("\/api\/biomarkers"/);
+assert.match(route, /resultLabel="CBC"/);
 assert.match(route, /selectPanelArticleResults/);
 assert.match(route, /\/app\/biomarkers/);
 assert.match(route, /ARTICLE_PATH/);

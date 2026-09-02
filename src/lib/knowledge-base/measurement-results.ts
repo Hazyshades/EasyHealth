@@ -11,11 +11,14 @@ const measurementObservationSchema = z
     value_text: z.string().nullable().optional(),
     unit: z.string().nullable(),
     observed_at: z.string().min(1),
+    ordinal: z.number().nullable().optional(),
+    source_page: z.number().nullable().optional(),
     document_id: z.string().nullable(),
     documents: z
       .object({
         id: z.string().min(1),
         original_filename: z.string(),
+        lab_name: z.string().nullable().optional(),
       })
       .passthrough()
       .nullable()

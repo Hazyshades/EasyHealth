@@ -124,9 +124,10 @@ export type PanelArticleResultState =
 
 type PanelArticleResultsProps = Readonly<{
   state: PanelArticleResultState;
+  resultLabel: string;
 }>;
 
-function PanelArticleResults({ state }: PanelArticleResultsProps) {
+function PanelArticleResults({ state, resultLabel }: PanelArticleResultsProps) {
   return (
     <section
       aria-labelledby="panel-article-your-results"
@@ -138,11 +139,12 @@ function PanelArticleResults({ state }: PanelArticleResultsProps) {
             id="panel-article-your-results"
             className="text-balance text-base font-semibold text-[var(--eh-text-primary)]"
           >
-            Your CBC results
+            Your {resultLabel} results
           </h2>
           <p className="mt-1 max-w-[75ch] text-pretty text-sm leading-6 text-[var(--eh-text-secondary)]">
-            These are the CBC measurements already saved from your documents.
-            They are shown as recorded, without an interpretation on this page.
+            These are the {resultLabel} measurements already saved from your
+            documents. They are shown as recorded, without an interpretation on
+            this page.
           </p>
         </div>
         <Button
@@ -158,7 +160,7 @@ function PanelArticleResults({ state }: PanelArticleResultsProps) {
       {state.status === "loading" ? (
         <ul
           className="mt-4 space-y-2"
-          aria-label="Loading your CBC results"
+          aria-label={`Loading your ${resultLabel} results`}
           role="status"
         >
           {Array.from({ length: 3 }).map((_, index) => (
@@ -197,7 +199,7 @@ function PanelArticleResults({ state }: PanelArticleResultsProps) {
       ) : state.results.length === 0 ? (
         <div className="mt-4 rounded-xl border border-dashed border-[var(--eh-border)] bg-white p-4">
           <p className="text-sm font-medium text-[var(--eh-text-primary)]">
-            No CBC results are linked yet.
+            No {resultLabel} results are linked yet.
           </p>
           <p className="mt-1 max-w-[75ch] text-pretty text-sm leading-6 text-[var(--eh-text-secondary)]">
             Upload a laboratory document or open Biomarkers to review the
@@ -211,12 +213,7 @@ function PanelArticleResults({ state }: PanelArticleResultsProps) {
             >
               <Link href="/app/upload">Upload document</Link>
             </Button>
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="bg-white"
-            >
+            <Button asChild variant="outline" size="sm" className="bg-white">
               <Link href="/app/biomarkers">Go to Biomarkers</Link>
             </Button>
           </div>
@@ -224,7 +221,7 @@ function PanelArticleResults({ state }: PanelArticleResultsProps) {
       ) : (
         <ul
           className="mt-4 grid gap-2 md:grid-cols-2"
-          aria-label="Your CBC results"
+          aria-label={`Your ${resultLabel} results`}
         >
           {state.results.map((result) => {
             const href = state.resultHref(result);
@@ -281,12 +278,14 @@ function PanelArticleResults({ state }: PanelArticleResultsProps) {
 export type PanelArticleTemplateProps = Readonly<{
   article: PanelArticle;
   panel: PanelDefinition;
+  resultLabel: string;
   resultState: PanelArticleResultState;
 }>;
 
 export function PanelArticleTemplate({
   article,
   panel,
+  resultLabel,
   resultState,
 }: PanelArticleTemplateProps) {
   const reviewLabel =
@@ -348,7 +347,7 @@ export function PanelArticleTemplate({
               id="panel-article-measurements"
               className="text-balance text-base font-semibold text-[var(--eh-text-primary)]"
             >
-              Measurements in a CBC
+              Measurements in {panel.displayName}
             </h2>
             <p className="mt-1 max-w-[75ch] text-pretty text-sm leading-6 text-[var(--eh-text-secondary)]">
               The groups below organize the measurements in the reviewed panel
@@ -394,7 +393,7 @@ export function PanelArticleTemplate({
             </h2>
             <p className="mt-1 max-w-[75ch] text-pretty text-sm leading-6 text-[var(--eh-text-secondary)]">
               These measurements belong to related panels or workflows. They are
-              not guaranteed members of a CBC.
+              not guaranteed members of {panel.displayName}.
             </p>
             <ul className="mt-3 grid gap-3 md:grid-cols-3">
               {article.relatedMarkers.map((member) => (
@@ -408,7 +407,7 @@ export function PanelArticleTemplate({
         ) : null}
       </SurfaceCard>
 
-      <PanelArticleResults state={resultState} />
+      <PanelArticleResults state={resultState} resultLabel={resultLabel} />
 
       <SurfaceCard padding="lg" className="space-y-6">
         <ArticleSources article={article} />

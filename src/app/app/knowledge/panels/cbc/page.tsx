@@ -13,9 +13,9 @@ import { buildHealthNavigationPath } from "@/lib/health-navigation";
 import { getPanelDefinition } from "@/lib/biomarkers";
 import {
   CBC_PANEL_ARTICLE,
+  parseMeasurementResultsResponse,
   selectPanelArticleResults,
   validatePanelArticle,
-  type PanelArticleObservation,
 } from "@/lib/knowledge-base";
 
 const ARTICLE_PATH = "/app/knowledge/panels/cbc";
@@ -29,87 +29,6 @@ type JsonRecord = Record<string, unknown>;
 
 function isJsonRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function parseDocument(value: unknown): PanelArticleObservation["documents"] {
-  if (!isJsonRecord(value)) return null;
-  if (
-    typeof value.id !== "string" ||
-    typeof value.original_filename !== "string"
-  )
-    return null;
-  return {
-    id: value.id,
-    original_filename: value.original_filename,
-    lab_name: typeof value.lab_name === "string" ? value.lab_name : null,
-  };
-}
-
-function parseObservation(value: unknown): PanelArticleObservation | null {
-  if (!isJsonRecord(value)) return null;
-  if (typeof value.id !== "string" || typeof value.name !== "string")
-    return null;
-  if (
-    value.measurement_definition_key !== null &&
-    typeof value.measurement_definition_key !== "string"
-  ) {
-    return null;
-  }
-  if (
-    value.value !== null &&
-    typeof value.value !== "number" &&
-    typeof value.value !== "string"
-  ) {
-    return null;
-  }
-  if (value.unit !== null && typeof value.unit !== "string") return null;
-  if (value.observed_at !== null && typeof value.observed_at !== "string")
-    return null;
-  if (value.document_id !== null && typeof value.document_id !== "string")
-    return null;
-  if (
-    value.value_text !== undefined &&
-    value.value_text !== null &&
-    typeof value.value_text !== "string"
-  ) {
-    return null;
-  }
-  if (
-    value.source_page !== undefined &&
-    value.source_page !== null &&
-    typeof value.source_page !== "number"
-  ) {
-    return null;
-  }
-  if (
-    value.ordinal !== undefined &&
-    value.ordinal !== null &&
-    typeof value.ordinal !== "number"
-  ) {
-    return null;
-  }
-
-  return {
-    id: value.id,
-    measurement_definition_key: value.measurement_definition_key,
-    name: value.name,
-    value: value.value,
-    value_text: value.value_text === undefined ? null : value.value_text,
-    unit: value.unit,
-    observed_at: value.observed_at,
-    ordinal: value.ordinal === undefined ? null : value.ordinal,
-    document_id: value.document_id,
-    source_page: value.source_page === undefined ? null : value.source_page,
-    documents: parseDocument(value.documents),
-  };
-}
-
-function parseObservations(payload: unknown): PanelArticleObservation[] {
-  if (!isJsonRecord(payload) || !Array.isArray(payload.observations)) return [];
-  return payload.observations.flatMap((value) => {
-    const observation = parseObservation(value);
-    return observation ? [observation] : [];
-  });
 }
 
 function responseError(payload: unknown): string {
@@ -162,7 +81,7 @@ export default function CbcPanelPage() {
       setResultState({
         status: "ready",
         results: selectPanelArticleResults(
-          parseObservations(payload),
+          parseMeasurementResultsResponse(payload),
           CBC_MEMBER_KEYS,
         ),
         resultHref: (result) =>
@@ -208,6 +127,7 @@ export default function CbcPanelPage() {
       <PanelArticleTemplate
         article={CBC_PANEL_ARTICLE}
         panel={CBC_PANEL}
+        resultLabel="CBC"
         resultState={resultStateWithStableRetry}
       />
     </div>
