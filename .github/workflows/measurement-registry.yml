@@ -176,6 +176,8 @@ jobs:
         run: pnpm test:eh132
       - name: Verify EH-134 measurement article contracts
         run: pnpm test:eh134
+      - name: Verify EH-135 panel article
+        run: pnpm test:eh135
       - name: Verify EH-133 Knowledge Base contract
         run: pnpm test:eh133
       - name: Verify EH-128 laboratory panel grouping
