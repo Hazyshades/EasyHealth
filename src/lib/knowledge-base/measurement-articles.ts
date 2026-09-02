@@ -1,5 +1,6 @@
 import { getMeasurementDefinition } from "@/lib/biomarkers";
 import {
+  formatKnowledgeBaseSchemaErrors,
   measurementEducationArticleSchema,
   type KnowledgeBaseValidation,
   type MeasurementEducationArticle,
@@ -21,10 +22,7 @@ export function validateMeasurementEducationArticle(
   if (!parsed.success) {
     return {
       valid: false,
-      errors: parsed.error.issues.map((issue) => {
-        const path = issue.path.length > 0 ? issue.path.join(".") : "article";
-        return `${path}: ${issue.message}`;
-      }),
+      errors: formatKnowledgeBaseSchemaErrors(parsed.error.issues),
     };
   }
 

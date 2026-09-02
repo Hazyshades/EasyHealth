@@ -37,6 +37,17 @@ export const knowledgeBaseSourceSchema = z
   .strict();
 
 export type KnowledgeBaseSource = z.infer<typeof knowledgeBaseSourceSchema>;
+export function formatKnowledgeBaseSchemaErrors(
+  errors: readonly {
+    path: readonly (string | number)[];
+    message: string;
+  }[],
+): string[] {
+  return errors.map((issue) => {
+    const path = issue.path.length > 0 ? issue.path.join(".") : "article";
+    return `${path}: ${issue.message}`;
+  });
+}
 
 const commonArticleShape = {
   slug: articleSlug,
@@ -133,36 +144,11 @@ export type MeasurementEducationArticle = z.infer<
   typeof measurementEducationArticleSchema
 >;
 
-export const panelArticleMemberSchema = z
-  .object({
-    measurementDefinitionKey: nonEmptyText,
-    role: z.enum(["core", "optional", "related"]),
-    explanation: nonEmptyText,
-  })
-  .strict();
-
-export type PanelArticleMember = z.infer<typeof panelArticleMemberSchema>;
-
-export const panelArticleSubgroupSchema = z
-  .object({
-    key: nonEmptyText,
-    title: nonEmptyText,
-    summary: nonEmptyText,
-    members: z.array(panelArticleMemberSchema).min(1),
-  })
-  .strict();
-
-export type PanelArticleSubgroup = z.infer<typeof panelArticleSubgroupSchema>;
-
 export const panelEducationArticleSchema = z
   .object({
     ...commonArticleShape,
     type: z.literal("panel"),
     panelKey: nonEmptyText,
-    purpose: nonEmptyText,
-    compositionNote: nonEmptyText,
-    subgroups: z.array(panelArticleSubgroupSchema).min(1),
-    relatedMarkers: z.array(panelArticleMemberSchema),
   })
   .strict()
   .superRefine((article, context) => {

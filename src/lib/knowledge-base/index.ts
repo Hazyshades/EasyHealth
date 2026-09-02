@@ -5,8 +5,6 @@ export type {
   KnowledgeBaseArticle,
   MeasurementEducationArticle,
   PanelEducationArticle,
-  PanelArticleMember,
-  PanelArticleSubgroup,
   KnowledgeBaseValidation,
   MeasurementArticlePanel,
   RelatedMeasurementArticle,
@@ -20,8 +18,6 @@ export {
   knowledgeBaseArticleSchema,
   measurementEducationArticleSchema,
   panelEducationArticleSchema,
-  panelArticleMemberSchema,
-  panelArticleSubgroupSchema,
 } from "./types";
 
 export {

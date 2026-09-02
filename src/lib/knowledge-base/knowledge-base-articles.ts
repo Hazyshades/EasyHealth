@@ -1,4 +1,5 @@
 import {
+  formatKnowledgeBaseSchemaErrors,
   knowledgeBaseArticleSchema,
   type KnowledgeBaseArticle,
   type KnowledgeBaseValidation,
@@ -19,15 +20,6 @@ export const KNOWLEDGE_BASE_ARTICLES: readonly KnowledgeBaseArticle[] = [
   ...MEASUREMENT_ARTICLES,
   ...PANEL_ARTICLES,
 ];
-
-function formatSchemaErrors(
-  errors: readonly { path: readonly (string | number)[]; message: string }[],
-): string[] {
-  return errors.map((issue) => {
-    const path = issue.path.length > 0 ? issue.path.join(".") : "article";
-    return `${path}: ${issue.message}`;
-  });
-}
 
 function articleIdentity(
   article: Pick<KnowledgeBaseArticle, "type" | "locale" | "slug">,
@@ -51,7 +43,10 @@ export function validateKnowledgeBaseArticle(
 ): KnowledgeBaseValidation {
   const parsed = knowledgeBaseArticleSchema.safeParse(article);
   if (!parsed.success) {
-    return { valid: false, errors: formatSchemaErrors(parsed.error.issues) };
+    return {
+      valid: false,
+      errors: formatKnowledgeBaseSchemaErrors(parsed.error.issues),
+    };
   }
 
   return parsed.data.type === "measurement"

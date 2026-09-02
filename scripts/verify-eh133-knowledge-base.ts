@@ -46,15 +46,6 @@ const publishedMeasurement: MeasurementEducationArticle = {
   relatedMeasurementKeys: ["hematocrit_whole_blood", "not-published"],
 };
 
-const panelMember = (
-  measurementDefinitionKey: string,
-  role: "core" | "optional" | "related",
-) => ({
-  measurementDefinitionKey,
-  role,
-  explanation: "Synthetic explanation for contract verification.",
-});
-
 const publishedPanel: PanelEducationArticle = {
   type: "panel",
   panelKey: "cbc",
@@ -68,17 +59,6 @@ const publishedPanel: PanelEducationArticle = {
   replacementSlug: null,
   title: "Complete blood count",
   summary: "A factual guide to the measurements commonly grouped as a CBC.",
-  purpose: "This article explains the measurements grouped by a CBC.",
-  compositionNote: "Laboratories can include different CBC members.",
-  subgroups: [
-    {
-      key: "red-cells",
-      title: "Red-cell measurements",
-      summary: "Synthetic subgroup summary.",
-      members: [panelMember("hemoglobin_whole_blood", "core")],
-    },
-  ],
-  relatedMarkers: [panelMember("hematocrit_whole_blood", "related")],
   sources: [source],
   relatedMeasurementKeys: ["hematocrit_whole_blood"],
 };
@@ -132,14 +112,9 @@ const unknownPanel = {
   slug: "unknown-panel",
 };
 
-const unregisteredPanelMember = {
+const unsupportedPanelContent = {
   ...publishedPanel,
-  subgroups: [
-    {
-      ...publishedPanel.subgroups[0],
-      members: [panelMember("total_cholesterol_serum", "core")],
-    },
-  ],
+  purpose: "Panel-specific fields belong to EH-135.",
 };
 
 const duplicateMeasurement = {
@@ -192,7 +167,7 @@ assert.equal(validateKnowledgeBaseArticle(unknownMeasurement).valid, false);
 assert.equal(validateKnowledgeBaseArticle(provisionalMeasurement).valid, false);
 assert.equal(validateKnowledgeBaseArticle(unknownPanel).valid, false);
 assert.equal(
-  validateKnowledgeBaseArticle(unregisteredPanelMember).valid,
+  validateKnowledgeBaseArticle(unsupportedPanelContent).valid,
   false,
 );
 assert.equal(
