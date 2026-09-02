@@ -1,7 +1,7 @@
 # EH-133: Define version-controlled Knowledge Base content schema
 
-**Roadmap status:** Delivered
-**Build / environment:** Local EasyHealth workspace; focused EH-133/EH-134 verification, project typechecks, Registry documentation checks, CI coverage checks, OpenSpec validation, and production build
+**Roadmap status:** In progress
+**Build / environment:** EH-133 implementation on PR #226; focused EH-133/EH-134 verification, project typechecks, Registry documentation checks, CI coverage checks, OpenSpec validation, and production build
 **Test run date:** 2026-09-01
 **Tester:** Engineering verification
 
