@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const knowledgeBaseArticleTypeSchema = z.literal("measurement");
+export const knowledgeBaseArticleTypeSchema = z.enum(["measurement", "panel"]);
 export type KnowledgeBaseArticleType = z.infer<
   typeof knowledgeBaseArticleTypeSchema
 >;
@@ -37,6 +37,91 @@ export const knowledgeBaseSourceSchema = z
   .strict();
 
 export type KnowledgeBaseSource = z.infer<typeof knowledgeBaseSourceSchema>;
+export function formatKnowledgeBaseSchemaErrors(
+  errors: readonly {
+    path: readonly (string | number)[];
+    message: string;
+  }[],
+): string[] {
+  return errors.map((issue) => {
+    const path = issue.path.length > 0 ? issue.path.join(".") : "article";
+    return `${path}: ${issue.message}`;
+  });
+}
+
+const commonArticleShape = {
+  slug: articleSlug,
+  locale: nonEmptyText,
+  contentVersion: nonEmptyText,
+  reviewStatus: knowledgeBaseReviewStatusSchema,
+  reviewedBy: nonEmptyText.nullable(),
+  reviewedAt: reviewDate.nullable(),
+  deprecatedAt: reviewDate.nullable(),
+  replacementSlug: articleSlug.nullable(),
+  title: nonEmptyText,
+  summary: nonEmptyText,
+  sources: z.array(knowledgeBaseSourceSchema).min(1),
+  relatedMeasurementKeys: z.array(nonEmptyText),
+} as const;
+
+type KnowledgeBaseLifecycleFields = {
+  reviewStatus: KnowledgeBaseReviewStatus;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  deprecatedAt: string | null;
+  replacementSlug: string | null;
+};
+
+function addLifecycleValidation(
+  article: KnowledgeBaseLifecycleFields,
+  context: z.RefinementCtx,
+): void {
+  if (article.reviewStatus === "published") {
+    if (!article.reviewedBy) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["reviewedBy"],
+        message: "published article requires reviewedBy",
+      });
+    }
+    if (!article.reviewedAt) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["reviewedAt"],
+        message: "published article requires reviewedAt",
+      });
+    }
+    if (article.deprecatedAt) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["deprecatedAt"],
+        message: "published article cannot have deprecatedAt",
+      });
+    }
+  }
+
+  if (article.reviewStatus === "deprecated" && !article.deprecatedAt) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["deprecatedAt"],
+      message: "deprecated article requires deprecatedAt",
+    });
+  }
+  if (article.reviewStatus !== "deprecated" && article.deprecatedAt) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["deprecatedAt"],
+      message: "only deprecated articles may have deprecatedAt",
+    });
+  }
+  if (article.reviewStatus !== "deprecated" && article.replacementSlug) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["replacementSlug"],
+      message: "only deprecated articles may have replacementSlug",
+    });
+  }
+}
 
 /**
  * Editorial content only. Registry-owned identity metadata is deliberately
@@ -44,68 +129,41 @@ export type KnowledgeBaseSource = z.infer<typeof knowledgeBaseSourceSchema>;
  */
 export const measurementEducationArticleSchema = z
   .object({
-    type: knowledgeBaseArticleTypeSchema,
+    ...commonArticleShape,
+    type: z.literal("measurement"),
     measurementDefinitionKey: nonEmptyText,
-    slug: articleSlug,
-    locale: nonEmptyText,
-    contentVersion: nonEmptyText,
-    reviewStatus: knowledgeBaseReviewStatusSchema,
-    reviewedBy: nonEmptyText.nullable(),
-    reviewedAt: reviewDate.nullable(),
-    deprecatedAt: reviewDate.nullable(),
-    replacementSlug: articleSlug.nullable(),
-    title: nonEmptyText,
-    summary: nonEmptyText,
     whatItMeasures: z.array(nonEmptyText).min(1),
     interpretationFactors: z.array(nonEmptyText).min(1),
-    sources: z.array(knowledgeBaseSourceSchema).min(1),
-    relatedMeasurementKeys: z.array(nonEmptyText),
   })
   .strict()
   .superRefine((article, context) => {
-    if (article.reviewStatus === "published") {
-      if (!article.reviewedBy) {
-        context.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["reviewedBy"],
-          message: "published article requires reviewedBy",
-        });
-      }
-      if (!article.reviewedAt) {
-        context.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["reviewedAt"],
-          message: "published article requires reviewedAt",
-        });
-      }
-      if (article.deprecatedAt) {
-        context.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["deprecatedAt"],
-          message: "published article cannot have deprecatedAt",
-        });
-      }
-    }
-
-    if (article.reviewStatus === "deprecated" && !article.deprecatedAt) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["deprecatedAt"],
-        message: "deprecated article requires deprecatedAt",
-      });
-    }
-    if (article.reviewStatus !== "deprecated" && article.deprecatedAt) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["deprecatedAt"],
-        message: "only deprecated articles may have deprecatedAt",
-      });
-    }
+    addLifecycleValidation(article, context);
   });
 
 export type MeasurementEducationArticle = z.infer<
   typeof measurementEducationArticleSchema
 >;
+
+export const panelEducationArticleSchema = z
+  .object({
+    ...commonArticleShape,
+    type: z.literal("panel"),
+    panelKey: nonEmptyText,
+  })
+  .strict()
+  .superRefine((article, context) => {
+    addLifecycleValidation(article, context);
+  });
+
+export type PanelEducationArticle = z.infer<typeof panelEducationArticleSchema>;
+
+/** Shared strict article contract; each variant retains its subject key. */
+export const knowledgeBaseArticleSchema = z.union([
+  measurementEducationArticleSchema,
+  panelEducationArticleSchema,
+]);
+
+export type KnowledgeBaseArticle = z.infer<typeof knowledgeBaseArticleSchema>;
 
 export type KnowledgeBaseValidation = Readonly<{
   valid: boolean;

@@ -2,7 +2,9 @@ export type {
   KnowledgeBaseArticleType,
   KnowledgeBaseReviewStatus,
   KnowledgeBaseSource,
+  KnowledgeBaseArticle,
   MeasurementEducationArticle,
+  PanelEducationArticle,
   KnowledgeBaseValidation,
   MeasurementArticlePanel,
   RelatedMeasurementArticle,
@@ -13,7 +15,9 @@ export {
   knowledgeBaseArticleTypeSchema,
   knowledgeBaseReviewStatusSchema,
   knowledgeBaseSourceSchema,
+  knowledgeBaseArticleSchema,
   measurementEducationArticleSchema,
+  panelEducationArticleSchema,
 } from "./types";
 
 export {
@@ -24,6 +28,21 @@ export {
   validateMeasurementArticleCatalog,
   validateMeasurementEducationArticle,
 } from "./measurement-articles";
+
+export {
+  PANEL_ARTICLES,
+  validatePanelEducationArticle,
+} from "./panel-articles";
+
+export {
+  KNOWLEDGE_BASE_ARTICLES,
+  getPublishedKnowledgeBaseArticleBySlug,
+  getPublishedKnowledgeBaseArticleForMeasurementDefinition,
+  getPublishedKnowledgeBaseArticleForPanel,
+  listPublishedKnowledgeBaseArticles,
+  validateKnowledgeBaseArticle,
+  validateKnowledgeBaseArticleCatalog,
+} from "./knowledge-base-articles";
 
 export { buildMeasurementArticleViewModel } from "./measurement-article-model";
 export {
