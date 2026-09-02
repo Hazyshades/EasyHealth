@@ -222,9 +222,7 @@ const sameSlugPanelResult = getPublishedKnowledgeBaseArticleBySlug(
 );
 assert.equal(sameSlugPanelResult?.type, "panel");
 assert.equal(
-  sameSlugPanelResult?.type === "panel"
-    ? sameSlugPanelResult.panelKey
-    : null,
+  sameSlugPanelResult?.type === "panel" ? sameSlugPanelResult.panelKey : null,
   "cbc",
 );
 assert.equal(
@@ -250,13 +248,13 @@ assert.equal(
   getPublishedKnowledgeBaseArticleForMeasurementDefinition(
     "hemoglobin_whole_blood",
     { articles: mixedCatalog },
-  )?.slug,
-  "hemoglobin",
+  )?.measurementDefinitionKey,
+  "hemoglobin_whole_blood",
 );
 assert.equal(
   getPublishedKnowledgeBaseArticleForPanel("cbc", {
     articles: mixedCatalog,
-  })?.slug,
+  })?.panelKey,
   "cbc",
 );
 assert.deepEqual(

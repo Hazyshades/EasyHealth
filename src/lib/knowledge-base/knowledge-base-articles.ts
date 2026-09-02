@@ -3,6 +3,8 @@ import {
   knowledgeBaseArticleSchema,
   type KnowledgeBaseArticle,
   type KnowledgeBaseArticleType,
+  type MeasurementEducationArticle,
+  type PanelEducationArticle,
   type KnowledgeBaseValidation,
 } from "./types";
 import {
@@ -122,13 +124,13 @@ export function getPublishedKnowledgeBaseArticleForMeasurementDefinition(
     locale?: string;
     articles?: readonly KnowledgeBaseArticle[];
   } = {},
-): KnowledgeBaseArticle | null {
+): MeasurementEducationArticle | null {
   return (
     listPublishedKnowledgeBaseArticles(
       options.articles ?? KNOWLEDGE_BASE_ARTICLES,
       options.locale ?? "en",
     ).find(
-      (article) =>
+      (article): article is MeasurementEducationArticle =>
         article.type === "measurement" &&
         article.measurementDefinitionKey === measurementDefinitionKey,
     ) ?? null
@@ -141,13 +143,14 @@ export function getPublishedKnowledgeBaseArticleForPanel(
     locale?: string;
     articles?: readonly KnowledgeBaseArticle[];
   } = {},
-): KnowledgeBaseArticle | null {
+): PanelEducationArticle | null {
   return (
     listPublishedKnowledgeBaseArticles(
       options.articles ?? KNOWLEDGE_BASE_ARTICLES,
       options.locale ?? "en",
     ).find(
-      (article) => article.type === "panel" && article.panelKey === panelKey,
+      (article): article is PanelEducationArticle =>
+        article.type === "panel" && article.panelKey === panelKey,
     ) ?? null
   );
 }
