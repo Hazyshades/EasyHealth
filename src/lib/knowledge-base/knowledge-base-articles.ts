@@ -2,6 +2,7 @@ import {
   formatKnowledgeBaseSchemaErrors,
   knowledgeBaseArticleSchema,
   type KnowledgeBaseArticle,
+  type KnowledgeBaseArticleType,
   type KnowledgeBaseValidation,
 } from "./types";
 import {
@@ -99,6 +100,7 @@ export function listPublishedKnowledgeBaseArticles(
 }
 
 export function getPublishedKnowledgeBaseArticleBySlug(
+  type: KnowledgeBaseArticleType,
   slug: string,
   options: {
     locale?: string;
@@ -110,7 +112,7 @@ export function getPublishedKnowledgeBaseArticleBySlug(
     listPublishedKnowledgeBaseArticles(
       options.articles ?? KNOWLEDGE_BASE_ARTICLES,
       options.locale ?? "en",
-    ).find((article) => article.slug === slug) ?? null
+    ).find((article) => article.type === type && article.slug === slug) ?? null
   );
 }
 

@@ -63,6 +63,11 @@ const publishedPanel: PanelEducationArticle = {
   relatedMeasurementKeys: ["hematocrit_whole_blood"],
 };
 
+const sameSlugPanel: PanelEducationArticle = {
+  ...publishedPanel,
+  slug: "hemoglobin",
+};
+
 const draftMeasurement: MeasurementEducationArticle = {
   ...publishedMeasurement,
   slug: "hemoglobin-draft",
@@ -204,19 +209,38 @@ assert.deepEqual(
   ),
   ["measurement:hemoglobin", "panel:cbc"],
 );
+
+const sameSlugCatalog: readonly KnowledgeBaseArticle[] = [
+  publishedMeasurement,
+  sameSlugPanel,
+];
+assert.equal(validateKnowledgeBaseArticleCatalog(sameSlugCatalog).valid, true);
+const sameSlugPanelResult = getPublishedKnowledgeBaseArticleBySlug(
+  "panel",
+  "hemoglobin",
+  { articles: sameSlugCatalog },
+);
+assert.equal(sameSlugPanelResult?.type, "panel");
 assert.equal(
-  getPublishedKnowledgeBaseArticleBySlug("hemoglobin", {
+  sameSlugPanelResult?.type === "panel"
+    ? sameSlugPanelResult.panelKey
+    : null,
+  "cbc",
+);
+assert.equal(
+  getPublishedKnowledgeBaseArticleBySlug("measurement", "hemoglobin", {
     articles: mixedCatalog,
   })?.type,
   "measurement",
 );
 assert.equal(
-  getPublishedKnowledgeBaseArticleBySlug("cbc", { articles: mixedCatalog })
-    ?.type,
+  getPublishedKnowledgeBaseArticleBySlug("panel", "cbc", {
+    articles: mixedCatalog,
+  })?.type,
   "panel",
 );
 assert.equal(
-  getPublishedKnowledgeBaseArticleBySlug("hemoglobin", {
+  getPublishedKnowledgeBaseArticleBySlug("measurement", "hemoglobin", {
     locale: "ru",
     articles: mixedCatalog,
   }),
