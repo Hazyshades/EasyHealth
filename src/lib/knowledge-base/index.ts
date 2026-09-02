@@ -5,6 +5,10 @@ export type {
   KnowledgeBaseArticle,
   MeasurementEducationArticle,
   PanelEducationArticle,
+  PanelArticle,
+  PanelArticleMember,
+  PanelArticleMemberRole,
+  PanelArticleSubgroup,
   KnowledgeBaseValidation,
   MeasurementArticlePanel,
   RelatedMeasurementArticle,
@@ -18,6 +22,7 @@ export {
   knowledgeBaseArticleSchema,
   measurementEducationArticleSchema,
   panelEducationArticleSchema,
+  panelArticleSchema,
 } from "./types";
 
 export {
@@ -33,6 +38,19 @@ export {
   PANEL_ARTICLES,
   validatePanelEducationArticle,
 } from "./panel-articles";
+
+export { CBC_PANEL_ARTICLE, getPanelArticleBySlug } from "./panel-articles";
+
+export {
+  validatePanelArticle,
+  type PanelArticleValidation,
+} from "./validation";
+
+export {
+  selectPanelArticleResults,
+  type PanelArticleObservation,
+  type PanelArticleObservationDocument,
+} from "./panel-results";
 
 export {
   KNOWLEDGE_BASE_ARTICLES,

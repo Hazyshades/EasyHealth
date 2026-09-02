@@ -10,6 +10,7 @@ import {
   selectMeasurementObservations,
   validateMeasurementArticleCatalog,
   validateMeasurementEducationArticle,
+  measurementEducationArticleSchema,
   type MeasurementEducationArticle,
 } from "../src/lib/knowledge-base";
 import { getMeasurementDefinition } from "../src/lib/biomarkers";
@@ -83,6 +84,11 @@ assert.equal(
   "empty EH-134 catalog is valid before EH-136 content",
 );
 assert.equal(validateMeasurementEducationArticle(publishedArticle).valid, true);
+assert.equal(
+  measurementEducationArticleSchema.safeParse(publishedArticle).success,
+  true,
+  "the measurement schema remains available through the public Knowledge Base barrel",
+);
 assert.equal(
   validateMeasurementEducationArticle(httpSourceArticle).valid,
   false,
