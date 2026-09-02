@@ -15,6 +15,7 @@ import type {
   PanelArticleMemberRole,
   PanelArticleObservation,
 } from "@/lib/knowledge-base";
+import { formatMeasurementObservationValue } from "@/lib/knowledge-base/measurement-results";
 
 const ROLE_LABELS: Record<PanelArticleMemberRole, string> = {
   core: "Core panel member",
@@ -27,19 +28,6 @@ function memberDisplayName(member: PanelArticleMember): string {
     getMeasurementDefinition(member.measurementDefinitionKey)?.displayName ??
     member.measurementDefinitionKey
   );
-}
-
-function displayResultValue(result: PanelArticleObservation): string {
-  const textValue = result.value_text?.trim();
-  if (textValue) return textValue;
-  if (
-    result.value === null ||
-    result.value === undefined ||
-    result.value === ""
-  ) {
-    return "Value not available";
-  }
-  return String(result.value);
 }
 
 function displayResultName(result: PanelArticleObservation): string {
@@ -236,8 +224,7 @@ function PanelArticleResults({ state, resultLabel }: PanelArticleResultsProps) {
                       {displayResultName(result)}
                     </p>
                     <p className="mt-1 text-sm text-[var(--eh-text-secondary)]">
-                      {displayResultValue(result)}
-                      {result.unit ? ` ${result.unit}` : ""}
+                      {formatMeasurementObservationValue(result)}
                     </p>
                   </div>
                   {href ? (

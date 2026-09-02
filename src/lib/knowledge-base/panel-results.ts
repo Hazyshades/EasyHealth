@@ -1,24 +1,11 @@
 import type { MeasurementDefinitionKey } from "@/lib/biomarkers";
+import type { MeasurementObservation } from "./measurement-results";
 
-export type PanelArticleObservationDocument = Readonly<{
-  id: string;
-  original_filename: string;
-  lab_name?: string | null;
-}>;
+export type PanelArticleObservationDocument = NonNullable<
+  MeasurementObservation["documents"]
+>;
 
-export type PanelArticleObservation = Readonly<{
-  id: string;
-  measurement_definition_key: MeasurementDefinitionKey | null;
-  name: string;
-  value: number | string | null;
-  value_text?: string | null;
-  unit: string | null;
-  observed_at: string | null;
-  ordinal?: number | null;
-  document_id: string | null;
-  source_page?: number | null;
-  documents?: PanelArticleObservationDocument | null;
-}>;
+export type PanelArticleObservation = MeasurementObservation;
 
 function compareNullableTextDesc(
   left: string | null | undefined,

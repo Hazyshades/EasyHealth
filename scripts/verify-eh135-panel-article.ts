@@ -6,6 +6,7 @@ import {
   getPanelArticleBySlug,
   PANEL_ARTICLES,
   selectPanelArticleResults,
+  formatMeasurementObservationValue,
   validateKnowledgeBaseArticle,
   validatePanelArticle,
   type PanelArticle,
@@ -195,6 +196,18 @@ assert.equal(
 assert.equal(
   selected.some((row) => row.id === "unresolved"),
   false,
+);
+assert.equal(
+  formatMeasurementObservationValue(
+    observation("numeric-pair", "hemoglobin_whole_blood", {
+      value: 13,
+      value_text: "130",
+      value_kind: "numeric",
+      unit: "g/dL",
+    }),
+  ),
+  "13 g/dL",
+  "numeric values stay paired with the API-projected unit",
 );
 
 function readRepo(relativePath: string): string {
