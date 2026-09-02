@@ -117,6 +117,11 @@ assert.ok(
     error.includes("Related measurement key"),
   ),
 );
+assert.ok(
+  unknownDeclaredRelatedKeyValidation.errors.some((error) =>
+    error.includes("unknown"),
+  ),
+);
 
 const roleDriftValidation = validatePanelArticle(
   articleWithMemberChange((member) => ({ ...member, role: "optional" })),
