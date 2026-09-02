@@ -24,11 +24,11 @@ export default function KnowledgePage() {
           <div>
             <h2
               id="knowledge-panel-guides"
-              className="text-base font-semibold text-[var(--eh-text-primary)]"
+              className="text-balance text-base font-semibold text-[var(--eh-text-primary)]"
             >
               Panel guides
             </h2>
-            <p className="mt-1 text-sm text-[var(--eh-text-secondary)]">
+            <p className="mt-1 max-w-[75ch] text-pretty text-sm text-[var(--eh-text-secondary)]">
               A panel is a group of related measurements, not a promise that
               every report has the same list.
             </p>
@@ -45,20 +45,20 @@ export default function KnowledgePage() {
               <StatusChip variant="info">Clinical review pending</StatusChip>
             </div>
           </div>
-          <h3 className="mt-5 text-xl font-semibold text-[var(--eh-text-primary)]">
+          <h3 className="mt-5 text-balance text-xl font-semibold text-[var(--eh-text-primary)]">
             {CBC_PANEL_ARTICLE.title}
           </h3>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--eh-text-secondary)]">
+          <p className="mt-2 max-w-[75ch] text-pretty text-sm leading-6 text-[var(--eh-text-secondary)]">
             {CBC_PANEL_ARTICLE.summary}
           </p>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--eh-text-secondary)]">
+          <p className="mt-3 max-w-[75ch] text-pretty text-sm leading-6 text-[var(--eh-text-secondary)]">
             See how red-cell, white-cell, and platelet measurements fit
             together, which members are often optional, and where your saved CBC
             results appear.
           </p>
           <Button
             asChild
-            className="mt-5 rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90"
+            className="mt-5 bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90"
           >
             <Link href="/app/knowledge/panels/cbc">
               Read the CBC guide
@@ -68,7 +68,7 @@ export default function KnowledgePage() {
         </SurfaceCard>
       </section>
 
-      <p className="mt-6 max-w-2xl text-xs leading-5 text-[var(--eh-text-muted)]">
+      <p className="mt-6 max-w-[75ch] text-pretty text-xs leading-5 text-[var(--eh-text-muted)]">
         Knowledge articles explain terminology and organization. They do not
         replace a clinician's advice or change how your results are assessed.
       </p>

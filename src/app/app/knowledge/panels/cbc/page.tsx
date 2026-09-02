@@ -130,14 +130,14 @@ function KnowledgeUnavailable() {
       className="border-red-200 bg-red-50/40"
       role="alert"
     >
-      <h1 className="text-lg font-semibold text-[var(--eh-text-primary)]">
+      <h1 className="text-balance text-lg font-semibold text-[var(--eh-text-primary)]">
         CBC guide unavailable
       </h1>
-      <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--eh-text-secondary)]">
+      <p className="mt-2 max-w-[75ch] text-pretty text-sm leading-6 text-[var(--eh-text-secondary)]">
         The panel article is not available in a valid Registry 2.0
         configuration.
       </p>
-      <Button asChild variant="outline" className="mt-4 rounded-xl bg-white">
+      <Button asChild variant="outline" className="mt-4 bg-white">
         <Link href="/app/knowledge">Back to Knowledge</Link>
       </Button>
     </SurfaceCard>

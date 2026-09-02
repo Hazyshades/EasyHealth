@@ -136,11 +136,11 @@ function PanelArticleResults({ state }: PanelArticleResultsProps) {
         <div>
           <h2
             id="panel-article-your-results"
-            className="text-base font-semibold text-[var(--eh-text-primary)]"
+            className="text-balance text-base font-semibold text-[var(--eh-text-primary)]"
           >
             Your CBC results
           </h2>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--eh-text-secondary)]">
+          <p className="mt-1 max-w-[75ch] text-pretty text-sm leading-6 text-[var(--eh-text-secondary)]">
             These are the CBC measurements already saved from your documents.
             They are shown as recorded, without an interpretation on this page.
           </p>
@@ -149,7 +149,7 @@ function PanelArticleResults({ state }: PanelArticleResultsProps) {
           asChild
           variant="outline"
           size="sm"
-          className="rounded-lg border-[var(--eh-brand)]/30 bg-white"
+          className="border-[var(--eh-brand)]/30 bg-white"
         >
           <Link href="/app/biomarkers">Open Biomarkers</Link>
         </Button>
@@ -179,7 +179,7 @@ function PanelArticleResults({ state }: PanelArticleResultsProps) {
           <p className="text-sm font-medium text-[var(--eh-text-primary)]">
             Your saved results are unavailable
           </p>
-          <p className="mt-1 text-sm leading-6 text-[var(--eh-text-secondary)]">
+          <p className="mt-1 max-w-[75ch] text-pretty text-sm leading-6 text-[var(--eh-text-secondary)]">
             {state.message}
           </p>
           {state.onRetry ? (
@@ -188,7 +188,7 @@ function PanelArticleResults({ state }: PanelArticleResultsProps) {
               variant="outline"
               size="sm"
               onClick={state.onRetry}
-              className="mt-3 rounded-lg"
+              className="mt-3"
             >
               Try again
             </Button>
@@ -199,7 +199,7 @@ function PanelArticleResults({ state }: PanelArticleResultsProps) {
           <p className="text-sm font-medium text-[var(--eh-text-primary)]">
             No CBC results are linked yet.
           </p>
-          <p className="mt-1 text-sm leading-6 text-[var(--eh-text-secondary)]">
+          <p className="mt-1 max-w-[75ch] text-pretty text-sm leading-6 text-[var(--eh-text-secondary)]">
             Upload a laboratory document or open Biomarkers to review the
             results already in your record.
           </p>
@@ -207,7 +207,7 @@ function PanelArticleResults({ state }: PanelArticleResultsProps) {
             <Button
               asChild
               size="sm"
-              className="rounded-lg bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90"
+              className="bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90"
             >
               <Link href="/app/upload">Upload document</Link>
             </Button>
@@ -215,7 +215,7 @@ function PanelArticleResults({ state }: PanelArticleResultsProps) {
               asChild
               variant="outline"
               size="sm"
-              className="rounded-lg bg-white"
+              className="bg-white"
             >
               <Link href="/app/biomarkers">Go to Biomarkers</Link>
             </Button>
@@ -317,12 +317,12 @@ export function PanelArticleTemplate({
             <Info className="size-4 text-[var(--eh-health)]" aria-hidden />
             <h2
               id="panel-article-purpose"
-              className="text-base font-semibold text-[var(--eh-text-primary)]"
+              className="text-balance text-base font-semibold text-[var(--eh-text-primary)]"
             >
               What this panel is
             </h2>
           </div>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--eh-text-secondary)]">
+          <p className="mt-3 max-w-[75ch] text-pretty text-sm leading-6 text-[var(--eh-text-secondary)]">
             {article.purpose}
           </p>
           <p className="mt-2 text-sm text-[var(--eh-text-muted)]">
@@ -337,7 +337,7 @@ export function PanelArticleTemplate({
           <p className="text-sm font-semibold text-[var(--eh-text-primary)]">
             Panel composition varies
           </p>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--eh-text-secondary)]">
+          <p className="mt-1 max-w-[75ch] text-pretty text-sm leading-6 text-[var(--eh-text-secondary)]">
             {article.compositionNote}
           </p>
         </aside>
@@ -346,11 +346,11 @@ export function PanelArticleTemplate({
           <div>
             <h2
               id="panel-article-measurements"
-              className="text-base font-semibold text-[var(--eh-text-primary)]"
+              className="text-balance text-base font-semibold text-[var(--eh-text-primary)]"
             >
               Measurements in a CBC
             </h2>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--eh-text-secondary)]">
+            <p className="mt-1 max-w-[75ch] text-pretty text-sm leading-6 text-[var(--eh-text-secondary)]">
               The groups below organize the measurements in the reviewed panel
               registry. “Often included” means the measurement is an optional
               panel member, not that it appears on every report.
@@ -364,11 +364,11 @@ export function PanelArticleTemplate({
               >
                 <h3
                   id={`panel-article-subgroup-${subgroup.key}`}
-                  className="text-sm font-semibold text-[var(--eh-text-primary)]"
+                  className="text-balance text-sm font-semibold text-[var(--eh-text-primary)]"
                 >
                   {subgroup.title}
                 </h3>
-                <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--eh-text-secondary)]">
+                <p className="mt-1 max-w-[75ch] text-pretty text-sm leading-6 text-[var(--eh-text-secondary)]">
                   {subgroup.summary}
                 </p>
                 <ul className="mt-3 grid gap-3 md:grid-cols-2">
@@ -388,11 +388,11 @@ export function PanelArticleTemplate({
           <section aria-labelledby="panel-article-related">
             <h2
               id="panel-article-related"
-              className="text-base font-semibold text-[var(--eh-text-primary)]"
+              className="text-balance text-base font-semibold text-[var(--eh-text-primary)]"
             >
               Related measurements
             </h2>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--eh-text-secondary)]">
+            <p className="mt-1 max-w-[75ch] text-pretty text-sm leading-6 text-[var(--eh-text-secondary)]">
               These measurements belong to related panels or workflows. They are
               not guaranteed members of a CBC.
             </p>

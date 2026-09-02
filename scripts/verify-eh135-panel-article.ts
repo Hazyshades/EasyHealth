@@ -101,6 +101,22 @@ const unknownValidation = validatePanelArticle(
 );
 assert.equal(unknownValidation.valid, false);
 assert.ok(unknownValidation.errors.some((error) => error.includes("unknown")));
+const unknownDeclaredRelatedKeyValidation = validatePanelArticle(
+  {
+    ...CBC_PANEL_ARTICLE,
+    relatedMeasurementKeys: [
+      ...CBC_PANEL_ARTICLE.relatedMeasurementKeys,
+      "not_a_registry_definition",
+    ],
+  },
+  cbcPanel,
+);
+assert.equal(unknownDeclaredRelatedKeyValidation.valid, false);
+assert.ok(
+  unknownDeclaredRelatedKeyValidation.errors.some((error) =>
+    error.includes("Related measurement key"),
+  ),
+);
 
 const roleDriftValidation = validatePanelArticle(
   articleWithMemberChange((member) => ({ ...member, role: "optional" })),

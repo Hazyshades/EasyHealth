@@ -164,5 +164,12 @@ export function validatePanelArticle(
     }
   }
 
+  for (const key of declaredRelatedKeys) {
+    if (relatedMarkerKeys.has(key)) continue;
+    addDefinitionValidation(validArticle, key, errors);
+    errors.push(
+      `Related measurement key is missing from relatedMarkers: ${validArticle.slug}/${key}`,
+    );
+  }
   return { valid: errors.length === 0, errors };
 }
