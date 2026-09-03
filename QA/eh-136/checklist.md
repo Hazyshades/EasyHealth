@@ -24,7 +24,7 @@ The pages are educational content only. They do not calculate results, display p
 | ID | Test document or setup | Purpose |
 | --- | --- | --- |
 | `EH136-PUBLIC-01` | No upload required; use the ten stable URLs listed below | Normal public-page path |
-| `EH136-PRIVATE-01` | Dedicated account with synthetic or de-identified accepted biomarker data, if authenticated workspace access is available | Verify the public/private boundary without exposing personal data |
+| `EH136-PRIVATE-01` | Dedicated account with synthetic or de-identified accepted observations, if authenticated workspace access is available | Verify the public/private boundary without exposing personal data |
 | `EH136-NEGATIVE-01` | Direct URL `/knowledge/biomarkers/not-an-eh136-page` | Unknown-slug safe failure path |
 
 ## Interface checks
