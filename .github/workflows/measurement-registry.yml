@@ -180,6 +180,8 @@ jobs:
         run: pnpm test:eh135
       - name: Verify EH-133 Knowledge Base contract
         run: pnpm test:eh133
+      - name: Verify EH-136 Knowledge Base pages
+        run: pnpm test:eh136
       - name: Verify EH-128 laboratory panel grouping
         run: pnpm test:eh128
       - name: Verify EH-129 repeated measurement comparison
