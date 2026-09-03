@@ -49,7 +49,6 @@ export {
 export {
   selectPanelArticleResults,
   type PanelArticleObservation,
-  type PanelArticleObservationDocument,
 } from "./panel-results";
 
 export {

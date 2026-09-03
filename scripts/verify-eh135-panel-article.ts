@@ -8,6 +8,7 @@ import {
   selectPanelArticleResults,
   formatMeasurementObservationValue,
   validateKnowledgeBaseArticle,
+  parseMeasurementResultsResponse,
   validatePanelArticle,
   type PanelArticle,
   type PanelArticleObservation,
@@ -209,6 +210,27 @@ assert.equal(
   "13 g/dL",
   "numeric values stay paired with the API-projected unit",
 );
+const parsedUndated = parseMeasurementResultsResponse({
+  observations: [
+    {
+      id: "undated",
+      name: "Hemoglobin",
+      measurement_definition_key: "hemoglobin_whole_blood",
+      value: 13,
+      value_text: null,
+      value_kind: "numeric",
+      unit: "g/dL",
+      observed_at: null,
+      document_id: "document-1",
+      documents: null,
+    },
+  ],
+});
+assert.equal(
+  parsedUndated[0]!.observed_at,
+  null,
+  "nullable observation dates remain parseable",
+);
 
 function readRepo(relativePath: string): string {
   return readFileSync(path.join(process.cwd(), relativePath), "utf8");
@@ -223,6 +245,7 @@ assert.match(template, /Measurements in \{panel\.displayName\}/);
 assert.match(template, /Sources/);
 assert.match(template, /article\.disclaimer/);
 assert.doesNotMatch(template, /reference range|diagnos|abnormal/i);
+assert.match(template, /break-words/);
 
 const route = readRepo("src/app/app/knowledge/panels/cbc/page.tsx");
 assert.match(route, /fetch\("\/api\/biomarkers"/);
@@ -230,6 +253,8 @@ assert.match(route, /resultLabel="CBC"/);
 assert.match(route, /selectPanelArticleResults/);
 assert.match(route, /\/app\/biomarkers/);
 assert.match(route, /ARTICLE_PATH/);
+assert.match(route, /RESULTS_UNAVAILABLE_MESSAGE/);
+assert.doesNotMatch(route, /payload\.error/);
 
 const index = readRepo("src/app/app/knowledge/page.tsx");
 assert.match(index, /\/app\/knowledge\/panels\/cbc/);
@@ -237,6 +262,10 @@ const navigation = readRepo("src/lib/nav-items.ts");
 assert.match(navigation, /label: "Knowledge"/);
 const routeLabels = readRepo("src/lib/health-navigation.ts");
 assert.match(routeLabels, /pathname === "\/app\/knowledge"/);
+const navItem = readRepo("src/components/ui/nav-item.tsx");
+assert.match(navItem, /min-h-11 min-w-11/);
+const sidebar = readRepo("src/components/layout/sidebar.tsx");
+assert.match(sidebar, /fixed inset-x-0 bottom-0[^"]*px-1 py-2/);
 
 for (const relativePath of [
   "src/lib/knowledge-base/types.ts",

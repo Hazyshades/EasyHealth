@@ -36,7 +36,7 @@ type BiomarkerObservation = {
   unit: string | null;
   ref_low: number | string | null;
   ref_high: number | string | null;
-  observed_at: string;
+  observed_at: string | null;
   document_id: string | null;
   value_kind: string | null;
   value_text: string | null;

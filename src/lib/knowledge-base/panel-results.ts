@@ -1,10 +1,6 @@
 import type { MeasurementDefinitionKey } from "@/lib/biomarkers";
 import type { MeasurementObservation } from "./measurement-results";
 
-export type PanelArticleObservationDocument = NonNullable<
-  MeasurementObservation["documents"]
->;
-
 export type PanelArticleObservation = MeasurementObservation;
 
 function compareNullableTextDesc(

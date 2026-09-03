@@ -25,22 +25,8 @@ const CBC_MEMBER_KEYS = CBC_PANEL_ARTICLE.subgroups.flatMap((subgroup) =>
   subgroup.members.map((member) => member.measurementDefinitionKey),
 );
 
-type JsonRecord = Record<string, unknown>;
-
-function isJsonRecord(value: unknown): value is JsonRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function responseError(payload: unknown): string {
-  if (
-    isJsonRecord(payload) &&
-    typeof payload.error === "string" &&
-    payload.error.trim()
-  ) {
-    return payload.error;
-  }
-  return "We could not load the results saved in your record.";
-}
+const RESULTS_UNAVAILABLE_MESSAGE =
+  "We could not load the results saved in your record.";
 
 function KnowledgeUnavailable() {
   return (
@@ -76,7 +62,7 @@ export default function CbcPanelPage() {
     try {
       const response = await fetch("/api/biomarkers", { cache: "no-store" });
       const payload: unknown = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(responseError(payload));
+      if (!response.ok) throw new Error(RESULTS_UNAVAILABLE_MESSAGE);
       if (version !== requestVersion.current) return;
       setResultState({
         status: "ready",

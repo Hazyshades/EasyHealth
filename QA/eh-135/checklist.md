@@ -142,6 +142,7 @@ This checklist covers the authenticated Knowledge surface for the complete blood
 - [x] Full CI application verifier matrix passed in grouped runs: aggregate `pnpm verify:registry`; all EH-104/105/106/111/112/113/116/117/119/120/121/122/123/126/127/128/129/130/131/132/133/134/135/141/142/143/144/145/146/147/162/163/164/165, panel, profile, document, and app-navigation suites.
 - [x] Full CI database matrix passed against local Supabase, including all listed EH, PR2, panel-specimen, PostgREST alias, trace, service-role, and writer seam SQL contracts; PostgREST integration passed for all five consumers.
 - [x] Authenticated browser smoke passed at desktop 1440px and mobile 390px: unauthenticated `/app/knowledge` and `/app/knowledge/panels/cbc` redirected to `/?signin=required`; authenticated `/app/knowledge` → CBC guide, empty results, 500/retry recovery, mobile navigation, source links, visible keyboard focus, and zero horizontal overflow.
+- [x] Final review-fix smoke passed: a controlled `/api/biomarkers` 503 showed only the generic saved-results message, nullable `observed_at` parsed and rendered as **Date not recorded**, a long synthetic source filename stayed within its result card, and all seven 390px bottom-nav links retained 44px targets with no horizontal overflow. Verified 2026-09-03.
 
 **Additional verification note:** Targeted Prettier checks pass for EH-135-owned files. Repository-wide `pnpm format:check` remains blocked by 543 pre-existing formatting warnings outside this change.
 

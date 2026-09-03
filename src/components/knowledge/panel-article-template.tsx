@@ -234,7 +234,7 @@ function PanelArticleResults({ state, resultLabel }: PanelArticleResultsProps) {
                     />
                   ) : null}
                 </div>
-                <p className="mt-2 text-xs text-[var(--eh-text-muted)]">
+                <p className="mt-2 break-words text-xs text-[var(--eh-text-muted)]">
                   {displayObservedDate(result.observed_at)} · {sourceName}
                 </p>
               </>
