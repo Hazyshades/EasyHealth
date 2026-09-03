@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import {
-  getMeasurementDefinition,
   MEASUREMENT_DEFINITIONS,
   PANEL_DEFINITIONS,
   PANEL_REGISTRY_VERSION,
@@ -236,8 +235,17 @@ function isReviewedMeasurement(
   );
 }
 
-function measurementNode(key: MeasurementDefinitionKey): RelationshipNode {
-  const definition = getMeasurementDefinition(key);
+const MEASUREMENT_DEFINITIONS_BY_KEY = new Map(
+  MEASUREMENT_DEFINITIONS.map((definition) => [definition.key, definition]),
+);
+function measurementNode(
+  key: MeasurementDefinitionKey,
+  definitionsByKey: ReadonlyMap<
+    string,
+    MeasurementDefinition
+  > = MEASUREMENT_DEFINITIONS_BY_KEY,
+): RelationshipNode {
+  const definition = definitionsByKey.get(key);
   return {
     kind: "measurement",
     key,
@@ -252,9 +260,11 @@ function panelNode(panel: PanelDefinition): RelationshipNode {
 function panelMemberEdge(
   panel: PanelDefinition,
   member: PanelDefinition["members"][number],
+  definitionsByKey: ReadonlyMap<string, MeasurementDefinition>,
 ): PanelMemberRelationshipEdge {
   const definitionName = measurementNode(
     member.measurementDefinitionKey,
+    definitionsByKey,
   ).displayName;
   return {
     key: `panel-member:${panel.key}:${member.measurementDefinitionKey}`,
@@ -328,10 +338,17 @@ function identityAxisDiffers(
 export function buildMeasurementRelationshipEdges(
   panels: readonly PanelDefinition[] = PANEL_DEFINITIONS,
   relationships: readonly CuratedMeasurementRelationship[] = CURATED_MEASUREMENT_RELATIONSHIPS,
+  definitions: readonly MeasurementDefinition[] = MEASUREMENT_DEFINITIONS,
 ): readonly MeasurementRelationshipEdge[] {
+  const definitionsByKey =
+    definitions === MEASUREMENT_DEFINITIONS
+      ? MEASUREMENT_DEFINITIONS_BY_KEY
+      : new Map(definitions.map((definition) => [definition.key, definition]));
   return [
     ...panels.flatMap((panel) =>
-      panel.members.map((member) => panelMemberEdge(panel, member)),
+      panel.members.map((member) =>
+        panelMemberEdge(panel, member, definitionsByKey),
+      ),
     ),
     ...relationships.map(relatedMeasurementEdge),
   ].sort(edgeSort);
@@ -436,6 +453,7 @@ export function validateMeasurementRelationshipGraph(
   const expectedPanelEdges = buildMeasurementRelationshipEdges(
     panels,
     [],
+    definitions,
   ).filter(
     (edge): edge is PanelMemberRelationshipEdge =>
       edge.relationshipType === "panel_member",
@@ -532,7 +550,7 @@ function nodeForRef(ref: RelationshipNodeRef): RelationshipNode | null {
     const panel = panelsByKey.get(ref.key);
     return panel ? panelNode(panel) : null;
   }
-  const definition = getMeasurementDefinition(ref.key);
+  const definition = MEASUREMENT_DEFINITIONS_BY_KEY.get(ref.key);
   return definition ? measurementNode(ref.key) : null;
 }
 
@@ -584,7 +602,7 @@ export function getMeasurementRelationshipGraph(
   measurementDefinitionKey: MeasurementDefinitionKey | null | undefined,
 ): MeasurementRelationshipGraph | null {
   const key = measurementDefinitionKey?.trim() ?? "";
-  const definition = getMeasurementDefinition(key);
+  const definition = MEASUREMENT_DEFINITIONS_BY_KEY.get(key);
   if (!isReviewedMeasurement(definition)) return null;
   const edges = MEASUREMENT_RELATIONSHIP_EDGES.filter(
     (edge) =>

@@ -166,6 +166,7 @@ assert.equal(getMeasurementRelationshipGraph(nonReviewed.key), null);
 const syntheticEdges = buildMeasurementRelationshipEdges(
   SYNTHETIC_PANEL_DEFINITIONS,
   SYNTHETIC_RELATIONSHIPS,
+  SYNTHETIC_DEFINITIONS,
 );
 const syntheticValidation = validateMeasurementRelationshipGraph(
   syntheticEdges,
@@ -186,6 +187,14 @@ assert.equal(
   syntheticEdges.filter((edge) => edge.relationshipType === "panel_member")
     .length,
   2,
+);
+assert.ok(
+  syntheticEdges.some(
+    (edge) =>
+      edge.relationshipType === "panel_member" &&
+      edge.description.includes("Synthetic alpha (serum)"),
+  ),
+  "synthetic projection must use fixture definitions",
 );
 
 const reversedEdges = [...syntheticEdges].reverse();
@@ -210,6 +219,7 @@ assert.deepEqual(
   buildMeasurementRelationshipEdges(
     reversedPanels,
     [...SYNTHETIC_RELATIONSHIPS].reverse(),
+    SYNTHETIC_DEFINITIONS,
   ),
   syntheticEdges,
   "relationship projection must be deterministic",
