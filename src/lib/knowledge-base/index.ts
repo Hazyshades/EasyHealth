@@ -66,6 +66,7 @@ export {
   buildMeasurementBiomarkersHref,
   buildMeasurementObservationSourceHref,
   formatMeasurementObservationValue,
+  formatPanelArticleObservationValue,
   parseMeasurementResultsResponse,
   selectMeasurementObservations,
   type MeasurementObservation,

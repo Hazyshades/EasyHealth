@@ -7,6 +7,7 @@ import {
   PANEL_ARTICLES,
   selectPanelArticleResults,
   formatMeasurementObservationValue,
+  formatPanelArticleObservationValue,
   validateKnowledgeBaseArticle,
   parseMeasurementResultsResponse,
   validatePanelArticle,
@@ -209,6 +210,19 @@ assert.equal(
   ),
   "13 g/dL",
   "numeric values stay paired with the API-projected unit",
+);
+assert.equal(
+  formatPanelArticleObservationValue(
+    observation("converted-pair", "hemoglobin_whole_blood", {
+      value: 130,
+      unit: "g/L",
+      original_value: 13,
+      original_unit: "g/dL",
+      converted: true,
+    }),
+  ),
+  "13 g/dL",
+  "panel results preserve the lab-reported numeric value and unit",
 );
 const parsedUndated = parseMeasurementResultsResponse({
   observations: [

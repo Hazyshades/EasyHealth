@@ -15,7 +15,7 @@ import type {
   PanelArticleMemberRole,
   PanelArticleObservation,
 } from "@/lib/knowledge-base";
-import { formatMeasurementObservationValue } from "@/lib/knowledge-base/measurement-results";
+import { formatPanelArticleObservationValue } from "@/lib/knowledge-base/measurement-results";
 
 const ROLE_LABELS: Record<PanelArticleMemberRole, string> = {
   core: "Core panel member",
@@ -224,7 +224,7 @@ function PanelArticleResults({ state, resultLabel }: PanelArticleResultsProps) {
                       {displayResultName(result)}
                     </p>
                     <p className="mt-1 text-sm text-[var(--eh-text-secondary)]">
-                      {formatMeasurementObservationValue(result)}
+                      {formatPanelArticleObservationValue(result)}
                     </p>
                   </div>
                   {href ? (
