@@ -7,6 +7,8 @@ import {
   resolveMeasurementDefinition,
   PANEL_DEFINITIONS,
   MEASUREMENT_DEFINITIONS,
+  type MeasurementDefinition,
+  type PanelDefinition,
 } from "../src/lib/biomarkers";
 import {
   CURATED_MEASUREMENT_RELATIONSHIPS,
@@ -19,8 +21,88 @@ import {
   listMeasurementRelationshipEdges,
   serializeMeasurementRelationshipGraph,
   validateMeasurementRelationshipGraph,
+  type CuratedMeasurementRelationship,
 } from "../src/lib/knowledge/measurement-relationship-graph";
 import { GET as getRelationshipGraph } from "../src/app/api/knowledge/measurements/[key]/relationships/route";
+
+// Synthetic reviewed-shaped fixtures keep the focused contract independent
+// from the production catalog while production queries remain smoke-tested.
+const SYNTHETIC_DEFINITION_BASE = {
+  maturity: "reviewed" as const,
+  sourceProvenance: {
+    kind: "registry_v2_review" as const,
+    sourceRecordKey: "eh137.synthetic",
+  },
+  property: "substance_concentration" as const,
+  scale: "quantitative" as const,
+  timing: "point_in_time" as const,
+  method: "automated" as const,
+  valueKind: "numeric" as const,
+  aliases: [] as const,
+  unitPolicy: {
+    dimensions: ["molar_concentration"] as const,
+    acceptedUnits: ["mmol/l"] as const,
+    canonicalUnit: "mmol/l",
+    conversionPolicyRef: null,
+    missingUnitPolicy: "reject" as const,
+  },
+  assessmentBindings: [] as const,
+};
+
+const SYNTHETIC_DEFINITIONS: readonly MeasurementDefinition[] = [
+  {
+    ...SYNTHETIC_DEFINITION_BASE,
+    key: "synthetic_alpha_serum",
+    analyteKey: "synthetic_alpha",
+    specimen: "serum" as const,
+    displayName: "Synthetic alpha (serum)",
+  },
+  {
+    ...SYNTHETIC_DEFINITION_BASE,
+    key: "synthetic_alpha_plasma",
+    analyteKey: "synthetic_alpha",
+    specimen: "plasma" as const,
+    displayName: "Synthetic alpha (plasma)",
+  },
+  {
+    ...SYNTHETIC_DEFINITION_BASE,
+    key: "synthetic_beta_plasma",
+    analyteKey: "synthetic_beta",
+    specimen: "plasma" as const,
+    displayName: "Synthetic beta (plasma)",
+  },
+];
+
+const SYNTHETIC_PANEL_DEFINITIONS: readonly PanelDefinition[] = [
+  {
+    key: "synthetic_panel",
+    displayName: "Synthetic panel",
+    alternateNames: [],
+    members: [
+      {
+        measurementDefinitionKey: "synthetic_alpha_serum",
+        role: "required",
+        displayOrder: 10,
+      },
+      {
+        measurementDefinitionKey: "synthetic_alpha_plasma",
+        role: "optional",
+        displayOrder: 20,
+      },
+    ],
+  },
+];
+
+const SYNTHETIC_RELATIONSHIPS: readonly CuratedMeasurementRelationship[] = [
+  {
+    key: "synthetic-alpha-specimen",
+    sourceMeasurementDefinitionKey: "synthetic_alpha_serum",
+    targetMeasurementDefinitionKey: "synthetic_alpha_plasma",
+    axis: "specimen",
+    description:
+      "The same synthetic analyte is represented with a different specimen axis.",
+  },
+];
 
 const validation = validateMeasurementRelationshipGraph();
 assert.equal(validation.valid, true, validation.errors.join("\n"));
@@ -81,45 +163,78 @@ const nonReviewed = MEASUREMENT_DEFINITIONS.find(
 assert.ok(nonReviewed, "catalog fixture needs a non-reviewed definition");
 assert.equal(getMeasurementRelationshipGraph(nonReviewed.key), null);
 
-const reversedEdges = [...MEASUREMENT_RELATIONSHIP_EDGES].reverse();
-const reversedPanels = [...PANEL_DEFINITIONS].reverse();
+const syntheticEdges = buildMeasurementRelationshipEdges(
+  SYNTHETIC_PANEL_DEFINITIONS,
+  SYNTHETIC_RELATIONSHIPS,
+);
+const syntheticValidation = validateMeasurementRelationshipGraph(
+  syntheticEdges,
+  SYNTHETIC_PANEL_DEFINITIONS,
+  SYNTHETIC_DEFINITIONS,
+);
 assert.equal(
-  serializeMeasurementRelationshipGraph(),
+  syntheticValidation.valid,
+  true,
+  syntheticValidation.errors.join("\n"),
+);
+assert.equal(
+  syntheticEdges.find((edge) => edge.relationshipType === "related_measurement")
+    ?.axis,
+  "specimen",
+);
+assert.equal(
+  syntheticEdges.filter((edge) => edge.relationshipType === "panel_member")
+    .length,
+  2,
+);
+
+const reversedEdges = [...syntheticEdges].reverse();
+const reversedPanels = [...SYNTHETIC_PANEL_DEFINITIONS].reverse();
+assert.equal(
+  serializeMeasurementRelationshipGraph(
+    syntheticEdges,
+    SYNTHETIC_PANEL_DEFINITIONS,
+  ),
   serializeMeasurementRelationshipGraph(reversedEdges, reversedPanels),
   "relationship serialization must be source-order independent",
 );
 assert.equal(
-  digestMeasurementRelationshipGraph(),
+  digestMeasurementRelationshipGraph(
+    syntheticEdges,
+    SYNTHETIC_PANEL_DEFINITIONS,
+  ),
   digestMeasurementRelationshipGraph(reversedEdges, reversedPanels),
   "relationship digest must be source-order independent",
 );
 assert.deepEqual(
   buildMeasurementRelationshipEdges(
     reversedPanels,
-    [...CURATED_MEASUREMENT_RELATIONSHIPS].reverse(),
+    [...SYNTHETIC_RELATIONSHIPS].reverse(),
   ),
-  MEASUREMENT_RELATIONSHIP_EDGES,
+  syntheticEdges,
   "relationship projection must be deterministic",
 );
 
-const duplicate = validateMeasurementRelationshipGraph([
-  ...MEASUREMENT_RELATIONSHIP_EDGES,
-  MEASUREMENT_RELATIONSHIP_EDGES[0]!,
-]);
+const duplicate = validateMeasurementRelationshipGraph(
+  [...syntheticEdges, syntheticEdges[0]!],
+  SYNTHETIC_PANEL_DEFINITIONS,
+  SYNTHETIC_DEFINITIONS,
+);
 assert.equal(duplicate.valid, false, "duplicate edges must be rejected");
-const relatedEdge = MEASUREMENT_RELATIONSHIP_EDGES.find(
+const relatedEdge = syntheticEdges.find(
   (edge) => edge.relationshipType === "related_measurement",
 );
-assert.ok(relatedEdge, "fixture needs a related measurement edge");
+assert.ok(relatedEdge, "synthetic fixture needs a related measurement edge");
 const crossAnalyte = {
   ...relatedEdge,
   key: "invalid-cross-analyte",
-  target: { ...relatedEdge.target, key: "glucose_serum" },
+  target: { ...relatedEdge.target, key: "synthetic_beta_plasma" },
 };
-const crossAnalyteValidation = validateMeasurementRelationshipGraph([
-  ...MEASUREMENT_RELATIONSHIP_EDGES,
-  crossAnalyte,
-]);
+const crossAnalyteValidation = validateMeasurementRelationshipGraph(
+  [...syntheticEdges, crossAnalyte],
+  SYNTHETIC_PANEL_DEFINITIONS,
+  SYNTHETIC_DEFINITIONS,
+);
 assert.equal(
   crossAnalyteValidation.valid,
   false,
@@ -130,10 +245,11 @@ const invalidAxis = {
   key: "invalid-axis",
   axis: "timing" as const,
 };
-const invalidAxisValidation = validateMeasurementRelationshipGraph([
-  ...MEASUREMENT_RELATIONSHIP_EDGES,
-  invalidAxis,
-]);
+const invalidAxisValidation = validateMeasurementRelationshipGraph(
+  [...syntheticEdges, invalidAxis],
+  SYNTHETIC_PANEL_DEFINITIONS,
+  SYNTHETIC_DEFINITIONS,
+);
 assert.equal(
   invalidAxisValidation.valid,
   false,
