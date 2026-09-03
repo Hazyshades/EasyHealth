@@ -58,15 +58,11 @@ function RelationshipDetails({ edge }: { edge: MeasurementRelationshipEdge }) {
   );
 }
 
-function GraphStateCard({
+export function RelatedMeasurementGraph({
   status,
   graph,
   returnTo,
-}: {
-  status: RelatedMeasurementGraphStatus;
-  graph: MeasurementRelationshipGraph | null;
-  returnTo?: string | null;
-}) {
+}: RelatedMeasurementGraphProps) {
   if (status === "loading") {
     return (
       <SurfaceCard
@@ -96,8 +92,8 @@ function GraphStateCard({
           Related measurements
         </h2>
         <p className="mt-2 text-sm text-[var(--eh-text-secondary)]">
-          Educational relationships are temporarily unavailable. Your biomarker
-          results are unchanged.
+          Educational relationships are temporarily unavailable. Your
+          observations are unchanged.
         </p>
       </SurfaceCard>
     );
@@ -184,8 +180,4 @@ function GraphStateCard({
       )}
     </SurfaceCard>
   );
-}
-
-export function RelatedMeasurementGraph(props: RelatedMeasurementGraphProps) {
-  return <GraphStateCard {...props} />;
 }

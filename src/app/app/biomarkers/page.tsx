@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getMeasurementDefinition } from "@/lib/biomarkers";
 import { BiomarkerTable } from "@/components/biomarker-table";
 import {
   BiomarkerChart,
@@ -111,6 +112,11 @@ function matchesStatusFilter(o: Observation, filter: StatusFilter): boolean {
   return status === filter;
 }
 
+function getReviewedMeasurementKey(value: string | null): string | null {
+  const key = value?.trim() ?? "";
+  return getMeasurementDefinition(key)?.maturity === "reviewed" ? key : null;
+}
+
 export default function BiomarkersPage() {
   const searchParams = useSearchParams();
   const [navigationContext, setNavigationContext] =
@@ -137,8 +143,9 @@ export default function BiomarkersPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (navigationContext.measurement) {
-      setSelectedKey(navigationContext.measurement);
+    const requested = navigationContext.measurement;
+    if (requested) {
+      setSelectedKey(getReviewedMeasurementKey(requested) ?? "");
     }
     if (navigationContext.observation) {
       setSelectedObservationId(navigationContext.observation);
@@ -155,10 +162,13 @@ export default function BiomarkersPage() {
           setLabUnitSystem(data.lab_unit_system);
         }
         setSelectedKey((prev) => {
-          const requested = navigationContext.measurement;
+          const requested = getReviewedMeasurementKey(
+            navigationContext.measurement,
+          );
           // Related catalog links may target a reviewed definition with no
           // saved observation; keep that context for the educational graph.
           if (requested) return requested;
+          if (navigationContext.measurement) return "";
           if (
             prev &&
             obs.some(

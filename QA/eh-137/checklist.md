@@ -2,7 +2,7 @@
 
 **Roadmap status:** In progress
 **Build / environment:** Local Next dev server on `http://localhost:3003`; seeded synthetic EH147 Supabase fixture with Mailpit magic-link authentication
-**Test run date:** 2026-09-01
+**Test run date:** 2026-09-01 (follow-up after the initial auth setup blocker)
 **Tester:** Engineering smoke run
 
 ## What this checklist covers
@@ -68,11 +68,11 @@ neighbor.
 3. Use the browser Back control.
 
 **Expected result:** The Biomarkers page opens the linked measurement context,
-without exposing another account's data. The biomarker table and repeated
+without exposing another account's data. The observation table and repeated
 measurement comparison remain usable. Back returns to the prior context.
 
 **Result:** `Pass`
-**Notes / evidence link:** Clicking ALT plasma updated the URL measurement context and rendered the linked graph with 21 biomarker rows and the repeated-measurement comparison. Browser Back restored the ALT serum context with 21 rows.
+**Notes / evidence link:** Clicking ALT plasma updated the URL measurement context and rendered the linked graph with 21 observation rows and the repeated-measurement comparison. Browser Back restored the ALT serum context with 21 rows.
 
 ### EH137-UI-03: Preserve the primary Biomarkers task
 
@@ -84,7 +84,7 @@ measurement comparison remain usable. Back returns to the prior context.
 3. Apply and clear a status filter.
 4. Reopen the relationship section for the selected reviewed measurement.
 
-**Expected result:** The primary biomarker table and comparison controls keep
+**Expected result:** The primary observations table and comparison controls keep
 their existing behavior. A relationship loading/error/empty state does not
 remove observations, change units, or change score/readiness indicators.
 
@@ -102,11 +102,11 @@ fixture.
 2. Observe the relationship area.
 
 **Expected result:** The page shows no fabricated relationship, or shows a
-bounded neutral loading/error/empty message. Existing biomarker results remain
+bounded neutral loading/error/empty message. Existing observations remain
 usable. An unavailable endpoint is not reported as a successful feature test.
 
 **Result:** `Pass`
-**Notes / evidence link:** CRP rendered the bounded empty message `No curated relationships are available for this measurement yet.` with 21 biomarker rows. An unknown measurement rendered the bounded error `Educational relationships are temporarily unavailable. Your biomarker results are unchanged.` while retaining 21 rows and the Biomarkers page.
+**Notes / evidence link:** CRP rendered the bounded empty message `No curated relationships are available for this measurement yet.` with 21 observation rows. An unknown measurement query rendered no relationship section, so no raw key was synthesized. The intentional endpoint-failure error state was not manually tested because no approved fault fixture was available; invalid-key and `404` behavior are covered by `pnpm test:eh137`.
 
 ## Developer evidence required
 
