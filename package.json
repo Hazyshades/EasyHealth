@@ -120,6 +120,7 @@
     "test:eh165": "tsx scripts/verify-eh165-row-level-observation-dates.ts",
     "test:eh126-db": "node scripts/run-supabase-db-tests.mjs supabase/tests/eh126_normalized_medical_events.sql",
     "test:eh132": "tsx scripts/verify-eh132-timeline-panel-release.ts",
+    "test:eh136": "tsx scripts/verify-eh136-knowledge-base-pages.ts",
     "test:eh132-db": "node scripts/run-supabase-db-tests.mjs QA-Db_tests/eh132_timeline_panel_release.sql",
     "generate:eh132-fixtures": "tsx scripts/generate-eh132-qa-fixtures.mts",
     "test:eh132-fixtures": "tsx scripts/verify-eh132-qa-fixtures.ts",
