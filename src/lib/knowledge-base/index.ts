@@ -1,6 +1,7 @@
 export { KNOWLEDGE_ARTICLES } from "./articles";
 export {
   formatKnowledgeUnit,
+  getKnowledgeArticleByMeasurementKey,
   getKnowledgeArticleBySlug,
   getKnowledgeCategoryLabel,
   getKnowledgePanel,
@@ -8,10 +9,7 @@ export {
   listPublishedKnowledgeArticles,
   searchKnowledgeEntries,
 } from "./catalog";
-export {
-  getKnowledgeArticleHref,
-  getKnowledgeArticleRecordByMeasurementKey,
-} from "./links";
+export { getKnowledgeArticleHref } from "./links";
 export type {
   KnowledgeArticle,
   KnowledgeArticleRecord,

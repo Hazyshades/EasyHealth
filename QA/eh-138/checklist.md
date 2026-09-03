@@ -80,14 +80,16 @@ This checklist covers the public Knowledge Base index, reviewed measurement sear
 1. Select the **Hemoglobin** result card.
 2. Confirm the URL is `/knowledge/biomarkers/hemoglobin` and breadcrumbs include **Knowledge Base** and **Blood**.
 3. Confirm the page shows **What it measures**, **Factors that can affect interpretation**, **Registry details**, **Also called**, **Sources**, and a medical disclaimer.
-4. Confirm the page includes **View your result**.
-5. Select **View your result** and sign in with `KB-ACCOUNT-01` if prompted.
-6. Confirm the destination is the authenticated Biomarkers area, the URL preserves `measurement=hemoglobin_whole_blood`, and the private series shows the synthetic source and value.
+4. Confirm **Related reading** includes the editorially related **Complete blood count** panel and does not add unrelated registry memberships such as **Iron studies**.
+5. Confirm the page includes **View your result**.
+6. Select **View your result** and sign in with `KB-ACCOUNT-01` if prompted.
+7. Confirm the destination is the authenticated Biomarkers area, the URL preserves `measurement=hemoglobin_whole_blood`, and the private series shows the synthetic source and value.
 
-**Expected result:** The article is accessible as public general education, gives source and review metadata, and links to `/app/biomarkers?measurement=hemoglobin_whole_blood`. Authentication gates the private destination, not the public article; the public article does not display the private value before navigation.
+**Expected result:** The article is accessible as public general education, gives source and review metadata, limits panel links to its declared published panel pages, and links to `/app/biomarkers?measurement=hemoglobin_whole_blood`. Authentication gates the private destination, not the public article; the public article does not display the private value before navigation.
 
 **Result:** `Pass` — authenticated smoke on 2026-09-01 opened the public Hemoglobin article without private values or identifiers and without `/api/` or Supabase resources, then followed **View your result** to `/app/biomarkers?measurement=hemoglobin_whole_blood`. The destination rendered the synthetic `EH138-UI-CBC-SYNTHETIC.pdf` row with `142 g/L` / laboratory `14.2 g/dL`, and no loading state remained.
-**Notes / evidence link:** Local authenticated browser smoke on `127.0.0.1:3008`; the dedicated local Supabase account and synthetic fixture were purged after verification, and no test data is stored in the repository.
+
+**Notes / evidence link:** Local authenticated browser smoke on `127.0.0.1:3008`; the dedicated local Supabase account and synthetic fixture were purged after verification, and no test data is stored in the repository. Additional local browser smoke on 2026-09-03 verified Hemoglobin's related-reading panel link was `/knowledge/panels/cbc` and did not include `/knowledge/panels/iron-studies`.
 
 - [x] Browser/network evidence reviewed for anonymous `/knowledge`, canonical and alias search, category/CBC filters, `/knowledge/biomarkers/hemoglobin`, and `/knowledge/panels/cbc`; anonymous and authenticated public article resources contained no `/api/` or Supabase calls after the route-aware AuthProvider boundary, no private identifiers were rendered, and the authenticated CTA rendered only the synthetic private observation after navigation.
 

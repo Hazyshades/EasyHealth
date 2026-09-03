@@ -2,18 +2,14 @@ import Link from "next/link";
 import { ArrowRight, Check, CircleHelp } from "lucide-react";
 import { ContextBreadcrumbs } from "@/components/layout/context-breadcrumbs";
 import { SurfaceCard } from "@/components/ui/surface-card";
-import { getKnowledgeArticleBySlug } from "@/lib/knowledge-base";
-import { getKnowledgeArticleRecordByMeasurementKey } from "@/lib/knowledge-base/links";
+import { getKnowledgeArticleByMeasurementKey } from "@/lib/knowledge-base";
 import { getMeasurementDefinition } from "@/lib/biomarkers";
 import type { PanelDefinition, PanelMember } from "@/lib/biomarkers";
 
 function MemberRow({ member }: { member: PanelMember }) {
-  const relatedRecord = getKnowledgeArticleRecordByMeasurementKey(
+  const relatedArticle = getKnowledgeArticleByMeasurementKey(
     member.measurementDefinitionKey,
   );
-  const relatedArticle = relatedRecord
-    ? getKnowledgeArticleBySlug(relatedRecord.slug)
-    : null;
   const definition = getMeasurementDefinition(member.measurementDefinitionKey);
   const label =
     relatedArticle?.definition.displayName ??

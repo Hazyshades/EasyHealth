@@ -90,6 +90,13 @@ const PUBLISHED_ARTICLES = KNOWLEDGE_ARTICLES.flatMap((record) => {
 const ARTICLE_BY_SLUG: Record<string, KnowledgeArticle> = Object.fromEntries(
   PUBLISHED_ARTICLES.map((article) => [article.record.slug, article]),
 );
+const ARTICLE_BY_MEASUREMENT_KEY: Record<string, KnowledgeArticle> =
+  Object.fromEntries(
+    PUBLISHED_ARTICLES.map((article) => [
+      article.record.measurementDefinitionKey,
+      article,
+    ]),
+  );
 
 function normalizedSearch(
   value: string | null | undefined,
@@ -135,6 +142,17 @@ export function getKnowledgeArticleBySlug(
 ): KnowledgeArticle | null {
   if (!slug || !Object.hasOwn(ARTICLE_BY_SLUG, slug)) return null;
   return ARTICLE_BY_SLUG[slug];
+}
+
+export function getKnowledgeArticleByMeasurementKey(
+  measurementDefinitionKey: string | null | undefined,
+): KnowledgeArticle | null {
+  if (
+    !measurementDefinitionKey ||
+    !Object.hasOwn(ARTICLE_BY_MEASUREMENT_KEY, measurementDefinitionKey)
+  )
+    return null;
+  return ARTICLE_BY_MEASUREMENT_KEY[measurementDefinitionKey];
 }
 
 export function listKnowledgePanels() {

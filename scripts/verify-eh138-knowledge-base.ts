@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
+  getKnowledgeArticleByMeasurementKey,
   getKnowledgeArticleBySlug,
   getKnowledgePanel,
   listKnowledgePanels,
@@ -92,6 +93,14 @@ assert.ok(hemoglobin);
 assert.equal(
   getKnowledgeArticleHref("hemoglobin_whole_blood"),
   "/knowledge/biomarkers/hemoglobin",
+);
+assert.equal(
+  getKnowledgeArticleByMeasurementKey("hemoglobin_whole_blood")?.record.slug,
+  "hemoglobin",
+);
+assert.equal(
+  getKnowledgeArticleByMeasurementKey("unpublished_definition"),
+  null,
 );
 assert.equal(getKnowledgeArticleHref("unpublished_definition"), null);
 assert.equal(getKnowledgeArticleBySlug("not-published"), null);

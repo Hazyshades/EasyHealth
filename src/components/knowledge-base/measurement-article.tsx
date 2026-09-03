@@ -5,10 +5,10 @@ import { ContextBreadcrumbs } from "@/components/layout/context-breadcrumbs";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import {
   formatKnowledgeUnit,
-  getKnowledgeArticleBySlug,
+  getKnowledgeArticleByMeasurementKey,
   getKnowledgeCategoryLabel,
+  getKnowledgePanel,
 } from "@/lib/knowledge-base";
-import { getKnowledgeArticleRecordByMeasurementKey } from "@/lib/knowledge-base/links";
 import type { KnowledgeArticle } from "@/lib/knowledge-base/types";
 
 const SPECIMEN_LABELS: Record<
@@ -26,14 +26,14 @@ export function MeasurementArticle({ article }: { article: KnowledgeArticle }) {
   const { definition, record } = article;
   const relatedArticles = record.relatedMeasurementDefinitionKeys.flatMap(
     (key) => {
-      const relatedRecord = getKnowledgeArticleRecordByMeasurementKey(key);
-      const relatedArticle = relatedRecord
-        ? getKnowledgeArticleBySlug(relatedRecord.slug)
-        : null;
+      const relatedArticle = getKnowledgeArticleByMeasurementKey(key);
       return relatedArticle ? [relatedArticle] : [];
     },
   );
-  const panels = article.panels;
+  const relatedPanels = record.relatedPanelKeys.flatMap((key) => {
+    const panel = getKnowledgePanel(key);
+    return panel ? [panel] : [];
+  });
   const categoryHref = `/knowledge?category=${encodeURIComponent(record.category)}`;
   const privateResultHref = `/app/biomarkers?measurement=${encodeURIComponent(definition.key)}`;
 
@@ -99,7 +99,7 @@ export function MeasurementArticle({ article }: { article: KnowledgeArticle }) {
             </ul>
           </SurfaceCard>
 
-          {relatedArticles.length > 0 || panels.length > 0 ? (
+          {relatedArticles.length > 0 || relatedPanels.length > 0 ? (
             <SurfaceCard padding="lg">
               <h2 className="text-xl font-semibold text-[var(--eh-text-primary)]">
                 Related reading
@@ -128,13 +128,13 @@ export function MeasurementArticle({ article }: { article: KnowledgeArticle }) {
                     </ul>
                   </div>
                 ) : null}
-                {panels.length > 0 ? (
+                {relatedPanels.length > 0 ? (
                   <div>
                     <h3 className="text-sm font-semibold text-[var(--eh-text-primary)]">
                       Panels
                     </h3>
                     <ul className="mt-2 divide-y divide-[var(--eh-border-soft)]">
-                      {panels.map((panel) => (
+                      {relatedPanels.map((panel) => (
                         <li key={panel.key}>
                           <Link
                             href={`/knowledge/panels/${encodeURIComponent(panel.key)}`}
