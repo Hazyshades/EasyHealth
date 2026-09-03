@@ -30,7 +30,6 @@ import {
   buildHealthNavigationPath,
   healthRouteLabel,
   readHealthNavigationContext,
-  type HealthNavigationContext,
 } from "@/lib/health-navigation";
 import {
   buildMeasurementComparisonSeries,
@@ -91,13 +90,6 @@ const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
   { id: "high", label: "High" },
 ];
 
-const EMPTY_NAVIGATION_CONTEXT: HealthNavigationContext = {
-  system: null,
-  measurement: null,
-  observation: null,
-  returnTo: null,
-};
-
 function observationStatus(o: Observation): StatusFilter {
   if (!o.registry_binding_ready) return "mapping";
   if (o.value_kind && o.value_kind !== "numeric") return "normal";
@@ -127,8 +119,7 @@ export default function BiomarkersPage({
   reviewedMeasurementKeys,
 }: BiomarkersPageProps) {
   const searchParams = useSearchParams();
-  const [navigationContext, setNavigationContext] =
-    useState<HealthNavigationContext>(EMPTY_NAVIGATION_CONTEXT);
+  const navigationContext = readHealthNavigationContext(searchParams);
   const [observations, setObservations] = useState<Observation[]>([]);
   const [selectedKey, setSelectedKey] = useState("");
   const [selectedObservationId, setSelectedObservationId] = useState("");
@@ -143,12 +134,6 @@ export default function BiomarkersPage({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [labUnitSystem, setLabUnitSystem] = useState<LabUnitSystem>("si");
   const [savingUnits, setSavingUnits] = useState(false);
-  const [navigationReady, setNavigationReady] = useState(false);
-
-  useEffect(() => {
-    setNavigationContext(readHealthNavigationContext(searchParams));
-    setNavigationReady(true);
-  }, [searchParams]);
 
   useEffect(() => {
     const requested = navigationContext.measurement;
@@ -166,47 +151,52 @@ export default function BiomarkersPage({
     reviewedMeasurementKeys,
   ]);
 
-  const loadObservations = useCallback(() => {
-    return fetch("/api/biomarkers")
-      .then((r) => r.json())
-      .then((data) => {
-        const obs = data.observations ?? [];
-        setObservations(obs);
-        if (data.lab_unit_system === "us" || data.lab_unit_system === "si") {
-          setLabUnitSystem(data.lab_unit_system);
-        }
-        setSelectedKey((prev) => {
-          const requested = getReviewedMeasurementKey(
-            navigationContext.measurement,
-            reviewedMeasurementKeys,
-          );
-          // Related catalog links may target a reviewed definition with no
-          // saved observation; keep that context for the educational graph.
-          if (requested) return requested;
-          if (navigationContext.measurement) return "";
-          if (
-            prev &&
-            obs.some(
-              (o: Observation) =>
-                o.measurement_definition_key === prev &&
-                o.trend_eligible === true,
-            )
-          ) {
-            return prev;
+  const loadObservations = useCallback(
+    (requestedMeasurement: string | null) => {
+      return fetch("/api/biomarkers")
+        .then((r) => r.json())
+        .then((data) => {
+          const obs = data.observations ?? [];
+          setObservations(obs);
+          if (data.lab_unit_system === "us" || data.lab_unit_system === "si") {
+            setLabUnitSystem(data.lab_unit_system);
           }
-          const resolved = obs.find(
-            (o: Observation) =>
-              o.measurement_definition_key && o.trend_eligible === true,
-          );
-          return resolved?.measurement_definition_key ?? "";
+          setSelectedKey((prev) => {
+            const requested = getReviewedMeasurementKey(
+              requestedMeasurement,
+              reviewedMeasurementKeys,
+            );
+            // Related catalog links may target a reviewed definition with no
+            // saved observation; keep that context for the educational graph.
+            if (requested) return requested;
+            if (requestedMeasurement) return "";
+            if (
+              prev &&
+              obs.some(
+                (o: Observation) =>
+                  o.measurement_definition_key === prev &&
+                  o.trend_eligible === true,
+              )
+            ) {
+              return prev;
+            }
+            const resolved = obs.find(
+              (o: Observation) =>
+                o.measurement_definition_key && o.trend_eligible === true,
+            );
+            return resolved?.measurement_definition_key ?? "";
+          });
         });
-      });
-  }, [navigationContext.measurement, reviewedMeasurementKeys]);
+    },
+    [reviewedMeasurementKeys],
+  );
 
   useEffect(() => {
-    if (!navigationReady) return;
-    void loadObservations();
-  }, [loadObservations, navigationReady]);
+    const currentContext = readHealthNavigationContext(
+      new URLSearchParams(window.location.search),
+    );
+    void loadObservations(currentContext.measurement);
+  }, [loadObservations]);
 
   useEffect(() => {
     if (!selectedObservationId || !observations.length) return;
@@ -297,7 +287,7 @@ export default function BiomarkersPage({
         throw new Error(data.error ?? "Failed to update units");
       }
       setLabUnitSystem(next);
-      await loadObservations();
+      await loadObservations(navigationContext.measurement);
     } catch {
       /* keep previous */
     } finally {
