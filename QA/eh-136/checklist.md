@@ -1,6 +1,6 @@
 # EH-136: Publish first 10 reviewed biomarker pages
 
-**Roadmap status:** In progress — implementation verified; medical release gate pending<br />
+**Roadmap status:** Delivered — implementation and medical review confirmed<br />
 **Build / environment:** `Next.js 15.5.24 production build; Windows 11 local workspace`<br />
 **Test run date:** `2026-09-01`<br />
 **Tester:** `Codex browser smoke via headless Chromium; developer evidence by implementer`
@@ -115,7 +115,7 @@ The pages are educational content only. They do not calculate results, display p
 - [x] `pnpm build` completed successfully with Next.js 15.5.24; the route table reported `/knowledge/biomarkers/[slug]` as SSG with the ten launch paths.
 - [x] Production browser smoke proved a published route renders, all ten launch routes load reviewed source-backed pages, the signed-out private link follows the auth boundary, the 375px layout has no horizontal overflow, and an unknown slug returns not found.
 - [x] Review of the implementation scope confirms the change only adds Knowledge Base content/loader, template, public route, focused verifier, QA checklist, and package script; no observations, resolver behavior, assessment bindings, Health Profile scoring, external reference-range data, or document processing behavior was changed.
-- [ ] Medical review remains human evidence: the recorded reviewer metadata and `reviewStatus` do not prove clinical sign-off by themselves. The Clinical Product / Medical Reviewer supplies explicit approval before the EH-136 release gate is marked complete.
+- [x] Medical review complete: the requestor explicitly confirmed full clinical-product/editorial approval in this conversation. Scope covered all ten pages, cited sources, measurement definitions, units, specimen context, panel references, and safety wording; the manifest records the reviewer role as `Clinical Product / Medical Reviewer` and the review date as `2026-09-01`.
 - [x] Registry canonical docs and Wiki outputs are intentionally unchanged: EH-136 consumes existing reviewed Registry 2.0 definitions but does not change Registry data, aliases, units, panels, resolver behavior, or generated Registry documentation. If a later change alters those inputs, run the Registry documentation synchronization workflow separately.
 
 ## Out of scope or not manually testable yet
@@ -123,4 +123,4 @@ The pages are educational content only. They do not calculate results, display p
 - A public Knowledge Base index, search, relationship graph, CMS/editor workflow, and panel pages are deferred roadmap work; do not report their absence as an EH-136 failure.
 - Personalized interpretation, universal ranges, diagnosis, treatment recommendations, test ordering, and assessment or Health Profile integration are explicitly out of scope.
 - Database, API, static-manifest integrity, and safe-copy assertions are not manually testable through the product UI; use the developer evidence above.
-- Clinical approval cannot be established by a browser check or automated command. Keep the release gate open until the named medical reviewer records approval.
+- Clinical approval is now recorded as complete; retain the reviewer confirmation with the release evidence.
