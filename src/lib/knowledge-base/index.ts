@@ -11,7 +11,6 @@ export {
 export {
   getKnowledgeArticleHref,
   getKnowledgeArticleRecordByMeasurementKey,
-  getKnowledgeArticleRecordBySlug,
 } from "./links";
 export type {
   KnowledgeArticle,

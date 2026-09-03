@@ -4,6 +4,7 @@ import { ContextBreadcrumbs } from "@/components/layout/context-breadcrumbs";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { getKnowledgeArticleBySlug } from "@/lib/knowledge-base";
 import { getKnowledgeArticleRecordByMeasurementKey } from "@/lib/knowledge-base/links";
+import { getMeasurementDefinition } from "@/lib/biomarkers";
 import type { PanelDefinition, PanelMember } from "@/lib/biomarkers";
 
 function MemberRow({ member }: { member: PanelMember }) {
@@ -13,8 +14,11 @@ function MemberRow({ member }: { member: PanelMember }) {
   const relatedArticle = relatedRecord
     ? getKnowledgeArticleBySlug(relatedRecord.slug)
     : null;
+  const definition = getMeasurementDefinition(member.measurementDefinitionKey);
   const label =
-    relatedArticle?.definition.displayName ?? member.measurementDefinitionKey;
+    relatedArticle?.definition.displayName ??
+    definition?.displayName ??
+    member.measurementDefinitionKey;
   const roleLabel =
     member.role === "required" ? "Usually included" : "May be included";
 

@@ -6,7 +6,7 @@ export function KnowledgeHeader() {
     <header className="border-b border-[var(--eh-border)] bg-white">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
         <Link
-          href="/knowledge"
+          href="/"
           className="flex min-w-0 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--eh-brand)] focus-visible:ring-offset-2"
         >
           <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--eh-brand-soft)] text-[var(--eh-brand)]">
