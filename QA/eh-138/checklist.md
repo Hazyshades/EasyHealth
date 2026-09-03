@@ -89,7 +89,7 @@ This checklist covers the public Knowledge Base index, reviewed measurement sear
 **Result:** `Pass` — authenticated smoke on 2026-09-01 opened the public Hemoglobin article without private values or identifiers and without `/api/` or Supabase resources, then followed **View your result** to `/app/biomarkers?measurement=hemoglobin_whole_blood`. The destination rendered the synthetic `EH138-UI-CBC-SYNTHETIC.pdf` row with `142 g/L` / laboratory `14.2 g/dL`, and no loading state remained.
 **Notes / evidence link:** Local authenticated browser smoke on `127.0.0.1:3008`; the dedicated local Supabase account and synthetic fixture were purged after verification, and no test data is stored in the repository.
 
-- [x] Browser/network evidence reviewed for anonymous `/knowledge`, canonical and alias search, category/CBC filters, `/knowledge/biomarkers/hemoglobin`, and `/knowledge/panels/cbc`; anonymous and authenticated public article resources contained no `/api/` or Supabase calls after the route-aware AuthProvider boundary, no private identifiers were rendered, and the authenticated CTA rendered only the synthetic private Biomarker result after navigation.
+- [x] Browser/network evidence reviewed for anonymous `/knowledge`, canonical and alias search, category/CBC filters, `/knowledge/biomarkers/hemoglobin`, and `/knowledge/panels/cbc`; anonymous and authenticated public article resources contained no `/api/` or Supabase calls after the route-aware AuthProvider boundary, no private identifiers were rendered, and the authenticated CTA rendered only the synthetic private observation after navigation.
 
 ### EH138-UI-05: Open a panel article and inspect membership semantics
 
@@ -130,7 +130,7 @@ This checklist covers the public Knowledge Base index, reviewed measurement sear
 - [x] `pnpm typecheck` and `pnpm build` pass. The production build generated the static Knowledge Base index, 11 measurement article paths, and 6 panel paths.
 - [x] `pnpm check:documentation-links` passes; 10 links resolve.
 - [x] `pnpm test:biomarker-docs` passes; generated Registry-backed documentation remains synchronized.
-- [x] Browser/network evidence reviewed for `/knowledge`, canonical and alias search, category/CBC filters, `/knowledge/biomarkers/hemoglobin`, and `/knowledge/panels/cbc`; anonymous and authenticated public article resources contained no `/api/` or Supabase calls after the route-aware AuthProvider boundary, no private identifiers were rendered, and the authenticated CTA rendered only the synthetic private Biomarker result after navigation.
+- [x] Browser/network evidence reviewed for anonymous `/knowledge`, canonical and alias search, category/CBC filters, `/knowledge/biomarkers/hemoglobin`, and `/knowledge/panels/cbc`; anonymous and authenticated public article resources contained no `/api/` or Supabase calls after the route-aware AuthProvider boundary, no private identifiers were rendered, and the authenticated CTA rendered only the synthetic private observation after navigation.
 - [x] Database/migration evidence: **N/A**. EH-138 adds no tables, migrations, persistence, RPCs, or profile data access.
 - [x] Wiki publication and tracking issue evidence: generated 7-page staging matched remote Wiki HEAD; Registry tracking issue #222 records `PUBLISHED`.
 

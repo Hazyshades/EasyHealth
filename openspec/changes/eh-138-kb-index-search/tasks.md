@@ -7,12 +7,12 @@
 
 - [x] 2.1 Add the standalone public Knowledge Base layout/header with links to EasyHealth and the authenticated app.
 - [x] 2.2 Add the `/knowledge` index with category groups, panel cards, GET search, shareable category/panel filters, empty states, and accessible controls.
-- [x] 2.3 Add published measurement article routes with safe educational sections, Registry-backed metadata, sources, related links, disclaimer, breadcrumbs, and a private Biomarkers CTA.
+- [x] 2.3 Add published measurement article routes with safe educational sections, Registry-backed metadata, sources, related links, disclaimer, breadcrumbs, and a private results CTA.
 - [x] 2.4 Add panel detail routes backed by the static panel registry with ordered required/optional members, composition-variation guidance, published article links, and breadcrumbs.
 
 ## 3. Health Profile navigation entry points
 
-- [x] 3.1 Add published-article links to desktop and mobile Biomarker rows without exposing values, profile ids, observation ids, or document ids.
+- [x] 3.1 Add published-article links to desktop and mobile Observation rows without exposing values, profile ids, observation ids, or document ids.
 - [x] 3.2 Add discoverable Knowledge Base entry points to the public landing/app navigation while preserving existing authenticated navigation behavior.
 
 ## 4. Verification and QA

@@ -1,6 +1,6 @@
 ## Context
 
-The repository already exposes reviewed Registry 2.0 measurement definitions and a static panel registry in `src/lib/biomarkers`, while authenticated Biomarker rows are loaded from the profile-scoped `/api/biomarkers` route. There is no Knowledge Base route or content layer. The change must connect those surfaces without turning educational content into a resolver, assessment, or observation consumer.
+The repository already exposes reviewed Registry 2.0 measurement definitions and a static panel registry in `src/lib/biomarkers`, while authenticated Observation rows are loaded from the profile-scoped `/api/biomarkers` route. There is no Knowledge Base route or content layer. The change must connect those surfaces without turning educational content into a resolver, assessment, or observation consumer.
 
 EH-138 is a frontend and static-content change across the new `knowledge-base` surface and the existing `health-profile` navigation entry point. The public pages must be useful without a session; private observations must remain available only through existing authenticated app routes.
 
@@ -12,7 +12,7 @@ EH-138 is a frontend and static-content change across the new `knowledge-base` s
 - Render a public `/knowledge` index with category sections, normalized canonical/alias search, and panel filters.
 - Render measurement article and panel detail routes with safe educational copy, source links, related links, and accessible breadcrumbs.
 - Use the existing static panel registry to preserve required/optional order and explicitly explain variable panel composition.
-- Add article links to Biomarker rows only when the row's concrete key has a published article.
+- Add article links to Observation rows only when the row's concrete key has a published article.
 - Provide a link from an article back to `/app/biomarkers?measurement=<key>` without passing observation values, profile ids, or document ids through the public route.
 - Verify search precedence, alias coverage, panel filtering, route links, and the absence of private-data reads in Knowledge Base code.
 
@@ -52,7 +52,7 @@ Panel pages use `PANEL_DEFINITIONS` and `listPanelsForMeasurementDefinition` rat
 
 ### 5. Preserve a one-way public/private boundary
 
-Knowledge pages import only static content and reviewed Registry metadata. Their only user-specific affordance is a plain link to the authenticated `/app/biomarkers` route with a concrete measurement key. The shared AuthProvider treats `/knowledge` routes as public, using auth metadata only and avoiding `/api/profile`; profile resolution remains on private app routes. Biomarker rows use the same allow-list to link outward, but never append values, profile identifiers, observation identifiers, or source-document identifiers to a Knowledge Base URL.
+Knowledge pages import only static content and reviewed Registry metadata. Their only user-specific affordance is a plain link to the authenticated `/app/biomarkers` route with a concrete measurement key. The shared AuthProvider treats `/knowledge` routes as public, using auth metadata only and avoiding `/api/profile`; profile resolution remains on private app routes. Observation rows use the same allow-list to link outward, but never append values, profile identifiers, observation identifiers, or source-document identifiers to a Knowledge Base URL.
 
 **Alternative rejected:** fetching a user's matching observations on an article page. That would mix a public article response with private data and duplicate existing profile ownership checks.
 

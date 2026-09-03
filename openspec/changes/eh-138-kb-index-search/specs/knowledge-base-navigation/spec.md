@@ -127,14 +127,14 @@ Knowledge Base routes SHALL render without fetching Supabase, profile, document,
 - **AND** the Knowledge Base URL contains no observation value, profile id, observation id, or document id
 - **AND** the private Biomarker page remains responsible for profile-scoped data access
 
-#### Scenario: Biomarker row links only to published content
+#### Scenario: Observation row links only to published content
 
-- **WHEN** an authenticated Biomarker row has a concrete measurement-definition key with a published article
+- **WHEN** an authenticated Observation row has a concrete measurement-definition key with a published article
 - **THEN** the row exposes a link to that article's public route
 - **AND** the link contains no private result payload
 
-#### Scenario: Biomarker row without published content remains safe
+#### Scenario: Observation row without published content remains safe
 
-- **WHEN** a Biomarker row has no concrete key or no published article
+- **WHEN** an Observation row has no concrete key or no published article
 - **THEN** the row retains its existing value/source rendering
 - **AND** no broken or guessed Knowledge Base link is shown
