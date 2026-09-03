@@ -143,7 +143,6 @@ export const measurementEducationArticleSchema = z
 export type MeasurementEducationArticle = z.infer<
   typeof measurementEducationArticleSchema
 >;
-
 export const panelEducationArticleSchema = z
   .object({
     ...commonArticleShape,
@@ -157,9 +156,59 @@ export const panelEducationArticleSchema = z
 
 export type PanelEducationArticle = z.infer<typeof panelEducationArticleSchema>;
 
+export const panelArticleMemberRoleSchema = z.enum([
+  "core",
+  "optional",
+  "related",
+]);
+export type PanelArticleMemberRole = z.infer<
+  typeof panelArticleMemberRoleSchema
+>;
+
+const panelArticleMemberSchema = z
+  .object({
+    measurementDefinitionKey: nonEmptyText,
+    role: panelArticleMemberRoleSchema,
+    explanation: nonEmptyText,
+  })
+  .strict();
+
+export type PanelArticleMember = z.infer<typeof panelArticleMemberSchema>;
+
+const panelArticleSubgroupSchema = z
+  .object({
+    key: articleSlug,
+    title: nonEmptyText,
+    summary: nonEmptyText,
+    members: z.array(panelArticleMemberSchema).min(1),
+  })
+  .strict();
+
+export type PanelArticleSubgroup = z.infer<typeof panelArticleSubgroupSchema>;
+
+/** EH-135's richer panel presentation record extends the canonical panel shape. */
+export const panelArticleSchema = z
+  .object({
+    ...commonArticleShape,
+    type: z.literal("panel"),
+    panelKey: nonEmptyText,
+    purpose: nonEmptyText,
+    compositionNote: nonEmptyText,
+    subgroups: z.array(panelArticleSubgroupSchema).min(1),
+    relatedMarkers: z.array(panelArticleMemberSchema),
+    disclaimer: nonEmptyText,
+  })
+  .strict()
+  .superRefine((article, context) => {
+    addLifecycleValidation(article, context);
+  });
+
+export type PanelArticle = z.infer<typeof panelArticleSchema>;
+
 /** Shared strict article contract; each variant retains its subject key. */
 export const knowledgeBaseArticleSchema = z.union([
   measurementEducationArticleSchema,
+  panelArticleSchema,
   panelEducationArticleSchema,
 ]);
 

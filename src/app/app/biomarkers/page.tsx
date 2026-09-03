@@ -144,8 +144,7 @@ export default function BiomarkersPage() {
             requested &&
             obs.some(
               (o: Observation) =>
-                o.measurement_definition_key === requested &&
-                o.trend_eligible === true,
+                o.measurement_definition_key === requested,
             )
           ) {
             return requested;
@@ -154,8 +153,7 @@ export default function BiomarkersPage() {
             prev &&
             obs.some(
               (o: Observation) =>
-                o.measurement_definition_key === prev &&
-                o.trend_eligible === true,
+                o.measurement_definition_key === prev,
             )
           ) {
             return prev;
@@ -176,13 +174,12 @@ export default function BiomarkersPage() {
 
   useEffect(() => {
     if (!selectedObservationId || !observations.length) return;
-    const selectedBelongsToSeries = observations.some(
+    const selectedBelongsToMeasurement = observations.some(
       (observation) =>
         observation.id === selectedObservationId &&
-        observation.measurement_definition_key === selectedKey &&
-        observation.trend_eligible === true,
+        observation.measurement_definition_key === selectedKey,
     );
-    if (!selectedBelongsToSeries) setSelectedObservationId("");
+    if (!selectedBelongsToMeasurement) setSelectedObservationId("");
   }, [observations, selectedKey, selectedObservationId]);
 
   useEffect(() => {

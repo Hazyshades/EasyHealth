@@ -157,7 +157,7 @@ const deprecatedWithoutDate = {
 };
 
 assert.equal(MEASUREMENT_ARTICLES.length, 0);
-assert.equal(PANEL_ARTICLES.length, 0);
+assert.equal(PANEL_ARTICLES.length, 1);
 assert.equal(validateKnowledgeBaseArticleCatalog().valid, true);
 assert.equal(validateKnowledgeBaseArticle(publishedMeasurement).valid, true);
 assert.equal(validateKnowledgeBaseArticle(publishedPanel).valid, true);

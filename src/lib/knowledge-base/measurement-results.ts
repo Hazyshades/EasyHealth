@@ -10,12 +10,19 @@ const measurementObservationSchema = z
     value_kind: z.string().nullable().optional(),
     value_text: z.string().nullable().optional(),
     unit: z.string().nullable(),
-    observed_at: z.string().min(1),
+    original_value: z.union([z.number(), z.string(), z.null()]).optional(),
+    original_unit: z.string().nullable().optional(),
+    converted: z.boolean().optional(),
+    conversion_note: z.string().nullable().optional(),
+    observed_at: z.string().min(1).nullable(),
+    ordinal: z.number().nullable().optional(),
+    source_page: z.number().nullable().optional(),
     document_id: z.string().nullable(),
     documents: z
       .object({
         id: z.string().min(1),
         original_filename: z.string(),
+        lab_name: z.string().nullable().optional(),
       })
       .passthrough()
       .nullable()
@@ -61,6 +68,19 @@ export function formatMeasurementObservationValue(
     return observation.value_text?.trim() || "Not reported";
   }
   return `${observation.value}${observation.unit ? ` ${observation.unit}` : ""}`;
+}
+export function formatPanelArticleObservationValue(
+  observation: MeasurementObservation,
+): string {
+  if (observation.value_kind && observation.value_kind !== "numeric") {
+    return formatMeasurementObservationValue(observation);
+  }
+  const value = observation.original_value ?? observation.value;
+  if (value === null || value === "") {
+    return observation.value_text?.trim() || "Not reported";
+  }
+  const unit = observation.original_unit ?? observation.unit;
+  return `${value}${unit ? ` ${unit}` : ""}`;
 }
 
 export function buildMeasurementBiomarkersHref(
