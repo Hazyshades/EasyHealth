@@ -23,6 +23,7 @@ assert.equal(biomarkerContext.system, "metabolic");
 assert.equal(biomarkerContext.measurement, "glucose");
 assert.equal(biomarkerContext.observation, "obs-1");
 assert.equal(biomarkerContext.returnTo, profileReturnPath);
+assert.equal(healthRouteLabel(biomarkerPath), "Biomarkers");
 assert.equal(
   resolveHealthReturnPath("https://example.invalid/account", "/app"),
   "/app",
@@ -34,6 +35,7 @@ assert.equal(resolveHealthReturnPath("/app/profile\nmalicious", "/app"), "/app")
 assert.equal(healthRouteLabel(profileReturnPath), "Health Profile");
 assert.equal(healthRouteLabel("/app/timeline?type=referral&page=2"), "Health Timeline");
 assert.equal(healthRouteLabel("/app/documents/document-1"), "Documents");
+assert.equal(healthRouteLabel("/app/knowledge/panels/cbc"), "Knowledge");
 
 const documentPath = buildHealthNavigationPath("/app/documents/doc-1", {
   system: biomarkerContext.system,

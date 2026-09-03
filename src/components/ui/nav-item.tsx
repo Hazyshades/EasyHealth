@@ -25,7 +25,7 @@ export function NavItem({ item, active, compact = false }: NavItemProps) {
         title={item.label}
         {...hoverProps}
         className={cn(
-        "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-2 transition-[color,transform] duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2",
+        "flex min-h-11 min-w-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-2 transition-[color,transform] duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2",
           active
             ? "bg-[#4F46E5] text-white shadow-[0_10px_22px_rgba(79,70,229,0.24)]"
             : "text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
