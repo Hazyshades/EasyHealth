@@ -61,7 +61,7 @@ assert.match(profilePage, /readHealthNavigationContext/);
 assert.match(profilePage, /buildHealthNavigationPath\("\/app\/profile"/);
 assert.match(profilePage, /onExternalSelect=\{handleSystemSelection\}/);
 
-const biomarkersPage = readFileSync("src/app/app/biomarkers/page.tsx", "utf8");
+const biomarkersPage = readFileSync("src/app/app/biomarkers/biomarkers-page-client.tsx", "utf8");
 assert.match(biomarkersPage, /navigationContext\.measurement/);
 assert.match(biomarkersPage, /selectedObservationId/);
 assert.match(biomarkersPage, /window\.history\.replaceState/);

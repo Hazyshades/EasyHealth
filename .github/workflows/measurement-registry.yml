@@ -182,6 +182,8 @@ jobs:
         run: pnpm test:eh133
       - name: Verify EH-136 Knowledge Base pages
         run: pnpm test:eh136
+      - name: Verify EH-137 related-measurement graph
+        run: pnpm test:eh137
       - name: Verify EH-128 laboratory panel grouping
         run: pnpm test:eh128
       - name: Verify EH-129 repeated measurement comparison

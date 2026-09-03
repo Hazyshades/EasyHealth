@@ -290,15 +290,22 @@ assert.match(navItem, /min-h-11 min-w-11/);
 const sidebar = readRepo("src/components/layout/sidebar.tsx");
 assert.match(sidebar, /fixed inset-x-0 bottom-0[^"]*px-1 py-2/);
 const biomarkersPage = readRepo("src/app/app/biomarkers/page.tsx");
-assert.match(
-  biomarkersPage,
-  /o\.measurement_definition_key === requested,\s*\n\s*\)\n/,
+const biomarkersPageClient = readRepo(
+  "src/app/app/biomarkers/biomarkers-page-client.tsx",
 );
 assert.match(
   biomarkersPage,
-  /observation\.measurement_definition_key === selectedKey,\s*\n\s*\)\s*;/,
+  /BiomarkersPageClient reviewedMeasurementKeys=\{REVIEWED_MEASUREMENT_KEYS\}/,
 );
-assert.doesNotMatch(biomarkersPage, /selectedBelongsToSeries/);
+assert.match(
+  biomarkersPageClient,
+  /getReviewedMeasurementKey\(\s*requestedMeasurement,\s*reviewedMeasurementKeys,\s*\)/,
+);
+assert.match(
+  biomarkersPageClient,
+  /observation\.measurement_definition_key === selectedKey\s*&&\s*\n\s*observation\.trend_eligible === true,\s*\n\s*\)\s*;/,
+);
+assert.match(biomarkersPageClient, /selectedBelongsToSeries/);
 
 for (const relativePath of [
   "src/lib/knowledge-base/types.ts",

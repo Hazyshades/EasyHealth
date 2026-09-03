@@ -175,7 +175,7 @@ assert.match(apiRoute, /conversion_eligible/);
 assert.match(apiRoute, /original_ref_low/);
 assert.match(apiRoute, /original_ref_high/);
 
-const page = readFileSync("src/app/app/biomarkers/page.tsx", "utf8");
+const page = readFileSync("src/app/app/biomarkers/biomarkers-page-client.tsx", "utf8");
 assert.match(page, /buildMeasurementComparisonSeries/);
 assert.match(page, /filterMeasurementComparisonSeries/);
 assert.match(page, /id="comparison-from"/);
