@@ -133,7 +133,8 @@ export function listPublishedKnowledgeArticles(): readonly KnowledgeArticle[] {
 export function getKnowledgeArticleBySlug(
   slug: string | null | undefined,
 ): KnowledgeArticle | null {
-  return slug ? (ARTICLE_BY_SLUG[slug] ?? null) : null;
+  if (!slug || !Object.hasOwn(ARTICLE_BY_SLUG, slug)) return null;
+  return ARTICLE_BY_SLUG[slug];
 }
 
 export function listKnowledgePanels() {
@@ -141,7 +142,8 @@ export function listKnowledgePanels() {
 }
 
 export function getKnowledgePanel(panelKey: string | null | undefined) {
-  return panelKey ? (PANEL_BY_KEY[panelKey] ?? null) : null;
+  if (!panelKey || !Object.hasOwn(PANEL_BY_KEY, panelKey)) return null;
+  return PANEL_BY_KEY[panelKey];
 }
 
 export function getKnowledgeCategoryLabel(category: KnowledgeCategory): string {

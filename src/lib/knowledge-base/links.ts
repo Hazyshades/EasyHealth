@@ -15,8 +15,12 @@ const ARTICLE_BY_MEASUREMENT_KEY: Record<string, KnowledgeArticleRecord> =
 export function getKnowledgeArticleRecordByMeasurementKey(
   measurementDefinitionKey: string | null | undefined,
 ): KnowledgeArticleRecord | null {
-  if (!measurementDefinitionKey) return null;
-  return ARTICLE_BY_MEASUREMENT_KEY[measurementDefinitionKey] ?? null;
+  if (
+    !measurementDefinitionKey ||
+    !Object.hasOwn(ARTICLE_BY_MEASUREMENT_KEY, measurementDefinitionKey)
+  )
+    return null;
+  return ARTICLE_BY_MEASUREMENT_KEY[measurementDefinitionKey];
 }
 
 export function getKnowledgeArticleHref(

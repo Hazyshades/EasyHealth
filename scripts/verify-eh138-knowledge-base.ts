@@ -95,6 +95,9 @@ assert.equal(
 );
 assert.equal(getKnowledgeArticleHref("unpublished_definition"), null);
 assert.equal(getKnowledgeArticleBySlug("not-published"), null);
+assert.equal(getKnowledgeArticleBySlug("toString"), null);
+assert.equal(getKnowledgePanel("toString"), null);
+assert.equal(getKnowledgeArticleHref("toString"), null);
 assert.ok(
   hemoglobin?.record.sources.every((source) => /^https:\/\//.test(source.href)),
 );

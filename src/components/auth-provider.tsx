@@ -65,13 +65,17 @@ async function loadProfileIdentity(): Promise<{
   }
 }
 
+function getOAuthPrefillName(user: User | null): string | null {
+  if (!user) return null;
+  const fullName = user.user_metadata?.full_name;
+  if (typeof fullName === "string" && fullName) return fullName;
+  const name = user.user_metadata?.name;
+  return typeof name === "string" && name ? name : null;
+}
+
 function storeOAuthPrefill(user: User | null) {
   if (!user || typeof window === "undefined") return;
-  const metaName =
-    (typeof user.user_metadata?.full_name === "string" &&
-      user.user_metadata.full_name) ||
-    (typeof user.user_metadata?.name === "string" && user.user_metadata.name) ||
-    null;
+  const metaName = getOAuthPrefillName(user);
   if (metaName) {
     window.sessionStorage.setItem(OAUTH_PREFILL_KEY, metaName);
   }
@@ -109,9 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       storeOAuthPrefill(user);
       const fallbackIdentity = resolveProfileIdentity(
-        (user.user_metadata?.full_name as string) ||
-          (user.user_metadata?.name as string) ||
-          null,
+        getOAuthPrefillName(user),
         user.email,
       );
       const identity = knowledgeBaseRoute
