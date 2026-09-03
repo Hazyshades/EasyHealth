@@ -25,6 +25,16 @@ export const PAGE_TITLES: Record<string, { title: string; subtitle?: string }> =
     title: "Biomarkers",
     subtitle: "Values extracted from your lab documents",
   },
+  "/app/knowledge": {
+    title: "Knowledge",
+    subtitle:
+      "Plain-language guides that help you read your health record without changing it",
+  },
+  "/app/knowledge/panels/cbc": {
+    title: "Complete blood count",
+    subtitle:
+      "A plain-language guide to the group of red-cell, white-cell, and platelet measurements often reported together",
+  },
   "/app/documents": {
     title: "Documents",
     subtitle: "Upload and browse your medical records",

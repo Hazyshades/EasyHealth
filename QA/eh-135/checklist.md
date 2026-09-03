@@ -130,10 +130,10 @@ This checklist covers the authenticated Knowledge surface for the complete blood
 
 ## Developer evidence required
 
-- [x] `pnpm test:eh135` passes. This proves article metadata, exact Registry-key coverage, subgroup/role boundaries, deterministic result selection, source preservation, and route/template wiring. Verified 2026-09-02.
-- [x] `pnpm typecheck` passes for the typed content module, selector, template, route, and navigation changes. Verified 2026-09-02.
-- [x] `pnpm build` passes with the repository's non-secret validation fixtures. Verified 2026-09-02; route table includes `/app/knowledge` and `/app/knowledge/panels/cbc`.
-- [x] `openspec validate eh-135-build-panel-article-and-cbc-page --strict` passes. Verified 2026-09-02.
+- [x] `pnpm test:eh135` and `pnpm test:eh131` pass. This proves article metadata, exact Registry-key coverage, subgroup/role boundaries, deterministic result selection, source preservation, route/template wiring, and Knowledge route metadata. Verified 2026-09-03.
+- [x] `pnpm typecheck` passes for the typed content module, selector, template, route, page metadata, and navigation changes; `pnpm typecheck:worker` also passes. Verified 2026-09-03.
+- [x] `pnpm build` passes with the repository's non-secret validation fixtures. Verified 2026-09-03 after the final page metadata fix; route table includes `/app/knowledge` and `/app/knowledge/panels/cbc`.
+- [x] Both OpenSpec validations pass in strict mode: `eh-135-build-panel-article-and-cbc-page` and `repair-knowledge-base-compatibility-regressions`. Verified 2026-09-03.
 - [x] Registry documentation synchronization is recorded as consumer-only: canonical Registry pages are reviewed and unchanged, required generation/drift/test commands pass, and Wiki render/staging/publication status is linked in tracking issue [#220](https://github.com/Hazyshades/EasyHealth/issues/220).
 - [x] `pnpm test:app-navigation-hot-path` passes, confirming the added Knowledge item does not break existing authenticated navigation contracts. Verified 2026-09-02.
 - [x] `pnpm test:eh133` and `pnpm test:eh134` pass after syncing the canonical EH-133/EH-134 Knowledge Base contracts with EH-135. Verified 2026-09-02.

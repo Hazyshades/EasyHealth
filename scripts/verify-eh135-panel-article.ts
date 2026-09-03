@@ -274,6 +274,15 @@ const index = readRepo("src/app/app/knowledge/page.tsx");
 assert.match(index, /\/app\/knowledge\/panels\/cbc/);
 const navigation = readRepo("src/lib/nav-items.ts");
 assert.match(navigation, /label: "Knowledge"/);
+const pageMetadata = readRepo("src/lib/navigation.ts");
+assert.match(
+  pageMetadata,
+  /"\/app\/knowledge":\s*\{\s*title: "Knowledge"/,
+);
+assert.match(
+  pageMetadata,
+  /"\/app\/knowledge\/panels\/cbc":\s*\{\s*title: "Complete blood count"/,
+);
 const routeLabels = readRepo("src/lib/health-navigation.ts");
 assert.match(routeLabels, /pathname === "\/app\/knowledge"/);
 const navItem = readRepo("src/components/ui/nav-item.tsx");
