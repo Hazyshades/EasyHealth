@@ -14,6 +14,7 @@
     "test:cbc-regression": "tsx scripts/verify-cbc-measurement-regression-runner.ts",
     "test:measurement-registry": "tsx scripts/verify-measurement-registry-runner.ts",
     "test:panel-registry": "tsx scripts/verify-panel-registry-runner.ts",
+    "test:eh137": "tsx scripts/verify-eh137-related-measurement-graph.ts",
     "test:eh128": "tsx scripts/verify-eh128-panel-grouping.ts",
     "test:eh111": "tsx scripts/verify-eh111-clinical-compatibility-runner.ts",
     "test:eh141": "tsx scripts/verify-eh141-score-required-groups.ts",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { CalendarDays, SlidersHorizontal } from "lucide-react";
 import {
   Select,
@@ -10,7 +11,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { BiomarkerTable } from "@/components/biomarker-table";
-import { BiomarkerChart, type BiomarkerChartPoint } from "@/components/biomarker-chart";
+import {
+  BiomarkerChart,
+  type BiomarkerChartPoint,
+} from "@/components/biomarker-chart";
+import {
+  RelatedMeasurementGraph,
+  type RelatedMeasurementGraphStatus,
+} from "@/components/knowledge/related-measurement-graph";
+import type { MeasurementRelationshipGraph } from "@/lib/knowledge/measurement-relationship-graph";
 import { ContextBreadcrumbs } from "@/components/layout/context-breadcrumbs";
 import { PageHeader } from "@/components/layout/page-header";
 import { SurfaceCard } from "@/components/ui/surface-card";
@@ -50,7 +59,11 @@ type Observation = {
   ref_high: number | null;
   observed_at: string;
   document_id: string | null;
-  documents?: { id: string; original_filename: string; lab_name?: string | null } | null;
+  documents?: {
+    id: string;
+    original_filename: string;
+    lab_name?: string | null;
+  } | null;
   converted?: boolean;
   conversion_note?: string | null;
   original_value?: number | null;
@@ -84,7 +97,8 @@ const EMPTY_NAVIGATION_CONTEXT: HealthNavigationContext = {
 function observationStatus(o: Observation): StatusFilter {
   if (!o.registry_binding_ready) return "mapping";
   if (o.value_kind && o.value_kind !== "numeric") return "normal";
-  if (o.value == null || o.ref_low == null || o.ref_high == null) return "normal";
+  if (o.value == null || o.ref_low == null || o.ref_high == null)
+    return "normal";
   if (o.value < o.ref_low) return "low";
   if (o.value > o.ref_high) return "high";
   return "normal";
@@ -98,11 +112,16 @@ function matchesStatusFilter(o: Observation, filter: StatusFilter): boolean {
 }
 
 export default function BiomarkersPage() {
+  const searchParams = useSearchParams();
   const [navigationContext, setNavigationContext] =
     useState<HealthNavigationContext>(EMPTY_NAVIGATION_CONTEXT);
   const [observations, setObservations] = useState<Observation[]>([]);
   const [selectedKey, setSelectedKey] = useState("");
   const [selectedObservationId, setSelectedObservationId] = useState("");
+  const [relatedGraph, setRelatedGraph] =
+    useState<MeasurementRelationshipGraph | null>(null);
+  const [relatedGraphStatus, setRelatedGraphStatus] =
+    useState<RelatedMeasurementGraphStatus>("idle");
   const [selectedSeriesId, setSelectedSeriesId] = useState("");
   const [comparisonFrom, setComparisonFrom] = useState("");
   const [comparisonTo, setComparisonTo] = useState("");
@@ -113,12 +132,9 @@ export default function BiomarkersPage() {
   const [navigationReady, setNavigationReady] = useState(false);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    setNavigationContext(
-      readHealthNavigationContext(new URLSearchParams(window.location.search)),
-    );
+    setNavigationContext(readHealthNavigationContext(searchParams));
     setNavigationReady(true);
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     if (navigationContext.measurement) {
@@ -140,16 +156,9 @@ export default function BiomarkersPage() {
         }
         setSelectedKey((prev) => {
           const requested = navigationContext.measurement;
-          if (
-            requested &&
-            obs.some(
-              (o: Observation) =>
-                o.measurement_definition_key === requested &&
-                o.trend_eligible === true,
-            )
-          ) {
-            return requested;
-          }
+          // Related catalog links may target a reviewed definition with no
+          // saved observation; keep that context for the educational graph.
+          if (requested) return requested;
           if (
             prev &&
             obs.some(
@@ -184,6 +193,52 @@ export default function BiomarkersPage() {
     );
     if (!selectedBelongsToSeries) setSelectedObservationId("");
   }, [observations, selectedKey, selectedObservationId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!selectedKey) {
+      setRelatedGraph(null);
+      setRelatedGraphStatus("idle");
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setRelatedGraph(null);
+    setRelatedGraphStatus("loading");
+    void fetch(
+      `/api/knowledge/measurements/${encodeURIComponent(selectedKey)}/relationships`,
+      { headers: { Accept: "application/json" } },
+    )
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Relationship graph unavailable");
+        const body: unknown = await response.json();
+        if (
+          typeof body !== "object" ||
+          body === null ||
+          !("root" in body) ||
+          !("edges" in body) ||
+          !Array.isArray(body.edges)
+        ) {
+          throw new Error("Invalid relationship graph response");
+        }
+        return body as MeasurementRelationshipGraph;
+      })
+      .then((graph) => {
+        if (cancelled) return;
+        setRelatedGraph(graph);
+        setRelatedGraphStatus("ready");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRelatedGraph(null);
+        setRelatedGraphStatus("error");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedKey]);
 
   useEffect(() => {
     if (!observations.length || typeof window === "undefined") return;
@@ -268,7 +323,9 @@ export default function BiomarkersPage() {
     });
   }, [comparisonSeries, navigationContext.measurement]);
 
-  const selectedSeries = comparisonSeries.find((series) => series.id === selectedSeriesId);
+  const selectedSeries = comparisonSeries.find(
+    (series) => series.id === selectedSeriesId,
+  );
   const filteredComparisonSeries = useMemo(
     () =>
       filterMeasurementComparisonSeries(comparisonSeries, {
@@ -294,13 +351,17 @@ export default function BiomarkersPage() {
   const chartPoints: BiomarkerChartPoint[] = selectedPoints.map((point) => {
     const observation = observations.find((item) => item.id === point.id);
     const sourceHref = observation?.documents?.id
-      ? buildHealthNavigationPath(`/app/documents/${observation.documents.id}`, {
-          system: navigationContext.system,
-          measurement: selectedSeries?.measurementDefinitionKey ?? selectedKey,
-          observation: point.id,
-          returnTo: biomarkerContextPath,
-        })
-      : point.source?.href ?? null;
+      ? buildHealthNavigationPath(
+          `/app/documents/${observation.documents.id}`,
+          {
+            system: navigationContext.system,
+            measurement:
+              selectedSeries?.measurementDefinitionKey ?? selectedKey,
+            observation: point.id,
+            returnTo: biomarkerContextPath,
+          },
+        )
+      : (point.source?.href ?? null);
     return {
       id: point.id,
       observed_at: point.observedAt,
@@ -313,7 +374,9 @@ export default function BiomarkersPage() {
       laboratory: point.source?.laboratory ?? null,
       sourceHref,
       sourceLabel:
-        observation?.documents?.original_filename ?? point.source?.filename ?? null,
+        observation?.documents?.original_filename ??
+        point.source?.filename ??
+        null,
       source: point.source
         ? { ...point.source, href: sourceHref ?? point.source.href }
         : null,
@@ -335,7 +398,10 @@ export default function BiomarkersPage() {
           { label: "Biomarkers" },
         ]}
       />
-      <PageHeader title="Biomarkers" subtitle="Values extracted from your uploaded lab documents" />
+      <PageHeader
+        title="Biomarkers"
+        subtitle="Values extracted from your uploaded lab documents"
+      />
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <SearchInput
           placeholder="Search biomarker…"
@@ -386,13 +452,22 @@ export default function BiomarkersPage() {
         sourceReturnTo={biomarkerContextPath}
       />
 
+      <RelatedMeasurementGraph
+        graph={relatedGraph}
+        status={relatedGraphStatus}
+        returnTo={biomarkerContextPath}
+      />
+
       <SurfaceCard padding="lg" className="mt-8">
         <div className="mb-4 flex flex-wrap items-center gap-4">
           <span className="text-sm font-semibold text-[var(--eh-text-primary)]">
             Repeated measurement comparison
           </span>
           {comparisonSeries.length > 0 ? (
-            <Select value={selectedSeriesId} onValueChange={setSelectedSeriesId}>
+            <Select
+              value={selectedSeriesId}
+              onValueChange={setSelectedSeriesId}
+            >
               <SelectTrigger className="min-w-56 rounded-xl border-[var(--eh-border)]">
                 <SelectValue placeholder="Select measurement series" />
               </SelectTrigger>
@@ -409,7 +484,8 @@ export default function BiomarkersPage() {
 
         {comparisonSeries.length === 0 ? (
           <p className="text-sm text-[var(--eh-text-secondary)]">
-            No resolved numeric measurement definitions are available for comparison yet.
+            No resolved numeric measurement definitions are available for
+            comparison yet.
           </p>
         ) : (
           <>
@@ -502,7 +578,9 @@ export default function BiomarkersPage() {
         )}
       </SurfaceCard>
 
-      <p className="mt-6 text-xs text-[var(--eh-text-muted)]">{MEDICAL_DISCLAIMER}</p>
+      <p className="mt-6 text-xs text-[var(--eh-text-muted)]">
+        {MEDICAL_DISCLAIMER}
+      </p>
     </div>
   );
 }
