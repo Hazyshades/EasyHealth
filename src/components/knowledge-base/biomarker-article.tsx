@@ -8,6 +8,7 @@ import {
   type KnowledgeArticleRecord,
 } from "@/lib/knowledge-base/content";
 import { getMeasurementDefinition } from "@/lib/biomarkers";
+import { buildHealthNavigationPath } from "@/lib/health-navigation";
 
 const sectionClassName =
   "rounded-2xl border border-[var(--eh-border)] bg-white p-5 shadow-[0_1px_3px_rgba(15,23,42,0.04)] sm:p-7";
@@ -105,7 +106,7 @@ export function BiomarkerArticleTemplate({
                 <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 font-medium text-emerald-800">
                   Reviewed
                 </span>
-                <span>Updated {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(article.reviewedAt))}</span>
+                <span>Updated {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(article.reviewedAt))}</span>
                 <span aria-hidden="true">·</span>
                 <span>Content version {article.contentVersion}</span>
               </div>
@@ -215,7 +216,7 @@ export function BiomarkerArticleTemplate({
                 {article.measurementDefinitions.map((definition) => (
                   <Link
                     key={definition.key}
-                    href={`/app/biomarkers?measurement=${encodeURIComponent(definition.key)}`}
+                    href={buildHealthNavigationPath("/app/biomarkers", { measurement: definition.key })}
                     className="block rounded-lg border border-[var(--eh-brand)]/20 bg-white px-3 py-2 text-sm font-medium text-[var(--eh-brand)] underline-offset-4 hover:border-[var(--eh-brand)]/40 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--eh-brand)] focus-visible:ring-offset-2"
                   >
                     Open {definition.displayName}
@@ -257,7 +258,7 @@ export function BiomarkerArticleTemplate({
                 </div>
                 <div>
                   <dt className="text-xs uppercase tracking-[0.08em] text-[var(--eh-text-muted)]">Last reviewed</dt>
-                  <dd className="mt-1">{new Intl.DateTimeFormat("en", { dateStyle: "long" }).format(new Date(article.reviewedAt))}</dd>
+                  <dd className="mt-1">{new Intl.DateTimeFormat("en", { dateStyle: "long", timeZone: "UTC" }).format(new Date(article.reviewedAt))}</dd>
                 </div>
               </dl>
             </section>

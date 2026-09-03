@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   getKnowledgeArticle,
   getKnowledgeArticlePath,
+  listKnowledgeArticleRecords,
   listPublishedKnowledgeArticleRecords,
   validateKnowledgeBaseManifest,
 } from "../src/lib/knowledge-base/content";
@@ -91,6 +92,25 @@ const UNSAFE_COPY_PATTERNS = [
 
 const errors = validateKnowledgeBaseManifest();
 assert.deepEqual(errors, [], errors.join("\n"));
+const firstRecord = listKnowledgeArticleRecords()[0];
+assert.ok(firstRecord, "EH-136 must have a launch record for boundary checks");
+const invalidDateErrors = validateKnowledgeBaseManifest({
+  schemaVersion: "1",
+  sources: [
+    {
+      id: firstRecord.sourceIds[0],
+      title: "Synthetic source",
+      publisher: "Synthetic publisher",
+      url: "https://example.com/source",
+      accessedAt: "2026-09-01",
+    },
+  ],
+  articles: [{ ...firstRecord, reviewedAt: "2026-99-99T99:99:99.999Z" }],
+});
+assert.ok(
+  invalidDateErrors.some((error) => error.includes("reviewedAt")),
+  "invalid calendar timestamps must fail manifest validation",
+);
 
 const published = listPublishedKnowledgeArticleRecords();
 assert.equal(published.length, EXPECTED_ROSTER.length, "EH-136 must expose exactly ten published records");
@@ -110,7 +130,9 @@ for (const [index, expected] of EXPECTED_ROSTER.entries()) {
   assert.equal(record.reviewStatus, "reviewed");
   assert.match(record.contentVersion, /^\d+\.\d+\.\d+$/);
   assert.notEqual(record.reviewedBy.trim(), "");
-  assert.match(record.reviewedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  const reviewedAt = new Date(record.reviewedAt);
+  assert.equal(Number.isNaN(reviewedAt.getTime()), false);
+  assert.equal(reviewedAt.toISOString(), record.reviewedAt);
   assert.ok(record.sourceIds.length > 0, `${record.slug} must cite at least one source`);
   assert.ok(
     record.measurementDefinitionKeys.length > 0,

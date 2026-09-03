@@ -14,7 +14,12 @@ const CONTENT_ROOT = path.join(process.cwd(), "content", "knowledge", "biomarker
 const ARTICLE_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const BODY_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.md$/;
 const DEFINITION_KEY = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
-const ISO_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const isoDateTimeSchema = z.string().refine((value) => {
+  if (!ISO_DATE_TIME_PATTERN.test(value)) return false;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) && date.toISOString() === value;
+}, "reviewedAt must be a valid ISO timestamp");
 
 const sourceSchema = z.object({
   id: z.string().min(1),
@@ -34,7 +39,7 @@ const articleSchema = z.object({
   status: z.enum(["draft", "review", "published", "deprecated"]),
   reviewStatus: z.enum(["pending", "reviewed"]),
   reviewedBy: z.string().min(1),
-  reviewedAt: z.string().regex(ISO_DATE_TIME),
+  reviewedAt: isoDateTimeSchema,
   bodyFile: z.string().regex(BODY_FILE),
   measurementDefinitionKeys: z.array(z.string().regex(DEFINITION_KEY)).min(1),
   panelKeys: z.array(z.string().regex(DEFINITION_KEY)),
@@ -101,9 +106,6 @@ export function validateKnowledgeBaseManifest(input: unknown = manifestJson): st
         errors.push(`${article.slug}: published article must be reviewed`);
       }
       if (!article.reviewedBy.trim()) errors.push(`${article.slug}: reviewer is required`);
-      if (!ISO_DATE_TIME.test(article.reviewedAt)) {
-        errors.push(`${article.slug}: reviewedAt must be an ISO timestamp`);
-      }
     }
 
     for (const sourceId of article.sourceIds) {
