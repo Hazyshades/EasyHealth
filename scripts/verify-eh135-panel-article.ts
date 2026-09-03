@@ -280,6 +280,16 @@ const navItem = readRepo("src/components/ui/nav-item.tsx");
 assert.match(navItem, /min-h-11 min-w-11/);
 const sidebar = readRepo("src/components/layout/sidebar.tsx");
 assert.match(sidebar, /fixed inset-x-0 bottom-0[^"]*px-1 py-2/);
+const biomarkersPage = readRepo("src/app/app/biomarkers/page.tsx");
+assert.match(
+  biomarkersPage,
+  /o\.measurement_definition_key === requested,\s*\n\s*\)\n/,
+);
+assert.match(
+  biomarkersPage,
+  /observation\.measurement_definition_key === selectedKey,\s*\n\s*\)\s*;/,
+);
+assert.doesNotMatch(biomarkersPage, /selectedBelongsToSeries/);
 
 for (const relativePath of [
   "src/lib/knowledge-base/types.ts",
