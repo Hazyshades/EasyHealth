@@ -8,6 +8,7 @@ const REVIEWED_MEASUREMENT_KEYS = MEASUREMENT_DEFINITIONS.filter(
 ).map((definition) => definition.key);
 
 export default function BiomarkersPage() {
+
   return (
     <BiomarkersPageClient reviewedMeasurementKeys={REVIEWED_MEASUREMENT_KEYS} />
   );

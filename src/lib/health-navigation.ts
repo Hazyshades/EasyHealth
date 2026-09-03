@@ -56,7 +56,9 @@ export function buildHealthNavigationPath(
 ): string {
   const basePath = resolveHealthReturnPath(pathname, "/app");
   const parsed = new URL(basePath, NAVIGATION_ORIGIN);
-  const entries: Array<[keyof HealthNavigationContext, string | null | undefined]> = [
+  const entries: Array<
+    [keyof HealthNavigationContext, string | null | undefined]
+  > = [
     [HEALTH_NAVIGATION_KEYS.system, values.system],
     [HEALTH_NAVIGATION_KEYS.measurement, values.measurement],
     [HEALTH_NAVIGATION_KEYS.observation, values.observation],
@@ -87,12 +89,17 @@ export function readHealthNavigationContext(
 ): HealthNavigationContext {
   return {
     system: normalizedParam(searchParams.get(HEALTH_NAVIGATION_KEYS.system)),
-    measurement: normalizedParam(searchParams.get(HEALTH_NAVIGATION_KEYS.measurement)),
-    observation: normalizedParam(searchParams.get(HEALTH_NAVIGATION_KEYS.observation)),
-    returnTo: resolveHealthReturnPath(
-      searchParams.get(HEALTH_NAVIGATION_KEYS.returnTo),
-      "",
-    ) || null,
+    measurement: normalizedParam(
+      searchParams.get(HEALTH_NAVIGATION_KEYS.measurement),
+    ),
+    observation: normalizedParam(
+      searchParams.get(HEALTH_NAVIGATION_KEYS.observation),
+    ),
+    returnTo:
+      resolveHealthReturnPath(
+        searchParams.get(HEALTH_NAVIGATION_KEYS.returnTo),
+        "",
+      ) || null,
   };
 }
 
@@ -101,6 +108,9 @@ export function healthRouteLabel(path: string): string {
   const pathname = safePath.split("?", 1)[0]?.split("#", 1)[0] ?? "/app";
   if (pathname === "/app/profile") return "Health Profile";
   if (pathname === "/app/biomarkers") return "Biomarkers";
+  if (pathname === "/app/knowledge" || pathname.startsWith("/app/knowledge/")) {
+    return "Knowledge";
+  }
   if (pathname === "/app/timeline") return "Health Timeline";
   if (pathname === "/app/documents" || pathname.startsWith("/app/documents/")) {
     return "Documents";

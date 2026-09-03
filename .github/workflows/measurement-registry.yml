@@ -174,6 +174,14 @@ jobs:
         run: pnpm test:eh132-fixtures
       - name: Verify EH-132 timeline and panel release validation
         run: pnpm test:eh132
+      - name: Verify EH-134 measurement article contracts
+        run: pnpm test:eh134
+      - name: Verify EH-135 panel article
+        run: pnpm test:eh135
+      - name: Verify EH-133 Knowledge Base contract
+        run: pnpm test:eh133
+      - name: Verify EH-136 Knowledge Base pages
+        run: pnpm test:eh136
       - name: Verify EH-128 laboratory panel grouping
         run: pnpm test:eh128
       - name: Verify EH-129 repeated measurement comparison
@@ -302,7 +310,6 @@ jobs:
       - name: Stop local Supabase services
         if: always()
         run: supabase stop --no-backup
-
 
   integration:
     runs-on: ubuntu-latest
