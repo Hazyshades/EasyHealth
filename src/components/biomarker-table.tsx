@@ -7,6 +7,7 @@ import {
   type AssessmentExclusionReason,
 } from "@/lib/health-profile-assessment-eligibility";
 import { buildHealthNavigationPath } from "@/lib/health-navigation";
+import { getKnowledgeArticleHref } from "@/lib/knowledge-base/links";
 import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/status-chip";
 import { SurfaceCard } from "@/components/ui/surface-card";
@@ -92,15 +93,20 @@ function biomarkerStatus(o: Observation): StatusInfo {
   }
   return { label: "Normal", variant: "success" };
 }
-function observationSourceHref(observation: Observation, returnTo: string): string | null {
+function observationSourceHref(
+  observation: Observation,
+  returnTo: string,
+): string | null {
   if (!observation.documents?.id) return null;
-  return buildHealthNavigationPath(`/app/documents/${observation.documents.id}`, {
-    measurement: observation.measurement_definition_key,
-    observation: observation.id,
-    returnTo,
-  });
+  return buildHealthNavigationPath(
+    `/app/documents/${observation.documents.id}`,
+    {
+      measurement: observation.measurement_definition_key,
+      observation: observation.id,
+      returnTo,
+    },
+  );
 }
-
 
 export function BiomarkerTable({
   observations,
@@ -114,8 +120,13 @@ export function BiomarkerTable({
   if (!observations.length) {
     return (
       <SurfaceCard padding="lg" className="border-dashed text-center">
-        <p className="text-[var(--eh-text-secondary)] mb-4">No biomarkers match your filters.</p>
-        <Button asChild className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90">
+        <p className="text-[var(--eh-text-secondary)] mb-4">
+          No biomarkers match your filters.
+        </p>
+        <Button
+          asChild
+          className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90"
+        >
           <Link href="/app/upload">Upload your first lab</Link>
         </Button>
       </SurfaceCard>
@@ -141,6 +152,9 @@ export function BiomarkerTable({
               const status = biomarkerStatus(o);
               const selected = o.id === selectedObservationId;
               const sourceHref = observationSourceHref(o, sourceReturnTo);
+              const knowledgeHref = getKnowledgeArticleHref(
+                o.measurement_definition_key,
+              );
               const assessmentExclusion = o.assessment_exclusion_reason
                 ? ASSESSMENT_EXCLUSION_LABELS[o.assessment_exclusion_reason]
                 : null;
@@ -150,11 +164,25 @@ export function BiomarkerTable({
                   className={selected ? "bg-[var(--eh-brand-soft)]" : undefined}
                 >
                   <DataTableCell className="font-medium">
-                    {o.name}
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span>{o.name}</span>
+                      {knowledgeHref ? (
+                        <Link
+                          href={knowledgeHref}
+                          aria-label={`Learn about ${o.name}`}
+                          className="text-xs font-medium text-[var(--eh-brand)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--eh-brand)]"
+                        >
+                          Learn
+                        </Link>
+                      ) : null}
+                    </div>
                     {(o.specimen && o.specimen !== "unspecified") ||
                     (o.modifier && o.modifier !== "none") ? (
                       <span className="mt-0.5 block text-caption font-normal text-[var(--eh-text-secondary)]">
-                        {[o.specimen !== "unspecified" ? o.specimen : null, o.modifier !== "none" ? o.modifier : null]
+                        {[
+                          o.specimen !== "unspecified" ? o.specimen : null,
+                          o.modifier !== "none" ? o.modifier : null,
+                        ]
                           .filter(Boolean)
                           .join(" · ")}
                       </span>
@@ -181,7 +209,9 @@ export function BiomarkerTable({
                           : "—"}
                   </DataTableCell>
                   <DataTableCell>
-                    <StatusChip variant={status.variant}>{status.label}</StatusChip>
+                    <StatusChip variant={status.variant}>
+                      {status.label}
+                    </StatusChip>
                     {assessmentExclusion ? (
                       <p className="mt-1 max-w-56 text-xs text-[var(--eh-text-muted)]">
                         Not used in assessment: {assessmentExclusion}
@@ -201,7 +231,7 @@ export function BiomarkerTable({
                         {o.documents?.original_filename}
                       </Link>
                     ) : (
-                      o.documents?.original_filename ?? "—"
+                      (o.documents?.original_filename ?? "—")
                     )}
                   </DataTableCell>
                 </DataTableRow>
@@ -216,6 +246,9 @@ export function BiomarkerTable({
           const status = biomarkerStatus(o);
           const selected = o.id === selectedObservationId;
           const sourceHref = observationSourceHref(o, sourceReturnTo);
+          const knowledgeHref = getKnowledgeArticleHref(
+            o.measurement_definition_key,
+          );
           const assessmentExclusion = o.assessment_exclusion_reason
             ? ASSESSMENT_EXCLUSION_LABELS[o.assessment_exclusion_reason]
             : null;
@@ -223,11 +256,28 @@ export function BiomarkerTable({
             <li key={o.id}>
               <SurfaceCard
                 padding="sm"
-                className={selected ? "border-[var(--eh-brand)] bg-[var(--eh-brand-soft)]" : undefined}
+                className={
+                  selected
+                    ? "border-[var(--eh-brand)] bg-[var(--eh-brand-soft)]"
+                    : undefined
+                }
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-medium text-[var(--eh-text-primary)]">{o.name}</p>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <p className="font-medium text-[var(--eh-text-primary)]">
+                        {o.name}
+                      </p>
+                      {knowledgeHref ? (
+                        <Link
+                          href={knowledgeHref}
+                          aria-label={`Learn about ${o.name}`}
+                          className="text-xs font-medium text-[var(--eh-brand)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--eh-brand)] focus-visible:ring-offset-1"
+                        >
+                          Learn
+                        </Link>
+                      ) : null}
+                    </div>
                     <p className="mt-1 text-sm text-[var(--eh-text-primary)]">
                       {displayValue(o)}
                       {o.converted && o.original_unit != null && (
@@ -255,7 +305,9 @@ export function BiomarkerTable({
                     </p>
                   </div>
                   <div className="max-w-52 text-right">
-                    <StatusChip variant={status.variant}>{status.label}</StatusChip>
+                    <StatusChip variant={status.variant}>
+                      {status.label}
+                    </StatusChip>
                     {assessmentExclusion ? (
                       <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
                         Not used in assessment: {assessmentExclusion}

@@ -87,6 +87,7 @@
     "test:eh129": "tsx scripts/verify-eh129-repeated-measurement-comparison.ts",
     "test:eh127-db": "node scripts/run-supabase-db-tests.mjs QA-Db_tests/eh127_health_timeline.sql",
     "test:eh131": "tsx scripts/verify-eh131-health-navigation.ts",
+    "test:eh138": "tsx scripts/verify-eh138-knowledge-base.ts",
     "test:eh142": "tsx scripts/verify-eh142-assessment-eligibility.ts",
     "test:eh142-db": "node scripts/run-supabase-db-tests.mjs QA-Db_tests/eh142_assessment_eligibility.sql",
     "test:eh121-db": "node scripts/run-supabase-db-tests.mjs supabase/tests/eh121_observation_change_history.sql",
