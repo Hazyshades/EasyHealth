@@ -98,14 +98,12 @@ function observationSourceHref(
   returnTo: string,
 ): string | null {
   if (!observation.documents?.id) return null;
-  return buildHealthNavigationPath(
-    `/app/documents/${observation.documents.id}`,
-    {
-      measurement: observation.measurement_definition_key,
-      observation: observation.id,
-      returnTo,
-    },
-  );
+  // prettier-ignore
+  return buildHealthNavigationPath(`/app/documents/${observation.documents.id}`, {
+    measurement: observation.measurement_definition_key,
+    observation: observation.id,
+    returnTo,
+  });
 }
 
 export function BiomarkerTable({
