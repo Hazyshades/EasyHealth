@@ -1,4 +1,4 @@
-import { getKnowledgeArticleByMeasurementKey } from "./catalog";
+import { getKnowledgeArticleByMeasurementKey } from "./navigation";
 
 export function getKnowledgeArticleHref(
   measurementDefinitionKey: string | null | undefined,

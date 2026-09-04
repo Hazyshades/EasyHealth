@@ -131,7 +131,7 @@ const knowledgeSource = [
   "src/components/knowledge-base/biomarker-article.tsx",
   "src/components/knowledge-base/panel-article.tsx",
   "src/lib/knowledge-base/navigation-types.ts",
-  "src/lib/knowledge-base/catalog.ts",
+  "src/lib/knowledge-base/navigation.ts",
   "src/lib/knowledge-base/links.ts",
 ]
   .map((path) => readFileSync(path, "utf8"))

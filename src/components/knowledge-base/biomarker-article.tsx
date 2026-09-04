@@ -12,7 +12,7 @@ import { buildHealthNavigationPath } from "@/lib/health-navigation";
 import {
   getKnowledgeArticleBySlug,
   getKnowledgePanel,
-} from "@/lib/knowledge-base/catalog";
+} from "@/lib/knowledge-base/navigation";
 
 const sectionClassName =
   "rounded-2xl border border-[var(--eh-border)] bg-white p-5 shadow-[0_1px_3px_rgba(15,23,42,0.04)] sm:p-7";

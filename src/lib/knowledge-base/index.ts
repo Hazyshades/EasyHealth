@@ -80,7 +80,7 @@ export {
   listKnowledgePanels,
   listPublishedKnowledgeArticles,
   searchKnowledgeEntries,
-} from "./catalog";
+} from "./navigation";
 export { getKnowledgeArticleHref } from "./links";
 export type {
   KnowledgeArticle,
