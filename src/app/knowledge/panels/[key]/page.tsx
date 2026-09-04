@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { ContextBreadcrumbs } from "@/components/layout/context-breadcrumbs";
 import { PanelArticle } from "@/components/knowledge-base/panel-article";
+import { PanelArticleTemplate } from "@/components/knowledge/panel-article-template";
 import {
   getKnowledgePanel,
   listKnowledgePanels,
 } from "@/lib/knowledge-base/navigation";
+import { getPublicPanelEducationArticle } from "@/lib/knowledge-base";
 
 type PanelPageProps = {
   params: Promise<{ key: string }>;
@@ -20,6 +23,13 @@ export async function generateMetadata({
   const { key } = await params;
   const panel = getKnowledgePanel(key);
   if (!panel) return { title: "Panel guide | EasyHealth" };
+  const article = getPublicPanelEducationArticle(key);
+  if (article) {
+    return {
+      title: `${article.title} | EasyHealth Knowledge Base`,
+      description: article.summary,
+    };
+  }
   return {
     title: `${panel.displayName} | EasyHealth Knowledge Base`,
     description: `General information about the ${panel.displayName.toLowerCase()} panel.`,
@@ -30,5 +40,18 @@ export default async function PanelPage({ params }: PanelPageProps) {
   const { key } = await params;
   const panel = getKnowledgePanel(key);
   if (!panel) notFound();
-  return <PanelArticle panel={panel} />;
+  const article = getPublicPanelEducationArticle(key);
+  if (!article) return <PanelArticle panel={panel} />;
+
+  return (
+    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      <ContextBreadcrumbs
+        items={[
+          { href: "/knowledge", label: "Knowledge Base" },
+          { label: article.title },
+        ]}
+      />
+      <PanelArticleTemplate article={article} panel={panel} />
+    </div>
+  );
 }

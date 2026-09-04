@@ -263,6 +263,27 @@ export function getPanelArticleBySlug(
   );
 }
 
+export function panelEducationEligibleForPublicRoute(
+  article: PanelArticle,
+  panelKey: string,
+): boolean {
+  const normalizedKey = panelKey.trim().toLocaleLowerCase("en-US");
+  if (!normalizedKey || article.panelKey !== normalizedKey) return false;
+  return (
+    article.reviewStatus === "in_review" || article.reviewStatus === "published"
+  );
+}
+
+export function getPublicPanelEducationArticle(
+  panelKey: string | null | undefined,
+): PanelArticle | null {
+  const article = getPanelArticleBySlug(panelKey);
+  if (!article || !panelKey) return null;
+  return panelEducationEligibleForPublicRoute(article, panelKey)
+    ? article
+    : null;
+}
+
 /** Validates canonical panel records and EH-135 enriched panel records. */
 export function validatePanelEducationArticle(
   article: unknown,
