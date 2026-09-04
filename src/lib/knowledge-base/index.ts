@@ -71,3 +71,12 @@ export {
   selectMeasurementObservations,
   type MeasurementObservation,
 } from "./measurement-results";
+
+export { getKnowledgeArticleHref } from "./links";
+export type {
+  KnowledgeArticle,
+  KnowledgeArticleRecord,
+  KnowledgeCategory,
+  KnowledgeIndexFilters,
+  KnowledgeSearchResult,
+} from "./navigation-types";

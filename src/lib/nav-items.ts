@@ -19,4 +19,5 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
   { href: "/app/knowledge", label: "Knowledge", icon: LibraryIcon },
   { href: "/app/documents", label: "Documents", icon: FileDescriptionIcon },
   { href: "/app/reports", label: "Reports", icon: BookIcon },
+  { href: "/knowledge", label: "Knowledge Base", icon: LibraryIcon },
 ];

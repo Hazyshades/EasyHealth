@@ -10,7 +10,13 @@ import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 
 export default function LandingPage() {
   const router = useRouter();
-  const { signInWithGoogle, signInWithMagicLink, loading, profileId, authError } = useAuth();
+  const {
+    signInWithGoogle,
+    signInWithMagicLink,
+    loading,
+    profileId,
+    authError,
+  } = useAuth();
   const [email, setEmail] = useState("");
   const [emailSending, setEmailSending] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -21,9 +27,13 @@ export default function LandingPage() {
     setEmailSending(true);
     try {
       await signInWithMagicLink(email);
-      router.push(`/login/check-email?email=${encodeURIComponent(email.trim())}`);
+      router.push(
+        `/login/check-email?email=${encodeURIComponent(email.trim())}`,
+      );
     } catch (err) {
-      setEmailError(err instanceof Error ? err.message : "Failed to send magic link");
+      setEmailError(
+        err instanceof Error ? err.message : "Failed to send magic link",
+      );
     } finally {
       setEmailSending(false);
     }
@@ -34,30 +44,40 @@ export default function LandingPage() {
       {authError ? (
         <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           <p className="font-medium">Sign-in error</p>
-          <pre className="mt-2 whitespace-pre-wrap font-sans text-xs">{authError}</pre>
+          <pre className="mt-2 whitespace-pre-wrap font-sans text-xs">
+            {authError}
+          </pre>
         </div>
       ) : null}
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-6">
+      <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-6">
         <span className="text-xl font-bold text-teal-800">EasyHealth</span>
-        {profileId ? (
-          <Button asChild>
-            <Link href="/app">Open dashboard</Link>
-          </Button>
-        ) : (
-          <Button
-            onClick={async () => {
-              try {
-                await signInWithGoogle();
-              } catch (e) {
-                console.error(e);
-                alert(e instanceof Error ? e.message : "Sign-in failed");
-              }
-            }}
-            disabled={loading}
+        <div className="flex items-center gap-2">
+          <Link
+            href="/knowledge"
+            className="rounded-md px-3 py-2 text-sm font-medium text-teal-800 hover:bg-teal-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2"
           >
-            {loading ? "Loading…" : "Get started"}
-          </Button>
-        )}
+            Knowledge Base
+          </Link>
+          {profileId ? (
+            <Button asChild>
+              <Link href="/app">Open dashboard</Link>
+            </Button>
+          ) : (
+            <Button
+              onClick={async () => {
+                try {
+                  await signInWithGoogle();
+                } catch (e) {
+                  console.error(e);
+                  alert(e instanceof Error ? e.message : "Sign-in failed");
+                }
+              }}
+              disabled={loading}
+            >
+              {loading ? "Loading…" : "Get started"}
+            </Button>
+          )}
+        </div>
       </header>
 
       <main className="mx-auto max-w-4xl px-4 pb-16 pt-8 text-center">
@@ -68,8 +88,9 @@ export default function LandingPage() {
           AI-powered personal health record
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-600">
-          Upload lab results, extract biomarkers automatically, track changes over time,
-          and generate educational clinician-ready summaries — free for your account.
+          Upload lab results, extract biomarkers automatically, track changes
+          over time, and generate educational clinician-ready summaries — free
+          for your account.
         </p>
         <div className="mt-10 flex flex-wrap justify-center gap-4">
           {profileId ? (
@@ -108,7 +129,9 @@ export default function LandingPage() {
             onSubmit={handleMagicLink}
             className="mx-auto mt-8 flex max-w-md flex-col gap-3 rounded-xl border bg-white p-6 text-left shadow-sm"
           >
-            <p className="text-sm font-medium text-slate-800">Or continue with email</p>
+            <p className="text-sm font-medium text-slate-800">
+              Or continue with email
+            </p>
             <p className="text-xs text-muted-foreground">
               We will send a magic link — no password required.
             </p>
@@ -121,8 +144,14 @@ export default function LandingPage() {
               autoComplete="email"
               className="rounded-xl"
             />
-            {emailError ? <p className="text-sm text-red-600">{emailError}</p> : null}
-            <Button type="submit" disabled={emailSending || loading} className="rounded-xl">
+            {emailError ? (
+              <p className="text-sm text-red-600">{emailError}</p>
+            ) : null}
+            <Button
+              type="submit"
+              disabled={emailSending || loading}
+              className="rounded-xl"
+            >
               {emailSending ? "Sending link…" : "Email me a magic link"}
             </Button>
           </form>
@@ -146,7 +175,10 @@ export default function LandingPage() {
               text: "View your health profile, biomarker trends, and educational reports anytime.",
             },
           ].map((item) => (
-            <div key={item.step} className="rounded-xl border bg-white p-6 shadow-sm">
+            <div
+              key={item.step}
+              className="rounded-xl border bg-white p-6 shadow-sm"
+            >
               <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-teal-100 text-sm font-bold text-teal-800">
                 {item.step}
               </div>
@@ -158,9 +190,13 @@ export default function LandingPage() {
       </main>
 
       <footer className="border-t bg-white px-4 py-8 text-center text-xs text-muted-foreground">
-        <p className="font-medium">{MEDICAL_DISCLAIMER} For educational purposes only.</p>
+        <p className="font-medium">
+          {MEDICAL_DISCLAIMER} For educational purposes only.
+        </p>
         <p className="mt-2">Health data encrypted.</p>
-        <p className="mt-2">GDPR-aware: you control your data. EU/US wellness positioning.</p>
+        <p className="mt-2">
+          GDPR-aware: you control your data. EU/US wellness positioning.
+        </p>
       </footer>
     </div>
   );
