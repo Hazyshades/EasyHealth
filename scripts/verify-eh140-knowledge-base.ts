@@ -12,10 +12,66 @@ const REPOSITORY_ROOT = path.resolve(".");
 
 export const DEFAULT_KNOWLEDGE_BASE_ROOTS = [
   "content/knowledge-base",
+  "src/app/knowledge",
   "src/app/knowledge-base",
   "src/app/app/knowledge-base",
   "src/components/knowledge-base",
+  "src/lib/knowledge-base",
 ] as const;
+
+export const REQUIRED_KNOWLEDGE_BASE_SURFACES = [
+  {
+    label: "EH-134 biomarker article",
+    pathPrefixes: [
+      "src/app/knowledge/biomarkers/",
+      "src/app/knowledge-base/biomarkers/",
+      "src/app/app/knowledge-base/biomarkers/",
+      "src/components/knowledge-base/measurement-article",
+      "content/knowledge-base/biomarker",
+      "content/knowledge-base/measurement",
+    ],
+  },
+  {
+    label: "EH-135 panel/CBC article",
+    pathPrefixes: [
+      "src/app/knowledge/panels/",
+      "src/app/knowledge-base/panels/",
+      "src/app/app/knowledge-base/panels/",
+      "src/components/knowledge-base/panel-article",
+      "content/knowledge-base/panel",
+      "content/knowledge-base/cbc",
+    ],
+  },
+  {
+    label: "EH-138 index/search",
+    pathPrefixes: [
+      "src/app/knowledge/page",
+      "src/app/knowledge-base/page",
+      "src/app/app/knowledge-base/page",
+      "src/components/knowledge-base/knowledge-header",
+      "src/lib/knowledge-base/index",
+      "content/knowledge-base/index",
+    ],
+  },
+] as const;
+
+const EXCLUDED_KNOWLEDGE_BASE_FILES: Readonly<Record<string, true>> = {
+  "src/lib/knowledge-base/safety-policy.ts": true,
+};
+
+export function missingKnowledgeBaseSurfaces(
+  files: readonly string[],
+): string[] {
+  const normalizedFiles = files.map((filePath) =>
+    filePath.replaceAll("\\", "/"),
+  );
+  return REQUIRED_KNOWLEDGE_BASE_SURFACES.filter(
+    (surface) =>
+      !surface.pathPrefixes.some((prefix) =>
+        normalizedFiles.some((filePath) => filePath.startsWith(prefix)),
+      ),
+  ).map((surface) => surface.label);
+}
 
 const CONTENT_EXTENSIONS: Readonly<Record<string, true>> = {
   ".json": true,
@@ -49,11 +105,15 @@ export type KnowledgeBaseSurfaceReport = {
   files: string[];
   externalLinks: string[];
   findings: SurfaceFinding[];
+  missingSurfaces: string[];
   blocked: boolean;
 };
 
-function relativeRepositoryPath(filePath: string): string {
-  return path.relative(REPOSITORY_ROOT, filePath).split(path.sep).join("/");
+function relativeRepositoryPath(
+  filePath: string,
+  repositoryRoot = REPOSITORY_ROOT,
+): string {
+  return path.relative(repositoryRoot, filePath).split(path.sep).join("/");
 }
 
 function collectContentFiles(directory: string, files: string[]): void {
@@ -83,7 +143,12 @@ export function discoverKnowledgeBaseFiles(
       : path.resolve(repositoryRoot, root);
     collectContentFiles(absoluteRoot, files);
   }
-  return [...new Set(files)].sort((left, right) => left.localeCompare(right));
+  return [
+    ...new Set(files.filter((filePath) => {
+      const relativePath = relativeRepositoryPath(filePath, repositoryRoot);
+      return !EXCLUDED_KNOWLEDGE_BASE_FILES[relativePath];
+    })),
+  ].sort((left, right) => left.localeCompare(right));
 }
 
 function trackedRepositoryPaths(): Set<string> {
@@ -244,12 +309,13 @@ export function auditKnowledgeBaseSurface(
 
   for (const filePath of files) {
     const source = readFileSync(filePath, "utf8");
-    const relativeFile = relativeRepositoryPath(filePath);
+    const relativeFile = relativeRepositoryPath(filePath, repositoryRoot);
     const structuredContent = parseStructuredContent(source, filePath);
     const safetyFindings = auditKnowledgeBaseSafety({
       id: relativeFile,
       content: source,
       metadata: structuredContent,
+      metadataText: structuredContent === undefined ? source : undefined,
     });
     findings.push(
       ...safetyFindings.map((finding) => ({
@@ -277,11 +343,16 @@ export function auditKnowledgeBaseSurface(
     }
   }
 
+  const missingSurfaces = missingKnowledgeBaseSurfaces(
+    files.map((filePath) => relativeRepositoryPath(filePath, repositoryRoot)),
+  );
+
   return {
     files,
     externalLinks: [...new Set(externalLinks)],
     findings,
-    blocked: files.length === 0,
+    missingSurfaces,
+    blocked: missingSurfaces.length > 0,
   };
 }
 
@@ -304,6 +375,15 @@ function runSafetyFixtures(): void {
     "diagnostic and prescriptive claims must be detected",
   );
 
+  const negativeProhibited = auditKnowledgeBaseSafety({
+    id: "negative-prohibited-copy",
+    content: "You do not have anemia.",
+  });
+  assert.ok(
+    negativeProhibited.some((finding) => finding.code === "prohibited_claim"),
+    "negative personal diagnostic claims must be detected",
+  );
+
   const externalRange = auditKnowledgeBaseSafety({
     id: "external-range-copy",
     content: "The normal reference range is 120–160 g/L.",
@@ -320,6 +400,33 @@ function runSafetyFixtures(): void {
       (finding) => finding.rule === "forbidden_range_metadata",
     ),
     "forbidden range fields must identify their metadata path",
+  );
+
+  const sourceMetadata = auditKnowledgeBaseSafety({
+    id: "source-metadata",
+    content: "Learn about this measurement.",
+    metadataText:
+      'export const article = { referenceRange: { low: 120 }, assessmentInput: "hemoglobin" };',
+  });
+  assert.ok(
+    sourceMetadata.some(
+      (finding) => finding.code === "external_reference_range",
+    ),
+    "non-JSON source metadata range fields must be detected",
+  );
+  assert.ok(
+    sourceMetadata.some((finding) => finding.code === "assessment_coupling"),
+    "non-JSON source metadata assessment fields must be detected",
+  );
+
+  assert.deepEqual(
+    auditKnowledgeBaseSafety({
+      id: "ordinary-reflow",
+      content: "Learn about this measurement.",
+      metadata: { reflow: true },
+    }),
+    [],
+    "ordinary reflow metadata must not be treated as a reference range",
   );
 
   const assessmentCoupling = auditKnowledgeBaseSafety({
@@ -364,7 +471,26 @@ function runSafetyFixtures(): void {
     );
   }
 }
+
 function runSurfaceFixtures(): void {
+  assert.deepEqual(
+    missingKnowledgeBaseSurfaces([
+      "src/app/knowledge/page.tsx",
+      "src/app/knowledge/biomarkers/[slug]/page.tsx",
+    ]),
+    ["EH-135 panel/CBC article"],
+    "strict mode must identify each missing dependency surface",
+  );
+  assert.deepEqual(
+    missingKnowledgeBaseSurfaces([
+      "src/app/knowledge/page.tsx",
+      "src/app/knowledge/biomarkers/[slug]/page.tsx",
+      "src/app/knowledge/panels/[key]/page.tsx",
+    ]),
+    [],
+    "all required dependency surfaces must satisfy strict mode",
+  );
+
   const articlePath = path.resolve(
     "content/knowledge-base/synthetic-article.md",
   );
@@ -432,9 +558,15 @@ function printReport(
   requireSurface: boolean,
 ): number {
   if (report.blocked) {
-    console.log(
-      "[eh140] Knowledge Base surface is BLOCKED: EH-134/EH-135/EH-138 files are not present in this checkout",
-    );
+    if (report.files.length === 0) {
+      console.log(
+        "[eh140] Knowledge Base surface is BLOCKED: EH-134/EH-135/EH-138 files are not present in this checkout",
+      );
+    } else {
+      console.log(
+        `[eh140] Knowledge Base surface is BLOCKED: missing required surfaces: ${report.missingSurfaces.join(", ")}`,
+      );
+    }
     return requireSurface ? 1 : 0;
   }
 

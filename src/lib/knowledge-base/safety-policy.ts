@@ -7,6 +7,7 @@ export type KnowledgeBaseSafetyTarget = {
   id: string;
   content: string;
   metadata?: unknown;
+  metadataText?: string;
 };
 
 export type KnowledgeBaseSafetyFinding = {
@@ -31,7 +32,7 @@ const PROHIBITED_CLAIM_RULES: readonly TextRule[] = [
   {
     rule: "personal_diagnosis_or_certainty",
     pattern:
-      /\b(?:you|your\s+(?:result|level|value|test))\s+(?:have|has|show(?:s)?|confirm(?:s)?|prove(?:s)?|rule(?:s)?\s+out|diagnos(?:e|es|ed)|indicat(?:e|es))\b/i,
+      /\b(?:you|your\s+(?:result|level|value|test))\s+(?:(?:(?:do|does)\s+not|(?:don't|doesn't))\s+)?(?:have|has|show(?:s)?|confirm(?:s)?|prove(?:s)?|rule(?:s)?\s+out|diagnos(?:e|es|ed)|indicat(?:e|es))\b/i,
   },
   {
     rule: "diagnostic_conclusion",
@@ -73,23 +74,23 @@ const EXTERNAL_RANGE_TEXT_RULES: readonly TextRule[] = [
 ];
 
 const EXTERNAL_RANGE_METADATA_KEYS: Readonly<Record<string, true>> = {
-  referencerange: true,
-  normalrange: true,
-  healthyrange: true,
-  expectedrange: true,
-  reflow: true,
-  refhigh: true,
-  lowerbound: true,
-  upperbound: true,
+  reference_range: true,
+  normal_range: true,
+  healthy_range: true,
+  expected_range: true,
+  ref_low: true,
+  ref_high: true,
+  lower_bound: true,
+  upper_bound: true,
 };
 
 const ASSESSMENT_METADATA_KEYS: Readonly<Record<string, true>> = {
   assessment: true,
-  assessmentinput: true,
-  assessmentinputs: true,
+  assessment_input: true,
+  assessment_inputs: true,
   eligibility: true,
   score: true,
-  scoreinput: true,
+  score_input: true,
   scoring: true,
 };
 
@@ -100,6 +101,59 @@ function excerptAround(value: string, index: number, length: number): string {
   const prefix = start > 0 ? "…" : "";
   const suffix = end < value.length ? "…" : "";
   return `${prefix}${value.slice(start, end).replace(/\s+/g, " ").trim()}${suffix}`;
+}
+
+function normalizeMetadataKey(value: string): string {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/[-\s]+/g, "_")
+    .replace(/[^a-z0-9_]/gi, "")
+    .replace(/_+/g, "_")
+    .toLowerCase();
+}
+
+type MetadataRule = {
+  code: "external_reference_range" | "assessment_coupling";
+  rule: string;
+};
+
+function metadataRuleForKey(normalized: string): MetadataRule | null {
+  if (EXTERNAL_RANGE_METADATA_KEYS[normalized]) {
+    return {
+      code: "external_reference_range",
+      rule: "forbidden_range_metadata",
+    };
+  }
+  if (ASSESSMENT_METADATA_KEYS[normalized]) {
+    return {
+      code: "assessment_coupling",
+      rule: "forbidden_assessment_metadata",
+    };
+  }
+  return null;
+}
+
+const SOURCE_METADATA_KEY_PATTERN =
+  /(?:"([^"]+)"|'([^']+)'|([A-Za-z_$][\w$-]*))\s*\??\s*(?::|=)/g;
+
+function scanMetadataText(
+  source: string,
+  targetId: string,
+  findings: KnowledgeBaseSafetyFinding[],
+): void {
+  for (const match of source.matchAll(SOURCE_METADATA_KEY_PATTERN)) {
+    const rawKey = match[1] ?? match[2] ?? match[3];
+    if (!rawKey) continue;
+    const metadataRule = metadataRuleForKey(normalizeMetadataKey(rawKey));
+    if (!metadataRule) continue;
+    const matchIndex = match.index ?? 0;
+    findings.push({
+      ...metadataRule,
+      targetId,
+      field: rawKey,
+      excerpt: excerptAround(source, matchIndex, rawKey.length),
+    });
+  }
 }
 
 function addTextFinding(
@@ -171,19 +225,10 @@ function scanMetadata(
 
   for (const [key, child] of Object.entries(value)) {
     const keyPath = path === "$" ? key : `${path}.${key}`;
-    const normalized = key.replace(/[^a-z0-9]/gi, "").toLowerCase();
-    if (EXTERNAL_RANGE_METADATA_KEYS[normalized]) {
+    const metadataRule = metadataRuleForKey(normalizeMetadataKey(key));
+    if (metadataRule) {
       findings.push({
-        code: "external_reference_range",
-        rule: "forbidden_range_metadata",
-        targetId,
-        field: keyPath,
-        excerpt: `metadata field ${keyPath}`,
-      });
-    } else if (ASSESSMENT_METADATA_KEYS[normalized]) {
-      findings.push({
-        code: "assessment_coupling",
-        rule: "forbidden_assessment_metadata",
+        ...metadataRule,
         targetId,
         field: keyPath,
         excerpt: `metadata field ${keyPath}`,
@@ -206,6 +251,9 @@ export function auditKnowledgeBaseSafety(
   const findings = scanText(target);
   if (target.metadata !== undefined) {
     scanMetadata(target.metadata, target.id, "$", findings, new Set<object>());
+  }
+  if (target.metadataText !== undefined) {
+    scanMetadataText(target.metadataText, target.id, findings);
   }
   return findings;
 }
