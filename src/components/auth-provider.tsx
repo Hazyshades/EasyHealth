@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { usePathname } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { resolveProfileIdentity } from "@/lib/display-name";
@@ -36,7 +37,6 @@ export function useAuth() {
   return ctx;
 }
 
-
 async function loadProfileIdentity(): Promise<{
   firstName: string | null;
   lastName: string | null;
@@ -45,7 +45,8 @@ async function loadProfileIdentity(): Promise<{
 }> {
   try {
     const res = await fetch("/api/profile");
-    if (!res.ok) return { firstName: null, lastName: null, email: null, profileId: null };
+    if (!res.ok)
+      return { firstName: null, lastName: null, email: null, profileId: null };
     const data = (await res.json()) as {
       id?: string;
       first_name?: string | null;
@@ -64,18 +65,32 @@ async function loadProfileIdentity(): Promise<{
   }
 }
 
+function getOAuthPrefillName(user: User | null): string | null {
+  if (!user) return null;
+  const fullName = user.user_metadata?.full_name;
+  if (typeof fullName === "string" && fullName) return fullName;
+  const name = user.user_metadata?.name;
+  return typeof name === "string" && name ? name : null;
+}
+
 function storeOAuthPrefill(user: User | null) {
   if (!user || typeof window === "undefined") return;
-  const metaName =
-    (typeof user.user_metadata?.full_name === "string" && user.user_metadata.full_name) ||
-    (typeof user.user_metadata?.name === "string" && user.user_metadata.name) ||
-    null;
+  const metaName = getOAuthPrefillName(user);
   if (metaName) {
     window.sessionStorage.setItem(OAUTH_PREFILL_KEY, metaName);
   }
 }
 
+function isKnowledgeBaseRoute(pathname: string | null): boolean {
+  return (
+    pathname === "/knowledge" ||
+    (typeof pathname === "string" && pathname.startsWith("/knowledge/"))
+  );
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const knowledgeBaseRoute = isKnowledgeBaseRoute(pathname);
   const supabase = useMemo(() => createBrowserSupabaseClient(), []);
   const [loading, setLoading] = useState(true);
   const [profileId, setProfileId] = useState<string | null>(null);
@@ -85,40 +100,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authError, setAuthError] = useState<string | null>(null);
   const appliedUserIdRef = useRef<string | null>(null);
 
-  const applyIdentity = useCallback(async (user: User | null) => {
-    if (!user) {
-      appliedUserIdRef.current = null;
-      setProfileId(null);
-      setDisplayName(null);
-      setLastName(null);
-      setAccountEmail(null);
-      return;
-    }
+  const applyIdentity = useCallback(
+    async (user: User | null) => {
+      if (!user) {
+        appliedUserIdRef.current = null;
+        setProfileId(null);
+        setDisplayName(null);
+        setLastName(null);
+        setAccountEmail(null);
+        return;
+      }
 
-    storeOAuthPrefill(user);
-    const identity = await loadProfileIdentity();
-    if (identity.profileId) {
-      setProfileId(identity.profileId);
-      setDisplayName(identity.firstName);
-      setLastName(identity.lastName);
-      setAccountEmail(identity.email ?? user.email ?? null);
-    } else {
-      // Profile API may 401 briefly; fall back to auth user
-      const meta = resolveProfileIdentity(
-        (user.user_metadata?.full_name as string) ||
-          (user.user_metadata?.name as string) ||
-          null,
-        user.email
+      storeOAuthPrefill(user);
+      const fallbackIdentity = resolveProfileIdentity(
+        getOAuthPrefillName(user),
+        user.email,
       );
-      setProfileId(user.id);
-      setDisplayName(meta.firstName);
-      setLastName(meta.lastName);
-      setAccountEmail(meta.email);
-    }
-    appliedUserIdRef.current = user.id;
-  }, []);
+      const identity = knowledgeBaseRoute
+        ? { profileId: user.id, ...fallbackIdentity }
+        : await loadProfileIdentity();
+      if (identity.profileId) {
+        setProfileId(identity.profileId);
+        setDisplayName(identity.firstName);
+        setLastName(identity.lastName);
+        setAccountEmail(identity.email ?? user.email ?? null);
+      } else {
+        // Profile API may 401 briefly; fall back to auth user
+        setProfileId(user.id);
+        setDisplayName(fallbackIdentity.firstName);
+        setLastName(fallbackIdentity.lastName);
+        setAccountEmail(fallbackIdentity.email);
+      }
+      appliedUserIdRef.current = user.id;
+    },
+    [knowledgeBaseRoute],
+  );
 
   const refreshAccountIdentity = useCallback(async () => {
+    if (knowledgeBaseRoute) return;
     const identity = await loadProfileIdentity();
     if (identity.profileId) {
       setProfileId(identity.profileId);
@@ -126,7 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLastName(identity.lastName);
       setAccountEmail(identity.email);
     }
-  }, []);
+  }, [knowledgeBaseRoute]);
 
   useEffect(() => {
     let mounted = true;
@@ -193,7 +212,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw error;
       }
     },
-    [supabase]
+    [supabase],
   );
 
   const signOut = useCallback(async () => {

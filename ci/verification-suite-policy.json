@@ -333,6 +333,15 @@
       "localOnly": false,
       "owner": "health-profile",
       "reason": "Assessment golden dataset is the Health Profile v1 scoring/readiness release gate."
+    },
+    {
+      "script": "test:knowledge-base",
+      "verificationFiles": ["scripts/verify-knowledge-base.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "knowledge-base",
+      "reason": "EH-139 publication lifecycle, review evidence, freshness, redirects, and rendered metadata are release gates."
     }
   ],
   "localOnly": []

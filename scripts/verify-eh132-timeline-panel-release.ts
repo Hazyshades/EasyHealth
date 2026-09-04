@@ -383,7 +383,7 @@ function assertComparisonCompatibility(): void {
   assert.equal(series.get("glucose_serum")?.[0]?.ref_low, 70);
   assert.equal(series.get("glucose_serum")?.[1]?.document_id, "doc-b");
 
-  const biomarkerPage = readFileSync("src/app/app/biomarkers/page.tsx", "utf8");
+  const biomarkerPage = readFileSync("src/app/app/biomarkers/biomarkers-page-client.tsx", "utf8");
   assert.match(biomarkerPage, /trend_eligible === true/);
   assert.match(biomarkerPage, /measurement_definition_key === selectedKey/);
   const biomarkerTable = readFileSync("src/components/biomarker-table.tsx", "utf8");

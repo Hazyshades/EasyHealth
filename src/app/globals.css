@@ -339,6 +339,23 @@
   }
 }
 
+.eh-knowledge {
+  --eh-page-bg: #eaf8fc;
+  --eh-canvas-bg: #f8fafc;
+  --eh-text-primary: #0f172a;
+  --eh-text-secondary: #475569;
+  --eh-text-muted: #64748b;
+  --eh-border: #e5eaf0;
+  --eh-border-soft: #eef2f7;
+  --eh-brand: #4f46e5;
+  --eh-brand-soft: #eef2ff;
+  --eh-health: #008c84;
+  min-height: 100vh;
+  background: var(--eh-canvas-bg);
+  color: var(--eh-text-primary);
+  font-family: var(--font-sans);
+}
+
 /* EasyHealth app shell design tokens */
 .eh-app {
   --eh-page-bg: #eaf8fc;
