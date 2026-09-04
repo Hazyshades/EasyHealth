@@ -216,6 +216,15 @@ export function listKnowledgeArticleRecords(): readonly KnowledgeArticleRecord[]
   return manifest.articles;
 }
 
+export function listKnowledgeArticles(): readonly KnowledgeArticle[] {
+  const manifest = getManifest();
+  const errors = validateKnowledgeBaseManifest(manifest);
+  if (errors.length > 0) {
+    throw new Error(`Invalid Knowledge Base manifest:\n${errors.join("\n")}`);
+  }
+  return manifest.articles.map((article) => hydrateArticle(manifest, article));
+}
+
 export function listPublishedKnowledgeArticleRecords(): readonly KnowledgeArticleRecord[] {
   return listKnowledgeArticleRecords().filter(
     (article) => article.status === "published" && article.reviewStatus === "reviewed",

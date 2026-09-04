@@ -61,6 +61,21 @@ export {
   validateKnowledgeBaseArticleCatalog,
 } from "./knowledge-base-articles";
 
+export {
+  KNOWLEDGE_BASE_ROUTE,
+  getDeprecatedKnowledgeBaseRedirect,
+  getKnowledgeBaseArticle,
+  getPublicKnowledgeBaseArticle,
+  listKnowledgeBaseSlugs,
+  listPublicKnowledgeBaseArticles,
+  type PublicKnowledgeBaseArticle,
+} from "./publication-catalog";
+export {
+  buildKnowledgeBaseStaleReport,
+  validateKnowledgeBaseArticles,
+} from "./publication";
+export type { KnowledgeBasePolicyOptions } from "./publication";
+
 export { buildMeasurementArticleViewModel } from "./measurement-article-model";
 export {
   buildMeasurementBiomarkersHref,

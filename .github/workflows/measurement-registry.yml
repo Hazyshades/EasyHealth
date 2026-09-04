@@ -31,6 +31,10 @@ jobs:
       - name: Verify every test suite is workflow-reachable
         run: pnpm check:ci-suite-coverage
       - run: pnpm typecheck
+      - name: Verify Knowledge Base publication gate
+        run: pnpm check:knowledge-base
+      - name: Verify EH-139 Knowledge Base governance
+        run: pnpm test:knowledge-base
       - name: Verify generated biomarker documentation
         run: pnpm check:biomarker-docs
       - name: Verify biomarker documentation contract
