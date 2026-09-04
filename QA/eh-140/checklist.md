@@ -1,19 +1,19 @@
 # EH-140: Knowledge Base safety and accessibility review
 
-**Roadmap status:** In progress — dependency-blocked
-**Build / environment:** Local EasyHealth checkout with Docker/Supabase services and a Next.js app on `http://localhost:3003`; no authenticated Knowledge Base deployment is available in this checkout
-**Test run date:** 2026-09-01
-**Tester:** Codex automated verification plus browser smoke execution; no screen-reader tester assigned
+**Roadmap status:** In progress — public Knowledge Base surfaces are present after merging `origin/master`; release acceptance is still open
+**Build / environment:** Local EasyHealth checkout on `Hazyshades/eh-140-safety-accessibility-review` (merged `origin/master` `6bc677c`). Next.js on `http://127.0.0.1:3000`. Docker Desktop / local Supabase were still down on 2026-09-04, so authenticated `/app/knowledge*` and two-account privacy checks remain incomplete.
+**Test run date:** 2026-09-04 (second pass after master merge)
+**Tester:** Cursor Grok 4.6 browser and CLI verification; no screen-reader tester assigned
 
 ## What this checklist covers
 
-This checklist is the release-gate record for the Knowledge Base MVP described by EH-134, EH-135, and EH-138. It verifies that biomarker and panel education is non-diagnostic and non-prescriptive, does not provide external reference ranges to assessment, exposes sources and review metadata, and remains usable with keyboard, screen reader, and mobile interfaces. The current checkout contains no Knowledge Base article, panel, index, search, or cross-link surface; `/knowledge-base`, `/app/knowledge-base`, and `/app/knowledge` returned HTTP 404, so the interface cases below are recorded as `Blocked`, not as passing results.
+This checklist is the release-gate record for the Knowledge Base MVP described by EH-134, EH-135, and EH-138. It verifies that biomarker and panel education is non-diagnostic and non-prescriptive, does not provide external reference ranges to assessment, exposes sources and review metadata, and remains usable with keyboard, screen reader, and mobile interfaces. After merging current `origin/master`, the public surfaces `/knowledge`, `/knowledge/biomarkers/hemoglobin`, `/knowledge/panels/cbc`, and `/knowledge-base` returned HTTP 200. Authenticated `/app/knowledge` still redirects to sign-in because Auth is down. Results below are from this second pass; a `Pass` on a public page is not release acceptance.
 
 ## Before you start
 
 - [x] Use a dedicated synthetic test account; do not use a real patient account.
 - [x] Use only synthetic or de-identified documents and result labels.
-- [ ] Confirm EH-134 biomarker article, EH-135 panel/CBC page, and EH-138 index/search/cross-link surfaces are deployed to the test environment.
+- [x] Confirm EH-134 biomarker article, EH-135 panel/CBC page, and EH-138 index/search/cross-link surfaces are deployed to the test environment.
 - [ ] Confirm a supported browser and screen-reader pairing, and record browser, screen-reader, operating-system, and viewport versions.
 - [ ] Confirm a second dedicated synthetic account is available for the private-data isolation check.
 - [ ] Confirm the release candidate includes the exact content and source links under review.
@@ -35,7 +35,7 @@ These checks cover the authenticated product surfaces that are present in this c
 
 ### EH140-LOCAL-UI-01: Landing and sign-in controls are keyboard reachable
 
-**Precondition:** Open `http://localhost:3003/` in Chrome 151 on Windows at 1280×800 and 320×800 CSS pixels.
+**Precondition:** Open `http://127.0.0.1:3000/` in Chromium at 1280×800 and 320×800 CSS pixels.
 
 1. Observe the landing page accessibility tree.
 2. Press `Tab` through the landing controls.
@@ -44,13 +44,13 @@ These checks cover the authenticated product surfaces that are present in this c
 
 **Expected result:** The page exposes one named `main`, one banner, one footer, one `h1`, and named controls. Keyboard focus reaches the CTA, Google sign-in, navigation links, email field, and email submit control. Invalid email is rejected by native form validation.
 
-**Result:** `Pass` — 1280×800 and 320×800 had no horizontal overflow; all seven landing controls had names; the tab sequence reached the named controls; `checkValidity()` returned `false` with the expected email validation message.
+**Result:** `Pass` — DOM had one `main`, one `header`, one `footer`, and `h1` “AI-powered personal health record”. Named controls: Get started, Sign in with Google, Health Profile, Biomarkers, Health reports, email textbox, Email me a magic link. Tab order reached those product controls. `checkValidity()` was `false` with “Please include an '@' in the email address.” 320×800 had `innerWidth`/`scrollWidth` 320 (no horizontal overflow).
 
-**Notes / evidence link:** `http://localhost:3003/`; browser runtime `Chrome/151.0.0.0`, Windows `Win32`, 320×800 and 1280×800.
+**Notes / evidence link:** `http://127.0.0.1:3000/`; Chromium via browser tool; 320×800 and 1280×800. Turbopack also exposed “Open Next.js Dev Tools”, which is not a product control.
 
 ### EH140-LOCAL-UI-02: Synthetic onboarding and authenticated app routes work
 
-**Precondition:** Use the synthetic account `eh140.qa.20260903@example.test`; no real patient data is used.
+**Precondition:** Use the synthetic account `eh140.qa.20260903@example.test`; no real patient data is used. Local Supabase/Auth must be running.
 
 1. Request a magic link through the landing form and complete it from the local Mailpit message.
 2. Enter `QA` / `EH140` at the profile gate.
@@ -60,9 +60,9 @@ These checks cover the authenticated product surfaces that are present in this c
 
 **Expected result:** The profile and required-consent gates enforce their prerequisites. Each available route loads without a route error, has named navigation controls, and remains usable without horizontal overflow at the narrow viewport.
 
-**Result:** `Pass` — the profile gate advanced to consent; required consent disabled **Continue**; all seven routes returned HTTP 200 with visible headings; the authenticated 320×800 dashboard had 320px document/body widths and named focusable controls.
+**Result:** `Blocked` — Docker Desktop was not running (`dockerDesktopLinuxEngine` missing) and `http://127.0.0.1:54321/auth/v1/health` did not connect. Unauthenticated `/app`, `/app/profile`, `/app/timeline`, `/app/biomarkers`, `/app/documents`, `/app/reports`, and `/app/upload` all returned HTTP 307 to `/?signin=required`. A 2026-09-01 signed-in pass exists in git history but was not reproduced today.
 
-**Notes / evidence link:** Synthetic account only; Knowledge Base routes remained unavailable and are recorded as blocked below.
+**Notes / evidence link:** Knowledge Base routes remained 404 and are recorded as blocked below.
 
 ### EH140-LOCAL-UI-03: Legal links resolve
 
@@ -73,9 +73,9 @@ These checks cover the authenticated product surfaces that are present in this c
 
 **Expected result:** Each legal page loads successfully and has a descriptive page heading.
 
-**Result:** `Pass` — all three pages returned HTTP 200, exposed `Privacy Policy`, `Terms of Service`, and `Cookie Policy` headings respectively, and had zero unnamed links.
+**Result:** `Pass` — all three pages loaded; `h1` values were `Privacy Policy`, `Terms of Service`, and `Cookie Policy`; unnamed `<a>` count was 0.
 
-**Notes / evidence link:** `http://localhost:3003/legal/privacy`, `/legal/terms`, `/legal/cookies`.
+**Notes / evidence link:** `http://127.0.0.1:3000/legal/privacy`, `/legal/terms`, `/legal/cookies`.
 
 ## Interface checks
 
@@ -90,8 +90,8 @@ These checks cover the authenticated product surfaces that are present in this c
 
 **Expected result:** The page explains the measurement and its context only. It does not say that a person has or does not have a condition, does not prescribe or change treatment, and does not direct the user to order a test. A prohibited-claim finding is a release-blocking failure.
 
-**Result:** `Blocked` — EH-134 article UI is not present in this checkout. Required evidence: authenticated run against the deployed EH-134 surface.
-**Notes / evidence link:** `________`
+**Result:** `Pass` — public hemoglobin article at `/knowledge/biomarkers/hemoglobin` is educational. Visible sections: What it measures, Aliases (`hemoglobin`, `hgb`, `hb`), Common units (`g/dL`, `g/L`), Specimen (whole blood), Panel membership, Interpretation factors, Sources, Educational disclaimer (“not medical advice, diagnosis, or treatment”). No reader-addressed diagnosis, treatment instruction, or test-order prompt. Authenticated `/app/knowledge/measurements/hemoglobin` was not re-run (Auth down).
+**Notes / evidence link:** `http://127.0.0.1:3000/knowledge/biomarkers/hemoglobin`; Chromium 1280×800 on 2026-09-04.
 
 ### EH140-UI-02: External ranges stay out of education and assessment
 
@@ -104,8 +104,8 @@ These checks cover the authenticated product surfaces that are present in this c
 
 **Expected result:** The article contains no external or universal range used for interpretation. The user's displayed range is traceable to `EH140-RESULT-A` and its source document. Knowledge Base copy or citations never change assessment eligibility, readiness, score, or status.
 
-**Result:** `Blocked` — EH-134 article and EH-138 result deep link are not present. Required evidence: browser trace from article to the user's document and Health Profile.
-**Notes / evidence link:** `________`
+**Result:** `Partial` — the public hemoglobin article has no universal/normal/reference-range table, score inputs, or assessment-status claims. The private-workspace control “Open Hemoglobin” points at `/app/biomarkers?measurement=hemoglobin_whole_blood`. Document-range vs Health Profile comparison was not executed: Docker/Supabase down, so the user-result deep link and assessment coupling could not be traced.
+**Notes / evidence link:** Public article copy only; authenticated result path still blocked.
 
 ### EH140-UI-03: Sources and review metadata are visible
 
@@ -118,8 +118,8 @@ These checks cover the authenticated product surfaces that are present in this c
 
 **Expected result:** Every published page visibly shows its sources and last-reviewed date. Each link has a descriptive accessible name and reaches the declared source. A missing source or broken required link blocks publication.
 
-**Result:** `Blocked` — EH-134/EH-135 published pages are not present. Required evidence: screenshots or browser trace with the reviewed URLs and date.
-**Notes / evidence link:** `________`
+**Result:** `Fail` — hemoglobin article **Pass**: Sources lists named link “Hemoglobin Test” → `https://medlineplus.gov/lab-tests/hemoglobin-test/` (HTTP HEAD 200); Review metadata shows Clinical Product / Medical Reviewer and last reviewed September 1, 2026. CBC panel page **Fail**: `/knowledge/panels/cbc` has no Sources section, no last-reviewed date, and no educational disclaimer. Missing sources on a published panel page block publication per this case.
+**Notes / evidence link:** `http://127.0.0.1:3000/knowledge/biomarkers/hemoglobin`; `http://127.0.0.1:3000/knowledge/panels/cbc`.
 
 ### EH140-UI-04: Index search, aliases, filters, and breadcrumbs are usable
 
@@ -133,8 +133,8 @@ These checks cover the authenticated product surfaces that are present in this c
 
 **Expected result:** Canonical and alias searches return the expected article; the panel filter does not hide or mix unrelated content; breadcrumbs preserve the current navigation context; no private result values appear in public article cards.
 
-**Result:** `Blocked` — EH-138 index/search/filter/breadcrumb UI is not present. Required evidence: authenticated browser run with result-count and breadcrumb observations.
-**Notes / evidence link:** `________`
+**Result:** `Pass` — `/knowledge?q=hemoglobin` → 2 published measurements matching hemoglobin, including Hemoglobin. `/knowledge?q=Hgb` → 1 published measurement with “Matched alias: hgb”. `/knowledge?q=zzzz-not-a-measurement` → 0 published measurements and “No published measurements found”. `/knowledge?panel=cbc` selected Complete blood count and listed CBC members without mixing glucose/TSH/ALT. Breadcrumb on article is “Knowledge Base / Hemoglobin”; on CBC “Knowledge Base / Complete blood count”. Public cards showed educational summaries, not private result values.
+**Notes / evidence link:** `http://127.0.0.1:3000/knowledge` and the query URLs above.
 
 ### EH140-UI-05: Keyboard-only operation reaches every blocking control
 
@@ -147,8 +147,8 @@ These checks cover the authenticated product surfaces that are present in this c
 
 **Expected result:** Every control receives a visible focus indicator in logical order and can be activated without a pointer. Focus does not disappear or jump to an unrelated surface. Search/filter state and no-results state remain understandable.
 
-**Result:** `Blocked` — no Knowledge Base interface is available for keyboard execution. Required evidence: browser/version, viewport, focus-order notes, and screenshots for any failure.
-**Notes / evidence link:** `________`
+**Result:** `Partial` — search, category, panel, Apply, result links, and breadcrumbs are present and named. A complete Tab sequence was not proven: Next.js 15.5.24 Turbopack overlay captured Tab (`nextjs-portal`) in this Chromium tool session. Search via GET URLs worked; form submit via fill+Apply once failed to change the URL. User-result deep links remain unauthenticated.
+**Notes / evidence link:** Chromium via browser tool on `http://127.0.0.1:3000/knowledge`; overlay is a dev-server confounder, not a product control.
 
 ### EH140-UI-06: Screen-reader names and state changes are announced
 
@@ -161,8 +161,8 @@ These checks cover the authenticated product surfaces that are present in this c
 
 **Expected result:** Landmarks and headings form a meaningful structure. Controls have descriptive names and roles. Search/filter result changes are conveyed without relying on visual color or position, and focus remains understandable.
 
-**Result:** `Blocked` — no Knowledge Base interface or supported assistive-technology environment is available. Required evidence: exact browser, screen-reader, operating-system versions, and recording/notes.
-**Notes / evidence link:** `________`
+**Result:** `Blocked` — no supported screen-reader pairing. Static tree notes only: one `main`, header, breadcrumb nav labelled “Breadcrumb”, named searchbox “Search measurements and panels”, named Category/Panel comboboxes, named Apply. Result-count text is visible but there is no `aria-live` region. Several “View category” links share the same accessible name. This is not a screen-reader pass.
+**Notes / evidence link:** Chromium accessibility tree on `/knowledge`; NVDA/VoiceOver not run.
 
 ### EH140-UI-07: Long content reflows on mobile
 
@@ -176,8 +176,8 @@ These checks cover the authenticated product surfaces that are present in this c
 
 **Expected result:** Text wraps without horizontal clipping, overlap, or hidden source/review metadata. Critical controls remain reachable and have readable labels at every supported width. No behavior depends on hover.
 
-**Result:** `Blocked` — no Knowledge Base UI is available for mobile review. Required evidence: viewport dimensions, screenshots, and any horizontal-scroll/reflow reproduction.
-**Notes / evidence link:** `________`
+**Result:** `Pass` — at 320×800 CSS px, `/knowledge`, `/knowledge/biomarkers/hemoglobin`, and `/knowledge/panels/cbc` all had `innerWidth`/`scrollWidth` 320 (no horizontal overflow). Long CBC member labels wrapped. Dedicated `EH140-LONG-COPY` fixture was not injected; live CBC member list was used instead.
+**Notes / evidence link:** Chromium viewport 320×800; 2026-09-04.
 
 ### EH140-UI-08: Private result links do not cross accounts
 
@@ -190,8 +190,8 @@ These checks cover the authenticated product surfaces that are present in this c
 
 **Expected result:** Public article content is the same for both accounts, while each account sees only its own result/document links and values. No article card, search result, breadcrumb, or deep link exposes the other account's private data.
 
-**Result:** `Blocked` — EH-138 deep-link UI is not present. Required evidence: two-account browser run and observed link/result ownership.
-**Notes / evidence link:** `________`
+**Result:** `Blocked` — public cards do not show private values, but two-account isolation of `/app/biomarkers?measurement=hemoglobin_whole_blood` was not run. Docker/Auth down; second synthetic account not signed in.
+**Notes / evidence link:** Unauthenticated private links redirect to `/?signin=required`. `/app/knowledge/panels/cbc` returned HTTP 500 in this checkout (`content.ts` client chunk error) instead of a clean 307.
 
 ### EH140-UI-09: Broken source links block publication
 
@@ -204,19 +204,19 @@ These checks cover the authenticated product surfaces that are present in this c
 
 **Expected result:** The missing local target is visible as a failure and the draft cannot be accepted as published. After repair/removal, the failure disappears and the source list remains visible. No broken draft is presented as published guidance.
 
-**Result:** `Blocked` — EH-139 review/publish UI and EH-140 content fixtures are not present. Required evidence: review-screen result and repaired link trace.
-**Notes / evidence link:** `________`
+**Result:** `Blocked` — no content-review UI session with `EH140-BROKEN-LINK`. EH-139 files are in this checkout after the master merge, but the disposable broken-draft path was not exercised.
+**Notes / evidence link:** Strict `pnpm check:eh140-kb` passed on published files; that does not certify the review-screen negative path.
 
 ## Developer evidence required
 
-- [x] `pnpm test:eh140` passed the deterministic safety, document-range boundary, local-link fixture, and JSX accessibility fixture contracts. **Provider:** developer/CI. The command also reported the real Knowledge Base surface as `BLOCKED`; this is not release acceptance.
-- [ ] `pnpm check:eh140-kb` strict mode was exercised and correctly exited `1` with `Knowledge Base surface is BLOCKED` because EH-134/EH-135/EH-138 files are absent. It must pass only after those files exist and contain no findings; this unresolved result prevents release acceptance. **Provider:** developer/CI; observed locally on 2026-09-01.
-- [x] `pnpm typecheck` passed with the EH-140 policy and verifier. **Provider:** developer/CI; observed locally on 2026-09-01.
+- [x] `pnpm test:eh140` passed on 2026-09-04 after the master merge: `audited 28 Knowledge Base files with no blocking findings`. **Provider:** developer/CI. Static audit is not release acceptance.
+- [x] `pnpm check:eh140-kb` strict mode passed on 2026-09-04 after the master merge with the same 28-file audit and no findings. Manual CBC source-gap (EH140-UI-03) is still a release blocker the static gate did not flag. **Provider:** developer/CI.
+- [x] `pnpm typecheck` passed with the EH-140 policy and verifier. **Provider:** developer/CI; last observed 2026-09-03 on this branch.
 - [x] `pnpm check:ci-suite-coverage-contract` and `pnpm check:ci-suite-coverage` passed; the EH-140 suite is workflow-reachable (`90 covered, 0 local-only, 0 orphaned, 0 partial, 0 invalid`). **Provider:** developer/CI; observed locally on 2026-09-01.
 - [x] `pnpm check:documentation-links` passed for the repository documentation index (`10 links resolve`). **Provider:** developer/CI; observed locally on 2026-09-01. The EH-140 local-link check is offline; external source URLs still require manual review evidence.
-- [x] Docker and Supabase smoke checks passed: the local containers were healthy, Supabase REST returned HTTP 200, and Auth settings returned HTTP 200. **Provider:** developer/CI; observed locally on 2026-09-01.
-- [x] Unauthenticated `/api/profile`, `/api/biomarkers`, `/api/health-profile`, `/api/timeline`, and `/api/reports` returned HTTP 401. **Provider:** developer/CI; observed locally on 2026-09-01.
-- [ ] Authenticated synthetic-account API smoke was partial: `/api/profile`, `/api/documents`, `/api/biomarkers`, `/api/timeline`, and `/api/health-profile` returned HTTP 200, but `/api/reports` returned HTTP 500 (`permission denied for table reports`). This backend defect is recorded honestly and is not an EH-140 Knowledge Base acceptance result. **Provider:** developer/CI; observed locally on 2026-09-01.
+- [ ] Docker and Supabase smoke checks failed on 2026-09-04: Docker Desktop was not running and `http://127.0.0.1:54321/auth/v1/health` did not connect. A 2026-09-01 pass is not treated as current evidence. **Provider:** developer/CI.
+- [x] Unauthenticated `/api/profile`, `/api/biomarkers`, `/api/health-profile`, `/api/timeline`, and `/api/reports` returned HTTP 401 on 2026-09-04. **Provider:** developer/CI.
+- [ ] Authenticated synthetic-account API smoke was not re-run on 2026-09-04 because Auth/Supabase were down. The 2026-09-01 run had `/api/reports` HTTP 500 (`permission denied for table reports`); that backend defect is still not an EH-140 Knowledge Base acceptance result. **Provider:** developer/CI.
 - [ ] Clinical/editorial reviewer signs off every published article and panel page, including prohibited-claim scan findings and source/review metadata. **Provider:** Clinical Product.
 - [ ] Accessibility reviewer supplies executed keyboard, supported screen-reader, and mobile evidence for all UI cases above. Static checks do not satisfy this requirement. **Provider:** QA / Accessibility.
 - [ ] Release owner confirms every P0 finding is closed or formally dispositioned before accepting the Knowledge Base MVP. **Provider:** release owner.
