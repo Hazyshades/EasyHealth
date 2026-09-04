@@ -265,8 +265,8 @@ function PanelArticleResults({ state, resultLabel }: PanelArticleResultsProps) {
 export type PanelArticleTemplateProps = Readonly<{
   article: PanelArticle;
   panel: PanelDefinition;
-  resultLabel: string;
-  resultState: PanelArticleResultState;
+  resultLabel?: string;
+  resultState?: PanelArticleResultState;
 }>;
 
 export function PanelArticleTemplate({
@@ -394,7 +394,9 @@ export function PanelArticleTemplate({
         ) : null}
       </SurfaceCard>
 
-      <PanelArticleResults state={resultState} resultLabel={resultLabel} />
+      {resultState && resultLabel ? (
+        <PanelArticleResults state={resultState} resultLabel={resultLabel} />
+      ) : null}
 
       <SurfaceCard padding="lg" className="space-y-6">
         <ArticleSources article={article} />
