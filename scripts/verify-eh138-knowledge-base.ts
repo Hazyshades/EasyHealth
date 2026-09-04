@@ -110,6 +110,17 @@ assert.equal(getKnowledgeArticleHref("toString"), null);
 assert.ok(
   hemoglobin?.record.sources.every((source) => /^https:\/\//.test(source.href)),
 );
+assert.deepEqual(hemoglobin?.record.relatedPanelKeys, ["cbc"]);
+assert.ok(hemoglobin?.panels.some((panel) => panel.key === "cbc"));
+assert.ok(hemoglobin?.panels.some((panel) => panel.key === "iron_studies"));
+assert.match(
+  readFileSync("src/components/knowledge-base/measurement-article.tsx", "utf8"),
+  /relatedPanelKeys/,
+);
+assert.match(
+  readFileSync("src/components/knowledge-base/measurement-article.tsx", "utf8"),
+  /Panel membership/,
+);
 
 const knowledgeSource = [
   "src/app/knowledge/layout.tsx",

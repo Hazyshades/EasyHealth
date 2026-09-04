@@ -182,6 +182,18 @@ export function MeasurementArticle({ article }: { article: KnowledgeArticle }) {
                   {definition.key}
                 </dd>
               </div>
+              {article.panels.length > 0 ? (
+                <div>
+                  <dt className="text-[var(--eh-text-muted)]">
+                    Panel membership
+                  </dt>
+                  <dd className="mt-0.5 font-medium text-[var(--eh-text-primary)]">
+                    {article.panels
+                      .map((panel) => panel.displayName)
+                      .join(" · ")}
+                  </dd>
+                </div>
+              ) : null}
             </dl>
           </SurfaceCard>
 
