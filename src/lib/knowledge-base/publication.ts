@@ -15,7 +15,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const LOCALE_PATTERN = /^[a-z]{2}(?:-[A-Z]{2})?$/;
 const ISO_TIMESTAMP_PATTERN =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(?:Z|([+-])(\d{2}):(\d{2}))$/;
 
 type PolicyOptions = Readonly<{
   asOf?: Date;
@@ -76,12 +76,47 @@ export function isValidKnowledgeBaseLocale(value: unknown): value is string {
 }
 
 export function isValidKnowledgeBaseTimestamp(value: unknown): value is string {
-  if (typeof value !== "string" || !ISO_TIMESTAMP_PATTERN.test(value))
+  if (typeof value !== "string") return false;
+  const match = ISO_TIMESTAMP_PATTERN.exec(value);
+  if (!match) return false;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const millisecond =
+    match[7] === undefined ? 0 : Number(match[7].padEnd(3, "0"));
+  const offsetHour = match[9] === undefined ? 0 : Number(match[9]);
+  const offsetMinute = match[10] === undefined ? 0 : Number(match[10]);
+  if (
+    hour > 23 ||
+    minute > 59 ||
+    second > 59 ||
+    offsetHour > 23 ||
+    offsetMinute > 59
+  ) {
     return false;
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) return false;
-  const canonical = value.includes(".") ? value : value.replace(/Z$/, ".000Z");
-  return new Date(parsed).toISOString() === canonical;
+  }
+
+  const offsetMs =
+    (match[8] === "-" ? -1 : 1) * (offsetHour * 60 + offsetMinute) * 60_000;
+  const utcMs =
+    Date.UTC(year, month - 1, day, hour, minute, second, millisecond) -
+    offsetMs;
+  if (!Number.isFinite(utcMs)) return false;
+
+  const wall = new Date(utcMs + offsetMs);
+  return (
+    wall.getUTCFullYear() === year &&
+    wall.getUTCMonth() + 1 === month &&
+    wall.getUTCDate() === day &&
+    wall.getUTCHours() === hour &&
+    wall.getUTCMinutes() === minute &&
+    wall.getUTCSeconds() === second &&
+    wall.getUTCMilliseconds() === millisecond
+  );
 }
 
 function isPastTimestamp(value: unknown, asOf: Date): value is string {
@@ -317,7 +352,7 @@ export function validateKnowledgeBaseArticles(
       isValidKnowledgeBaseTimestamp(record.reviewedAt) === false &&
       record.reviewedAt != null
     ) {
-      error(slug, "reviewedAt must be an ISO-8601 UTC timestamp");
+      error(slug, "reviewedAt must be an ISO-8601 timestamp");
     }
     if (record.reviewedBy != null && trimmed(record.reviewedBy) === null) {
       error(slug, "reviewedBy must not be blank when present");
@@ -342,7 +377,7 @@ export function validateKnowledgeBaseArticles(
         error(slug, "deprecated content requires deprecation metadata");
       } else {
         if (!isPastTimestamp(deprecation.deprecatedAt, asOf)) {
-          error(slug, "deprecatedAt must be a past ISO-8601 UTC timestamp");
+          error(slug, "deprecatedAt must be a past ISO-8601 timestamp");
         }
         const replacement = deprecation.replacementSlug;
         if (replacement !== undefined && replacement !== null) {
