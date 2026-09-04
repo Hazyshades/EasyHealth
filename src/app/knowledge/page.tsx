@@ -9,7 +9,7 @@ import {
   getKnowledgePanel,
   listKnowledgePanels,
   searchKnowledgeEntries,
-} from "@/lib/knowledge-base";
+} from "@/lib/knowledge-base/navigation";
 import { getKnowledgeArticleHref } from "@/lib/knowledge-base/links";
 import type {
   KnowledgeCategory,

@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PanelArticle } from "@/components/knowledge-base/panel-article";
-import { getKnowledgePanel, listKnowledgePanels } from "@/lib/knowledge-base";
+import {
+  getKnowledgePanel,
+  listKnowledgePanels,
+} from "@/lib/knowledge-base/navigation";
 
 type PanelPageProps = {
   params: Promise<{ key: string }>;

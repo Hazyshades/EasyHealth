@@ -72,15 +72,6 @@ export {
   type MeasurementObservation,
 } from "./measurement-results";
 
-export {
-  getKnowledgeArticleByMeasurementKey,
-  getKnowledgeArticleBySlug,
-  getKnowledgeCategoryLabel,
-  getKnowledgePanel,
-  listKnowledgePanels,
-  listPublishedKnowledgeArticles,
-  searchKnowledgeEntries,
-} from "./navigation";
 export { getKnowledgeArticleHref } from "./links";
 export type {
   KnowledgeArticle,

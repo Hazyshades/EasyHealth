@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Check, CircleHelp } from "lucide-react";
 import { ContextBreadcrumbs } from "@/components/layout/context-breadcrumbs";
 import { SurfaceCard } from "@/components/ui/surface-card";
-import { getKnowledgeArticleByMeasurementKey } from "@/lib/knowledge-base";
+import { getKnowledgeArticleByMeasurementKey } from "@/lib/knowledge-base/navigation";
 import { getMeasurementDefinition } from "@/lib/biomarkers";
 import type { PanelDefinition, PanelMember } from "@/lib/biomarkers";
 

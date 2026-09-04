@@ -7,7 +7,7 @@ import {
   listKnowledgePanels,
   listPublishedKnowledgeArticles,
   searchKnowledgeEntries,
-} from "../src/lib/knowledge-base";
+} from "../src/lib/knowledge-base/navigation";
 import { getKnowledgeArticleHref } from "../src/lib/knowledge-base/links";
 
 const articles = listPublishedKnowledgeArticles();
