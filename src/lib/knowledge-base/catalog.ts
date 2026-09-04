@@ -5,14 +5,17 @@ import {
   normalizeMeasurementLabel,
   PANEL_DEFINITIONS,
 } from "../biomarkers";
-import { KNOWLEDGE_ARTICLES } from "./articles";
+import {
+  getKnowledgeArticle,
+  listPublishedKnowledgeArticleRecords,
+  type KnowledgeArticleRecord as PublishedArticleRecord,
+} from "./content";
 import type {
   KnowledgeArticle,
-  KnowledgeArticleRecord,
   KnowledgeCategory,
   KnowledgeIndexFilters,
   KnowledgeSearchResult,
-} from "./types";
+} from "./navigation-types";
 
 const PANEL_BY_KEY: Record<string, (typeof PANEL_DEFINITIONS)[number]> =
   Object.fromEntries(PANEL_DEFINITIONS.map((panel) => [panel.key, panel]));
@@ -28,39 +31,36 @@ const CATEGORY_LABELS: Record<KnowledgeCategory, string> = {
   inflammation: "Inflammation",
 };
 
-function hasCompletePublicationMetadata(
-  record: KnowledgeArticleRecord,
-): boolean {
-  return (
-    record.review.status === "published" &&
-    record.slug.trim().length > 0 &&
-    record.measurementDefinitionKey.trim().length > 0 &&
-    record.contentVersion.trim().length > 0 &&
-    record.review.reviewedBy.trim().length > 0 &&
-    record.review.reviewedAt.trim().length > 0 &&
-    record.sources.length > 0 &&
-    record.sources.every(
-      (source) =>
-        source.title.trim() && source.publisher.trim() && source.href.trim(),
-    )
-  );
-}
+const CATEGORY_BY_SLUG: Record<string, KnowledgeCategory> = {
+  hemoglobin: "blood",
+  hematocrit: "blood",
+  "white-blood-cell-count": "blood",
+  "platelet-count": "blood",
+  mcv: "blood",
+  glucose: "metabolic",
+  hba1c: "metabolic",
+  tsh: "thyroid",
+  alt: "liver",
+  "creatinine-egfr": "kidney",
+};
 
-function toPublishedArticle(
-  record: KnowledgeArticleRecord,
-): KnowledgeArticle | null {
-  if (!hasCompletePublicationMetadata(record)) return null;
+const RELATED_PANEL_KEYS_BY_SLUG: Record<string, readonly string[]> = {
+  hemoglobin: ["cbc"],
+  hematocrit: ["cbc"],
+  "white-blood-cell-count": ["cbc"],
+  "platelet-count": ["cbc"],
+  mcv: ["cbc"],
+  glucose: [],
+  hba1c: [],
+  tsh: ["thyroid"],
+  alt: ["liver"],
+  "creatinine-egfr": ["kidney"],
+};
 
-  const definition = getMeasurementDefinition(record.measurementDefinitionKey);
-  if (
-    !definition ||
-    definition.maturity !== "reviewed" ||
-    definition.sourceProvenance.kind !== "registry_v2_review"
-  ) {
-    return null;
-  }
-
-  const aliases = [
+function reviewedAliases(
+  definition: NonNullable<ReturnType<typeof getMeasurementDefinition>>,
+) {
+  return [
     ...new Set(
       definition.aliases
         .filter(
@@ -73,29 +73,84 @@ function toPublishedArticle(
         .filter(Boolean),
     ),
   ];
+}
+
+function toPublishedArticle(
+  record: PublishedArticleRecord,
+): KnowledgeArticle | null {
+  if (record.status !== "published" || record.reviewStatus !== "reviewed") {
+    return null;
+  }
+
+  const measurementDefinitionKey = record.measurementDefinitionKeys[0];
+  if (!measurementDefinitionKey) return null;
+  const definition = getMeasurementDefinition(measurementDefinitionKey);
+  if (
+    !definition ||
+    definition.maturity !== "reviewed" ||
+    definition.sourceProvenance.kind !== "registry_v2_review"
+  ) {
+    return null;
+  }
+
+  const category = Object.hasOwn(CATEGORY_BY_SLUG, record.slug)
+    ? CATEGORY_BY_SLUG[record.slug]
+    : null;
+  if (!category) return null;
+  const published = getKnowledgeArticle(record.slug);
+  if (!published) return null;
 
   return {
-    record,
+    record: {
+      slug: record.slug,
+      measurementDefinitionKey,
+      category,
+      summary: record.summary,
+      whatItMeasures: record.summary,
+      interpretationFactors: [],
+      relatedMeasurementDefinitionKeys: record.relatedMeasurementKeys,
+      relatedPanelKeys: Object.hasOwn(RELATED_PANEL_KEYS_BY_SLUG, record.slug)
+        ? RELATED_PANEL_KEYS_BY_SLUG[record.slug]
+        : [],
+      contentVersion: record.contentVersion,
+      review: {
+        status: "published",
+        reviewedBy: record.reviewedBy,
+        reviewedAt: record.reviewedAt,
+      },
+      sources: published.sources.map((source) => ({
+        title: source.title,
+        publisher: source.publisher,
+        href: source.url,
+      })),
+    },
     definition,
-    aliases,
+    aliases: reviewedAliases(definition),
     panels: listPanelsForMeasurementDefinition(definition.key),
   };
 }
 
-const PUBLISHED_ARTICLES = KNOWLEDGE_ARTICLES.flatMap((record) => {
-  const article = toPublishedArticle(record);
-  return article ? [article] : [];
-});
+const PUBLISHED_ARTICLES = listPublishedKnowledgeArticleRecords().flatMap(
+  (record) => {
+    const article = toPublishedArticle(record);
+    return article ? [article] : [];
+  },
+);
 
 const ARTICLE_BY_SLUG: Record<string, KnowledgeArticle> = Object.fromEntries(
   PUBLISHED_ARTICLES.map((article) => [article.record.slug, article]),
 );
 const ARTICLE_BY_MEASUREMENT_KEY: Record<string, KnowledgeArticle> =
   Object.fromEntries(
-    PUBLISHED_ARTICLES.map((article) => [
-      article.record.measurementDefinitionKey,
-      article,
-    ]),
+    PUBLISHED_ARTICLES.flatMap((article) => {
+      const published = listPublishedKnowledgeArticleRecords().find(
+        (candidate) => candidate.slug === article.record.slug,
+      );
+      const keys = published?.measurementDefinitionKeys ?? [
+        article.record.measurementDefinitionKey,
+      ];
+      return keys.map((key) => [key, article] as const);
+    }),
   );
 
 function normalizedSearch(
@@ -260,23 +315,4 @@ export function searchKnowledgeEntries(
   });
 }
 
-export function formatKnowledgeUnit(unit: string): string {
-  const formatted: Record<string, string> = {
-    "%": "%",
-    "10^9/l": "10⁹/L",
-    "10^3/ul": "10³/µL",
-    "10^12/l": "10¹²/L",
-    fl: "fL",
-    pg: "pg",
-    "mg/dl": "mg/dL",
-    "mmol/l": "mmol/L",
-    "u/l": "U/L",
-    "miu/l": "mIU/L",
-    "uiu/ml": "µIU/mL",
-    "ng/dl": "ng/dL",
-    "pmol/l": "pmol/L",
-    "umol/l": "µmol/L",
-    "ml/min/1.73m2": "mL/min/1.73 m²",
-  };
-  return formatted[unit] ?? unit;
-}
+export { formatKnowledgeUnit } from "./content";

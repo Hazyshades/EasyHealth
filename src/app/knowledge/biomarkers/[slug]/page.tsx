@@ -1,38 +1,41 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { MeasurementArticle } from "@/components/knowledge-base/measurement-article";
+import { BiomarkerArticleTemplate } from "@/components/knowledge-base/biomarker-article";
 import {
-  getKnowledgeArticleBySlug,
-  listPublishedKnowledgeArticles,
-} from "@/lib/knowledge-base";
+  getKnowledgeArticle,
+  listPublishedKnowledgeArticleRecords,
+} from "@/lib/knowledge-base/content";
 
-type MeasurementArticlePageProps = {
+type PageProps = {
   params: Promise<{ slug: string }>;
 };
 
+export const dynamicParams = false;
+
 export function generateStaticParams() {
-  return listPublishedKnowledgeArticles().map((article) => ({
-    slug: article.record.slug,
-  }));
+  return listPublishedKnowledgeArticleRecords().map(({ slug }) => ({ slug }));
 }
 
-export async function generateMetadata({
-  params,
-}: MeasurementArticlePageProps): Promise<Metadata> {
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const article = getKnowledgeArticleBySlug(slug);
-  if (!article) return { title: "Measurement guide | EasyHealth" };
+  const article = getKnowledgeArticle(slug);
+  if (!article) return {};
+
   return {
-    title: `${article.definition.displayName} | EasyHealth Knowledge Base`,
-    description: article.record.summary,
+    title: `${article.title} | EasyHealth Knowledge Base`,
+    description: article.summary,
   };
 }
 
-export default async function MeasurementArticlePage({
-  params,
-}: MeasurementArticlePageProps) {
+export default async function BiomarkerKnowledgePage({ params }: PageProps) {
   const { slug } = await params;
-  const article = getKnowledgeArticleBySlug(slug);
+  const article = getKnowledgeArticle(slug);
   if (!article) notFound();
-  return <MeasurementArticle article={article} />;
+
+  return (
+    <BiomarkerArticleTemplate
+      article={article}
+      publishedArticles={listPublishedKnowledgeArticleRecords()}
+    />
+  );
 }

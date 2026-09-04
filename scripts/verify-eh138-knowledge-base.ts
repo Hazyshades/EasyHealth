@@ -13,8 +13,8 @@ import { getKnowledgeArticleHref } from "../src/lib/knowledge-base/links";
 const articles = listPublishedKnowledgeArticles();
 assert.equal(
   articles.length,
-  11,
-  "the initial reviewed article set should be stable",
+  10,
+  "the published Knowledge Base roster should stay aligned with EH-136",
 );
 for (const article of articles) {
   assert.equal(article.record.review.status, "published");
@@ -114,11 +114,11 @@ assert.deepEqual(hemoglobin?.record.relatedPanelKeys, ["cbc"]);
 assert.ok(hemoglobin?.panels.some((panel) => panel.key === "cbc"));
 assert.ok(hemoglobin?.panels.some((panel) => panel.key === "iron_studies"));
 assert.match(
-  readFileSync("src/components/knowledge-base/measurement-article.tsx", "utf8"),
+  readFileSync("src/components/knowledge-base/biomarker-article.tsx", "utf8"),
   /relatedPanelKeys/,
 );
 assert.match(
-  readFileSync("src/components/knowledge-base/measurement-article.tsx", "utf8"),
+  readFileSync("src/components/knowledge-base/biomarker-article.tsx", "utf8"),
   /Panel membership/,
 );
 
@@ -128,9 +128,9 @@ const knowledgeSource = [
   "src/app/knowledge/biomarkers/[slug]/page.tsx",
   "src/app/knowledge/panels/[key]/page.tsx",
   "src/components/knowledge-base/knowledge-header.tsx",
-  "src/components/knowledge-base/measurement-article.tsx",
+  "src/components/knowledge-base/biomarker-article.tsx",
   "src/components/knowledge-base/panel-article.tsx",
-  "src/lib/knowledge-base/articles.ts",
+  "src/lib/knowledge-base/navigation-types.ts",
   "src/lib/knowledge-base/catalog.ts",
   "src/lib/knowledge-base/links.ts",
 ]
@@ -159,8 +159,8 @@ assert.match(
   /getKnowledgeArticleHref/,
 );
 assert.match(
-  readFileSync("src/components/knowledge-base/measurement-article.tsx", "utf8"),
-  /\/app\/biomarkers\?measurement=/,
+  readFileSync("src/components/knowledge-base/biomarker-article.tsx", "utf8"),
+  /measurement:\s*definition\.key/,
 );
 
 console.log("verify-eh138-knowledge-base: all checks passed");

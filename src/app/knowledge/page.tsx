@@ -14,7 +14,7 @@ import { getKnowledgeArticleHref } from "@/lib/knowledge-base/links";
 import type {
   KnowledgeCategory,
   KnowledgeSearchResult,
-} from "@/lib/knowledge-base/types";
+} from "@/lib/knowledge-base/navigation-types";
 
 const CATEGORY_ORDER: readonly KnowledgeCategory[] = [
   "blood",

@@ -49,7 +49,7 @@ export function MobileBottomNav() {
   return (
     <nav
       aria-label="Mobile navigation"
-      className="fixed inset-x-0 bottom-0 z-40 flex border-t border-[#E8EEF5] bg-white/95 px-2 py-2 backdrop-blur-md md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex border-t border-[#E8EEF5] bg-white/95 px-1 py-2 backdrop-blur-md md:hidden"
     >
       {APP_NAV_ITEMS.map((item) => (
         <NavItem
