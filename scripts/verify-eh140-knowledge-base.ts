@@ -491,6 +491,61 @@ function runSurfaceFixtures(): void {
     "all required dependency surfaces must satisfy strict mode",
   );
 
+  const partialSurfaceWithFinding: KnowledgeBaseSurfaceReport = {
+    files: ["src/app/knowledge/biomarkers/[slug]/page.tsx"],
+    externalLinks: [],
+    findings: [
+      {
+        code: "prohibited_claim",
+        file: "src/app/knowledge/biomarkers/[slug]/page.tsx",
+        message: "personal_diagnosis_or_certainty: You do not have anemia.",
+      },
+    ],
+    missingSurfaces: ["EH-135 panel/CBC article", "EH-138 index/search"],
+    blocked: true,
+  };
+  assert.equal(
+    knowledgeBaseGateFailed(partialSurfaceWithFinding, false),
+    true,
+    "unsafe copy on a partial Knowledge Base tree must still fail the baseline gate",
+  );
+  assert.equal(
+    knowledgeBaseGateFailed(
+      {
+        files: [],
+        externalLinks: [],
+        findings: [],
+        missingSurfaces: [
+          "EH-134 biomarker article",
+          "EH-135 panel/CBC article",
+          "EH-138 index/search",
+        ],
+        blocked: true,
+      },
+      false,
+    ),
+    false,
+    "an empty dependency-blocked tree must remain runnable in the baseline suite",
+  );
+  assert.equal(
+    knowledgeBaseGateFailed(
+      {
+        files: [],
+        externalLinks: [],
+        findings: [],
+        missingSurfaces: [
+          "EH-134 biomarker article",
+          "EH-135 panel/CBC article",
+          "EH-138 index/search",
+        ],
+        blocked: true,
+      },
+      true,
+    ),
+    true,
+    "strict mode must fail while required Knowledge Base surfaces are missing",
+  );
+
   const articlePath = path.resolve(
     "content/knowledge-base/synthetic-article.md",
   );
@@ -553,23 +608,29 @@ function cliRoots(args: readonly string[]): string[] {
   return roots.length > 0 ? roots : [...DEFAULT_KNOWLEDGE_BASE_ROOTS];
 }
 
+export function knowledgeBaseGateFailed(
+  report: KnowledgeBaseSurfaceReport,
+  requireSurface: boolean,
+): boolean {
+  return report.findings.length > 0 || (requireSurface && report.blocked);
+}
+
+function printBlockedSurface(report: KnowledgeBaseSurfaceReport): void {
+  if (report.files.length === 0) {
+    console.log(
+      "[eh140] Knowledge Base surface is BLOCKED: EH-134/EH-135/EH-138 files are not present in this checkout",
+    );
+    return;
+  }
+  console.log(
+    `[eh140] Knowledge Base surface is BLOCKED: missing required surfaces: ${report.missingSurfaces.join(", ")}`,
+  );
+}
+
 function printReport(
   report: KnowledgeBaseSurfaceReport,
   requireSurface: boolean,
 ): number {
-  if (report.blocked) {
-    if (report.files.length === 0) {
-      console.log(
-        "[eh140] Knowledge Base surface is BLOCKED: EH-134/EH-135/EH-138 files are not present in this checkout",
-      );
-    } else {
-      console.log(
-        `[eh140] Knowledge Base surface is BLOCKED: missing required surfaces: ${report.missingSurfaces.join(", ")}`,
-      );
-    }
-    return requireSurface ? 1 : 0;
-  }
-
   if (report.externalLinks.length > 0) {
     console.log(
       `[eh140] ${report.externalLinks.length} external links require manual source review (no network calls made)`,
@@ -581,7 +642,12 @@ function printReport(
         `[eh140] ${finding.code} ${finding.file}: ${finding.message}`,
       );
     }
+    if (report.blocked) printBlockedSurface(report);
     return 1;
+  }
+  if (report.blocked) {
+    printBlockedSurface(report);
+    return knowledgeBaseGateFailed(report, requireSurface) ? 1 : 0;
   }
 
   console.log(
