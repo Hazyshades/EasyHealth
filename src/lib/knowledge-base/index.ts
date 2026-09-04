@@ -39,7 +39,12 @@ export {
   validatePanelEducationArticle,
 } from "./panel-articles";
 
-export { CBC_PANEL_ARTICLE, getPanelArticleBySlug } from "./panel-articles";
+export {
+  CBC_PANEL_ARTICLE,
+  getPanelArticleBySlug,
+  getPublicPanelEducationArticle,
+  panelEducationEligibleForPublicRoute,
+} from "./panel-articles";
 
 export {
   validatePanelArticle,

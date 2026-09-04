@@ -208,6 +208,15 @@
       "reason": "Knowledge Base safety, assessment-boundary, link, and accessibility contract checks require explicit CI triage."
     },
     {
+      "script": "test:public-panel-education",
+      "verificationFiles": ["scripts/verify-public-panel-education.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "knowledge-base",
+      "reason": "Public panel education overlay must keep sources, preview labels, and the private-results boundary."
+    },
+    {
       "script": "test:eh164",
       "verificationFiles": ["scripts/verify-eh164-censored-results.ts"],
       "job": "verify",

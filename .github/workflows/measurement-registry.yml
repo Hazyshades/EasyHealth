@@ -204,6 +204,8 @@ jobs:
         run: pnpm test:eh143
       - name: Verify EH-140 Knowledge Base safety gate
         run: pnpm test:eh140
+      - name: Verify public panel education overlay
+        run: pnpm test:public-panel-education
       - name: Verify EH-164 censored laboratory results
         run: pnpm test:eh164
       - name: Verify Health Profile drawer status rendering

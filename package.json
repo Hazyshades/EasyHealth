@@ -134,6 +134,7 @@
     "test:eh143": "tsx scripts/verify-eh143-readiness.ts",
     "test:eh140": "tsx scripts/verify-eh140-knowledge-base.ts",
     "check:eh140-kb": "tsx scripts/verify-eh140-knowledge-base.ts --require-surface",
+    "test:public-panel-education": "tsx scripts/verify-public-panel-education.ts",
     "test:eh164": "tsx scripts/verify-eh164-censored-results.ts",
     "test:health-profile-drawer-status": "tsx scripts/verify-health-profile-drawer-status.ts",
     "test:health-profile-reported-results": "tsx scripts/verify-health-profile-reported-results.ts",
