@@ -197,7 +197,7 @@ function localLinkFindings(
   externalLinks: string[],
 ): SurfaceFinding[] {
   const findings: SurfaceFinding[] = [];
-  const relativeFile = relativeRepositoryPath(filePath);
+  const relativeFile = relativeRepositoryPath(filePath, repositoryRoot);
   for (const match of source.matchAll(
     /\[[^\]]+\]\(([^)\s]+)(?:\s+[^)]*)?\)/g,
   )) {
@@ -228,9 +228,10 @@ function localLinkFindings(
 function accessibilityFindings(
   filePath: string,
   source: string,
+  repositoryRoot = REPOSITORY_ROOT,
 ): SurfaceFinding[] {
   const findings: SurfaceFinding[] = [];
-  const relativeFile = relativeRepositoryPath(filePath);
+  const relativeFile = relativeRepositoryPath(filePath, repositoryRoot);
   const add = (message: string, excerpt?: string) => {
     findings.push({
       code: "accessibility_hazard",
@@ -339,7 +340,9 @@ export function auditKnowledgeBaseSurface(
       );
     }
     if (JSX_EXTENSIONS[extension]) {
-      findings.push(...accessibilityFindings(filePath, source));
+      findings.push(
+        ...accessibilityFindings(filePath, source, repositoryRoot),
+      );
     }
   }
 
