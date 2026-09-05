@@ -11,12 +11,10 @@ import { Button } from "@/components/ui/button";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { buildHealthNavigationPath } from "@/lib/health-navigation";
 import { getPanelDefinition } from "@/lib/biomarkers";
-import {
-  CBC_PANEL_ARTICLE,
-  parseMeasurementResultsResponse,
-  selectPanelArticleResults,
-  validatePanelArticle,
-} from "@/lib/knowledge-base";
+import { CBC_PANEL_ARTICLE } from "@/lib/knowledge-base/panel-articles";
+import { selectPanelArticleResults } from "@/lib/knowledge-base/panel-results";
+import { parseMeasurementResultsResponse } from "@/lib/knowledge-base/measurement-results";
+import { validatePanelArticle } from "@/lib/knowledge-base/validation";
 
 const ARTICLE_PATH = "/app/knowledge/panels/cbc";
 const CBC_PANEL = getPanelDefinition(CBC_PANEL_ARTICLE.panelKey);

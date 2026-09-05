@@ -1,3 +1,8 @@
+/**
+ * Server-oriented Knowledge Base barrel. Client modules must import leaf
+ * files (panel-articles, admission, links, measurement-results) instead:
+ * this barrel re-exports publication-catalog, which hydrates markdown via node:fs.
+ */
 export type {
   KnowledgeBaseArticleType,
   KnowledgeBaseReviewStatus,

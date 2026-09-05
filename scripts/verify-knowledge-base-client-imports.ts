@@ -11,6 +11,7 @@ const CLIENT_ENTRYPOINTS = [
   "src/lib/knowledge-base/admission.ts",
   "src/components/knowledge-base/signed-in-measurement-adapter.tsx",
   "src/components/knowledge-base/knowledge-panel-article-page.tsx",
+  "src/components/knowledge/panel-article-template.tsx",
   "src/app/app/knowledge/panels/cbc/page.tsx",
 ] as const;
 
@@ -23,6 +24,8 @@ const FORBIDDEN = [
   "readFileSync",
 ];
 
+const BARREL_IMPORT = /from ["']@\/lib\/knowledge-base["']/;
+
 for (const relative of CLIENT_ENTRYPOINTS) {
   const source = readFileSync(path.join(ROOT, relative), "utf8");
   for (const token of FORBIDDEN) {
@@ -32,6 +35,11 @@ for (const relative of CLIENT_ENTRYPOINTS) {
       `${relative} must not import the markdown filesystem loader (${token})`,
     );
   }
+  assert.doesNotMatch(
+    source,
+    BARREL_IMPORT,
+    `${relative} must not import the Knowledge Base barrel (it re-exports node:fs hydration)`,
+  );
 }
 
 console.log("verify-knowledge-base-client-imports: all checks passed");

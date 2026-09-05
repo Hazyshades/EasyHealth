@@ -1,4 +1,4 @@
-import type { PanelArticle } from "@/lib/knowledge-base";
+import type { PanelArticle } from "@/lib/knowledge-base/types";
 import type { PanelDefinition } from "@/lib/biomarkers";
 import {
   PanelArticleTemplate,
