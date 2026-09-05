@@ -9,6 +9,9 @@ const CLIENT_ENTRYPOINTS = [
   "src/lib/knowledge-base/links.ts",
   "src/lib/knowledge-base/markdown-adapter.ts",
   "src/lib/knowledge-base/admission.ts",
+  "src/components/knowledge-base/signed-in-measurement-adapter.tsx",
+  "src/components/knowledge-base/knowledge-panel-article-page.tsx",
+  "src/app/app/knowledge/panels/cbc/page.tsx",
 ] as const;
 
 const FORBIDDEN = [

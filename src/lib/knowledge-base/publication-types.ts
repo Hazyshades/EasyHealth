@@ -20,7 +20,7 @@ export type KnowledgeBaseArticleType =
   (typeof KNOWLEDGE_BASE_ARTICLE_TYPES)[number];
 
 export const KNOWLEDGE_BASE_REVIEW_WINDOW_DAYS = 365;
-export const KNOWLEDGE_BASE_ROUTE = "/knowledge-base";
+export const KNOWLEDGE_BASE_ROUTE = "/knowledge";
 
 export type KnowledgeBaseSource = Readonly<{
   title: string;

@@ -36,8 +36,8 @@ assert.match(
 );
 assert.match(
   publicPanelPage,
-  /PanelArticleTemplate/,
-  "the public panel route must reuse the panel education template",
+  /KnowledgeArticlePage/,
+  "the public panel route must render through the article-page module",
 );
 assert.match(
   publicPanelPage,

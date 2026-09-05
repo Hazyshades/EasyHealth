@@ -24,9 +24,9 @@ export const REQUIRED_KNOWLEDGE_BASE_SURFACES = [
     label: "EH-134 biomarker article",
     pathPrefixes: [
       "src/app/knowledge/biomarkers/",
-      "src/app/knowledge-base/biomarkers/",
-      "src/app/app/knowledge-base/biomarkers/",
-      "src/components/knowledge-base/measurement-article",
+      "src/app/app/knowledge/measurements/",
+      "src/components/knowledge-base/knowledge-article-page",
+      "src/components/knowledge-base/biomarker-article",
       "content/knowledge-base/biomarker",
       "content/knowledge-base/measurement",
     ],
@@ -35,8 +35,8 @@ export const REQUIRED_KNOWLEDGE_BASE_SURFACES = [
     label: "EH-135 panel/CBC article",
     pathPrefixes: [
       "src/app/knowledge/panels/",
-      "src/app/knowledge-base/panels/",
-      "src/app/app/knowledge-base/panels/",
+      "src/app/app/knowledge/panels/",
+      "src/components/knowledge-base/knowledge-panel-article-page",
       "src/components/knowledge-base/panel-article",
       "content/knowledge-base/panel",
       "content/knowledge-base/cbc",

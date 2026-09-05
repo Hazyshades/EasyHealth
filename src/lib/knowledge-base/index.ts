@@ -81,6 +81,11 @@ export {
   type PublicKnowledgeBaseArticle,
 } from "./publication-catalog";
 export {
+  publicMeasurementArticlePath,
+  publicPanelArticlePath,
+  resolveLegacyKnowledgeBasePath,
+} from "./article-routes";
+export {
   buildKnowledgeBaseStaleReport,
   validateKnowledgeBaseArticles,
 } from "./publication";
