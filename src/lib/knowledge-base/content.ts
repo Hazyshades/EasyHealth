@@ -9,6 +9,14 @@ import {
   type PanelDefinition,
 } from "@/lib/biomarkers";
 import manifestJson from "../../../content/knowledge/biomarkers/manifest.json";
+import {
+  getCatalogEntryBySlug,
+  toAdmissionArticle,
+} from "./catalog";
+import {
+  isPublicCatalogArticle,
+  type KnowledgeBasePolicyOptions,
+} from "./admission";
 
 const CONTENT_ROOT = path.join(process.cwd(), "content", "knowledge", "biomarkers");
 const ARTICLE_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -225,20 +233,34 @@ export function listKnowledgeArticles(): readonly KnowledgeArticle[] {
   return manifest.articles.map((article) => hydrateArticle(manifest, article));
 }
 
-export function listPublishedKnowledgeArticleRecords(): readonly KnowledgeArticleRecord[] {
-  return listKnowledgeArticleRecords().filter(
-    (article) => article.status === "published" && article.reviewStatus === "reviewed",
-  );
+export function listPublishedKnowledgeArticleRecords(
+  options: KnowledgeBasePolicyOptions = {},
+): readonly KnowledgeArticleRecord[] {
+  return listKnowledgeArticleRecords().filter((article) => {
+    const entry = getCatalogEntryBySlug("measurement", article.slug);
+    return entry
+      ? isPublicCatalogArticle(toAdmissionArticle(entry), options)
+      : false;
+  });
 }
 
-export function getKnowledgeArticle(slug: string): KnowledgeArticle | null {
+
+export function loadKnowledgeArticleBySlug(slug: string): KnowledgeArticle | null {
   const manifest = getManifest();
-  const article = manifest.articles.find(
-    (candidate) =>
-      candidate.slug === slug &&
-      candidate.status === "published" &&
-      candidate.reviewStatus === "reviewed",
-  );
+  const article = manifest.articles.find((candidate) => candidate.slug === slug);
+  return article ? hydrateArticle(manifest, article) : null;
+}
+
+export function getKnowledgeArticle(
+  slug: string,
+  options: KnowledgeBasePolicyOptions = {},
+): KnowledgeArticle | null {
+  const entry = getCatalogEntryBySlug("measurement", slug);
+  if (!entry || !isPublicCatalogArticle(toAdmissionArticle(entry), options)) {
+    return null;
+  }
+  const manifest = getManifest();
+  const article = manifest.articles.find((candidate) => candidate.slug === slug);
   return article ? hydrateArticle(manifest, article) : null;
 }
 

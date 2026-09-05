@@ -1,5 +1,10 @@
 import { getMeasurementDefinition } from "@/lib/biomarkers";
 import {
+  getPublishedKnowledgeBaseArticleBySlug,
+  getPublishedKnowledgeBaseArticleForMeasurementDefinition,
+  listCatalogMeasurementArticles,
+} from "./catalog";
+import {
   formatKnowledgeBaseSchemaErrors,
   measurementEducationArticleSchema,
   type KnowledgeBaseValidation,
@@ -9,8 +14,8 @@ import {
 const ARTICLE_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /**
- * EH-134 intentionally ships no article corpus. EH-136 adds the first
- * clinically reviewed records without changing this lookup boundary.
+ * Empty typed measurement corpus. Production measurement articles live in the
+ * shared Knowledge Base catalog (markdown adapter), not this list.
  */
 export const MEASUREMENT_ARTICLES: readonly MeasurementEducationArticle[] = [];
 
@@ -77,9 +82,14 @@ export function validateMeasurementArticleCatalog(
 }
 
 export function listPublishedMeasurementArticles(
-  articles: readonly MeasurementEducationArticle[] = MEASUREMENT_ARTICLES,
+  articles?: readonly MeasurementEducationArticle[],
   locale = "en",
 ): readonly MeasurementEducationArticle[] {
+  if (!articles) {
+    return listCatalogMeasurementArticles().filter(
+      (article) => article.locale === locale,
+    );
+  }
   return articles.filter(
     (article) =>
       article.locale === locale &&
@@ -96,9 +106,17 @@ export function getPublishedMeasurementArticleBySlug(
   } = {},
 ): MeasurementEducationArticle | null {
   if (!ARTICLE_SLUG_PATTERN.test(slug)) return null;
+  if (!options.articles) {
+    const article = getPublishedKnowledgeBaseArticleBySlug(
+      "measurement",
+      slug,
+      { locale: options.locale ?? "en" },
+    );
+    return article?.type === "measurement" ? article : null;
+  }
   return (
     listPublishedMeasurementArticles(
-      options.articles ?? MEASUREMENT_ARTICLES,
+      options.articles,
       options.locale ?? "en",
     ).find((article) => article.slug === slug) ?? null
   );
@@ -111,9 +129,15 @@ export function getPublishedMeasurementArticleForDefinition(
     articles?: readonly MeasurementEducationArticle[];
   } = {},
 ): MeasurementEducationArticle | null {
+  if (!options.articles) {
+    return getPublishedKnowledgeBaseArticleForMeasurementDefinition(
+      measurementDefinitionKey,
+      { locale: options.locale ?? "en" },
+    );
+  }
   return (
     listPublishedMeasurementArticles(
-      options.articles ?? MEASUREMENT_ARTICLES,
+      options.articles,
       options.locale ?? "en",
     ).find(
       (article) =>

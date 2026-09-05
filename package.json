@@ -21,6 +21,8 @@
     "test:eh135": "tsx scripts/verify-eh135-panel-article.ts",
     "check:knowledge-base": "tsx scripts/check-knowledge-base.ts",
     "test:knowledge-base": "tsx scripts/verify-knowledge-base.ts",
+    "test:knowledge-base-catalog": "tsx scripts/verify-knowledge-base-catalog.ts",
+    "test:knowledge-base-client-imports": "tsx scripts/verify-knowledge-base-client-imports.ts",
     "test:eh111": "tsx scripts/verify-eh111-clinical-compatibility-runner.ts",
     "test:eh141": "tsx scripts/verify-eh141-score-required-groups.ts",
     "test:eh111-db": "node scripts/run-supabase-db-tests.mjs QA-Db_tests/eh111_clinical_compatibility.sql",

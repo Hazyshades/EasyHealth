@@ -64,8 +64,8 @@ assert.match(
   "the template must omit results when resultState is not provided",
 );
 
-assert.equal(getPublicPanelEducationArticle("cbc")?.slug, "cbc");
-assert.equal(getPublicPanelEducationArticle(" CBC ")?.slug, "cbc");
+assert.equal(getPublicPanelEducationArticle("cbc"), null);
+assert.equal(getPublicPanelEducationArticle(" CBC "), null);
 assert.equal(CBC_PANEL_ARTICLE.reviewStatus, "in_review");
 assert.equal(CBC_PANEL_ARTICLE.reviewedBy, null);
 assert.equal(CBC_PANEL_ARTICLE.reviewedAt, null);
@@ -78,7 +78,7 @@ assert.ok(
 assert.match(CBC_PANEL_ARTICLE.disclaimer, /not medical advice/i);
 assert.equal(
   panelEducationEligibleForPublicRoute(CBC_PANEL_ARTICLE, "cbc"),
-  true,
+  false,
 );
 assert.equal(
   panelEducationEligibleForPublicRoute(CBC_PANEL_ARTICLE, "thyroid"),
