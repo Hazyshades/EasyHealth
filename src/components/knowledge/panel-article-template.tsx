@@ -13,8 +13,8 @@ import type {
   PanelArticle,
   PanelArticleMember,
   PanelArticleMemberRole,
-  PanelArticleObservation,
-} from "@/lib/knowledge-base";
+} from "@/lib/knowledge-base/types";
+import type { PanelArticleObservation } from "@/lib/knowledge-base/panel-results";
 import { formatPanelArticleObservationValue } from "@/lib/knowledge-base/measurement-results";
 
 const ROLE_LABELS: Record<PanelArticleMemberRole, string> = {
