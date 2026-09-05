@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { BiomarkerArticleTemplate } from "@/components/knowledge-base/biomarker-article";
+import { KnowledgeArticlePage } from "@/components/knowledge-base/knowledge-article-page";
 import {
   getKnowledgeArticle,
   listPublishedKnowledgeArticleRecords,
@@ -16,7 +16,9 @@ export function generateStaticParams() {
   return listPublishedKnowledgeArticleRecords().map(({ slug }) => ({ slug }));
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const article = getKnowledgeArticle(slug);
   if (!article) return {};
@@ -33,7 +35,9 @@ export default async function BiomarkerKnowledgePage({ params }: PageProps) {
   if (!article) notFound();
 
   return (
-    <BiomarkerArticleTemplate
+    <KnowledgeArticlePage
+      kind="measurement"
+      adapter="public"
       article={article}
       publishedArticles={listPublishedKnowledgeArticleRecords()}
     />

@@ -210,6 +210,8 @@ jobs:
         run: pnpm test:knowledge-base-catalog
       - name: Verify Knowledge Base client import seam
         run: pnpm test:knowledge-base-client-imports
+      - name: Verify Knowledge Base canonical routes
+        run: pnpm test:knowledge-base-routes
       - name: Verify EH-164 censored laboratory results
         run: pnpm test:eh164
       - name: Verify Health Profile drawer status rendering

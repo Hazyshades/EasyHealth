@@ -1,3 +1,4 @@
+import React, { type ReactNode } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import {
@@ -9,10 +10,7 @@ import {
 } from "@/lib/knowledge-base/content";
 import { getMeasurementDefinition } from "@/lib/biomarkers";
 import { buildHealthNavigationPath } from "@/lib/health-navigation";
-import {
-  getKnowledgeArticleBySlug,
-  getKnowledgePanel,
-} from "@/lib/knowledge-base/navigation";
+import { getKnowledgeArticleBySlug } from "@/lib/knowledge-base/navigation";
 
 const sectionClassName =
   "rounded-2xl border border-[var(--eh-border)] bg-white p-5 shadow-[0_1px_3px_rgba(15,23,42,0.04)] sm:p-7";
@@ -22,11 +20,13 @@ const markdownClassName =
 export type BiomarkerArticleTemplateProps = {
   article: KnowledgeArticle;
   publishedArticles: readonly KnowledgeArticleRecord[];
+  resultsStrip?: ReactNode;
 };
 
 export function BiomarkerArticleTemplate({
   article,
   publishedArticles,
+  resultsStrip,
 }: BiomarkerArticleTemplateProps) {
   const aliases = Array.from(
     new Set(
@@ -53,12 +53,7 @@ export function BiomarkerArticleTemplate({
       ),
     ),
   );
-  const relatedPanelKeys =
-    getKnowledgeArticleBySlug(article.slug)?.record.relatedPanelKeys ?? [];
-  const relatedPanels = relatedPanelKeys.flatMap((key) => {
-    const panel = getKnowledgePanel(key);
-    return panel ? [panel] : [];
-  });
+  const relatedPanels = getKnowledgeArticleBySlug(article.slug)?.panels ?? [];
   const relatedMeasurements = article.relatedMeasurementKeys.map((key) => ({
     key,
     definition: getMeasurementDefinition(key),
@@ -132,6 +127,8 @@ export function BiomarkerArticleTemplate({
                 <span>Content version {article.contentVersion}</span>
               </div>
             </header>
+
+            {resultsStrip}
 
             <section
               className={sectionClassName}

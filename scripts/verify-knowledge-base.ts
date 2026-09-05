@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { KnowledgeBaseArticlePage } from "../src/components/knowledge-base/article-page";
+import { KnowledgeArticlePage } from "../src/components/knowledge-base/knowledge-article-page";
+import {
+  getKnowledgeArticle,
+  listPublishedKnowledgeArticleRecords,
+} from "../src/lib/knowledge-base/content";
 import {
   buildKnowledgeBaseStaleReport,
   findPublicKnowledgeBaseArticle,
@@ -204,7 +208,7 @@ assert.equal(
     [deprecated, BASE_ARTICLE],
     { asOf: AS_OF },
   ),
-  "/knowledge-base/hemoglobin",
+  "/knowledge/biomarkers/hemoglobin",
 );
 assert.equal(
   resolveKnowledgeBaseDeprecatedRedirect(
@@ -220,7 +224,7 @@ assert.equal(
     ],
     { asOf: AS_OF },
   ),
-  "/knowledge-base",
+  "/knowledge",
 );
 assert.equal(
   resolveKnowledgeBaseDeprecatedRedirect(
@@ -232,7 +236,7 @@ assert.equal(
     [],
     { asOf: AS_OF },
   ),
-  "/knowledge-base",
+  "/knowledge",
 );
 
 const selfRedirect = validateKnowledgeBaseArticles(
@@ -262,13 +266,19 @@ assert.ok(
   duplicateSlug.errors.some((message) => message.includes("duplicate slug")),
 );
 
+const liveHemoglobin = getKnowledgeArticle("hemoglobin");
+assert.ok(liveHemoglobin);
 const markup = renderToStaticMarkup(
-  createElement(KnowledgeBaseArticlePage, { article: publicBaseArticle }),
+  createElement(KnowledgeArticlePage, {
+    kind: "measurement",
+    adapter: "public",
+    article: liveHemoglobin,
+    publishedArticles: listPublishedKnowledgeArticleRecords(),
+  }),
 );
-assert.match(markup, /Last reviewed by Synthetic reviewer/);
-assert.match(markup, /dateTime="2026-08-01T00:00:00\.000Z"/);
-assert.match(markup, /Synthetic source for governance verification/);
-assert.match(markup, /https:\/\/example\.test\/knowledge-base-source/);
-assert.match(markup, /This is not medical advice/);
+assert.match(markup, /Hemoglobin/);
+assert.match(markup, /Sources/);
+assert.match(markup, /Educational disclaimer|not medical advice/i);
+assert.doesNotMatch(markup, /\/api\/biomarkers/);
 
 console.log("verify-knowledge-base: all checks passed");

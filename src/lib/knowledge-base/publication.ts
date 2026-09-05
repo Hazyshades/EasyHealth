@@ -483,7 +483,10 @@ export function resolveKnowledgeBaseDeprecatedRedirect(
   if (!replacement || !isPublicKnowledgeBaseArticle(replacement, options)) {
     return KNOWLEDGE_BASE_ROUTE;
   }
-  return `${KNOWLEDGE_BASE_ROUTE}/${replacement.slug}`;
+  if (replacement.type === "panel") {
+    return `/knowledge/panels/${encodeURIComponent(replacement.slug)}`;
+  }
+  return `/knowledge/biomarkers/${encodeURIComponent(replacement.slug)}`;
 }
 
 export type { PolicyOptions as KnowledgeBasePolicyOptions };

@@ -238,37 +238,36 @@ assert.equal(
   1,
 );
 
-const renderer = readFileSync(
-  "src/components/knowledge-base/measurement-article.tsx",
+const education = readFileSync(
+  "src/components/knowledge-base/biomarker-article.tsx",
   "utf8",
 );
 for (const section of [
-  "What it measures",
   "Aliases",
   "Common units",
   "Specimen",
   "Panel membership",
   "Related measurements",
-  "Interpretation factors",
   "Sources",
-  "Your results",
-  "MEDICAL_DISCLAIMER",
 ]) {
-  assert.match(
-    renderer,
-    new RegExp(section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
-  );
+  assert.ok(education.includes(section), section);
 }
-assert.match(renderer, /fetch\("\/api\/biomarkers"/);
-assert.match(renderer, /not\s+a\s+diagnosis/);
-assert.doesNotMatch(renderer, /ref_low|ref_high|score role|universal range/i);
+const resultsAdapter = readFileSync(
+  "src/components/knowledge-base/signed-in-measurement-adapter.tsx",
+  "utf8",
+);
+assert.match(resultsAdapter, /Your results/);
+assert.match(resultsAdapter, /fetch\("\/api\/biomarkers"/);
+assert.match(resultsAdapter, /not\s+a\s+diagnosis/);
+assert.doesNotMatch(resultsAdapter, /ref_low|ref_high|score role|universal range/i);
 
 const route = readFileSync(
   "src/app/app/knowledge/measurements/[slug]/page.tsx",
   "utf8",
 );
-assert.match(route, /getPublishedMeasurementArticleBySlug/);
-assert.match(route, /buildMeasurementArticleViewModel/);
+assert.match(route, /getKnowledgeArticle/);
+assert.match(route, /KnowledgeArticlePage/);
+assert.match(route, /SignedInMeasurementResultsStrip/);
 assert.match(route, /notFound\(\)/);
 
 console.log("verify-eh134-knowledge-base: all checks passed");

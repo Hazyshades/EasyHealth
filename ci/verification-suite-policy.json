@@ -425,6 +425,17 @@
       "localOnly": false,
       "owner": "knowledge-base",
       "reason": "Client Knowledge Base modules must not import the markdown filesystem loader."
+    },
+    {
+      "script": "test:knowledge-base-routes",
+      "verificationFiles": [
+        "scripts/verify-knowledge-base-routes.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "knowledge-base",
+      "reason": "Canonical /knowledge article routes and /knowledge-base redirects are release verification."
     }
   ],
   "localOnly": []

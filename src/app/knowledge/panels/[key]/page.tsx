@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ContextBreadcrumbs } from "@/components/layout/context-breadcrumbs";
 import { PanelArticle } from "@/components/knowledge-base/panel-article";
-import { PanelArticleTemplate } from "@/components/knowledge/panel-article-template";
+import { KnowledgeArticlePage } from "@/components/knowledge-base/knowledge-panel-article-page";
 import {
   getKnowledgePanel,
   listKnowledgePanels,
@@ -51,7 +51,12 @@ export default async function PanelPage({ params }: PanelPageProps) {
           { label: article.title },
         ]}
       />
-      <PanelArticleTemplate article={article} panel={panel} />
+      <KnowledgeArticlePage
+        kind="panel"
+        adapter="public"
+        article={article}
+        panel={panel}
+      />
     </div>
   );
 }

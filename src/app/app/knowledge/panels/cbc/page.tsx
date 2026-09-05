@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ContextBreadcrumbs } from "@/components/layout/context-breadcrumbs";
 import {
-  PanelArticleTemplate,
+  KnowledgeArticlePage,
   type PanelArticleResultState,
-} from "@/components/knowledge/panel-article-template";
+} from "@/components/knowledge-base/knowledge-panel-article-page";
 import { Button } from "@/components/ui/button";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { buildHealthNavigationPath } from "@/lib/health-navigation";
@@ -110,7 +110,9 @@ export default function CbcPanelPage() {
           { label: CBC_PANEL_ARTICLE.title },
         ]}
       />
-      <PanelArticleTemplate
+      <KnowledgeArticlePage
+        kind="panel"
+        adapter="signed-in"
         article={CBC_PANEL_ARTICLE}
         panel={CBC_PANEL}
         resultLabel="CBC"
