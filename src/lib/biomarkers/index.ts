@@ -179,6 +179,7 @@ export {
 } from "./panel-registry";
 
 export {
+  getRegistryV2System,
   getRegistryV2ScoreRole,
   getRegistryV2ScoreReadinessGroups,
   getRegistryV2ScoreContributionGroups,
