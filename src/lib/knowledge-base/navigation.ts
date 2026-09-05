@@ -1,6 +1,7 @@
 import {
   foldMeasurementLabel,
   getMeasurementDefinition,
+  getRegistryV2System,
   listPanelsForMeasurementDefinition,
   normalizeMeasurementLabel,
   PANEL_DEFINITIONS,
@@ -31,31 +32,37 @@ const CATEGORY_LABELS: Record<KnowledgeCategory, string> = {
   inflammation: "Inflammation",
 };
 
-const CATEGORY_BY_SLUG: Record<string, KnowledgeCategory> = {
-  hemoglobin: "blood",
-  hematocrit: "blood",
-  "white-blood-cell-count": "blood",
-  "platelet-count": "blood",
-  mcv: "blood",
-  glucose: "metabolic",
-  hba1c: "metabolic",
-  tsh: "thyroid",
-  alt: "liver",
-  "creatinine-egfr": "kidney",
-};
+export function projectKnowledgeEducationCategory(
+  measurementDefinitionKeys: readonly string[],
+): KnowledgeCategory | null {
+  const named = new Set<KnowledgeCategory>();
+  for (const key of measurementDefinitionKeys) {
+    const system = getRegistryV2System(key);
+    if (system !== "general") named.add(system);
+  }
+  if (named.size === 0) return null;
+  if (named.size > 1) {
+    throw new Error(
+      `Knowledge Base index: conflicting named Body systems (${[...named].join(", ")}) for ${measurementDefinitionKeys.join(", ")}`,
+    );
+  }
+  const [category] = named;
+  return category ?? null;
+}
 
-const RELATED_PANEL_KEYS_BY_SLUG: Record<string, readonly string[]> = {
-  hemoglobin: ["cbc"],
-  hematocrit: ["cbc"],
-  "white-blood-cell-count": ["cbc"],
-  "platelet-count": ["cbc"],
-  mcv: ["cbc"],
-  glucose: [],
-  hba1c: [],
-  tsh: ["thyroid"],
-  alt: ["liver"],
-  "creatinine-egfr": ["kidney"],
-};
+export function projectKnowledgeRelatedPanelKeys(
+  measurementDefinitionKeys: readonly string[],
+): readonly string[] {
+  const membership = new Set<string>();
+  for (const key of measurementDefinitionKeys) {
+    for (const panel of listPanelsForMeasurementDefinition(key)) {
+      membership.add(panel.key);
+    }
+  }
+  return PANEL_DEFINITIONS.filter((panel) => membership.has(panel.key)).map(
+    (panel) => panel.key,
+  );
+}
 
 function reviewedAliases(
   definition: NonNullable<ReturnType<typeof getMeasurementDefinition>>,
@@ -93,10 +100,12 @@ function toPublishedArticle(
     return null;
   }
 
-  const category = Object.hasOwn(CATEGORY_BY_SLUG, record.slug)
-    ? CATEGORY_BY_SLUG[record.slug]
-    : null;
-  if (!category) return null;
+  const category = projectKnowledgeEducationCategory(
+    record.measurementDefinitionKeys,
+  );
+  const relatedPanelKeys = projectKnowledgeRelatedPanelKeys(
+    record.measurementDefinitionKeys,
+  );
   const published = getKnowledgeArticle(record.slug);
   if (!published) return null;
 
@@ -109,9 +118,7 @@ function toPublishedArticle(
       whatItMeasures: record.summary,
       interpretationFactors: [],
       relatedMeasurementDefinitionKeys: record.relatedMeasurementKeys,
-      relatedPanelKeys: Object.hasOwn(RELATED_PANEL_KEYS_BY_SLUG, record.slug)
-        ? RELATED_PANEL_KEYS_BY_SLUG[record.slug]
-        : [],
+      relatedPanelKeys,
       contentVersion: record.contentVersion,
       review: {
         status: "published",
@@ -126,7 +133,10 @@ function toPublishedArticle(
     },
     definition,
     aliases: reviewedAliases(definition),
-    panels: listPanelsForMeasurementDefinition(definition.key),
+    panels: relatedPanelKeys.flatMap((key) => {
+      const panel = PANEL_BY_KEY[key];
+      return panel ? [panel] : [];
+    }),
   };
 }
 

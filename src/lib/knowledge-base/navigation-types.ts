@@ -21,7 +21,7 @@ export type KnowledgeReview = Readonly<{
 export type KnowledgeArticleRecord = Readonly<{
   slug: string;
   measurementDefinitionKey: string;
-  category: KnowledgeCategory;
+  category: KnowledgeCategory | null;
   summary: string;
   whatItMeasures: string;
   interpretationFactors: readonly string[];
