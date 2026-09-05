@@ -26,7 +26,6 @@ export {
 } from "./types";
 
 export {
-  MEASUREMENT_ARTICLES,
   getPublishedMeasurementArticleBySlug,
   getPublishedMeasurementArticleForDefinition,
   listPublishedMeasurementArticles,
@@ -57,6 +56,12 @@ export {
 } from "./panel-results";
 
 export {
+  listKnowledgeBaseCatalogArticles,
+  mapMarkdownLifecycle,
+} from "./catalog";
+export type { KnowledgeBasePolicyOptions } from "./admission";
+
+export {
   KNOWLEDGE_BASE_ARTICLES,
   getPublishedKnowledgeBaseArticleBySlug,
   getPublishedKnowledgeBaseArticleForMeasurementDefinition,
@@ -79,7 +84,6 @@ export {
   buildKnowledgeBaseStaleReport,
   validateKnowledgeBaseArticles,
 } from "./publication";
-export type { KnowledgeBasePolicyOptions } from "./publication";
 
 export { buildMeasurementArticleViewModel } from "./measurement-article-model";
 export {

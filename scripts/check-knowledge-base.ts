@@ -3,6 +3,7 @@ import {
   buildKnowledgeBaseStaleReport,
   validateKnowledgeBaseArticles,
 } from "../src/lib/knowledge-base/publication";
+import { validateKnowledgeBaseArticleCatalog } from "../src/lib/knowledge-base";
 
 function readAsOf(args: readonly string[]): Date {
   const index = args.indexOf("--as-of");
@@ -38,9 +39,19 @@ const asOf = readAsOf(args);
 const staleReport = buildKnowledgeBaseStaleReport(KNOWLEDGE_BASE_ARTICLES, {
   asOf,
 });
-const validation = validateKnowledgeBaseArticles(KNOWLEDGE_BASE_ARTICLES, {
-  asOf,
-});
+const catalogValidation = validateKnowledgeBaseArticleCatalog();
+const publicationValidation = validateKnowledgeBaseArticles(
+  KNOWLEDGE_BASE_ARTICLES,
+  { asOf },
+);
+const errors = [
+  ...catalogValidation.errors,
+  ...publicationValidation.errors,
+];
+const validation = {
+  valid: catalogValidation.valid && publicationValidation.valid,
+  errors,
+};
 
 if (args.includes("--report")) {
   console.log(JSON.stringify(staleReport, null, 2));

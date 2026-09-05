@@ -1,6 +1,7 @@
 export const KNOWLEDGE_BASE_ARTICLE_STATES = [
   "draft",
   "review",
+  "in_review",
   "published",
   "deprecated",
 ] as const;
@@ -10,6 +11,7 @@ export type KnowledgeBaseArticleState =
 
 export const KNOWLEDGE_BASE_ARTICLE_TYPES = [
   "biomarker",
+  "measurement",
   "panel",
   "guide",
 ] as const;
@@ -55,6 +57,7 @@ export type KnowledgeBaseArticle = Readonly<{
 export type KnowledgeBasePublicationReason =
   | "draft"
   | "review"
+  | "in_review"
   | "deprecated"
   | "invalid_state"
   | "missing_review_evidence"

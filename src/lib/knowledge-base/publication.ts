@@ -209,7 +209,9 @@ export function getKnowledgeBasePublicationDecision(
   if (!isArticleState(article.state))
     return { public: false, reason: "invalid_state" };
   if (article.state === "draft") return { public: false, reason: "draft" };
-  if (article.state === "review") return { public: false, reason: "review" };
+  if (article.state === "review" || article.state === "in_review") {
+    return { public: false, reason: "in_review" };
+  }
   if (article.state === "deprecated")
     return { public: false, reason: "deprecated" };
   if (article.state !== "published")
@@ -295,7 +297,7 @@ export function validateKnowledgeBaseArticles(
     seenSlugs.add(String(record.slug));
 
     if (!isArticleType(record.type))
-      error(slug, "type must be biomarker, panel, or guide");
+      error(slug, "type must be measurement, biomarker, panel, or guide");
     if (!isValidKnowledgeBaseLocale(record.locale)) {
       error(
         slug,
@@ -398,7 +400,7 @@ export function validateKnowledgeBaseArticles(
     }
 
     if (!isArticleState(record.state))
-      error(slug, "state must be draft, review, published, or deprecated");
+      error(slug, "state must be draft, in_review, published, or deprecated");
   }
 
   const bySlug = new Map(

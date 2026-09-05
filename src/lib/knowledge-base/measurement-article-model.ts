@@ -5,8 +5,8 @@ import {
 import {
   getPublishedMeasurementArticleForDefinition,
   validateMeasurementEducationArticle,
-  MEASUREMENT_ARTICLES,
 } from "./measurement-articles";
+import { listCatalogMeasurementArticles } from "./catalog";
 import type {
   MeasurementArticleViewModel,
   MeasurementEducationArticle,
@@ -80,7 +80,7 @@ function relatedMeasurements(
 /** Projects one reviewed article with current Registry-owned identity metadata. */
 export function buildMeasurementArticleViewModel(
   article: MeasurementEducationArticle,
-  articles: readonly MeasurementEducationArticle[] = MEASUREMENT_ARTICLES,
+  articles: readonly MeasurementEducationArticle[] = listCatalogMeasurementArticles(),
 ): MeasurementArticleViewModel | null {
   if (
     article.reviewStatus !== "published" ||

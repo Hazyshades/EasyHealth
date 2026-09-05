@@ -5,7 +5,6 @@ import {
   getPublishedKnowledgeBaseArticleForMeasurementDefinition,
   getPublishedKnowledgeBaseArticleForPanel,
   listPublishedKnowledgeBaseArticles,
-  MEASUREMENT_ARTICLES,
   PANEL_ARTICLES,
   validateKnowledgeBaseArticle,
   validateKnowledgeBaseArticleCatalog,
@@ -156,7 +155,6 @@ const deprecatedWithoutDate = {
   deprecatedAt: null,
 };
 
-assert.equal(MEASUREMENT_ARTICLES.length, 0);
 assert.equal(PANEL_ARTICLES.length, 1);
 assert.equal(validateKnowledgeBaseArticleCatalog().valid, true);
 assert.equal(validateKnowledgeBaseArticle(publishedMeasurement).valid, true);

@@ -1,44 +1,28 @@
 import {
+  KNOWLEDGE_BASE_ARTICLES as CATALOG_ARTICLES,
+  articleIdentity,
+  listPublishedKnowledgeBaseArticles as listAdmittedCatalogArticles,
+  getPublishedKnowledgeBaseArticleBySlug as getAdmittedCatalogArticleBySlug,
+  getPublishedKnowledgeBaseArticleForMeasurementDefinition as getAdmittedCatalogMeasurement,
+  getPublishedKnowledgeBaseArticleForPanel as getAdmittedCatalogPanel,
+} from "./catalog";
+import {
   formatKnowledgeBaseSchemaErrors,
   knowledgeBaseArticleSchema,
   type KnowledgeBaseArticle,
   type KnowledgeBaseArticleType,
+  type KnowledgeBaseValidation,
   type MeasurementEducationArticle,
   type PanelEducationArticle,
-  type KnowledgeBaseValidation,
 } from "./types";
-import {
-  MEASUREMENT_ARTICLES,
-  validateMeasurementEducationArticle,
-} from "./measurement-articles";
-import {
-  PANEL_ARTICLES,
-  validatePanelEducationArticle,
-} from "./panel-articles";
+import { validateMeasurementEducationArticle } from "./measurement-articles";
+import { validatePanelEducationArticle } from "./panel-articles";
 
 const ARTICLE_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /** The single version-controlled catalog consumed by generic Knowledge Base readers. */
-export const KNOWLEDGE_BASE_ARTICLES: readonly KnowledgeBaseArticle[] = [
-  ...MEASUREMENT_ARTICLES,
-  ...PANEL_ARTICLES,
-];
-
-function articleIdentity(
-  article: Pick<KnowledgeBaseArticle, "type" | "locale" | "slug">,
-): string {
-  return `${article.type}:${article.locale}:${article.slug}`;
-}
-
-function compareArticleIdentity(
-  left: KnowledgeBaseArticle,
-  right: KnowledgeBaseArticle,
-): number {
-  const leftIdentity = articleIdentity(left);
-  const rightIdentity = articleIdentity(right);
-  if (leftIdentity === rightIdentity) return 0;
-  return leftIdentity < rightIdentity ? -1 : 1;
-}
+export const KNOWLEDGE_BASE_ARTICLES: readonly KnowledgeBaseArticle[] =
+  CATALOG_ARTICLES;
 
 /** Validates one article shape and its authoritative Registry subject. */
 export function validateKnowledgeBaseArticle(
@@ -84,21 +68,13 @@ export function validateKnowledgeBaseArticleCatalog(
   return { valid: errors.length === 0, errors };
 }
 
-/** Returns only validated, currently published articles for one exact locale. */
+/** Returns only validated, currently public articles for one exact locale. */
 export function listPublishedKnowledgeBaseArticles(
   articles: readonly KnowledgeBaseArticle[] = KNOWLEDGE_BASE_ARTICLES,
   locale = "en",
 ): readonly KnowledgeBaseArticle[] {
   if (!validateKnowledgeBaseArticleCatalog(articles).valid) return [];
-
-  return articles
-    .filter(
-      (article) =>
-        article.locale === locale &&
-        article.reviewStatus === "published" &&
-        validateKnowledgeBaseArticle(article).valid,
-    )
-    .sort(compareArticleIdentity);
+  return listAdmittedCatalogArticles(articles, locale);
 }
 
 export function getPublishedKnowledgeBaseArticleBySlug(
@@ -110,12 +86,9 @@ export function getPublishedKnowledgeBaseArticleBySlug(
   } = {},
 ): KnowledgeBaseArticle | null {
   if (!ARTICLE_SLUG_PATTERN.test(slug)) return null;
-  return (
-    listPublishedKnowledgeBaseArticles(
-      options.articles ?? KNOWLEDGE_BASE_ARTICLES,
-      options.locale ?? "en",
-    ).find((article) => article.type === type && article.slug === slug) ?? null
-  );
+  const articles = options.articles ?? KNOWLEDGE_BASE_ARTICLES;
+  if (!validateKnowledgeBaseArticleCatalog(articles).valid) return null;
+  return getAdmittedCatalogArticleBySlug(type, slug, options);
 }
 
 export function getPublishedKnowledgeBaseArticleForMeasurementDefinition(
@@ -125,16 +98,9 @@ export function getPublishedKnowledgeBaseArticleForMeasurementDefinition(
     articles?: readonly KnowledgeBaseArticle[];
   } = {},
 ): MeasurementEducationArticle | null {
-  return (
-    listPublishedKnowledgeBaseArticles(
-      options.articles ?? KNOWLEDGE_BASE_ARTICLES,
-      options.locale ?? "en",
-    ).find(
-      (article): article is MeasurementEducationArticle =>
-        article.type === "measurement" &&
-        article.measurementDefinitionKey === measurementDefinitionKey,
-    ) ?? null
-  );
+  const articles = options.articles ?? KNOWLEDGE_BASE_ARTICLES;
+  if (!validateKnowledgeBaseArticleCatalog(articles).valid) return null;
+  return getAdmittedCatalogMeasurement(measurementDefinitionKey, options);
 }
 
 export function getPublishedKnowledgeBaseArticleForPanel(
@@ -144,13 +110,8 @@ export function getPublishedKnowledgeBaseArticleForPanel(
     articles?: readonly KnowledgeBaseArticle[];
   } = {},
 ): PanelEducationArticle | null {
-  return (
-    listPublishedKnowledgeBaseArticles(
-      options.articles ?? KNOWLEDGE_BASE_ARTICLES,
-      options.locale ?? "en",
-    ).find(
-      (article): article is PanelEducationArticle =>
-        article.type === "panel" && article.panelKey === panelKey,
-    ) ?? null
-  );
+  const articles = options.articles ?? KNOWLEDGE_BASE_ARTICLES;
+  if (!validateKnowledgeBaseArticleCatalog(articles).valid) return null;
+  const article = getAdmittedCatalogPanel(panelKey, options);
+  return article && article.type === "panel" ? article : null;
 }

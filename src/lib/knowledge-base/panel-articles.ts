@@ -9,6 +9,7 @@ import {
   type PanelArticleSubgroup,
 } from "./types";
 import { validatePanelArticle } from "./validation";
+import { isPublicCatalogArticle } from "./admission";
 
 function member(
   measurementDefinitionKey: string,
@@ -269,9 +270,14 @@ export function panelEducationEligibleForPublicRoute(
 ): boolean {
   const normalizedKey = panelKey.trim().toLocaleLowerCase("en-US");
   if (!normalizedKey || article.panelKey !== normalizedKey) return false;
-  return (
-    article.reviewStatus === "in_review" || article.reviewStatus === "published"
-  );
+  return isPublicCatalogArticle({
+    type: "panel",
+    reviewStatus: article.reviewStatus,
+    reviewedBy: article.reviewedBy,
+    reviewedAt: article.reviewedAt,
+    sources: article.sources,
+    panelKey: article.panelKey,
+  });
 }
 
 export function getPublicPanelEducationArticle(
