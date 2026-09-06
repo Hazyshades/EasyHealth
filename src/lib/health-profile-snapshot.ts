@@ -125,6 +125,29 @@ export type HealthProfileSnapshot = Readonly<{
 
 export { compareSnapshotRows, hashHealthProfileSnapshotInput };
 
+/**
+ * PostgREST sends `.in(...)` as a GET query string. A large UUID list
+ * (many extracted lab rows) exceeds the request-line limit and comes back
+ * as a bare 400 "Bad Request".
+ */
+const POSTGREST_IN_FILTER_CHUNK = 80;
+
+async function selectByIdChunks<T>(
+  ids: readonly string[],
+  query: (
+    chunk: string[],
+  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let offset = 0; offset < ids.length; offset += POSTGREST_IN_FILTER_CHUNK) {
+    const chunk = ids.slice(offset, offset + POSTGREST_IN_FILTER_CHUNK);
+    const { data, error } = await query(chunk);
+    if (error) throw new Error(error.message);
+    if (data?.length) rows.push(...data);
+  }
+  return rows;
+}
+
 /** Builds the same Registry-v2-gated score input for HTTP and queued work. */
 export async function buildHealthProfileSnapshot(options: {
   profileId: string;
@@ -175,16 +198,19 @@ export async function buildHealthProfileSnapshot(options: {
 
   let extractedRows: SnapshotExtractedRow[] = [];
   if (sourceIds.length > 0) {
-    const { data, error } = await supabase
-      .from("document_extracted_biomarkers")
-      .select(
-        "id, document_id, profile_id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, confidence, specimen, modifier, method, source_page, source_text, bounding_box, raw_value_text, record_status, is_current, is_published, measurement_definition_key",
-      )
-      .eq("profile_id", options.profileId)
-      .in("document_id", sourceIds)
-      .eq("is_published", true);
-    if (error) throw new Error(error.message);
-    extractedRows = ((data ?? []) as SnapshotExtractedRow[])
+    const extractedData = await selectByIdChunks<SnapshotExtractedRow>(
+      sourceIds,
+      async (documentIds) =>
+        supabase
+          .from("document_extracted_biomarkers")
+          .select(
+            "id, document_id, profile_id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, confidence, specimen, modifier, method, source_page, source_text, bounding_box, raw_value_text, record_status, is_current, is_published, measurement_definition_key",
+          )
+          .eq("profile_id", options.profileId)
+          .in("document_id", documentIds)
+          .eq("is_published", true),
+    );
+    extractedRows = extractedData
       .filter(
         (row) =>
           sourceIdSet.has(row.document_id) &&
@@ -201,15 +227,18 @@ export async function buildHealthProfileSnapshot(options: {
   const extractedIds = extractedRows.map((row) => row.id);
   const revisionsByExtractedId = new Map<string, SnapshotNormalizationRevisionRow>();
   if (extractedIds.length > 0) {
-    const { data, error } = await supabase
-      .from("observation_normalization_revisions")
-      .select(
-        "id, extracted_biomarker_id, resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence",
-      )
-      .in("extracted_biomarker_id", extractedIds)
-      .eq("is_active", true);
-    if (error) throw new Error(error.message);
-    for (const revision of (data ?? []) as SnapshotNormalizationRevisionRow[]) {
+    const revisionRows = await selectByIdChunks<SnapshotNormalizationRevisionRow>(
+      extractedIds,
+      async (ids) =>
+        supabase
+          .from("observation_normalization_revisions")
+          .select(
+            "id, extracted_biomarker_id, resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence",
+          )
+          .in("extracted_biomarker_id", ids)
+          .eq("is_active", true),
+    );
+    for (const revision of revisionRows) {
       revisionsByExtractedId.set(revision.extracted_biomarker_id, revision);
     }
   }

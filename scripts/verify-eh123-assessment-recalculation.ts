@@ -53,6 +53,36 @@ assert.match(
   "the shared snapshot builder hashes freshness policy identity, score-affecting observations, and exclusions",
 );
 assert.match(
+  snapshotBuilder,
+  /const POSTGREST_IN_FILTER_CHUNK = 80/,
+  "Health Profile snapshot chunks PostgREST IN filters",
+);
+assert.match(
+  snapshotBuilder,
+  /async function selectByIdChunks/,
+  "Health Profile snapshot uses a chunked IN helper",
+);
+assert.doesNotMatch(
+  snapshotBuilder,
+  /\.in\("document_id", sourceIds\)/,
+  "extracted-biomarker lookup must not send every source id in one PostgREST IN",
+);
+assert.doesNotMatch(
+  snapshotBuilder,
+  /\.in\("extracted_biomarker_id", extractedIds\)/,
+  "active-revision lookup must not send every extracted id in one PostgREST IN",
+);
+assert.match(
+  snapshotBuilder,
+  /\.in\("document_id", documentIds\)/,
+  "extracted-biomarker lookup uses chunked document ids",
+);
+assert.match(
+  snapshotBuilder,
+  /\.in\("extracted_biomarker_id", ids\)/,
+  "active-revision lookup uses chunked extracted ids",
+);
+assert.match(
   healthProfileRoute,
   /order\("generated_at", \{ ascending: false \}\)[\s\S]*?maybeSingle\(\)/,
   "the Health Profile API selects the latest assessment version",
