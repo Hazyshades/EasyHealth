@@ -7,14 +7,13 @@ import {
   type ConsentPayload,
   validateRequiredConsents,
 } from "@/lib/consent";
-import { WIZARD_STEP_IDS, type WizardStepId } from "@/lib/onboarding/wizard-steps";
+import { CURRENT_PLATFORM_TOUR_VERSION } from "@/lib/onboarding/platform-tour";
 import { resolveProfileIdentity } from "@/lib/display-name";
 
 export type DashboardPreferences = {
   banner_dismissed_at?: string;
   widget_order?: string[];
   hidden_widgets?: string[];
-  wizard_steps_visited?: string[];
 };
 
 export type LabUnitSystem = "us" | "si";
@@ -34,12 +33,13 @@ export type ProfileRow = {
   consent_preferences: Record<string, boolean>;
   onboarding_dismissed_at: string | null;
   onboarding_completed_at: string | null;
+  onboarding_tour_version: string;
   dashboard_preferences: DashboardPreferences;
   lab_unit_system: LabUnitSystem;
 };
 
 const PROFILE_SELECT =
-  "id, display_name, first_name, last_name, email, ai_provider, created_at, terms_accepted_at, terms_version, health_data_consent_at, ai_consent_at, consent_preferences, onboarding_dismissed_at, onboarding_completed_at, dashboard_preferences, lab_unit_system";
+  "id, display_name, first_name, last_name, email, ai_provider, created_at, terms_accepted_at, terms_version, health_data_consent_at, ai_consent_at, consent_preferences, onboarding_dismissed_at, onboarding_completed_at, onboarding_tour_version, dashboard_preferences, lab_unit_system";
 
 function mapProfileRow(data: Record<string, unknown>): ProfileRow {
   const unit = data.lab_unit_system;
@@ -58,6 +58,8 @@ function mapProfileRow(data: Record<string, unknown>): ProfileRow {
     consent_preferences: (data.consent_preferences as Record<string, boolean>) ?? {},
     onboarding_dismissed_at: (data.onboarding_dismissed_at as string | null) ?? null,
     onboarding_completed_at: (data.onboarding_completed_at as string | null) ?? null,
+    onboarding_tour_version:
+      (data.onboarding_tour_version as string | null) ?? CURRENT_PLATFORM_TOUR_VERSION,
     dashboard_preferences: (data.dashboard_preferences as DashboardPreferences) ?? {},
     lab_unit_system: unit === "us" || unit === "si" ? unit : "si",
   };
@@ -90,7 +92,7 @@ export async function ensureProfile(user: User): Promise<string> {
         display_name: identity.firstName,
         // first_name left null so onboarding profile gate still runs unless set later
       },
-      { onConflict: "id" }
+      { onConflict: "id" },
     )
     .select("id")
     .single();
@@ -112,8 +114,8 @@ export async function ensureProfile(user: User): Promise<string> {
           hint: (error as { hint?: string }).hint,
         },
         null,
-        2
-      )}`
+        2,
+      )}`,
     );
   }
 
@@ -159,7 +161,7 @@ export async function updateProfileDisplayName(profileId: string, displayName: s
 export async function updateProfileName(
   profileId: string,
   firstName: string,
-  lastName?: string | null
+  lastName?: string | null,
 ) {
   const supabase = createAdminClient();
   const first = firstName.trim();
@@ -206,28 +208,31 @@ export async function recordProfileConsents(profileId: string, consents: Consent
   return mapProfileRow(data as Record<string, unknown>);
 }
 
-export async function updateOnboardingWizardState(
+export type OnboardingAction = "dismiss_tour" | "complete_tour" | "dismiss_banner";
+
+export async function updateOnboardingTourState(
   profileId: string,
-  action: "dismiss_wizard" | "complete_wizard" | "dismiss_banner"
+  action: OnboardingAction,
 ) {
   const supabase = createAdminClient();
   const now = new Date().toISOString();
 
-  if (action === "dismiss_wizard") {
+  if (action === "dismiss_tour" || action === "complete_tour") {
+    const terminalUpdate =
+      action === "dismiss_tour"
+        ? {
+            onboarding_dismissed_at: now,
+            onboarding_completed_at: null,
+            onboarding_tour_version: CURRENT_PLATFORM_TOUR_VERSION,
+          }
+        : {
+            onboarding_dismissed_at: null,
+            onboarding_completed_at: now,
+            onboarding_tour_version: CURRENT_PLATFORM_TOUR_VERSION,
+          };
     const { data, error } = await supabase
       .from("profiles")
-      .update({ onboarding_dismissed_at: now })
-      .eq("id", profileId)
-      .select(PROFILE_SELECT)
-      .single();
-    if (error) throw error;
-    return mapProfileRow(data as Record<string, unknown>);
-  }
-
-  if (action === "complete_wizard") {
-    const { data, error } = await supabase
-      .from("profiles")
-      .update({ onboarding_completed_at: now })
+      .update(terminalUpdate)
       .eq("id", profileId)
       .select(PROFILE_SELECT)
       .single();
@@ -250,34 +255,9 @@ export async function updateOnboardingWizardState(
   return mapProfileRow(data as Record<string, unknown>);
 }
 
-export async function markWizardStepVisited(profileId: string, stepId: WizardStepId) {
-  if (!WIZARD_STEP_IDS.includes(stepId)) {
-    throw new Error("Invalid wizard step");
-  }
-
-  const profile = await getProfileById(profileId);
-  const visited = new Set(profile.dashboard_preferences?.wizard_steps_visited ?? []);
-  visited.add(stepId);
-
-  const preferences: DashboardPreferences = {
-    ...profile.dashboard_preferences,
-    wizard_steps_visited: [...visited],
-  };
-
-  const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("profiles")
-    .update({ dashboard_preferences: preferences })
-    .eq("id", profileId)
-    .select(PROFILE_SELECT)
-    .single();
-  if (error) throw error;
-  return mapProfileRow(data as Record<string, unknown>);
-}
-
 export async function updateProfileLabUnitSystem(
   profileId: string,
-  labUnitSystem: LabUnitSystem
+  labUnitSystem: LabUnitSystem,
 ) {
   const supabase = createAdminClient();
   const { data, error } = await supabase

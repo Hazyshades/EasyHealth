@@ -32,11 +32,19 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="sidebar hidden h-full flex-col border-r border-[#E8EEF5] bg-white px-3.5 pt-4 pb-5 md:flex">
+    <aside
+      data-tour="desktop-navigation"
+      className="sidebar hidden h-full flex-col border-r border-[#E8EEF5] bg-white px-3.5 pt-4 pb-5 md:flex"
+    >
       <EasyHealthLogo />
       <nav aria-label="Main navigation" className="flex flex-1 flex-col gap-1">
         {APP_NAV_ITEMS.map((item) => (
-          <NavItem key={item.href} item={item} active={isNavItemActive(pathname, item)} />
+          <NavItem
+            key={item.href}
+            item={item}
+            active={isNavItemActive(pathname, item)}
+            dataTour={item.href === "/app/biomarkers" ? "desktop-biomarkers" : undefined}
+          />
         ))}
       </nav>
     </aside>
@@ -48,6 +56,7 @@ export function MobileBottomNav() {
 
   return (
     <nav
+      data-tour="mobile-navigation"
       aria-label="Mobile navigation"
       className="fixed inset-x-0 bottom-0 z-40 flex border-t border-[#E8EEF5] bg-white/95 px-1 py-2 backdrop-blur-md md:hidden"
     >
@@ -57,6 +66,7 @@ export function MobileBottomNav() {
           item={item}
           active={isNavItemActive(pathname, item)}
           compact
+          dataTour={item.href === "/app/biomarkers" ? "mobile-biomarkers" : undefined}
         />
       ))}
     </nav>

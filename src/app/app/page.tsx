@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Upload } from "lucide-react";
 import { DashboardWidgetGrid } from "@/components/dashboard/dashboard-widget-grid";
 import { OnboardingSuccessBanner } from "@/components/onboarding/onboarding-success-banner";
-import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
+import { PlatformTour } from "@/components/onboarding/platform-tour";
 import { PageHeader } from "@/components/layout/page-header";
 import { SurfaceCard } from "@/components/ui/surface-card";
 import { Button } from "@/components/ui/button";
@@ -29,9 +29,10 @@ type Document = {
 type ProfileOnboarding = {
   first_name: string | null;
   last_name: string | null;
-  onboarding_dismissed_at: string | null;
-  onboarding_completed_at: string | null;
-  dashboard_preferences?: { banner_dismissed_at?: string };
+  onboarding?: {
+    showPlatformTour: boolean;
+    showSuccessBanner: boolean;
+  };
 };
 
 function timeGreeting(): string {
@@ -50,7 +51,7 @@ export default function DashboardPage() {
   const [accountProfile, setAccountProfile] =
     useState<ProfileOnboarding | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showWizard, setShowWizard] = useState(false);
+  const [showTour, setShowTour] = useState(false);
   const [showBanner, setShowBanner] = useState(false);
   const [bannerDismissing, setBannerDismissing] = useState(false);
 
@@ -60,15 +61,14 @@ export default function DashboardPage() {
       fetch("/api/health-profile").then((r) => r.json()),
       fetch("/api/profile").then((r) => r.json()),
     ]).then(([documentsData, profileData, accountData]) => {
-      const healthProfileData =
-        profileData as DashboardHealthProfileResponse;
+      const healthProfileData = profileData as DashboardHealthProfileResponse;
       setDocuments(documentsData.documents ?? []);
       const hasReportedResults =
         (healthProfileData?.reported_results?.reported_count ?? 0) > 0;
       setProfile(
         healthProfileData &&
-        healthProfileData.profile_display_state !== "onboarding" &&
-        (healthProfileData.records_used_count > 0 || hasReportedResults)
+          healthProfileData.profile_display_state !== "onboarding" &&
+          (healthProfileData.records_used_count > 0 || hasReportedResults)
           ? healthProfileData
           : null,
       );
@@ -77,16 +77,8 @@ export default function DashboardPage() {
       );
       setAssessmentError(healthProfileData?.assessment?.error_message ?? null);
       setAccountProfile(accountData);
-
-      const wizardOpen =
-        !accountData.onboarding_dismissed_at &&
-        !accountData.onboarding_completed_at;
-      setShowWizard(wizardOpen);
-
-      const bannerOpen =
-        Boolean(accountData.onboarding_completed_at) &&
-        !accountData.dashboard_preferences?.banner_dismissed_at;
-      setShowBanner(bannerOpen);
+      setShowTour(Boolean(accountData.onboarding?.showPlatformTour));
+      setShowBanner(Boolean(accountData.onboarding?.showSuccessBanner));
     });
   }, []);
 
@@ -95,7 +87,7 @@ export default function DashboardPage() {
   }, [loadData]);
 
   async function patchOnboarding(
-    action: "dismiss_wizard" | "complete_wizard" | "dismiss_banner",
+    action: "dismiss_tour" | "complete_tour" | "dismiss_banner",
   ) {
     const res = await fetch("/api/profile", {
       method: "PATCH",
@@ -106,7 +98,7 @@ export default function DashboardPage() {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.error ?? "Failed to update onboarding");
     }
-    await loadData();
+    return loadData();
   }
 
   const completed = documents.filter((d) => d.status === "completed").length;
@@ -130,6 +122,7 @@ export default function DashboardPage() {
           <>
             <Button
               asChild
+              data-tour="add-document"
               variant="outline"
               className="rounded-xl border-[var(--eh-border)] bg-white"
             >
@@ -137,6 +130,7 @@ export default function DashboardPage() {
             </Button>
             <Button
               asChild
+              data-tour="reports"
               className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90"
             >
               <Link href="/app/reports/create">Generate report</Link>
@@ -225,16 +219,22 @@ export default function DashboardPage() {
         />
       )}
 
-      <OnboardingWizard
-        open={showWizard}
-        onSkip={async () => {
-          await patchOnboarding("dismiss_wizard");
-          setShowWizard(false);
+      <PlatformTour
+        open={showTour}
+        onDismiss={async () => {
+          try {
+            await patchOnboarding("dismiss_tour");
+          } finally {
+            setShowTour(false);
+          }
         }}
-        onDone={async () => {
-          await patchOnboarding("complete_wizard");
-          setShowWizard(false);
-          setShowBanner(true);
+        onComplete={async () => {
+          try {
+            await patchOnboarding("complete_tour");
+            setShowBanner(true);
+          } finally {
+            setShowTour(false);
+          }
         }}
       />
     </div>

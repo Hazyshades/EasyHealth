@@ -144,7 +144,7 @@ _Avoid_: AI summary.
 ### Accounts & access
 
 **Onboarding gates**:
-Ordered post-auth requirements: the profile-name gate first, then the consent gate.
+Ordered post-auth requirements: the profile-name gate first, then the consent gate. The consent gate passes only when all required consents are accepted under the current terms version. The Getting-started wizard follows these gates but is a separate post-gate experience.
 _Avoid_: wizard steps (the getting-started wizard is separate).
 
 **Getting-started wizard**:

@@ -18,7 +18,7 @@ export async function GET(request: Request) {
       return NextResponse.redirect(
         `${origin}${resolveAuthCallbackPath({
           hasCode: true,
-          exchangeError: error.message,
+          exchangeFailed: true,
           userId: null,
           ensureFailed: false,
           next,
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
         return NextResponse.redirect(
           `${origin}${resolveAuthCallbackPath({
             hasCode: true,
-            exchangeError: null,
+            exchangeFailed: false,
             userId: user.id,
             ensureFailed: false,
             next,
@@ -47,12 +47,12 @@ export async function GET(request: Request) {
             needsConsentGate: onboarding.needsConsentGate,
           })}`,
         );
-      } catch (e) {
-        console.error("[auth/callback] ensureProfile failed:", e);
+      } catch (error) {
+        console.error("[auth/callback] profile setup failed:", error);
         return NextResponse.redirect(
           `${origin}${resolveAuthCallbackPath({
             hasCode: true,
-            exchangeError: null,
+            exchangeFailed: false,
             userId: user.id,
             ensureFailed: true,
             next,
@@ -67,7 +67,7 @@ export async function GET(request: Request) {
   return NextResponse.redirect(
     `${origin}${resolveAuthCallbackPath({
       hasCode: Boolean(code),
-      exchangeError: null,
+      exchangeFailed: false,
       userId: null,
       ensureFailed: false,
       next,

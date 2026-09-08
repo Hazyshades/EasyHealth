@@ -2,8 +2,12 @@ import { cache } from "react";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { ensureProfile } from "@/lib/auth/profile";
 
-/** @deprecated Legacy cookie name; no longer used for authentication. */
-export const SESSION_COOKIE = "eh_profile_id";
+export class ProfileSetupError extends Error {
+  constructor() {
+    super("Profile setup unavailable");
+    this.name = "ProfileSetupError";
+  }
+}
 
 const getSessionUser = cache(async () => {
   const supabase = await createServerSupabaseClient();
@@ -43,7 +47,7 @@ export async function getSessionProfileIdEnsured(): Promise<string | null> {
         ? { message: error.message, stack: error.stack }
         : { value: error };
     console.error("[auth] ensureProfile failed:", details);
-    return user.id;
+    throw new ProfileSetupError();
   }
 }
 

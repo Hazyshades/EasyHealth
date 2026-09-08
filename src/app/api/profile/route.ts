@@ -3,16 +3,16 @@ import { z } from "zod";
 import { getSessionProfileId } from "@/lib/auth/session";
 import {
   getProfileById,
-  markWizardStepVisited,
   recordProfileConsents,
-  updateOnboardingWizardState,
+  updateOnboardingTourState,
   updateProfileAiProvider,
   updateProfileDisplayName,
   updateProfileLabUnitSystem,
   updateProfileName,
+  type OnboardingAction,
   type ProfileRow,
 } from "@/lib/auth/profile";
-import { WIZARD_STEP_IDS } from "@/lib/onboarding/wizard-steps";
+import { profileOnboardingStateFromRow } from "@/lib/auth/onboarding";
 import {
   isProviderConfigured,
   providerAvailability,
@@ -32,15 +32,16 @@ const consentsSchema = z.object({
 
 const patchSchema = z
   .object({
-    ai_provider: z.enum(["openai", "deepseek", "owl_alpha", "nebius_fast", "nebius_quality"]).optional(),
+    ai_provider: z
+      .enum(["openai", "deepseek", "owl_alpha", "nebius_fast", "nebius_quality"])
+      .optional(),
     display_name: z.string().trim().min(1).max(120).optional(),
     first_name: z.string().trim().min(1).max(60).optional(),
     last_name: z.string().trim().max(60).nullable().optional(),
     consents: consentsSchema.optional(),
     onboarding_action: z
-      .enum(["dismiss_wizard", "complete_wizard", "dismiss_banner"])
+      .enum(["dismiss_tour", "complete_tour", "dismiss_banner"])
       .optional(),
-    wizard_step_visited: z.enum(WIZARD_STEP_IDS).optional(),
     lab_unit_system: z.enum(["us", "si"]).optional(),
     api_key: z.unknown().optional(),
     base_url: z.unknown().optional(),
@@ -63,8 +64,9 @@ function profileResponse(profile: ProfileRow) {
     consent_preferences: profile.consent_preferences,
     onboarding_dismissed_at: profile.onboarding_dismissed_at,
     onboarding_completed_at: profile.onboarding_completed_at,
+    onboarding_tour_version: profile.onboarding_tour_version,
     dashboard_preferences: profile.dashboard_preferences,
-    wizard_steps_visited: profile.dashboard_preferences?.wizard_steps_visited ?? [],
+    onboarding: profileOnboardingStateFromRow(profile),
     lab_unit_system: profile.lab_unit_system ?? "si",
     ...providerAvailability(),
   };
@@ -115,14 +117,14 @@ export async function PATCH(request: Request) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid request body", details: parsed.error.flatten() },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   if (parsed.data.api_key !== undefined || parsed.data.base_url !== undefined) {
     return NextResponse.json(
       { error: "Custom API keys and URLs are not supported" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -130,9 +132,9 @@ export async function PATCH(request: Request) {
     parsed.data.ai_provider ||
     parsed.data.display_name ||
     parsed.data.first_name ||
+    parsed.data.last_name !== undefined ||
     parsed.data.consents ||
     parsed.data.onboarding_action ||
-    parsed.data.wizard_step_visited ||
     parsed.data.lab_unit_system;
 
   if (!hasUpdate) {
@@ -142,18 +144,18 @@ export async function PATCH(request: Request) {
   if (parsed.data.ai_provider && !isProviderConfigured(parsed.data.ai_provider)) {
     return NextResponse.json(
       { error: providerUnavailableMessage(parsed.data.ai_provider) },
-      { status: 503 }
+      { status: 503 },
     );
   }
 
   try {
     let profile = await getProfileById(profileId);
 
-    if (parsed.data.first_name) {
+    if (parsed.data.first_name || parsed.data.last_name !== undefined) {
       profile = await updateProfileName(
         profileId,
-        parsed.data.first_name,
-        parsed.data.last_name ?? null
+        parsed.data.first_name ?? profile.first_name ?? "",
+        parsed.data.last_name ?? profile.last_name,
       );
     } else if (parsed.data.display_name) {
       profile = await updateProfileDisplayName(profileId, parsed.data.display_name);
@@ -164,11 +166,10 @@ export async function PATCH(request: Request) {
     }
 
     if (parsed.data.onboarding_action) {
-      profile = await updateOnboardingWizardState(profileId, parsed.data.onboarding_action);
-    }
-
-    if (parsed.data.wizard_step_visited) {
-      profile = await markWizardStepVisited(profileId, parsed.data.wizard_step_visited);
+      profile = await updateOnboardingTourState(
+        profileId,
+        parsed.data.onboarding_action as OnboardingAction,
+      );
     }
 
     if (parsed.data.ai_provider) {

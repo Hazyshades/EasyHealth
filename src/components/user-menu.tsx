@@ -31,19 +31,19 @@ export function UserMenu({ displayName, lastName, email }: UserMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
+        data-tour="account-menu"
         className={cn(
           "inline-flex max-w-[min(100%,14rem)] items-center gap-2 rounded-xl border border-[var(--eh-border)] bg-white px-2.5 py-1.5",
           "text-left shadow-xs transition-[background-color,transform,box-shadow] duration-150 ease-out",
           "hover:bg-[var(--eh-canvas-bg)] active:scale-[0.98]",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--eh-brand)]/30"
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--eh-brand)]/30",
         )}
         aria-label={`Account menu for ${label}`}
       >
-       
         <span
           className={cn(
             "hidden truncate text-[var(--eh-text-primary)] sm:inline",
-            isEmailLabel ? "text-xs font-medium" : "text-sm font-semibold"
+            isEmailLabel ? "text-xs font-medium" : "text-sm font-semibold",
           )}
         >
           {label}

@@ -41,18 +41,18 @@ function walkFiles(root: string, acc: string[] = []): string[] {
 function testCallbackEnsureFailureDoesNotEnterApp(): void {
   const pathName = resolveAuthCallbackPath({
     hasCode: true,
-    exchangeError: null,
+    exchangeFailed: false,
     userId: "user-1",
     ensureFailed: true,
     next: "/app/documents",
     needsProfileGate: false,
     needsConsentGate: false,
   });
-  assert.equal(pathName, "/?signin=error");
+  assert.equal(pathName, "/?signin=error&reason=profile-setup");
   assert.equal(
     resolveAuthCallbackPath({
       hasCode: true,
-      exchangeError: null,
+      exchangeFailed: false,
       userId: "user-1",
       ensureFailed: false,
       next: null,
@@ -80,12 +80,15 @@ function testMissingProfileRedirectsToOnboarding(): void {
         firstName: "Perf",
         lastName: "User",
         hasAcceptedTerms: true,
+        hasCurrentTerms: true,
+        hasRequiredConsents: true,
+        onboardingTourVersion: "1",
         onboardingDismissedAt: "2026-01-01T00:00:00.000Z",
         onboardingCompletedAt: "2026-01-01T00:00:00.000Z",
         bannerDismissedAt: null,
         needsProfileGate: false,
         needsConsentGate: false,
-        showWizard: false,
+        showPlatformTour: false,
         showSuccessBanner: true,
       },
     }),
