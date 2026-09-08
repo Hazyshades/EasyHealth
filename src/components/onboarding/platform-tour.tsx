@@ -154,6 +154,19 @@ export function PlatformTour({ open, onDismiss, onComplete }: PlatformTourProps)
         nextBtnText: "Next",
         prevBtnText: "Back",
         doneBtnText: "Finish tour",
+        onPopoverRender: (popover, options) => {
+          if (popover.footerButtons.querySelector("[data-tour-skip]")) return;
+          const skipButton = document.createElement("button");
+          skipButton.type = "button";
+          skipButton.className = "driver-popover-footer-btn eh-platform-tour-skip-btn";
+          skipButton.dataset.tourSkip = "true";
+          skipButton.textContent = "Skip";
+          skipButton.setAttribute("aria-label", "Skip tour");
+          skipButton.addEventListener("click", () => {
+            options.driver.destroy();
+          });
+          popover.footerButtons.prepend(skipButton);
+        },
         onCloseClick: (_element, _step, options) => {
           requestTerminal("dismissed", options.driver);
         },

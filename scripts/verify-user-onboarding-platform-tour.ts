@@ -116,6 +116,8 @@ function testSourceContracts(): void {
   assert.match(tour, /prefers-reduced-motion/);
   assert.match(tour, /allowKeyboardControl: true/);
   assert.match(tour, /skipMissingElement: true/);
+  assert.match(tour, /eh-platform-tour-skip-btn/);
+  assert.match(tour, /textContent = "Skip"/);
   const stepsStart = tour.indexOf("const steps: Array<DriveStep | null> = [");
   const stepsSource = tour.slice(stepsStart, tour.indexOf("  ];", stepsStart));
   assert.ok(stepsSource.indexOf("PLATFORM_TOUR_TARGETS.reports") < stepsSource.indexOf("biomarkersSelector"));
