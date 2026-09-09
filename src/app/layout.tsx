@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Figtree, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "driver.js/dist/driver.css";
 import { AuthProvider } from "@/components/auth-provider";
 
 const figtree = Figtree({

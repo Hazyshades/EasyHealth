@@ -10,9 +10,10 @@ type NavItemProps = {
   active: boolean;
   /** Mobile bottom nav -icon only */
   compact?: boolean;
+  dataTour?: string;
 };
 
-export function NavItem({ item, active, compact = false }: NavItemProps) {
+export function NavItem({ item, active, compact = false, dataTour }: NavItemProps) {
   const Icon = item.icon;
   const { iconRef, hoverProps } = useAnimatedIconHover();
 
@@ -20,18 +21,24 @@ export function NavItem({ item, active, compact = false }: NavItemProps) {
     return (
       <Link
         href={item.href}
+        data-tour={dataTour}
         aria-current={active ? "page" : undefined}
         aria-label={item.label}
         title={item.label}
         {...hoverProps}
         className={cn(
-        "flex min-h-11 min-w-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-2 transition-[color,transform] duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2",
+          "flex min-h-11 min-w-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-2 transition-[color,transform] duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2",
           active
             ? "bg-[#4F46E5] text-white shadow-[0_10px_22px_rgba(79,70,229,0.24)]"
-            : "text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
+            : "text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]",
         )}
       >
-        <Icon ref={iconRef} size={20} className={cn("shrink-0", active ? "text-white" : "text-current")} aria-hidden />
+        <Icon
+          ref={iconRef}
+          size={20}
+          className={cn("shrink-0", active ? "text-white" : "text-current")}
+          aria-hidden
+        />
         <span className="sr-only">{item.label}</span>
       </Link>
     );
@@ -40,6 +47,7 @@ export function NavItem({ item, active, compact = false }: NavItemProps) {
   return (
     <Link
       href={item.href}
+      data-tour={dataTour}
       aria-current={active ? "page" : undefined}
       title={item.label}
       {...hoverProps}
@@ -49,7 +57,7 @@ export function NavItem({ item, active, compact = false }: NavItemProps) {
         "min-[1100px]:justify-start",
         active
           ? "bg-[#4F46E5] text-white shadow-[0_10px_22px_rgba(79,70,229,0.24)]"
-          : "text-[#475569] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
+          : "text-[#475569] hover:bg-[#F1F5F9] hover:text-[#0F172A]",
       )}
     >
       <Icon
@@ -61,7 +69,7 @@ export function NavItem({ item, active, compact = false }: NavItemProps) {
       <span
         className={cn(
           "text-sm font-medium leading-none max-[1099px]:sr-only",
-          active ? "text-white" : "text-inherit"
+          active ? "text-white" : "text-inherit",
         )}
       >
         {item.label}

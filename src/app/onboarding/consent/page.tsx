@@ -26,18 +26,8 @@ export default function OnboardingConsentPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [required, setRequired] = useState<RequiredConsents>({
-    terms: true,
-    privacy: true,
-    health_data: true,
-    ai_processing: true,
-  });
-  const [optional, setOptional] = useState<OptionalConsents>({
-    analytics: true,
-    personalization: true,
-    marketing_email: true,
-    marketing_cookies: true,
-  });
+  const [required, setRequired] = useState<RequiredConsents>({ terms: false, privacy: false, health_data: false, ai_processing: false });
+  const [optional, setOptional] = useState<OptionalConsents>({ analytics: false, personalization: false, marketing_email: false, marketing_cookies: false });
 
   const allRequiredChecked =
     required.terms &&
@@ -52,13 +42,8 @@ export default function OnboardingConsentPage() {
         return res.json();
       })
       .then((data) => {
-        if (!data.first_name?.trim()) {
-          router.replace("/onboarding/profile");
-          return;
-        }
-        if (data.terms_accepted_at) {
-          router.replace("/app");
-        }
+        if (data.onboarding?.needsProfileGate) { router.replace("/onboarding/profile"); return; }
+        if (!data.onboarding?.needsConsentGate) { router.replace("/app"); }
       })
       .catch((e) =>
         setError(e instanceof Error ? e.message : "Failed to load profile"),

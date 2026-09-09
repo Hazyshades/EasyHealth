@@ -1,25 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
+import { getAuthCallbackErrorMessage } from "@/lib/auth/callback-redirect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 
-export default function LandingPage() {
+function LandingPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackError =
+    searchParams.get("signin") === "error"
+      ? getAuthCallbackErrorMessage(searchParams.get("reason"))
+      : null;
   const {
     signInWithGoogle,
     signInWithMagicLink,
+    refreshAccountIdentity,
     loading,
-    profileId,
+    authUserId,
+    profileStatus,
     authError,
   } = useAuth();
   const [email, setEmail] = useState("");
   const [emailSending, setEmailSending] = useState(false);
+  const [profileRetrying, setProfileRetrying] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const profileReady = profileStatus === "ready";
+  const profileError =
+    profileStatus === "unavailable"
+      ? "Your health profile is temporarily unavailable. Try again or contact support."
+      : null;
+  const visibleAuthError = authError ?? callbackError ?? profileError;
 
   async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault();
@@ -39,14 +54,23 @@ export default function LandingPage() {
     }
   }
 
+  async function handleProfileRetry() {
+    setProfileRetrying(true);
+    try {
+      await refreshAccountIdentity();
+    } finally {
+      setProfileRetrying(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-teal-50 to-white">
-      {authError ? (
+      {visibleAuthError ? (
         <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           <p className="font-medium">Sign-in error</p>
-          <pre className="mt-2 whitespace-pre-wrap font-sans text-xs">
-            {authError}
-          </pre>
+          <p className="mt-2 whitespace-pre-wrap font-sans text-xs">
+            {visibleAuthError}
+          </p>
         </div>
       ) : null}
       <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-6">
@@ -58,9 +82,13 @@ export default function LandingPage() {
           >
             Knowledge Base
           </Link>
-          {profileId ? (
+          {profileReady ? (
             <Button asChild>
               <Link href="/app">Open dashboard</Link>
+            </Button>
+          ) : authUserId ? (
+            <Button onClick={() => void handleProfileRetry()} disabled={profileRetrying}>
+              {profileRetrying ? "Checking profile…" : "Retry profile"}
             </Button>
           ) : (
             <Button
@@ -93,9 +121,13 @@ export default function LandingPage() {
           for your account.
         </p>
         <div className="mt-10 flex flex-wrap justify-center gap-4">
-          {profileId ? (
+          {profileReady ? (
             <Button asChild size="lg">
               <Link href="/app/upload?type=lab_result">Upload a lab</Link>
+            </Button>
+          ) : authUserId ? (
+            <Button size="lg" onClick={() => void handleProfileRetry()} disabled={profileRetrying}>
+              {profileRetrying ? "Checking profile…" : "Retry profile"}
             </Button>
           ) : (
             <Button
@@ -124,7 +156,7 @@ export default function LandingPage() {
           </Button>
         </div>
 
-        {!profileId ? (
+        {!authUserId ? (
           <form
             onSubmit={handleMagicLink}
             className="mx-auto mt-8 flex max-w-md flex-col gap-3 rounded-xl border bg-white p-6 text-left shadow-sm"
@@ -199,5 +231,19 @@ export default function LandingPage() {
         </p>
       </footer>
     </div>
+  );
+}
+
+export default function LandingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
+          Loading…
+        </div>
+      }
+    >
+      <LandingPageContent />
+    </Suspense>
   );
 }

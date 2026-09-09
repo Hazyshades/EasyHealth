@@ -22,13 +22,20 @@ type DashboardWidgetGridProps = {
   order?: WidgetId[];
 };
 
-export function DashboardWidgetGrid({ data, order = DEFAULT_WIDGET_ORDER }: DashboardWidgetGridProps) {
+export function DashboardWidgetGrid({
+  data,
+  order = DEFAULT_WIDGET_ORDER,
+}: DashboardWidgetGridProps) {
   return (
     <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {order.map((id) => {
         const Widget = WIDGET_COMPONENTS[id];
         return (
-          <div key={id} className="min-h-[220px]">
+          <div
+            key={id}
+            data-tour={id === "health_assessment" ? "health-profile" : undefined}
+            className="min-h-[220px]"
+          >
             <Widget data={data} />
           </div>
         );

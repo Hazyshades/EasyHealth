@@ -11,13 +11,18 @@ import {
 } from "react";
 import { usePathname } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
+import { z } from "zod";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { resolveProfileIdentity } from "@/lib/display-name";
 
 const OAUTH_PREFILL_KEY = "eh_oauth_prefill_name";
 
+export type ProfileStatus = "unknown" | "ready" | "unavailable";
+
 type AuthState = {
   loading: boolean;
+  authUserId: string | null;
+  profileStatus: ProfileStatus;
   profileId: string | null;
   displayName: string | null;
   lastName: string | null;
@@ -29,6 +34,30 @@ type AuthState = {
   refreshAccountIdentity: () => Promise<void>;
 };
 
+type ProfileIdentity = {
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  profileId: string | null;
+  profileStatus: "ready" | "unavailable";
+};
+
+const profileResponseSchema = z.object({
+  id: z.string().optional(),
+  first_name: z.string().nullable().optional(),
+  last_name: z.string().nullable().optional(),
+  display_name: z.string().nullable().optional(),
+  email: z.string().nullable().optional(),
+});
+
+const unavailableProfileIdentity: ProfileIdentity = {
+  firstName: null,
+  lastName: null,
+  email: null,
+  profileId: null,
+  profileStatus: "unavailable",
+};
+
 const AuthContext = createContext<AuthState | null>(null);
 
 export function useAuth() {
@@ -37,31 +66,21 @@ export function useAuth() {
   return ctx;
 }
 
-async function loadProfileIdentity(): Promise<{
-  firstName: string | null;
-  lastName: string | null;
-  email: string | null;
-  profileId: string | null;
-}> {
+async function loadProfileIdentity(): Promise<ProfileIdentity> {
   try {
     const res = await fetch("/api/profile");
-    if (!res.ok)
-      return { firstName: null, lastName: null, email: null, profileId: null };
-    const data = (await res.json()) as {
-      id?: string;
-      first_name?: string | null;
-      last_name?: string | null;
-      display_name?: string | null;
-      email?: string | null;
-    };
+    if (!res.ok) return unavailableProfileIdentity;
+    const data = profileResponseSchema.parse(await res.json());
+    if (!data.id) return unavailableProfileIdentity;
     return {
-      profileId: data.id ?? null,
+      profileId: data.id,
       firstName: data.first_name?.trim() || data.display_name?.trim() || null,
       lastName: data.last_name?.trim() || null,
       email: data.email?.trim() || null,
+      profileStatus: "ready",
     };
   } catch {
-    return { firstName: null, lastName: null, email: null, profileId: null };
+    return unavailableProfileIdentity;
   }
 }
 
@@ -93,6 +112,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const knowledgeBaseRoute = isKnowledgeBaseRoute(pathname);
   const supabase = useMemo(() => createBrowserSupabaseClient(), []);
   const [loading, setLoading] = useState(true);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [profileStatus, setProfileStatus] = useState<ProfileStatus>("unknown");
   const [profileId, setProfileId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [lastName, setLastName] = useState<string | null>(null);
@@ -104,6 +125,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (user: User | null) => {
       if (!user) {
         appliedUserIdRef.current = null;
+        setAuthUserId(null);
+        setProfileStatus("unknown");
         setProfileId(null);
         setDisplayName(null);
         setLastName(null);
@@ -111,25 +134,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      setAuthUserId(user.id);
+      setProfileStatus("unknown");
       storeOAuthPrefill(user);
       const fallbackIdentity = resolveProfileIdentity(
         getOAuthPrefillName(user),
         user.email,
       );
-      const identity = knowledgeBaseRoute
-        ? { profileId: user.id, ...fallbackIdentity }
-        : await loadProfileIdentity();
-      if (identity.profileId) {
-        setProfileId(identity.profileId);
-        setDisplayName(identity.firstName);
-        setLastName(identity.lastName);
-        setAccountEmail(identity.email ?? user.email ?? null);
-      } else {
-        // Profile API may 401 briefly; fall back to auth user
-        setProfileId(user.id);
+
+      if (knowledgeBaseRoute) {
+        setProfileId(null);
+        setProfileStatus("unknown");
         setDisplayName(fallbackIdentity.firstName);
         setLastName(fallbackIdentity.lastName);
-        setAccountEmail(fallbackIdentity.email);
+        setAccountEmail(fallbackIdentity.email ?? user.email ?? null);
+      } else {
+        const identity = await loadProfileIdentity();
+        setProfileStatus(identity.profileStatus);
+        setProfileId(identity.profileId);
+        setDisplayName(identity.firstName ?? fallbackIdentity.firstName);
+        setLastName(identity.lastName ?? fallbackIdentity.lastName);
+        setAccountEmail(identity.email ?? fallbackIdentity.email ?? user.email ?? null);
       }
       appliedUserIdRef.current = user.id;
     },
@@ -139,12 +164,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshAccountIdentity = useCallback(async () => {
     if (knowledgeBaseRoute) return;
     const identity = await loadProfileIdentity();
-    if (identity.profileId) {
-      setProfileId(identity.profileId);
-      setDisplayName(identity.firstName);
-      setLastName(identity.lastName);
-      setAccountEmail(identity.email);
-    }
+    setProfileStatus(identity.profileStatus);
+    setProfileId(identity.profileId);
+    if (identity.firstName !== null) setDisplayName(identity.firstName);
+    if (identity.lastName !== null) setLastName(identity.lastName);
+    if (identity.email !== null) setAccountEmail(identity.email);
   }, [knowledgeBaseRoute]);
 
   useEffect(() => {
@@ -223,6 +247,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore
     }
+    setAuthUserId(null);
+    setProfileStatus("unknown");
     setProfileId(null);
     setDisplayName(null);
     setLastName(null);
@@ -232,6 +258,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value: AuthState = {
     loading,
+    authUserId,
+    profileStatus,
     profileId,
     displayName,
     lastName,

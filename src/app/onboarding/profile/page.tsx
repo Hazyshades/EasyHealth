@@ -31,14 +31,7 @@ export default function OnboardingProfilePage() {
         return res.json();
       })
       .then((data) => {
-        if (data.first_name?.trim()) {
-          if (data.terms_accepted_at) {
-            router.replace("/app");
-          } else {
-            router.replace("/onboarding/consent");
-          }
-          return;
-        }
+        if (!data.onboarding?.needsProfileGate) { router.replace(data.onboarding?.needsConsentGate ? "/onboarding/consent" : "/app"); return; }
         if (data.first_name) setFirstName(data.first_name);
         if (data.last_name) setLastName(data.last_name);
       })

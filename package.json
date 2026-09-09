@@ -154,7 +154,8 @@
     "prebuild": "pnpm clean && pnpm check:knowledge-base",
     "check:documentation-links": "node scripts/verify-documentation-links.mjs",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:user-onboarding-platform-tour": "tsx scripts/verify-user-onboarding-platform-tour.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.47",
@@ -169,6 +170,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cookies-next": "^5.1.0",
+    "driver.js": "^1.8.0",
     "lucide-react": "^0.542.0",
     "motion": "^12.42.0",
     "next": "^15.5.24",
