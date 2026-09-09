@@ -24,6 +24,17 @@
       "reason": "Authenticated /app navigation hot-path contracts are release verification."
     },
     {
+      "script": "test:user-onboarding-platform-tour",
+      "verificationFiles": [
+        "scripts/verify-user-onboarding-platform-tour.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "auth-shell",
+      "reason": "Platform Tour onboarding policy and terminal-state contracts are release verification."
+    },
+    {
       "script": "test:eh111",
       "verificationFiles": [
         "scripts/verify-eh111-clinical-compatibility-runner.ts"

@@ -166,6 +166,8 @@ jobs:
         run: pnpm test:eh123
       - name: Verify app navigation hot path contracts
         run: pnpm test:app-navigation-hot-path
+      - name: Verify user onboarding platform tour
+        run: pnpm test:user-onboarding-platform-tour
       - name: Verify batch verification contracts
         run: pnpm test:eh122
       - name: Verify EH-126 medical-event contracts
