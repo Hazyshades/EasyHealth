@@ -5,6 +5,12 @@
 
 @theme inline {
   --text-caption: 0.6875rem;
+  --color-eh-brand: #4f46e5;
+  --color-eh-brand-soft: #eef2ff;
+  --color-eh-canvas-bg: #f8fafc;
+  --color-eh-text-primary: #0f172a;
+  --color-eh-text-secondary: #64748b;
+  --color-eh-text-muted: #94a3b8;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-figtree);
@@ -46,6 +52,16 @@
 
 :root {
   --radius: 0.625rem;
+  --eh-page-bg: #eaf8fc;
+  --eh-canvas-bg: #f8fafc;
+  --eh-text-primary: #0f172a;
+  --eh-text-secondary: #64748b;
+  --eh-text-muted: #94a3b8;
+  --eh-border: #e5eaf0;
+  --eh-border-soft: #eef2f7;
+  --eh-brand: #4f46e5;
+  --eh-brand-soft: #eef2ff;
+  --eh-health: #008c84;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -343,8 +359,8 @@
   --eh-page-bg: #eaf8fc;
   --eh-canvas-bg: #f8fafc;
   --eh-text-primary: #0f172a;
-  --eh-text-secondary: #475569;
-  --eh-text-muted: #64748b;
+  --eh-text-secondary: #64748b;
+  --eh-text-muted: #94a3b8;
   --eh-border: #e5eaf0;
   --eh-border-soft: #eef2f7;
   --eh-brand: #4f46e5;

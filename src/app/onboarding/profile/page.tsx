@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { resolveProfileIdentity } from "@/lib/display-name";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const OAUTH_PREFILL_KEY = "eh_oauth_prefill_name";
@@ -135,8 +135,9 @@ export default function OnboardingProfilePage() {
         <Button
           type="submit"
           disabled={saving || !firstName.trim()}
+          variant="brand"
           size="lg"
-          className="h-11 w-full rounded-xl border-0 bg-[var(--eh-brand)] font-semibold text-white shadow-sm hover:bg-[var(--eh-brand)]/90 disabled:bg-[var(--eh-brand)]/50 disabled:text-white disabled:opacity-100"
+          className="h-11 w-full rounded-xl"
         >
           {saving ? "Saving…" : "Complete registration"}
         </Button>

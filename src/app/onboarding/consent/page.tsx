@@ -246,8 +246,9 @@ export default function OnboardingConsentPage() {
         <Button
           type="submit"
           disabled={saving || !allRequiredChecked}
+          variant="brand"
           size="lg"
-          className="h-11 w-full rounded-xl border-0 bg-[var(--eh-brand)] font-semibold text-white shadow-sm hover:bg-[var(--eh-brand)]/90 disabled:bg-[var(--eh-brand)]/50 disabled:text-white disabled:opacity-100"
+          className="h-11 w-full rounded-xl"
         >
           {saving ? "Saving…" : "Continue"}
         </Button>
