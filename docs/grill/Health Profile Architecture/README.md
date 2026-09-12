@@ -5,9 +5,22 @@
 ## Артефакты обзора
 
 1. [Общий обзор Health Profile](<./architecture-review-Health Profile only.html>)
-   — исходный широкий review. В нём зафиксировано, **что можно сделать**.
+   — главный документ со списком архитектурных кандидатов: здесь зафиксировано,
+   **что можно сделать**.
 2. [Уточнённый review laboratory admission](<./architecture-review-laboratory-admission-revised.html>)
-   — отдельное углубление по выбранному пункту и его контракту.
+   — отдельный HTML по одному выбранному пункту и его контракту.
+3. [Соседний review Resolver + specimen](<../Resolver + specimen/README.md>)
+   — отдельная папка с самостоятельным обзором Resolver и specimen provenance.
+
+HTML-файлы сохраняются как исходные материалы обзора; статус решений и реализации
+ведётся в этом README.
+
+Исходные Temp-файлы, из которых восстановлены HTML:
+
+- `C:\Users\leo\AppData\Local\Temp\architecture-review-Health Profile only.html`
+  — общий список того, **что можно сделать**.
+- `C:\Users\leo\AppData\Local\Temp\architecture-review-laboratory-admission-revised.html`
+  — отдельный детальный пункт из общего обзора.
 
 ## Связь шагов
 
@@ -54,5 +67,7 @@
 - `pnpm test:eh141`, `pnpm test:eh143`, `pnpm test:eh144`, `pnpm test:eh145`, `pnpm test:eh146`, `pnpm test:eh147`, `pnpm test:eh164` — пройдены.
 - `pnpm test:health-profile-drawer-status`, `pnpm test:health-profile-lab-input`, `pnpm test:biomarkers` — пройдены.
 - Registry documentation synchronization — завершена: canonical docs сгенерированы и проверены, Wiki mirror опубликован, issue `#247` обновлён текущими ссылками и evidence.
+- Кодовые изменения опубликованы в ветке
+  [`feat/health-profile-score-readiness-policy-seam`](https://github.com/Hazyshades/EasyHealth/tree/feat/health-profile-score-readiness-policy-seam);
+  отдельный tracking issue — [#249](https://github.com/Hazyshades/EasyHealth/issues/249).
 
-Основной кодовый diff находится в рабочем дереве и пока не закоммичен в основном репозитории.

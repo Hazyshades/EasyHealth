@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Architecture review · Resolver + specimen · EasyHealth</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true, theme: 'base', themeVariables: {
+      fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+      primaryColor: '#f4f0e8', primaryTextColor: '#1d1f1c', primaryBorderColor: '#a8a49c',
+      lineColor: '#656b64', secondaryColor: '#e8efe8', tertiaryColor: '#f8eee8',
+      clusterBkg: '#faf8f3', clusterBorder: '#d8d2c6'
+    }});
+  </script>
+  <style>
+    :root { --ink:#1d1f1c; --muted:#6c716b; --paper:#f7f5ef; --card:#fffefa; --line:#d8d5cc; --sage:#dce9dd; --rust:#bd5b42; --deep:#26332d; --gold:#e9d7a2; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--paper); font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    code, .mono { font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace; }
+    .paper-grid { background-image: linear-gradient(rgba(29,31,28,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(29,31,28,.035) 1px, transparent 1px); background-size:28px 28px; }
+    .module { border:1px solid #aaa79f; background:#faf9f5; border-radius:8px; }
+    .deep { border:3px solid var(--deep); background:#e5eee7; border-radius:9px; box-shadow:0 5px 0 rgba(38,51,45,.09); }
+    .seam { border:2px dashed #9c8c61; background:#fff9e7; border-radius:8px; }
+    .leak { color:var(--rust); font-weight:700; }
+    .diagram { min-height:300px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+    .diagram svg { max-width:100%; max-height:290px; }
+    .box { padding:10px 12px; text-align:center; font-size:12px; line-height:1.25; }
+    .arrow { color:#70766f; font-size:23px; line-height:1; text-align:center; }
+    .red-arrow { color:var(--rust); font-size:23px; line-height:1; text-align:center; }
+    .caption { color:var(--muted); font-size:11px; letter-spacing:.08em; text-transform:uppercase; font-weight:700; }
+    .badge { border-radius:999px; padding:4px 9px; font-size:11px; font-weight:800; letter-spacing:.04em; }
+    .strong { background:#dce9dd; color:#295139; }
+    .worth { background:#f2e8c9; color:#6c5015; }
+    .spec { background:#f4ddd5; color:#823a2c; }
+    .kind { background:#eeeae1; color:#62635d; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:0 12px 30px rgba(29,31,28,.055); }
+    .rule { height:1px; background:var(--line); }
+    .mermaid { width:100%; }
+    .mermaid .node rect { rx:7px; ry:7px; }
+    @media (max-width: 640px) { .diagram { min-height:240px; } }
+  </style>
+</head>
+<body class="paper-grid">
+  <main class="mx-auto max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
+    <header class="mb-10 max-w-4xl">
+      <div class="caption mb-4">EasyHealth / architecture review / focused slice</div>
+      <div class="flex flex-wrap items-center gap-2 mb-5">
+        <span class="badge kind">Resolver + specimen</span>
+        <span class="badge kind">10 September 2026</span>
+        <span class="badge kind">recent Registry work</span>
+      </div>
+      <h1 class="text-4xl font-black tracking-[-0.04em] sm:text-6xl">Deepen the Resolver seam.</h1>
+      <div class="mt-6 flex flex-wrap gap-x-6 gap-y-3 text-xs text-stone-600">
+        <span class="inline-flex items-center gap-2"><i class="module h-3 w-5"></i> module</span>
+        <span class="inline-flex items-center gap-2"><i class="seam h-3 w-5"></i> seam</span>
+        <span class="inline-flex items-center gap-2"><i class="leak text-lg not-italic">→</i> leakage</span>
+        <span class="inline-flex items-center gap-2"><i class="deep h-3 w-5"></i> deep module</span>
+      </div>
+    </header>
+
+    <section id="candidates" class="space-y-8">
+      <article id="decision-identity" class="card overflow-hidden">
+        <div class="border-b border-stone-200 px-6 py-6 sm:px-8">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="badge strong">Strong</span><span class="badge kind">local-substitutable</span>
+          </div>
+          <h2 class="mt-4 text-2xl font-black tracking-[-0.025em] sm:text-3xl">Make Resolver decision identity deep</h2>
+          <p class="mt-3 max-w-3xl text-sm leading-6 text-stone-600">The specimen hot spot is not only selection; it is whether a past decision can be named and reproduced.</p>
+        </div>
+        <div class="grid gap-6 px-6 py-6 sm:px-8 lg:grid-cols-[1.1fr_.9fr]">
+          <div>
+            <div class="caption mb-2">Files</div>
+            <div class="mono text-xs leading-6 text-stone-700">
+              src/lib/biomarkers/types.ts:405–428<br>
+              src/lib/biomarkers/measurement-resolution.ts:825–887<br>
+              src/lib/documents/normalization-revisions.ts:48–74<br>
+              src/lib/documents/observation-normalization-writer.ts:522–541<br>
+              src/lib/registry-reprocessing/diff.ts:65–106
+            </div>
+            <div class="mt-6">
+              <div class="caption mb-2">Problem</div>
+              <p class="text-sm leading-6 text-stone-800">The Resolver reads <code>specimenSource</code> and <code>capturedHeading</code>, but <code>buildInputEvidenceHash</code> omits both. A stated specimen and a reviewed-panel specimen can share the same specimen value while carrying different evidence, yet their input identity remains equal. The writer request hash includes the full trace, so immediate idempotency is not proven broken; historical identity and reprocessing still have a gap.</p>
+            </div>
+            <div class="mt-5">
+              <div class="caption mb-2">Solution</div>
+              <p class="text-sm leading-6 text-stone-800">Make decision identity a deep module that canonicalizes every field able to alter resolution, including provenance source and heading-match context. Let the writer, reprocessing diff, and corpus adapter consume it. Keep raw OCR out of the persisted trace; hash a canonical redacted representation.</p>
+            </div>
+            <div class="mt-5">
+              <div class="caption mb-2">Wins</div>
+              <ul class="grid gap-2 text-sm text-stone-700 sm:grid-cols-2">
+                <li>• locality: one identity rule</li><li>• leverage: stable reprocessing diffs</li>
+                <li>• interface: provenance stays visible</li><li>• testability: stated ≠ policy</li>
+              </ul>
+            </div>
+            <div class="mt-6 border-l-4 border-emerald-700 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-950"><strong>ADR fit.</strong> ADR 0001 remains intact: one Registry runtime, no guessed specimen. This makes that decision more inspectable rather than adding another runtime.</div>
+          </div>
+          <div>
+            <div class="caption mb-2">Before</div>
+            <div class="diagram module p-4">
+              <div class="grid w-full max-w-[310px] grid-cols-[1fr_28px_1fr] items-center gap-2">
+                <div class="space-y-3">
+                  <div class="box module">row evidence<br><span class="mono text-[10px]">specimen + heading</span></div>
+                  <div class="box seam">input builder<br><span class="text-[10px]">source may change score</span></div>
+                </div>
+                <div class="space-y-10"><div class="arrow">→</div><div class="red-arrow">↘</div></div>
+                <div class="space-y-3">
+                  <div class="box deep">Resolver<br><span class="text-[10px]">reads both fields</span></div>
+                  <div class="box module">input hash<br><span class="leak text-[10px]">source / heading absent</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="caption mb-2 mt-5">After</div>
+            <div class="diagram deep p-4">
+              <div class="grid w-full max-w-[320px] grid-cols-[1fr_28px_1fr] items-center gap-2">
+                <div class="space-y-3">
+                  <div class="box module">stated evidence</div>
+                  <div class="box module">reviewed policy</div>
+                  <div class="box module">heading context</div>
+                </div>
+                <div class="arrow">→</div>
+                <div class="space-y-3">
+                  <div class="box seam">decision identity<br><span class="text-[10px]">one canonical record</span></div>
+                  <div class="box deep">Resolver seam<br><span class="text-[10px]">selection + trace</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article id="evidence-admission" class="card overflow-hidden">
+        <div class="border-b border-stone-200 px-6 py-6 sm:px-8">
+          <div class="flex flex-wrap items-center gap-2"><span class="badge strong">Strong</span><span class="badge kind">in-process</span></div>
+          <h2 class="mt-4 text-2xl font-black tracking-[-0.025em] sm:text-3xl">Collapse duplicate evidence admission</h2>
+          <p class="mt-3 max-w-3xl text-sm leading-6 text-stone-600">Two production adapters currently decide which row evidence is allowed to reach the Resolver.</p>
+        </div>
+        <div class="grid gap-6 px-6 py-6 sm:px-8 lg:grid-cols-[1.1fr_.9fr]">
+          <div>
+            <div class="caption mb-2">Files</div>
+            <div class="mono text-xs leading-6 text-stone-700">
+              src/lib/documents/normalization-review.ts:213–290<br>
+              src/lib/documents/observation-normalization-writer.ts:187–248<br>
+              src/lib/documents/stated-axis-evidence.ts:1–204<br>
+              src/lib/health-profile-snapshot.ts:281–284<br>
+              src/lib/registry-reprocessing/diff.ts:65–75
+            </div>
+            <div class="mt-6"><div class="caption mb-2">Problem</div><p class="text-sm leading-6 text-stone-800">The review and writer builders both clean overrides, filter unstated axes, construct provenance, and apply reviewed-panel specimen policy. Their separate implementations are a real seam: preview, acceptance, correction, reprocessing, and the Health Profile can drift in ordering or in the evidence admitted.</p></div>
+            <div class="mt-5"><div class="caption mb-2">Solution</div><p class="text-sm leading-6 text-stone-800">Make evidence admission a deep module. Keep a thin adapter for each source row shape, then pass one admitted evidence record into the Resolver. Apply stated-axis filtering before panel policy in one place.</p></div>
+            <div class="mt-5"><div class="caption mb-2">Wins</div><ul class="grid gap-2 text-sm text-stone-700 sm:grid-cols-2"><li>• locality: one admission rule</li><li>• leverage: policy ordering once</li><li>• interface: clean Resolver input</li><li>• testability: one specimen seam</li></ul></div>
+            <div class="mt-6 border-l-4 border-stone-400 bg-stone-100 px-4 py-3 text-xs leading-5 text-stone-800"><strong>Deletion test.</strong> Remove either current builder. If the same filtering and policy decisions reappear in callers, the module is shallow; a shared admission module earns depth.</div>
+          </div>
+          <div>
+            <div class="caption mb-2">Before</div>
+            <div class="diagram module p-2"><pre class="mermaid">flowchart LR
+  R[Review row] --> RB[Review builder]
+  W[Writer row] --> WB[Writer builder]
+  RB -->|stated filter + policy| X((Resolver))
+  WB -->|stated filter + policy| X
+  RB -.->|drift risk| WB
+  classDef risk fill:#f4ddd5,stroke:#bd5b42,color:#823a2c;
+  class RB,WB risk;</pre></div>
+            <div class="caption mb-2 mt-5">After</div>
+            <div class="diagram deep p-2"><pre class="mermaid">flowchart LR
+  R[Review adapter] --> EA[Evidence admission]
+  W[Writer adapter] --> EA
+  EA -->|one ordered seam| X((Resolver))
+  EA --> H[decision identity]
+  classDef deep fill:#e5eee7,stroke:#26332d,stroke-width:3px,color:#1d1f1c;
+  classDef seam fill:#fff9e7,stroke:#9c8c61,stroke-dasharray:5 4,color:#5a4b25;
+  class EA,H seam;
+  class X deep;</pre></div>
+          </div>
+        </div>
+      </article>
+
+      <article id="historical-read" class="card overflow-hidden">
+        <div class="border-b border-stone-200 px-6 py-6 sm:px-8">
+          <div class="flex flex-wrap items-center gap-2"><span class="badge strong">Strong</span><span class="badge kind">local-substitutable</span></div>
+          <h2 class="mt-4 text-2xl font-black tracking-[-0.025em] sm:text-3xl">Keep persisted decisions off the live Resolver</h2>
+          <p class="mt-3 max-w-3xl text-sm leading-6 text-stone-600">A persisted decision should remain a historical read, not a current-catalog computation.</p>
+        </div>
+        <div class="grid gap-6 px-6 py-6 sm:px-8 lg:grid-cols-[1.1fr_.9fr]">
+          <div>
+            <div class="caption mb-2">Files</div>
+            <div class="mono text-xs leading-6 text-stone-700">
+              src/lib/documents/normalization-review.ts:362–459<br>
+              src/lib/documents/incomplete-laboratory-outcomes.ts:228–384<br>
+              src/lib/documents/observation-read-boundaries.ts:31–136<br>
+              src/lib/biomarkers/measurement-resolution.ts:1414–1513<br>
+              src/lib/documents/observation-normalization-writer.ts:394–450
+            </div>
+            <div class="mt-6"><div class="caption mb-2">Problem</div><p class="text-sm leading-6 text-stone-800">For rows with an active revision, <code>buildNormalizationReview</code> still calls <code>resolveMeasurementDefinition(input)</code> before projecting the persisted result. The active projection reads <code>resolver_evidence</code>, while the technical trace reads <code>resolver_decision_trace</code>; one historical decision has two read shapes.</p></div>
+            <div class="mt-5"><div class="caption mb-2">Solution</div><p class="text-sm leading-6 text-stone-800">Deepen a persisted-decision read module. Active revisions use revision-owned trace and projection only; the live Resolver stays at the explicit pre-revision preview seam. Concentrate trace summarization and eligibility reading without removing the deliberate legacy evidence field yet.</p></div>
+            <div class="mt-5"><div class="caption mb-2">Wins</div><ul class="grid gap-2 text-sm text-stone-700 sm:grid-cols-2"><li>• locality: historical semantics</li><li>• leverage: version-stable review</li><li>• interface: trace is test surface</li><li>• testability: active ≠ preview</li></ul></div>
+            <div class="mt-6 border-l-4 border-emerald-700 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-950"><strong>ADR fit.</strong> ADR 0001's one-runtime decision is preserved. This follows the EH-115 historical-trace intent: a current catalog must not silently rewrite an accepted decision.</div>
+          </div>
+          <div>
+            <div class="caption mb-2">Before</div>
+            <div class="diagram module p-4">
+              <div class="flex w-full max-w-[330px] flex-col gap-3">
+                <div class="grid grid-cols-[1fr_26px_1fr] items-center gap-2"><div class="box module">active revision</div><div class="arrow">→</div><div class="box module">stored trace</div></div>
+                <div class="grid grid-cols-[1fr_26px_1fr] items-center gap-2"><div class="box module">review read</div><div class="red-arrow">↘</div><div class="box deep">current Resolver</div></div>
+                <div class="box seam"><span class="leak">two read shapes</span><br><span class="text-[10px]">evidence + decision trace</span></div>
+              </div>
+            </div>
+            <div class="caption mb-2 mt-5">After</div>
+            <div class="diagram deep p-4">
+              <div class="flex w-full max-w-[330px] flex-col gap-3">
+                <div class="grid grid-cols-[1fr_26px_1fr] items-center gap-2"><div class="box module">active revision</div><div class="arrow">→</div><div class="box seam">persisted decision<br><span class="text-[10px]">trace + projection</span></div></div>
+                <div class="grid grid-cols-[1fr_26px_1fr] items-center gap-2"><div class="box module">pre-revision preview</div><div class="arrow">→</div><div class="box deep">live Resolver</div></div>
+                <div class="box module">one explicit read seam</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article id="release-identity" class="card overflow-hidden">
+        <div class="border-b border-stone-200 px-6 py-6 sm:px-8">
+          <div class="flex flex-wrap items-center gap-2"><span class="badge worth">Worth exploring</span><span class="badge kind">in-process</span></div>
+          <h2 class="mt-4 text-2xl font-black tracking-[-0.025em] sm:text-3xl">Concentrate Registry release identity</h2>
+          <p class="mt-3 max-w-3xl text-sm leading-6 text-stone-600">The one-runtime decision is strong; its release identity is still assembled in several callers.</p>
+        </div>
+        <div class="grid gap-6 px-6 py-6 sm:px-8 lg:grid-cols-[1.1fr_.9fr]">
+          <div>
+            <div class="caption mb-2">Files</div>
+            <div class="mono text-xs leading-6 text-stone-700">
+              src/lib/biomarkers/measurement-resolution.ts:52–74<br>
+              src/lib/biomarkers/measurement-registry-release.ts:91–196<br>
+              src/lib/documents/observation-normalization-writer.ts:378–457, 535–599, 669–718<br>
+              src/lib/registry-reprocessing/release.ts:1–25<br>
+              scripts/lib/registry-v2-candidate-corpus.ts:828–846, 1049–1057
+            </div>
+            <div class="mt-6"><div class="caption mb-2">Problem</div><p class="text-sm leading-6 text-stone-800">Release fields and digest provenance are manually assembled in the writer, automatic verification, reprocessing diff, and corpus paths. <code>captureDeployedRelease()</code> centralizes them only for reprocessing, while trace creation still receives several independent release values.</p></div>
+            <div class="mt-5"><div class="caption mb-2">Solution</div><p class="text-sm leading-6 text-stone-800">Make Registry release identity a deep module that owns the manifest digest and resolver, normalization, policy, and trace versions. Let decision, trace, reprocessing, and corpus records consume one captured release.</p></div>
+            <div class="mt-5"><div class="caption mb-2">Wins</div><ul class="grid gap-2 text-sm text-stone-700 sm:grid-cols-2"><li>• locality: version bumps once</li><li>• leverage: identical dry-run/live stamps</li><li>• interface: release is explicit</li><li>• testability: digest drift is visible</li></ul></div>
+            <div class="mt-6 border-l-4 border-stone-400 bg-stone-100 px-4 py-3 text-xs leading-5 text-stone-800"><strong>ADR fit.</strong> ADR 0001 preserves one Registry runtime. Its historical version table is not source of truth; any release module must read the live manifest and constants.</div>
+          </div>
+          <div>
+            <div class="caption mb-2">Before</div>
+            <div class="diagram module p-2"><pre class="mermaid">flowchart TB
+  C1[writer] --> V1[versions + digest]
+  C2[automatic verification] --> V2[versions + digest]
+  C3[reprocessing diff] --> V3[captured release]
+  C4[corpus] --> V4[versions + digest]
+  V1 --> T[decision records]
+  V2 --> T
+  V3 --> T
+  V4 --> T
+  classDef risk fill:#f4ddd5,stroke:#bd5b42,color:#823a2c;
+  class V1,V2,V4 risk;</pre></div>
+            <div class="caption mb-2 mt-5">After</div>
+            <div class="diagram deep p-2"><pre class="mermaid">flowchart TB
+  R[Registry release identity] --> W[writer]
+  R --> A[automatic verification]
+  R --> D[reprocessing diff]
+  R --> C[corpus adapter]
+  W --> T[decision records]
+  A --> T
+  D --> T
+  C --> T
+  classDef deep fill:#e5eee7,stroke:#26332d,stroke-width:3px,color:#1d1f1c;
+  class R deep;</pre></div>
+          </div>
+        </div>
+      </article>
+
+      <article id="corpus-adapter" class="card overflow-hidden">
+        <div class="border-b border-stone-200 px-6 py-6 sm:px-8">
+          <div class="flex flex-wrap items-center gap-2"><span class="badge spec">Speculative</span><span class="badge kind">mock-adapter</span></div>
+          <h2 class="mt-4 text-2xl font-black tracking-[-0.025em] sm:text-3xl">Make the release corpus a real Resolver adapter</h2>
+          <p class="mt-3 max-w-3xl text-sm leading-6 text-stone-600">The corpus is a valuable release gate, but its input composition is a third implementation-shaped path.</p>
+        </div>
+        <div class="grid gap-6 px-6 py-6 sm:px-8 lg:grid-cols-[1.1fr_.9fr]">
+          <div>
+            <div class="caption mb-2">Files</div>
+            <div class="mono text-xs leading-6 text-stone-700">
+              scripts/lib/registry-v2-candidate-corpus.ts:849–955<br>
+              src/lib/documents/stated-axis-evidence.ts:1–204<br>
+              src/lib/documents/normalization-review.ts:213–290<br>
+              src/lib/documents/observation-normalization-writer.ts:187–248
+            </div>
+            <div class="mt-6"><div class="caption mb-2">Problem</div><p class="text-sm leading-6 text-stone-800">The release corpus manually reconstructs Resolver input from source text, section context, stated axes, and heading context. Production has two different row adapters. The gate can remain green while a production adapter changes override, reference, or value-kind admission.</p></div>
+            <div class="mt-5"><div class="caption mb-2">Solution</div><p class="text-sm leading-6 text-stone-800">Give the corpus a mutation-free release adapter over the shared evidence-admission module. Preserve its fixture-specific source shape, but remove a second copy of production admission decisions.</p></div>
+            <div class="mt-5"><div class="caption mb-2">Wins</div><ul class="grid gap-2 text-sm text-stone-700 sm:grid-cols-2"><li>• locality: gate follows production</li><li>• leverage: release evidence stays honest</li><li>• seam: fixture data remains isolated</li><li>• testability: admission drift fails early</li></ul></div>
+            <div class="mt-6 border-l-4 border-amber-600 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-950"><strong>Why speculative.</strong> This depends on the evidence-admission choice above. Forcing the script through a production row shape could make the test seam less clear rather than deeper.</div>
+          </div>
+          <div>
+            <div class="caption mb-2">Before</div>
+            <div class="diagram module p-2"><pre class="mermaid">flowchart LR
+  F[fixture row] --> C[corpus input composition]
+  R[review adapter] --> X[Resolver]
+  W[writer adapter] --> X
+  C --> X
+  C -.->|third rule set| X
+  classDef risk fill:#f4ddd5,stroke:#bd5b42,color:#823a2c;
+  class C risk;</pre></div>
+            <div class="caption mb-2 mt-5">After</div>
+            <div class="diagram deep p-2"><pre class="mermaid">flowchart LR
+  F[fixture adapter] --> E[shared evidence admission]
+  R[review adapter] --> E
+  W[writer adapter] --> E
+  E --> X((Resolver))
+  classDef deep fill:#e5eee7,stroke:#26332d,stroke-width:3px,color:#1d1f1c;
+  classDef seam fill:#fff9e7,stroke:#9c8c61,stroke-dasharray:5 4,color:#5a4b25;
+  class E seam;
+  class X deep;</pre></div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="mt-12 card border-2 border-emerald-800 bg-[#eef5ee] p-7 sm:p-9">
+      <div class="caption text-emerald-800">Top recommendation</div>
+      <h2 class="mt-3 text-3xl font-black tracking-[-0.03em] sm:text-4xl"><a class="underline decoration-emerald-700 decoration-2 underline-offset-4" href="#decision-identity">Make Resolver decision identity deep</a></h2>
+      <p class="mt-4 max-w-3xl text-base leading-7 text-emerald-950">Start at the specimen provenance seam: one decision identity makes stated evidence, reviewed-panel policy, persisted trace, and reprocessing diff speak about the same decision.</p>
+      <div class="mt-6 flex flex-wrap gap-2 text-xs text-emerald-900"><span class="rounded-full bg-white/70 px-3 py-1">highest locality</span><span class="rounded-full bg-white/70 px-3 py-1">highest leverage</span><span class="rounded-full bg-white/70 px-3 py-1">directly testable seam</span></div>
+    </section>
+  </main>
+</body>
+</html>

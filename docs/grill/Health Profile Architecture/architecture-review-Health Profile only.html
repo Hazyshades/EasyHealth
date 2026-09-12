@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Architecture review for EasyHealth — Health Profile</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
+    </script>
+    <style>
+      :root { color-scheme: light; }
+      body { font-feature-settings: "ss01" 1, "cv11" 1; }
+      .seam { border-style: dashed; }
+      .leak { color: #b91c1c; }
+      .leak-line { border-color: #dc2626 !important; color: #dc2626; }
+      .deep { background: linear-gradient(135deg, #0f172a, #1e293b); }
+      .diagram { min-height: 320px; }
+      .schematic-label { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: #64748b; font-weight: 700; }
+      .box { border: 1px solid #cbd5e1; background: white; border-radius: 10px; padding: 10px 12px; }
+      .box-dark { border: 2px solid #0f172a; background: linear-gradient(135deg, #0f172a, #1e293b); color: #f8fafc; border-radius: 12px; padding: 12px; }
+      .box-faded { border: 1px dashed #94a3b8; color: #64748b; background: #f8fafc; border-radius: 8px; padding: 8px 10px; }
+      .arrow { display: flex; align-items: center; justify-content: center; color: #64748b; font-weight: 800; line-height: 1; }
+      .arrow-red { color: #dc2626; }
+      .tiny { font-size: 11px; line-height: 1.35; }
+      .mass-interface { height: 62px; background: #e0e7ff; border: 1px solid #818cf8; border-radius: 8px 8px 0 0; padding: 10px; }
+      .mass-implementation { height: 150px; background: #f8fafc; border: 1px solid #cbd5e1; border-top: 0; border-radius: 0 0 8px 8px; padding: 10px; }
+      .mass-interface-deep { height: 46px; background: #1e293b; border: 2px solid #0f172a; border-radius: 8px 8px 0 0; padding: 8px; color: white; }
+      .mass-implementation-deep { height: 184px; background: linear-gradient(135deg, #0f172a, #1e293b); border: 2px solid #0f172a; border-top: 0; border-radius: 0 0 8px 8px; padding: 12px; color: #cbd5e1; }
+      .mermaid { min-height: 260px; display: flex; align-items: center; justify-content: center; }
+      .mermaid svg { max-width: 100%; height: auto; }
+    </style>
+  </head>
+  <body class="bg-stone-50 text-slate-900 font-sans">
+    <main class="mx-auto max-w-6xl space-y-12 px-6 py-12">
+      <header class="space-y-5 border-b border-slate-200 pb-8">
+        <div class="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p class="schematic-label">Architecture review · Health Profile</p>
+            <h1 class="mt-2 font-serif text-4xl tracking-tight text-slate-950">EasyHealth</h1>
+          </div>
+          <p class="text-sm text-slate-500">10 September 2026 · scoped after Resolver</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-slate-600">
+          <span><span class="mr-1 inline-block h-3 w-3 rounded border border-slate-400 bg-white align-[-1px]"></span> solid box = module</span>
+          <span><span class="mr-1 inline-block h-3 w-5 border-t border-dashed border-slate-500 align-[3px]"></span> dashed line = seam</span>
+          <span class="text-red-700"><span class="mr-1">↗</span> red arrow = leakage</span>
+          <span><span class="mr-1 inline-block h-3 w-3 rounded border-2 border-slate-900 bg-slate-800 align-[-1px]"></span> thick dark box = deep module</span>
+        </div>
+        <div class="flex flex-wrap gap-2 text-xs font-medium">
+          <span class="rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">Health Profile only</span>
+          <span class="rounded-full bg-slate-200 px-3 py-1 text-slate-700">Snapshot · freshness · score groups · laboratory input</span>
+          <span class="rounded-full bg-slate-200 px-3 py-1 text-slate-700">Document list excluded</span>
+        </div>
+      </header>
+
+      <section id="candidates" class="space-y-10">
+        <article id="candidate-laboratory-admission" class="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p class="schematic-label">Candidate 01</p>
+              <h2 class="mt-1 font-serif text-2xl tracking-tight">Deepen laboratory assessment admission</h2>
+            </div>
+            <div class="flex flex-wrap gap-2 text-xs font-semibold">
+              <span class="rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">Strong</span>
+              <span class="rounded-full bg-indigo-100 px-3 py-1 text-indigo-800">in-process</span>
+            </div>
+          </div>
+
+          <div class="grid gap-5 md:grid-cols-[1fr_1.25fr]">
+            <div>
+              <p class="schematic-label">Files / symbols</p>
+              <ul class="mt-2 space-y-1 font-mono text-sm text-slate-700">
+                <li>src/lib/health-profile-input.ts</li>
+                <li>projectHealthProfileLaboratoryInput</li>
+                <li>src/lib/health-profile-snapshot.ts</li>
+                <li>buildHealthProfileSnapshot</li>
+                <li>projectLaboratoryOutcome</li>
+                <li>health-profile-reported-results.ts</li>
+              </ul>
+            </div>
+            <div class="rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-950">
+              <p class="font-semibold">Evidence</p>
+              <p class="mt-1">The snapshot calls <code>projectLaboratoryOutcome</code> for reported rows, calls <code>projectHealthProfileLaboratoryInput</code> for score input, then calls the outcome projector again when a null input becomes a score exclusion. EH-142 made the assessment predicate authoritative; the snapshot still reconstructs part of its result.</p>
+            </div>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-2">
+            <div class="diagram rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p class="schematic-label">Before · repeated decision</p>
+              <div class="mx-auto mt-4 max-w-xs space-y-2">
+                <div class="box text-center"><strong>snapshot.ts</strong><br /><span class="tiny text-slate-500">Observation + extracted row reads</span></div>
+                <div class="arrow arrow-red">↓ outcome</div>
+                <div class="box border-red-200 text-center"><strong>projectLaboratoryOutcome</strong><br /><span class="tiny text-slate-500">eligibility + resolution details</span></div>
+                <div class="arrow arrow-red">↓ null</div>
+                <div class="box border-red-200 text-center"><strong>projectHealthProfileLaboratoryInput</strong><br /><span class="tiny text-slate-500">re-evaluates the same gates</span></div>
+                <div class="arrow arrow-red">↺ outcome again</div>
+                <div class="box border-red-200 text-center"><strong>snapshot reconstructs exclusion</strong><br /><span class="tiny text-slate-500">reason · system · source evidence</span></div>
+              </div>
+              <p class="mt-4 text-xs text-red-700">Leakage: a null-returning interface forces callers to rediscover why admission failed.</p>
+            </div>
+            <div class="diagram rounded-xl border-2 border-slate-900 bg-slate-100 p-4">
+              <p class="schematic-label">After · one deep admission seam</p>
+              <div class="mt-4 grid grid-cols-[.75fr_1.4fr_.75fr] items-center gap-2">
+                <div class="space-y-2">
+                  <div class="box tiny text-center">snapshot read</div>
+                  <div class="box tiny text-center">Biomarkers read</div>
+                  <div class="box tiny text-center">review projection</div>
+                </div>
+                <div class="box-dark min-h-[190px]">
+                  <p class="text-center text-xs font-bold uppercase tracking-[.16em] text-slate-300">deep module</p>
+                  <p class="mt-2 text-center font-semibold">Laboratory assessment admission</p>
+                  <div class="mt-4 space-y-2">
+                    <div class="box-faded tiny">Registry-v2 identity and verification</div>
+                    <div class="box-faded tiny">numeric / range / specimen gates</div>
+                    <div class="box-faded tiny">source and exclusion evidence</div>
+                  </div>
+                </div>
+                <div class="space-y-2">
+                  <div class="box tiny text-center">score input</div>
+                  <div class="box tiny text-center">excluded evidence</div>
+                  <div class="box tiny text-center">reported counts</div>
+                </div>
+              </div>
+              <p class="mt-4 text-xs text-slate-600">The existing Resolver and Registry 2.0 remain the authority; the seam only concentrates the consumer decision.</p>
+            </div>
+          </div>
+
+          <div class="grid gap-5 md:grid-cols-3">
+            <div><p class="font-semibold">Problem</p><p class="mt-1 text-sm text-slate-600">Admission is authoritative in one predicate, but the snapshot loses the decision and rebuilds it across score, reported-result, and exclusion paths.</p></div>
+            <div><p class="font-semibold">Solution</p><p class="mt-1 text-sm text-slate-600">Concentrate laboratory admission, its factual evidence, and its safe exclusion result in one deep module used by the Health Profile read path.</p></div>
+            <div><p class="font-semibold">Deletion test</p><p class="mt-1 text-sm text-slate-600">Delete the projection module and every caller must duplicate Resolver, verification, range, and censored-value policy. Complexity reappears; the module earns depth.</p></div>
+          </div>
+          <div>
+            <p class="schematic-label">Wins</p>
+            <ul class="mt-2 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+              <li>• locality: one admission decision</li>
+              <li>• leverage: one gate, many consumers</li>
+              <li>• tests cross one seam</li>
+              <li>• exclusions retain source evidence</li>
+            </ul>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"><strong>Constraint:</strong> keep Document list behavior out of this module. Keep the Registry 2.0 hard cutover and existing Resolver outcome vocabulary unchanged.</div>
+        </article>
+
+        <article id="candidate-score-policy" class="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p class="schematic-label">Candidate 02</p>
+              <h2 class="mt-1 font-serif text-2xl tracking-tight">Concentrate score and readiness policy</h2>
+            </div>
+            <div class="flex flex-wrap gap-2 text-xs font-semibold">
+              <span class="rounded-full bg-amber-100 px-3 py-1 text-amber-800">Worth exploring</span>
+              <span class="rounded-full bg-indigo-100 px-3 py-1 text-indigo-800">in-process</span>
+            </div>
+          </div>
+
+          <div class="grid gap-5 md:grid-cols-[1fr_1.25fr]">
+            <div>
+              <p class="schematic-label">Files / symbols</p>
+              <ul class="mt-2 space-y-1 font-mono text-sm text-slate-700">
+                <li>src/lib/health-systems.ts · 1,095 lines</li>
+                <li>evaluateSystemScoreReadiness</li>
+                <li>computeSystemStateScore</li>
+                <li>computeSystemDataConfidence</li>
+                <li>buildSystemScoreProvenance</li>
+                <li>resolveBodyMapLayout</li>
+                <li>src/lib/biomarkers/registry-v2-runtime</li>
+              </ul>
+            </div>
+            <div class="rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-950">
+              <p class="font-semibold">Recent hotspot</p>
+              <p class="mt-1">EH-141, EH-143, EH-144, EH-145, and EH-146 converge on <code>health-systems.ts</code>. The file owns score types, readiness, freshness-aware selection, contribution provenance, profile assembly, score suppression, and body-map geometry. Focused scripts import low-level helpers directly, so the test surface follows implementation details.</p>
+            </div>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-2">
+            <div class="diagram rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p class="schematic-label">Before · shallow surface</p>
+              <div class="mx-auto mt-8 max-w-sm">
+                <div class="mass-interface text-xs font-semibold text-indigo-950">many exported decisions · types · layout helpers</div>
+                <div class="mass-implementation tiny text-slate-500">
+                  <p class="font-semibold text-slate-700">one implementation file</p>
+                  <div class="mt-3 grid grid-cols-2 gap-2">
+                    <span class="rounded border border-slate-200 bg-white p-2">readiness</span>
+                    <span class="rounded border border-slate-200 bg-white p-2">score</span>
+                    <span class="rounded border border-slate-200 bg-white p-2">confidence</span>
+                    <span class="rounded border border-slate-200 bg-white p-2">provenance</span>
+                    <span class="rounded border border-slate-200 bg-white p-2">profile build</span>
+                    <span class="rounded border border-slate-200 bg-white p-2">map layout</span>
+                  </div>
+                </div>
+              </div>
+              <p class="mt-5 text-xs text-red-700">Leakage: callers and scripts learn selection internals to test the score.</p>
+            </div>
+            <div class="diagram rounded-xl border-2 border-slate-900 bg-slate-100 p-4">
+              <p class="schematic-label">After · deep assessment module</p>
+              <div class="mx-auto mt-5 max-w-sm">
+                <div class="mass-interface-deep text-xs font-semibold">small assessment result seam</div>
+                <div class="mass-implementation-deep tiny">
+                  <p class="font-semibold text-slate-100">Health Profile assessment</p>
+                  <p class="mt-1">Readiness, contribution selection, confidence, exclusions, and provenance stay internal.</p>
+                  <div class="mt-5 space-y-2 opacity-70">
+                    <div class="rounded border border-slate-600 p-2">Registry-derived required groups</div>
+                    <div class="rounded border border-slate-600 p-2">freshness and specimen checks</div>
+                    <div class="rounded border border-slate-600 p-2">one contributor per group</div>
+                    <div class="rounded border border-slate-600 p-2">factual explanation evidence</div>
+                  </div>
+                </div>
+              </div>
+              <p class="mt-5 text-xs text-slate-600">Body-map layout remains a presentation adapter; scoring policy stays behind the assessment seam.</p>
+            </div>
+          </div>
+
+          <div class="grid gap-5 md:grid-cols-3">
+            <div><p class="font-semibold">Problem</p><p class="mt-1 text-sm text-slate-600">Score semantics are correct but spread across a broad module interface; freshness, readiness, contribution selection, and explanation can be understood only by tracing internals.</p></div>
+            <div><p class="font-semibold">Solution</p><p class="mt-1 text-sm text-slate-600">Deepen the assessment module so one result carries score, readiness, confidence, and provenance while the body-map implementation consumes it as a presentation adapter.</p></div>
+            <div><p class="font-semibold">Deletion test</p><p class="mt-1 text-sm text-slate-600">Delete the central assessment implementation and every system caller must re-learn Registry groups, freshness, and contribution rules. The complexity does not disappear.</p></div>
+          </div>
+          <div>
+            <p class="schematic-label">Wins</p>
+            <ul class="mt-2 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+              <li>• locality: score policy in one place</li>
+              <li>• leverage: eight systems, one decision</li>
+              <li>• interface becomes the test surface</li>
+              <li>• provenance cannot drift from score</li>
+            </ul>
+          </div>
+          <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"><strong>ADR-0001 constraint:</strong> preserve the single Registry 2.0 runtime. Do not add a second score table, Registry adapter, or shadow/promotion path. Required groups remain derived from reviewed assessment bindings.</div>
+        </article>
+
+        <article id="candidate-snapshot" class="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p class="schematic-label">Candidate 03</p>
+              <h2 class="mt-1 font-serif text-2xl tracking-tight">Deepen the assessment snapshot seam</h2>
+            </div>
+            <div class="flex flex-wrap gap-2 text-xs font-semibold">
+              <span class="rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">Strong</span>
+              <span class="rounded-full bg-slate-200 px-3 py-1 text-slate-700">existing seam</span>
+            </div>
+          </div>
+
+          <div class="grid gap-5 md:grid-cols-[1fr_1.25fr]">
+            <div>
+              <p class="schematic-label">Files / symbols</p>
+              <ul class="mt-2 space-y-1 font-mono text-sm text-slate-700">
+                <li>src/lib/health-profile-snapshot.ts · 425 lines</li>
+                <li>buildHealthProfileSnapshot</li>
+                <li>src/app/api/health-profile/route.ts</li>
+                <li>worker/src/index.ts · processAssessmentJob</li>
+                <li>src/lib/health-profile-snapshot-canonical.ts</li>
+                <li>supabase/migrations/055…075</li>
+              </ul>
+            </div>
+            <div class="rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-950">
+              <p class="font-semibold">EH-123 pressure</p>
+              <p class="mt-1">Commit <code>a0d63bb</code> fixed a live 400 by chunking PostgREST <code>.in</code> filters at 80 ids. The snapshot implementation still owns database reads, active-source admission, two-row-shape projections, source-region handling, exclusions, freshness clock, canonical hash material, and profile assembly.</p>
+            </div>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-2">
+            <div class="diagram rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p class="schematic-label">Before · call graph</p>
+              <pre class="mermaid mt-3">flowchart LR
+  R[Health Profile route] --> S[buildHealthProfileSnapshot]
+  W[Assessment worker] --> S
+  S --> O[(observations)]
+  S --> D[(documents)]
+  S --> E[(extracted rows)]
+  S --> N[(normalization revisions)]
+  S --> P[project · score · explain · hash]
+  P --> R
+  P --> W
+  E -. 80-id workaround .-> S
+  N -. 80-id workaround .-> S
+  classDef leak stroke:#dc2626,stroke-width:2px;
+  class E,N leak;</pre>
+              <p class="mt-3 text-xs text-red-700">The seam is shared, but its implementation is coupled to query shape and operational limits.</p>
+            </div>
+            <div class="diagram rounded-xl border-2 border-slate-900 bg-slate-100 p-4">
+              <p class="schematic-label">After · protected deep module</p>
+              <div class="mt-8 grid grid-cols-[.8fr_1.6fr_.8fr] items-center gap-2">
+                <div class="space-y-3">
+                  <div class="box tiny text-center">HTTP route adapter</div>
+                  <div class="box tiny text-center">worker adapter</div>
+                </div>
+                <div class="box-dark min-h-[190px]">
+                  <p class="text-center text-xs font-bold uppercase tracking-[.16em] text-slate-300">deep module</p>
+                  <p class="mt-2 text-center font-semibold">Canonical assessment snapshot</p>
+                  <div class="mt-4 space-y-2">
+                    <div class="box-faded tiny">acquire active source facts</div>
+                    <div class="box-faded tiny">admit laboratory evidence</div>
+                    <div class="box-faded tiny">canonicalize and hash</div>
+                    <div class="box-faded tiny">build deterministic profile</div>
+                  </div>
+                </div>
+                <div class="space-y-3">
+                  <div class="box tiny text-center">fallback read</div>
+                  <div class="box tiny text-center">immutable version write</div>
+                </div>
+              </div>
+              <p class="mt-4 text-xs text-slate-600">Keep one existing seam. Do not invent a second data adapter until a real alternate adapter exists.</p>
+            </div>
+          </div>
+
+          <div class="grid gap-5 md:grid-cols-3">
+            <div><p class="font-semibold">Problem</p><p class="mt-1 text-sm text-slate-600">The shared snapshot interface has good leverage, but its implementation couples Supabase query limits, projection policy, clock semantics, hashing, and assessment assembly.</p></div>
+            <div><p class="font-semibold">Solution</p><p class="mt-1 text-sm text-slate-600">Deepen the existing snapshot module internally. Keep route and worker callers thin; keep canonical ordering, freshness identity, and profile parity in one implementation.</p></div>
+            <div><p class="font-semibold">Deletion test</p><p class="mt-1 text-sm text-slate-600">Delete the snapshot module and the route, worker, and smoke scripts each need their own reads, projections, and hash rules. Complexity spreads immediately.</p></div>
+          </div>
+          <div>
+            <p class="schematic-label">Wins</p>
+            <ul class="mt-2 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+              <li>• locality: query limits stay internal</li>
+              <li>• leverage: request and queued parity</li>
+              <li>• one hash identity</li>
+              <li>• focused snapshot evidence</li>
+            </ul>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"><strong>Risk:</strong> this module already has meaningful depth. The gain is internal locality and a smaller caller seam, not a file split for its own sake.</div>
+        </article>
+
+        <article id="candidate-lifecycle" class="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p class="schematic-label">Candidate 04</p>
+              <h2 class="mt-1 font-serif text-2xl tracking-tight">Deepen lifecycle read projection</h2>
+            </div>
+            <div class="flex flex-wrap gap-2 text-xs font-semibold">
+              <span class="rounded-full bg-amber-100 px-3 py-1 text-amber-800">Worth exploring</span>
+              <span class="rounded-full bg-indigo-100 px-3 py-1 text-indigo-800">in-process</span>
+            </div>
+          </div>
+
+          <div class="grid gap-5 md:grid-cols-[1fr_1.25fr]">
+            <div>
+              <p class="schematic-label">Files / symbols</p>
+              <ul class="mt-2 space-y-1 font-mono text-sm text-slate-700">
+                <li>src/app/api/health-profile/route.ts</li>
+                <li>hasCanonicalReadinessContract</li>
+                <li>src/lib/health-profile-assessment-state.ts</li>
+                <li>resolveAssessmentDisplayState</li>
+                <li>src/app/app/profile/page.tsx</li>
+                <li>src/components/body-map.tsx</li>
+                <li>src/components/health-profile-drawer.tsx</li>
+              </ul>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+              <p class="font-semibold">What is intentional</p>
+              <p class="mt-1">EH-146 correctly keeps score evidence and assessment lifecycle as separate axes. This candidate does not collapse them. It targets the read projection that combines persisted version, job state, fallback, and legacy payload handling before the page and body-map adapters consume it.</p>
+            </div>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-2">
+            <div class="diagram rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p class="schematic-label">Before · state knowledge leaks</p>
+              <div class="mx-auto mt-5 max-w-sm space-y-2">
+                <div class="box text-center">job row + version row</div>
+                <div class="arrow arrow-red">↓</div>
+                <div class="box border-red-200 text-center">route validates payload and derives fallback</div>
+                <div class="arrow arrow-red">↘</div>
+                <div class="grid grid-cols-2 gap-2">
+                  <div class="box border-red-200 tiny text-center">page recomputes defaults</div>
+                  <div class="box border-red-200 tiny text-center">map infers unavailable freshness</div>
+                </div>
+                <div class="arrow arrow-red">↘</div>
+                <div class="box border-red-200 text-center">drawer scans reasons again</div>
+              </div>
+              <p class="mt-4 text-xs text-red-700">Leakage: one deliberate lifecycle axis is assembled through several caller assumptions.</p>
+            </div>
+            <div class="diagram rounded-xl border-2 border-slate-900 bg-slate-100 p-4">
+              <p class="schematic-label">After · one lifecycle projection</p>
+              <div class="mx-auto mt-5 max-w-sm">
+                <div class="box-dark">
+                  <p class="text-center text-xs font-bold uppercase tracking-[.16em] text-slate-300">deep module</p>
+                  <p class="mt-2 text-center font-semibold">Assessment lifecycle read projection</p>
+                  <div class="mt-4 grid grid-cols-2 gap-2">
+                    <div class="box-faded tiny">current version</div>
+                    <div class="box-faded tiny">job state</div>
+                    <div class="box-faded tiny">legacy payload</div>
+                    <div class="box-faded tiny">fallback status</div>
+                  </div>
+                </div>
+                <div class="arrow">↓</div>
+                <div class="box border-2 border-slate-900 text-center"><strong>route + page-ready lifecycle state</strong><br /><span class="tiny text-slate-500">score evidence remains separate</span></div>
+              </div>
+              <p class="mt-4 text-xs text-slate-600">The page, dashboard, map, and drawer consume the same lifecycle fact without moving persistence ownership.</p>
+            </div>
+          </div>
+
+          <div class="grid gap-5 md:grid-cols-3">
+            <div><p class="font-semibold">Problem</p><p class="mt-1 text-sm text-slate-600">The canonical lifecycle mapper exists, but the route and page still carry fallback/default interpretation while map and drawer infer freshness-specific detail.</p></div>
+            <div><p class="font-semibold">Solution</p><p class="mt-1 text-sm text-slate-600">Deepen the lifecycle read projection around the existing mapper and preserve the intentional separation between lifecycle and score evidence.</p></div>
+            <div><p class="font-semibold">Deletion test</p><p class="mt-1 text-sm text-slate-600">Delete the projection and each surface must learn persisted-version, job, fallback, and legacy-payload rules again. Locality is lost.</p></div>
+          </div>
+          <div>
+            <p class="schematic-label">Wins</p>
+            <ul class="mt-2 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+              <li>• locality: lifecycle rules converge</li>
+              <li>• leverage: one read fact, many surfaces</li>
+              <li>• tests hit one seam</li>
+              <li>• score evidence stays independent</li>
+            </ul>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"><strong>Non-goal:</strong> no realtime loop, scheduler, persistence redesign, or change to EH-146's two-axis contract.</div>
+        </article>
+      </section>
+
+      <section id="top-recommendation" class="rounded-2xl border-2 border-emerald-700 bg-emerald-950 p-7 text-white shadow-lg">
+        <p class="text-xs font-bold uppercase tracking-[.18em] text-emerald-300">Top recommendation</p>
+        <h2 class="mt-2 font-serif text-3xl tracking-tight">Start with <a class="underline decoration-emerald-400 underline-offset-4" href="#candidate-laboratory-admission">laboratory assessment admission</a>.</h2>
+        <p class="mt-3 max-w-3xl text-emerald-50">It is the narrowest high-leverage seam: the Resolver decision already exists, but the Health Profile snapshot calls the outcome path twice and rebuilds the explanation when input admission returns null. Deepening it improves locality across scoring, reported results, and exclusions without touching Document list behavior, Registry authority, or the EH-123 persistence contract.</p>
+      </section>
+    </main>
+  </body>
+</html>

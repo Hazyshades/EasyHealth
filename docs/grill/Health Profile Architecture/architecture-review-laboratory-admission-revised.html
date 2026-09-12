@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Laboratory assessment admission — corrected architecture review</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    :root { color-scheme: dark; }
+    body { background: #0b1020; color: #e5e7eb; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .panel { background: linear-gradient(145deg, rgba(20,29,52,.96), rgba(13,19,36,.96)); border: 1px solid #2d3b61; box-shadow: 0 18px 55px rgba(0,0,0,.25); }
+    .deep { border: 3px solid #111827; box-shadow: 0 0 0 1px #64748b, 0 20px 60px rgba(2,6,23,.5); }
+    .seam { border: 2px dashed #93c5fd; }
+    .leak { color: #fca5a5; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border-bottom: 1px solid #2d3b61; padding: .75rem .8rem; vertical-align: top; }
+    th { color: #bfdbfe; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; text-align: left; }
+    code { color: #bae6fd; }
+    .badge { border: 1px solid #48618f; border-radius: 999px; padding: .2rem .55rem; font-size: .7rem; letter-spacing: .04em; text-transform: uppercase; }
+    .matrix td:first-child { width: 18%; color: #f8fafc; font-weight: 650; }
+    .matrix td:nth-child(2) { width: 18%; color: #fde68a; }
+    .matrix td:nth-child(3) { width: 34%; }
+    .matrix td:nth-child(4) { width: 30%; color: #cbd5e1; }
+    .mermaid { background: #0f172a; border-radius: 1rem; padding: 1rem; overflow: auto; }
+  </style>
+</head>
+<body>
+  <main class="mx-auto max-w-7xl px-5 py-8 sm:px-8 lg:px-10">
+    <header class="panel rounded-3xl p-7 sm:p-10">
+      <div class="flex flex-wrap items-center gap-2 text-slate-300">
+        <span class="badge">EasyHealth</span>
+        <span class="badge">Health Profile only</span>
+        <span class="badge">After Resolver</span>
+        <span class="badge">Document list excluded</span>
+      </div>
+      <h1 class="mt-5 text-3xl font-black tracking-tight text-white sm:text-5xl">Laboratory assessment admission</h1>
+      <p class="mt-4 max-w-4xl text-lg leading-8 text-slate-300">Corrected architecture review after Q1–Q5: a deep module for deciding whether persisted laboratory observations may enter the Health Profile assessment read model, without taking ownership of reported-result visibility, freshness, score groups, or the Resolver.</p>
+      <div class="mt-7 flex flex-wrap gap-3 text-sm text-slate-300">
+        <span class="rounded-xl bg-slate-900/70 px-3 py-2">Solid box = deep module</span>
+        <span class="rounded-xl bg-slate-900/70 px-3 py-2">Dashed box = seam</span>
+        <span class="rounded-xl bg-slate-900/70 px-3 py-2 text-red-200">Red path = policy leakage to remove</span>
+      </div>
+    </header>
+
+    <section class="mt-7 grid gap-6 lg:grid-cols-2">
+      <article class="panel rounded-3xl p-6">
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-2xl font-bold text-white">What was wrong in the previous wording</h2>
+          <span class="badge text-amber-200">Correction</span>
+        </div>
+        <ul class="mt-5 list-disc space-y-3 pl-5 leading-7 text-slate-300">
+          <li><strong class="text-white">The eligibility decision is not absent.</strong> <code>projectLaboratoryOutcome</code> already carries the assessment exclusion reason from <code>evaluateAssessmentEligibility</code>. The lossy point is <code>projectHealthProfileLaboratoryInput</code>: it returns <code>null</code>, and <code>buildHealthProfileSnapshot</code> calls the outcome projection again to reconstruct an exclusion.</li>
+          <li><strong class="text-white">Reported counts do not belong to admission.</strong> <code>projectHealthProfileReportedResults</code> owns its buckets and visibility summary. Admission may provide explanation data, but it must not decide whether a factual reported row is shown or counted.</li>
+          <li><strong class="text-white">The deletion test was overstated.</strong> Removing the proposed module would duplicate interpretation and gating of an already-produced Resolver result, not the Resolver itself. Registry 2.0 and Resolver remain upstream authorities.</li>
+          <li><strong class="text-white">Censored values require two outcomes.</strong> EH-164 intentionally returns a text marker with a reviewed binding so readiness can report “present but invalid”; it never becomes a finite numeric contributor. A contract that equates “excluded” with “no Health Profile marker” would break this behavior.</li>
+        </ul>
+      </article>
+      <article class="panel rounded-3xl p-6">
+        <h2 class="text-2xl font-bold text-white">Settled boundary</h2>
+        <dl class="mt-5 space-y-4 text-slate-300">
+          <div><dt class="font-semibold text-cyan-200">Assessment admission</dt><dd class="mt-1">Checks a persisted laboratory observation after canonical Resolver output and reviewed Registry 2.0 binding. It does not evaluate freshness, required groups, score role, contribution selection, or formulas.</dd></div>
+          <div><dt class="font-semibold text-cyan-200">Reported result</dt><dd class="mt-1">A factual laboratory result retained for display and explanation independently of admission. An excluded result can remain visible.</dd></div>
+          <div><dt class="font-semibold text-cyan-200">Score readiness</dt><dd class="mt-1">A downstream Health Profile decision over admitted inputs: freshness, numeric usability, document-native bounds, required groups, and score policy.</dd></div>
+          <div><dt class="font-semibold text-cyan-200">Scope</dt><dd class="mt-1">Reuse the admission decision where assessment admission is actually decided. Do not make Biomarkers, review, reports, structured context, or Document list visibility depend on it.</dd></div>
+        </dl>
+      </article>
+    </section>
+
+    <section class="panel mt-7 rounded-3xl p-6 sm:p-8">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p class="text-sm font-semibold uppercase tracking-[.18em] text-cyan-300">Selected candidate</p>
+          <h2 class="mt-2 text-3xl font-black text-white">Deepen the post-Resolver admission seam</h2>
+          <p class="mt-3 max-w-4xl leading-7 text-slate-300">The module earns depth by absorbing binding interpretation, the deterministic assessment gate, accepted input projection, and exclusion evidence. Callers receive one decision rather than a nullable input followed by a second outcome calculation.</p>
+        </div>
+        <span class="rounded-full bg-emerald-400/15 px-4 py-2 text-sm font-bold text-emerald-200">Strong — proceed to contract review</span>
+      </div>
+      <div class="mt-7 grid gap-5 lg:grid-cols-2">
+        <div class="seam rounded-2xl p-5">
+          <h3 class="font-bold text-white">Current shallow path</h3>
+          <div class="mermaid mt-4">flowchart LR
+            E[Persisted observation] --> O[projectLaboratoryOutcome]
+            O --> I[projectHealthProfileLaboratoryInput]
+            I -->|null| R[Snapshot rebuilds reason]
+            O --> RR[Reported result projection]
+            RR --> C[Counts / visibility]
+            style I fill:#172554,stroke:#93c5fd,stroke-dasharray:6 4
+            style R fill:#450a0a,stroke:#f87171
+            linkStyle 2 stroke:#f87171,stroke-width:3px
+          </div>
+        </div>
+        <div class="deep rounded-2xl bg-slate-950/80 p-5">
+          <h3 class="font-bold text-white">Proposed deep module</h3>
+          <div class="mermaid mt-4">flowchart LR
+            E[Persisted observation] --> A[Assessment admission]
+            A -->|accepted marker/input| H[Health Profile builder]
+            A -->|excluded + reason + evidence| X[Snapshot exclusion adapter]
+            E --> P[Independent reported projection]
+            P --> C[Counts / visibility]
+            Q[Resolver + Registry 2.0] -. authority .-> A
+            F[Freshness + score groups] -. downstream .-> H
+            style A fill:#111827,stroke:#f8fafc,stroke-width:4px
+            style Q fill:#172554,stroke:#60a5fa
+            style F fill:#172554,stroke:#60a5fa
+          </div>
+        </div>
+      </div>
+      <div class="mt-6 grid gap-4 sm:grid-cols-3">
+        <div class="rounded-2xl bg-slate-900/70 p-4"><p class="font-bold text-white">Locality</p><p class="mt-1 text-sm leading-6 text-slate-300">One place owns first-failure order and evidence; snapshot does not rediscover it.</p></div>
+        <div class="rounded-2xl bg-slate-900/70 p-4"><p class="font-bold text-white">Leverage</p><p class="mt-1 text-sm leading-6 text-slate-300">HTTP fallback, queued worker, and verification fixtures share the same decision.</p></div>
+        <div class="rounded-2xl bg-slate-900/70 p-4"><p class="font-bold text-white">Test seam</p><p class="mt-1 text-sm leading-6 text-slate-300">Test accepted, excluded, and marker-preserved decisions without testing snapshot orchestration.</p></div>
+      </div>
+    </section>
+
+    <section class="panel mt-7 rounded-3xl p-6 sm:p-8">
+      <h2 class="text-2xl font-bold text-white">Concrete consumer inventory</h2>
+      <p class="mt-2 max-w-4xl leading-7 text-slate-300">The key distinction is “receives admission” versus “receives factual laboratory evidence.” The latter must not inherit assessment visibility policy.</p>
+      <div class="mt-5 overflow-x-auto rounded-2xl border border-slate-700">
+        <table>
+          <thead><tr><th>Consumer</th><th>Current path</th><th>Current responsibility</th><th>Admission relationship</th></tr></thead>
+          <tbody class="text-sm leading-6 text-slate-300">
+            <tr><td>Snapshot assembly</td><td><code>src/lib/health-profile-snapshot.ts</code><br><code>buildHealthProfileSnapshot</code></td><td>Reads persisted observations and extracted rows; builds inputs, exclusions, reported rows, source evidence, and canonical hash.</td><td><strong class="text-emerald-200">Yes.</strong> The primary caller. Replace input/null plus second outcome with one decision and adapt excluded evidence into <code>ScoreExclusion</code>.</td></tr>
+            <tr><td>Health Profile input projection</td><td><code>src/lib/health-profile-input.ts</code><br><code>projectHealthProfileLaboratoryInput</code></td><td>Converts an admitted native observation into the shape consumed by <code>buildHealthProfile</code>.</td><td><strong class="text-emerald-200">Yes.</strong> It becomes the accepted branch of the deep module or a thin compatibility adapter during cutover.</td></tr>
+            <tr><td>Health Profile builder</td><td><code>src/lib/health-systems.ts</code><br><code>buildHealthProfile</code></td><td>Latest-by-identity, freshness, readiness groups, score roles, contributions, provenance, confidence, and overall score.</td><td><strong class="text-sky-200">No.</strong> It consumes admitted inputs and owns downstream score policy.</td></tr>
+            <tr><td>Reported-result summary</td><td><code>src/lib/health-profile-reported-results.ts</code><br><code>projectHealthProfileReportedResults</code></td><td>Counts extracted rows and assigns document-detail, catalog-review, and verification buckets.</td><td><strong class="text-amber-200">No for policy/counts.</strong> It may use admission evidence for explanation, but never hides a row or lets admission define <code>reported_count</code>. Its <code>ready_for_scoring_count</code> semantics must remain an explicit separate contract.</td></tr>
+            <tr><td>Biomarkers surface</td><td><code>src/app/api/biomarkers/route.ts</code></td><td>Displays current observations, conversion, resolution details, and assessment exclusion metadata.</td><td><strong class="text-amber-200">No gate.</strong> Keep raw/factual display independent; admission reason may be exposed as metadata.</td></tr>
+            <tr><td>Reports surface</td><td><code>src/app/api/reports/route.ts</code></td><td>Uses report eligibility to compose report context.</td><td><strong class="text-amber-200">No.</strong> Report eligibility is a separate consumer axis.</td></tr>
+            <tr><td>Structured context</td><td><code>src/lib/documents/structured-context.ts</code></td><td>Uses structured-context eligibility for contextual output.</td><td><strong class="text-amber-200">No.</strong> Do not make context visibility depend on assessment admission.</td></tr>
+            <tr><td>Review workspace</td><td><code>src/lib/documents/normalization-review.ts</code></td><td>Shows Resolver outcome, trace, incomplete reason, and action availability before/after acceptance.</td><td><strong class="text-sky-200">Evidence only.</strong> It needs Resolver/review evidence, not an assessment gate.</td></tr>
+            <tr><td>Worker and fallback parity</td><td><code>worker/src/index.ts</code>, <code>src/app/api/health-profile/route.ts</code></td><td>Worker persists the shared snapshot; GET reads persisted versions and only rebuilds legacy/malformed payloads.</td><td><strong class="text-emerald-200">Indirectly yes.</strong> Both must reach the same snapshot admission implementation; no GET-time policy fork.</td></tr>
+            <tr><td>Fixtures and docs</td><td><code>scripts/eh147-golden-pack.ts</code>, focused verifiers, biomarker docs generator</td><td>Technical evidence and generated contract documentation.</td><td><strong class="text-sky-200">Contract consumers.</strong> Update only after the runtime contract is fixed; no source-of-truth duplication.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel mt-7 rounded-3xl p-6 sm:p-8">
+      <h2 class="text-2xl font-bold text-white">Proposed contract</h2>
+      <p class="mt-2 max-w-4xl leading-7 text-slate-300">This is a concrete contract, not an implementation plan. The discriminant must distinguish Resolver outcome from admission decision and must preserve EH-164’s safe text marker.</p>
+      <div class="mt-5 grid gap-5 lg:grid-cols-2">
+        <div class="rounded-2xl bg-slate-950/80 p-5">
+          <h3 class="font-bold text-cyan-200">Conceptual result</h3>
+          <pre class="mt-4 overflow-x-auto rounded-xl bg-black/30 p-4 text-sm leading-7 text-slate-200"><code>AssessmentAdmissionDecision
+  = {
+      kind: "accepted";
+      input: HealthProfileLaboratoryInput;
+      evidence: AssessmentAdmissionEvidence;
+    }
+  | {
+      kind: "excluded";
+      reason: AssessmentExclusionReason;
+      evidence: AssessmentAdmissionEvidence;
+    };
+
+AssessmentAdmissionEvidence = {
+  assessment: {
+    exclusionReason: AssessmentExclusionReason | null;
+    assessmentInputKey: string | null;
+  };
+  resolution: LaboratoryResolutionDetails;
+  resolverTrace: ResolverDecisionTrace | null;
+  binding: {
+    measurementDefinitionKey: string | null;
+    analyteKey: string | null;
+    registryBindingReady: boolean;
+    verificationStatus: VerificationStatus | null;
+  };
+  canonical: {
+    outcome: ResolverResult | null;
+    incompleteReason: IncompleteReasonClass | null;
+  };
+};</code></pre>
+          <p class="mt-4 text-xs leading-5 text-slate-400"><strong class="text-slate-200">Trace boundary:</strong> carry a validated full Resolver trace when a consumer needs candidate-level explanation. Existing <code>ScoreExclusion</code> and canonical snapshot hash require the summarized resolution fields and canonical projection below; they do not require candidate arrays in the hash.</p>
+        </div>
+        <div class="rounded-2xl bg-slate-950/80 p-5">
+          <h3 class="font-bold text-cyan-200">Contract invariants</h3>
+          <ol class="mt-4 list-decimal space-y-3 pl-5 text-sm leading-6 text-slate-300">
+            <li>Input is a persisted laboratory observation. An unlinked extracted row never enters this module; it remains reported evidence.</li>
+            <li>The module consumes active Resolver/Registry 2.0 output and reviewed binding. It never resolves labels, selects candidates, or uses a fallback catalog.</li>
+            <li>First-failure order remains deterministic for ordinary numeric rows: revision, resolution, binding, verification, value kind/value, then document-native reference range. Censored text takes the intentional <code>non_numeric_value</code> marker branch before reference-range checks.</li>
+            <li>Freshness, latest identity, required groups, score roles, contribution groups, formulas, and recalculation lifecycle remain downstream.</li>
+            <li>Accepted does not mean “numeric contributor.” A censored result with a reviewed binding is accepted as a text marker even when its reference range is missing or malformed; Health Profile marks it invalid and never scores it.</li>
+            <li>Reported-result counts and visibility are not fields or policies of admission. A separate reported projection consumes factual rows and, if needed, admission evidence.</li>
+            <li>Snapshot-only metadata such as source regions, system fallback, and <code>ScoreExclusion</code> remains an adapter concern, not admission.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="mt-5 rounded-2xl border border-amber-400/40 bg-amber-400/10 p-5 text-sm leading-7 text-amber-100"><strong>Important existing edge:</strong> <code>projectHealthProfileReportedResults</code> currently increments <code>ready_for_scoring_count</code> when <code>assessment_input</code> is non-null. EH-164’s censored marker is non-null but not numeric-scoreable. Do not silently change this metric during the admission refactor; either preserve it as an existing contract or separately rename/redefine the reported metric with explicit evidence.</div>
+    </section>
+
+    <section class="panel mt-7 rounded-3xl p-6 sm:p-8">
+      <h2 class="text-2xl font-bold text-white">Edge-case matrix</h2>
+      <p class="mt-2 leading-7 text-slate-300">“Displayed” is independent from “admitted.” “Scoreable” is downstream from admission. The reason code is the first deterministic blocking reason unless the row is the intentional EH-164 text-marker exception.</p>
+      <div class="mt-5 overflow-x-auto rounded-2xl border border-slate-700">
+        <table class="matrix">
+          <thead><tr><th>Input case</th><th>Admission decision</th><th>Reason / preserved evidence</th><th>Downstream and display effect</th></tr></thead>
+          <tbody class="text-sm leading-6 text-slate-300">
+            <tr><td>No active revision</td><td>Excluded</td><td><code>no_active_revision</code>; no canonical assessment identity.</td><td>Raw/report evidence may remain visible; no Health Profile input or score.</td></tr>
+            <tr><td><code>partial</code>, <code>ambiguous</code>, or <code>unmapped</code></td><td>Excluded</td><td><code>incomplete_resolution</code>; retain Resolver outcome, missing axes, conflicts, candidates, and trace versions.</td><td>Reported/review surfaces retain explanation; no guessed identity, input, or score.</td></tr>
+            <tr><td>Resolved status but candidate-only / non-reviewed Registry identity</td><td>Excluded</td><td><code>candidate_only_identity</code>; do not turn a candidate into a concrete measurement.</td><td>Reported row can remain visible and await catalog/review action.</td></tr>
+            <tr><td>No reviewed compatible assessment binding</td><td>Excluded</td><td><code>assessment_binding_ineligible</code>.</td><td>Factual result remains available to independent surfaces; no assessment input.</td></tr>
+            <tr><td>Pending or otherwise unverified revision</td><td>Excluded</td><td><code>verification_required</code>.</td><td>Reported bucket may be awaiting verification; no assessment input.</td></tr>
+            <tr><td>Censored text such as <code>&lt; 0.20</code> with usable reference range</td><td>Accepted marker, not numeric contributor</td><td>The censored branch wins with <code>non_numeric_value</code>; preserve printed text and numeric bounds.</td><td>Visible as threshold/text evidence; readiness is invalid; no numeric trend or score.</td></tr>
+            <tr><td>Censored text with missing reference range</td><td>Accepted marker, not numeric contributor</td><td>Current predicate returns <code>non_numeric_value</code> before <code>missing_document_reference_range</code>; marker carries null bounds.</td><td>Same EH-164 downstream behavior: present text marker, invalid readiness, no score. Do not reclassify during this refactor.</td></tr>
+            <tr><td>Censored text with malformed or inverted reference range</td><td>Accepted marker, not numeric contributor</td><td>Current predicate returns <code>non_numeric_value</code> before <code>invalid_document_reference_range</code>; finite endpoints are copied by the marker projection.</td><td>Present text marker, invalid readiness, no score. Preserve this behavior or document a separate behavior change.</td></tr>
+            <tr><td>Qualitative or ordinal non-censored result</td><td>Excluded from numeric assessment input</td><td><code>non_numeric_value</code>.</td><td>Raw/result display remains possible; no numeric score contribution.</td></tr>
+            <tr><td>Missing numeric value</td><td>Excluded</td><td><code>numeric_value_missing</code>.</td><td>Reported evidence can remain visible; assessment does not use it.</td></tr>
+            <tr><td>Non-finite or malformed numeric value</td><td>Excluded</td><td><code>numeric_value_invalid</code>.</td><td>Fail closed; do not coerce or invent a number.</td></tr>
+            <tr><td>No usable document-native reference range</td><td>Excluded</td><td><code>missing_document_reference_range</code>.</td><td>Reported row may remain visible and request document details; no assessment input.</td></tr>
+            <tr><td>Malformed or inverted reference range</td><td>Excluded</td><td><code>invalid_document_reference_range</code>.</td><td>Reported row may remain visible; no assessment input.</td></tr>
+            <tr><td>Resolver axis/unit conflict</td><td>Excluded</td><td><code>incomplete_resolution</code> plus conflict evidence. No heuristic conversion or fallback mapping.</td><td>Raw result/report/review remain independent; no score.</td></tr>
+            <tr><td>Resolved binding with no display conversion rule</td><td>Accepted if all admission gates pass</td><td>Conversion is not a second Resolver. Preserve native value/unit unless a separate conversion policy explicitly rejects it.</td><td>Presentation may retain native units; score policy remains downstream. Do not invent <code>conversion_unavailable</code> as an assessment reason.</td></tr>
+            <tr><td>Extracted row has no persisted observation link</td><td>Not submitted to admission</td><td>Resolver preview/outcome may explain it; no persisted observation identity.</td><td>Report-only evidence; it cannot trigger assessment input or EH-123 observation recalculation.</td></tr>
+            <tr><td>Persisted observation has no document link</td><td>Preserve current behavior unless a separate invariant changes</td><td>Admission currently checks document-native reference text, not merely a non-null document id.</td><td>Do not silently add a new exclusion; source projection may be incomplete.</td></tr>
+            <tr><td>Duplicate identity observations</td><td>Evaluate each row independently</td><td>Admission does not deduplicate or choose “latest.”</td><td><code>buildHealthProfile</code> owns latest-by-identity and score selection.</td></tr>
+            <tr><td>Outdated, unknown, malformed, or future observed date</td><td>Admission unchanged</td><td>Date freshness is not an admission reason.</td><td>EH-144 freshness marks readiness/currentness downstream and may withhold score.</td></tr>
+            <tr><td>Queued, failed, or stale recalculation job</td><td>Admission unchanged</td><td>EH-123 durable lifecycle is not a laboratory gate.</td><td>Route/worker lifecycle projection controls persisted assessment display; no GET-time semantic fork.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel mt-7 rounded-3xl p-6 sm:p-8">
+      <h2 class="text-2xl font-bold text-white">Acceptance invariants before implementation</h2>
+      <div class="mt-5 grid gap-4 md:grid-cols-2">
+        <div class="rounded-2xl bg-slate-900/70 p-5"><h3 class="font-bold text-white">Must remain identical</h3><ul class="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-slate-300"><li>Scores, readiness groups, freshness statuses, and provenance for identical admitted inputs.</li><li>Reported-result rows, visibility, and source counts for identical extracted inputs.</li><li>EH-164 text-marker behavior and no numeric contribution.</li><li>Canonical snapshot hash, including exclusion and reported-row evidence.</li><li>HTTP/worker parity and no GET-time synthesis contract.</li></ul></div>
+        <div class="rounded-2xl bg-slate-900/70 p-5"><h3 class="font-bold text-white">Must be explicit if changed</h3><ul class="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-slate-300"><li>Meaning of <code>ready_for_scoring_count</code> for accepted nonnumeric markers.</li><li>Any new assessment exclusion reason, especially unit incompatibility.</li><li>Whether evidence carries only the primary reason or secondary failed gates.</li><li>Any requirement that persisted observations retain a source document id.</li><li>Any extension from Health Profile assessment admission to other consumer axes.</li></ul></div>
+      </div>
+      <div class="mt-6 rounded-2xl border border-cyan-400/30 bg-cyan-400/10 p-5 text-sm leading-7 text-cyan-100"><strong>Recommendation:</strong> proceed with the admission contract above. The next implementation step should be a call-site migration plan and a focused contract verifier, not a new Resolver or a change to reported-result policy.</div>
+    </section>
+
+    <footer class="mt-8 border-t border-slate-800 pt-5 text-sm text-slate-500">Evidence reviewed: <code>src/lib/health-profile-input.ts</code>, <code>src/lib/health-profile-snapshot.ts</code>, <code>src/lib/documents/incomplete-laboratory-outcomes.ts</code>, <code>src/lib/health-profile-assessment-eligibility.ts</code>, <code>src/lib/health-profile-reported-results.ts</code>, EH-123/EH-144/EH-145/EH-146/EH-164 contracts, and focused verifiers. No Document list redesign included.</footer>
+  </main>
+  <script>mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });</script>
+</body>
+</html>
