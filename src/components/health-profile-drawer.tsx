@@ -11,7 +11,11 @@ import {
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 import { ScoreProvenancePanel } from "@/components/score-provenance-panel";
 import { buildHealthNavigationPath } from "@/lib/health-navigation";
-import { assessmentStatusLabel, type BodySystemId, type SystemInsight } from "@/lib/health-systems";
+import {
+  assessmentStatusLabel,
+  type BodySystemId,
+  type SystemInsight,
+} from "@/lib/health-systems";
 import {
   FRESHNESS_STATUS_LABELS,
   type FreshnessStatus,
@@ -71,54 +75,63 @@ export function HealthProfileDrawer({
 
   if (!open || !system) return null;
 
-  const status = assessmentStatusLabel(system.state_score, system.data_confidence);
+  const status = assessmentStatusLabel(
+    system.state_score,
+    system.data_confidence,
+  );
   const lifecycleLabel = assessmentDisplayStateLabel(assessmentLifecycleState);
-  const lifecycleDescription = assessmentDisplayStateDescription(assessmentLifecycleState);
+  const lifecycleDescription = assessmentDisplayStateDescription(
+    assessmentLifecycleState,
+  );
 
   const readinessReasons = system.score_readiness.reasons;
   const missingGroups = readinessReasons.flatMap((reason) =>
     reason.code === "missing" && reason.required_group
       ? [reason.required_group]
-      : []
+      : [],
   );
   const invalidKeys = new Set(
     readinessReasons.flatMap((reason) =>
-      reason.code === "invalid" ? reason.present_keys : []
-    )
+      reason.code === "invalid" ? reason.present_keys : [],
+    ),
   );
-  const isUpdating = readinessReasons.some((reason) => reason.code === "outdated" && reason.required_group == null);
-  const hasStaleObservation = system.markers.some((marker) => marker.freshness_status === "outdated");
-  const hasUnknownDate = readinessReasons.some((reason) => reason.code === "unknown_date")
-    || system.markers.some((marker) => marker.freshness_status === "unknown_date");
-  const supportingMarkers = system.markers.filter((marker) => marker.score_role !== "core");
+  const isUpdating =
+    assessmentLifecycleState === "processing" ||
+    assessmentLifecycleState === "outdated";
+  const hasStaleObservation = system.markers.some(
+    (marker) => marker.freshness_status === "outdated",
+  );
+  const hasUnknownDate =
+    readinessReasons.some((reason) => reason.code === "unknown_date") ||
+    system.markers.some((marker) => marker.freshness_status === "unknown_date");
+  const supportingMarkers = system.markers.filter(
+    (marker) => marker.score_role !== "core",
+  );
   const drawerState =
-    isUpdating
-      ? "Health Profile assessment is updating"
-      : system.id === "general"
-        ? "Not scored - supporting / specialty data"
-        : system.markers.length === 0
-          ? "No data"
-          : system.scoreability === "non_scoreable"
-            ? "Not scored - individual markers only"
-            : hasStaleObservation
-              ? "Not scored - outdated data"
-              : hasUnknownDate
-                ? "Not scored - date unavailable"
-                : system.state_score == null
-                  ? "Not scored - incomplete core"
-                  : null;
+    system.id === "general"
+      ? "Not scored - supporting / specialty data"
+      : system.markers.length === 0
+        ? "No data"
+        : system.scoreability === "non_scoreable"
+          ? "Not scored - individual markers only"
+          : hasStaleObservation
+            ? "Not scored - outdated data"
+            : hasUnknownDate
+              ? "Not scored - date unavailable"
+              : system.state_score == null
+                ? "Not scored - incomplete core"
+                : null;
   const profilePath = buildHealthNavigationPath("/app/profile", {
     system: system.id,
     returnTo: navigationReturnTo,
   });
-  const primarySourceMeasurement =
-    system.primary_source
-      ? system.markers.find(
-          (marker) =>
-            marker.document_id === system.primary_source?.id &&
-            marker.measurement_definition_key,
-        )?.measurement_definition_key ?? null
-      : null;
+  const primarySourceMeasurement = system.primary_source
+    ? (system.markers.find(
+        (marker) =>
+          marker.document_id === system.primary_source?.id &&
+          marker.measurement_definition_key,
+      )?.measurement_definition_key ?? null)
+    : null;
   const primarySourceHref = system.primary_source
     ? buildHealthNavigationPath(`/app/documents/${system.primary_source.id}`, {
         system: system.id,
@@ -152,7 +165,10 @@ export function HealthProfileDrawer({
           >
             Back
           </button>
-          <h2 id="health-profile-drawer-title" className="text-lg font-semibold">
+          <h2
+            id="health-profile-drawer-title"
+            className="text-lg font-semibold"
+          >
             {layoutLabel}
           </h2>
           <span className="w-12" aria-hidden />
@@ -166,15 +182,21 @@ export function HealthProfileDrawer({
               aria-live="polite"
             >
               <h3 className="font-semibold">{lifecycleLabel}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{lifecycleDescription}</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {lifecycleDescription}
+              </p>
               {assessmentError ? (
-                <p className="mt-2 text-sm text-muted-foreground">{assessmentError}</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {assessmentError}
+                </p>
               ) : null}
             </section>
           ) : null}
           <div className="grid grid-cols-2 gap-3 rounded-xl border bg-slate-50 p-4">
             <div>
-              <p className="text-xs text-muted-foreground">Current state assessment</p>
+              <p className="text-xs text-muted-foreground">
+                Current state assessment
+              </p>
               <p className="text-2xl font-bold">
                 {system.state_score == null ? "—" : `${system.state_score}/100`}
               </p>
@@ -189,8 +211,9 @@ export function HealthProfileDrawer({
                   "inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium",
                   status === "Stable" && "bg-emerald-100 text-emerald-800",
                   status === "Needs attention" && "bg-amber-100 text-amber-800",
-                  (status === "Limited data" || status === "Assessment unavailable") &&
-                    "bg-slate-200 text-slate-700"
+                  (status === "Limited data" ||
+                    status === "Assessment unavailable") &&
+                    "bg-slate-200 text-slate-700",
                 )}
               >
                 {status}
@@ -209,27 +232,27 @@ export function HealthProfileDrawer({
               <h3 className="font-semibold">{drawerState}</h3>
               {system.id === "general" ? (
                 <p className="mt-2 text-sm text-muted-foreground">
-                  These supporting or specialty markers do not drive named-system assessments.
+                  These supporting or specialty markers do not drive
+                  named-system assessments.
                 </p>
               ) : null}
-              {isUpdating ? (
+              {hasStaleObservation ? (
                 <p className="mt-2 text-sm text-muted-foreground">
-                  The previous score is not shown as current while updated records are assessed.
-                </p>
-              ) : null}
-              {hasStaleObservation && !isUpdating ? (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Required observations older than the current assessment policy do not unlock a numeric score.
+                  Required observations older than the current assessment policy
+                  do not unlock a numeric score.
                 </p>
               ) : null}
               {hasUnknownDate ? (
                 <p className="mt-2 text-sm text-muted-foreground">
-                  A required observation has no available medical date, so its currentness cannot be evaluated.
+                  A required observation has no available medical date, so its
+                  currentness cannot be evaluated.
                 </p>
               ) : null}
               {missingGroups.length > 0 ? (
                 <div className="mt-3 text-sm text-muted-foreground">
-                  <p className="font-medium text-slate-800">Needed for this assessment</p>
+                  <p className="font-medium text-slate-800">
+                    Needed for this assessment
+                  </p>
                   <ul className="mt-1 list-disc space-y-1 pl-5">
                     {missingGroups.map((group) => (
                       <li key={group.join("-")}>{group.join(" or ")}</li>
@@ -239,7 +262,8 @@ export function HealthProfileDrawer({
               ) : null}
               {invalidKeys.size > 0 ? (
                 <p className="mt-3 text-sm text-muted-foreground">
-                  Present but not usable for this assessment: {[...invalidKeys].join(", ")}.
+                  Present but not usable for this assessment:{" "}
+                  {[...invalidKeys].join(", ")}.
                 </p>
               ) : null}
               {!isUpdating ? (
@@ -272,9 +296,13 @@ export function HealthProfileDrawer({
             <section>
               <h3 className="font-semibold">Primary source</h3>
               <div className="mt-2 rounded-lg border p-3 text-sm">
-                <p className="font-medium">{system.primary_source.original_filename}</p>
+                <p className="font-medium">
+                  {system.primary_source.original_filename}
+                </p>
                 {system.primary_source.lab_name && (
-                  <p className="text-muted-foreground">{system.primary_source.lab_name}</p>
+                  <p className="text-muted-foreground">
+                    {system.primary_source.lab_name}
+                  </p>
                 )}
                 {system.primary_source.observed_at && (
                   <p className="text-muted-foreground">
@@ -305,15 +333,21 @@ export function HealthProfileDrawer({
                     })
                   : null;
                 const sourceHref = marker.source
-                  ? buildHealthNavigationPath(`/app/documents/${marker.source.id}`, {
-                      system: system.id,
-                      measurement: marker.measurement_definition_key,
-                      returnTo: profilePath,
-                    })
+                  ? buildHealthNavigationPath(
+                      `/app/documents/${marker.source.id}`,
+                      {
+                        system: system.id,
+                        measurement: marker.measurement_definition_key,
+                        returnTo: profilePath,
+                      },
+                    )
                   : null;
 
                 return (
-                  <li key={marker.key} className="rounded-lg border p-3 text-sm">
+                  <li
+                    key={marker.key}
+                    className="rounded-lg border p-3 text-sm"
+                  >
                     {measurementHref ? (
                       <Link
                         href={measurementHref}
@@ -326,20 +360,28 @@ export function HealthProfileDrawer({
                     )}
                     <p>
                       {marker.value_kind && marker.value_kind !== "numeric"
-                        ? marker.value_text ?? "—"
+                        ? (marker.value_text ?? "—")
                         : marker.value != null
                           ? `${marker.value} ${marker.unit}`
-                          : marker.value_text ?? "—"}
+                          : (marker.value_text ?? "—")}
                     </p>
                     {marker.specimen && marker.specimen !== "unspecified" && (
-                      <p className="text-xs text-muted-foreground">Specimen: {marker.specimen}</p>
-                    )}
-                    {marker.converted && marker.original_unit != null && (
-                      <p className="text-xs text-muted-foreground" title={marker.conversion_note ?? undefined}>
-                        Converted for display · Original: {marker.original_value} {marker.original_unit}
+                      <p className="text-xs text-muted-foreground">
+                        Specimen: {marker.specimen}
                       </p>
                     )}
-                    <p className="text-xs text-muted-foreground">{statusLabel(marker.status)}</p>
+                    {marker.converted && marker.original_unit != null && (
+                      <p
+                        className="text-xs text-muted-foreground"
+                        title={marker.conversion_note ?? undefined}
+                      >
+                        Converted for display · Original:{" "}
+                        {marker.original_value} {marker.original_unit}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {statusLabel(marker.status)}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {freshnessLabel(marker.freshness_status)}
                     </p>
@@ -388,11 +430,14 @@ export function HealthProfileDrawer({
           <section className="rounded-xl border border-teal-200 bg-teal-50 p-4">
             <h3 className="font-semibold text-teal-900">AI insights</h3>
             <p className="mt-2 text-sm text-teal-800">
-              Factual marker data is shown here for free. Generate a paid report for narrative
-              insights, questions for your clinician, and lifestyle discussion points.
+              Factual marker data is shown here for free. Generate a paid report
+              for narrative insights, questions for your clinician, and
+              lifestyle discussion points.
             </p>
             <Button asChild className="mt-3 w-full">
-              <Link href="/app/reports/create">Generate report to see insights</Link>
+              <Link href="/app/reports/create">
+                Generate report to see insights
+              </Link>
             </Button>
           </section>
 
@@ -400,7 +445,12 @@ export function HealthProfileDrawer({
         </div>
 
         <div className="border-t px-4 py-3">
-          <Button type="button" variant="secondary" className="w-full" onClick={onClose}>
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full"
+            onClick={onClose}
+          >
             Close
           </Button>
         </div>

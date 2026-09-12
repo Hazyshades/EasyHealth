@@ -1,3 +1,5 @@
+> **Status:** The score/readiness calculation now lives in the internal `health-profile-score-policy` module; `buildHealthProfile` remains the public assembly seam. EH-146 supersedes this change's old job-freshness suppression behavior: queued or processing recalculation retains the completed score and exposes lifecycle state separately. Factual `outdated` and `unknown_date` readiness reasons still describe observation evidence. The historical decisions below are retained for traceability.
+
 # Design: eh-143-fix-review-findings
 
 Domain: **health-profile**
@@ -31,21 +33,22 @@ PR #176 restructured EH-143 scoring correctly, but the drawer edit dropped `cons
    New `scripts/verify-health-profile-drawer-status.ts` uses `react-dom/server`'s `renderToStaticMarkup` on `HealthProfileDrawer` with fixture `SystemInsight` objects and asserts:
    - null-score system renders `>Assessment unavailable<`;
    - scored system renders a non-empty numeric-status label;
-   - system whose reasons include `outdated` renders the updating copy;
+   - observation-stale system renders the stale-evidence copy;
+   - lifecycle-outdated system retains the completed numeric status and lifecycle copy;
    - rendered markup never contains an empty chip (`><\/span>` immediately following the badge class group).
    Effects are skipped during static render, so `useEffect` is safe; `next/link` renders plain anchors. Registered as `test:health-profile-drawer-status` in `package.json`, `ci/verification-suite-policy.json` (`verify` job), and the measurement-registry workflow, matching the existing convention. Alternative rejected: ESLint `no-restricted-globals` — repo has no ESLint at all; introducing linter configuration for one class of bug is disproportionate, and the render test asserts the actual user-visible outcome.
 
-3. **Copy alignment without a shared constants module.**
-   The three surfaces (page banner, overall card, drawer) each use their message once; a shared module would be an identity wrapper. Align them on one wording family ("Health Profile assessment is updating" headline family + "The previous score is not shown as current" body family) inline. Revisit a constants module only when EH-146 makes states first-class.
+3. **Copy alignment follows the separate EH-146 lifecycle axis.**
+   The three surfaces use the shared lifecycle state labels and descriptions. A queued or processing update keeps the latest completed score visible; observation-level `outdated` readiness remains an unavailable-evidence state. No presentation labels move into the score/readiness policy.
 
 4. **Route cleanup is a pure binding hoist.**
    `const persistedVersion = persistedProfile ? version : null;` replaces four repeated ternaries in the `assessment` object. No semantic change; covered by typecheck plus the manual E2E claims already recorded.
 
 5. **Registry-docs gate completes through the standard flow.**
-   Run `pnpm render:biomarker-wiki`, produce the explicit local staging export, attempt remote publication confirmation; if remote access is unavailable, record `PENDING`/`BLOCKED` with evidence inside exactly one `[Registry Docs] EH-143` issue created from `.github/ISSUE_TEMPLATE/registry-documentation-update.md`. Local `generate/check/test:biomarker-docs` already pass (re-verified during review).
+   Run `pnpm render:biomarker-wiki`, produce the explicit local staging export, confirm remote publication, and update the single matching Registry Docs issue. This run published the generated architecture page as Wiki commit `0502d5c` and recorded the score-policy delta in Hazyshades/EasyHealth#247. Local `generate/check/test:biomarker-docs` pass.
 
 6. **QA checklist correction is part of this change, not a follow-up.**
-   Replace the "typecheck proves consumers migrated" claim with scoped wording, add scenario EH143-UI-06 covering the three status-chip states, per the roadmap QA checklist rules.
+   Replace the "typecheck proves consumers migrated" claim with scoped wording, add scenario EH143-UI-06 covering incomplete, scored, observation-stale, and lifecycle-outdated states, per the roadmap QA checklist rules.
 
 ## Risks / Trade-offs
 

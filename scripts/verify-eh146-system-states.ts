@@ -33,7 +33,10 @@ for (const [jobStatus, hasCurrentVersion, expected] of stateCases) {
 
 for (const state of ["current", "processing", "outdated", "error"] as const) {
   assert.ok(assessmentDisplayStateLabel(state).length > 0);
-  assert.match(assessmentDisplayStateDescription(state), /not a diagnosis or disease-risk score/);
+  assert.match(
+    assessmentDisplayStateDescription(state),
+    /not a diagnosis or disease-risk score/,
+  );
 }
 
 assert.equal(stateScoreColor(null), "fill-slate-300 stroke-slate-400");
@@ -68,9 +71,15 @@ const incompleteProfile = buildHealthProfile(
   ],
   sources,
 );
-const metabolic = incompleteProfile.systems.find((system) => system.id === "metabolic");
+const metabolic = incompleteProfile.systems.find(
+  (system) => system.id === "metabolic",
+);
 assert.ok(metabolic);
-assert.equal(metabolic.state_score, null, "one marker must not become a partial system score");
+assert.equal(
+  metabolic.state_score,
+  null,
+  "one marker must not become a partial system score",
+);
 assert.equal(metabolic.scoreability, "incomplete");
 assert.equal(incompleteProfile.profile_display_state, "body_map");
 
@@ -115,9 +124,22 @@ const scoredProfile = buildHealthProfile(
   ],
   sources,
 );
-const cardiovascular = scoredProfile.systems.find((system) => system.id === "cardiovascular");
+const cardiovascular = scoredProfile.systems.find(
+  (system) => system.id === "cardiovascular",
+);
 assert.ok(cardiovascular);
 assert.equal(cardiovascular.scoreability, "scoreable");
 assert.notEqual(cardiovascular.state_score, null);
+assert.equal(scoredProfile.assessment_freshness, "current");
+assert.equal(
+  resolveAssessmentDisplayState("processing", true),
+  "outdated",
+  "job lifecycle is a separate display axis from the completed profile payload",
+);
+assert.notEqual(
+  cardiovascular.state_score,
+  null,
+  "a completed score remains visible while a newer assessment is processing",
+);
 
 console.log("verify-eh146-system-states: all checks passed");

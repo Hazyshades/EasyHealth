@@ -1,3 +1,5 @@
+> **Historical / superseded:** EH-146 replaced the job-freshness score suppression described in this archived change. Current behavior retains a completed score while queued or processing recalculation runs and exposes lifecycle state separately; observation-level freshness remains a score/readiness concern. The original proposal is preserved below for historical traceability.
+
 ## Why
 
 A Health Profile current-state score must represent a complete, usable minimum evidence set—not a partial average or a stale cached assessment. The existing aggregation has group-aware pieces, but its public contract does not provide one canonical machine-readable reason for an unavailable score, and a queued recalculation can expose an outdated persisted score.

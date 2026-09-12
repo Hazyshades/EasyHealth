@@ -12,7 +12,7 @@ import {
   type GoldenCase,
   type ProfileExpectation,
 } from "./eh147-golden-pack";
-import { HEALTH_PROFILE_SCORE_ALGORITHM_VERSION } from "../src/lib/health-systems";
+import { HEALTH_PROFILE_SCORE_ALGORITHM_VERSION } from "../src/lib/health-profile-score-policy";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const FIXTURE_DIR = path.join(ROOT, "QA", "eh-147", "fixtures");
@@ -40,7 +40,8 @@ type ApprovalFile = {
 
 const args = new Set(process.argv.slice(2));
 const writeExpected = args.has("--write-expected");
-const technicalOnly = args.has("--technical-check") || (!args.has("--check") && !writeExpected);
+const technicalOnly =
+  args.has("--technical-check") || (!args.has("--check") && !writeExpected);
 const productCheck = args.has("--check");
 const writeReport = args.has("--report");
 
@@ -54,8 +55,14 @@ function isProfileExpectation(
   return "systems" in value;
 }
 
-function assertInvariants(goldenCase: GoldenCase, actual: ProfileExpectation | AdmissionExpectation) {
-  if (goldenCase.id === "complete-in-range-eight-systems" && isProfileExpectation(actual)) {
+function assertInvariants(
+  goldenCase: GoldenCase,
+  actual: ProfileExpectation | AdmissionExpectation,
+) {
+  if (
+    goldenCase.id === "complete-in-range-eight-systems" &&
+    isProfileExpectation(actual)
+  ) {
     for (const system of [
       "cardiovascular",
       "metabolic",
@@ -65,22 +72,37 @@ function assertInvariants(goldenCase: GoldenCase, actual: ProfileExpectation | A
       "blood",
       "nutrients",
     ]) {
-      assert.equal(actual.systems[system]?.scoreability, "scoreable", `${system} must be scoreable`);
-      assert.notEqual(actual.systems[system]?.state_score, null, `${system} must have a score`);
+      assert.equal(
+        actual.systems[system]?.scoreability,
+        "scoreable",
+        `${system} must be scoreable`,
+      );
+      assert.notEqual(
+        actual.systems[system]?.state_score,
+        null,
+        `${system} must have a score`,
+      );
     }
     assert.equal(actual.systems.inflammation?.scoreability, "non_scoreable");
     assert.equal(actual.systems.inflammation?.state_score, null);
   }
 
-  if (goldenCase.id === "complete-out-of-range-eight-systems" && isProfileExpectation(actual)) {
+  if (
+    goldenCase.id === "complete-out-of-range-eight-systems" &&
+    isProfileExpectation(actual)
+  ) {
     const inRange = readExpected().cases["complete-in-range-eight-systems"];
-    if (!isProfileExpectation(inRange)) throw new Error("in-range expected missing");
+    if (!isProfileExpectation(inRange))
+      throw new Error("in-range expected missing");
     for (const system of Object.keys(actual.systems)) {
       if (system === "inflammation") continue;
       const outScore = actual.systems[system]?.state_score;
       const inScore = inRange.systems[system]?.state_score;
       if (typeof outScore === "number" && typeof inScore === "number") {
-        assert.ok(outScore < inScore, `${system} out-of-range score must be lower`);
+        assert.ok(
+          outScore < inScore,
+          `${system} out-of-range score must be lower`,
+        );
       }
     }
   }
@@ -105,27 +127,42 @@ function assertInvariants(goldenCase: GoldenCase, actual: ProfileExpectation | A
     assert.ok(actual.systems[system]?.readiness_codes.includes("missing"));
   }
 
-  if (goldenCase.id === "inflammation-crp-factual-only" && isProfileExpectation(actual)) {
+  if (
+    goldenCase.id === "inflammation-crp-factual-only" &&
+    isProfileExpectation(actual)
+  ) {
     assert.equal(actual.systems.inflammation?.scoreability, "non_scoreable");
     assert.equal(actual.systems.inflammation?.state_score, null);
   }
 
-  if (goldenCase.id === "correction-pending-excluded" && !isProfileExpectation(actual)) {
+  if (
+    goldenCase.id === "correction-pending-excluded" &&
+    !isProfileExpectation(actual)
+  ) {
     assert.equal(actual.eligible, false);
     assert.equal(actual.exclusionReason, "verification_required");
   }
 
-  if (goldenCase.id === "correction-manually-corrected-admitted" && !isProfileExpectation(actual)) {
+  if (
+    goldenCase.id === "correction-manually-corrected-admitted" &&
+    !isProfileExpectation(actual)
+  ) {
     assert.equal(actual.eligible, true);
     assert.equal(actual.exclusionReason, null);
   }
 
-  if (goldenCase.id === "invalid-inverted-document-range" && !isProfileExpectation(actual)) {
+  if (
+    goldenCase.id === "invalid-inverted-document-range" &&
+    !isProfileExpectation(actual)
+  ) {
     assert.equal(actual.eligible, false);
     assert.equal(actual.exclusionReason, "invalid_document_reference_range");
   }
 
-  if (goldenCase.id === "invalid-missing-document-range" && !isProfileExpectation(actual)) {
+  if (
+    goldenCase.id === "invalid-missing-document-range" &&
+    !isProfileExpectation(actual)
+  ) {
     assert.equal(actual.eligible, false);
     assert.equal(actual.exclusionReason, "missing_document_reference_range");
   }
@@ -168,7 +205,10 @@ if (writeExpected) {
 
 const expectedFile = readExpected();
 assert.equal(expectedFile.packVersion, EH147_PACK_VERSION);
-assert.equal(expectedFile.algorithmVersion, HEALTH_PROFILE_SCORE_ALGORITHM_VERSION);
+assert.equal(
+  expectedFile.algorithmVersion,
+  HEALTH_PROFILE_SCORE_ALGORITHM_VERSION,
+);
 
 const failed: string[] = [];
 for (const goldenCase of cases) {
@@ -176,7 +216,11 @@ for (const goldenCase of cases) {
     const actual = evaluateGoldenCase(goldenCase);
     const expected = expectedFile.cases[goldenCase.id];
     assert.ok(expected, `missing committed expectation for ${goldenCase.id}`);
-    assert.deepEqual(actual, expected, `${goldenCase.id} drifted from committed expectation`);
+    assert.deepEqual(
+      actual,
+      expected,
+      `${goldenCase.id} drifted from committed expectation`,
+    );
     assertInvariants(goldenCase, actual);
   } catch (error) {
     failed.push(goldenCase.id);
@@ -196,18 +240,29 @@ const report = {
 };
 
 if (writeReport) {
-  writeFileSync(path.join(ROOT, "QA", "eh-147", "report.json"), `${JSON.stringify(report, null, 2)}\n`);
+  writeFileSync(
+    path.join(ROOT, "QA", "eh-147", "report.json"),
+    `${JSON.stringify(report, null, 2)}\n`,
+  );
 }
 
 console.log(JSON.stringify(report, null, 2));
-assert.equal(failed.length, 0, `EH-147 golden mismatches: ${failed.join(", ")}`);
+assert.equal(
+  failed.length,
+  0,
+  `EH-147 golden mismatches: ${failed.join(", ")}`,
+);
 assert.deepEqual(
   canonicalPackPayload(cases, expectedFile.cases).cases.map((item) => item.id),
-  [...cases.map((goldenCase) => goldenCase.id)].sort((left, right) => left.localeCompare(right)),
+  [...cases.map((goldenCase) => goldenCase.id)].sort((left, right) =>
+    left.localeCompare(right),
+  ),
 );
 
 if (productCheck) {
-  const approvals = JSON.parse(readFileSync(APPROVALS_PATH, "utf8")) as ApprovalFile;
+  const approvals = JSON.parse(
+    readFileSync(APPROVALS_PATH, "utf8"),
+  ) as ApprovalFile;
   const matching = approvals.approvals.find(
     (approval) =>
       approval.role === "Clinical Product" &&

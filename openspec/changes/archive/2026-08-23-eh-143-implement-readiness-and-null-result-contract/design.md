@@ -1,3 +1,5 @@
+> **Historical / superseded:** EH-146 replaced the job-freshness score suppression described in this archived change. Current behavior retains a completed score while queued or processing recalculation runs and exposes lifecycle state separately; observation-level freshness remains a score/readiness concern. The original design is preserved below for historical traceability.
+
 ## Context
 
 The Health Profile projection already derives required groups from reviewed Registry 2.0 assessment bindings and calculates a numeric score only after the evaluator says a named system is scoreable. Its response nevertheless carries two overlapping failure projections (`missing_groups` and `present_without_reference`) rather than one stable reason contract. `buildHealthProfile` also evaluates the same groups twice, and `computeSystemStateScore` contains dead soft-fallback code after its strict return. Separately, `GET /api/health-profile` returns the latest persisted payload even while a recalculation job is queued or processing, so an obsolete numeric assessment can appear current.

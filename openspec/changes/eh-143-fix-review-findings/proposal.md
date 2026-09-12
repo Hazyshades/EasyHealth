@@ -1,3 +1,5 @@
+> **Status:** The score/readiness calculation is now owned by the internal `health-profile-score-policy` module. EH-146 supersedes the former job-freshness score suppression described below: queued or processing recalculation retains the completed score and exposes `assessment.display_state` separately. Observation-level `outdated` and `unknown_date` remain score-readiness outcomes. Historical proposal context is retained.
+
 # Proposal: eh-143-fix-review-findings
 
 Domain: **health-profile**
@@ -9,10 +11,10 @@ The thermo-nuclear review of commit `4a146e0` / PR #176 (issue #43) found one sh
 ## What Changes
 
 - Restore canonical status-label derivation in `HealthProfileDrawer`: re-add `const status = assessmentStatusLabel(system.state_score, system.data_confidence)` and remove the now-dead `assessmentStatusLabel` import if unused elsewhere in the file.
-- Add deterministic regression coverage that renders `HealthProfileDrawer` server-side (`react-dom/server` `renderToStaticMarkup` in a `tsx` verification script) and asserts the status chip contains a non-empty label for null-score, scored, and outdated systems — the exact bug class that slipped through.
+- Add deterministic regression coverage that renders `HealthProfileDrawer` server-side (`react-dom/server` `renderToStaticMarkup` in a `tsx` verification script) and asserts non-empty labels for null-score, scored, and observation-stale systems, plus retention of a completed score when the lifecycle state is `outdated`.
 - Simplify `GET /api/health-profile` response assembly by hoisting the repeated `persistedProfile ? version : …` ternaries into one `persistedVersion` binding. Behavior-neutral cleanup.
-- Unify the three divergent "assessment updating" phrasings (profile page banner, `OverallAssessmentCard`, drawer) on one shared wording family sourced from a single module constant set.
-- Complete the Registry-documentation synchronization gate for EH-143: run `pnpm render:biomarker-wiki` plus the explicit local staging export, confirm remote Wiki publication or record `PENDING`/`BLOCKED` with evidence, and create exactly one `[Registry Docs] EH-143` tracking issue using `.github/ISSUE_TEMPLATE/registry-documentation-update.md`.
+- Keep the profile page banner, `OverallAssessmentCard`, and drawer on the shared EH-146 lifecycle wording; the lifecycle state is separate from score/readiness labels and does not move presentation copy into the policy module.
+- Complete the Registry-documentation synchronization gate for EH-143: run `pnpm render:biomarker-wiki` plus the explicit local staging export, confirm remote Wiki publication, and update the existing matching tracking issue `Hazyshades/EasyHealth#247` with canonical docs, commands, status, and remaining gaps.
 - Correct the misleading evidence line in `QA/eh-143/checklist.md` ("typecheck proves consumers migrated") and add a manual UI scenario covering the status-chip rendering states.
 
 No breaking changes: API shape, scoring semantics, and persistence are untouched.
@@ -25,4 +27,4 @@ _None._
 
 ### Modified Capabilities
 
-- `health-profile-score-readiness`: add presentation-layer requirements — the Health Profile UI must derive assessment status labels exclusively from the canonical helper (`assessmentStatusLabel`) and must never render an empty or ambient-resolved status value; readiness-driven UI states (`missing` guidance, `invalid` notice, `outdated` withholding) remain rendered as specified. Existing API/suppression requirements are unchanged.
+- `health-profile-score-readiness`: add presentation-layer requirements — the Health Profile UI must derive assessment status labels exclusively from the canonical helper (`assessmentStatusLabel`) and must never render an empty or ambient-resolved status value; readiness-driven UI states (`missing` guidance, `invalid` notice, observation-level `outdated`/`unknown_date`) remain rendered as specified. EH-146 owns job lifecycle state, and queued or processing updates retain completed scores.

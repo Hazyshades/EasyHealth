@@ -1,6 +1,6 @@
-# EH-143: Readiness and null-result contract
+# EH-143: Readiness and null-result contract (historical; lifecycle superseded by EH-146)
 
-**Roadmap status:** In progress
+**Roadmap status:** Superseded by EH-146 for recalculation lifecycle; readiness checklist retained
 **Build / environment:** `Next.js dev server :3013; Supabase CLI 2.109.0; Docker Engine 29.6.2; local Docker project easyhealth`
 **Test run date:** `2026-08-23`
 **Tester:** `Engineering local E2E session`
@@ -9,7 +9,7 @@
 
 The **Health Profile** shows a numeric current-state assessment only when the relevant named body system has every required usable laboratory group. Missing or unusable evidence must show an unavailable assessment, not a partial score or `0`.
 
-When a recalculation is in progress after source data changes, the prior assessment is withheld rather than presented as current. This is a technical product state, not medical advice and not a statement that a laboratory result is invalid.
+When a recalculation is in progress after source data changes, the latest completed score remains visible while the separate assessment lifecycle state says an update is available. This is a technical product state, not medical advice and not a statement that a laboratory result is invalid.
 
 ## Before you start
 
@@ -25,7 +25,7 @@ When a recalculation is in progress after source data changes, the prior assessm
 | `EH143-COMPLETE-01` | Synthetic laboratory document with document-native numeric reference bounds and accepted required groups for Cardiovascular (LDL or non-HDL, HDL, triglycerides), Metabolic (fasting glucose or HbA1c), and Thyroid (TSH and free T4). | Proves numeric system and overall assessment availability after three complete named systems. |
 | `EH143-INCOMPLETE-01` | Synthetic document containing LDL only, with a numeric document-native reference bound. | Proves all eight named systems remain visible but no partial score is shown when required groups are absent. |
 | `EH143-INVALID-01` | Synthetic Cardiovascular document with LDL, HDL, and triglycerides where one required result has no document-native reference bound. | Proves a present but unusable required result does not unlock a score. |
-| `EH143-UPDATE-01` | A dedicated account with a completed Health Profile assessment, followed by accepting or reprocessing a synthetic laboratory result that queues assessment recalculation. | Proves an obsolete score is withheld while the update is pending. |
+| `EH143-UPDATE-01` | A dedicated account with a completed Health Profile assessment, followed by accepting or reprocessing a synthetic laboratory result that queues assessment recalculation. | Proves the lifecycle update state is separate from score readiness and the completed score remains visible while the update is pending. |
 
 ## Interface checks
 
@@ -83,7 +83,7 @@ When a recalculation is in progress after source data changes, the prior assessm
 **Result:** `Pass | Fail | Blocked | N/A`
 **Notes / evidence link:** `________`
 
-### EH143-UI-05: Updating assessment does not show an old score as current
+### EH143-UI-05: Assessment update retains the completed score
 
 **Precondition:** `EH143-UPDATE-01` has a completed Health Profile assessment with at least one numeric system score.
 
@@ -91,7 +91,7 @@ When a recalculation is in progress after source data changes, the prior assessm
 2. Open or reload **Health Profile** before the recalculation job completes.
 3. Open a named-system drawer and review the overall assessment card.
 
-**Expected result:** The page identifies that the Health Profile assessment is updating. Named-system and overall scores are withheld, and the drawer says the previous score is not shown as current. Factual marker and source information remain visible. After recalculation succeeds and the page is reloaded, score availability is recalculated from current evidence.
+**Expected result:** The page identifies that the Health Profile assessment is updating. The completed named-system and overall scores remain visible, and the drawer says that the latest completed assessment remains visible while the update is prepared. Factual marker and source information remain visible. After recalculation succeeds and the page is reloaded, score availability is recalculated from current evidence.
 
 **Result:** `Pass | Fail | Blocked | N/A`
 **Notes / evidence link:** `________`
@@ -105,27 +105,27 @@ When a recalculation is in progress after source data changes, the prior assessm
 3. Open a named-system drawer that has a complete readiness evaluation.
 4. While an update is processing, open any named-system drawer.
 
-**Expected result:** In every case the status chip shows non-empty text derived from the canonical status helper: `Assessment unavailable` for incomplete and outdated systems, the numeric-derived label (for example `Stable`) for scored systems. The chip never renders blank or without its color styling. An outdated drawer shows the shared updating headline and states that the previous score is not shown as current.
+**Expected result:** In every case the status chip shows non-empty text derived from the canonical status helper: `Assessment unavailable` for incomplete or observation-stale systems, the numeric-derived label (for example `Stable`) for scored systems. The chip never renders blank or without its color styling. A lifecycle-outdated drawer retains the completed numeric label and shows the shared assessment-update copy.
 
 **Result:** `Pass | Fail | Blocked | N/A`
 **Notes / evidence link:** `________`
 
 ## Developer evidence required
 
-- [x] Engineering ran `pnpm test:eh143` on 2026-08-23. It passed and proves every scoreable named system requires all runtime readiness groups, approved alternatives satisfy only their own group, context-only input cannot unlock readiness, unavailable scores are `null`, and stale-score suppression adds the `outdated` reason. **Provider:** engineering.
-- [x] Engineering ran `pnpm test:health-profile-lab-input` and `pnpm test:biomarkers` on 2026-08-23. Both passed and prove the existing Registry-v2 Health Profile projection and biomarker aggregation regression contracts still pass. **Provider:** engineering.
-- [x] Engineering ran `pnpm typecheck` on 2026-08-23. It passed and proves API and data-layer consumers migrated away from the retired readiness arrays. Typecheck cannot catch DOM-global shadowing (a dropped local binding silently resolves to `lib.dom`'s global `var status`), which is why EH143-UI-06 and the render-level drawer suite exist. **Provider:** engineering.
-- [x] Engineering ran `pnpm test:health-profile-drawer-status` on 2026-08-24. It passed and proves the system drawer renders its status chip from `assessmentStatusLabel` with non-empty text across unavailable, scored, and outdated states, guarding the DOM-global shadowing regression class. **Provider:** engineering.
-- [x] Engineering ran `pnpm check:ci-suite-coverage` and `pnpm check:ci-suite-coverage-contract` on 2026-08-23. Both passed; `test:eh143` is registered in the `verify` CI job and policy. **Provider:** engineering.
-- [x] Controlled local backend capture completed on 2026-08-23. With one authenticated dedicated user, a persisted canonical assessment, and each of `queued`, `processing`, `retryable_failed`, and `failed`, `GET /api/health-profile` returned `assessment_freshness: "outdated"`, `null` named-system and overall scores, an `outdated` reason for every named system, and retained source evidence. Restoring `succeeded` returned three numeric named scores and the numeric overall score. **Provider:** engineering.
+- [x] Engineering ran `pnpm test:eh143` on 2026-09-12. It passed and proves every scoreable named system requires all runtime readiness groups, approved alternatives satisfy only their own group, context-only input cannot unlock readiness, and unavailable scores are `null`. EH-146 lifecycle behavior is covered separately; the removed suppression helper is verified by the production-reference search and active-spec migration. **Provider:** engineering.
+- [x] Engineering ran `pnpm test:health-profile-lab-input` and `pnpm test:biomarkers` on 2026-09-12. Both passed and prove the existing Registry-v2 Health Profile projection and biomarker aggregation regression contracts still pass. **Provider:** engineering.
+- [ ] Engineering ran `pnpm typecheck` on 2026-09-12. It is blocked by existing `DocumentType` union errors in document/timeline consumers and declarations in `src/lib/health-systems.ts`; no score-policy type errors remain in the compiler output. The drawer render suite remains necessary because typecheck cannot catch DOM-global shadowing. **Provider:** engineering.
+- [x] Engineering ran `pnpm test:health-profile-drawer-status` on 2026-09-12. It passed and proves the system drawer renders its status chip from `assessmentStatusLabel` with non-empty text across unavailable, scored, observation-stale, and lifecycle-outdated states, retaining the completed score during a lifecycle update. **Provider:** engineering.
+- [x] Engineering ran `pnpm check:ci-suite-coverage` and `pnpm check:ci-suite-coverage-contract` on 2026-09-12. Both passed; all 103 verification suites are workflow-covered, including `test:eh143` and `test:health-profile-admission-baseline`. **Provider:** engineering.
+- [x] Historical EH-143 backend capture (superseded contract) completed on 2026-08-23. With one authenticated dedicated user, a persisted canonical assessment, and each of `queued`, `processing`, `retryable_failed`, and `failed`, `GET /api/health-profile` returned `assessment_freshness: "outdated"`, `null` named-system and overall scores, an `outdated` reason for every named system, and retained source evidence. This remains historical evidence only; current EH-146 behavior retains completed scores and exposes lifecycle state separately. **Provider:** engineering.
 - [x] Database-test applicability confirmed on 2026-08-23. EH-143 changes no schema, constraint, RPC, or persistence boundary; `pnpm test:eh123-db` passed all 20 assessment-job and version-persistence tests after the approved disposable `supabase db reset --local`. **Provider:** engineering.
-- [x] Controlled local browser E2E completed on 2026-08-23 with the same dedicated account and synthetic persisted assessment fixture. The visible UI showed current scores `95`, `90`, `85` and overall `90` when succeeded; suppressed every score plus the update banner/card and drawer state when processing; and showed the exact invalid-evidence message for a present ALT result without a document-native range. This validates the response-to-UI path, not the normal document-review/reprocess workflow. **Provider:** engineering.
+- [x] Historical EH-143 browser E2E capture (superseded contract) completed on 2026-08-23 with the same dedicated account and synthetic persisted assessment fixture. The visible UI showed current scores `95`, `90`, `85` and overall `90` when succeeded; the old processing state suppressed every score plus the update banner/card and drawer state; and the exact invalid-evidence message for a present ALT result without a document-native range. This validates the historical response-to-UI path, not the current EH-146 lifecycle contract. **Provider:** engineering.
 - [ ] Clinical Product provides EH-141 sign-off evidence for the required-group policy; this checklist does not substitute for clinical approval.
 - [ ] Backend or QA provides EH-142 evidence that only verified, resolved, reviewed, numeric, range-eligible observations reach this evaluator.
 
 ## Out of scope or not manually testable yet
 
-- No biological age or medical-expiry threshold is introduced. `outdated` means the persisted Health Profile assessment snapshot is superseded by a non-succeeded recalculation job.
+- No biological age or medical-expiry threshold is introduced. Observation-level `outdated` means evidence exceeds the configured freshness policy; queued or processing recalculation is an EH-146 lifecycle state and does not suppress the completed score.
 - Registry group membership, clinical rationale, and context-only policy approval remain EH-141 scope.
 - Verification, resolution, lifecycle, and document-native range admission remain EH-142 scope.
 - The local E2E session exercised the product UI with direct synthetic database fixtures. The normal document-review/reprocess workflow was not used to create those fixture states, so the five manual scenarios remain available for a tester to execute end to end.

@@ -1,3 +1,5 @@
+> **Historical / superseded:** EH-146 replaced the job-freshness score suppression task in this archived change. Current behavior retains a completed score while queued or processing recalculation runs and exposes lifecycle state separately. The original task history is preserved below.
+
 ## 1. Readiness evaluation and result contract
 
 - [x] 1.1 Replace legacy readiness aggregates with typed, ordered `missing` and `invalid` reasons; classify each required group once and reuse that evaluation for strict nullable scoring.

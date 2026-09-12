@@ -4,7 +4,9 @@ This reference defines the technical minimum evidence needed to render an EasyHe
 
 ## Context
 
-The Worker extracts candidates; an accepted, resolved laboratory Observation enters the Health Profile only through a reviewed compatible Registry 2.0 assessment binding. A marker satisfies a required group only when it is numeric, `core`, has its reviewed specimen, and has at least one document-provided numeric reference bound. One alternative satisfies its group; every group for the system must be satisfied.
+The Worker extracts laboratory rows; an accepted, resolved laboratory Observation enters the Health Profile only through a reviewed compatible Registry 2.0 assessment binding. After admission, each normalized fact is an **Assessment candidate** until the score/readiness policy selects the latest fact for its identity. A marker satisfies a required group only when it is numeric, `core`, has its reviewed specimen, and has at least one document-provided numeric reference bound. One alternative satisfies its group; every group for the system must be satisfied.
+
+The score/readiness policy receives all admitted candidates, explicit `asOf` and `evaluatedAt` values, the versioned freshness policy, and a read-only Registry 2.0 snapshot. It owns identity reduction, factual freshness, readiness, score contribution, confidence, provenance, exclusions, and the overall three-system threshold. `asOf` controls freshness; `evaluatedAt` records computation time and does not change readiness or scores. Assessment job lifecycle is separate: a queued or processing recalculation with a completed version retains completed scores and reports `assessment.display_state: outdated`.
 
 Score role, Coverage flag, readiness group, and contribution group are independent policies. A context-only marker can remain useful display, coverage, or contribution evidence, but never replaces a missing readiness group.
 
@@ -51,9 +53,9 @@ The review-results and clearer-report actions are recovery entry points only. Th
 | Accountable role | Decision or evidence | Current state | Evidence |
 | --- | --- | --- | --- |
 | Clinical Product (functional owner) | Approve or reject the technical minimum groups and exclusions as product policy. | `APPROVED` — requester-authorized decision recorded on `2026-08-23`. | [Issue #41 sign-off comment](https://github.com/Hazyshades/EasyHealth/issues/41#issuecomment-5385443051). |
-| Backend | Confirm reviewed Registry bindings derive the listed alternatives and block context-only inputs. | `IMPLEMENTED` | `pnpm test:eh141`; `src/lib/biomarkers/measurement-resolution.ts`; `src/lib/health-systems.ts`. |
+| Backend | Confirm reviewed Registry bindings derive the listed alternatives and block context-only inputs. | `IMPLEMENTED` | `pnpm test:eh141`; `src/lib/biomarkers/measurement-resolution.ts`; `src/lib/health-profile-score-policy.ts`; `src/lib/health-systems.ts` assembly seam. |
 | Clinical safety / release owner | Confirm release-gate disposition only after Clinical Product evidence exists. | `APPROVED` | Issue #41 sign-off comment and merged PR #171. |
-| Documentation owner | Confirm canonical docs and generated catalog inventory are synchronized. | `IMPLEMENTED`; Wiki `PUBLISHED` | `pnpm generate:biomarker-docs`, `pnpm check:biomarker-docs`, `pnpm test:biomarker-docs`; Wiki commit [`03e0e728`](https://github.com/Hazyshades/EasyHealth.wiki/commit/03e0e7287ad760eb6b1535aed7440c5e4bcf9cb2). |
+| Documentation owner | Confirm canonical docs and generated catalog inventory are synchronized. | `IMPLEMENTED`; Wiki `PUBLISHED` | `pnpm generate:biomarker-docs`, `pnpm check:biomarker-docs`, `pnpm test:biomarker-docs`; Wiki commit [`0502d5c`](https://github.com/Hazyshades/EasyHealth.wiki/commit/0502d5cf2e4e91f656c268ed15ffe1927337963b). |
 
 ## Verification
 

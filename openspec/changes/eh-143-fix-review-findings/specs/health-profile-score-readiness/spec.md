@@ -15,10 +15,16 @@ The Health Profile system drawer SHALL render its assessment status chip exclusi
 - **THEN** the status chip renders the canonical label derived from that system's numeric score and data confidence
 
 ### Requirement: Readiness-driven drawer states remain visible
-The drawer SHALL continue to render readiness-driven states from machine-readable reasons: missing-group guidance lists each unsatisfied group, invalid notices identify present-but-unusable keys, and an `outdated` reason suppresses score presentation while stating the previous score is not shown as current.
+The drawer SHALL continue to render readiness-driven states from machine-readable reasons: missing-group guidance lists each unsatisfied group, invalid notices identify present-but-unusable keys, and factual `outdated` or `unknown_date` reasons keep the affected system unscored. Assessment job lifecycle SHALL remain a separate display input and SHALL NOT be inferred from score-readiness reasons.
 
-#### Scenario: Outdated system drawer withholds score and explains why
-- **WHEN** a persisted assessment is superseded by a non-succeeded recalculation job
-- **THEN** every named-system drawer shows `Assessment unavailable` as the status chip
-- **AND** displays updating-state copy stating the previous score is not shown as current
+#### Scenario: Outdated observation remains unscored
+- **WHEN** a named system has a required observation older than the configured freshness policy
+- **THEN** the affected required group reports `outdated`
+- **AND** the system drawer shows `Not scored - outdated data`
 - **AND** factual markers, data confidence, and source information remain visible
+
+#### Scenario: Assessment update retains the completed score
+- **WHEN** a completed assessment has a numeric system score and a newer recalculation job is queued or processing
+- **THEN** the separate lifecycle state is `outdated`
+- **AND** the drawer retains the completed numeric score and its canonical status label
+- **AND** the lifecycle copy states that the latest completed assessment remains visible while the update is prepared

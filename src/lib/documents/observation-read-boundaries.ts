@@ -28,6 +28,28 @@ export type LaboratoryObservationReadBoundary =
  * Minimal active-revision shape shared by Registry 2.0 consumer read models.
  * Supabase may return a to-one relation as either an object or an array.
  */
+export type RegistryV2ResolverEvidenceCandidate = {
+  candidateKey?: string;
+  accepted?: readonly { code?: string }[];
+  missing?: readonly { code?: string }[];
+  rejected?: readonly { code?: string }[];
+  missingAxes?: readonly string[];
+  score?: number | null;
+  selectable?: boolean;
+  eligible?: boolean;
+  admissibilityRejections?: readonly string[];
+};
+
+export type RegistryV2ResolverEvidence = {
+  version?: number;
+  compatibilityPolicyVersion?: string;
+  selectedCandidateKey?: string | null;
+  runnerUpCandidateKey?: string | null;
+  outcome?: string | null;
+  confidence?: number;
+  candidates?: readonly RegistryV2ResolverEvidenceCandidate[];
+};
+
 export type RegistryV2NormalizationRevisionReadBoundary = {
   resolver_result?: string | null;
   verification_status?: string | null;
@@ -38,18 +60,7 @@ export type RegistryV2NormalizationRevisionReadBoundary = {
   resolver_version?: string | null;
   normalization_version?: string | null;
   is_active?: boolean | null;
-  resolver_evidence?: {
-    version?: number;
-    compatibilityPolicyVersion?: string;
-    selectedCandidateKey?: string | null;
-    outcome?: string | null;
-    candidates?: readonly {
-      accepted?: readonly { code?: string }[];
-      missing?: readonly { code?: string }[];
-      rejected?: readonly { code?: string }[];
-      missingAxes?: readonly string[];
-    }[];
-  } | null;
+  resolver_evidence?: RegistryV2ResolverEvidence | null;
   measurement_override?: MeasurementOverride | null;
 };
 

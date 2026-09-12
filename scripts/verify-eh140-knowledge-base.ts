@@ -6,7 +6,7 @@ import {
   auditKnowledgeBaseSafety,
   type KnowledgeBaseSafetyFinding,
 } from "../src/lib/knowledge-base/safety-policy";
-import { getMarkerStatus } from "../src/lib/health-systems";
+import { getMarkerStatus } from "../src/lib/health-profile-marker-status";
 
 const REPOSITORY_ROOT = path.resolve(".");
 
@@ -144,10 +144,12 @@ export function discoverKnowledgeBaseFiles(
     collectContentFiles(absoluteRoot, files);
   }
   return [
-    ...new Set(files.filter((filePath) => {
-      const relativePath = relativeRepositoryPath(filePath, repositoryRoot);
-      return !EXCLUDED_KNOWLEDGE_BASE_FILES[relativePath];
-    })),
+    ...new Set(
+      files.filter((filePath) => {
+        const relativePath = relativeRepositoryPath(filePath, repositoryRoot);
+        return !EXCLUDED_KNOWLEDGE_BASE_FILES[relativePath];
+      }),
+    ),
   ].sort((left, right) => left.localeCompare(right));
 }
 
@@ -340,9 +342,7 @@ export function auditKnowledgeBaseSurface(
       );
     }
     if (JSX_EXTENSIONS[extension]) {
-      findings.push(
-        ...accessibilityFindings(filePath, source, repositoryRoot),
-      );
+      findings.push(...accessibilityFindings(filePath, source, repositoryRoot));
     }
   }
 

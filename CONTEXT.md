@@ -85,6 +85,9 @@ Lifecycle of a definition: `provisional`, `reviewed`, or `retired`. Only reviewe
 **Resolver**:
 The deterministic evidence-based engine selecting a resolution outcome from authorized candidates.
 _Avoid_: mapper, matching.
+**Resolver input identity**:
+The canonical identity of the evidence prepared for one Resolver evaluation, including resolution-relevant provenance context. It is independent of the resolution outcome, decision trace, and Registry release.
+_Avoid_: decision identity (when meaning only the prepared Resolver input).
 
 **Resolution outcome**:
 Exactly one of `resolved`, `ambiguous`, `partial`, or `unmapped` returned by the resolver. Only `resolved` carries a concrete measurement definition key.
@@ -127,6 +130,30 @@ The Supabase identity. Its id equals the profile id.
 **Health Profile**:
 The product surface synthesizing observations into current-state body-system views and marker details.
 _Avoid_: profile (when meaning this page).
+**Assessment input**:
+A normalized representation of a persisted observation that the Health Profile assessment may consume. Reported results do not become assessment inputs unless their observation is admitted.
+_Avoid_: reported result.
+
+**Assessment admission**:
+The decision that a persisted observation is safe to enter assessment input after canonical Resolver output and reviewed Registry 2.0 binding checks. It does not decide freshness, score-group readiness, score role, contribution, or score formula.
+_Avoid_: score eligibility (when referring to admission).
+
+**Score/readiness policy**:
+The rules applied after assessment admission to determine freshness eligibility, required-group readiness, score contribution, data confidence, and explanatory exclusions/provenance. It does not decide assessment admission or assemble the Health Profile.
+
+**Assessment candidate**:
+A normalized fact that has passed upstream assessment admission but has not yet passed identity selection in the Score/readiness policy. Several candidates may share one assessment identity; the selected candidate is not necessarily current, readable, or a numeric score contributor.
+
+
+
+**Reported result**:
+A factual laboratory result retained for display and explanation independently of assessment admission. A reported result may remain visible when its observation is excluded from assessment.
+_Avoid_: assessment input.
+
+**Assessment exclusion reason**:
+The stable first blocking reason for rejecting an observation from assessment input, accompanied by evidence needed to explain the decision.
+_Avoid_: hidden rejection.
+
 
 **Body system**:
 One of the fixed catalog-driven systems: cardiovascular, metabolic, thyroid, liver, kidney, blood, nutrients, inflammation, general.

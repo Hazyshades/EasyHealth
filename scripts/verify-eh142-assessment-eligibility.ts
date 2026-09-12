@@ -5,7 +5,7 @@ import {
 } from "../src/lib/health-profile-assessment-eligibility";
 import { MEASUREMENT_DEFINITIONS } from "../src/lib/biomarkers";
 import { projectLaboratoryOutcome } from "../src/lib/documents/incomplete-laboratory-outcomes";
-import { projectHealthProfileLaboratoryInput } from "../src/lib/health-profile-input";
+import { projectHealthProfileLaboratoryAdmission } from "../src/lib/health-profile-input";
 
 function observation(overrides: Record<string, unknown> = {}) {
   return {
@@ -74,14 +74,66 @@ assert.equal(
   pending.resolutionDetails.eligibility.exclusions.assessment,
   "verification_required",
 );
+const pendingAdmission = projectHealthProfileLaboratoryAdmission({
+  observation: observation(),
+  relation: activeRevision({ verification_status: "pending" }),
+  labUnitSystem: "si",
+});
 assert.equal(
-  projectHealthProfileLaboratoryInput({
-    observation: observation(),
-    relation: activeRevision({ verification_status: "pending" }),
-    labUnitSystem: "si",
-  }),
-  null,
+  pendingAdmission.kind,
+  "excluded",
   "unverified observations cannot enter Health Profile assessment input",
+);
+assert.equal(
+  pendingAdmission.kind === "excluded" ? pendingAdmission.reason : null,
+  "verification_required",
+);
+const evidenceAdmission = projectHealthProfileLaboratoryAdmission({
+  observation: observation(),
+  relation: activeRevision({
+    catalog_manifest_version: "catalog-test",
+    resolver_version: "resolver-test",
+    normalization_version: "normalization-test",
+    resolver_evidence: {
+      version: 2,
+      selectedCandidateKey: "glucose_serum",
+      outcome: "resolved",
+      candidates: [
+        {
+          candidateKey: "glucose_serum",
+          accepted: [{ code: "exact_key" }],
+          selectable: true,
+          score: 1,
+        },
+      ],
+    },
+  }),
+  labUnitSystem: "si",
+});
+assert.equal(evidenceAdmission.kind, "accepted");
+assert.equal(
+  evidenceAdmission.kind === "accepted"
+    ? evidenceAdmission.evidence.binding.assessmentInputKey
+    : null,
+  "glucose",
+);
+assert.equal(
+  evidenceAdmission.kind === "accepted"
+    ? evidenceAdmission.evidence.resolverEvidence?.candidates?.[0]?.candidateKey
+    : null,
+  "glucose_serum",
+);
+assert.equal(
+  evidenceAdmission.kind === "accepted"
+    ? evidenceAdmission.evidence.resolution.versions.resolver
+    : null,
+  "resolver-test",
+);
+assert.equal(
+  evidenceAdmission.kind === "accepted"
+    ? evidenceAdmission.evidence.canonical.outcome
+    : null,
+  "resolved",
 );
 
 for (const resolutionStatus of ["partial", "ambiguous", "unmapped"] as const) {

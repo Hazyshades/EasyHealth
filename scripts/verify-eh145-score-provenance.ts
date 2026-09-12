@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import {
   buildHealthProfile,
-  HEALTH_PROFILE_SCORE_ALGORITHM_VERSION,
   type ObservationInput,
   type ScoreExclusion,
 } from "../src/lib/health-systems";
+import { HEALTH_PROFILE_SCORE_ALGORITHM_VERSION } from "../src/lib/health-profile-score-policy";
 import { buildSourceRegion } from "../src/lib/documents/source-region";
 
 const source = {
@@ -27,7 +27,9 @@ const exactRegion = buildSourceRegion({
 });
 assert.ok(exactRegion, "fixture source region should be valid");
 
-function observation(overrides: Partial<ObservationInput> = {}): ObservationInput {
+function observation(
+  overrides: Partial<ObservationInput> = {},
+): ObservationInput {
   return {
     observation_id: "obs-hba1c",
     biomarker_key: "hba1c",
@@ -90,41 +92,58 @@ const preProjectionExclusion: ScoreExclusion = {
   contribution_group: null,
 };
 
-const profile = buildHealthProfile(
-  [observation(), glucose],
-  [source],
-  { excludedObservations: [preProjectionExclusion] },
-);
+const profile = buildHealthProfile([observation(), glucose], [source], {
+  excludedObservations: [preProjectionExclusion],
+});
 const metabolic = profile.systems.find((system) => system.id === "metabolic");
 assert.ok(metabolic, "metabolic system should be rendered");
-assert.equal(profile.score_algorithm_version, HEALTH_PROFILE_SCORE_ALGORITHM_VERSION);
-assert.equal(metabolic.score_provenance.algorithm_version, HEALTH_PROFILE_SCORE_ALGORITHM_VERSION);
+assert.equal(
+  profile.score_algorithm_version,
+  HEALTH_PROFILE_SCORE_ALGORITHM_VERSION,
+);
+assert.equal(
+  metabolic.score_provenance.algorithm_version,
+  HEALTH_PROFILE_SCORE_ALGORITHM_VERSION,
+);
 assert.equal(metabolic.score_readiness.required_groups[0]?.status, "satisfied");
 assert.deepEqual(
   metabolic.score_provenance.contributors.map((item) => item.key),
   ["glucose"],
   "the readiness/contribution winner is the only contributor",
 );
-assert.equal(metabolic.score_provenance.contributors[0]?.contribution_group, "glycemia");
+assert.equal(
+  metabolic.score_provenance.contributors[0]?.contribution_group,
+  "glycemia",
+);
 assert.equal(metabolic.score_provenance.contributors[0]?.source_page, 1);
 assert.equal(
-  metabolic.score_provenance.excluded.find((item) => item.key === "hba1c")?.reason,
+  metabolic.score_provenance.excluded.find((item) => item.key === "hba1c")
+    ?.reason,
   "duplicate_contribution_group",
 );
-assert.equal(metabolic.score_provenance.excluded.find((item) => item.key === "hba1c")?.source_page, 2);
 assert.equal(
-  metabolic.score_provenance.excluded.find((item) => item.key === "hba1c")?.source_region?.match.strategy,
+  metabolic.score_provenance.excluded.find((item) => item.key === "hba1c")
+    ?.source_page,
+  2,
+);
+assert.equal(
+  metabolic.score_provenance.excluded.find((item) => item.key === "hba1c")
+    ?.source_region?.match.strategy,
   "exact",
 );
 assert.ok(
   profile.score_provenance.excluded_observations.some(
-    (item) => item.observation_id === "obs-unmapped" && item.reason === "incomplete_resolution",
+    (item) =>
+      item.observation_id === "obs-unmapped" &&
+      item.reason === "incomplete_resolution",
   ),
   "pre-projection exclusions remain visible at profile level",
 );
 
 const incompleteProfile = buildHealthProfile([glucose], [source]);
-const incompleteMetabolic = incompleteProfile.systems.find((system) => system.id === "metabolic");
+const incompleteMetabolic = incompleteProfile.systems.find(
+  (system) => system.id === "metabolic",
+);
 assert.ok(incompleteMetabolic, "metabolic placeholder should remain visible");
 assert.equal(incompleteMetabolic.state_score, null);
 assert.equal(

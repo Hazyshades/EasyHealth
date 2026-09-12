@@ -1,0 +1,218 @@
+{
+  "fixtureVersion": "health-profile-admission-baseline-v1",
+  "labUnitSystem": "si",
+  "freshnessAsOf": "2026-08-01",
+  "freshnessEvaluatedAt": "2026-08-01T00:00:00.000Z",
+  "sources": [
+    {
+      "id": "baseline-document",
+      "original_filename": "baseline-labs.pdf",
+      "observed_at": "2026-08-01",
+      "lab_name": "Baseline laboratory",
+      "document_type": "lab_result"
+    }
+  ],
+  "observations": [
+    {
+      "id": "obs-hba1c",
+      "analyte_key": "hba1c",
+      "measurement_definition_key": "hba1c_whole_blood",
+      "resolution_status": "resolved",
+      "name": "Hemoglobin A1c",
+      "value": 5.4,
+      "unit": "%",
+      "ref_low": 4,
+      "ref_high": 5.6,
+      "raw_reference_text": "4.0–5.6",
+      "observed_at": "2026-08-01",
+      "document_id": "baseline-document",
+      "observation_kind": "lab",
+      "value_kind": "numeric",
+      "value_text": "5.4",
+      "ordinal": null,
+      "specimen": "whole_blood",
+      "modifier": "none",
+      "relation": {
+        "resolver_result": "resolved",
+        "verification_status": "user_verified",
+        "measurement_definition_key": "hba1c_whole_blood",
+        "is_active": true,
+        "resolver_evidence": {
+          "version": 2,
+          "selectedCandidateKey": "hba1c_whole_blood",
+          "outcome": "resolved",
+          "candidates": []
+        }
+      }
+    },
+    {
+      "id": "obs-censored",
+      "analyte_key": "glucose",
+      "measurement_definition_key": "fasting_glucose",
+      "resolution_status": "resolved",
+      "name": "Fasting glucose",
+      "value": 0.2,
+      "unit": "mg/dL",
+      "ref_low": 70,
+      "ref_high": 99,
+      "raw_reference_text": "70–99",
+      "observed_at": "2026-08-01",
+      "document_id": "baseline-document",
+      "observation_kind": "lab",
+      "value_kind": "numeric",
+      "value_text": "< 0.20",
+      "ordinal": null,
+      "specimen": "plasma",
+      "modifier": "fasting",
+      "relation": {
+        "resolver_result": "resolved",
+        "verification_status": "user_verified",
+        "measurement_definition_key": "fasting_glucose",
+        "is_active": true,
+        "resolver_evidence": {
+          "version": 2,
+          "selectedCandidateKey": "fasting_glucose",
+          "outcome": "resolved",
+          "candidates": []
+        }
+      }
+    },
+    {
+      "id": "obs-partial",
+      "analyte_key": null,
+      "measurement_definition_key": null,
+      "resolution_status": "partial",
+      "name": "Unresolved glucose",
+      "value": 5,
+      "unit": "mmol/L",
+      "ref_low": 3.9,
+      "ref_high": 5.6,
+      "raw_reference_text": "3.9–5.6",
+      "observed_at": "2026-08-01",
+      "document_id": "baseline-document",
+      "observation_kind": "lab",
+      "value_kind": "numeric",
+      "value_text": "5",
+      "ordinal": null,
+      "specimen": "unspecified",
+      "modifier": "none",
+      "relation": {
+        "resolver_result": "partial",
+        "verification_status": "user_verified",
+        "measurement_definition_key": null,
+        "is_active": true,
+        "resolver_evidence": {
+          "version": 2,
+          "selectedCandidateKey": null,
+          "outcome": "partial",
+          "candidates": []
+        }
+      }
+    },
+    {
+      "id": "obs-no-range",
+      "analyte_key": "hba1c",
+      "measurement_definition_key": "hba1c_whole_blood",
+      "resolution_status": "resolved",
+      "name": "Hemoglobin A1c without range",
+      "value": 5.4,
+      "unit": "%",
+      "ref_low": null,
+      "ref_high": null,
+      "raw_reference_text": null,
+      "observed_at": "2026-08-01",
+      "document_id": "baseline-document",
+      "observation_kind": "lab",
+      "value_kind": "numeric",
+      "value_text": "5.4",
+      "ordinal": null,
+      "specimen": "whole_blood",
+      "modifier": "none",
+      "relation": {
+        "resolver_result": "resolved",
+        "verification_status": "user_verified",
+        "measurement_definition_key": "hba1c_whole_blood",
+        "is_active": true,
+        "resolver_evidence": {
+          "version": 2,
+          "selectedCandidateKey": "hba1c_whole_blood",
+          "outcome": "resolved",
+          "candidates": []
+        }
+      }
+    }
+  ],
+  "extractedRows": [
+    {
+      "id": "ext-hba1c",
+      "document_id": "baseline-document",
+      "linkedObservationId": "obs-hba1c",
+      "biomarker_key": "hba1c",
+      "biomarker_name": "Hemoglobin A1c",
+      "value_numeric": 5.4,
+      "value_text": "5.4",
+      "value_kind": "numeric",
+      "ordinal": null,
+      "unit": "%",
+      "raw_unit": "%",
+      "reference_range": "4.0–5.6",
+      "raw_reference_range": "4.0–5.6",
+      "record_status": "active",
+      "is_current": true,
+      "is_published": true,
+      "measurement_definition_key": "hba1c_whole_blood",
+      "relation": null
+    },
+    {
+      "id": "ext-censored",
+      "document_id": "baseline-document",
+      "linkedObservationId": "obs-censored",
+      "biomarker_key": "fasting_glucose",
+      "biomarker_name": "Fasting glucose",
+      "value_numeric": 0.2,
+      "value_text": "< 0.20",
+      "value_kind": "text",
+      "ordinal": null,
+      "unit": "mg/dL",
+      "raw_unit": "mg/dL",
+      "reference_range": "70–99",
+      "raw_reference_range": "70–99",
+      "record_status": "active",
+      "is_current": true,
+      "is_published": true,
+      "measurement_definition_key": "fasting_glucose",
+      "relation": null
+    },
+    {
+      "id": "ext-partial",
+      "document_id": "baseline-document",
+      "linkedObservationId": null,
+      "biomarker_key": "unresolved_glucose",
+      "biomarker_name": "Unresolved glucose",
+      "value_numeric": 5,
+      "value_text": "5",
+      "value_kind": "numeric",
+      "ordinal": null,
+      "unit": "mmol/L",
+      "raw_unit": "mmol/L",
+      "reference_range": "3.9–5.6",
+      "raw_reference_range": "3.9–5.6",
+      "record_status": "active",
+      "is_current": true,
+      "is_published": true,
+      "measurement_definition_key": null,
+      "relation": {
+        "resolver_result": "partial",
+        "verification_status": "pending",
+        "measurement_definition_key": null,
+        "is_active": true,
+        "resolver_evidence": {
+          "version": 2,
+          "selectedCandidateKey": null,
+          "outcome": "partial",
+          "candidates": []
+        }
+      }
+    }
+  ]
+}

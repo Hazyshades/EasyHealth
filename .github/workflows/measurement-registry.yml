@@ -43,6 +43,8 @@ jobs:
         run: pnpm test:document-persistence-boundaries
       - name: Verify Health Profile laboratory projection
         run: pnpm test:health-profile-lab-input
+      - name: Verify Health Profile admission baseline parity
+        run: pnpm test:health-profile-admission-baseline
       - run: pnpm check:registry-v2-cutover
       - run: pnpm check:no-legacy-promotion-rpc
       - run: pnpm check:postgrest-embed-hints

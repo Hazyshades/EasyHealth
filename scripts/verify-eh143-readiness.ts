@@ -3,17 +3,33 @@ import {
   getRegistryV2ScoreReadinessGroups,
   getReviewedAssessmentBinding,
 } from "../src/lib/biomarkers";
-import { NAMED_BODY_SYSTEMS } from "../src/lib/biomarkers/registry-v2-runtime";
+import {
+  getRegistryV2System,
+  NAMED_BODY_SYSTEMS,
+} from "../src/lib/biomarkers/registry-v2-runtime";
+import {
+  HEALTH_PROFILE_FRESHNESS_POLICY,
+  type HealthProfileFreshnessPolicy,
+} from "../src/lib/health-profile-freshness";
+import {
+  evaluateHealthProfileScorePolicy,
+  REGISTRY_V2_SCORE_READINESS_CONTEXT,
+  type AssessmentCandidate,
+} from "../src/lib/health-profile-score-policy";
 import {
   buildHealthProfile,
-  computeSystemStateScore,
-  evaluateSystemScoreReadiness,
-  suppressOutdatedHealthProfileAssessment,
   type ObservationInput,
   type SystemMarker,
 } from "../src/lib/health-systems";
 
 const OBSERVED_AT = "2026-08-01";
+const POLICY_CONTEXT = {
+  asOf: OBSERVED_AT,
+  evaluatedAt: "2026-08-01T00:00:00.000Z",
+  freshnessPolicy:
+    HEALTH_PROFILE_FRESHNESS_POLICY satisfies HealthProfileFreshnessPolicy,
+  registry: REGISTRY_V2_SCORE_READINESS_CONTEXT,
+};
 
 function markerFor(key: string): SystemMarker {
   const binding = getReviewedAssessmentBinding(key);
@@ -39,8 +55,12 @@ function markerFor(key: string): SystemMarker {
   };
 }
 
-function completeMarkers(systemId: (typeof NAMED_BODY_SYSTEMS)[number]): SystemMarker[] {
-  return getRegistryV2ScoreReadinessGroups(systemId).map((group) => markerFor(group[0]!));
+function completeMarkers(
+  systemId: (typeof NAMED_BODY_SYSTEMS)[number],
+): SystemMarker[] {
+  return getRegistryV2ScoreReadinessGroups(systemId).map((group) =>
+    markerFor(group[0]!),
+  );
 }
 
 function observationFor(marker: SystemMarker): ObservationInput {
@@ -62,48 +82,93 @@ function observationFor(marker: SystemMarker): ObservationInput {
   };
 }
 
+function candidateFor(marker: SystemMarker): AssessmentCandidate {
+  const binding = getReviewedAssessmentBinding(marker.key);
+  assert.ok(binding, `expected reviewed assessment binding for ${marker.key}`);
+  return {
+    observation: observationFor(marker),
+    system_id: binding.binding.system ?? getRegistryV2System(marker.key),
+    assessment_input_key: binding.binding.assessmentInputKey,
+    measurement_definition_key: binding.definition.key,
+    score_role: binding.binding.scoreRole,
+    expected_specimen:
+      binding.definition.specimen !== "unspecified"
+        ? binding.definition.specimen
+        : null,
+    source: marker.source,
+  };
+}
+
+function evaluate(
+  systemId: (typeof NAMED_BODY_SYSTEMS)[number],
+  markers: SystemMarker[],
+) {
+  const result = evaluateHealthProfileScorePolicy(
+    markers.map(candidateFor),
+    POLICY_CONTEXT,
+  ).systems.find((system) => system.id === systemId);
+  assert.ok(result, `expected ${systemId} policy result`);
+  return result;
+}
+
 for (const systemId of NAMED_BODY_SYSTEMS) {
   if (systemId === "inflammation") {
-    const evaluation = evaluateSystemScoreReadiness(systemId, []);
+    const evaluation = evaluate(systemId, [markerFor("crp")]);
     assert.equal(evaluation.scoreability, "non_scoreable");
-    assert.equal(computeSystemStateScore(systemId, []), null);
+    assert.equal(evaluation.state_score, null);
     continue;
   }
 
   const markers = completeMarkers(systemId);
-  const evaluation = evaluateSystemScoreReadiness(systemId, markers);
-  assert.equal(evaluation.scoreability, "scoreable", `${systemId} needs every required group`);
-  assert.deepEqual(evaluation.readiness.reasons, [], `${systemId} has no readiness reason when complete`);
+  const evaluation = evaluate(systemId, markers);
+  assert.equal(
+    evaluation.scoreability,
+    "scoreable",
+    `${systemId} needs every required group`,
+  );
+  assert.deepEqual(
+    evaluation.score_readiness.reasons,
+    [],
+    `${systemId} has no readiness reason when complete`,
+  );
   assert.notEqual(
-    computeSystemStateScore(systemId, markers, evaluation),
+    evaluation.state_score,
     null,
     `${systemId} can produce a score only after complete readiness`,
   );
 
-  const missingGroup = evaluation.readiness.required_groups[0]!;
-  const missingMarkers = markers.filter((marker) => !missingGroup.keys.includes(marker.key));
-  const missing = evaluateSystemScoreReadiness(systemId, missingMarkers);
+  const missingGroup = evaluation.score_readiness.required_groups[0]!;
+  const missingMarkers = markers.filter(
+    (marker) => !missingGroup.keys.includes(marker.key),
+  );
+  const missingEvaluationMarkers =
+    missingMarkers.length > 0 ? missingMarkers : [markerFor("glucose")];
+  const missing = evaluate(systemId, missingEvaluationMarkers);
   assert.equal(missing.scoreability, "incomplete");
-  assert.deepEqual(missing.readiness.reasons, [{
-    code: "missing",
-    required_group: missingGroup.keys,
-    present_keys: [],
-  }]);
-  assert.equal(computeSystemStateScore(systemId, missingMarkers, missing), null);
+  assert.deepEqual(missing.score_readiness.reasons, [
+    {
+      code: "missing",
+      required_group: missingGroup.keys,
+      present_keys: [],
+    },
+  ]);
+  assert.equal(missing.state_score, null);
 
   const invalidMarkers = markers.map((marker) =>
     missingGroup.keys.includes(marker.key)
       ? { ...marker, ref_low: null, ref_high: null, status: "unknown" as const }
       : marker,
   );
-  const invalid = evaluateSystemScoreReadiness(systemId, invalidMarkers);
+  const invalid = evaluate(systemId, invalidMarkers);
   assert.equal(invalid.scoreability, "incomplete");
-  assert.deepEqual(invalid.readiness.reasons, [{
-    code: "invalid",
-    required_group: missingGroup.keys,
-    present_keys: [missingGroup.keys[0]!],
-  }]);
-  assert.equal(computeSystemStateScore(systemId, invalidMarkers, invalid), null);
+  assert.deepEqual(invalid.score_readiness.reasons, [
+    {
+      code: "invalid",
+      required_group: missingGroup.keys,
+      present_keys: [missingGroup.keys[0]!],
+    },
+  ]);
+  assert.equal(invalid.state_score, null);
 }
 
 const alternativeSystem = NAMED_BODY_SYSTEMS.find((systemId) =>
@@ -114,52 +179,48 @@ const alternativeGroup = alternativeGroups.find((group) => group.length > 1)!;
 const alternativeMarkers = alternativeGroups.map((group) =>
   markerFor(group === alternativeGroup ? group[1]! : group[0]!),
 );
-const alternativeEvaluation = evaluateSystemScoreReadiness(alternativeSystem, alternativeMarkers);
+const alternativeEvaluation = evaluate(alternativeSystem, alternativeMarkers);
 assert.equal(alternativeEvaluation.scoreability, "scoreable");
 assert.equal(
-  alternativeEvaluation.readiness.required_groups.find((group) =>
-    group.keys.length === alternativeGroup.length &&
-    group.keys.every((key, index) => key === alternativeGroup[index])
+  alternativeEvaluation.score_readiness.required_groups.find(
+    (group) =>
+      group.keys.length === alternativeGroup.length &&
+      group.keys.every((key, index) => key === alternativeGroup[index]),
   )?.satisfied_by,
   alternativeGroup[1],
   "one approved alternative satisfies its group",
 );
 
-const contextOnlyCardiovascular = evaluateSystemScoreReadiness("cardiovascular", [
+const contextOnlyCardiovascular = evaluate("cardiovascular", [
   markerFor("total_cholesterol"),
 ]);
 assert.equal(contextOnlyCardiovascular.scoreability, "incomplete");
-assert.equal(contextOnlyCardiovascular.readiness.reasons.length, 3);
+assert.equal(contextOnlyCardiovascular.score_readiness.reasons.length, 3);
 assert.ok(
-  contextOnlyCardiovascular.readiness.reasons.every((reason) => reason.code === "missing"),
+  contextOnlyCardiovascular.score_readiness.reasons.every(
+    (reason) => reason.code === "missing",
+  ),
   "context-only cholesterol cannot satisfy cardiovascular readiness",
 );
-
-const incompleteProfile = buildHealthProfile([observationFor(markerFor("ldl"))], []);
-const namedIncompleteSystems = incompleteProfile.systems.filter((system) => system.id !== "general");
+const incompleteProfile = buildHealthProfile(
+  [observationFor(markerFor("ldl"))],
+  [],
+);
+const namedIncompleteSystems = incompleteProfile.systems.filter(
+  (system) => system.id !== "general",
+);
 assert.equal(namedIncompleteSystems.length, NAMED_BODY_SYSTEMS.length);
-assert.ok(namedIncompleteSystems.every((system) => system.state_score === null));
+assert.ok(
+  namedIncompleteSystems.every((system) => system.state_score === null),
+);
 assert.equal(incompleteProfile.overall_state_score, null);
 
-const overallInputs = (["cardiovascular", "metabolic", "thyroid"] as const).flatMap((systemId) =>
-  completeMarkers(systemId).map(observationFor),
-);
+const overallInputs = (
+  ["cardiovascular", "metabolic", "thyroid"] as const
+).flatMap((systemId) => completeMarkers(systemId).map(observationFor));
 const scoreableProfile = buildHealthProfile(overallInputs, []);
 assert.equal(scoreableProfile.scoreable_named_system_count, 3);
 assert.notEqual(scoreableProfile.overall_state_score, null);
-
-const outdatedProfile = suppressOutdatedHealthProfileAssessment(scoreableProfile);
-assert.equal(outdatedProfile.assessment_freshness, "outdated");
-assert.equal(outdatedProfile.overall_state_score, null);
-assert.ok(
-  outdatedProfile.systems
-    .filter((system) => system.id !== "general")
-    .every(
-      (system) =>
-        system.state_score === null &&
-        system.score_readiness.reasons.some((reason) => reason.code === "outdated"),
-    ),
-  "outdated assessment snapshots suppress every named-system score",
-);
+assert.equal(scoreableProfile.assessment_freshness, "current");
 
 console.log("verify-eh143-readiness: all checks passed");

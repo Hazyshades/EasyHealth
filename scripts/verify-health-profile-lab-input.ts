@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { MEASUREMENT_DEFINITIONS } from "../src/lib/biomarkers";
-import { projectHealthProfileLaboratoryInput } from "../src/lib/health-profile-input";
+import { projectHealthProfileLaboratoryAdmission } from "../src/lib/health-profile-input";
 import { buildHealthProfile } from "../src/lib/health-systems";
 
 const source = {
@@ -48,12 +48,14 @@ function revision(overrides: Record<string, unknown> = {}) {
   };
 }
 
-const project = (observationOverrides: Record<string, unknown> = {}, relationOverrides: Record<string, unknown> = {}) =>
-  projectHealthProfileLaboratoryInput({
+const project = (observationOverrides: Record<string, unknown> = {}, relationOverrides: Record<string, unknown> = {}) => {
+  const decision = projectHealthProfileLaboratoryAdmission({
     observation: observation(observationOverrides),
     relation: revision(relationOverrides),
     labUnitSystem: "si",
   });
+  return decision.kind === "accepted" ? decision.input : null;
+};
 
 const resolved = project();
 assert.deepEqual(resolved, {

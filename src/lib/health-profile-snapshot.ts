@@ -7,9 +7,7 @@ import {
   resolveMeasurementDefinition,
   type BodySystemId,
 } from "@/lib/biomarkers";
-import {
-  getRegistryV2System,
-} from "@/lib/biomarkers/registry-v2-runtime";
+import { getRegistryV2System } from "@/lib/biomarkers/registry-v2-runtime";
 import {
   getActiveRegistryV2NormalizationRevision,
   isLaboratoryObservation,
@@ -22,14 +20,17 @@ import {
 } from "@/lib/documents/source-region";
 import {
   buildHealthProfile,
-  getMarkerStatus,
   type HealthProfileResult,
   type HealthProfileSource,
-  type ScoreExclusion,
 } from "@/lib/health-systems";
+import { getMarkerStatus } from "@/lib/health-profile-marker-status";
+import type { ScoreExclusion } from "@/lib/health-systems";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { HEALTH_PROFILE_FRESHNESS_POLICY } from "@/lib/health-profile-freshness";
-import { projectHealthProfileLaboratoryInput } from "@/lib/health-profile-input";
+import {
+  projectHealthProfileLaboratoryAdmission,
+  type HealthProfileLaboratoryAdmission,
+} from "@/lib/health-profile-input";
 import { measurementInputFromExtracted } from "@/lib/documents/normalization-review";
 import {
   projectHealthProfileReportedResults,
@@ -68,7 +69,10 @@ type SnapshotObservationRow = {
   source_text: string | null;
   bounding_box: unknown;
   source_extracted_biomarker_id?: string | null;
-  source_extracted_biomarker?: SnapshotLaboratorySource | SnapshotLaboratorySource[] | null;
+  source_extracted_biomarker?:
+    | SnapshotLaboratorySource
+    | SnapshotLaboratorySource[]
+    | null;
   normalization_revision:
     | RegistryV2NormalizationRevisionReadBoundary
     | RegistryV2NormalizationRevisionReadBoundary[]
@@ -139,7 +143,11 @@ async function selectByIdChunks<T>(
   ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
 ): Promise<T[]> {
   const rows: T[] = [];
-  for (let offset = 0; offset < ids.length; offset += POSTGREST_IN_FILTER_CHUNK) {
+  for (
+    let offset = 0;
+    offset < ids.length;
+    offset += POSTGREST_IN_FILTER_CHUNK
+  ) {
     const chunk = ids.slice(offset, offset + POSTGREST_IN_FILTER_CHUNK);
     const { data, error } = await query(chunk);
     if (error) throw new Error(error.message);
@@ -154,7 +162,10 @@ export async function buildHealthProfileSnapshot(options: {
   labUnitSystem: "us" | "si";
 }): Promise<HealthProfileSnapshot> {
   const supabase = createAdminClient();
-  const [{ data: observations, error: obsError }, { data: documents, error: docError }] = await Promise.all([
+  const [
+    { data: observations, error: obsError },
+    { data: documents, error: docError },
+  ] = await Promise.all([
     supabase
       .from("observations")
       .select(
@@ -164,7 +175,9 @@ export async function buildHealthProfileSnapshot(options: {
       .eq("observation_kind", "lab"),
     supabase
       .from("documents")
-      .select("id, original_filename, observed_at, lab_name, document_type, processing_status, status")
+      .select(
+        "id, original_filename, observed_at, lab_name, document_type, processing_status, status",
+      )
       .eq("profile_id", options.profileId)
       .is("archived_at", null),
   ]);
@@ -193,7 +206,10 @@ export async function buildHealthProfileSnapshot(options: {
   const observationByExtractedId = new Map(
     snapshotObservations
       .filter((observation) => observation.source_extracted_biomarker_id)
-      .map((observation) => [observation.source_extracted_biomarker_id!, observation]),
+      .map((observation) => [
+        observation.source_extracted_biomarker_id!,
+        observation,
+      ]),
   );
 
   let extractedRows: SnapshotExtractedRow[] = [];
@@ -218,84 +234,123 @@ export async function buildHealthProfileSnapshot(options: {
           row.record_status !== "superseded" &&
           row.is_current !== false &&
           (row.value_numeric !== null ||
-            (typeof row.value_text === "string" && row.value_text.trim().length > 0) ||
-            (typeof row.raw_value_text === "string" && row.raw_value_text.trim().length > 0)),
+            (typeof row.value_text === "string" &&
+              row.value_text.trim().length > 0) ||
+            (typeof row.raw_value_text === "string" &&
+              row.raw_value_text.trim().length > 0)),
       )
       .sort((left, right) => left.id.localeCompare(right.id));
   }
 
   const extractedIds = extractedRows.map((row) => row.id);
-  const revisionsByExtractedId = new Map<string, SnapshotNormalizationRevisionRow>();
+  const revisionsByExtractedId = new Map<
+    string,
+    SnapshotNormalizationRevisionRow
+  >();
   if (extractedIds.length > 0) {
-    const revisionRows = await selectByIdChunks<SnapshotNormalizationRevisionRow>(
-      extractedIds,
-      async (ids) =>
-        supabase
-          .from("observation_normalization_revisions")
-          .select(
-            "id, extracted_biomarker_id, resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence",
-          )
-          .in("extracted_biomarker_id", ids)
-          .eq("is_active", true),
-    );
+    const revisionRows =
+      await selectByIdChunks<SnapshotNormalizationRevisionRow>(
+        extractedIds,
+        async (ids) =>
+          supabase
+            .from("observation_normalization_revisions")
+            .select(
+              "id, extracted_biomarker_id, resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence",
+            )
+            .in("extracted_biomarker_id", ids)
+            .eq("is_active", true),
+      );
     for (const revision of revisionRows) {
       revisionsByExtractedId.set(revision.extracted_biomarker_id, revision);
     }
   }
+  const admissionsByObservationId = new Map<
+    string,
+    HealthProfileLaboratoryAdmission
+  >();
+  for (const observation of snapshotObservations) {
+    if (!isLaboratoryObservation(observation)) continue;
+    const relation = observation.source_extracted_biomarker_id
+      ? (revisionsByExtractedId.get(
+          observation.source_extracted_biomarker_id,
+        ) ?? observation.normalization_revision)
+      : observation.normalization_revision;
+    admissionsByObservationId.set(
+      observation.id,
+      projectHealthProfileLaboratoryAdmission({
+        observation,
+        relation,
+        labUnitSystem: options.labUnitSystem,
+      }),
+    );
+  }
 
-  const reportedRows: ReportedResultProjectionRow[] = extractedRows.map((row) => {
-    const linkedObservation = observationByExtractedId.get(row.id) ?? null;
-    const relation =
-      revisionsByExtractedId.get(row.id) ?? linkedObservation?.normalization_revision ?? null;
-    const activeRevision = getActiveRegistryV2NormalizationRevision(relation);
-    const observation = linkedObservation ?? {
-      id: row.id,
-      analyte_key: row.biomarker_key,
-      measurement_definition_key: row.measurement_definition_key,
-      resolution_status: null,
-      name: row.biomarker_name,
-      value: row.value_numeric,
-      unit: row.unit ?? row.raw_unit,
-      ...parseReferenceRange(row.reference_range ?? row.raw_reference_range),
-      raw_reference_text: row.raw_reference_range ?? row.reference_range,
-      observed_at: sourceById.get(row.document_id)?.observed_at ?? "",
-      document_id: row.document_id,
-      observation_kind: "lab" as const,
-      value_kind: row.value_kind,
-      value_text: row.value_text,
-      ordinal: row.ordinal,
-      specimen: row.specimen,
-      modifier: row.modifier,
-      source_page: row.source_page,
-      source_text: row.source_text,
-      bounding_box: row.bounding_box,
-      source_extracted_biomarker_id: row.id,
-      source_extracted_biomarker: {
+  const reportedRows: ReportedResultProjectionRow[] = extractedRows.map(
+    (row) => {
+      const linkedObservation = observationByExtractedId.get(row.id) ?? null;
+      const relation =
+        revisionsByExtractedId.get(row.id) ??
+        linkedObservation?.normalization_revision ??
+        null;
+      const linkedAdmission = linkedObservation
+        ? (admissionsByObservationId.get(linkedObservation.id) ?? null)
+        : null;
+      if (linkedObservation && !linkedAdmission) {
+        throw new Error(
+          `Missing laboratory admission for observation ${linkedObservation.id}`,
+        );
+      }
+      const activeRevision = getActiveRegistryV2NormalizationRevision(relation);
+      const observation =
+        linkedObservation ??
+        ({
+          id: row.id,
+          analyte_key: row.biomarker_key,
+          measurement_definition_key: row.measurement_definition_key,
+          resolution_status: null,
+          name: row.biomarker_name,
+          value: row.value_numeric,
+          unit: row.unit ?? row.raw_unit,
+          ...parseReferenceRange(
+            row.reference_range ?? row.raw_reference_range,
+          ),
+          raw_reference_text: row.raw_reference_range ?? row.reference_range,
+          observed_at: sourceById.get(row.document_id)?.observed_at ?? "",
+          document_id: row.document_id,
+          observation_kind: "lab" as const,
+          value_kind: row.value_kind,
+          value_text: row.value_text,
+          ordinal: row.ordinal,
+          specimen: row.specimen,
+          modifier: row.modifier,
+          source_page: row.source_page,
+          source_text: row.source_text,
+          bounding_box: row.bounding_box,
+          source_extracted_biomarker_id: row.id,
+          source_extracted_biomarker: {
+            id: row.id,
+            record_status: row.record_status,
+            is_current: row.is_current,
+            is_published: row.is_published,
+          },
+          normalization_revision: relation,
+        } satisfies SnapshotObservationRow);
+      const preview = activeRevision
+        ? null
+        : resolveMeasurementDefinition(measurementInputFromExtracted(row));
+      const outcome =
+        linkedAdmission?.evidence.outcome ??
+        projectLaboratoryOutcome({ observation, relation, preview });
+      const assessmentInput =
+        linkedAdmission?.kind === "accepted" ? linkedAdmission.input : null;
+      return {
         id: row.id,
-        record_status: row.record_status,
-        is_current: row.is_current,
-        is_published: row.is_published,
-      },
-      normalization_revision: relation,
-    } satisfies SnapshotObservationRow;
-    const preview = activeRevision
-      ? null
-      : resolveMeasurementDefinition(measurementInputFromExtracted(row));
-    const outcome = projectLaboratoryOutcome({ observation, relation, preview });
-    const assessmentInput = linkedObservation
-      ? projectHealthProfileLaboratoryInput({
-          observation: linkedObservation,
-          relation,
-          labUnitSystem: options.labUnitSystem,
-        })
-      : null;
-    return {
-      id: row.id,
-      document_id: row.document_id,
-      outcome,
-      assessment_input: assessmentInput,
-    };
-  });
+        document_id: row.document_id,
+        outcome,
+        assessment_input: assessmentInput,
+      };
+    },
+  );
   const reportedResults: HealthProfileReportedResults =
     projectHealthProfileReportedResults(reportedRows);
 
@@ -304,52 +359,68 @@ export async function buildHealthProfileSnapshot(options: {
     .filter(
       (observation) =>
         isLaboratoryObservation(observation) &&
-        (observation.document_id == null || sourceIdSet.has(observation.document_id)),
+        (observation.document_id == null ||
+          sourceIdSet.has(observation.document_id)),
     )
     .sort(compareSnapshotRows)
     .flatMap((observation) => {
       const region = parseSourceRegion(observation.bounding_box);
-      const sourceRegion = sourceRegionMatchesPage(region, observation.source_page)
+      const sourceRegion = sourceRegionMatchesPage(
+        region,
+        observation.source_page,
+      )
         ? region
         : null;
-      const relation = observation.normalization_revision;
-      const input = projectHealthProfileLaboratoryInput({
-        observation,
-        relation,
-        labUnitSystem: options.labUnitSystem,
-      });
+      const admission = admissionsByObservationId.get(observation.id);
+      if (!admission) {
+        throw new Error(
+          `Missing laboratory admission for observation ${observation.id}`,
+        );
+      }
+      const input = admission.kind === "accepted" ? admission.input : null;
 
       if (input) {
-        return [{
-          ...input,
-          observation_id: observation.id,
-          source_page: observation.source_page,
-          source_text: observation.source_text,
-          source_region: sourceRegion,
-        }];
+        return [
+          {
+            ...input,
+            observation_id: observation.id,
+            source_page: observation.source_page,
+            source_text: observation.source_text,
+            source_region: sourceRegion,
+          },
+        ];
       }
 
-      const outcome = projectLaboratoryOutcome({ observation, relation });
-      const activeRevision = getActiveRegistryV2NormalizationRevision(relation);
+      const outcome = admission.evidence.outcome;
       const definitionKey =
-        activeRevision?.measurement_definition_key ??
+        admission.evidence.binding.measurementDefinitionKey ??
         observation.measurement_definition_key;
       const reviewedBinding = definitionKey
         ? getReviewedAssessmentBinding(definitionKey)
         : null;
-      const systemId: BodySystemId = reviewedBinding?.binding.system ??
+      const systemId: BodySystemId =
+        reviewedBinding?.binding.system ??
         (definitionKey ? getRegistryV2System(definitionKey) : "general");
-      const assessmentExclusion = outcome.resolutionDetails.eligibility.exclusions.assessment;
+      const excludedAdmission =
+        admission.kind === "excluded" ? admission : null;
+      if (!excludedAdmission) {
+        throw new Error(
+          `Accepted admission did not produce an input for ${observation.id}`,
+        );
+      }
       const reason: ScoreExclusion["reason"] =
-        assessmentExclusion === "no_active_revision" ||
-        assessmentExclusion === "incomplete_resolution" ||
-        assessmentExclusion === "candidate_only_identity" ||
-        assessmentExclusion === "assessment_binding_ineligible"
-          ? assessmentExclusion
+        excludedAdmission.reason === "no_active_revision" ||
+        excludedAdmission.reason === "incomplete_resolution" ||
+        excludedAdmission.reason === "candidate_only_identity" ||
+        excludedAdmission.reason === "assessment_binding_ineligible"
+          ? excludedAdmission.reason
           : "assessment_binding_ineligible";
-      const value = observation.value == null ? null : Number(observation.value);
-      const refLow = observation.ref_low == null ? null : Number(observation.ref_low);
-      const refHigh = observation.ref_high == null ? null : Number(observation.ref_high);
+      const value =
+        observation.value == null ? null : Number(observation.value);
+      const refLow =
+        observation.ref_low == null ? null : Number(observation.ref_low);
+      const refHigh =
+        observation.ref_high == null ? null : Number(observation.ref_high);
       const valueKind =
         observation.value_kind === "qualitative" ||
         observation.value_kind === "ordinal" ||
@@ -361,7 +432,8 @@ export async function buildHealthProfileSnapshot(options: {
       excludedObservations.push({
         observation_id: observation.id,
         system_id: systemId,
-        key: reviewedBinding?.binding.assessmentInputKey ??
+        key:
+          reviewedBinding?.binding.assessmentInputKey ??
           observation.analyte_key ??
           definitionKey ??
           observation.name,
@@ -380,12 +452,15 @@ export async function buildHealthProfileSnapshot(options: {
         ),
         observed_at: observation.observed_at,
         document_id: observation.document_id,
-        source: observation.document_id ? sourceById.get(observation.document_id) ?? null : null,
+        source: observation.document_id
+          ? (sourceById.get(observation.document_id) ?? null)
+          : null,
         source_page: observation.source_page,
         source_text: observation.source_text,
         source_region: sourceRegion,
         reason,
-        reason_detail: outcome.resolutionDetails.incompleteReason ?? outcome.outcome,
+        reason_detail:
+          outcome.resolutionDetails.incompleteReason ?? outcome.outcome,
         contribution_group: null,
       });
       return [];
@@ -410,7 +485,8 @@ export async function buildHealthProfileSnapshot(options: {
       id: row.id,
       document_id: row.document_id,
       outcome: row.outcome.outcome,
-      assessment_exclusion: row.outcome.resolutionDetails.eligibility.exclusions.assessment,
+      assessment_exclusion:
+        row.outcome.resolutionDetails.eligibility.exclusions.assessment,
       incomplete_reason: row.outcome.resolutionDetails.incompleteReason,
       ready_for_scoring: row.assessment_input !== null,
     })),

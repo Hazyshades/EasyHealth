@@ -8,14 +8,16 @@ import {
   NAMED_BODY_SYSTEMS,
 } from "../src/lib/biomarkers/registry-v2-runtime";
 import type { NamedBodySystemId } from "../src/lib/biomarkers/types";
-import { projectLaboratoryOutcome } from "../src/lib/documents/incomplete-laboratory-outcomes";
-import { projectHealthProfileLaboratoryInput } from "../src/lib/health-profile-input";
+import {
+  projectHealthProfileLaboratoryAdmission,
+  type HealthProfileLaboratoryAdmission,
+} from "../src/lib/health-profile-input";
 import type { AssessmentExclusionReason } from "../src/lib/health-profile-assessment-eligibility";
 import {
   buildHealthProfile,
-  HEALTH_PROFILE_SCORE_ALGORITHM_VERSION,
   type ObservationInput,
 } from "../src/lib/health-systems";
+import { HEALTH_PROFILE_SCORE_ALGORITHM_VERSION } from "../src/lib/health-profile-score-policy";
 
 export const EH147_PACK_VERSION = "eh147-golden-v1";
 export const EH147_FRESHNESS_AS_OF = "2026-08-01";
@@ -68,8 +70,12 @@ export type GoldenCase = Readonly<{
   labUnitSystem?: LabUnitSystem;
   observations?: readonly ObservationInput[];
   admission?: Readonly<{
-    observation: Parameters<typeof projectHealthProfileLaboratoryInput>[0]["observation"];
-    relation: Parameters<typeof projectHealthProfileLaboratoryInput>[0]["relation"];
+    observation: Parameters<
+      typeof projectHealthProfileLaboratoryAdmission
+    >[0]["observation"];
+    relation: Parameters<
+      typeof projectHealthProfileLaboratoryAdmission
+    >[0]["relation"];
   }>;
 }>;
 
@@ -92,8 +98,18 @@ type MarkerSpec = Readonly<{
 const IN_RANGE: Record<string, MarkerSpec> = {
   ldl: { key: "ldl", value: 2.5, refLow: 1.5, refHigh: 3.0 },
   hdl: { key: "hdl", value: 1.4, refLow: 1.0, refHigh: 2.0 },
-  triglycerides: { key: "triglycerides", value: 1.2, refLow: 0.5, refHigh: 1.7 },
-  fasting_glucose: { key: "fasting_glucose", value: 5.0, refLow: 3.9, refHigh: 5.6 },
+  triglycerides: {
+    key: "triglycerides",
+    value: 1.2,
+    refLow: 0.5,
+    refHigh: 1.7,
+  },
+  fasting_glucose: {
+    key: "fasting_glucose",
+    value: 5.0,
+    refLow: 3.9,
+    refHigh: 5.6,
+  },
   hba1c: { key: "hba1c", value: 5.4, unit: "%", refLow: 4.0, refHigh: 5.6 },
   tsh: { key: "tsh", value: 2.0, refLow: 0.4, refHigh: 4.0 },
   free_t4: { key: "free_t4", value: 15, refLow: 9, refHigh: 19 },
@@ -106,7 +122,13 @@ const IN_RANGE: Record<string, MarkerSpec> = {
   creatinine: { key: "creatinine", value: 80, refLow: 45, refHigh: 110 },
   uacr: { key: "uacr", value: 10, refLow: 0, refHigh: 30 },
   hemoglobin: { key: "hemoglobin", value: 140, refLow: 120, refHigh: 160 },
-  hematocrit: { key: "hematocrit", value: 42, unit: "%", refLow: 36, refHigh: 50 },
+  hematocrit: {
+    key: "hematocrit",
+    value: 42,
+    unit: "%",
+    refLow: 36,
+    refHigh: 50,
+  },
   wbc: { key: "wbc", value: 7, refLow: 4, refHigh: 10 },
   platelets: { key: "platelets", value: 250, refLow: 150, refHigh: 400 },
   mcv: { key: "mcv", value: 90, refLow: 80, refHigh: 100 },
@@ -115,18 +137,28 @@ const IN_RANGE: Record<string, MarkerSpec> = {
   folate: { key: "folate", value: 20, refLow: 7, refHigh: 45 },
   crp: { key: "crp", value: 1.2, refLow: 0, refHigh: 5 },
   glucose: { key: "glucose", value: 5.0, refLow: 3.9, refHigh: 5.6 },
-  total_cholesterol: { key: "total_cholesterol", value: 4.5, refLow: 3.0, refHigh: 5.2 },
+  total_cholesterol: {
+    key: "total_cholesterol",
+    value: 4.5,
+    refLow: 3.0,
+    refHigh: 5.2,
+  },
 };
 
 function bindingFor(key: string) {
   const binding = getReviewedAssessmentBinding(key);
   if (!binding) {
-    throw new Error(`EH-147 fixture key ${key} has no reviewed assessment binding`);
+    throw new Error(
+      `EH-147 fixture key ${key} has no reviewed assessment binding`,
+    );
   }
   return binding;
 }
 
-function observationFromSpec(spec: MarkerSpec, observationId = `obs-${spec.key}`): ObservationInput {
+function observationFromSpec(
+  spec: MarkerSpec,
+  observationId = `obs-${spec.key}`,
+): ObservationInput {
   const binding = bindingFor(spec.key);
   return {
     observation_id: observationId,
@@ -193,11 +225,16 @@ function profileExpected(
     systems[system.id] = {
       scoreability: system.scoreability,
       state_score: system.state_score,
-      readiness_codes: system.score_readiness.reasons.map((reason) => reason.code),
+      readiness_codes: system.score_readiness.reasons.map(
+        (reason) => reason.code,
+      ),
       ...(Object.keys(satisfied_by).length > 0 ? { satisfied_by } : {}),
     };
   }
-  const markers: Record<string, { unit: string; status: string; converted?: boolean }> = {};
+  const markers: Record<
+    string,
+    { unit: string; status: string; converted?: boolean }
+  > = {};
   for (const system of profile.systems) {
     for (const marker of system.markers) {
       if (!markerKeys.includes(marker.key)) continue;
@@ -222,7 +259,11 @@ function buildProfile(obs: readonly ObservationInput[]) {
   });
 }
 
-function replaceKey(specs: readonly MarkerSpec[], from: string, to: string): MarkerSpec[] {
+function replaceKey(
+  specs: readonly MarkerSpec[],
+  from: string,
+  to: string,
+): MarkerSpec[] {
   return specs.map((spec) => (spec.key === from ? IN_RANGE[to]! : spec));
 }
 
@@ -277,7 +318,12 @@ function revision(options: {
   };
 }
 
-function glucoseAdmission(verificationStatus: string, refLow = 70, refHigh = 99, raw = "70-99") {
+function glucoseAdmission(
+  verificationStatus: string,
+  refLow = 70,
+  refHigh = 99,
+  raw = "70-99",
+) {
   const observation = labObservation({
     measurementDefinitionKey: "glucose_serum",
     name: "Glucose",
@@ -300,7 +346,9 @@ const completeOutOfRange = completeInRange.map((spec) =>
   spec.key === "crp" ? spec : outOfRange(spec),
 );
 
-function fastingGlucoseNative(labUnitSystem: LabUnitSystem): ObservationInput[] {
+function fastingGlucoseNative(
+  labUnitSystem: LabUnitSystem,
+): ObservationInput[] {
   const native = labObservation({
     measurementDefinitionKey: "fasting_glucose",
     name: "Fasting glucose",
@@ -315,29 +363,31 @@ function fastingGlucoseNative(labUnitSystem: LabUnitSystem): ObservationInput[] 
     measurementDefinitionKey: "fasting_glucose",
     verificationStatus: "user_verified",
   });
-  const projected = projectHealthProfileLaboratoryInput({
+  const projected = projectHealthProfileLaboratoryAdmission({
     observation: native,
     relation,
     labUnitSystem,
   });
-  if (!projected) {
+  if (projected.kind !== "accepted") {
     throw new Error(`fasting glucose should project under ${labUnitSystem}`);
   }
-  return [projected];
+  return [projected.input];
 }
 
 function missingGroupCases(): GoldenCase[] {
-  return NAMED_BODY_SYSTEMS.filter((system) => system !== "inflammation").map((system) => {
-    const dropped = getRegistryV2ScoreReadinessGroups(system)[0]![0]!;
-    const specs = dropKey(completeInRange, dropped);
-    return {
-      id: `missing-group-${system}`,
-      family: "missing-group" as const,
-      description: `${system} omits required group alternative ${dropped}`,
-      kind: "profile" as const,
-      observations: observations(specs),
-    };
-  });
+  return NAMED_BODY_SYSTEMS.filter((system) => system !== "inflammation").map(
+    (system) => {
+      const dropped = getRegistryV2ScoreReadinessGroups(system)[0]![0]!;
+      const specs = dropKey(completeInRange, dropped);
+      return {
+        id: `missing-group-${system}`,
+        family: "missing-group" as const,
+        description: `${system} omits required group alternative ${dropped}`,
+        kind: "profile" as const,
+        observations: observations(specs),
+      };
+    },
+  );
 }
 
 function admissionCase(
@@ -362,7 +412,11 @@ export function listGoldenCases(): GoldenCase[] {
     spec.key === "alt" ? { ...spec, refLow: null, refHigh: null } : spec,
   );
   const glucoseOnly = [IN_RANGE.glucose!];
-  const cholesterolSwap = replaceKey(completeInRange, "ldl", "total_cholesterol");
+  const cholesterolSwap = replaceKey(
+    completeInRange,
+    "ldl",
+    "total_cholesterol",
+  );
   const hba1cAlt = replaceKey(completeInRange, "fasting_glucose", "hba1c");
   const hematocritAlt = replaceKey(completeInRange, "hemoglobin", "hematocrit");
   const creatinineAlt = replaceKey(completeInRange, "egfr", "creatinine");
@@ -372,14 +426,16 @@ export function listGoldenCases(): GoldenCase[] {
     {
       id: "complete-in-range-eight-systems",
       family: "complete-in-range",
-      description: "Every scoreable required group is a usable in-range core marker; CRP is display-only",
+      description:
+        "Every scoreable required group is a usable in-range core marker; CRP is display-only",
       kind: "profile",
       observations: observations(completeInRange),
     },
     {
       id: "complete-out-of-range-eight-systems",
       family: "complete-out-of-range",
-      description: "Same required groups with values outside document-native bounds",
+      description:
+        "Same required groups with values outside document-native bounds",
       kind: "profile",
       observations: observations(completeOutOfRange),
     },
@@ -403,7 +459,8 @@ export function listGoldenCases(): GoldenCase[] {
     {
       id: "invalid-reference-liver-alt",
       family: "invalid-reference",
-      description: "Liver ALT is present without a usable document-native range",
+      description:
+        "Liver ALT is present without a usable document-native range",
       kind: "profile",
       observations: observations(invalidRefs),
     },
@@ -417,7 +474,8 @@ export function listGoldenCases(): GoldenCase[] {
     {
       id: "context-only-cardiovascular-total-cholesterol",
       family: "context-only",
-      description: "Total cholesterol cannot replace the atherogenic cholesterol group",
+      description:
+        "Total cholesterol cannot replace the atherogenic cholesterol group",
       kind: "profile",
       observations: observations(cholesterolSwap),
     },
@@ -476,30 +534,37 @@ export function listGoldenCases(): GoldenCase[] {
   ];
 }
 
-export function evaluateGoldenCase(goldenCase: GoldenCase): ProfileExpectation | AdmissionExpectation {
+export function evaluateGoldenCase(
+  goldenCase: GoldenCase,
+): ProfileExpectation | AdmissionExpectation {
   if (goldenCase.kind === "admission") {
     if (!goldenCase.admission) {
       throw new Error(`${goldenCase.id} is missing admission inputs`);
     }
-    const outcome = projectLaboratoryOutcome({
-      observation: goldenCase.admission.observation,
-      relation: goldenCase.admission.relation,
-    });
+    const admission: HealthProfileLaboratoryAdmission =
+      projectHealthProfileLaboratoryAdmission({
+        observation: goldenCase.admission.observation,
+        relation: goldenCase.admission.relation,
+        labUnitSystem: "si",
+      });
     return {
-      eligible: outcome.resolutionDetails.eligibility.assessmentEligible,
-      exclusionReason: outcome.resolutionDetails.eligibility.exclusions.assessment,
+      eligible: admission.kind === "accepted",
+      exclusionReason: admission.kind === "excluded" ? admission.reason : null,
     };
   }
   if (!goldenCase.observations) {
     throw new Error(`${goldenCase.id} is missing profile observations`);
   }
-  const markerKeys = goldenCase.family === "si-us-units" ? ["fasting_glucose"] : [];
+  const markerKeys =
+    goldenCase.family === "si-us-units" ? ["fasting_glucose"] : [];
   return profileExpected(buildProfile(goldenCase.observations), markerKeys);
 }
 
 export function canonicalPackPayload(
   cases: readonly GoldenCase[],
-  expectedById: Readonly<Record<string, ProfileExpectation | AdmissionExpectation>>,
+  expectedById: Readonly<
+    Record<string, ProfileExpectation | AdmissionExpectation>
+  >,
 ) {
   return {
     packVersion: EH147_PACK_VERSION,
@@ -517,7 +582,9 @@ export function canonicalPackPayload(
 
 export function packHash(
   cases: readonly GoldenCase[],
-  expectedById: Readonly<Record<string, ProfileExpectation | AdmissionExpectation>>,
+  expectedById: Readonly<
+    Record<string, ProfileExpectation | AdmissionExpectation>
+  >,
 ): string {
   return createHash("sha256")
     .update(JSON.stringify(canonicalPackPayload(cases, expectedById)))

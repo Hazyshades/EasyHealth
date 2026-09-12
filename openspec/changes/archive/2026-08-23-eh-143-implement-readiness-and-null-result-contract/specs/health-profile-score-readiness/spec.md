@@ -1,3 +1,5 @@
+> **Historical / superseded:** EH-146 replaced the job-freshness score suppression requirement in this archived specification. Current behavior retains completed scores while queued or processing recalculation runs and exposes lifecycle state separately; observation-level `outdated` remains a freshness/readiness reason. The original specification is preserved below.
+
 ## ADDED Requirements
 
 ### Requirement: Named-system scoring requires complete approved readiness groups

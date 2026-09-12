@@ -1,15 +1,18 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { getReviewedAssessmentBinding } from "../src/lib/biomarkers";
 import {
   evaluateSystemObservationFreshness,
   HEALTH_PROFILE_FRESHNESS_POLICY,
-  type FreshnessStatus,
 } from "../src/lib/health-profile-freshness";
 import {
+  evaluateHealthProfileScorePolicy,
+  REGISTRY_V2_SCORE_READINESS_CONTEXT,
+  type AssessmentCandidate,
+} from "../src/lib/health-profile-score-policy";
+import {
   buildHealthProfile,
-  computeSystemStateScore,
-  evaluateSystemScoreReadiness,
   type ObservationInput,
   type SystemMarker,
 } from "../src/lib/health-systems";
@@ -17,6 +20,12 @@ import { hashHealthProfileSnapshotInput } from "../src/lib/health-profile-snapsh
 
 const AS_OF = "2026-08-23";
 const EVALUATED_AT = "2026-08-23T12:00:00.000Z";
+const POLICY_CONTEXT = {
+  asOf: AS_OF,
+  evaluatedAt: EVALUATED_AT,
+  freshnessPolicy: HEALTH_PROFILE_FRESHNESS_POLICY,
+  registry: REGISTRY_V2_SCORE_READINESS_CONTEXT,
+};
 const source = {
   id: "document-eh144",
   original_filename: "lipids.pdf",
@@ -53,7 +62,7 @@ function observation(
 function marker(
   key: string,
   definitionKey: string,
-  freshnessStatus: FreshnessStatus,
+  observedAt: string | null,
 ): SystemMarker {
   return {
     key,
@@ -64,8 +73,12 @@ function marker(
     ref_low: 0,
     ref_high: 200,
     status: "in_range",
-    freshness_status: freshnessStatus,
-    observed_at: freshnessStatus === "unknown_date" ? null : AS_OF,
+    freshness_status: evaluateSystemObservationFreshness({
+      systemId: "cardiovascular",
+      measuredAt: observedAt,
+      asOf: AS_OF,
+    }),
+    observed_at: observedAt,
     document_id: source.id,
     observation_kind: "lab",
     source,
@@ -76,6 +89,37 @@ function marker(
   };
 }
 
+function candidateFor(item: SystemMarker): AssessmentCandidate {
+  const binding = getReviewedAssessmentBinding(item.key);
+  assert.ok(binding, `expected reviewed assessment binding for ${item.key}`);
+  return {
+    observation: observation(
+      item.key,
+      binding.definition.key,
+      item.observed_at,
+      item.value ?? 100,
+      item.observation_id ?? `fixture-${item.key}`,
+    ),
+    system_id: binding.binding.system,
+    assessment_input_key: binding.binding.assessmentInputKey,
+    measurement_definition_key: binding.definition.key,
+    score_role: binding.binding.scoreRole,
+    expected_specimen:
+      binding.definition.specimen !== "unspecified"
+        ? binding.definition.specimen
+        : null,
+    source: item.source,
+  };
+}
+
+function evaluate(systemId: "cardiovascular", markers: SystemMarker[]) {
+  const result = evaluateHealthProfileScorePolicy(
+    markers.map(candidateFor),
+    POLICY_CONTEXT,
+  ).systems.find((system) => system.id === systemId);
+  assert.ok(result, `expected ${systemId} policy result`);
+  return result;
+}
 assert.equal(HEALTH_PROFILE_FRESHNESS_POLICY.version, "eh-144.v1");
 assert.equal(
   HEALTH_PROFILE_FRESHNESS_POLICY.maxAgeDaysBySystem.cardiovascular,
@@ -138,44 +182,43 @@ assert.equal(
   "unknown_date",
 );
 
-const currentReadiness = evaluateSystemScoreReadiness("cardiovascular", [
-  marker("ldl", "ldl_serum", "current"),
-  marker("hdl", "hdl_serum", "current"),
-  marker("triglycerides", "triglycerides_serum", "current"),
+const currentReadiness = evaluate("cardiovascular", [
+  marker("ldl", "ldl_serum", AS_OF),
+  marker("hdl", "hdl_serum", AS_OF),
+  marker("triglycerides", "triglycerides_serum", AS_OF),
 ]);
 assert.equal(currentReadiness.scoreability, "scoreable");
 assert.equal(
-  currentReadiness.readiness.reasons.some((reason) => reason.code === "outdated" || reason.code === "unknown_date"),
+  currentReadiness.score_readiness.reasons.some(
+    (reason) => reason.code === "outdated" || reason.code === "unknown_date",
+  ),
   false,
 );
 
-const outdatedReadiness = evaluateSystemScoreReadiness("cardiovascular", [
-  marker("ldl", "ldl_serum", "outdated"),
-  marker("hdl", "hdl_serum", "current"),
-  marker("triglycerides", "triglycerides_serum", "current"),
+const outdatedReadiness = evaluate("cardiovascular", [
+  marker("ldl", "ldl_serum", "2025-08-22"),
+  marker("hdl", "hdl_serum", AS_OF),
+  marker("triglycerides", "triglycerides_serum", AS_OF),
 ]);
 assert.equal(outdatedReadiness.scoreability, "incomplete");
 assert.deepEqual(
-  outdatedReadiness.readiness.reasons.filter((reason) => reason.code === "outdated").map((reason) => reason.required_group),
+  outdatedReadiness.score_readiness.reasons
+    .filter((reason) => reason.code === "outdated")
+    .map((reason) => reason.required_group),
   [["ldl", "non_hdl_cholesterol"]],
 );
-assert.equal(
-  computeSystemStateScore("cardiovascular", [
-    marker("ldl", "ldl_serum", "outdated"),
-    marker("hdl", "hdl_serum", "current"),
-    marker("triglycerides", "triglycerides_serum", "current"),
-  ]),
-  null,
-);
+assert.equal(outdatedReadiness.state_score, null);
 
-const unknownDateReadiness = evaluateSystemScoreReadiness("cardiovascular", [
-  marker("ldl", "ldl_serum", "unknown_date"),
-  marker("hdl", "hdl_serum", "current"),
-  marker("triglycerides", "triglycerides_serum", "current"),
+const unknownDateReadiness = evaluate("cardiovascular", [
+  marker("ldl", "ldl_serum", null),
+  marker("hdl", "hdl_serum", AS_OF),
+  marker("triglycerides", "triglycerides_serum", AS_OF),
 ]);
 assert.equal(unknownDateReadiness.scoreability, "incomplete");
 assert.deepEqual(
-  unknownDateReadiness.readiness.reasons.filter((reason) => reason.code === "unknown_date").map((reason) => reason.required_group),
+  unknownDateReadiness.score_readiness.reasons
+    .filter((reason) => reason.code === "unknown_date")
+    .map((reason) => reason.required_group),
   [["ldl", "non_hdl_cholesterol"]],
 );
 
@@ -196,7 +239,9 @@ assert.equal(currentCardiovascular.state_score !== null, true);
 assert.equal(currentProfile.freshness_policy_version, "eh-144.v1");
 assert.equal(currentProfile.freshness_evaluated_at, EVALUATED_AT);
 assert.equal(
-  currentCardiovascular.markers.every((item) => item.freshness_status === "current"),
+  currentCardiovascular.markers.every(
+    (item) => item.freshness_status === "current",
+  ),
   true,
 );
 
@@ -215,11 +260,14 @@ const outdatedCardiovascular = outdatedProfile.systems.find(
 assert.ok(outdatedCardiovascular);
 assert.equal(outdatedCardiovascular.state_score, null);
 assert.deepEqual(
-  outdatedCardiovascular.score_readiness.reasons.filter((reason) => reason.code === "outdated").map((reason) => reason.required_group),
+  outdatedCardiovascular.score_readiness.reasons
+    .filter((reason) => reason.code === "outdated")
+    .map((reason) => reason.required_group),
   [["ldl", "non_hdl_cholesterol"]],
 );
 assert.equal(
-  outdatedCardiovascular.markers.find((item) => item.key === "ldl")?.observed_at,
+  outdatedCardiovascular.markers.find((item) => item.key === "ldl")
+    ?.observed_at,
   "2025-01-01",
 );
 
@@ -238,11 +286,14 @@ const unknownDateCardiovascular = unknownDateProfile.systems.find(
 assert.ok(unknownDateCardiovascular);
 assert.equal(unknownDateCardiovascular.state_score, null);
 assert.deepEqual(
-  unknownDateCardiovascular.score_readiness.reasons.filter((reason) => reason.code === "unknown_date").map((reason) => reason.required_group),
+  unknownDateCardiovascular.score_readiness.reasons
+    .filter((reason) => reason.code === "unknown_date")
+    .map((reason) => reason.required_group),
   [["ldl", "non_hdl_cholesterol"]],
 );
 assert.equal(
-  unknownDateCardiovascular.markers.find((item) => item.key === "ldl")?.observed_at,
+  unknownDateCardiovascular.markers.find((item) => item.key === "ldl")
+    ?.observed_at,
   null,
 );
 
@@ -262,7 +313,13 @@ assert.ok(alternativeCardiovascular);
 assert.equal(alternativeCardiovascular.state_score !== null, true);
 
 const firstInput = observation("ldl", "ldl_serum", AS_OF, 80, "observation-a");
-const secondInput = observation("ldl", "ldl_serum", AS_OF, 120, "observation-b");
+const secondInput = observation(
+  "ldl",
+  "ldl_serum",
+  AS_OF,
+  120,
+  "observation-b",
+);
 const deterministicProfile = buildHealthProfile(
   [firstInput, secondInput],
   [source],
@@ -276,7 +333,13 @@ assert.equal(deterministicMarker?.value, 120);
 const knownDateWinsOverMalformedDate = buildHealthProfile(
   [
     observation("ldl", "ldl_serum", "2025-01-01", 80, "observation-known-date"),
-    observation("ldl", "ldl_serum", "not-a-date", 120, "observation-malformed-date"),
+    observation(
+      "ldl",
+      "ldl_serum",
+      "not-a-date",
+      120,
+      "observation-malformed-date",
+    ),
     observation("hdl", "hdl_serum", AS_OF),
     observation("triglycerides", "triglycerides_serum", AS_OF),
   ],
@@ -287,6 +350,77 @@ const knownDateMarker = knownDateWinsOverMalformedDate.systems
   .find((system) => system.id === "cardiovascular")
   ?.markers.find((item) => item.key === "ldl");
 assert.equal(knownDateMarker?.observed_at, "2025-01-01");
+// Identical date/id/document ties intentionally retain input order; no new
+// tie-breaker is introduced by the policy extraction.
+const identicalTieFirst = observation(
+  "ldl",
+  "ldl_serum",
+  AS_OF,
+  80,
+  "same-observation",
+);
+const identicalTieSecond = observation(
+  "ldl",
+  "ldl_serum",
+  AS_OF,
+  120,
+  "same-observation",
+);
+const identicalTieForward = buildHealthProfile(
+  [identicalTieFirst, identicalTieSecond],
+  [source],
+  { freshnessAsOf: AS_OF, freshnessEvaluatedAt: EVALUATED_AT },
+);
+const identicalTieReverse = buildHealthProfile(
+  [identicalTieSecond, identicalTieFirst],
+  [source],
+  { freshnessAsOf: AS_OF, freshnessEvaluatedAt: EVALUATED_AT },
+);
+assert.equal(
+  identicalTieForward.systems
+    .find((system) => system.id === "cardiovascular")
+    ?.markers.find((item) => item.key === "ldl")?.value,
+  80,
+);
+assert.equal(
+  identicalTieReverse.systems
+    .find((system) => system.id === "cardiovascular")
+    ?.markers.find((item) => item.key === "ldl")?.value,
+  120,
+);
+
+const evaluatedAtOnlyProfile = buildHealthProfile(
+  [
+    observation("ldl", "ldl_serum", AS_OF),
+    observation("hdl", "hdl_serum", AS_OF),
+    observation("triglycerides", "triglycerides_serum", AS_OF),
+  ],
+  [source],
+  { freshnessAsOf: AS_OF, freshnessEvaluatedAt: "2026-08-24T12:00:00.000Z" },
+);
+const scoreReadinessProjection = (profile: typeof currentProfile) =>
+  profile.systems.map((system) => ({
+    id: system.id,
+    state_score: system.state_score,
+    data_confidence: system.data_confidence,
+    scoreability: system.scoreability,
+    score_readiness: system.score_readiness,
+    markers: system.markers.map((item) => ({
+      key: item.key,
+      status: item.status,
+      freshness_status: item.freshness_status,
+      observed_at: item.observed_at,
+    })),
+  }));
+assert.deepEqual(
+  scoreReadinessProjection(evaluatedAtOnlyProfile),
+  scoreReadinessProjection(currentProfile),
+  "evaluatedAt is provenance only and cannot change score/readiness",
+);
+assert.equal(
+  evaluatedAtOnlyProfile.overall_state_score,
+  currentProfile.overall_state_score,
+);
 
 const hashWithPolicy = hashHealthProfileSnapshotInput({
   freshness_policy_version: "eh-144.v1",

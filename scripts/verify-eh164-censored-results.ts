@@ -11,7 +11,7 @@ import { parsePipelineExtraction } from "../src/lib/documents/extraction";
 import { baseMeasurementFromExtractedRow } from "../src/lib/documents/observation-measurement-correction";
 import { buildMeasurementComparisonSeries } from "../src/lib/biomarker-comparison";
 import { evaluateAssessmentEligibility } from "../src/lib/health-profile-assessment-eligibility";
-import { projectHealthProfileLaboratoryInput } from "../src/lib/health-profile-input";
+import { projectHealthProfileLaboratoryAdmission } from "../src/lib/health-profile-input";
 import { parseLabNumber } from "../src/lib/schemas/biomarkers";
 import { buildHealthProfile } from "../src/lib/health-systems";
 
@@ -157,22 +157,72 @@ const censoredRelation = {
     outcome: "resolved",
   },
 };
-const censoredInput = projectHealthProfileLaboratoryInput({
+const censoredAdmission = projectHealthProfileLaboratoryAdmission({
   observation: censoredObservation,
   relation: censoredRelation,
   labUnitSystem: "si",
 });
+assert.equal(censoredAdmission.kind, "accepted");
+assert.equal(
+  censoredAdmission.evidence.resolution.eligibility.exclusions.assessment,
+  "non_numeric_value",
+);
+const censoredInput = censoredAdmission.kind === "accepted" ? censoredAdmission.input : null;
 assert.equal(censoredInput?.biomarker_key, "fasting_glucose");
 assert.equal(censoredInput?.value, null);
 assert.equal(censoredInput?.value_kind, "text");
 assert.equal(censoredInput?.value_text, "< 0.20");
 
-const unverifiedCensoredInput = projectHealthProfileLaboratoryInput({
+const missingRangeAdmission = projectHealthProfileLaboratoryAdmission({
+  observation: {
+    ...censoredObservation,
+    ref_low: null,
+    ref_high: null,
+    raw_reference_text: "",
+  },
+  relation: censoredRelation,
+  labUnitSystem: "si",
+});
+assert.equal(missingRangeAdmission.kind, "accepted");
+assert.equal(
+  missingRangeAdmission.kind === "accepted" ? missingRangeAdmission.input.ref_low : "excluded",
+  null,
+);
+assert.equal(
+  missingRangeAdmission.kind === "accepted" ? missingRangeAdmission.input.ref_high : "excluded",
+  null,
+);
+
+const invertedRangeAdmission = projectHealthProfileLaboratoryAdmission({
+  observation: {
+    ...censoredObservation,
+    ref_low: 99,
+    ref_high: 70,
+    raw_reference_text: "99-70",
+  },
+  relation: censoredRelation,
+  labUnitSystem: "si",
+});
+assert.equal(invertedRangeAdmission.kind, "accepted");
+assert.equal(
+  invertedRangeAdmission.kind === "accepted" ? invertedRangeAdmission.input.ref_low : "excluded",
+  99,
+);
+assert.equal(
+  invertedRangeAdmission.kind === "accepted" ? invertedRangeAdmission.input.ref_high : "excluded",
+  70,
+);
+
+const unverifiedCensoredAdmission = projectHealthProfileLaboratoryAdmission({
   observation: censoredObservation,
   relation: { ...censoredRelation, verification_status: "pending" },
   labUnitSystem: "si",
 });
-assert.equal(unverifiedCensoredInput, null);
+assert.equal(unverifiedCensoredAdmission.kind, "excluded");
+assert.equal(
+  unverifiedCensoredAdmission.kind === "excluded" ? unverifiedCensoredAdmission.reason : null,
+  "verification_required",
+);
 
 const censoredProfile = buildHealthProfile(
   censoredInput ? [censoredInput] : [],
