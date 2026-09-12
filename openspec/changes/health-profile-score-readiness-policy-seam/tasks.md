@@ -29,5 +29,5 @@
 ## 5. Tracking and isolation
 
 - [x] 5.1 Create one GitHub issue for this score/readiness policy change and link this OpenSpec, branch, canonical docs, Wiki status, verification, and known blockers — [Issue #249](https://github.com/Hazyshades/EasyHealth/issues/249).
-- [ ] 5.2 Create a dedicated branch from the current baseline and commit only the changes made for this dialogue; preserve unrelated worktree changes without loss.
-- [ ] 5.3 Validate this OpenSpec change strictly before delivery.
+- [x] 5.2 Create a dedicated branch from the current baseline and commit only the changes made for this dialogue; branch `feat/health-profile-score-readiness-policy-seam` contains commit `2de9de0`, and unrelated worktree changes are preserved in stash `442bac8`. Remote branch publication is pending DNS resolution for `github.com`.
+- [x] 5.3 Validate this OpenSpec change strictly before delivery with `openspec validate health-profile-score-readiness-policy-seam --type change --strict --no-interactive`; valid.
