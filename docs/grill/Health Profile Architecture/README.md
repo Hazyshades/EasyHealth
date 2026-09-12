@@ -70,4 +70,3 @@ HTML-файлы сохраняются как исходные материал�
 - Кодовые изменения опубликованы в ветке
   [`feat/health-profile-score-readiness-policy-seam`](https://github.com/Hazyshades/EasyHealth/tree/feat/health-profile-score-readiness-policy-seam);
   отдельный tracking issue — [#249](https://github.com/Hazyshades/EasyHealth/issues/249).
-
