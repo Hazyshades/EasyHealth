@@ -207,30 +207,6 @@ const fallbackPayloads: unknown[] = [
   { ...canonicalProfile, systems: [{ score_readiness: null }] },
   { ...canonicalProfile, freshness_policy_version: "retired-policy" },
 ];
-
-for (const payload of fallbackPayloads) {
-  const result = projectHealthProfileAssessmentRead({
-    version: payload === undefined ? null : { ...canonicalVersion, payload },
-    job: null,
-    fallback: fallbackSnapshot,
-  });
-  assert.equal(result.profile, fallbackProfile);
-  assert.equal(result.assessment.display_state, "processing");
-  assert.equal(result.assessment.has_current_version, false);
-  assert.equal(result.assessment.fallback, true);
-  assert.equal(result.assessment.version_id, null);
-  assert.equal(result.assessment.input_hash, "fallback-input-hash");
-  assert.equal(result.assessment.generated_at, "2026-09-12T12:01:00.000Z");
-  assert.equal(
-    result.assessment.freshness_policy_version,
-    HEALTH_PROFILE_FRESHNESS_POLICY.version,
-  );
-  assert.equal(
-    result.assessment.freshness_evaluated_at,
-    fallbackSnapshot.freshnessEvaluatedAt,
-  );
-}
-
 const fallbackStates: Array<[string | null, "processing" | "error"]> = [
   [null, "processing"],
   ["queued", "processing"],
@@ -240,24 +216,39 @@ const fallbackStates: Array<[string | null, "processing" | "error"]> = [
   ["failed", "error"],
 ];
 
-for (const [status, expectedDisplayState] of fallbackStates) {
-  const result = projectHealthProfileAssessmentRead({
-    version: null,
-    job: status === null ? null : job(status),
-    fallback: fallbackSnapshot,
-  });
-  assert.equal(result.profile, fallbackProfile);
-  assert.equal(result.assessment.display_state, expectedDisplayState);
-  assert.equal(result.assessment.has_current_version, false);
-  assert.equal(result.assessment.fallback, true);
-  assert.equal(
-    result.assessment.error_code,
-    expectedDisplayState === "error" ? "assessment_failed" : null,
-  );
-  assert.equal(
-    result.assessment.error_message,
-    expectedDisplayState === "error" ? "Synthetic recalculation failure" : null,
-  );
+for (const payload of fallbackPayloads) {
+  for (const [status, expectedDisplayState] of fallbackStates) {
+    const result = projectHealthProfileAssessmentRead({
+      version: payload === undefined ? null : { ...canonicalVersion, payload },
+      job: status === null ? null : job(status),
+      fallback: fallbackSnapshot,
+    });
+    assert.equal(result.profile, fallbackProfile);
+    assert.equal(result.assessment.display_state, expectedDisplayState);
+    assert.equal(result.assessment.has_current_version, false);
+    assert.equal(result.assessment.fallback, true);
+    assert.equal(result.assessment.version_id, null);
+    assert.equal(result.assessment.input_hash, "fallback-input-hash");
+    assert.equal(result.assessment.generated_at, "2026-09-12T12:01:00.000Z");
+    assert.equal(
+      result.assessment.freshness_policy_version,
+      HEALTH_PROFILE_FRESHNESS_POLICY.version,
+    );
+    assert.equal(
+      result.assessment.freshness_evaluated_at,
+      fallbackSnapshot.freshnessEvaluatedAt,
+    );
+    assert.equal(
+      result.assessment.error_code,
+      expectedDisplayState === "error" ? "assessment_failed" : null,
+    );
+    assert.equal(
+      result.assessment.error_message,
+      expectedDisplayState === "error"
+        ? "Synthetic recalculation failure"
+        : null,
+    );
+  }
 }
 
 const routeSource = readFileSync(
@@ -270,6 +261,13 @@ const profilePageSource = readFileSync(
 );
 const dashboardSource = readFileSync(
   resolve(process.cwd(), "src/app/app/page.tsx"),
+  "utf8",
+);
+const dashboardWidgetSource = readFileSync(
+  resolve(
+    process.cwd(),
+    "src/components/dashboard/widgets/health-assessment-widget.tsx",
+  ),
   "utf8",
 );
 assert.match(routeSource, /projectHealthProfileAssessmentRead/);
@@ -287,6 +285,9 @@ assert.match(dashboardSource, /assessment: HealthProfileAssessmentRead/);
 assert.match(dashboardSource, /if \(!response\.ok\)/);
 assert.match(dashboardSource, /\.catch\(\(error\) =>/);
 assert.match(dashboardSource, /healthProfileData\.assessment\.display_state/);
+assert.match(dashboardSource, /healthProfileLoadError/);
+assert.match(dashboardWidgetSource, /healthProfileLoadError/);
+assert.match(dashboardWidgetSource, /Health assessment is unavailable/);
 assert.doesNotMatch(dashboardSource, /assessment\?\.display_state/);
 assert.doesNotMatch(
   dashboardSource,

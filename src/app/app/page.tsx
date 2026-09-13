@@ -47,6 +47,9 @@ export default function DashboardPage() {
     HealthProfileAssessmentDisplayState | undefined
   >();
   const [assessmentError, setAssessmentError] = useState<string | null>(null);
+  const [healthProfileLoadError, setHealthProfileLoadError] = useState<string | null>(
+    null,
+  );
   const [accountProfile, setAccountProfile] =
     useState<ProfileOnboarding | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,6 +74,7 @@ export default function DashboardPage() {
       fetch("/api/profile").then((r) => r.json()),
     ]).then(([documentsData, profileData, accountData]) => {
       const healthProfileData = profileData as DashboardHealthProfileResponse;
+      setHealthProfileLoadError(null);
       setDocuments(documentsData.documents ?? []);
       const hasReportedResults =
         (healthProfileData?.reported_results?.reported_count ?? 0) > 0;
@@ -87,9 +91,7 @@ export default function DashboardPage() {
       setShowTour(Boolean(accountData.onboarding?.showPlatformTour));
       setShowBanner(Boolean(accountData.onboarding?.showSuccessBanner));
     }).catch((error) => {
-      setProfile(null);
-      setAssessmentState(undefined);
-      setAssessmentError(
+      setHealthProfileLoadError(
         error instanceof Error ? error.message : "Health Profile is unavailable",
       );
     });
@@ -218,6 +220,7 @@ export default function DashboardPage() {
               lastUpdated,
               assessmentState,
               assessmentError,
+              healthProfileLoadError,
             }}
           />
         </>
@@ -230,6 +233,7 @@ export default function DashboardPage() {
             lastUpdated,
             assessmentState,
             assessmentError,
+            healthProfileLoadError,
           }}
         />
       )}

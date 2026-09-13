@@ -85,13 +85,26 @@ This change is read-only: it does not change uploaded records, assessment payloa
 **Result:** `Blocked` — not executed in this review; an authenticated product session was unavailable.  
 **Notes / evidence link:** `________`
 
+### EH250-UI-05: Health Profile load failure is explicit
+
+**Precondition:** Use an approved synthetic test environment that returns a 401 or 500 response for the Health Profile request; do not use real patient data.
+
+1. Open **Dashboard**.
+2. Observe the **Health assessment** widget.
+3. Select **Open health profile** when the control is available.
+
+**Expected result:** The dashboard shows **Health assessment is unavailable** with a safe error message and an **Open health profile** action. It does not show the misleading **No lab records yet** prompt, and a prior profile is not silently replaced with an empty assessment.
+
+**Result:** `Blocked` — not executed in this review; the authenticated failure fixture was unavailable.
+**Notes / evidence link:** `________`
+
 ## Developer evidence required
 
-- [x] `pnpm test:health-profile-assessment-read` — pure canonical/fallback projection matrix, all supported job statuses, retained numeric system scores, metadata precedence, invalid payload classification, route integration assertions, and client cutover assertions. Evidence: local command passed during review.
+- [x] `pnpm test:health-profile-assessment-read` — pure canonical/fallback projection matrix across every invalid payload and supported job status, retained numeric system scores, metadata precedence, route integration assertions, and client cutover assertions. Evidence: local command passed after the review fixes.
 - [x] `pnpm test:eh123`, `pnpm test:eh144`, `pnpm test:eh146`, `pnpm test:health-profile-drawer-status`, and `pnpm test:health-profile-reported-results` — existing assessment persistence, freshness, lifecycle, drawer, and reported-result regressions. Evidence: local focused commands passed before review fixes.
 - [x] `pnpm check:ci-suite-coverage` and `pnpm check:ci-suite-coverage-contract` — the new verifier is registered and CI coverage remains complete. Evidence: local commands passed.
 - [x] `openspec validate health-profile-assessment-read-projection --strict` — the delivered OpenSpec change remains valid. Evidence: local command passed after the review fix.
-- [x] Review evidence — Standards and Spec reviews completed independently; final Spec review reported 0 findings, and final Standards review is pending this checklist correction. Registry documentation issue [#254](https://github.com/Hazyshades/EasyHealth/issues/254) records canonical docs, generated checks, Wiki publication, and the pre-existing typecheck blocker.
+- [x] Review evidence — Standards and Spec reviews completed independently; final Spec review and final Standards review are pending this checklist correction. Registry documentation issue [#254](https://github.com/Hazyshades/EasyHealth/issues/254) records canonical docs, generated checks, Wiki publication, and the pre-existing typecheck blocker.
 - [ ] `pnpm typecheck` — blocked by pre-existing `DocumentType` errors for `consultation_note` and `discharge_summary` in unrelated document/timeline files; no EH-250 file is implicated. A maintainer must rerun typecheck after that baseline blocker is resolved.
 - [x] Database/migration/RPC evidence — no migration, RPC, worker, job, assessment-version, receipt, or persistence changes are present in this read-only refactor. Evidence: committed diff and OpenSpec non-goals.
 - [ ] Authenticated API failure-path evidence — the dashboard now checks `response.ok` before consuming the required successful-response assessment contract. A maintainer with an authenticated environment should capture 401/500 behavior without browser console errors before release.

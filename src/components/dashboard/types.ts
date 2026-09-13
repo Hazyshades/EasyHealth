@@ -8,6 +8,7 @@ export type DashboardWidgetData = {
   lastUpdated: string | null;
   assessmentState?: HealthProfileAssessmentDisplayState;
   assessmentError?: string | null;
+  healthProfileLoadError?: string | null;
 };
 
 export type DashboardWidgetProps = {
