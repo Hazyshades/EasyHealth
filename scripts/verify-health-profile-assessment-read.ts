@@ -1,6 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { HEALTH_PROFILE_FRESHNESS_POLICY } from "../src/lib/health-profile-freshness";
 import {
   hasCanonicalReadinessContract,
@@ -254,52 +252,5 @@ for (const payload of fallbackPayloads) {
     );
   }
 }
-
-const routeSource = readFileSync(
-  resolve(process.cwd(), "src/app/api/health-profile/route.ts"),
-  "utf8",
-);
-const profilePageSource = readFileSync(
-  resolve(process.cwd(), "src/app/app/profile/page.tsx"),
-  "utf8",
-);
-const dashboardSource = readFileSync(
-  resolve(process.cwd(), "src/app/app/page.tsx"),
-  "utf8",
-);
-const dashboardWidgetSource = readFileSync(
-  resolve(
-    process.cwd(),
-    "src/components/dashboard/widgets/health-assessment-widget.tsx",
-  ),
-  "utf8",
-);
-assert.match(routeSource, /projectHealthProfileAssessmentRead/);
-assert.match(routeSource, /buildHealthProfileSnapshot/);
-assert.doesNotMatch(
-  profilePageSource,
-  /assessment\?: HealthProfileAssessmentRead/,
-);
-assert.match(profilePageSource, /assessment: HealthProfileAssessmentRead/);
-assert.doesNotMatch(
-  dashboardSource,
-  /assessment\?: HealthProfileAssessmentRead/,
-);
-assert.match(dashboardSource, /assessment: HealthProfileAssessmentRead/);
-assert.match(dashboardSource, /if \(!response\.ok\)/);
-assert.match(dashboardSource, /\.catch\(\(\) =>/);
-assert.match(dashboardSource, /HEALTH_PROFILE_LOAD_ERROR/);
-assert.doesNotMatch(dashboardSource, /data\?\.error/);
-assert.match(dashboardSource, /healthProfileData\.assessment\.display_state/);
-assert.match(dashboardSource, /healthProfileLoadError/);
-assert.match(dashboardSource, /Promise\.allSettled/);
-assert.match(dashboardSource, /!healthProfileLoadError/);
-assert.match(dashboardWidgetSource, /healthProfileLoadError/);
-assert.match(dashboardWidgetSource, /Health assessment is unavailable/);
-assert.doesNotMatch(dashboardSource, /assessment\?\.display_state/);
-assert.doesNotMatch(
-  dashboardSource,
-  /assessment\?\.display_state \?\? "current"/,
-);
 
 console.log("verify-health-profile-assessment-read: all checks passed");

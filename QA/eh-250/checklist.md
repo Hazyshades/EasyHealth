@@ -100,7 +100,7 @@ This change is read-only: it does not change uploaded records, assessment payloa
 
 ## Developer evidence required
 
-- [x] `pnpm test:health-profile-assessment-read` — pure canonical/fallback projection matrix across every invalid payload and supported job status, retained numeric system scores, metadata precedence, route integration assertions, and client cutover assertions. Evidence: local command passed after the review fixes.
+- [x] `pnpm test:health-profile-assessment-read` — pure canonical/fallback projection matrix across every invalid payload and supported job status, retained numeric system scores, metadata precedence, and lifecycle mapping. The existing focused API/client regression commands below cover the surrounding boundaries. Evidence: local command passed after the review fixes.
 - [x] `pnpm test:eh123`, `pnpm test:eh144`, `pnpm test:eh146`, `pnpm test:health-profile-drawer-status`, and `pnpm test:health-profile-reported-results` — existing assessment persistence, freshness, lifecycle, drawer, and reported-result regressions. Evidence: local focused commands passed before review fixes.
 - [x] `pnpm check:ci-suite-coverage` and `pnpm check:ci-suite-coverage-contract` — the new verifier is registered and CI coverage remains complete. Evidence: local commands passed.
 - [x] `openspec validate health-profile-assessment-read-projection --strict` — the delivered OpenSpec change remains valid. Evidence: local command passed after the review fix.
