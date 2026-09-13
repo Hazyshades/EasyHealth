@@ -23,6 +23,12 @@
 - [x] 4.4 Run `pnpm test:eh146` and `pnpm test:health-profile-drawer-status`.
 - [x] 4.5 Run focused EH-123, EH-144, Health Profile API, and type checks; record any pre-existing blockers.
 
+### Cleanup and review
+
+- [x] 5.1 Remove obsolete route/client interpretation helpers and imports after parity is proven.
+- [x] 5.2 Review the diff for score/readiness, persistence, RPC, and API-shape drift.
+- [x] 5.3 Validate this OpenSpec change strictly before implementation begins.
+
 ## 2. Auth shell
 
 ### Client consumption
@@ -32,11 +38,5 @@
 - [x] 3.3 Remove the dashboard current-state default from successful assessment responses.
 - [x] 3.4 Preserve narrowed lifecycle props for cards, map, drawer, and dashboard widgets.
 - [x] 3.5 Keep system readiness, observation freshness, and document-processing logic on separate axes.
-
-## 3. Cleanup and review
-
-- [x] 5.1 Remove obsolete route/client interpretation helpers and imports after parity is proven.
-- [x] 5.2 Review the diff for score/readiness, persistence, RPC, and API-shape drift.
-- [x] 5.3 Validate this OpenSpec change strictly before implementation begins.
 
 Implementation note: `pnpm typecheck` remains blocked by pre-existing `DocumentType` errors for `consultation_note` and `discharge_summary` in unrelated document and timeline files. Focused projection, EH-123, EH-144, EH-146, drawer-status, reported-results, and CI-coverage checks pass.
