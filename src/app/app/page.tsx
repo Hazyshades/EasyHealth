@@ -58,9 +58,8 @@ export default function DashboardPage() {
   const [bannerDismissing, setBannerDismissing] = useState(false);
 
   const loadData = useCallback(() => {
-    return Promise.all([
-      fetch("/api/documents").then((r) => r.json()),
-      fetch("/api/health-profile").then(async (response) => {
+    const healthProfileRequest = fetch("/api/health-profile").then(
+      async (response) => {
         const data = await response.json();
         if (!response.ok) {
           throw new Error(
@@ -70,32 +69,47 @@ export default function DashboardPage() {
           );
         }
         return data;
-      }),
-      fetch("/api/profile").then((r) => r.json()),
-    ]).then(([documentsData, profileData, accountData]) => {
-      const healthProfileData = profileData as DashboardHealthProfileResponse;
-      setHealthProfileLoadError(null);
-      setDocuments(documentsData.documents ?? []);
-      const hasReportedResults =
-        (healthProfileData?.reported_results?.reported_count ?? 0) > 0;
-      setProfile(
-        healthProfileData &&
-          healthProfileData.profile_display_state !== "onboarding" &&
-          (healthProfileData.records_used_count > 0 || hasReportedResults)
-          ? healthProfileData
-          : null,
-      );
-      setAssessmentState(healthProfileData.assessment.display_state);
-      setAssessmentError(healthProfileData.assessment.error_message);
-      setAccountProfile(accountData);
-      setShowTour(Boolean(accountData.onboarding?.showPlatformTour));
-      setShowBanner(Boolean(accountData.onboarding?.showSuccessBanner));
-    }).catch((error) => {
-      setHealthProfileLoadError(
-        error instanceof Error ? error.message : "Health Profile is unavailable",
-      );
-    });
+      },
+    );
 
+    return Promise.allSettled([
+      fetch("/api/documents").then((r) => r.json()),
+      healthProfileRequest,
+      fetch("/api/profile").then((r) => r.json()),
+    ])
+      .then(([documentsResult, healthProfileResult, accountResult]) => {
+        if (documentsResult.status === "fulfilled") {
+          setDocuments(documentsResult.value.documents ?? []);
+        }
+        if (accountResult.status === "fulfilled") {
+          setAccountProfile(accountResult.value);
+          setShowTour(Boolean(accountResult.value.onboarding?.showPlatformTour));
+          setShowBanner(Boolean(accountResult.value.onboarding?.showSuccessBanner));
+        }
+        if (healthProfileResult.status === "rejected") {
+          throw healthProfileResult.reason;
+        }
+
+        const healthProfileData =
+          healthProfileResult.value as DashboardHealthProfileResponse;
+        setHealthProfileLoadError(null);
+        const hasReportedResults =
+          (healthProfileData?.reported_results?.reported_count ?? 0) > 0;
+        setProfile(
+          healthProfileData &&
+            healthProfileData.profile_display_state !== "onboarding" &&
+            (healthProfileData.records_used_count > 0 || hasReportedResults)
+            ? healthProfileData
+            : null,
+        );
+        setAssessmentState(healthProfileData.assessment.display_state);
+        setAssessmentError(healthProfileData.assessment.error_message);
+      })
+      .catch((error) => {
+        setHealthProfileLoadError(
+          error instanceof Error ? error.message : "Health Profile is unavailable",
+        );
+      });
   }, []);
 
   useEffect(() => {
@@ -192,7 +206,7 @@ export default function DashboardPage() {
             ))}
           </div>
         </>
-      ) : completed === 0 && !processingDocuments && !profile ? (
+      ) : completed === 0 && !processingDocuments && !profile && !healthProfileLoadError ? (
         <>
           <SurfaceCard padding="lg" className="mb-6 text-center">
             <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-[var(--eh-brand-soft)] text-[var(--eh-brand)]">

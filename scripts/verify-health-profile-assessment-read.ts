@@ -206,6 +206,10 @@ const fallbackPayloads: unknown[] = [
   legacyPayload,
   { ...canonicalProfile, systems: [{ score_readiness: null }] },
   { ...canonicalProfile, freshness_policy_version: "retired-policy" },
+  {
+    ...canonicalProfile,
+    reported_results: { ...REPORTED_RESULTS, reported_count: -1 },
+  },
 ];
 const fallbackStates: Array<[string | null, "processing" | "error"]> = [
   [null, "processing"],
@@ -286,6 +290,8 @@ assert.match(dashboardSource, /if \(!response\.ok\)/);
 assert.match(dashboardSource, /\.catch\(\(error\) =>/);
 assert.match(dashboardSource, /healthProfileData\.assessment\.display_state/);
 assert.match(dashboardSource, /healthProfileLoadError/);
+assert.match(dashboardSource, /Promise\.allSettled/);
+assert.match(dashboardSource, /!healthProfileLoadError/);
 assert.match(dashboardWidgetSource, /healthProfileLoadError/);
 assert.match(dashboardWidgetSource, /Health assessment is unavailable/);
 assert.doesNotMatch(dashboardSource, /assessment\?\.display_state/);
