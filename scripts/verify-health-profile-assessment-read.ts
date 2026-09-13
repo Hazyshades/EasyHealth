@@ -284,6 +284,7 @@ assert.doesNotMatch(
   /assessment\?: HealthProfileAssessmentRead/,
 );
 assert.match(dashboardSource, /assessment: HealthProfileAssessmentRead/);
+assert.match(dashboardSource, /if \(!response\.ok\)/);
 assert.match(dashboardSource, /healthProfileData\.assessment\.display_state/);
 assert.doesNotMatch(dashboardSource, /assessment\?\.display_state/);
 assert.doesNotMatch(

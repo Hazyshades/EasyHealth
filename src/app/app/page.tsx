@@ -57,7 +57,17 @@ export default function DashboardPage() {
   const loadData = useCallback(() => {
     return Promise.all([
       fetch("/api/documents").then((r) => r.json()),
-      fetch("/api/health-profile").then((r) => r.json()),
+      fetch("/api/health-profile").then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(
+            typeof data?.error === "string"
+              ? data.error
+              : "Health Profile is unavailable",
+          );
+        }
+        return data;
+      }),
       fetch("/api/profile").then((r) => r.json()),
     ]).then(([documentsData, profileData, accountData]) => {
       const healthProfileData = profileData as DashboardHealthProfileResponse;
