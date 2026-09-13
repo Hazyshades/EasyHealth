@@ -224,19 +224,21 @@ assert.equal(
   "verification_required",
 );
 
+const profileSources = [{
+  id: "00000000-0000-4000-8000-000000000002",
+  original_filename: "censored-fasting-glucose.pdf",
+  observed_at: "2026-08-01",
+  lab_name: "Fixture laboratory",
+  document_type: "lab_result",
+}];
+const profileOptions = {
+  freshnessAsOf: "2026-08-01",
+  freshnessEvaluatedAt: "2026-08-01T00:00:00.000Z",
+};
 const censoredProfile = buildHealthProfile(
   censoredInput ? [censoredInput] : [],
-  [{
-    id: "00000000-0000-4000-8000-000000000002",
-    original_filename: "censored-fasting-glucose.pdf",
-    observed_at: "2026-08-01",
-    lab_name: "Fixture laboratory",
-    document_type: "lab_result",
-  }],
-  {
-    freshnessAsOf: "2026-08-01",
-    freshnessEvaluatedAt: "2026-08-01T00:00:00.000Z",
-  },
+  profileSources,
+  profileOptions,
 );
 const metabolic = censoredProfile.systems.find((system) => system.id === "metabolic");
 const glucoseReadiness = metabolic?.score_readiness.reasons.find((reason) =>
@@ -247,17 +249,8 @@ assert.equal(metabolic?.state_score, null);
 
 const malformedTextProfile = buildHealthProfile(
   censoredInput ? [{ ...censoredInput, value: 123, value_kind: "text" }] : [],
-  [{
-    id: "00000000-0000-4000-8000-000000000002",
-    original_filename: "censored-fasting-glucose.pdf",
-    observed_at: "2026-08-01",
-    lab_name: "Fixture laboratory",
-    document_type: "lab_result",
-  }],
-  {
-    freshnessAsOf: "2026-08-01",
-    freshnessEvaluatedAt: "2026-08-01T00:00:00.000Z",
-  },
+  profileSources,
+  profileOptions,
 );
 const malformedTextMarker = malformedTextProfile.systems
   .flatMap((system) => system.markers)
