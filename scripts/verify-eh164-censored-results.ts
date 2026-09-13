@@ -167,6 +167,7 @@ assert.equal(
   censoredAdmission.evidence.resolution.eligibility.exclusions.assessment,
   "non_numeric_value",
 );
+assert.equal(censoredAdmission.evidence.binding.assessmentInputKey, "fasting_glucose");
 const censoredInput = censoredAdmission.kind === "accepted" ? censoredAdmission.input : null;
 assert.equal(censoredInput?.biomarker_key, "fasting_glucose");
 assert.equal(censoredInput?.value, null);

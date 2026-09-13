@@ -121,13 +121,20 @@ export function projectHealthProfileLaboratoryAdmission(options: {
     (canPreserveCensoredMarker && outcome.measurementDefinitionKey
       ? getReviewedAssessmentBinding(outcome.measurementDefinitionKey)?.binding.assessmentInputKey ?? null
       : null);
+  const evidenceWithAdmissionKey: HealthProfileLaboratoryAdmissionEvidence = {
+    ...evidence,
+    binding: {
+      ...evidence.binding,
+      assessmentInputKey,
+    },
+  };
   if (!assessmentInputKey) {
     return {
       kind: "excluded",
       reason:
         outcome.resolutionDetails.eligibility.exclusions.assessment ??
         "assessment_binding_ineligible",
-      evidence,
+      evidence: evidenceWithAdmissionKey,
     };
   }
 
@@ -156,7 +163,7 @@ export function projectHealthProfileLaboratoryAdmission(options: {
         converted: false,
         conversion_note: null,
       },
-      evidence,
+      evidence: evidenceWithAdmissionKey,
     };
   }
 
@@ -167,7 +174,7 @@ export function projectHealthProfileLaboratoryAdmission(options: {
       reason:
         outcome.resolutionDetails.eligibility.exclusions.assessment ??
         "numeric_value_invalid",
-      evidence,
+      evidence: evidenceWithAdmissionKey,
     };
   }
 
