@@ -63,7 +63,7 @@ This change is read-only: it does not change uploaded records, assessment payloa
 
 1. Go to **Health Profile**.
 2. Observe the assessment lifecycle banner and visible profile values.
-3. Select **Retry assessment** when the control is available.
+3. Select **Retry update** when the control is available.
 4. Refresh **Dashboard** and **Health Profile** after the retry request finishes.
 
 **Expected result:** The error lifecycle and safe error message are visible without removing the last usable profile. The retry control is shown only for the failed/retryable-failed state. Dashboard and Health Profile agree after refresh; neither invents a `current` state while the assessment remains failed.
