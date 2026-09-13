@@ -245,4 +245,24 @@ const glucoseReadiness = metabolic?.score_readiness.reasons.find((reason) =>
 assert.equal(glucoseReadiness?.code, "invalid");
 assert.equal(metabolic?.state_score, null);
 
+const malformedTextProfile = buildHealthProfile(
+  censoredInput ? [{ ...censoredInput, value: 123, value_kind: "text" }] : [],
+  [{
+    id: "00000000-0000-4000-8000-000000000002",
+    original_filename: "censored-fasting-glucose.pdf",
+    observed_at: "2026-08-01",
+    lab_name: "Fixture laboratory",
+    document_type: "lab_result",
+  }],
+  {
+    freshnessAsOf: "2026-08-01",
+    freshnessEvaluatedAt: "2026-08-01T00:00:00.000Z",
+  },
+);
+const malformedTextMarker = malformedTextProfile.systems
+  .flatMap((system) => system.markers)
+  .find((marker) => marker.key === "fasting_glucose");
+assert.equal(malformedTextMarker?.value, null);
+assert.equal(malformedTextMarker?.status, "unknown");
+
 console.log("verify-eh164-censored-results: all checks passed");
