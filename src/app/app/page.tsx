@@ -86,7 +86,14 @@ export default function DashboardPage() {
       setAccountProfile(accountData);
       setShowTour(Boolean(accountData.onboarding?.showPlatformTour));
       setShowBanner(Boolean(accountData.onboarding?.showSuccessBanner));
+    }).catch((error) => {
+      setProfile(null);
+      setAssessmentState(undefined);
+      setAssessmentError(
+        error instanceof Error ? error.message : "Health Profile is unavailable",
+      );
     });
+
   }, []);
 
   useEffect(() => {
