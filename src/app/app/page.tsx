@@ -19,6 +19,9 @@ type DashboardHealthProfileResponse = HealthProfileResult & {
   assessment: HealthProfileAssessmentRead;
 };
 
+const HEALTH_PROFILE_LOAD_ERROR =
+  "Health Profile is temporarily unavailable. Please try again.";
+
 type Document = {
   id: string;
   status: string;
@@ -60,15 +63,10 @@ export default function DashboardPage() {
   const loadData = useCallback(() => {
     const healthProfileRequest = fetch("/api/health-profile").then(
       async (response) => {
-        const data = await response.json();
         if (!response.ok) {
-          throw new Error(
-            typeof data?.error === "string"
-              ? data.error
-              : "Health Profile is unavailable",
-          );
+          throw new Error(HEALTH_PROFILE_LOAD_ERROR);
         }
-        return data;
+        return response.json();
       },
     );
 
@@ -105,10 +103,8 @@ export default function DashboardPage() {
         setAssessmentState(healthProfileData.assessment.display_state);
         setAssessmentError(healthProfileData.assessment.error_message);
       })
-      .catch((error) => {
-        setHealthProfileLoadError(
-          error instanceof Error ? error.message : "Health Profile is unavailable",
-        );
+      .catch(() => {
+        setHealthProfileLoadError(HEALTH_PROFILE_LOAD_ERROR);
       });
   }, []);
 

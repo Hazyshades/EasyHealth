@@ -287,7 +287,9 @@ assert.doesNotMatch(
 );
 assert.match(dashboardSource, /assessment: HealthProfileAssessmentRead/);
 assert.match(dashboardSource, /if \(!response\.ok\)/);
-assert.match(dashboardSource, /\.catch\(\(error\) =>/);
+assert.match(dashboardSource, /\.catch\(\(\) =>/);
+assert.match(dashboardSource, /HEALTH_PROFILE_LOAD_ERROR/);
+assert.doesNotMatch(dashboardSource, /data\?\.error/);
 assert.match(dashboardSource, /healthProfileData\.assessment\.display_state/);
 assert.match(dashboardSource, /healthProfileLoadError/);
 assert.match(dashboardSource, /Promise\.allSettled/);
