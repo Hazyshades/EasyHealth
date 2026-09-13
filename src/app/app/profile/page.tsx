@@ -23,7 +23,7 @@ import type { HealthProfileReportedResults } from "@/lib/health-profile-reported
 
 type HealthProfileResponse = HealthProfileResult & {
   reported_results: HealthProfileReportedResults;
-  assessment?: HealthProfileAssessmentRead;
+  assessment: HealthProfileAssessmentRead;
 };
 
 export default function HealthProfilePage() {
@@ -174,10 +174,8 @@ export default function HealthProfilePage() {
 
   const layouts = resolveBodyMapLayout(profile!.systems.map((s) => s.id));
   const assessment = profile!.assessment;
-  const assessmentState = assessment?.display_state;
-  const assessmentDescription = assessmentState
-    ? assessmentDisplayStateDescription(assessmentState)
-    : null;
+  const assessmentState = assessment.display_state;
+  const assessmentDescription = assessmentDisplayStateDescription(assessmentState);
   const lastUpdated = profile.sources[0]?.observed_at ?? null;
   const reportedResults = profile.reported_results;
   const pendingReportedResults = Math.max(
@@ -208,10 +206,10 @@ export default function HealthProfilePage() {
             </StatusChip>
           </div>
           <p className="mt-2">{assessmentDescription}</p>
-          {assessment?.error_message ? (
+          {assessment.error_message ? (
             <p className="mt-2 text-slate-600">{assessment.error_message}</p>
           ) : null}
-          {assessment?.status === "failed" || assessment?.status === "retryable_failed" ? (
+          {assessment.status === "failed" || assessment.status === "retryable_failed" ? (
             <Button
               type="button"
               variant="outline"

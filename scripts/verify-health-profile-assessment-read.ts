@@ -24,8 +24,66 @@ const REPORTED_RESULTS = {
   source_document_count: 1,
 };
 
+const scoreableSource = {
+  id: "document-scoreable",
+  original_filename: "scoreable.pdf",
+  observed_at: "2026-09-12",
+  lab_name: "Synthetic Lab",
+  document_type: "lab_result",
+};
+const scoreableObservations = [
+  {
+    observation_id: "observation-ldl",
+    biomarker_key: "ldl",
+    measurement_definition_key: "ldl_serum",
+    resolution_status: "resolved" as const,
+    name: "LDL",
+    value: 90,
+    unit: "mg/dL",
+    ref_low: 0,
+    ref_high: 200,
+    observed_at: "2026-09-12",
+    document_id: scoreableSource.id,
+    observation_kind: "lab" as const,
+    value_kind: "numeric" as const,
+    specimen: "serum",
+  },
+  {
+    observation_id: "observation-hdl",
+    biomarker_key: "hdl",
+    measurement_definition_key: "hdl_serum",
+    resolution_status: "resolved" as const,
+    name: "HDL",
+    value: 55,
+    unit: "mg/dL",
+    ref_low: 0,
+    ref_high: 200,
+    observed_at: "2026-09-12",
+    document_id: scoreableSource.id,
+    observation_kind: "lab" as const,
+    value_kind: "numeric" as const,
+    specimen: "serum",
+  },
+  {
+    observation_id: "observation-triglycerides",
+    biomarker_key: "triglycerides",
+    measurement_definition_key: "triglycerides_serum",
+    resolution_status: "resolved" as const,
+    name: "Triglycerides",
+    value: 100,
+    unit: "mg/dL",
+    ref_low: 0,
+    ref_high: 200,
+    observed_at: "2026-09-12",
+    document_id: scoreableSource.id,
+    observation_kind: "lab" as const,
+    value_kind: "numeric" as const,
+    specimen: "serum",
+  },
+];
+
 const canonicalProfile: HealthProfileAssessment = {
-  ...buildHealthProfile([], [], {
+  ...buildHealthProfile(scoreableObservations, [scoreableSource], {
     freshnessAsOf: "2026-09-12",
     freshnessEvaluatedAt: EVALUATED_AT,
     freshnessPolicy: HEALTH_PROFILE_FRESHNESS_POLICY,
@@ -35,6 +93,11 @@ const canonicalProfile: HealthProfileAssessment = {
   freshness_policy_version: HEALTH_PROFILE_FRESHNESS_POLICY.version,
   freshness_evaluated_at: EVALUATED_AT,
 };
+const canonicalCardiovascular = canonicalProfile.systems.find(
+  (system) => system.id === "cardiovascular",
+);
+assert.ok(canonicalCardiovascular);
+assert.equal(canonicalCardiovascular.state_score !== null, true);
 
 const fallbackProfile: HealthProfileAssessment = {
   ...canonicalProfile,
@@ -107,6 +170,17 @@ for (const [status, expectedDisplayState] of canonicalStates) {
     job: status === null ? null : job(status),
     fallback: null,
   });
+  const cardiovascular = result.profile?.systems.find(
+    (system) => system.id === "cardiovascular",
+  );
+  assert.equal(
+    cardiovascular?.state_score,
+    canonicalCardiovascular.state_score,
+  );
+  assert.equal(
+    result.profile?.overall_state_score,
+    canonicalProfile.overall_state_score,
+  );
   assert.equal(result.profile, canonicalProfile);
   assert.equal(result.assessment.display_state, expectedDisplayState);
   assert.equal(result.assessment.has_current_version, true);
@@ -200,9 +274,18 @@ const dashboardSource = readFileSync(
 );
 assert.match(routeSource, /projectHealthProfileAssessmentRead/);
 assert.match(routeSource, /buildHealthProfileSnapshot/);
-assert.doesNotMatch(profilePageSource, /resolveAssessmentDisplayState/);
-assert.match(profilePageSource, /HealthProfileAssessmentRead/);
-assert.match(dashboardSource, /assessment\?\.display_state/);
+assert.doesNotMatch(
+  profilePageSource,
+  /assessment\?: HealthProfileAssessmentRead/,
+);
+assert.match(profilePageSource, /assessment: HealthProfileAssessmentRead/);
+assert.doesNotMatch(
+  dashboardSource,
+  /assessment\?: HealthProfileAssessmentRead/,
+);
+assert.match(dashboardSource, /assessment: HealthProfileAssessmentRead/);
+assert.match(dashboardSource, /healthProfileData\.assessment\.display_state/);
+assert.doesNotMatch(dashboardSource, /assessment\?\.display_state/);
 assert.doesNotMatch(
   dashboardSource,
   /assessment\?\.display_state \?\? "current"/,

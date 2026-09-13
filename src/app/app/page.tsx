@@ -16,7 +16,7 @@ import type { HealthProfileAssessmentDisplayState } from "@/lib/health-profile-a
 import type { HealthProfileAssessmentRead } from "@/lib/health-profile-assessment-read";
 
 type DashboardHealthProfileResponse = HealthProfileResult & {
-  assessment?: HealthProfileAssessmentRead;
+  assessment: HealthProfileAssessmentRead;
 };
 
 type Document = {
@@ -71,8 +71,8 @@ export default function DashboardPage() {
           ? healthProfileData
           : null,
       );
-      setAssessmentState(healthProfileData?.assessment?.display_state);
-      setAssessmentError(healthProfileData?.assessment?.error_message ?? null);
+      setAssessmentState(healthProfileData.assessment.display_state);
+      setAssessmentError(healthProfileData.assessment.error_message);
       setAccountProfile(accountData);
       setShowTour(Boolean(accountData.onboarding?.showPlatformTour));
       setShowBanner(Boolean(accountData.onboarding?.showSuccessBanner));
