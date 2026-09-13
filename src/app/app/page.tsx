@@ -13,12 +13,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { greetingLabel } from "@/lib/display-name";
 import type { HealthProfileResult } from "@/lib/health-systems";
 import type { HealthProfileAssessmentDisplayState } from "@/lib/health-profile-assessment-state";
+import type { HealthProfileAssessmentRead } from "@/lib/health-profile-assessment-read";
 
 type DashboardHealthProfileResponse = HealthProfileResult & {
-  assessment?: {
-    display_state?: HealthProfileAssessmentDisplayState;
-    error_message?: string | null;
-  };
+  assessment?: HealthProfileAssessmentRead;
 };
 
 type Document = {
@@ -45,8 +43,9 @@ function timeGreeting(): string {
 export default function DashboardPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [profile, setProfile] = useState<HealthProfileResult | null>(null);
-  const [assessmentState, setAssessmentState] =
-    useState<HealthProfileAssessmentDisplayState>("current");
+  const [assessmentState, setAssessmentState] = useState<
+    HealthProfileAssessmentDisplayState | undefined
+  >();
   const [assessmentError, setAssessmentError] = useState<string | null>(null);
   const [accountProfile, setAccountProfile] =
     useState<ProfileOnboarding | null>(null);
@@ -72,9 +71,7 @@ export default function DashboardPage() {
           ? healthProfileData
           : null,
       );
-      setAssessmentState(
-        healthProfileData?.assessment?.display_state ?? "current",
-      );
+      setAssessmentState(healthProfileData?.assessment?.display_state);
       setAssessmentError(healthProfileData?.assessment?.error_message ?? null);
       setAccountProfile(accountData);
       setShowTour(Boolean(accountData.onboarding?.showPlatformTour));
@@ -103,7 +100,8 @@ export default function DashboardPage() {
 
   const completed = documents.filter((d) => d.status === "completed").length;
   const processingDocuments = documents.some(
-    (document) => document.status === "processing" || document.status === "queued",
+    (document) =>
+      document.status === "processing" || document.status === "queued",
   );
   const lastUpdated = profile?.sources[0]?.observed_at ?? null;
   const name = greetingLabel(

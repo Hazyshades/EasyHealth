@@ -446,19 +446,19 @@ assert.match(drawerSource, /outdated data/);
 assert.match(drawerSource, /date unavailable/);
 assert.match(profilePageSource, /observed_at \?\? "Date unavailable"/);
 assert.doesNotMatch(drawerSource, /order\s+(?:a\s+)?(?:new\s+)?tests?/i);
-const healthProfileRouteSource = readFileSync(
-  resolve(process.cwd(), "src/app/api/health-profile/route.ts"),
-  "utf8",
-);
 const bodySilhouetteSource = readFileSync(
   resolve(process.cwd(), "src/components/body-silhouette.tsx"),
   "utf8",
 );
-assert.match(healthProfileRouteSource, /freshness_policy_version/);
-assert.match(healthProfileRouteSource, /freshness_evaluated_at/);
+const healthProfileAssessmentReadSource = readFileSync(
+  resolve(process.cwd(), "src/lib/health-profile-assessment-read.ts"),
+  "utf8",
+);
+assert.match(healthProfileAssessmentReadSource, /freshness_policy_version/);
+assert.match(healthProfileAssessmentReadSource, /freshness_evaluated_at/);
 assert.match(
-  healthProfileRouteSource,
-  /value\.freshness_policy_version !== HEALTH_PROFILE_FRESHNESS_POLICY\.version/,
+  healthProfileAssessmentReadSource,
+  /candidate\.freshness_policy_version\s*!==\s*HEALTH_PROFILE_FRESHNESS_POLICY\.version/,
 );
 assert.match(bodySilhouetteSource, /outdated evidence/);
 assert.match(bodySilhouetteSource, /medical date unavailable/);
