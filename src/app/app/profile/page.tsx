@@ -12,29 +12,18 @@ import { ExcludedObservationsPanel } from "@/components/score-provenance-panel";
 import {
   assessmentDisplayStateDescription,
   assessmentDisplayStateLabel,
-  resolveAssessmentDisplayState,
-  type HealthProfileAssessmentDisplayState,
 } from "@/lib/health-profile-assessment-state";
+import type { HealthProfileAssessmentRead } from "@/lib/health-profile-assessment-read";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 import { buildHealthNavigationPath, readHealthNavigationContext } from "@/lib/health-navigation";
 import { normalizeBodySystemId, resolveBodyMapLayout } from "@/lib/health-systems";
 import type { BodySystemId, HealthProfileResult } from "@/lib/health-systems";
 import type { HealthProfileReportedResults } from "@/lib/health-profile-reported-results";
 
-type AssessmentStatus = {
-  status: "queued" | "processing" | "retryable_failed" | "failed" | "succeeded";
-  display_state?: HealthProfileAssessmentDisplayState;
-  has_current_version?: boolean;
-  version_id?: string | null;
-  generated_at?: string | null;
-  error_code?: string | null;
-  error_message: string | null;
-  fallback: boolean;
-};
 
 type HealthProfileResponse = HealthProfileResult & {
   reported_results: HealthProfileReportedResults;
-  assessment?: AssessmentStatus;
+  assessment: HealthProfileAssessmentRead;
 };
 
 export default function HealthProfilePage() {
@@ -185,10 +174,7 @@ export default function HealthProfilePage() {
 
   const layouts = resolveBodyMapLayout(profile!.systems.map((s) => s.id));
   const assessment = profile!.assessment;
-  const hasCurrentVersion = assessment?.has_current_version ?? !assessment?.fallback;
-  const assessmentState =
-    assessment?.display_state ??
-    resolveAssessmentDisplayState(assessment?.status, hasCurrentVersion);
+  const assessmentState = assessment.display_state;
   const assessmentDescription = assessmentDisplayStateDescription(assessmentState);
   const lastUpdated = profile.sources[0]?.observed_at ?? null;
   const reportedResults = profile.reported_results;
@@ -209,7 +195,7 @@ export default function HealthProfilePage() {
 
       </div>
 
-      {assessmentState !== "current" ? (
+      {assessmentState && assessmentState !== "current" ? (
         <div
           className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800"
           aria-live="polite"
@@ -220,10 +206,10 @@ export default function HealthProfilePage() {
             </StatusChip>
           </div>
           <p className="mt-2">{assessmentDescription}</p>
-          {assessment?.error_message ? (
+          {assessment.error_message ? (
             <p className="mt-2 text-slate-600">{assessment.error_message}</p>
           ) : null}
-          {assessment?.status === "failed" || assessment?.status === "retryable_failed" ? (
+          {assessment.status === "failed" || assessment.status === "retryable_failed" ? (
             <Button
               type="button"
               variant="outline"

@@ -13,13 +13,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { greetingLabel } from "@/lib/display-name";
 import type { HealthProfileResult } from "@/lib/health-systems";
 import type { HealthProfileAssessmentDisplayState } from "@/lib/health-profile-assessment-state";
+import type { HealthProfileAssessmentRead } from "@/lib/health-profile-assessment-read";
 
 type DashboardHealthProfileResponse = HealthProfileResult & {
-  assessment?: {
-    display_state?: HealthProfileAssessmentDisplayState;
-    error_message?: string | null;
-  };
+  assessment: HealthProfileAssessmentRead;
 };
+
+const HEALTH_PROFILE_LOAD_ERROR =
+  "Health Profile is temporarily unavailable. Please try again.";
 
 type Document = {
   id: string;
@@ -45,9 +46,13 @@ function timeGreeting(): string {
 export default function DashboardPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [profile, setProfile] = useState<HealthProfileResult | null>(null);
-  const [assessmentState, setAssessmentState] =
-    useState<HealthProfileAssessmentDisplayState>("current");
+  const [assessmentState, setAssessmentState] = useState<
+    HealthProfileAssessmentDisplayState | undefined
+  >();
   const [assessmentError, setAssessmentError] = useState<string | null>(null);
+  const [healthProfileLoadError, setHealthProfileLoadError] = useState<string | null>(
+    null,
+  );
   const [accountProfile, setAccountProfile] =
     useState<ProfileOnboarding | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,30 +61,51 @@ export default function DashboardPage() {
   const [bannerDismissing, setBannerDismissing] = useState(false);
 
   const loadData = useCallback(() => {
-    return Promise.all([
+    const healthProfileRequest = fetch("/api/health-profile").then(
+      async (response) => {
+        if (!response.ok) {
+          throw new Error(HEALTH_PROFILE_LOAD_ERROR);
+        }
+        return response.json();
+      },
+    );
+
+    return Promise.allSettled([
       fetch("/api/documents").then((r) => r.json()),
-      fetch("/api/health-profile").then((r) => r.json()),
+      healthProfileRequest,
       fetch("/api/profile").then((r) => r.json()),
-    ]).then(([documentsData, profileData, accountData]) => {
-      const healthProfileData = profileData as DashboardHealthProfileResponse;
-      setDocuments(documentsData.documents ?? []);
-      const hasReportedResults =
-        (healthProfileData?.reported_results?.reported_count ?? 0) > 0;
-      setProfile(
-        healthProfileData &&
-          healthProfileData.profile_display_state !== "onboarding" &&
-          (healthProfileData.records_used_count > 0 || hasReportedResults)
-          ? healthProfileData
-          : null,
-      );
-      setAssessmentState(
-        healthProfileData?.assessment?.display_state ?? "current",
-      );
-      setAssessmentError(healthProfileData?.assessment?.error_message ?? null);
-      setAccountProfile(accountData);
-      setShowTour(Boolean(accountData.onboarding?.showPlatformTour));
-      setShowBanner(Boolean(accountData.onboarding?.showSuccessBanner));
-    });
+    ])
+      .then(([documentsResult, healthProfileResult, accountResult]) => {
+        if (documentsResult.status === "fulfilled") {
+          setDocuments(documentsResult.value.documents ?? []);
+        }
+        if (accountResult.status === "fulfilled") {
+          setAccountProfile(accountResult.value);
+          setShowTour(Boolean(accountResult.value.onboarding?.showPlatformTour));
+          setShowBanner(Boolean(accountResult.value.onboarding?.showSuccessBanner));
+        }
+        if (healthProfileResult.status === "rejected") {
+          throw healthProfileResult.reason;
+        }
+
+        const healthProfileData =
+          healthProfileResult.value as DashboardHealthProfileResponse;
+        setHealthProfileLoadError(null);
+        const hasReportedResults =
+          (healthProfileData?.reported_results?.reported_count ?? 0) > 0;
+        setProfile(
+          healthProfileData &&
+            healthProfileData.profile_display_state !== "onboarding" &&
+            (healthProfileData.records_used_count > 0 || hasReportedResults)
+            ? healthProfileData
+            : null,
+        );
+        setAssessmentState(healthProfileData.assessment.display_state);
+        setAssessmentError(healthProfileData.assessment.error_message);
+      })
+      .catch(() => {
+        setHealthProfileLoadError(HEALTH_PROFILE_LOAD_ERROR);
+      });
   }, []);
 
   useEffect(() => {
@@ -103,7 +129,8 @@ export default function DashboardPage() {
 
   const completed = documents.filter((d) => d.status === "completed").length;
   const processingDocuments = documents.some(
-    (document) => document.status === "processing" || document.status === "queued",
+    (document) =>
+      document.status === "processing" || document.status === "queued",
   );
   const lastUpdated = profile?.sources[0]?.observed_at ?? null;
   const name = greetingLabel(
@@ -175,7 +202,7 @@ export default function DashboardPage() {
             ))}
           </div>
         </>
-      ) : completed === 0 && !processingDocuments && !profile ? (
+      ) : completed === 0 && !processingDocuments && !profile && !healthProfileLoadError ? (
         <>
           <SurfaceCard padding="lg" className="mb-6 text-center">
             <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-[var(--eh-brand-soft)] text-[var(--eh-brand)]">
@@ -203,6 +230,7 @@ export default function DashboardPage() {
               lastUpdated,
               assessmentState,
               assessmentError,
+              healthProfileLoadError,
             }}
           />
         </>
@@ -215,6 +243,7 @@ export default function DashboardPage() {
             lastUpdated,
             assessmentState,
             assessmentError,
+            healthProfileLoadError,
           }}
         />
       )}

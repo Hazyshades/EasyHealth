@@ -2,79 +2,13 @@ import { NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { getProfileById } from "@/lib/auth/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { HEALTH_PROFILE_FRESHNESS_POLICY } from "@/lib/health-profile-freshness";
-import {
-  type HealthProfileAssessment,
-  buildHealthProfileSnapshot,
-} from "@/lib/health-profile-snapshot";
+import { buildHealthProfileSnapshot } from "@/lib/health-profile-snapshot";
 import { getLatestHolisticSynthesis } from "@/lib/holistic-synthesis";
-import { resolveAssessmentDisplayState } from "@/lib/health-profile-assessment-state";
-import type { HealthProfileReportedResults } from "@/lib/health-profile-reported-results";
+import {
+  hasCanonicalReadinessContract,
+  projectHealthProfileAssessmentRead,
+} from "@/lib/health-profile-assessment-read";
 
-const REPORTED_RESULT_COUNT_KEYS: readonly (keyof HealthProfileReportedResults)[] = [
-  "reported_count",
-  "ready_for_scoring_count",
-  "needs_document_details_count",
-  "awaiting_catalog_review_count",
-  "awaiting_verification_count",
-  "source_document_count",
-];
-
-function hasCanonicalReportedResults(
-  value: unknown,
-): value is HealthProfileReportedResults {
-  if (!value || typeof value !== "object") return false;
-  const summary = value as Record<string, unknown>;
-  return REPORTED_RESULT_COUNT_KEYS.every(
-    (key) =>
-      typeof summary[key] === "number" &&
-      Number.isInteger(summary[key]) &&
-      summary[key] >= 0,
-  );
-}
-
-function hasCanonicalReadinessContract(value: unknown): value is HealthProfileAssessment {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    !("assessment_freshness" in value) ||
-    !("systems" in value) ||
-    !("freshness_policy_version" in value) ||
-    !("reported_results" in value) ||
-    hasCanonicalReportedResults(value.reported_results) === false
-  ) {
-    return false;
-  }
-  if (value.freshness_policy_version !== HEALTH_PROFILE_FRESHNESS_POLICY.version) {
-    return false;
-  }
-  if (
-    value.assessment_freshness !== "current" &&
-    value.assessment_freshness !== "outdated"
-  ) {
-    return false;
-  }
-  return (
-    Array.isArray(value.systems) &&
-    value.systems.every((system) => {
-      if (
-        !system ||
-        typeof system !== "object" ||
-        !("score_readiness" in system) ||
-        !system.score_readiness ||
-        typeof system.score_readiness !== "object" ||
-        !("required_groups" in system.score_readiness) ||
-        !("reasons" in system.score_readiness)
-      ) {
-        return false;
-      }
-      return (
-        Array.isArray(system.score_readiness.required_groups) &&
-        Array.isArray(system.score_readiness.reasons)
-      );
-    })
-  );
-}
 
 export async function GET() {
   const profileId = await getSessionProfileId();
@@ -123,32 +57,20 @@ export async function GET() {
     );
   }
 
-  const persistedProfile = hasCanonicalReadinessContract(version?.payload)
-    ? version.payload
-    : null;
-  // Rebuild only legacy or malformed payloads so the API never leaks a retired
-  // readiness shape; ordinary reads remain persisted-snapshot reads.
-  const fallback = persistedProfile
+  const fallback = hasCanonicalReadinessContract(version?.payload)
     ? null
     : await buildHealthProfileSnapshot({ profileId, labUnitSystem });
-  const profile = persistedProfile ?? fallback?.profile;
+  const { profile, assessment } = projectHealthProfileAssessmentRead({
+    version,
+    job,
+    fallback,
+  });
   if (!profile) {
     return NextResponse.json(
       { error: "Unable to build Health Profile assessment" },
       { status: 500, headers: { "Cache-Control": "no-store" } },
     );
   }
-
-  // EH-146: a completed version remains visible while a newer job runs.
-  // Do not suppress scores for job freshness — that is a separate display axis.
-  const hasCurrentVersion = persistedProfile != null;
-  const assessmentStatus =
-    job?.status ?? (hasCurrentVersion ? "succeeded" : "queued");
-  const assessmentDisplayState = resolveAssessmentDisplayState(
-    assessmentStatus,
-    hasCurrentVersion,
-  );
-  const persistedVersion = persistedProfile ? version : null;
 
   return NextResponse.json(
     {
@@ -157,27 +79,7 @@ export async function GET() {
       synthesis_stale: synthesis.stale,
       lab_unit_system: labUnitSystem,
       overall_assessment_dismissal_key: profileId,
-      assessment: {
-        version_id: persistedVersion?.id ?? null,
-        input_hash: persistedVersion?.input_hash ?? fallback?.inputHash ?? null,
-        generated_at:
-          persistedVersion?.generated_at ?? fallback?.freshnessEvaluatedAt ?? null,
-        freshness_policy_version:
-          persistedVersion?.freshness_policy_version ??
-          fallback?.freshnessPolicyVersion ??
-          profile.freshness_policy_version ??
-          null,
-        freshness_evaluated_at:
-          profile.freshness_evaluated_at ?? fallback?.freshnessEvaluatedAt ?? null,
-        status: assessmentStatus,
-        display_state: assessmentDisplayState,
-        has_current_version: hasCurrentVersion,
-        attempts: job?.attempts ?? 0,
-        max_attempts: job?.max_attempts ?? 0,
-        error_code: job?.last_error_code ?? null,
-        error_message: job?.last_error_message ?? null,
-        fallback: fallback !== null,
-      },
+      assessment,
     },
     { headers: { "Cache-Control": "no-store" } },
   );

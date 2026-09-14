@@ -220,6 +220,8 @@ jobs:
         run: pnpm test:eh164
       - name: Verify Health Profile drawer status rendering
         run: pnpm test:health-profile-drawer-status
+      - name: Verify Health Profile assessment read projection
+        run: pnpm test:health-profile-assessment-read
       - name: Verify EH-144 freshness policy
         run: pnpm test:eh144
       - name: Verify EH-145 score provenance

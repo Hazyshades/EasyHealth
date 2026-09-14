@@ -282,6 +282,17 @@
       "reason": "Drawer status-chip rendering guards readiness presentation against DOM-global shadowing regressions."
     },
     {
+      "script": "test:health-profile-assessment-read",
+      "verificationFiles": [
+        "scripts/verify-health-profile-assessment-read.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "health-profile",
+      "reason": "Persisted-versus-fallback assessment reads and lifecycle metadata require deterministic state-matrix coverage."
+    },
+    {
       "script": "test:eh130-db",
       "verificationFiles": [
         "supabase/tests/eh130_duplicate_document_detection.sql"

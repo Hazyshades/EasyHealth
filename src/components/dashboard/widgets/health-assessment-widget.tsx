@@ -6,6 +6,29 @@ import { SurfaceCard } from "@/components/ui/surface-card";
 import { Button } from "@/components/ui/button";
 import type { DashboardWidgetProps } from "@/components/dashboard/types";
 
+function HealthProfileLoadErrorCard({ message }: { message: string }) {
+  const { iconRef, hoverProps } = useAnimatedIconHover();
+  return (
+    <SurfaceCard padding="lg" className="flex h-full flex-col" {...hoverProps}>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-medium text-[var(--eh-text-secondary)]">
+          Health assessment
+        </p>
+        <DashboardCardIcon icon={HandHeartIcon} iconRef={iconRef} />
+      </div>
+      <p className="mt-3 text-sm font-medium text-[var(--eh-text-primary)]">
+        Health assessment is unavailable
+      </p>
+      <p className="mt-2 text-sm text-[var(--eh-text-secondary)]">{message}</p>
+      <div className="mt-auto pt-6">
+        <Button asChild variant="outline" className="w-full rounded-xl">
+          <Link href="/app/profile">Open health profile</Link>
+        </Button>
+      </div>
+    </SurfaceCard>
+  );
+}
+
 function EmptyAssessmentCard({
   assessmentState,
   assessmentError,
@@ -116,7 +139,18 @@ function ReportedOnlyAssessmentCard({ healthProfile }: { healthProfile: NonNulla
 }
 
 export function HealthAssessmentWidget({ data }: DashboardWidgetProps) {
-  const { healthProfile, lastUpdated, assessmentState, assessmentError, processingDocuments } = data;
+  const {
+    healthProfile,
+    lastUpdated,
+    assessmentState,
+    assessmentError,
+    healthProfileLoadError,
+    processingDocuments,
+  } = data;
+
+  if (healthProfileLoadError) {
+    return <HealthProfileLoadErrorCard message={healthProfileLoadError} />;
+  }
 
   if (!healthProfile) {
     return (
