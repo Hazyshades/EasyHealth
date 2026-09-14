@@ -78,4 +78,4 @@
 - [x] 7.2 Run the existing EH-164 regression evidence and confirm accepted text markers remain excluded from numeric score/trend contribution.
 - [x] 7.3 Update affected canonical Registry/biomarker documentation and record the implementation contract accurately.
 - [x] 7.4 Run biomarker documentation generation, checks, tests, Wiki render/staging export, and update the single tracking issue with publication status.
-- [ ] 7.5 Validate the completed OpenSpec change with strict validation and review the apply-ready task list.
+- [x] 7.5 Validate the completed OpenSpec change with strict validation and review the apply-ready task list.
