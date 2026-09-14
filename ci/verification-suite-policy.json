@@ -150,6 +150,17 @@
       "reason": "Batch verification eligibility and service contracts are a delivered roadmap regression suite."
     },
     {
+      "script": "test:eh248",
+      "verificationFiles": [
+        "scripts/verify-eh248-resolver-evidence-identity.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "documents",
+      "reason": "Prepared Resolver evidence identity and no-Resolver historical batch undo require focused contract coverage."
+    },
+    {
       "script": "test:eh165",
       "verificationFiles": [
         "scripts/verify-eh165-row-level-observation-dates.ts"
@@ -170,6 +181,17 @@
       "localOnly": false,
       "owner": "documents",
       "reason": "Batch verification metadata and append-only reversal contracts require pgTAP."
+    },
+    {
+      "script": "test:eh248-db",
+      "verificationFiles": [
+        "supabase/tests/eh248_resolver_evidence_identity.sql"
+      ],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "documents",
+      "reason": "Resolver evidence identity columns, trace allowlist, and historical restore RPC contracts require pgTAP."
     },
     {
       "script": "test:service-role-access-db",

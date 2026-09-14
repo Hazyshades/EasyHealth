@@ -22,7 +22,7 @@ insert into public.document_extracted_biomarkers (
 );
 
 
-select plan(21);
+select plan(22);
 
 select ok(
   has_column('public', 'observation_normalization_revisions', 'input_identity_format_version'),
@@ -188,6 +188,12 @@ select ok(
     'public.eh122_reverse_observation_normalization_verification(uuid,uuid,text,text)'::regprocedure
   )) > 0,
   'batch historical reversal copies identity, trace, and release metadata'
+);
+select ok(
+  position('panel_specimen_policy_conflict' in pg_get_functiondef(
+    'public.eh115_validate_resolver_decision_trace(jsonb,text)'::regprocedure
+  )) > 0,
+  'panel-policy conflict traces are accepted by the persisted trace validator'
 );
 select throws_ok(
   $$
