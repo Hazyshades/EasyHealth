@@ -917,7 +917,6 @@ export function runRegistryV2CandidateCorpusTechnical(
         specimen: row.specimen ?? null,
         modifier: row.modifier ?? null,
         method: row.method ?? null,
-        laboratory: document.laboratory,
       });
       const preparedIdentity = buildPreparedEvidenceIdentity(prepared);
       preparedInputIdentityFormatVersion = preparedIdentity.formatVersion;

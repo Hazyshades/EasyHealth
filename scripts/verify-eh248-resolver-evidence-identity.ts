@@ -284,6 +284,11 @@ async function main(): Promise<void> {
   assert.equal(applied.panelSpecimenPolicy.policyKey, "cbc_whole_blood");
   assert.equal(applied.input.specimen, "whole_blood");
   assert.equal(applied.input.specimenSource, "reviewed_panel_policy");
+  assert.equal(applied.input.laboratory, "northern-diagnostics");
+  assert.equal(
+    buildPreparedEvidenceIdentity(applied).record.laboratory,
+    "northern-diagnostics",
+  );
   const provisionalPolicy = prepareMeasurementEvidence(
     source({
       sectionContext: "CBC",
@@ -455,9 +460,16 @@ async function main(): Promise<void> {
     (row) => row.id === "hemoglobin-cbc-heading",
   );
   assert.ok(corpusHeading);
+  const corpusEquivalentWriterRow = writerRow({
+    section_context: "Complete blood count with manual smear microscopy + ESR",
+  });
+  const corpusWriterPrepared = preparedEvidenceFromWriterRow(
+    corpusEquivalentWriterRow,
+  );
   assert.equal(
     corpusHeading.preparedInputIdentityHash,
-    buildPreparedEvidenceIdentity(applied).hash,
+    buildPreparedEvidenceIdentity(corpusWriterPrepared).hash,
+    "corpus identity matches the production writer adapter",
   );
   assert.equal(
     corpusHeading.preparedInputIdentityFormatVersion,
