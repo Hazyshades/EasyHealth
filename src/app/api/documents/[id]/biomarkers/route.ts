@@ -13,10 +13,13 @@ import { observationDateFromExtractedRow } from "@/lib/documents/observation-dat
 import {
   compatibleManualDefinitions,
   getActiveNormalizationRevision,
+  HistoricalNormalizationRestoreError,
+  restoreHistoricalNormalizationRevision,
 } from "@/lib/documents/normalization-revisions";
 import {
+  buildHistoricalObservationPayload,
   buildManualCorrectionResolution,
-  measurementInputFromWriterRow,
+  preparedEvidenceFromWriterRow,
   ObservationNormalizationWriterError,
   type ExtractedBiomarkerWriterRow,
   writeExtractedBiomarkerNormalization,
@@ -45,7 +48,7 @@ export async function GET(_req: Request, context: RouteContext) {
   const { data: items, error: listError } = await supabase
     .from("document_extracted_biomarkers")
     .select(
-      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, source_page, source_text, bounding_box, confidence, status, processing_version, extraction_model, source_text_origin, ocr_provider, ocr_model, ocr_adapter_version, ocr_artifact_schema_version, ocr_source_sha256, specimen, modifier, method, reported_alt_value, reported_alt_unit, raw_value_text, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, resolver_evidence, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, verification_status, record_status, lifecycle_reason_code, superseded_at, superseded_by_processing_attempt_id, processing_attempt_id, is_current, is_published, created_at, collected_at"
+      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, source_page, source_text, bounding_box, confidence, status, processing_version, extraction_model, source_text_origin, ocr_provider, ocr_model, ocr_adapter_version, ocr_artifact_schema_version, ocr_source_sha256, specimen, modifier, method, reported_alt_value, reported_alt_unit, raw_value_text, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, resolver_evidence, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, verification_status, record_status, lifecycle_reason_code, superseded_at, superseded_by_processing_attempt_id, processing_attempt_id, is_current, is_published, created_at, collected_at",
     )
     .eq("document_id", id)
     .eq("profile_id", profileId)
@@ -64,12 +67,15 @@ export async function GET(_req: Request, context: RouteContext) {
     ? await supabase
         .from("observation_normalization_revisions")
         .select(
-          "id, extracted_biomarker_id, analyte_key, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, resolver_evidence, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, resolver_decision_trace, resolver_trace_schema_version, measurement_override, created_at"
+          "id, extracted_biomarker_id, analyte_key, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, resolver_evidence, input_evidence_hash, input_identity_format_version, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, resolver_decision_trace, resolver_trace_schema_version, measurement_override, created_at",
         )
         .in("extracted_biomarker_id", ids)
         .order("created_at", { ascending: false })
     : { data: [] as Array<Record<string, unknown>> };
-  const revisionsByExtractedId = new Map<string, Array<Record<string, unknown>>>();
+  const revisionsByExtractedId = new Map<
+    string,
+    Array<Record<string, unknown>>
+  >();
   for (const revision of revisionsResult.data ?? []) {
     const key = String(revision.extracted_biomarker_id);
     const entries = revisionsByExtractedId.get(key) ?? [];
@@ -80,7 +86,8 @@ export async function GET(_req: Request, context: RouteContext) {
     items: rows.map((row) => {
       const normalization = buildNormalizationReview(
         row,
-        (revisionsByExtractedId.get(row.id) ?? []) as unknown as NormalizationRevisionSummary[]
+        (revisionsByExtractedId.get(row.id) ??
+          []) as unknown as NormalizationRevisionSummary[],
       );
       return {
         ...row,
@@ -96,32 +103,31 @@ export async function GET(_req: Request, context: RouteContext) {
 
 export async function PATCH(req: Request, context: RouteContext) {
   const profileId = await getSessionProfileId();
-  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!profileId)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await context.params;
   const { doc, error: ownerError } = await assertDocumentOwner(profileId, id);
   if (ownerError) return ownerError;
 
-  const body = (await req.json().catch(() => null)) as
-    | {
-        extractedBiomarkerId?: string;
-        action?: "correct" | "edit-value" | "undo";
-        measurementDefinitionKey?: string;
-        correctionReason?: string;
-        revertToRevisionId?: string;
-        measurementOverride?: unknown;
-        acknowledgeDefinitionLoss?: boolean;
-        expectedActiveRevisionId?: string | null;
-        value?: unknown;
-        value_text?: unknown;
-        value_kind?: unknown;
-        ordinal?: unknown;
-        unit?: unknown;
-        ref_low?: unknown;
-        ref_high?: unknown;
-        observed_at?: unknown;
-      }
-    | null;
+  const body = (await req.json().catch(() => null)) as {
+    extractedBiomarkerId?: string;
+    action?: "correct" | "edit-value" | "undo";
+    measurementDefinitionKey?: string;
+    correctionReason?: string;
+    revertToRevisionId?: string;
+    measurementOverride?: unknown;
+    acknowledgeDefinitionLoss?: boolean;
+    expectedActiveRevisionId?: string | null;
+    value?: unknown;
+    value_text?: unknown;
+    value_kind?: unknown;
+    ordinal?: unknown;
+    unit?: unknown;
+    ref_low?: unknown;
+    ref_high?: unknown;
+    observed_at?: unknown;
+  } | null;
   if (
     !body?.extractedBiomarkerId ||
     (body.action !== "correct" &&
@@ -148,7 +154,10 @@ export async function PATCH(req: Request, context: RouteContext) {
     .eq("record_status", "active")
     .maybeSingle();
   if (extractedError) {
-    return NextResponse.json({ error: extractedError.message }, { status: 500 });
+    return NextResponse.json(
+      { error: extractedError.message },
+      { status: 500 },
+    );
   }
   if (!data) {
     return NextResponse.json(
@@ -166,13 +175,17 @@ export async function PATCH(req: Request, context: RouteContext) {
     ) {
       return NextResponse.json(
         {
-          error: "This result changed while you were editing it. Reload the row and try again.",
+          error:
+            "This result changed while you were editing it. Reload the row and try again.",
           code: "stale_revision_conflict",
         },
         { status: 409 },
       );
     }
-    if (body.action === "undo" && (!body.revertToRevisionId || !activeRevision)) {
+    if (
+      body.action === "undo" &&
+      (!body.revertToRevisionId || !activeRevision)
+    ) {
       return NextResponse.json(
         { error: "An active revision and a revision to restore are required" },
         { status: 400 },
@@ -257,7 +270,11 @@ export async function PATCH(req: Request, context: RouteContext) {
         );
       }
 
-      const input = measurementInputFromWriterRow(row, validation.override);
+      const preparedEvidence = preparedEvidenceFromWriterRow(
+        row,
+        validation.override,
+      );
+      const input = preparedEvidence.input;
       const resolution = resolveMeasurementDefinition(input);
       const writerResult = await writeExtractedBiomarkerNormalization({
         profileId,
@@ -267,6 +284,7 @@ export async function PATCH(req: Request, context: RouteContext) {
         actorId: profileId,
         writeKind: "value_correction",
         resolution,
+        preparedEvidence,
         expectedActiveRevision: activeRevision,
         measurementOverride: validation.override,
         mappingClassification: validation.losesDefinitionBinding
@@ -298,7 +316,10 @@ export async function PATCH(req: Request, context: RouteContext) {
         .eq("extracted_biomarker_id", row.id)
         .maybeSingle();
       if (targetError) {
-        return NextResponse.json({ error: targetError.message }, { status: 500 });
+        return NextResponse.json(
+          { error: targetError.message },
+          { status: 500 },
+        );
       }
       if (!targetRevision) {
         return NextResponse.json(
@@ -306,44 +327,41 @@ export async function PATCH(req: Request, context: RouteContext) {
           { status: 404 },
         );
       }
-
-      const targetOverride = (targetRevision.measurement_override ?? null) as
-        | MeasurementOverride
-        | null;
-      const input = measurementInputFromWriterRow(row, targetOverride);
-      const targetDefinitionKey =
-        typeof targetRevision.measurement_definition_key === "string"
-          ? targetRevision.measurement_definition_key
-          : null;
-      const resolution = targetDefinitionKey
-        ? buildManualCorrectionResolution({
-            input,
-            selectedDefinitionKey: targetDefinitionKey,
-          })
-        : resolveMeasurementDefinition(input);
-      const writerResult = await writeExtractedBiomarkerNormalization({
-        profileId,
-        documentId: id,
-        observedAt: doc!.observed_at,
-        row,
+      const targetOverride = (targetRevision.measurement_override ??
+        null) as MeasurementOverride | null;
+      const restoreResult = await restoreHistoricalNormalizationRevision({
+        extractedBiomarkerId: row.id,
+        targetRevisionId: targetRevision.id,
+        expectedActiveRevisionId: activeRevision.id,
         actorId: profileId,
-        writeKind: "value_correction",
-        resolution,
-        expectedActiveRevision: activeRevision,
-        measurementOverride: targetOverride,
         correctionReason:
           typeof body.correctionReason === "string" &&
           body.correctionReason.trim()
             ? body.correctionReason
             : "Manual correction reverted",
-        reversalOfRevisionId: targetRevision.id,
-        supersedesRevisionId: activeRevision.id,
+        observationPayload: buildHistoricalObservationPayload({
+          profileId,
+          documentId: id,
+          row,
+          observedAt: observationDateFromExtractedRow(row, doc!.observed_at),
+          measurementOverride: targetOverride,
+        }),
       });
+      const targetDefinitionKey =
+        typeof targetRevision.measurement_definition_key === "string"
+          ? targetRevision.measurement_definition_key
+          : null;
       return NextResponse.json({
-        revision: writerResult,
-        compatibleDefinitionKeys: compatibleManualDefinitions(input).map(
-          (definition) => definition.key,
-        ),
+        revision: {
+          observationId: restoreResult.observationId,
+          revisionId: restoreResult.revisionId,
+          verificationStatus: restoreResult.verificationStatus,
+          resolverResult: restoreResult.resolverResult,
+          wasReused: restoreResult.wasReused,
+        },
+        compatibleDefinitionKeys: targetDefinitionKey
+          ? [targetDefinitionKey]
+          : [],
         userCorrected: targetOverride !== null,
       });
     }
@@ -357,7 +375,8 @@ export async function PATCH(req: Request, context: RouteContext) {
     if (!body.correctionReason?.trim()) {
       return NextResponse.json(
         {
-          error: "Say why you are selecting a different measurement definition.",
+          error:
+            "Say why you are selecting a different measurement definition.",
           code: "correction_reason_required",
           field: "correction_reason",
         },
@@ -365,12 +384,13 @@ export async function PATCH(req: Request, context: RouteContext) {
       );
     }
 
-    const input = measurementInputFromWriterRow(
+    const preparedEvidence = preparedEvidenceFromWriterRow(
       row,
       activeRevision?.measurement_override,
     );
+    const input = preparedEvidence.input;
     const resolution = buildManualCorrectionResolution({
-      input,
+      preparedEvidence,
       selectedDefinitionKey: body.measurementDefinitionKey,
     });
     const writerResult = await writeExtractedBiomarkerNormalization({
@@ -381,6 +401,7 @@ export async function PATCH(req: Request, context: RouteContext) {
       actorId: profileId,
       writeKind: "correction",
       resolution,
+      preparedEvidence,
       expectedActiveRevision: activeRevision,
       measurementOverride: activeRevision?.measurement_override,
       correctionReason: body.correctionReason,
@@ -396,6 +417,12 @@ export async function PATCH(req: Request, context: RouteContext) {
   } catch (error) {
     const message = failureMessage(error);
     if (error instanceof ObservationNormalizationWriterError) {
+      return NextResponse.json(
+        { error: message, code: error.code },
+        { status: error.status },
+      );
+    }
+    if (error instanceof HistoricalNormalizationRestoreError) {
       return NextResponse.json(
         { error: message, code: error.code },
         { status: error.status },

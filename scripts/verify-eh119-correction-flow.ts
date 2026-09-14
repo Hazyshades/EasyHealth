@@ -41,8 +41,26 @@ const correctionRouteSource = readFileSync(
 );
 assert.match(
   correctionRouteSource,
-  /targetRevision\.measurement_definition_key[\s\S]*buildManualCorrectionResolution/,
-  "undo restores a target revision's concrete identity when one exists",
+  /restoreHistoricalNormalizationRevision/,
+  "undo uses the explicit historical restore writer",
+);
+assert.match(
+  correctionRouteSource,
+  /buildHistoricalObservationPayload/,
+  "undo builds the observation projection from the saved target override",
+);
+const undoStart = correctionRouteSource.indexOf(
+  'if (body.action === "undo")',
+);
+const correctionStart = correctionRouteSource.indexOf(
+  'if (!body.measurementDefinitionKey)',
+);
+assert.ok(undoStart >= 0 && correctionStart > undoStart);
+const undoBranch = correctionRouteSource.slice(undoStart, correctionStart);
+assert.doesNotMatch(
+  undoBranch,
+  /resolveMeasurementDefinition|buildManualCorrectionResolution|preparedEvidenceFromWriterRow/,
+  "undo must not evaluate current Resolver or admission policy",
 );
 assert.match(
   correctionRouteSource,

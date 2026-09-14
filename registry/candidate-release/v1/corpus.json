@@ -1035,6 +1035,7 @@
       "rawUnit": "g/L",
       "rawValueText": "138",
       "valueKind": "numeric",
+      "sourceAnalyteKey": "hemoglobin",
       "sectionContext": "Complete blood count with manual smear microscopy + ESR",
       "expected": {
         "classification": "resolved",
@@ -1051,6 +1052,7 @@
       "rawUnit": "mmol/L",
       "rawValueText": "5.1",
       "valueKind": "numeric",
+      "sourceAnalyteKey": "glucose",
       "sectionContext": "Complete blood count with manual smear microscopy + ESR",
       "expected": {
         "classification": "partial"
@@ -1066,6 +1068,7 @@
       "rawUnit": "g/L",
       "rawValueText": "137",
       "valueKind": "numeric",
+      "sourceAnalyteKey": "hemoglobin",
       "sectionContext": "Miscellaneous laboratory tests",
       "expected": {
         "classification": "partial"

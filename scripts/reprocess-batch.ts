@@ -38,6 +38,7 @@ type ParsedArgs = {
   batchId: string | null;
   batchLimit: number | null;
   maxDocuments: number | null;
+  releaseRefresh: boolean;
   resolverResults: ReprocessResolverResultFilter;
   includeManualDecisions: boolean;
   reason: string | null;
@@ -51,6 +52,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
     profileId: null,
     global: false,
     dryRun: false,
+    releaseRefresh: false,
     apply: false,
     batchId: null,
     batchLimit: null,
@@ -133,6 +135,9 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
         parsed.resolverResults = wanted;
         break;
       }
+      case "--release-refresh":
+        parsed.releaseRefresh = true;
+        break;
       case "--include-manual-decisions":
         parsed.includeManualDecisions = true;
         break;
@@ -173,6 +178,7 @@ function printUsageAndExit(code: number): never {
   --resolver-result <list>     Comma list of resolved,partial,ambiguous,unmapped (default: all four)
 
   --include-manual-decisions   Include user_verified/manually_corrected active revisions
+  --release-refresh             Explicitly allow a release-only revision refresh
   --reason "<text>"            Required with --include-manual-decisions
 
   --actor-id <uuid>            Service actor id (default EH116_ACTOR_ID env)
@@ -273,6 +279,7 @@ async function main(): Promise<void> {
       includeManualDecisions: parsed.includeManualDecisions,
       manualDecisionReason: parsed.reason,
     },
+    releaseRefresh: parsed.releaseRefresh,
     batchLimit: parsed.batchLimit,
     maxDocuments: parsed.maxDocuments,
     actorId: parsed.actorId,

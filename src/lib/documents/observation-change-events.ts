@@ -18,13 +18,15 @@ export const OBSERVATION_CHANGE_EVENT_SELECT =
   "next_record_status, reason_code, transition_request_hash, " +
   "prior_measurement_definition_key, prior_analyte_key, prior_resolver_result, " +
   "prior_verification_status, prior_mapping_confidence_band, " +
-  "prior_input_evidence_hash, " +
+  "prior_input_evidence_hash, prior_input_identity_format_version, " +
   "next_measurement_definition_key, next_analyte_key, next_resolver_result, " +
   "next_verification_status, next_mapping_confidence_band, " +
-  "next_input_evidence_hash, " +
+  "next_input_evidence_hash, next_input_identity_format_version, " +
   "next_mapping_change_classification, catalog_manifest_version, " +
   "catalog_manifest_digest, resolver_version, normalization_version, " +
-  "extraction_version, occurred_at, created_at";
+  "extraction_version, occurred_at, created_at, input_change, " +
+  "outcome_change, release_change, create_revision, activate_revision, " +
+  "reprocess_change_facts";
 
 export const OBSERVATION_CHANGE_HISTORY_DEFAULT_LIMIT = 200;
 export const OBSERVATION_CHANGE_HISTORY_MAX_LIMIT = 500;

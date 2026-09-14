@@ -41,6 +41,16 @@ export const DEFAULT_RESOLVER_RESULT_FILTER: ReprocessResolverResultFilter = [
   "ambiguous",
   "unmapped",
 ];
+export type ReprocessChangeState = "changed" | "unchanged" | "unavailable";
+export type ReprocessOutcomeChange = "changed" | "unchanged";
+
+export type ReprocessChangeFacts = Readonly<{
+  inputChange: ReprocessChangeState;
+  outcomeChange: ReprocessOutcomeChange;
+  releaseChange: ReprocessChangeState;
+  createRevision: boolean;
+  activateRevision: boolean;
+}>;
 
 export type ReprocessBatchFilters = {
   resolverResults: ReprocessResolverResultFilter;
@@ -55,6 +65,8 @@ export type ReprocessBatchInputs = {
   maxDocuments?: number | null;
   actorId?: string | null;
   actorNote?: string | null;
+  /** Explicit opt-in for creating a revision on a release-only change. */
+  releaseRefresh?: boolean;
 };
 
 /** Nine explicit outcomes for the per-row dry-run diff. */
@@ -84,7 +96,16 @@ export type ReprocessPriorSnapshot = {
   verificationStatus: VerificationStatus | null;
   mappingConfidenceBand: MeasurementResolution["mappingConfidenceBand"] | null;
   inputEvidenceHash: string | null;
+  inputIdentityFormatVersion: string | null;
+  release: ReprocessPriorRelease | null;
 };
+export type ReprocessPriorRelease = Readonly<{
+  catalogManifestVersion: string | null;
+  catalogManifestDigest: string | null;
+  resolverVersion: string | null;
+  normalizationVersion: string | null;
+  compatibilityPolicyVersion: string | null;
+}>;
 
 /**
  * Snapshot of the resolution the currently deployed runtime would produce
@@ -100,6 +121,11 @@ export type ReprocessNextSnapshot = {
   mappingChangeClassification: MappingChangeClassification;
   decisionTrace: PersistedResolverDecisionTrace;
   decisionTraceSchemaVersion: string;
+  inputIdentityFormatVersion: string;
+  release: DeployedRegistryRelease;
+  changeFacts: ReprocessChangeFacts;
+  createRevision: boolean;
+  activateRevision: boolean;
 };
 
 export type ReprocessBatchRowDiff = {

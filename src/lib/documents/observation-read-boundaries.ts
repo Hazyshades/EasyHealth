@@ -60,6 +60,8 @@ export type RegistryV2NormalizationRevisionReadBoundary = {
   resolver_version?: string | null;
   normalization_version?: string | null;
   is_active?: boolean | null;
+  input_evidence_hash?: string | null;
+  input_identity_format_version?: string | null;
   resolver_evidence?: RegistryV2ResolverEvidence | null;
   measurement_override?: MeasurementOverride | null;
 };

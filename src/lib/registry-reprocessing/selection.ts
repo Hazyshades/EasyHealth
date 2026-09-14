@@ -22,7 +22,7 @@ const EXTRACTED_COLUMNS =
   "id, document_id, profile_id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, confidence, specimen, modifier, source_page, source_text, bounding_box, reported_alt_value, reported_alt_unit, raw_value_text, method, processing_version, collected_at, record_status, is_current";
 
 const REVISION_COLUMNS =
-  "id, extracted_biomarker_id, observation_id, measurement_definition_key, analyte_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, verification_decided_at, verification_actor_type, verification_actor_id, is_active, mapping_change_classification, resolver_evidence, measurement_override";
+  "id, extracted_biomarker_id, observation_id, input_evidence_hash, input_identity_format_version, measurement_definition_key, analyte_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, verification_decided_at, verification_actor_type, verification_actor_id, is_active, mapping_change_classification, resolver_evidence, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, measurement_override";
 
 /**
  * Selects laboratory extracted rows that should participate in a batch. The

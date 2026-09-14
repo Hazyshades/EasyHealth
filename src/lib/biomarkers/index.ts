@@ -17,6 +17,8 @@ export type {
   RegistrySourceKind,
   AssessmentBinding,
   MeasurementSourceProvenance,
+  PanelSpecimenPolicyContext,
+  PanelSpecimenPolicyStatus,
   MeasurementIdentity,
   SpecimenKey,
   MeasurementPropertyKey,
@@ -165,6 +167,7 @@ export {
   type PanelSpecimenPolicy,
   type PanelSpecimenPolicyMaturity,
   type PanelSpecimenPolicyValidation,
+  type ReviewedPanelSpecimenPolicyMatch,
 } from "./panel-specimen-policy";
 
 export {

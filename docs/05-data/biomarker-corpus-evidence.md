@@ -15,7 +15,7 @@ Technical resolver evidence only. This document is independent from the release-
 
 ## Row evidence
 
-Unknown-marker rows remain `unmapped`; uploads never silently create definitions or aliases. Heading-policy fixtures cover CBC recovery (`hemoglobin-cbc-heading` resolved via `cbc_whole_blood`) and keep glucose / unrecognized headings `partial`. Historical documents are not backfilled.
+Unknown-marker rows remain `unmapped`; uploads never silently create definitions or aliases. Heading-policy fixtures cover CBC recovery (`hemoglobin-cbc-heading` resolved via `cbc_whole_blood`) and keep glucose / unrecognized headings `partial`. Candidate corpus identity is a separate candidate artifact hash and does not mutate source rows. Historical documents are not backfilled.
 
 | row | language | raw label | unit / value | expected | actual | false-concrete | alias evidence | safety rationale |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |

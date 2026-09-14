@@ -20,11 +20,6 @@ import path from "node:path";
 import type { NormalizationRevision } from "../src/lib/documents/normalization-revisions";
 import type { ExtractedBiomarkerWriterRow } from "../src/lib/documents/observation-normalization-writer";
 import type * as ReprocessingModule from "../src/lib/registry-reprocessing";
-import { MEASUREMENT_CATALOG_MANIFEST_RELEASE } from "../src/lib/biomarkers/measurement-registry-release";
-import {
-  MEASUREMENT_CATALOG_MANIFEST_VERSION,
-  MEASUREMENT_RESOLVER_VERSION,
-} from "../src/lib/biomarkers";
 import type { ReprocessDiffClassification } from "../src/lib/registry-reprocessing";
 
 // ── 0. Dummy env for pure-function tests ────────────────────────────────────
@@ -121,6 +116,16 @@ assert(
 async function main(): Promise<void> {
   // Module-loading-boundary exception: env must be set before the module
   // graph resolves createAdminClient (see file docstring).
+  const { MEASUREMENT_CATALOG_MANIFEST_RELEASE } =
+    await import("../src/lib/biomarkers/measurement-registry-release");
+  const {
+    MEASUREMENT_CATALOG_MANIFEST_VERSION,
+    MEASUREMENT_RESOLVER_VERSION,
+  } = await import("../src/lib/biomarkers");
+  const { buildInputEvidenceHash } =
+    await import("../src/lib/documents/normalization-revisions");
+  const { preparedEvidenceFromWriterRow } =
+    await import("../src/lib/documents/observation-normalization-writer");
   const reprocessing = (await import("../src/lib/registry-reprocessing")) as typeof ReprocessingModule;
 
   const {
@@ -310,6 +315,9 @@ async function main(): Promise<void> {
     biomarker_name: "EH116 verifier unknown analyte",
     raw_name: "EH116 verifier unknown analyte",
   };
+  const unmappedInputEvidenceHash = buildInputEvidenceHash(
+    preparedEvidenceFromWriterRow(unmappedRow, null),
+  );
   const unmappedActive: NormalizationRevision = {
     ...partialActive,
     id: "00000000-0000-0000-0000-000000000204",
@@ -319,6 +327,12 @@ async function main(): Promise<void> {
     verification_status: "auto_verified",
     mapping_confidence: 0,
     mapping_confidence_band: "low",
+    input_evidence_hash: unmappedInputEvidenceHash,
+    input_identity_format_version: "1",
+    catalog_manifest_version: release.catalogManifestVersion,
+    catalog_manifest_digest: release.catalogManifestDigest,
+    resolver_version: release.resolverVersion,
+    normalization_version: release.normalizationVersion,
   };
   const unchangedDiff = computeReprocessBatchDiff({
     extractedRow: unmappedRow,

@@ -6,7 +6,7 @@ import {
   type BatchVerificationExclusionCode,
 } from "./batch-verification-eligibility";
 import {
-  measurementInputFromWriterRow,
+  preparedEvidenceFromWriterRow,
   type ExtractedBiomarkerWriterRow,
   writeExtractedBiomarkerNormalization,
 } from "./observation-normalization-writer";
@@ -151,9 +151,11 @@ export async function executeBatchVerification(options: {
       continue;
     }
     const activeRevision = await getActiveNormalizationRevision(row.id);
-    const resolution = resolveMeasurementDefinition(
-      measurementInputFromWriterRow(row, activeRevision?.measurement_override),
+    const preparedEvidence = preparedEvidenceFromWriterRow(
+      row as ExtractedBiomarkerWriterRow,
+      activeRevision?.measurement_override,
     );
+    const resolution = resolveMeasurementDefinition(preparedEvidence.input);
     const eligibility = evaluateBatchVerificationEligibility({
       status: row.status,
       recordStatus: row.record_status,
@@ -190,6 +192,7 @@ export async function executeBatchVerification(options: {
         actorId: options.profileId,
         writeKind: "acceptance",
         resolution,
+        preparedEvidence,
         expectedActiveRevision: activeRevision,
       });
       outcomes.push({

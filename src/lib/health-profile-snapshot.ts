@@ -31,7 +31,7 @@ import {
   projectHealthProfileLaboratoryAdmission,
   type HealthProfileLaboratoryAdmission,
 } from "@/lib/health-profile-input";
-import { measurementInputFromExtracted } from "@/lib/documents/normalization-review";
+import { preparedEvidenceFromExtracted } from "@/lib/documents/normalization-review";
 import {
   projectHealthProfileReportedResults,
   type ReportedResultProjectionRow,
@@ -337,7 +337,7 @@ export async function buildHealthProfileSnapshot(options: {
         } satisfies SnapshotObservationRow);
       const preview = activeRevision
         ? null
-        : resolveMeasurementDefinition(measurementInputFromExtracted(row));
+        : resolveMeasurementDefinition(preparedEvidenceFromExtracted(row).input);
       const outcome =
         linkedAdmission?.evidence.outcome ??
         projectLaboratoryOutcome({ observation, relation, preview });

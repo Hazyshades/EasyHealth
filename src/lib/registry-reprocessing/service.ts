@@ -1,6 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { writeExtractedBiomarkerNormalization } from "@/lib/documents/observation-normalization-writer";
-import type { ExtractedBiomarkerWriterRow } from "@/lib/documents/observation-normalization-writer";
+import {
+  preparedEvidenceFromWriterRow,
+  writeExtractedBiomarkerNormalization,
+  type ExtractedBiomarkerWriterRow,
+} from "@/lib/documents/observation-normalization-writer";
 import { getActiveNormalizationRevision } from "@/lib/documents/normalization-revisions";
 import {
   APPLY_ELIGIBLE_CLASSIFICATIONS,
@@ -84,7 +87,7 @@ export type ReprocessBatchDryRunOutput = {
  * — apply is a separate call.
  */
 export async function runReprocessBatchDryRun(
-  inputs: ReprocessBatchInputs
+  inputs: ReprocessBatchInputs,
 ): Promise<ReprocessBatchDryRunOutput> {
   validateInputs(inputs);
   const release = captureDeployedRelease();
@@ -95,8 +98,10 @@ export async function runReprocessBatchDryRun(
     "registry_reprocess_open_batch",
     {
       p_scope_kind: inputs.scope.kind,
-      p_scope_document_id: inputs.scope.kind === "document" ? inputs.scope.documentId : null,
-      p_scope_profile_id: inputs.scope.kind === "profile" ? inputs.scope.profileId : null,
+      p_scope_document_id:
+        inputs.scope.kind === "document" ? inputs.scope.documentId : null,
+      p_scope_profile_id:
+        inputs.scope.kind === "profile" ? inputs.scope.profileId : null,
       p_resolver_result_filter: [...inputs.filters.resolverResults],
       p_include_manual_decisions: inputs.filters.includeManualDecisions,
       p_manual_decision_reason: inputs.filters.manualDecisionReason ?? null,
@@ -109,11 +114,13 @@ export async function runReprocessBatchDryRun(
       p_resolver_version: release.resolverVersion,
       p_normalization_version: release.normalizationVersion,
       p_compatibility_policy_version: release.compatibilityPolicyVersion,
-    }
+    },
   );
   if (openError) throw openError;
 
-  const opened = normalizeHeader(openedRaw as BatchHeaderRow | BatchHeaderRow[]);
+  const opened = normalizeHeader(
+    openedRaw as BatchHeaderRow | BatchHeaderRow[],
+  );
 
   const candidates = await selectExtractedRowsForReprocessBatch(inputs);
   const rows: ReprocessBatchRowDiff[] = [];
@@ -134,32 +141,44 @@ export async function runReprocessBatchDryRun(
       extractedRow: candidate,
       activeRevision: candidate.active_revision,
       includeManualDecisions: inputs.filters.includeManualDecisions,
+      releaseRefresh: inputs.releaseRefresh === true,
+      release,
     });
     rows.push(diff);
 
-    const { error: recordError } = await supabase.rpc("registry_reprocess_record_row", {
-      p_batch_id: opened.id,
-      p_extracted_biomarker_id: diff.extractedBiomarkerId,
-      p_profile_id: diff.profileId,
-      p_document_id: diff.documentId,
-      p_prior_revision_id: diff.prior.revisionId,
-      p_prior_resolver_result: diff.prior.resolverResult,
-      p_prior_measurement_definition_key: diff.prior.measurementDefinitionKey,
-      p_prior_analyte_key: diff.prior.analyteKey,
-      p_prior_verification_status: diff.prior.verificationStatus,
-      p_prior_mapping_confidence_band: diff.prior.mappingConfidenceBand,
-      p_prior_input_evidence_hash: diff.prior.inputEvidenceHash,
-      p_next_resolver_result: diff.next.resolverResult,
-      p_next_measurement_definition_key: diff.next.measurementDefinitionKey,
-      p_next_analyte_key: diff.next.analyteKey,
-      p_next_mapping_confidence_band: diff.next.mappingConfidenceBand,
-      p_next_input_evidence_hash: diff.next.inputEvidenceHash,
-      p_next_mapping_change_classification: diff.next.mappingChangeClassification,
-      p_next_resolver_decision_trace: diff.next.decisionTrace,
-      p_next_resolver_trace_schema_version: diff.next.decisionTraceSchemaVersion,
-      p_diff_classification: diff.diffClassification,
-      p_diff_reason_code: diff.diffReasonCode,
-    });
+    const { error: recordError } = await supabase.rpc(
+      "registry_reprocess_record_row_v2",
+      {
+        p_batch_id: opened.id,
+        p_extracted_biomarker_id: diff.extractedBiomarkerId,
+        p_profile_id: diff.profileId,
+        p_document_id: diff.documentId,
+        p_prior_revision_id: diff.prior.revisionId,
+        p_prior_resolver_result: diff.prior.resolverResult,
+        p_prior_measurement_definition_key: diff.prior.measurementDefinitionKey,
+        p_prior_analyte_key: diff.prior.analyteKey,
+        p_prior_verification_status: diff.prior.verificationStatus,
+        p_prior_mapping_confidence_band: diff.prior.mappingConfidenceBand,
+        p_prior_input_evidence_hash: diff.prior.inputEvidenceHash,
+        p_prior_input_identity_format_version:
+          diff.prior.inputIdentityFormatVersion,
+        p_next_resolver_result: diff.next.resolverResult,
+        p_next_measurement_definition_key: diff.next.measurementDefinitionKey,
+        p_next_analyte_key: diff.next.analyteKey,
+        p_next_mapping_confidence_band: diff.next.mappingConfidenceBand,
+        p_next_input_evidence_hash: diff.next.inputEvidenceHash,
+        p_next_input_identity_format_version:
+          diff.next.inputIdentityFormatVersion,
+        p_next_mapping_change_classification:
+          diff.next.mappingChangeClassification,
+        p_next_resolver_decision_trace: diff.next.decisionTrace,
+        p_next_resolver_trace_schema_version:
+          diff.next.decisionTraceSchemaVersion,
+        p_diff_classification: diff.diffClassification,
+        p_diff_reason_code: diff.diffReasonCode,
+        p_reprocess_facts: diff.next.changeFacts,
+      },
+    );
     if (recordError) throw recordError;
   }
 
@@ -185,7 +204,7 @@ export async function applyReprocessBatch(options: {
       p_batch_id: options.batchId,
       p_current_catalog_manifest_digest: release.catalogManifestDigest,
       p_actor_id: options.actorId,
-    }
+    },
   );
   if (applyError) throw applyError;
 
@@ -193,7 +212,7 @@ export async function applyReprocessBatch(options: {
   if (!applyResult) {
     throw new RegistryReprocessError(
       "registry_reprocess_apply_batch returned no result",
-      "empty_apply_result"
+      "empty_apply_result",
     );
   }
 
@@ -202,14 +221,16 @@ export async function applyReprocessBatch(options: {
   if (applyResult.status === "catalog_manifest_drift") {
     throw new RegistryReprocessError(
       "The runtime Registry 2.0 release digest does not match the batch. Apply aborted.",
-      "catalog_manifest_drift"
+      "catalog_manifest_drift",
     );
   }
 
   const pendingRows = applyResult.rows ?? [];
 
   for (const pending of pendingRows) {
+    const releaseRefreshEligible = pending.diff_classification === "unchanged";
     if (
+      !releaseRefreshEligible &&
       !APPLY_ELIGIBLE_CLASSIFICATIONS[
         pending.diff_classification as keyof typeof APPLY_ELIGIBLE_CLASSIFICATIONS
       ]
@@ -217,11 +238,14 @@ export async function applyReprocessBatch(options: {
       // Defensive: the DB filters pending rows already, but if a
       // classification is not writer-eligible we mark it skipped instead
       // of invoking the writer.
-      const { error: recordSkipError } = await supabase.rpc("registry_reprocess_finish_row", {
-        p_row_id: pending.row_id,
-        p_applied_revision_id: null,
-        p_writer_error_code: `skipped_by_batch_service_${pending.diff_classification}`,
-      });
+      const { error: recordSkipError } = await supabase.rpc(
+        "registry_reprocess_finish_row",
+        {
+          p_row_id: pending.row_id,
+          p_applied_revision_id: null,
+          p_writer_error_code: `skipped_by_batch_service_${pending.diff_classification}`,
+        },
+      );
       if (recordSkipError) throw recordSkipError;
       continue;
     }
@@ -232,17 +256,20 @@ export async function applyReprocessBatch(options: {
       pendingRow: pending,
     });
 
-    const { error: finishError } = await supabase.rpc("registry_reprocess_finish_row", {
-      p_row_id: pending.row_id,
-      p_applied_revision_id: outcome.revisionId,
-      p_writer_error_code: outcome.errorCode,
-    });
+    const { error: finishError } = await supabase.rpc(
+      "registry_reprocess_finish_row",
+      {
+        p_row_id: pending.row_id,
+        p_applied_revision_id: outcome.revisionId,
+        p_writer_error_code: outcome.errorCode,
+      },
+    );
     if (finishError) throw finishError;
   }
 
   const { data: finalRaw, error: finalError } = await supabase.rpc(
     "registry_reprocess_finish_batch",
-    { p_batch_id: options.batchId }
+    { p_batch_id: options.batchId },
   );
   if (finalError) throw finalError;
 
@@ -270,7 +297,7 @@ async function materializeRow(options: {
   const { data: rowRaw, error: readError } = await supabase
     .from("registry_reprocess_batch_rows")
     .select(
-      "batch_id, prior_verification_status, prior_measurement_definition_key, next_measurement_definition_key, next_resolver_result"
+      "batch_id, prior_revision_id, prior_verification_status, prior_measurement_definition_key, next_measurement_definition_key, next_resolver_result",
     )
     .eq("id", options.pendingRow.row_id)
     .single();
@@ -278,6 +305,7 @@ async function materializeRow(options: {
 
   const rowMeta = rowRaw as {
     batch_id: string;
+    prior_revision_id: string | null;
     prior_verification_status: string | null;
     prior_measurement_definition_key: string | null;
     next_measurement_definition_key: string | null;
@@ -299,7 +327,7 @@ async function materializeRow(options: {
   const { data: extractedRaw, error: extractedError } = await supabase
     .from("document_extracted_biomarkers")
     .select(
-      "id, document_id, profile_id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, confidence, specimen, modifier, source_page, source_text, bounding_box, reported_alt_value, reported_alt_unit, raw_value_text, method, processing_version, collected_at"
+      "id, document_id, profile_id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, confidence, specimen, modifier, source_page, source_text, bounding_box, reported_alt_value, reported_alt_unit, raw_value_text, method, processing_version, collected_at",
     )
     .eq("id", options.pendingRow.extracted_biomarker_id)
     .eq("is_published", true)
@@ -318,13 +346,21 @@ async function materializeRow(options: {
     .single();
   if (documentError) throw documentError;
 
-
   const activeRevision = await getActiveNormalizationRevision(row.id);
+  if ((activeRevision?.id ?? null) !== rowMeta.prior_revision_id) {
+    throw new RegistryReprocessError(
+      "The active normalization revision changed after the dry run; rerun the batch.",
+      "stale_revision_conflict",
+    );
+  }
+  const preparedEvidence = preparedEvidenceFromWriterRow(
+    row,
+    activeRevision?.measurement_override ?? null,
+  );
   const useCorrectionPath =
     batchMeta.include_manual_decisions &&
     (rowMeta.prior_verification_status === "user_verified" ||
       rowMeta.prior_verification_status === "manually_corrected");
-
   try {
     const result = await writeExtractedBiomarkerNormalization({
       profileId: row.profile_id,
@@ -332,10 +368,11 @@ async function materializeRow(options: {
       observedAt: documentRaw.observed_at,
       row,
       actorId: options.actorId,
+      preparedEvidence,
       writeKind: useCorrectionPath ? "correction" : "acceptance",
       expectedActiveRevision: activeRevision,
       correctionReason: useCorrectionPath
-        ? batchMeta.manual_decision_reason ?? "eh116_manual_decision_override"
+        ? (batchMeta.manual_decision_reason ?? "eh116_manual_decision_override")
         : null,
       mappingClassification: useCorrectionPath ? "review_required" : undefined,
     });
@@ -343,7 +380,8 @@ async function materializeRow(options: {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const trimmed = message.trim();
-    const truncated = trimmed.length > 200 ? `${trimmed.slice(0, 197)}...` : trimmed;
+    const truncated =
+      trimmed.length > 200 ? `${trimmed.slice(0, 197)}...` : trimmed;
     return { revisionId: null, errorCode: truncated };
   }
 }
@@ -352,7 +390,7 @@ function validateInputs(inputs: ReprocessBatchInputs): void {
   if (inputs.batchLimit <= 0 || inputs.batchLimit > 100000) {
     throw new RegistryReprocessError(
       "batch_limit must be between 1 and 100000",
-      "invalid_batch_limit"
+      "invalid_batch_limit",
     );
   }
   if (
@@ -362,13 +400,13 @@ function validateInputs(inputs: ReprocessBatchInputs): void {
   ) {
     throw new RegistryReprocessError(
       "--include-manual-decisions requires a non-empty --reason",
-      "manual_decision_reason_required"
+      "manual_decision_reason_required",
     );
   }
   if (inputs.filters.resolverResults.length === 0) {
     throw new RegistryReprocessError(
       "resolver_result filter must include at least one outcome",
-      "empty_resolver_result_filter"
+      "empty_resolver_result_filter",
     );
   }
 }
@@ -384,9 +422,15 @@ async function readBatchHeader(batchId: string): Promise<ReprocessBatchHeader> {
   return normalizeHeader(data as BatchHeaderRow | BatchHeaderRow[]);
 }
 
-function normalizeHeader(raw: BatchHeaderRow | BatchHeaderRow[]): ReprocessBatchHeader {
+function normalizeHeader(
+  raw: BatchHeaderRow | BatchHeaderRow[],
+): ReprocessBatchHeader {
   const row = Array.isArray(raw) ? raw[0] : raw;
-  if (!row) throw new RegistryReprocessError("Empty batch header", "empty_batch_header");
+  if (!row)
+    throw new RegistryReprocessError(
+      "Empty batch header",
+      "empty_batch_header",
+    );
   const scope: ReprocessBatchScope =
     row.scope_kind === "document"
       ? { kind: "document", documentId: row.scope_document_id ?? "" }
@@ -395,7 +439,7 @@ function normalizeHeader(raw: BatchHeaderRow | BatchHeaderRow[]): ReprocessBatch
         : { kind: "global" };
   const filters: ReprocessBatchFilters = {
     resolverResults: row.resolver_result_filter.map(
-      (r) => r as ReprocessBatchFilters["resolverResults"][number]
+      (r) => r as ReprocessBatchFilters["resolverResults"][number],
     ),
     includeManualDecisions: row.include_manual_decisions,
     manualDecisionReason: row.manual_decision_reason,
