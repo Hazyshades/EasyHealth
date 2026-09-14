@@ -98,9 +98,10 @@ The shared preparation and identity contracts are internal service behavior. The
 - [x] `pnpm check:registry-v2-candidate-corpus-technical` — candidate corpus technical resolver evidence and thresholds. **Passed.**
 - [x] `pnpm test:eh164` — comparator/detection-limit markers remain accepted text evidence with `value: null` and remain excluded from numeric score/trend contribution. **Passed.**
 - [x] Existing focused regressions: `pnpm test:eh116`, `pnpm test:eh119`, `pnpm test:eh120`, `pnpm test:eh121`, `pnpm test:trace-v2`, `pnpm test:observation-provenance`, `pnpm test:panel-specimen`, `pnpm test:stated-axis`, `pnpm test:health-profile-lab-input`, and `pnpm test:health-profile-admission-baseline`. **Passed.**
+- [x] `pnpm test:eh122` — legacy EH-122 batch reversal and idempotent replay regression verifier. **Passed.**
 - [x] `pnpm generate:biomarker-docs`, `pnpm check:biomarker-docs`, and `pnpm test:biomarker-docs` — canonical generated documentation is current and green. **Passed.**
 - [x] `pnpm render:biomarker-wiki` and explicit local staging export — seven Wiki pages rendered and staged under `.tmp/eh248-wiki-stage`; the Wiki remote is reachable by `git ls-remote`. **Local evidence only; publication is pending because this task must not push.**
-- [ ] `pnpm test:eh248-db` — migration constraints, RPC signatures, trusted writer validation, restore CAS, reprocess fact propagation, and history triggers. **Blocked:** local Supabase tests require Docker, and the Docker Linux engine is unavailable. Run in CI or a Docker-enabled environment before merge.
+- [ ] `pnpm test:eh122-db` — migration constraints, RPC signatures, trusted writer validation, restore CAS, reprocess fact propagation, and history triggers. **Blocked locally:** Docker Desktop's Linux engine is unavailable. The latest CI run exposed the replay-order regression; the fix is prepared and requires another CI run after commit.
 - [ ] `pnpm check:registry-v2-candidate-corpus` — release approval bindings. **Blocked/pending human renewal:** adding the required `sourceAnalyteKey` fixture evidence changed the candidate input hash, so existing signed approval records are intentionally not rewritten.
 - [x] `openspec validate prepare-resolver-evidence-identity --strict` — final artifact validation after implementation and task checklist updates. **Passed.**
 

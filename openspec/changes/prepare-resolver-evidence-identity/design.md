@@ -130,6 +130,13 @@ The restore operation does not call `matchReviewedPanelSpecimenPolicy`, `resolve
 
 This preserves reversibility without claiming that a current extracted row is equivalent to the historical input. The saved hash/version and decision trace are historical evidence; they are not recomputed during restore.
 
+The established EH-122 batch-reversal entrypoint preserves idempotent replay
+by checking for an existing request-hash successor before requiring the source
+revision to remain active. Legacy rows written through the direct legacy writer
+may have no persisted decision trace; reversal copies that nullable field when
+present and does not backfill it. The dedicated EH-248 restore RPC remains
+strict about the saved decision contract it owns.
+
 **Alternative rejected:** Re-run the current Resolver with the target override and selected definition. That reinterprets a historical user decision through current panel policy, aliases, and compatibility rules and can produce a new decision while presenting it as an undo.
 
 ### D5 — Reprocessing records three independent change facts

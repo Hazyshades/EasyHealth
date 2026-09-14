@@ -1012,6 +1012,17 @@ begin
   if prior.id is null then
     raise exception using message = 'batch_verification_revision_not_found';
   end if;
+  select * into successor
+  from public.observation_normalization_revisions
+  where extracted_biomarker_id = prior.extracted_biomarker_id
+    and writer_request_hash = p_request_hash;
+  if successor.id is not null then
+    if successor.reversal_of_revision_id is distinct from prior.id then
+      raise exception using message = 'verification_reversal_request_conflict';
+    end if;
+    return query select successor.observation_id, successor.id, true;
+    return;
+  end if;
   if not prior.is_active or prior.observation_id is null then
     raise exception using message = 'batch_verification_revision_not_active';
   end if;
@@ -1031,17 +1042,6 @@ begin
     raise exception using message = 'batch_verification_revision_not_reversible';
   end if;
 
-  select * into successor
-  from public.observation_normalization_revisions
-  where extracted_biomarker_id = prior.extracted_biomarker_id
-    and writer_request_hash = p_request_hash;
-  if successor.id is not null then
-    if successor.reversal_of_revision_id is distinct from prior.id then
-      raise exception using message = 'verification_reversal_request_conflict';
-    end if;
-    return query select successor.observation_id, successor.id, true;
-    return;
-  end if;
 
   select * into extracted
   from public.document_extracted_biomarkers

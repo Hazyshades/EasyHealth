@@ -79,3 +79,5 @@
 - [x] 7.3 Update affected canonical Registry/biomarker documentation and record the implementation contract accurately.
 - [x] 7.4 Run biomarker documentation generation, checks, tests, Wiki render/staging export, and update the single tracking issue with publication status.
 - [x] 7.5 Validate the completed OpenSpec change with strict validation and review the apply-ready task list.
+- [x] 7.6 Preserve EH-122 reversal replay idempotency by checking an existing
+      request-hash successor before active-state guards.
