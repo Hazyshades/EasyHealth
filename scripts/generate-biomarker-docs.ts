@@ -439,7 +439,10 @@ function renderCorpus(report: CandidateCorpusReport): string {
     const expected = `${row.expectedClassification}${row.expectedMeasurementDefinitionKey ? ` / ${row.expectedMeasurementDefinitionKey}` : ""}`;
     const actual = `${row.actualClassification ?? "error"}${row.actualMeasurementDefinitionKey ? ` / ${row.actualMeasurementDefinitionKey}` : ""}`;
     const aliasEvidence = row.aliasMatchTypes.length === 0 ? "—" : row.aliasMatchTypes.join(", ");
-    return `| ${escapeMarkdownCell(row.id)} | ${escapeMarkdownCell(row.language)} | ${escapeMarkdownCell(row.rawEvidence.label)} | ${escapeMarkdownCell(`${row.rawEvidence.unit ?? "no unit"} / ${row.rawEvidence.valueText}`)} | ${escapeMarkdownCell(expected)} | ${escapeMarkdownCell(actual)} | ${row.falseConcreteResolution ? "yes" : "no"} | ${escapeMarkdownCell(aliasEvidence)} | ${escapeMarkdownCell(corpusSafety(row))} |`;
+    const preparedEvidence = row.preparedEvidence === null
+      ? "error"
+      : `${row.preparedEvidence.specimen ?? "none"} / ${row.preparedEvidence.specimenSource ?? "none"} / ${row.preparedEvidence.panelSpecimenPolicy.status}${row.preparedEvidence.panelSpecimenPolicy.policyKey ? ` / ${row.preparedEvidence.panelSpecimenPolicy.policyKey}` : ""}`;
+    return `| ${escapeMarkdownCell(row.id)} | ${escapeMarkdownCell(row.language)} | ${escapeMarkdownCell(row.rawEvidence.label)} | ${escapeMarkdownCell(`${row.rawEvidence.unit ?? "no unit"} / ${row.rawEvidence.valueText}`)} | ${escapeMarkdownCell(expected)} | ${escapeMarkdownCell(actual)} | ${row.falseConcreteResolution ? "yes" : "no"} | ${escapeMarkdownCell(aliasEvidence)} | ${escapeMarkdownCell(preparedEvidence)} | ${escapeMarkdownCell(corpusSafety(row))} |`;
   });
   return [
     GENERATED_NOTICE,
@@ -457,10 +460,10 @@ function renderCorpus(report: CandidateCorpusReport): string {
     "",
     "## Row evidence",
     "",
-    "Unknown-marker rows remain `unmapped`; uploads never silently create definitions or aliases. Heading-policy fixtures cover CBC recovery (`hemoglobin-cbc-heading` resolved via `cbc_whole_blood`) and keep glucose / unrecognized headings `partial`. Candidate corpus identity is a separate candidate artifact hash and does not mutate source rows. Historical documents are not backfilled.",
+    "Unknown-marker rows remain `unmapped`; uploads never silently create definitions or aliases. Heading-policy fixtures cover CBC recovery (`hemoglobin-cbc-heading` resolved via `cbc_whole_blood`) and keep glucose / unrecognized headings `partial`. Each row reports prepared specimen provenance (`stated` or `reviewed_panel_policy`) and panel-policy context separately from the candidate artifact hash; raw captured headings remain outside the prepared identity. Candidate corpus execution does not mutate source rows. Historical documents are not backfilled.",
     "",
-    "| row | language | raw label | unit / value | expected | actual | false-concrete | alias evidence | safety rationale |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| row | language | raw label | unit / value | expected | actual | false-concrete | alias evidence | prepared specimen / provenance | safety rationale |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ...rows,
     "",
   ].join("\n");

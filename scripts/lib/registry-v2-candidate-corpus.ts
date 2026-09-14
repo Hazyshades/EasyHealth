@@ -11,6 +11,8 @@ import {
   type MeasurementResolution,
   type MeasurementResolutionInput,
   type MeasurementValueKind,
+  type PanelSpecimenPolicyContext,
+  type PanelSpecimenPolicyStatus,
   type ResolverResult,
 } from "../../src/lib/biomarkers";
 import { buildPreparedEvidenceIdentity } from "../../src/lib/documents/measurement-evidence-identity";
@@ -177,7 +179,16 @@ type LoadedCandidateCorpusTechnical = {
 type LoadedCandidateCorpus = LoadedCandidateCorpusTechnical & {
   approvals: CandidateApprovalEvidence;
 };
-
+export type CandidatePreparedEvidenceReport = {
+  specimen: string | null;
+  specimenSource: "stated" | "reviewed_panel_policy" | null;
+  panelSpecimenPolicy: {
+    status: PanelSpecimenPolicyStatus;
+    policyKey: string | null;
+    sourceProvenance: PanelSpecimenPolicyContext["sourceProvenance"];
+    conflictPolicyKeys: string[];
+  };
+};
 
 export type CandidateCorpusReportRow = {
   id: string;
@@ -200,6 +211,7 @@ export type CandidateCorpusReportRow = {
   };
   preparedInputIdentityFormatVersion: string | null;
   preparedInputIdentityHash: string | null;
+  preparedEvidence: CandidatePreparedEvidenceReport | null;
   rawPreserved: boolean;
   expectedClassification: ResolverResult;
   expectedMeasurementDefinitionKey: string | null;
@@ -876,6 +888,7 @@ export function runRegistryV2CandidateCorpusTechnical(
     let resolution: MeasurementResolution | null = null;
     let preparedInputIdentityHash: string | null = null;
     let preparedInputIdentityFormatVersion: string | null = null;
+    let preparedEvidence: CandidatePreparedEvidenceReport | null = null;
     let error: string | null = null;
     // The corpus must cross the same evidence-admission boundary production
     // does. Fixture panel metadata is report context, not Resolver input.
@@ -909,6 +922,16 @@ export function runRegistryV2CandidateCorpusTechnical(
       const preparedIdentity = buildPreparedEvidenceIdentity(prepared);
       preparedInputIdentityFormatVersion = preparedIdentity.formatVersion;
       preparedInputIdentityHash = preparedIdentity.hash;
+      preparedEvidence = {
+        specimen: prepared.input.specimen ?? null,
+        specimenSource: prepared.input.specimenSource ?? null,
+        panelSpecimenPolicy: {
+          status: prepared.panelSpecimenPolicy.status,
+          policyKey: prepared.panelSpecimenPolicy.policyKey,
+          sourceProvenance: prepared.panelSpecimenPolicy.sourceProvenance,
+          conflictPolicyKeys: [...prepared.panelSpecimenPolicy.conflictPolicyKeys],
+        },
+      };
       resolution = resolver(prepared.input);
     } catch (caught) {
       error = caught instanceof Error ? caught.message : String(caught);
@@ -949,6 +972,7 @@ export function runRegistryV2CandidateCorpusTechnical(
       preparedInputIdentityFormatVersion,
       preparedInputIdentityHash,
       expectedClassification: row.expected.classification,
+      preparedEvidence,
       expectedMeasurementDefinitionKey: expectedDefinition,
       actualClassification,
       actualMeasurementDefinitionKey,

@@ -463,6 +463,23 @@ async function main(): Promise<void> {
     corpusHeading.preparedInputIdentityFormatVersion,
     MEASUREMENT_INPUT_IDENTITY_FORMAT_VERSION,
   );
+  assert.deepEqual(
+    corpusHeading.preparedEvidence,
+    {
+      specimen: "whole_blood",
+      specimenSource: "reviewed_panel_policy",
+      panelSpecimenPolicy: {
+        status: "applied",
+        policyKey: "cbc_whole_blood",
+        sourceProvenance: {
+          kind: "registry_v2_review",
+          sourceRecordKey: "panel-specimen-policy:cbc_whole_blood",
+        },
+        conflictPolicyKeys: [],
+      },
+    },
+    "corpus reports policy-derived specimen provenance separately from stated evidence",
+  );
   assert.notEqual(
     corpusHeading.preparedInputIdentityHash,
     technicalCorpus.report.candidateInputHash,
