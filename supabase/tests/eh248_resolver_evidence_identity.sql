@@ -22,7 +22,7 @@ insert into public.document_extracted_biomarkers (
 );
 
 
-select plan(18);
+select plan(21);
 
 select ok(
   has_column('public', 'observation_normalization_revisions', 'input_identity_format_version'),
@@ -161,6 +161,34 @@ select ok(
   'authenticated cannot restore a historical normalization revision'
 );
 
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.eh122_reverse_observation_normalization_verification(uuid,uuid,text,text)'::regprocedure,
+    'EXECUTE'
+  ),
+  'service_role can execute the EH-122/248 batch historical reversal'
+);
+select ok(
+  not has_function_privilege(
+    'authenticated',
+    'public.eh122_reverse_observation_normalization_verification(uuid,uuid,text,text)'::regprocedure,
+    'EXECUTE'
+  ),
+  'authenticated cannot execute the batch historical reversal'
+);
+select ok(
+  position('input_identity_format_version' in pg_get_functiondef(
+    'public.eh122_reverse_observation_normalization_verification(uuid,uuid,text,text)'::regprocedure
+  )) > 0
+  and position('resolver_decision_trace' in pg_get_functiondef(
+    'public.eh122_reverse_observation_normalization_verification(uuid,uuid,text,text)'::regprocedure
+  )) > 0
+  and position('catalog_manifest_version' in pg_get_functiondef(
+    'public.eh122_reverse_observation_normalization_verification(uuid,uuid,text,text)'::regprocedure
+  )) > 0,
+  'batch historical reversal copies identity, trace, and release metadata'
+);
 select throws_ok(
   $$
     insert into public.observation_normalization_revisions (

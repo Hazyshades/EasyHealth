@@ -597,6 +597,176 @@ comment on function public.restore_observation_normalization_revision_v1(
 ) is
   'EH-248 service-only historical restore: copy a selected revision, preserve its stored decision, and promote through the atomic projection boundary without current Resolver admission.';
 
+-- EH-122's verification undo keeps its existing pending transition, but the
+-- successor now copies every saved Change A decision field. It remains a
+-- dedicated historical operation and never evaluates current evidence.
+create or replace function public.eh122_reverse_observation_normalization_verification(
+  p_batch_revision_id uuid,
+  p_actor_id uuid,
+  p_correction_reason text,
+  p_request_hash text
+)
+returns table (
+  observation_id uuid,
+  revision_id uuid,
+  was_reused boolean
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  prior public.observation_normalization_revisions;
+  successor public.observation_normalization_revisions;
+  promoted public.observation_normalization_revisions;
+  extracted public.document_extracted_biomarkers;
+begin
+  if p_actor_id is null then
+    raise exception using message = 'normalization_writer_actor_required';
+  end if;
+  if coalesce(btrim(p_correction_reason), '') = '' then
+    raise exception using message = 'verification_reversal_requires_reason';
+  end if;
+  if p_request_hash is null or p_request_hash !~ '^[0-9a-f]{64}$' then
+    raise exception using message = 'invalid_normalization_writer_request_hash';
+  end if;
+
+  select * into prior
+  from public.observation_normalization_revisions
+  where id = p_batch_revision_id
+  for update;
+  if prior.id is null then
+    raise exception using message = 'batch_verification_revision_not_found';
+  end if;
+  if not prior.is_active or prior.observation_id is null then
+    raise exception using message = 'batch_verification_revision_not_active';
+  end if;
+  if prior.verification_status <> 'user_verified' then
+    raise exception using message = 'batch_verification_revision_not_reversible';
+  end if;
+  if prior.input_evidence_hash is null
+    or prior.input_evidence_hash !~ '^[0-9a-f]{64}$'
+    or prior.resolver_evidence is null
+    or prior.resolver_decision_trace is null
+    or prior.catalog_manifest_version is null
+    or prior.catalog_manifest_digest is null
+    or prior.resolver_version is null
+    or prior.normalization_version is null then
+    raise exception using message = 'batch_verification_revision_not_reversible';
+  end if;
+
+  select * into successor
+  from public.observation_normalization_revisions
+  where extracted_biomarker_id = prior.extracted_biomarker_id
+    and writer_request_hash = p_request_hash;
+  if successor.id is not null then
+    if successor.reversal_of_revision_id is distinct from prior.id then
+      raise exception using message = 'verification_reversal_request_conflict';
+    end if;
+    return query select successor.observation_id, successor.id, true;
+    return;
+  end if;
+
+  select * into extracted
+  from public.document_extracted_biomarkers
+  where id = prior.extracted_biomarker_id
+  for update;
+  if extracted.id is null then
+    raise exception using message = 'extracted_biomarker_not_found';
+  end if;
+
+  insert into public.observation_normalization_revisions (
+    extracted_biomarker_id,
+    input_evidence_hash,
+    input_identity_format_version,
+    measurement_definition_key,
+    analyte_key,
+    resolver_result,
+    mapping_confidence,
+    mapping_confidence_band,
+    resolver_evidence,
+    catalog_manifest_version,
+    catalog_manifest_digest,
+    resolver_version,
+    normalization_version,
+    extraction_version,
+    verification_status,
+    verification_decided_at,
+    verification_actor_type,
+    verification_actor_id,
+    mapping_change_classification,
+    created_by,
+    correction_reason,
+    reversal_of_revision_id,
+    supersedes_revision_id,
+    writer_request_hash,
+    resolver_decision_trace,
+    resolver_trace_schema_version,
+    measurement_override
+  ) values (
+    prior.extracted_biomarker_id,
+    prior.input_evidence_hash,
+    prior.input_identity_format_version,
+    prior.measurement_definition_key,
+    prior.analyte_key,
+    prior.resolver_result,
+    prior.mapping_confidence,
+    prior.mapping_confidence_band,
+    prior.resolver_evidence,
+    prior.catalog_manifest_version,
+    prior.catalog_manifest_digest,
+    prior.resolver_version,
+    prior.normalization_version,
+    prior.extraction_version,
+    'pending',
+    null,
+    null,
+    null,
+    prior.mapping_change_classification,
+    p_actor_id,
+    p_correction_reason,
+    prior.id,
+    prior.id,
+    p_request_hash,
+    prior.resolver_decision_trace,
+    prior.resolver_trace_schema_version,
+    prior.measurement_override
+  )
+  on conflict (extracted_biomarker_id, writer_request_hash)
+    where writer_request_hash is not null
+    do nothing
+  returning * into successor;
+
+  if successor.id is null then
+    select * into successor
+    from public.observation_normalization_revisions
+    where extracted_biomarker_id = prior.extracted_biomarker_id
+      and writer_request_hash = p_request_hash;
+    if successor.reversal_of_revision_id is distinct from prior.id then
+      raise exception using message = 'verification_reversal_request_conflict';
+    end if;
+    return query select successor.observation_id, successor.id, true;
+    return;
+  end if;
+
+  select * into promoted
+  from public.promote_observation_normalization_revision_v2(
+    successor.id, prior.observation_id, prior.id, p_actor_id, null::jsonb
+  );
+
+  update public.document_extracted_biomarkers
+  set status = 'needs_review', verification_status = 'pending'
+  where id = extracted.id;
+
+  return query select promoted.observation_id, promoted.id, false;
+end;
+$$;
+
+comment on function public.eh122_reverse_observation_normalization_verification(
+  uuid, uuid, text, text
+) is
+  'EH-122/248 service-only batch undo: append a pending reversal while copying the saved resolution, trace, identity, and release fields without current Resolver evaluation.';
+
 -- ── Change-history identity propagation ───────────────────────────────────────
 
 alter table public.observation_change_events

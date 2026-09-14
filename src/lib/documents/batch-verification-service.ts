@@ -6,14 +6,13 @@ import {
   type BatchVerificationExclusionCode,
 } from "./batch-verification-eligibility";
 import {
-  buildHistoricalObservationPayload,
   preparedEvidenceFromWriterRow,
   type ExtractedBiomarkerWriterRow,
   writeExtractedBiomarkerNormalization,
 } from "./observation-normalization-writer";
 import {
   getActiveNormalizationRevision,
-  restoreHistoricalNormalizationRevision,
+  restoreBatchVerificationRevision,
 } from "./normalization-revisions";
 import {
   batchVerificationAggregateStatus,
@@ -306,14 +305,12 @@ export async function reverseBatchVerification(options: {
     const activeRevision = extracted
       ? await getActiveNormalizationRevision(extracted.id)
       : null;
-    const expectedActiveRevisionId = activeRevision?.id;
     if (
       extractedResult.error ||
       !extracted ||
       extracted.record_status !== "active" ||
       !extracted.is_current ||
-      !expectedActiveRevisionId ||
-      expectedActiveRevisionId !== row.resulting_revision_id
+      activeRevision?.id !== row.resulting_revision_id
     ) {
       outcomes.push({
         extractedBiomarkerId: row.extracted_biomarker_id,
@@ -328,28 +325,10 @@ export async function reverseBatchVerification(options: {
     }
 
     try {
-      const targetRevision = await supabase
-        .from("observation_normalization_revisions")
-        .select("measurement_override")
-        .eq("id", row.resulting_revision_id)
-        .maybeSingle();
-      if (targetRevision.error) throw targetRevision.error;
-      if (!targetRevision.data) {
-        throw new Error("Batch verification revision not found");
-      }
-      const reversal = await restoreHistoricalNormalizationRevision({
-        extractedBiomarkerId: row.extracted_biomarker_id,
-        targetRevisionId: row.resulting_revision_id,
-        expectedActiveRevisionId,
+      const reversal = await restoreBatchVerificationRevision({
+        batchRevisionId: row.resulting_revision_id,
         actorId: options.profileId,
         correctionReason: options.reason.trim(),
-        observationPayload: buildHistoricalObservationPayload({
-          profileId: options.profileId,
-          documentId: options.documentId,
-          row: extracted,
-          observedAt,
-          measurementOverride: targetRevision.data.measurement_override ?? null,
-        }),
       });
       outcomes.push({
         extractedBiomarkerId: row.extracted_biomarker_id,

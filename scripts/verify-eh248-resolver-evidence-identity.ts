@@ -44,9 +44,10 @@ async function main(): Promise<void> {
   const { preparedEvidenceFromWriterRow } = await import(
     "../src/lib/documents/observation-normalization-writer"
   );
-  const { buildInputEvidenceHash } = await import(
-    "../src/lib/documents/normalization-revisions"
-  );
+  const {
+    buildInputEvidenceHash,
+    restoreBatchVerificationRevision,
+  } = await import("../src/lib/documents/normalization-revisions");
   const { computeReprocessBatchDiff } = await import(
     "../src/lib/registry-reprocessing/diff"
   );
@@ -71,19 +72,44 @@ async function main(): Promise<void> {
   const reverseBranch = batchVerificationServiceSource.slice(reverseStart);
   assert.match(
     reverseBranch,
-    /restoreHistoricalNormalizationRevision/,
-    "batch undo uses the explicit historical restore writer",
-  );
-  assert.match(
-    reverseBranch,
-    /buildHistoricalObservationPayload/,
-    "batch undo projects the saved target override",
+    /restoreBatchVerificationRevision/,
+    "batch undo uses the no-Resolver historical reversal",
   );
   assert.doesNotMatch(
     reverseBranch,
-    /writeKind:\s*"verification_reversal"/,
-    "batch undo must not run the current Resolver",
+    /resolveMeasurementDefinition|preparedEvidenceFromWriterRow|writeKind:\s*"verification_reversal"/,
+    "batch undo must not evaluate current evidence",
   );
+
+  const restoreRpcCalls: unknown[] = [];
+  const restoredBatch = await restoreBatchVerificationRevision(
+    {
+      batchRevisionId: "batch-revision-id",
+      actorId: "actor-id",
+      correctionReason: "undo synthetic batch",
+    },
+    async (params) => {
+      restoreRpcCalls.push(params);
+      return {
+        data: [
+          {
+            observation_id: "observation-id",
+            revision_id: "reversal-id",
+            was_reused: false,
+          },
+        ],
+        error: null,
+      };
+    },
+  );
+  assert.equal(restoredBatch.revisionId, "reversal-id");
+  assert.equal(restoredBatch.wasReused, false);
+  assert.equal(restoreRpcCalls.length, 1);
+  const restoreRpcCall = restoreRpcCalls[0] as Record<string, string>;
+  assert.equal(restoreRpcCall.p_batch_revision_id, "batch-revision-id");
+  assert.equal(restoreRpcCall.p_actor_id, "actor-id");
+  assert.equal(restoreRpcCall.p_correction_reason, "undo synthetic batch");
+  assert.match(restoreRpcCall.p_request_hash, /^[a-f0-9]{64}$/);
 
   type SourceOverrides = Partial<MeasurementEvidenceSource>;
 

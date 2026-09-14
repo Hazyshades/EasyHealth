@@ -184,10 +184,12 @@ No identity or reprocessing decision changes Health Profile marker semantics. A 
   in `registry/adr/0002-resolver-input-identity.md`; effective corrected
   measurement fields and the source analyte key are included, while raw
   headings and source-record identifiers are excluded.
-- Historical restore uses the service-only
+- User-initiated historical restore uses the service-only
   `restore_observation_normalization_revision_v1` RPC, which copies the
   target revision's persisted decision, trace, identity, and release fields
-  and uses the existing atomic projection boundary.
+  and uses the existing atomic projection boundary. EH-122 batch undo uses its
+  dedicated `eh122_reverse_observation_normalization_verification` RPC so it
+  preserves the pending-verification transition while copying those fields.
 - `releaseChange` compares the five-field deployed release tuple:
   catalog manifest version/digest, Resolver version, normalization version,
   and compatibility-policy version. `--release-refresh` is the explicit

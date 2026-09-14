@@ -194,6 +194,71 @@ export async function restoreHistoricalNormalizationRevision(options: {
   };
 }
 
+export type BatchVerificationRestoreResult = Readonly<{
+  observationId: string | null;
+  revisionId: string;
+  wasReused: boolean;
+}>;
+
+/**
+ * EH-122 batch undo preserves its pending-verification transition while the
+ * SQL function copies the saved resolution, trace, identity, and release.
+ * Unlike the regular writer, this path never prepares or evaluates current
+ * evidence.
+ */
+type BatchVerificationRestoreRpc = (params: {
+  p_batch_revision_id: string;
+  p_actor_id: string;
+  p_correction_reason: string;
+  p_request_hash: string;
+}) => Promise<{ data: unknown; error: unknown }>;
+
+export async function restoreBatchVerificationRevision(
+  options: {
+    batchRevisionId: string;
+    actorId: string;
+    correctionReason: string;
+  },
+  rpc: BatchVerificationRestoreRpc = async (params) =>
+    createAdminClient().rpc(
+      "eh122_reverse_observation_normalization_verification",
+      params,
+    ),
+): Promise<BatchVerificationRestoreResult> {
+  if (!options.correctionReason.trim()) {
+    throw new Error("A reason is required to restore a batch verification");
+  }
+  const requestHash = createHash("sha256")
+    .update(
+      JSON.stringify({
+        actorId: options.actorId,
+        batchRevisionId: options.batchRevisionId,
+        correctionReason: options.correctionReason,
+      }),
+    )
+    .digest("hex");
+  const { data, error } = await rpc({
+    p_batch_revision_id: options.batchRevisionId,
+    p_actor_id: options.actorId,
+    p_correction_reason: options.correctionReason,
+    p_request_hash: requestHash,
+  });
+  if (error) throw error;
+  const row = (Array.isArray(data) ? data[0] : data) as Record<
+    string,
+    unknown
+  > | null;
+  if (!row || typeof row.revision_id !== "string") {
+    throw new Error("Batch verification restore returned no revision");
+  }
+  return {
+    observationId:
+      typeof row.observation_id === "string" ? row.observation_id : null,
+    revisionId: row.revision_id,
+    wasReused: row.was_reused === true,
+  };
+}
+
 export type NormalizationSourceState = Readonly<{
   id: string;
   profile_id: string;
