@@ -1245,4 +1245,104 @@ before insert on public.observation_change_events
 for each row
 execute function public.eh248_enrich_observation_change_event();
 
+-- EH-248 applies a dry-run only when the complete deployed release tuple still
+-- matches the batch. The older EH-116 digest-only signature is replaced here
+-- after its historical migration has created it.
+drop function if exists public.registry_reprocess_apply_batch(uuid, text, uuid);
+
+create function public.registry_reprocess_apply_batch(
+  p_batch_id uuid,
+  p_current_catalog_manifest_version text,
+  p_current_catalog_manifest_digest text,
+  p_current_resolver_version text,
+  p_current_normalization_version text,
+  p_current_compatibility_policy_version text,
+  p_actor_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  batch public.registry_reprocess_batches;
+  pending jsonb;
+begin
+  select *
+  into batch
+  from public.registry_reprocess_batches
+  where id = p_batch_id
+  for update;
+
+  if batch.id is null then
+    raise exception using message = 'batch_not_found';
+  end if;
+
+  if batch.state in ('applied', 'applied_with_errors', 'aborted') then
+    return jsonb_build_object('status', batch.state::text, 'rows', '[]'::jsonb);
+  end if;
+
+  if batch.state not in ('dry_run', 'apply_in_progress') then
+    raise exception using message = 'batch_not_open_for_apply';
+  end if;
+
+  if coalesce(btrim(p_current_catalog_manifest_version), '') = ''
+    or coalesce(btrim(p_current_catalog_manifest_digest), '') = ''
+    or coalesce(btrim(p_current_resolver_version), '') = ''
+    or coalesce(btrim(p_current_normalization_version), '') = ''
+    or coalesce(btrim(p_current_compatibility_policy_version), '') = '' then
+    raise exception using message = 'invalid_current_registry_release_tuple';
+  end if;
+
+  if batch.catalog_manifest_version is distinct from p_current_catalog_manifest_version
+    or batch.catalog_manifest_digest is distinct from p_current_catalog_manifest_digest
+    or batch.resolver_version is distinct from p_current_resolver_version
+    or batch.normalization_version is distinct from p_current_normalization_version
+    or batch.compatibility_policy_version is distinct from p_current_compatibility_policy_version then
+    update public.registry_reprocess_batches
+    set state = 'aborted',
+        abort_reason = 'catalog_manifest_drift',
+        aborted_at = now()
+    where id = p_batch_id;
+    return jsonb_build_object('status', 'catalog_manifest_drift', 'rows', '[]'::jsonb);
+  end if;
+
+  update public.registry_reprocess_batches
+  set state = 'apply_in_progress'
+  where id = p_batch_id
+    and state = 'dry_run';
+
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'row_id', r.id,
+        'extracted_biomarker_id', r.extracted_biomarker_id,
+        'diff_classification', r.diff_classification::text,
+        'diff_reason_code', r.diff_reason_code
+      )
+      order by r.created_at asc, r.id asc
+    ),
+    '[]'::jsonb
+  )
+  into pending
+  from public.registry_reprocess_batch_rows r
+  where r.batch_id = p_batch_id
+    and r.apply_state = 'pending';
+
+  return jsonb_build_object('status', 'ok', 'rows', pending);
+end;
+$$;
+
+revoke all on function public.registry_reprocess_apply_batch(
+  uuid, text, text, text, text, text, uuid
+) from public, anon, authenticated;
+grant execute on function public.registry_reprocess_apply_batch(
+  uuid, text, text, text, text, text, uuid
+) to service_role;
+
+comment on function public.registry_reprocess_apply_batch(
+  uuid, text, text, text, text, text, uuid
+) is
+  'EH-248 service-only: after a complete five-field release tuple match, move the batch to apply_in_progress and return pending rows. Release drift is durably recorded as catalog_manifest_drift.';
+
 notify pgrst, 'reload schema';

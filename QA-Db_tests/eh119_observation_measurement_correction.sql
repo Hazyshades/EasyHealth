@@ -55,6 +55,7 @@ create function public.eh119_db_resolution_payload(p_hash text)
 returns jsonb language sql immutable as $$
   select jsonb_build_object(
     'input_evidence_hash', p_hash,
+    'input_identity_format_version', '1',
     'measurement_definition_key', 'alt_serum_catalytic_activity',
     'analyte_key', 'alt',
     'resolver_result', 'resolved',

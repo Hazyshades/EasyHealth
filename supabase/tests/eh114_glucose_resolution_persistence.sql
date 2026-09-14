@@ -56,6 +56,7 @@ immutable
 as $$
   select jsonb_build_object(
     'input_evidence_hash', repeat('e', 64),
+    'input_identity_format_version', '1',
     'measurement_definition_key', p_measurement_definition_key,
     'analyte_key', p_analyte_key,
     'resolver_result', p_result,

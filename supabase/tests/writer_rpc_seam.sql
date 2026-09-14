@@ -115,6 +115,7 @@ $$;
 create function public.seam_resolution() returns jsonb language sql immutable as $$
   select jsonb_build_object(
     'input_evidence_hash', repeat('a', 64),
+    'input_identity_format_version', '1',
     'measurement_definition_key', 'null'::jsonb,
     'analyte_key', 'null'::jsonb,
     'resolver_result', 'partial',

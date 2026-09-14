@@ -202,7 +202,12 @@ export async function applyReprocessBatch(options: {
     "registry_reprocess_apply_batch",
     {
       p_batch_id: options.batchId,
+      p_current_catalog_manifest_version: release.catalogManifestVersion,
       p_current_catalog_manifest_digest: release.catalogManifestDigest,
+      p_current_resolver_version: release.resolverVersion,
+      p_current_normalization_version: release.normalizationVersion,
+      p_current_compatibility_policy_version:
+        release.compatibilityPolicyVersion,
       p_actor_id: options.actorId,
     },
   );
@@ -220,7 +225,7 @@ export async function applyReprocessBatch(options: {
   // durably record the aborted batch before we surface the failure.
   if (applyResult.status === "catalog_manifest_drift") {
     throw new RegistryReprocessError(
-      "The runtime Registry 2.0 release digest does not match the batch. Apply aborted.",
+      "The runtime Registry 2.0 release tuple does not match the batch. Apply aborted.",
       "catalog_manifest_drift",
     );
   }

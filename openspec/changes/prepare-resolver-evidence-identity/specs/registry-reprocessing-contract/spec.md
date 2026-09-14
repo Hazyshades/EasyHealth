@@ -64,6 +64,12 @@ Reprocessing SHALL report `inputChange = unavailable` when either side lacks a s
 A reprocessing dry-run SHALL be non-mutating and SHALL retain all three change facts regardless of apply eligibility. Revision creation and activation SHALL be separate explicit decisions. A hash comparison alone SHALL NOT create, activate, or supersede a revision.
 
 The default automatic policy SHALL make an input or outcome change apply-eligible subject to existing manual-decision protections. A release-only change SHALL be audit-only unless an explicit release-refresh intent is selected. An unavailable comparison SHALL not qualify a row for automatic apply. Any applied row SHALL use the service-only normalization writer and its expected-active CAS boundary.
+Before materializing any row, the service-only apply RPC SHALL atomically
+recheck the complete five-field deployed release tuple (catalog manifest
+version and digest, Resolver version, normalization version, and
+compatibility-policy version) against the tuple captured at dry-run. Any
+tuple drift SHALL abort the batch durably and SHALL not return rows for
+writer materialization.
 
 #### Scenario: Changed input with equal outcome creates an explicit candidate
 

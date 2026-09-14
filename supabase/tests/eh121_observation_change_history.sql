@@ -519,6 +519,7 @@ create function pg_temp.eh121_resolution_payload(p_key text, p_hash text)
 returns jsonb language sql immutable as $$
   select jsonb_build_object(
     'input_evidence_hash', p_hash,
+    'input_identity_format_version', '1',
     'measurement_definition_key', p_key,
     'analyte_key', 'glucose',
     'resolver_result', 'resolved',
