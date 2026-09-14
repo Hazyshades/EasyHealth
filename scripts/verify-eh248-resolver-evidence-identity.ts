@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import assert from "node:assert/strict";
 import type {
   MeasurementResolution,
@@ -53,6 +55,34 @@ async function main(): Promise<void> {
   );
   const { runRegistryV2CandidateCorpusTechnical } = await import(
     "./lib/registry-v2-candidate-corpus"
+  );
+
+  const batchVerificationServiceSource = readFileSync(
+    path.resolve(
+      __dirname,
+      "../src/lib/documents/batch-verification-service.ts",
+    ),
+    "utf8",
+  );
+  const reverseStart = batchVerificationServiceSource.indexOf(
+    "export async function reverseBatchVerification",
+  );
+  assert.ok(reverseStart >= 0);
+  const reverseBranch = batchVerificationServiceSource.slice(reverseStart);
+  assert.match(
+    reverseBranch,
+    /restoreHistoricalNormalizationRevision/,
+    "batch undo uses the explicit historical restore writer",
+  );
+  assert.match(
+    reverseBranch,
+    /buildHistoricalObservationPayload/,
+    "batch undo projects the saved target override",
+  );
+  assert.doesNotMatch(
+    reverseBranch,
+    /writeKind:\s*"verification_reversal"/,
+    "batch undo must not run the current Resolver",
   );
 
   type SourceOverrides = Partial<MeasurementEvidenceSource>;
@@ -214,7 +244,7 @@ async function main(): Promise<void> {
   assert.equal(overridden.input.rawValueText, "5.1");
   assert.equal(overridden.input.rawUnit, "mmol/L");
   assert.equal(
-    buildPreparedEvidenceIdentity(overridden).record.rawEvidence.unit,
+    buildPreparedEvidenceIdentity(overridden).record.rawUnit,
     "mg/dL",
   );
   assert.equal(overridden.input.specimen, null);
@@ -402,15 +432,9 @@ async function main(): Promise<void> {
   assert.equal(comparator.effectiveMeasurement.valueKind, "text");
   assert.equal(comparator.effectiveMeasurement.valueText, "< 0.20");
   const comparatorIdentity = buildPreparedEvidenceIdentity(comparator);
-  assert.equal(comparatorIdentity.record.effectiveMeasurement.value, null);
-  assert.equal(
-    comparatorIdentity.record.effectiveMeasurement.valueKind,
-    "text",
-  );
-  assert.equal(
-    comparatorIdentity.record.effectiveMeasurement.valueText,
-    "< 0.20",
-  );
+  assert.equal(comparatorIdentity.record.effectiveValue, null);
+  assert.equal(comparatorIdentity.record.effectiveValueKind, "text");
+  assert.equal(comparatorIdentity.record.effectiveValueText, "< 0.20");
 
   // ── Review/writer parity and candidate-corpus identity ───────────────────────
   const equivalentWriterRow = writerRow({
@@ -433,6 +457,10 @@ async function main(): Promise<void> {
   assert.equal(
     corpusHeading.preparedInputIdentityHash,
     buildPreparedEvidenceIdentity(applied).hash,
+  );
+  assert.equal(
+    corpusHeading.preparedInputIdentityFormatVersion,
+    MEASUREMENT_INPUT_IDENTITY_FORMAT_VERSION,
   );
   assert.notEqual(
     corpusHeading.preparedInputIdentityHash,

@@ -198,6 +198,7 @@ export type CandidateCorpusReportRow = {
     valueText: string;
     hash: string;
   };
+  preparedInputIdentityFormatVersion: string | null;
   preparedInputIdentityHash: string | null;
   rawPreserved: boolean;
   expectedClassification: ResolverResult;
@@ -874,6 +875,7 @@ export function runRegistryV2CandidateCorpusTechnical(
     if (!document) throw new Error(`Missing document fixture for row ${row.id}`);
     let resolution: MeasurementResolution | null = null;
     let preparedInputIdentityHash: string | null = null;
+    let preparedInputIdentityFormatVersion: string | null = null;
     let error: string | null = null;
     // The corpus must cross the same evidence-admission boundary production
     // does. Fixture panel metadata is report context, not Resolver input.
@@ -904,7 +906,9 @@ export function runRegistryV2CandidateCorpusTechnical(
         method: row.method ?? null,
         laboratory: document.laboratory,
       });
-      preparedInputIdentityHash = buildPreparedEvidenceIdentity(prepared).hash;
+      const preparedIdentity = buildPreparedEvidenceIdentity(prepared);
+      preparedInputIdentityFormatVersion = preparedIdentity.formatVersion;
+      preparedInputIdentityHash = preparedIdentity.hash;
       resolution = resolver(prepared.input);
     } catch (caught) {
       error = caught instanceof Error ? caught.message : String(caught);
@@ -942,6 +946,7 @@ export function runRegistryV2CandidateCorpusTechnical(
         hash: hashJson({ label: row.rawLabel, unit: row.rawUnit, valueText: row.rawValueText, valueKind: row.valueKind }),
       },
       rawPreserved,
+      preparedInputIdentityFormatVersion,
       preparedInputIdentityHash,
       expectedClassification: row.expected.classification,
       expectedMeasurementDefinitionKey: expectedDefinition,

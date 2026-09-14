@@ -65,8 +65,10 @@ assert.match(service, /record_status,/, "batch reads the source lifecycle state"
 assert.match(service, /recordStatus: row\.record_status/, "batch policy receives the source lifecycle state");
 assert.match(service, /record_status !== "active"/, "batch reversal refuses terminal source records");
 assert.match(service, /writeKind: "acceptance"/, "batch verification uses the canonical acceptance writer");
-assert.match(service, /activeRevision\?\.id !== row\.resulting_revision_id/, "undo excludes rows changed after the original batch");
-assert.match(service, /writeKind: "verification_reversal"/, "undo uses the canonical append-only writer transition");
+assert.match(service, /expectedActiveRevisionId !== row\.resulting_revision_id/, "undo excludes rows changed after the original batch");
+assert.match(service, /restoreHistoricalNormalizationRevision/, "undo restores the saved historical decision");
+assert.match(service, /buildHistoricalObservationPayload/, "undo projects the saved target override");
+assert.doesNotMatch(service, /writeKind: "verification_reversal"/, "undo must not evaluate current evidence");
 
 for (const routePath of [
   "src/app/api/documents/[id]/biomarkers/batch-verification/route.ts",

@@ -1,6 +1,7 @@
 # ADR 0002: Resolver input identity
 
-- **Status:** Accepted contract; implementation not ready
+- **Status:** Accepted contract; implemented by
+  `prepare-resolver-evidence-identity`
 - **Date:** 2026-09-11
 - **Direct dependencies:** EH-106, EH-115, EH-116, EH-120
 - **Scope:** Resolver input identity, shared evidence admission, normalization
@@ -81,22 +82,27 @@ preview uses this seam.
 
 The identity module receives the prepared Resolver input from the shared
 evidence-admission seam. It does not apply stated-axis filtering or panel
-policy itself; that remains the admission seam's responsibility. The identity
-module canonicalizes and hashes the prepared record. Resolver and the identity
-module must receive the same record.
+policy itself; that remains the admission seam's responsibility. Resolver and
+the identity module must receive the same prepared record.
 
-The format-1 canonical record contains the Resolver-relevant fields represented
-by `MeasurementResolutionInput`, with these rules:
+The format-1 canonical record is a flat, allowlisted record. Its object keys
+are emitted in this order:
 
 ```text
 {
-  formatVersion: 1,
+  formatVersion: "1",
   rawLabel,
   rawUnit: string | null,
   rawValueText: string | null,
-  valueKind: "numeric" | "qualitative" | "ordinal" | null,
+  valueKind: "numeric" | "qualitative" | "ordinal" | "text" | null,
+  effectiveValue: number | null,
+  effectiveValueText: string | null,
+  effectiveValueKind: "numeric" | "qualitative" | "ordinal" | "text" | null,
+  effectiveUnit: string | null,
+  effectiveOrdinal: number | null,
   specimen: string | null,
   specimenSource: "stated" | "reviewed_panel_policy" | null,
+  sourceAnalyteKey: string | null,
   policyContext: {
     disposition: "stated" | "applied" | "no_match" | "conflict",
     key: string | null,
@@ -116,23 +122,25 @@ by `MeasurementResolutionInput`, with these rules:
 }
 ```
 
-- Raw measurement label and value text remain evidence fields. Raw captured
-  heading/section wording is not hashed; `sectionSupport` is the canonical
-  presence bit for the Resolver's weak section evidence.
+- Raw measurement label, raw unit, and raw value text remain evidence fields.
+  The effective value, value kind, unit, ordinal, and reference bounds preserve
+  the measurement after an explicit correction override. Comparator text stays
+  textual evidence; it is not converted into a numeric value.
 - Effective specimen and provenance source are explicit. Stated
   `whole_blood` and policy-derived `whole_blood` remain different identities.
-- Policy context contains the canonical applied key when present, sorted
-  conflicting policy keys for `conflict`, no-match/conflict state when it
-  affects resolution, effective specimen, and source provenance. Equivalent
-  heading forms therefore produce the same identity.
-- Absent and explicit `null` are equivalent.
-- Axis values use Resolver canonical tokens. `neighbourLabels` is normalized,
+- `policyContext` contains the canonical applied key when present, sorted
+  conflicting policy keys for `conflict`, the no-match/conflict disposition,
+  effective specimen, and source provenance. Equivalent heading forms
+  therefore produce the same identity. Registry source-record identifiers are
+  provenance metadata, not identity fields.
+- Absent and explicit `null` are equivalent. `neighbourLabels` is normalized,
   deduplicated, and sorted in format-1 order. Object keys are emitted in the
-  shown order.
-- Extraction confidence is excluded because it does not affect Resolver
-  semantics.
-- The format version is itself part of the hashed record.
-
+  order shown above.
+- Extraction confidence, writer action state, raw captured headings, raw OCR
+  content, and arbitrary source-row fields are excluded.
+- The format version is itself part of the hashed record. Direct Resolver
+  fixtures use this same format-1 record; they do not define a second identity
+  schema.
 A missing provenance value in a legacy record is `unknown`, not negative
 evidence. It must not be interpreted as proof that the source did not state an
 axis.

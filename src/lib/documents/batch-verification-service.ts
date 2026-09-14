@@ -6,11 +6,15 @@ import {
   type BatchVerificationExclusionCode,
 } from "./batch-verification-eligibility";
 import {
+  buildHistoricalObservationPayload,
   preparedEvidenceFromWriterRow,
   type ExtractedBiomarkerWriterRow,
   writeExtractedBiomarkerNormalization,
 } from "./observation-normalization-writer";
-import { getActiveNormalizationRevision } from "./normalization-revisions";
+import {
+  getActiveNormalizationRevision,
+  restoreHistoricalNormalizationRevision,
+} from "./normalization-revisions";
 import {
   batchVerificationAggregateStatus,
   prepareBatchVerificationSnapshots,
@@ -302,12 +306,14 @@ export async function reverseBatchVerification(options: {
     const activeRevision = extracted
       ? await getActiveNormalizationRevision(extracted.id)
       : null;
+    const expectedActiveRevisionId = activeRevision?.id;
     if (
       extractedResult.error ||
       !extracted ||
       extracted.record_status !== "active" ||
       !extracted.is_current ||
-      activeRevision?.id !== row.resulting_revision_id
+      !expectedActiveRevisionId ||
+      expectedActiveRevisionId !== row.resulting_revision_id
     ) {
       outcomes.push({
         extractedBiomarkerId: row.extracted_biomarker_id,
@@ -322,17 +328,28 @@ export async function reverseBatchVerification(options: {
     }
 
     try {
-      const reversal = await writeExtractedBiomarkerNormalization({
-        profileId: options.profileId,
-        documentId: options.documentId,
-        observedAt,
-        row: extracted,
+      const targetRevision = await supabase
+        .from("observation_normalization_revisions")
+        .select("measurement_override")
+        .eq("id", row.resulting_revision_id)
+        .maybeSingle();
+      if (targetRevision.error) throw targetRevision.error;
+      if (!targetRevision.data) {
+        throw new Error("Batch verification revision not found");
+      }
+      const reversal = await restoreHistoricalNormalizationRevision({
+        extractedBiomarkerId: row.extracted_biomarker_id,
+        targetRevisionId: row.resulting_revision_id,
+        expectedActiveRevisionId,
         actorId: options.profileId,
-        writeKind: "verification_reversal",
-        expectedActiveRevision: activeRevision,
         correctionReason: options.reason.trim(),
-        reversalOfRevisionId: row.resulting_revision_id,
-        supersedesRevisionId: row.resulting_revision_id,
+        observationPayload: buildHistoricalObservationPayload({
+          profileId: options.profileId,
+          documentId: options.documentId,
+          row: extracted,
+          observedAt,
+          measurementOverride: targetRevision.data.measurement_override ?? null,
+        }),
       });
       outcomes.push({
         extractedBiomarkerId: row.extracted_biomarker_id,

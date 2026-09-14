@@ -1,50 +1,45 @@
 import { createHash } from "node:crypto";
-import type { MeasurementResolutionInput } from "@/lib/biomarkers";
+import type {
+  MeasurementResolutionInput,
+  PanelSpecimenPolicyContext,
+} from "@/lib/biomarkers";
 import type { PreparedEvidence } from "./measurement-evidence-admission";
 
 /** Increment when the allowlisted canonical record changes incompatibly. */
 export const MEASUREMENT_INPUT_IDENTITY_FORMAT_VERSION = "1" as const;
 
+type CanonicalPolicyContext = Readonly<{
+  disposition: PanelSpecimenPolicyContext["status"];
+  key: string | null;
+  conflictingKeys: readonly string[];
+  effectiveSpecimen: string | null;
+  source: "stated" | "reviewed_panel_policy" | "none" | "unknown";
+}>;
+
 type CanonicalIdentityRecord = Readonly<{
   formatVersion: typeof MEASUREMENT_INPUT_IDENTITY_FORMAT_VERSION;
-  rawEvidence: Readonly<{
-    label: string;
-    unit: string | null;
-    valueText: string | null;
-    valueKind: string;
-  }>;
-  effectiveMeasurement: Readonly<{
-    value: number | null;
-    valueText: string | null;
-    valueKind: string;
-    ordinal: number | null;
-    unit: string | null;
-    referenceLow: number | null;
-    referenceHigh: number | null;
-  }>;
-  axes: Readonly<{
-    specimen: string | null;
-    specimenSource: string | null;
-    sourceAnalyteKey: string | null;
-    proposedKey: string | null;
-    modifier: string | null;
-    timing: string | null;
-    method: string | null;
-    laboratory: string | null;
-    sectionSupport: string | null;
-    neighbourLabels: readonly string[];
-  }>;
-  panelSpecimenPolicy: Readonly<{
-    status: string;
-    policyKey: string | null;
-    effectiveSpecimen: string | null;
-    sourceAnalyteKey: string | null;
-    sourceProvenance: Readonly<{
-      kind: string;
-      sourceRecordKey: string;
-    }> | null;
-    conflictPolicyKeys: readonly string[];
-  }>;
+  rawLabel: string;
+  rawUnit: string | null;
+  rawValueText: string | null;
+  valueKind: string | null;
+  effectiveValue: number | null;
+  effectiveValueText: string | null;
+  effectiveValueKind: string | null;
+  effectiveUnit: string | null;
+  effectiveOrdinal: number | null;
+  specimen: string | null;
+  specimenSource: string | null;
+  sourceAnalyteKey: string | null;
+  policyContext: CanonicalPolicyContext;
+  modifier: string | null;
+  timing: string | null;
+  method: string | null;
+  sectionSupport: boolean;
+  neighbourLabels: readonly string[];
+  referenceLow: number | null;
+  referenceHigh: number | null;
+  proposedKey: string | null;
+  laboratory: string | null;
 }>;
 
 export type PreparedEvidenceIdentity = Readonly<{
@@ -84,69 +79,107 @@ function canonicalJson(value: unknown): string {
   if (typeof value === "object") {
     const record = value as Record<string, unknown>;
     return `{${Object.keys(record)
-      .sort()
       .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
       .join(",")}}`;
   }
   throw new Error(`Measurement identity cannot serialize ${typeof value}`);
 }
 
-function identityRecord(prepared: PreparedEvidence): CanonicalIdentityRecord {
-  const input = prepared.input;
-  const measurement = prepared.effectiveMeasurement;
-  const panel = prepared.panelSpecimenPolicy;
-  const sourceProvenance = panel.sourceProvenance
-    ? {
-        kind: canonicalText(panel.sourceProvenance.kind) ?? "",
-        sourceRecordKey:
-          canonicalText(panel.sourceProvenance.sourceRecordKey) ?? "",
-      }
-    : null;
+function policyContextFromInput(
+  input: MeasurementResolutionInput,
+): CanonicalPolicyContext {
+  const panel = input.panelSpecimenPolicy;
+  const disposition =
+    panel?.status ??
+    (input.specimenSource === "stated" ? "stated" : "no_match");
+  const source =
+    panel?.status === "stated"
+      ? "stated"
+      : panel?.status === "applied"
+        ? "reviewed_panel_policy"
+        : panel?.status === "no_match"
+          ? "none"
+          : panel?.status === "conflict"
+            ? "unknown"
+            : input.specimenSource === "stated"
+              ? "stated"
+              : input.specimenSource === "reviewed_panel_policy"
+                ? "reviewed_panel_policy"
+                : "unknown";
+  return {
+    disposition,
+    key: canonicalText(panel?.policyKey),
+    conflictingKeys: sortedUnique(
+      (panel?.conflictPolicyKeys ?? []).map(
+        (value) => canonicalText(value) ?? "",
+      ),
+    ),
+    effectiveSpecimen: canonicalText(
+      panel ? panel.effectiveSpecimen : input.specimen,
+    ),
+    source,
+  };
+}
+
+function identityRecordFromInput(
+  input: MeasurementResolutionInput,
+  options: {
+    rawUnit: string | null;
+    rawValueKind: string | null;
+    effectiveValue: number | null;
+    effectiveValueText: string | null;
+    effectiveValueKind: string | null;
+    effectiveUnit: string | null;
+    effectiveOrdinal: number | null;
+  },
+): CanonicalIdentityRecord {
   return {
     formatVersion: MEASUREMENT_INPUT_IDENTITY_FORMAT_VERSION,
-    rawEvidence: {
-      label: canonicalText(input.rawLabel) ?? "",
-      unit: canonicalText(prepared.rawUnit),
-      valueText: canonicalText(input.rawValueText),
-      valueKind: prepared.baseMeasurement.valueKind,
-    },
-    effectiveMeasurement: {
-      value: measurement.value,
-      valueText: canonicalText(measurement.valueText),
-      valueKind: measurement.valueKind,
-      ordinal: measurement.ordinal,
-      unit: canonicalText(measurement.unit),
-      referenceLow: measurement.refLow,
-      referenceHigh: measurement.refHigh,
-    },
-    axes: {
-      specimen: canonicalText(input.specimen),
-      specimenSource: canonicalText(input.specimenSource),
-      sourceAnalyteKey: canonicalText(prepared.sourceAnalyteKey),
-      proposedKey: canonicalText(prepared.proposedKey),
-      modifier: canonicalText(input.modifier),
-      timing: canonicalText(input.timing),
-      method: canonicalText(input.method),
-      laboratory: canonicalText(input.laboratory),
-      sectionSupport:
-        input.section === "captured_section" ? "captured_section" : null,
-      neighbourLabels: sortedUnique(
-        (input.neighbourLabels ?? []).map(
-          (value) => canonicalText(value) ?? "",
-        ),
+    rawLabel: canonicalText(input.rawLabel) ?? "",
+    rawUnit: canonicalText(options.rawUnit),
+    rawValueText: canonicalText(input.rawValueText),
+    valueKind: canonicalText(options.rawValueKind),
+    effectiveValue: options.effectiveValue,
+    effectiveValueText: canonicalText(options.effectiveValueText),
+    effectiveValueKind: canonicalText(options.effectiveValueKind),
+    effectiveUnit: canonicalText(options.effectiveUnit),
+    effectiveOrdinal: options.effectiveOrdinal,
+    specimen: canonicalText(input.specimen),
+    specimenSource: canonicalText(input.specimenSource),
+    sourceAnalyteKey: canonicalText(input.sourceAnalyteKey),
+    policyContext: policyContextFromInput(input),
+    modifier: canonicalText(input.modifier),
+    timing: canonicalText(input.timing),
+    method: canonicalText(input.method),
+    sectionSupport: input.section === "captured_section",
+    neighbourLabels: sortedUnique(
+      (input.neighbourLabels ?? []).map(
+        (value) => canonicalText(value) ?? "",
       ),
-    },
-    panelSpecimenPolicy: {
-      status: panel.status,
-      policyKey: canonicalText(panel.policyKey),
-      effectiveSpecimen: canonicalText(panel.effectiveSpecimen),
-      sourceAnalyteKey: canonicalText(panel.sourceAnalyteKey),
-      sourceProvenance,
-      conflictPolicyKeys: sortedUnique(
-        panel.conflictPolicyKeys.map((value) => canonicalText(value) ?? ""),
-      ),
-    },
+    ),
+    referenceLow: input.referenceLow ?? null,
+    referenceHigh: input.referenceHigh ?? null,
+    proposedKey: canonicalText(input.proposedKey),
+    laboratory: canonicalText(input.laboratory),
   };
+}
+
+function identityRecord(prepared: PreparedEvidence): CanonicalIdentityRecord {
+  return identityRecordFromInput(prepared.input, {
+    rawUnit: prepared.rawUnit,
+    rawValueKind: prepared.baseMeasurement.valueKind,
+    effectiveValue: prepared.effectiveMeasurement.value,
+    effectiveValueText: prepared.effectiveMeasurement.valueText,
+    effectiveValueKind: prepared.effectiveMeasurement.valueKind,
+    effectiveUnit: prepared.effectiveMeasurement.unit,
+    effectiveOrdinal: prepared.effectiveMeasurement.ordinal,
+  });
+}
+
+function hashIdentityRecord(record: CanonicalIdentityRecord): string {
+  return createHash("sha256")
+    .update(canonicalJson(record), "utf8")
+    .digest("hex");
 }
 
 /** Builds the versioned, privacy-safe identity of one prepared evidence record. */
@@ -154,20 +187,16 @@ export function buildPreparedEvidenceIdentity(
   prepared: PreparedEvidence,
 ): PreparedEvidenceIdentity {
   const record = identityRecord(prepared);
-  const hash = createHash("sha256")
-    .update(canonicalJson(record), "utf8")
-    .digest("hex");
   return {
     formatVersion: MEASUREMENT_INPUT_IDENTITY_FORMAT_VERSION,
     record,
-    hash,
+    hash: hashIdentityRecord(record),
   };
 }
 
 /**
- * Canonicalizes a direct already-prepared Resolver fixture for compatibility
- * with existing pure Resolver verification. Production source rows use
- * `buildPreparedEvidenceIdentity` instead.
+ * Canonicalizes a direct Resolver fixture with the same format-1 record.
+ * Production source rows use `buildPreparedEvidenceIdentity`.
  */
 export function buildDirectResolverInputIdentity(
   input: MeasurementResolutionInput,
@@ -175,35 +204,17 @@ export function buildDirectResolverInputIdentity(
   formatVersion: typeof MEASUREMENT_INPUT_IDENTITY_FORMAT_VERSION;
   hash: string;
 }> {
-  const record = {
-    formatVersion: MEASUREMENT_INPUT_IDENTITY_FORMAT_VERSION,
-    rawLabel: canonicalText(input.rawLabel) ?? "",
-    rawUnit: canonicalText(input.rawUnit),
-    rawValueText: canonicalText(input.rawValueText),
-    valueKind: input.valueKind ?? null,
-    specimen: canonicalText(input.specimen),
-    specimenSource: canonicalText(input.specimenSource),
-    sourceAnalyteKey: canonicalText(input.sourceAnalyteKey),
-    panelSpecimenPolicy: input.panelSpecimenPolicy ?? null,
-    modifier: canonicalText(input.modifier),
-    timing: canonicalText(input.timing),
-    method: canonicalText(input.method),
-    laboratory: canonicalText(input.laboratory),
-    section:
-      input.section === "captured_section"
-        ? "captured_section"
-        : canonicalText(input.section),
-    neighbourLabels: sortedUnique(
-      (input.neighbourLabels ?? []).map((value) => canonicalText(value) ?? ""),
-    ),
-    referenceLow: input.referenceLow ?? null,
-    referenceHigh: input.referenceHigh ?? null,
-    proposedKey: canonicalText(input.proposedKey),
-  };
+  const record = identityRecordFromInput(input, {
+    rawUnit: input.rawUnit ?? null,
+    rawValueKind: input.valueKind ?? null,
+    effectiveValue: null,
+    effectiveValueText: input.rawValueText ?? null,
+    effectiveValueKind: input.valueKind ?? null,
+    effectiveUnit: input.rawUnit ?? null,
+    effectiveOrdinal: null,
+  });
   return {
     formatVersion: MEASUREMENT_INPUT_IDENTITY_FORMAT_VERSION,
-    hash: createHash("sha256")
-      .update(canonicalJson(record), "utf8")
-      .digest("hex"),
+    hash: hashIdentityRecord(record),
   };
 }

@@ -178,9 +178,20 @@ No identity or reprocessing decision changes Health Profile marker semantics. A 
 5. Keep legacy rows readable with unavailable identity comparison. Do not run a semantic backfill or silently activate a reprocessed revision.
 6. Roll back application behavior before removing any additive columns or RPC parameters. Because legacy data is untouched, rollback can leave the new nullable metadata in place; a mixed-version deployment must not treat a null identity version as equal to a v1 identity.
 
-## Open Questions
+## Resolved implementation questions
 
-- Confirm the final canonical field table, especially whether proposed keys, exact neighbouring labels, and exact reference bounds are identity facts or only presence/support facts under the current Resolver.
-- Confirm the exact SQL/RPC shape for restore payload copying and whether any persisted decision evidence beyond the current trace/hash/version is required for a complete reversal.
-- Confirm the release tuple used by `releaseChange` and whether an explicit release-refresh command is needed in the first rollout.
-- Confirm the writer-by-writer migration order and the focused regression matrix for acceptance, automatic verification, correction, undo, reprocessing, corpus parity, and EH-164.
+- The format-1 canonical field table is the flat allowlisted record recorded
+  in `registry/adr/0002-resolver-input-identity.md`; effective corrected
+  measurement fields and the source analyte key are included, while raw
+  headings and source-record identifiers are excluded.
+- Historical restore uses the service-only
+  `restore_observation_normalization_revision_v1` RPC, which copies the
+  target revision's persisted decision, trace, identity, and release fields
+  and uses the existing atomic projection boundary.
+- `releaseChange` compares the five-field deployed release tuple:
+  catalog manifest version/digest, Resolver version, normalization version,
+  and compatibility-policy version. `--release-refresh` is the explicit
+  apply intent.
+- Review, writer, reprocessing, and corpus adapters all call the shared
+  preparation function; source-row identity reports include format version
+  alongside the hash.
