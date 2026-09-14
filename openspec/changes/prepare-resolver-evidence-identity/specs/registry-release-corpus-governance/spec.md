@@ -16,6 +16,15 @@ The candidate-release corpus SHALL prepare each fixture through the same evidenc
 - **THEN** the corpus report SHALL identify the policy-derived provenance separately from a stated specimen
 - **AND** the report SHALL not persist or hash the raw captured heading as the identity representation
 
+
+#### Scenario: Fixture panel metadata is not Resolver evidence
+
+- **WHEN** a corpus fixture has a `panel` classification and a captured
+  `section_context` heading
+- **THEN** preparation SHALL use the captured provenance and source analyte
+  allowlist, not the fixture classification, to admit panel policy
+- **AND** the corpus SHALL produce the same prepared identity as the
+  equivalent production writer row
 #### Scenario: Corpus remains non-mutating
 
 - **WHEN** the corpus evaluates a fixture under a candidate release

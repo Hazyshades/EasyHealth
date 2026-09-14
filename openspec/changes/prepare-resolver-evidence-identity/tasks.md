@@ -1,11 +1,33 @@
 ## 1. Prepared evidence contract
 
-- [ ] 1.1 Define the prepared Resolver evidence type, effective-axis fields, and discriminated panel-policy context.
-- [ ] 1.2 Consolidate override application and stated-axis filtering before reviewed panel-policy admission.
-- [ ] 1.3 Preserve distinct `stated`, `applied`, `no_match`, and `conflict` policy outcomes, including fail-closed ambiguous matches.
-- [ ] 1.4 Update the Resolver seam to consume prepared specimen/policy context without re-matching captured headings.
-- [ ] 1.5 Replace review and writer duplication with thin source-row adapters over the shared preparation module.
-- [ ] 1.6 Route correction, confirmation, reprocessing, Health Profile preview, and corpus preparation through the appropriate shared seam.
+- [ ] 1.1 Define the pure, row-neutral `PreparedEvidence` type, effective
+      measurement fields, provenance fields, source analyte key, and
+      discriminated panel-policy context.
+- [ ] 1.2 Implement one preparation order: apply overrides and normalize
+      effective measurement values first, then filter stated axes, canonicalize
+      non-evidence sentinels, and only then evaluate reviewed panel policy.
+- [ ] 1.3 Change the reviewed panel matcher to expose zero, one, and multiple
+      distinct policy matches instead of collapsing zero and multiple to `null`;
+      deduplicate multiple heading forms belonging to one policy.
+- [ ] 1.4 Enforce the source-analyte allowlist for policy admission, preserve
+      stable sorted conflicting policy keys, fail closed on conflict, and emit
+      an allowlisted hard trace reason for ambiguous policy admission.
+- [ ] 1.5 Update the Resolver seam to consume the prepared specimen and policy
+      context without inspecting or re-matching raw captured headings.
+- [ ] 1.6 Replace review and writer evidence-preparation duplication with thin
+      adapters over the shared preparation module, including identical override
+      and raw-value-text semantics.
+- [ ] 1.7 Pass one unchanged prepared record to Resolver evaluation, identity
+      canonicalization, trace construction, writer request generation, and
+      eligibility checks.
+- [ ] 1.8 Route prospective acceptance, confirmation, correction, reprocessing,
+      and no-active-row preview through the seam; keep active persisted reads
+      and historical undo on their separate restore/read contracts.
+- [ ] 1.9 Route candidate-corpus fixtures through the seam without using
+      fixture `panel` metadata as Resolver section evidence, and preserve
+      non-mutating execution and separate release-artifact identity.
+- [ ] 1.10 Add admission-order, sentinel, allowlist, conflict, and
+      review/writer/corpus parity coverage before integrating identity hashing.
 
 ## 2. Resolver input identity
 

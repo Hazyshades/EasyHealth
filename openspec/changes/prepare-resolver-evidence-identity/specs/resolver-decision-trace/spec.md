@@ -21,3 +21,19 @@ Every newly persisted normalization revision SHALL store the Resolver input evid
 - **WHEN** identical prepared evidence is persisted under a different Registry or Resolver release
 - **THEN** the input identity hash/version pair SHALL remain the identity of the prepared evidence
 - **AND** the trace SHALL retain the release metadata that produced the decision
+
+### Requirement: Evidence-admission conflicts remain traceable
+
+When shared evidence preparation returns a panel-policy `conflict`, the
+Resolver trace SHALL retain a stable allowlisted hard reason for that conflict
+and the sorted conflicting policy keys where the trace contract permits that
+metadata. The trace SHALL not represent the conflict as a successful policy
+admission or as an unqualified stated specimen.
+
+#### Scenario: Ambiguous panel policy is visible in the trace
+
+- **WHEN** a captured heading matches multiple distinct reviewed policies for
+  one source analyte
+- **THEN** the prepared context SHALL remain `conflict`
+- **AND** the persisted trace SHALL preserve the conflict reason without raw
+  heading text

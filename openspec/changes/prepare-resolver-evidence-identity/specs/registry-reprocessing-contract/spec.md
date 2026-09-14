@@ -10,6 +10,14 @@ A reprocessing diff SHALL read the prior input identity hash/version, Resolver o
 - **THEN** the diff prior snapshot SHALL retain the active revision's stored hash and identity-format version
 - **AND** the next snapshot SHALL carry the current prepared evidence hash/version
 
+#### Scenario: Next reprocessing input uses the shared seam
+
+- **WHEN** reprocessing evaluates the current extracted row
+- **THEN** the next input, Resolver evaluation, trace, and identity hash SHALL
+  derive from one shared prepared evidence record
+- **AND** the prior snapshot SHALL remain entirely sourced from stored
+  revision metadata
+
 ### Requirement: Input, outcome, and release changes are independent facts
 
 Each reprocessing dry-run row SHALL record three independent change facts:

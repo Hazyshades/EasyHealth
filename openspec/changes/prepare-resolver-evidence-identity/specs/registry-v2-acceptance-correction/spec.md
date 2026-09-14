@@ -1,5 +1,30 @@
 ## ADDED Requirements
 
+### Requirement: Prospective acceptance and correction use shared preparation
+
+Regular acceptance, automatic verification, confirmation, and current manual
+correction SHALL obtain one prepared evidence record before Resolver
+evaluation. The same record SHALL be used for eligibility, resolution,
+identity hashing, trace construction, and the trusted writer payload. A
+manual definition selection changes the explicit outcome; it SHALL NOT create
+a second evidence-admission path.
+
+#### Scenario: Current correction uses prepared evidence once
+
+- **WHEN** a user submits a value correction or manual definition selection
+- **THEN** the correction path SHALL prepare effective evidence through the
+  shared seam before evaluating the selected/current definition
+- **AND** the writer SHALL persist identity and trace data derived from that
+  same prepared record
+
+#### Scenario: Acceptance and automatic verification share preparation
+
+- **WHEN** regular acceptance or automatic verification evaluates an extracted
+  biomarker
+- **THEN** eligibility and Resolver evaluation SHALL consume the same prepared
+  evidence record
+- **AND** the writer SHALL not rebuild evidence after eligibility succeeds
+
 ### Requirement: Historical reversal restores the saved decision contract
 
 The service-only acceptance/correction writer SHALL provide an explicit historical-restore path for undo/reversal. Given a target revision belonging to the same extracted source, the path SHALL append and atomically activate a reversal revision by copying the target's persisted decision fields, resolver evidence, decision trace, input evidence hash, input identity format version, and release metadata. It SHALL preserve supersession/reversal links and SHALL NOT invoke the current Resolver or current panel-specimen policy to reconstruct the restored decision.

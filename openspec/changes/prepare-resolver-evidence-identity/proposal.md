@@ -4,12 +4,37 @@ The Resolver currently receives evidence prepared by multiple adapters, while `i
 
 This change establishes one prepared-evidence contract and a versioned Resolver input identity before the coordinated historical-read change is proposed.
 
+## Scope clarification
+
+This change deliberately owns both item 1, **Make Resolver decision identity
+deep**, and item 2, **Collapse duplicate evidence admission**, from the
+architecture review. Item 2 is an implementation prerequisite for item 1:
+identity is computed from the prepared evidence that the Resolver actually
+consumes. It is therefore not a separate OpenSpec change or a second public
+Resolver seam.
+
+The existing `add-reviewed-panel-specimen-policy` change remains the source of
+the reviewed catalog policy and its approval rules. This change consolidates
+the existing per-builder calls, removes Resolver-side re-admission, and gives
+review, writer, correction, reprocessing, preview, and corpus adapters one
+ordered preparation contract. The corpus work remains a thin adapter cutover;
+it does not redesign the complete fixture runner.
+
 ## What Changes
 
-- Add one shared evidence-preparation seam for review, acceptance, automatic verification, correction, reversal, reprocessing, and the candidate corpus. Source-row adapters may differ, but stated-axis filtering and reviewed panel-policy admission run once in the shared seam and produce the same prepared evidence record.
+- Add one shared evidence-preparation seam for review previews, acceptance,
+  automatic verification, prospective correction, reprocessing `next`, no-active
+  preview, and the candidate corpus. Source-row adapters may differ, but
+  stated-axis filtering and reviewed panel-policy admission run once in the
+  shared seam and produce the same prepared evidence record. Historical
+  reversal restores saved data and does not perform new admission.
 - Define a canonical **Resolver input identity** distinct from the Resolver outcome, decision trace, Registry release, and writer request hash. The identity records effective specimen and provenance source, canonical panel-policy context, resolution-relevant axes, and an explicit identity-format version; raw captured headings and raw OCR content do not enter the persisted identity representation.
 - Ensure the Resolver consumes the prepared evidence record without re-running panel-policy admission. Equivalent headings that resolve to the same reviewed policy produce the same policy context; stated and policy-derived specimens remain distinct even when their effective specimen value matches.
-- Make regular acceptance, automatic verification, correction, undo, and reprocessing use the same prepared record for resolution, trace construction, and input identity hashing. The corpus adapter consumes this seam without redesigning the complete corpus runner.
+- Make regular acceptance, automatic verification, prospective correction,
+  and reprocessing use the same prepared record for resolution, trace
+  construction, and input identity hashing. Undo/reversal copies its saved
+  historical decision instead of evaluating current evidence. The corpus
+  adapter consumes this seam without redesigning the complete corpus runner.
 - Make reversal restore the selected historical revision's saved evidence, input hash, identity-format version, and decision metadata. Reversal SHALL NOT call the current panel policy or perform a new Resolver evaluation for the restored decision. A new Resolver evaluation remains an explicit acceptance, correction, or reprocessing operation with its own apply decision.
 - Persist the identity-format version alongside revision hashes and propagate prior/next identity versions through reprocessing rows and observation change history. Existing legacy hashes remain unchanged and are not silently backfilled.
 - Record three independent reprocessing facts: whether prepared input identity changed, whether Resolver outcome changed, and whether the deployed Registry/resolver release changed. A single hash comparison SHALL NOT decide revision creation or activation.
