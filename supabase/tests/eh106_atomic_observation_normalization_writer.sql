@@ -38,6 +38,9 @@ with function_definitions as (
       'public.write_observation_normalization_revision_v2_legacy(uuid,jsonb,jsonb,text,uuid,text,uuid,text,text,uuid,uuid,text,boolean)'::regprocedure
     )) as legacy_definition,
     lower(pg_get_functiondef(
+      to_regprocedure('public.write_observation_normalization_revision_v2_pre_eh248(uuid,jsonb,jsonb,text,uuid,text,uuid,text,text,uuid,uuid,text,boolean)')
+    )) as pre_eh248_definition,
+    lower(pg_get_functiondef(
       'public.write_observation_normalization_revision_v2_legacy(uuid,jsonb,jsonb,text,uuid,text,jsonb,uuid,text,text,uuid,uuid,text,boolean)'::regprocedure
     )) as explicit_legacy_definition,
     lower(pg_get_functiondef(
@@ -45,7 +48,13 @@ with function_definitions as (
     )) as pre_eh122_definition
 )
 select ok(
-  position('write_observation_normalization_revision_v2_legacy' in wrapper_definition) > 0
+  (
+    position('write_observation_normalization_revision_v2_legacy' in wrapper_definition) > 0
+      or (
+        position('write_observation_normalization_revision_v2_pre_eh248' in wrapper_definition) > 0
+          and position('write_observation_normalization_revision_v2_legacy' in pre_eh248_definition) > 0
+      )
+  )
     and position('write_observation_normalization_revision_v2_legacy' in legacy_definition) > 0
     and (
       position('promote_observation_normalization_revision_v2' in explicit_legacy_definition) > 0
