@@ -1018,10 +1018,12 @@ begin
   if prior.verification_status <> 'user_verified' then
     raise exception using message = 'batch_verification_revision_not_reversible';
   end if;
+  -- EH-122 has established legacy rows written through the direct legacy
+  -- writer before decision traces were persisted. Preserve a trace when one
+  -- exists, but do not break reversal of those rows merely because it is null.
   if prior.input_evidence_hash is null
     or prior.input_evidence_hash !~ '^[0-9a-f]{64}$'
     or prior.resolver_evidence is null
-    or prior.resolver_decision_trace is null
     or prior.catalog_manifest_version is null
     or prior.catalog_manifest_digest is null
     or prior.resolver_version is null
