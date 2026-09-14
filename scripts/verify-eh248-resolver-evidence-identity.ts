@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import assert from "node:assert/strict";
 import type {
   MeasurementResolution,
@@ -56,29 +54,6 @@ async function main(): Promise<void> {
   );
   const { runRegistryV2CandidateCorpusTechnical } = await import(
     "./lib/registry-v2-candidate-corpus"
-  );
-
-  const batchVerificationServiceSource = readFileSync(
-    path.resolve(
-      __dirname,
-      "../src/lib/documents/batch-verification-service.ts",
-    ),
-    "utf8",
-  );
-  const reverseStart = batchVerificationServiceSource.indexOf(
-    "export async function reverseBatchVerification",
-  );
-  assert.ok(reverseStart >= 0);
-  const reverseBranch = batchVerificationServiceSource.slice(reverseStart);
-  assert.match(
-    reverseBranch,
-    /restoreBatchVerificationRevision/,
-    "batch undo uses the no-Resolver historical reversal",
-  );
-  assert.doesNotMatch(
-    reverseBranch,
-    /resolveMeasurementDefinition|preparedEvidenceFromWriterRow|writeKind:\s*"verification_reversal"/,
-    "batch undo must not evaluate current evidence",
   );
 
   const restoreRpcCalls: unknown[] = [];

@@ -774,6 +774,202 @@ begin
     and p_trace -> 'conflicts' = expected_trace_conflicts;
 end;
 $$;
+-- Service writers must present the identity hash and its format as one
+-- explicit payload pair. Legacy rows remain nullable because they do not use
+-- these service writer entrypoints.
+create function public.eh248_require_v1_identity_payload(p_resolution jsonb)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if jsonb_typeof(p_resolution) is distinct from 'object'
+    or p_resolution ->> 'input_identity_format_version' is distinct from '1' then
+    raise exception using message = 'invalid_input_identity_format_version';
+  end if;
+end;
+$$;
+
+revoke all on function public.eh248_require_v1_identity_payload(jsonb)
+  from public, anon, authenticated, service_role;
+
+alter function public.write_observation_normalization_revision_v2(
+  uuid, jsonb, jsonb, text, uuid, text, uuid, text, text, uuid, uuid, text, boolean
+) rename to write_observation_normalization_revision_v2_pre_eh248;
+alter function public.write_observation_normalization_revision_v2(
+  uuid, jsonb, jsonb, text, uuid, text, jsonb, uuid, text, text, uuid, uuid, text, boolean
+) rename to write_observation_normalization_revision_v2_pre_eh248;
+
+create function public.write_observation_normalization_revision_v2(
+  p_extracted_biomarker_id uuid,
+  p_observation jsonb,
+  p_resolution jsonb,
+  p_write_kind text,
+  p_actor_id uuid,
+  p_request_hash text,
+  p_expected_active_revision_id uuid default null,
+  p_mapping_change_classification text default 'additive',
+  p_correction_reason text default null,
+  p_reversal_of_revision_id uuid default null,
+  p_supersedes_revision_id uuid default null,
+  p_extraction_version text default null,
+  p_reviewed_measurement_definition boolean default false
+)
+returns table (
+  observation_id uuid,
+  revision_id uuid,
+  verification_status text,
+  resolver_result text,
+  was_reused boolean
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.eh248_require_v1_identity_payload(p_resolution);
+  return query
+  select *
+  from public.write_observation_normalization_revision_v2_pre_eh248(
+    p_extracted_biomarker_id,
+    p_observation,
+    p_resolution,
+    p_write_kind,
+    p_actor_id,
+    p_request_hash,
+    p_expected_active_revision_id,
+    p_mapping_change_classification,
+    p_correction_reason,
+    p_reversal_of_revision_id,
+    p_supersedes_revision_id,
+    p_extraction_version,
+    p_reviewed_measurement_definition
+  );
+end;
+$$;
+
+create function public.write_observation_normalization_revision_v2(
+  p_extracted_biomarker_id uuid,
+  p_observation jsonb,
+  p_resolution jsonb,
+  p_write_kind text,
+  p_actor_id uuid,
+  p_request_hash text,
+  p_measurement_override jsonb default null,
+  p_expected_active_revision_id uuid default null,
+  p_mapping_change_classification text default 'additive',
+  p_correction_reason text default null,
+  p_reversal_of_revision_id uuid default null,
+  p_supersedes_revision_id uuid default null,
+  p_extraction_version text default null,
+  p_reviewed_measurement_definition boolean default false
+)
+returns table (
+  observation_id uuid,
+  revision_id uuid,
+  verification_status text,
+  resolver_result text,
+  was_reused boolean
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.eh248_require_v1_identity_payload(p_resolution);
+  return query
+  select *
+  from public.write_observation_normalization_revision_v2_pre_eh248(
+    p_extracted_biomarker_id,
+    p_observation,
+    p_resolution,
+    p_write_kind,
+    p_actor_id,
+    p_request_hash,
+    p_measurement_override,
+    p_expected_active_revision_id,
+    p_mapping_change_classification,
+    p_correction_reason,
+    p_reversal_of_revision_id,
+    p_supersedes_revision_id,
+    p_extraction_version,
+    p_reviewed_measurement_definition
+  );
+end;
+$$;
+
+alter function public.eh120_write_automatic_verification_v2(
+  uuid, jsonb, jsonb, text, uuid, text, boolean, boolean, jsonb
+) rename to eh120_write_automatic_verification_v2_pre_eh248;
+
+create function public.eh120_write_automatic_verification_v2(
+  p_extracted_biomarker_id uuid,
+  p_observation jsonb,
+  p_resolution jsonb,
+  p_request_hash text,
+  p_expected_active_revision_id uuid,
+  p_extraction_version text,
+  p_quality_gate_approved boolean,
+  p_reviewed_measurement_definition boolean,
+  p_measurement_override jsonb default null
+)
+returns table (
+  observation_id uuid,
+  revision_id uuid,
+  verification_status text,
+  resolver_result text,
+  was_reused boolean
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.eh248_require_v1_identity_payload(p_resolution);
+  return query
+  select *
+  from public.eh120_write_automatic_verification_v2_pre_eh248(
+    p_extracted_biomarker_id,
+    p_observation,
+    p_resolution,
+    p_request_hash,
+    p_expected_active_revision_id,
+    p_extraction_version,
+    p_quality_gate_approved,
+    p_reviewed_measurement_definition,
+    p_measurement_override
+  );
+end;
+$$;
+
+revoke all on function public.write_observation_normalization_revision_v2_pre_eh248(
+  uuid, jsonb, jsonb, text, uuid, text, uuid, text, text, uuid, uuid, text, boolean
+) from public, anon, authenticated, service_role;
+revoke all on function public.write_observation_normalization_revision_v2_pre_eh248(
+  uuid, jsonb, jsonb, text, uuid, text, jsonb, uuid, text, text, uuid, uuid, text, boolean
+) from public, anon, authenticated, service_role;
+revoke all on function public.eh120_write_automatic_verification_v2_pre_eh248(
+  uuid, jsonb, jsonb, text, uuid, text, boolean, boolean, jsonb
+) from public, anon, authenticated, service_role;
+revoke all on function public.write_observation_normalization_revision_v2(
+  uuid, jsonb, jsonb, text, uuid, text, uuid, text, text, uuid, uuid, text, boolean
+) from public, anon, authenticated;
+grant execute on function public.write_observation_normalization_revision_v2(
+  uuid, jsonb, jsonb, text, uuid, text, uuid, text, text, uuid, uuid, text, boolean
+) to service_role;
+revoke all on function public.write_observation_normalization_revision_v2(
+  uuid, jsonb, jsonb, text, uuid, text, jsonb, uuid, text, text, uuid, uuid, text, boolean
+) from public, anon, authenticated;
+grant execute on function public.write_observation_normalization_revision_v2(
+  uuid, jsonb, jsonb, text, uuid, text, jsonb, uuid, text, text, uuid, uuid, text, boolean
+) to service_role;
+revoke all on function public.eh120_write_automatic_verification_v2(
+  uuid, jsonb, jsonb, text, uuid, text, boolean, boolean, jsonb
+) from public, anon, authenticated;
+grant execute on function public.eh120_write_automatic_verification_v2(
+  uuid, jsonb, jsonb, text, uuid, text, boolean, boolean, jsonb
+) to service_role;
 
 -- EH-122's verification undo keeps its existing pending transition, but the
 -- successor now copies every saved Change A decision field. It remains a
@@ -939,6 +1135,12 @@ begin
   return query select promoted.observation_id, promoted.id, false;
 end;
 $$;
+revoke all on function public.eh122_reverse_observation_normalization_verification(
+  uuid, uuid, text, text
+) from public, anon, authenticated;
+grant execute on function public.eh122_reverse_observation_normalization_verification(
+  uuid, uuid, text, text
+) to service_role;
 
 comment on function public.eh122_reverse_observation_normalization_verification(
   uuid, uuid, text, text

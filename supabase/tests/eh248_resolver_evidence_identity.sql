@@ -22,7 +22,7 @@ insert into public.document_extracted_biomarkers (
 );
 
 
-select plan(22);
+select plan(24);
 
 select ok(
   has_column('public', 'observation_normalization_revisions', 'input_identity_format_version'),
@@ -194,6 +194,46 @@ select ok(
     'public.eh115_validate_resolver_decision_trace(jsonb,text)'::regprocedure
   )) > 0,
   'panel-policy conflict traces are accepted by the persisted trace validator'
+);
+select throws_ok(
+  $$
+    select *
+    from public.write_observation_normalization_revision_v2(
+      '00000000-0000-0000-0000-000000002482'::uuid,
+      '{}'::jsonb,
+      '{}'::jsonb,
+      'acceptance',
+      '00000000-0000-0000-0000-000000002480'::uuid,
+      repeat('a', 64),
+      null::jsonb,
+      null::uuid,
+      'additive',
+      null,
+      null,
+      null,
+      false
+    )
+  $$,
+  'invalid_input_identity_format_version',
+  'regular writer rejects a missing identity format version'
+);
+select throws_ok(
+  $$
+    select *
+    from public.eh120_write_automatic_verification_v2(
+      '00000000-0000-0000-0000-000000002482'::uuid,
+      '{}'::jsonb,
+      jsonb_build_object('input_identity_format_version', '2'),
+      repeat('b', 64),
+      null::uuid,
+      null,
+      false,
+      false,
+      null::jsonb
+    )
+  $$,
+  'invalid_input_identity_format_version',
+  'automatic writer rejects an unsupported identity format version'
 );
 select throws_ok(
   $$
