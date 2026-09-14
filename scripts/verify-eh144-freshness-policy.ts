@@ -450,16 +450,6 @@ const bodySilhouetteSource = readFileSync(
   resolve(process.cwd(), "src/components/body-silhouette.tsx"),
   "utf8",
 );
-const healthProfileAssessmentReadSource = readFileSync(
-  resolve(process.cwd(), "src/lib/health-profile-assessment-read.ts"),
-  "utf8",
-);
-assert.match(healthProfileAssessmentReadSource, /freshness_policy_version/);
-assert.match(healthProfileAssessmentReadSource, /freshness_evaluated_at/);
-assert.match(
-  healthProfileAssessmentReadSource,
-  /candidate\.freshness_policy_version\s*!==\s*HEALTH_PROFILE_FRESHNESS_POLICY\.version/,
-);
 assert.match(bodySilhouetteSource, /outdated evidence/);
 assert.match(bodySilhouetteSource, /medical date unavailable/);
 

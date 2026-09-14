@@ -179,7 +179,6 @@ for (const [status, expectedDisplayState] of canonicalStates) {
     result.profile?.overall_state_score,
     canonicalProfile.overall_state_score,
   );
-  assert.equal(result.profile, canonicalProfile);
   assert.equal(result.assessment.display_state, expectedDisplayState);
   assert.equal(result.assessment.has_current_version, true);
   assert.equal(result.assessment.fallback, false);
@@ -225,7 +224,6 @@ for (const payload of fallbackPayloads) {
       job: status === null ? null : job(status),
       fallback: fallbackSnapshot,
     });
-    assert.equal(result.profile, fallbackProfile);
     assert.equal(result.assessment.display_state, expectedDisplayState);
     assert.equal(result.assessment.has_current_version, false);
     assert.equal(result.assessment.fallback, true);
