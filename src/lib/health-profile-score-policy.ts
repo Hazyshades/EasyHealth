@@ -568,7 +568,9 @@ function toPolicyMarker(
   const observation = candidate.observation;
   const valueKind: ValueKind = observation.value_kind ?? "numeric";
   const numericValue =
-    observation.value != null ? Number(observation.value) : null;
+    valueKind === "numeric" && observation.value != null
+      ? Number(observation.value)
+      : null;
   return {
     observation_id: observation.observation_id ?? null,
     key: observation.biomarker_key,
