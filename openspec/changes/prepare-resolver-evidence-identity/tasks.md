@@ -90,3 +90,6 @@
 
 - [x] 7.9 Supply the complete measurement-override writer argument list in the
       EH-248 database contract fixture.
+
+- [x] 7.10 Align the shared `DocumentType` union with all supported typed
+      document categories so worker typecheck matches runtime consumers.

@@ -105,7 +105,7 @@ The shared preparation and identity contracts are internal service behavior. The
 - [ ] `pnpm check:registry-v2-candidate-corpus` — release approval bindings. **Blocked/pending human renewal:** adding the required `sourceAnalyteKey` fixture evidence changed the candidate input hash, so existing signed approval records are intentionally not rewritten.
 - [x] `openspec validate prepare-resolver-evidence-identity --strict` — final artifact validation after implementation and task checklist updates. **Passed.**
 
-- [ ] `pnpm exec tsc --noEmit` — **baseline limitation:** the repository still reports unrelated `DocumentType` errors for `consultation_note` / `discharge_summary` consumers; no changed-file-specific EH-248 diagnostics were reported.
+- [x] `pnpm typecheck:worker` and `pnpm exec tsc --noEmit` — `DocumentType` now includes all supported typed-document categories used by runtime consumers. **Passed.**
 
 ## Out of scope or not manually testable yet
 
