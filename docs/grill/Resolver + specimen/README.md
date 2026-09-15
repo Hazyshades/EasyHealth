@@ -22,7 +22,7 @@
 - [x] Создан общий tracking issue: [#248](https://github.com/Hazyshades/EasyHealth/issues/248).
 - [x] Созданы два OpenSpec ТЗ:
   - [`prepare-resolver-evidence-identity`](../../openspec/changes/prepare-resolver-evidence-identity/) — основной контракт для Resolver input identity, подготовленного evidence, reprocessing и связанных writer-границ.
-  - [`historical-persisted-decision-read`](../../openspec/changes/historical-persisted-decision-read/) — Draft ТЗ для соседнего кандидата с historical persisted read.
+  - [x] [`historical-persisted-decision-read`](../../openspec/changes/historical-persisted-decision-read/) — реализованный change для historical persisted read; внешние публикационные gates остаются отдельным статусом.
 - [x] Оба OpenSpec change прошли `openspec validate --strict`.
 - [x] Зафиксирован EH-164 invariant: accepted comparator/detection-limit marker остаётся factual text evidence (`value: null`, `value_kind: "text"`) и не становится числовым score/trend contribution.
 
@@ -52,19 +52,19 @@ HTML указывает на дублирование в review builder и write
 
 ### 3. Keep persisted decisions off the live Resolver
 
-**Статус:** `Draft` — соседнее OpenSpec ТЗ создано, но отдельный кандидат ещё не закрыт как окончательное архитектурное решение и реализация не начата.
+**Статус:** `Implemented` — persisted-decision reader и consumer cutover завершены; оставшиеся публикационные и инфраструктурные ограничения не являются незавершённой реализацией этого кандидата.
 
-HTML указывает на два исторических read shape: active projection читает `resolver_evidence`, а technical details — `resolver_decision_trace`; при этом `buildNormalizationReview` сначала вызывает live Resolver даже для active revision.
+HTML выделяет два исторических read shape: active projection читает `resolver_evidence`, а technical details — `resolver_decision_trace`; реализованный persisted-decision reader теперь разделяет эти источники и не вызывает live Resolver для historical read.
 
 Чек-лист закрытия:
 
-- [ ] Утвердить active persisted revision как источник outcome, trace и исторического объяснения.
-- [ ] Явно отделить active persisted read от pre-revision preview.
-- [ ] Определить независимые оси `source` (`persisted`, `preview`, `none`) и `quality` (`available`, `unavailable`, `conflict`).
-- [ ] Описать conflict/unavailable поведение без live fallback и без silent repair.
-- [ ] Проверить все consumers: normalization review, incomplete outcomes, document details, Health Profile, reports и structured context.
-- [ ] Проверить ownership checks, trace allowlisting и non-concrete candidate behavior.
-- [ ] Перевести Draft OpenSpec в implementation-ready решение и связать его с Change A.
+- [x] Утвердить active persisted revision как источник outcome, trace и исторического объяснения.
+- [x] Явно отделить active persisted read от pre-revision preview.
+- [x] Определить независимые оси `source` (`persisted`, `preview`, `none`) и `quality` (`available`, `unavailable`, `conflict`).
+- [x] Описать conflict/unavailable поведение без live fallback и без silent repair.
+- [x] Проверить все consumers: normalization review, incomplete outcomes, document details, Health Profile, reports и structured context.
+- [x] Проверить ownership checks, trace allowlisting и non-concrete candidate behavior.
+- [x] Перевести Draft OpenSpec в implementation-ready решение и связать его с Change A.
 
 Источник: [`#historical-read`](./architecture-review-Resolver%20%2B%20specimen.html#historical-read).
 
@@ -106,7 +106,7 @@ HTML указывает, что release corpus вручную восстанав
 
 1. **Завершено как архитектурный контракт:** Resolver decision identity.
 2. **Следующий отдельный разбор:** evidence admission, потому что identity должна получать уже подготовленное evidence и не дублировать policy.
-3. **Параллельно уточняется Draft:** persisted-decision read; его OpenSpec уже создан, но решение нужно довести до implementation-ready состояния.
+3. **Реализовано:** persisted-decision read; его OpenSpec закрыт, а оставшиеся публикационные gates отслеживаются отдельно.
 4. **После уточнения основных seam:** Registry release identity.
 5. **Последним:** corpus adapter, поскольку он зависит от evidence-admission seam и остаётся speculative.
 

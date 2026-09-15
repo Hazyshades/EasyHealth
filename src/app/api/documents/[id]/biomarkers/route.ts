@@ -9,6 +9,7 @@ import {
   type MeasurementOverride,
 } from "@/lib/documents/observation-measurement-correction";
 import { assertDocumentOwner } from "@/lib/documents/access";
+import { failureMessage } from "@/lib/documents/biomarker-acceptance-batch";
 import { observationDateFromExtractedRow } from "@/lib/documents/observation-date";
 import {
   compatibleManualDefinitions,
@@ -28,7 +29,7 @@ import {
   buildNormalizationReview,
   type NormalizationRevisionSummary,
 } from "@/lib/documents/normalization-review";
-import { failureMessage } from "@/lib/documents/biomarker-acceptance-batch";
+import { REGISTRY_V2_NORMALIZATION_REVISION_SELECT } from "@/lib/documents/observation-read-boundaries";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -66,9 +67,7 @@ export async function GET(_req: Request, context: RouteContext) {
   const revisionsResult = ids.length
     ? await supabase
         .from("observation_normalization_revisions")
-        .select(
-          "id, extracted_biomarker_id, analyte_key, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, resolver_evidence, input_evidence_hash, input_identity_format_version, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, resolver_decision_trace, resolver_trace_schema_version, measurement_override, created_at",
-        )
+        .select(REGISTRY_V2_NORMALIZATION_REVISION_SELECT)
         .in("extracted_biomarker_id", ids)
         .order("created_at", { ascending: false })
     : { data: [] as Array<Record<string, unknown>> };
@@ -76,7 +75,9 @@ export async function GET(_req: Request, context: RouteContext) {
     string,
     Array<Record<string, unknown>>
   >();
-  for (const revision of revisionsResult.data ?? []) {
+  for (const revision of (revisionsResult.data ?? []) as Array<
+    Record<string, unknown>
+  >) {
     const key = String(revision.extracted_biomarker_id);
     const entries = revisionsByExtractedId.get(key) ?? [];
     entries.push(revision as Record<string, unknown>);
@@ -84,16 +85,24 @@ export async function GET(_req: Request, context: RouteContext) {
   }
   return NextResponse.json({
     items: rows.map((row) => {
-      const normalization = buildNormalizationReview(
-        row,
-        (revisionsByExtractedId.get(row.id) ??
-          []) as unknown as NormalizationRevisionSummary[],
-      );
+      const revisions = (revisionsByExtractedId.get(row.id) ??
+        []) as unknown as NormalizationRevisionSummary[];
+      const preview = revisions.some((revision) => revision.is_active)
+        ? null
+        : resolveMeasurementDefinition(
+            preparedEvidenceFromWriterRow(row, null).input,
+          );
+      const normalization = buildNormalizationReview(row, revisions, {
+        preview,
+      });
       return {
         ...row,
         recordStatus: normalization.recordStatus,
         sourceIsCurrent: normalization.sourceIsCurrent,
-        traceState: normalization.traceState,
+        decisionSource: normalization.decisionSource,
+        decisionQuality: normalization.decisionQuality,
+        decisionNotPersisted: normalization.decisionNotPersisted,
+        decisionQualityCodes: normalization.decisionQualityCodes,
         actionAvailability: normalization.actionAvailability,
         normalization,
       };

@@ -113,9 +113,13 @@ const resolved = projectLaboratoryOutcome({
   ),
 });
 assert.equal(resolved.outcome, "resolved");
-assert.equal(resolved.measurementDefinitionKey, resolvedKey);
-assert.equal(resolved.registryBindingReady, true);
-assert.equal(resolved.resolutionDetails.eligibility.trendEligible, true);
+assert.equal(resolved.measurementDefinitionKey, null);
+assert.equal(
+  resolved.resolutionDetails.storedIdentity.measurementDefinitionKey,
+  resolvedKey,
+);
+assert.equal(resolved.registryBindingReady, false);
+assert.equal(resolved.resolutionDetails.quality, "unavailable");
 
 const partial = projectLaboratoryOutcome({
   observation: {
@@ -134,7 +138,7 @@ const partial = projectLaboratoryOutcome({
 assert.equal(partial.outcome, "partial");
 assert.equal(partial.measurementDefinitionKey, null);
 assert.equal(partial.analyteKey, null);
-assert.equal(partial.resolutionDetails.source, "active_revision");
+assert.equal(partial.resolutionDetails.source, "persisted");
 assert.deepEqual(partial.resolutionDetails.missingAxes, ["specimen", "unit"]);
 assert.equal(partial.resolutionDetails.eligibility.trendEligible, false);
 assert.equal(partial.resolutionDetails.eligibility.conversionEligible, false);

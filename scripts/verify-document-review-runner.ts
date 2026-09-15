@@ -234,15 +234,19 @@ const persistedReview = buildNormalizationReview(
       verification_status: "user_verified",
       is_active: true,
       catalog_manifest_version: "eh115-test",
+      catalog_manifest_digest: "eh115-test-digest",
       resolver_version: "eh115-test",
       normalization_version: "eh115-test",
+      input_evidence_hash: "b".repeat(64),
+      input_identity_format_version: "1",
       resolver_decision_trace: persistedTrace,
-      resolver_trace_schema_version: "1",
+      resolver_trace_schema_version: "2",
       created_at: "2026-07-30T00:00:00Z",
     },
   ],
 );
-assert.equal(persistedReview.decisionTrace.availability, "persisted");
+assert.equal(persistedReview.decisionTrace.source, "persisted");
+assert.equal(persistedReview.decisionTrace.quality, "available");
 assert.equal(persistedReview.result, "resolved");
 assert.equal(persistedReview.decisionTrace.trace, persistedTrace);
 assert.equal(JSON.stringify(persistedReview.decisionTrace).includes("Changed source label"), false);
@@ -273,6 +277,8 @@ const legacyReview = buildNormalizationReview(
     },
   ],
 );
-assert.equal(legacyReview.decisionTrace.availability, "legacy_unavailable");
+assert.equal(legacyReview.decisionTrace.source, "persisted");
+assert.equal(legacyReview.decisionTrace.quality, "unavailable");
+assert.ok(legacyReview.decisionTrace.qualityCodes.includes("trace_missing"));
 assert.equal(legacyReview.previewCandidateEvidence.length, 0);
 console.log("verify-document-review: all checks passed");

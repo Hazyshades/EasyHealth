@@ -45,10 +45,10 @@ const STORED_V1_TRACE = {
   catalogManifestVersion: "2026-08-03.0",
   catalogManifestDigest: "c".repeat(64),
   resolverVersion: "10",
-  winningCandidateKey: "alt_serum_catalytic_activity",
+  winningCandidateKey: "hemoglobin_whole_blood",
   candidates: [
     {
-      candidateKey: "alt_serum_catalytic_activity",
+      candidateKey: "hemoglobin_whole_blood",
       maturity: "reviewed",
       score: 61,
       accepted: [
@@ -274,6 +274,12 @@ const REVIEW_ROW = {
 };
 
 function revisionWith(trace: unknown, version: string): NormalizationRevisionSummary {
+  const traceRecord = trace as {
+    inputEvidenceHash?: string;
+    catalogManifestVersion?: string;
+    catalogManifestDigest?: string;
+    resolverVersion?: string;
+  };
   return {
     id: "rev-1",
     extracted_biomarker_id: "row-1",
@@ -284,8 +290,11 @@ function revisionWith(trace: unknown, version: string): NormalizationRevisionSum
     mapping_confidence_band: "medium",
     verification_status: "user_verified",
     is_active: true,
-    catalog_manifest_version: MEASUREMENT_CATALOG_MANIFEST_VERSION,
-    resolver_version: MEASUREMENT_RESOLVER_VERSION,
+    input_evidence_hash: traceRecord.inputEvidenceHash ?? null,
+    input_identity_format_version: "1",
+    catalog_manifest_version: traceRecord.catalogManifestVersion ?? MEASUREMENT_CATALOG_MANIFEST_VERSION,
+    catalog_manifest_digest: traceRecord.catalogManifestDigest ?? MEASUREMENT_CATALOG_MANIFEST_DIGEST,
+    resolver_version: traceRecord.resolverVersion ?? MEASUREMENT_RESOLVER_VERSION,
     normalization_version: "7",
     resolver_decision_trace: trace,
     resolver_trace_schema_version: version,
@@ -297,21 +306,23 @@ check("the review reader surfaces a stored schema-1 trace", () => {
   const review = buildNormalizationReview(REVIEW_ROW, [
     revisionWith(STORED_V1_TRACE, "1"),
   ]);
-  assert.equal(review.decisionTrace.availability, "persisted");
+  assert.equal(review.decisionTrace.source, "persisted");
+  assert.equal(review.decisionTrace.quality, "available");
   assert.equal(review.decisionTrace.trace?.schemaVersion, "1");
 });
 
 check("the review reader surfaces a stored schema-2 trace", () => {
   const trace = traceFor("Гемоглобин", "g/L", "whole_blood");
   const review = buildNormalizationReview(REVIEW_ROW, [revisionWith(trace, "2")]);
-  assert.equal(review.decisionTrace.availability, "persisted");
+  assert.equal(review.decisionTrace.source, "persisted");
+  assert.equal(review.decisionTrace.quality, "available");
   assert.equal(review.decisionTrace.trace?.schemaVersion, "2");
 });
 
 check("the review reader rejects a trace whose column version disagrees", () => {
   const trace = traceFor("Гемоглобин", "g/L", "whole_blood");
   const review = buildNormalizationReview(REVIEW_ROW, [revisionWith(trace, "9")]);
-  assert.notEqual(review.decisionTrace.availability, "persisted");
+  assert.equal(review.decisionTrace.quality, "unavailable");
   assert.equal(review.decisionTrace.trace, null);
 });
 

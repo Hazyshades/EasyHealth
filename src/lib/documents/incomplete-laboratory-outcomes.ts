@@ -1,18 +1,20 @@
 import type {
   AdmissibilityRejectionCode,
-
   ClinicalCompatibilityAxis,
-
   IncompleteReasonClass,
   MappingConfidenceBand,
   MeasurementResolution,
   ResolutionReasonCode,
-  ResolverDecisionTrace,
   ResolverResult,
   VerificationStatus,
   ResolvedReviewedMeasurementBinding,
 } from "@/lib/biomarkers";
-import { classifyIncompleteReason, incompleteReasonClass, minimalBlockingAxes, type ValueKind } from "@/lib/biomarkers";
+import {
+  classifyIncompleteReason,
+  incompleteReasonClass,
+  minimalBlockingAxes,
+  type ValueKind,
+} from "@/lib/biomarkers";
 import {
   evaluateAssessmentEligibility,
   ineligibleAssessmentEligibility,
@@ -20,11 +22,19 @@ import {
   type AssessmentExclusionReason,
 } from "@/lib/health-profile-assessment-eligibility";
 import {
-  projectActiveRegistryV2LaboratoryBinding,
-  type RegistryV2LaboratoryBindingSource,
-  type RegistryV2NormalizationRevisionReadBoundary,
+  readPersistedDecision,
+  type PersistedDecisionConflict,
+  type PersistedDecisionOperationalEvidence,
+  type PersistedDecisionQuality,
+  type PersistedDecisionQualityCode,
+  type PersistedDecisionRead,
+  type PersistedDecisionSource,
+} from "./persisted-decision-read";
+import type {
+  RegistryV2LaboratoryBindingSource,
+  RegistryV2NormalizationRevisionReadBoundary,
 } from "./observation-read-boundaries";
-export type LaboratoryOutcomeSource = "active_revision" | "preview" | "none";
+export type LaboratoryOutcomeSource = PersistedDecisionSource;
 
 /**
  * Consumer eligibility exclusions. The shared identity gates are evaluated
@@ -53,6 +63,10 @@ export type LaboratoryConsumerEligibility = Readonly<{
 
 export type LaboratoryResolutionDetails = Readonly<{
   source: LaboratoryOutcomeSource;
+  quality: PersistedDecisionQuality;
+  notPersisted: boolean;
+  qualityCodes: readonly PersistedDecisionQualityCode[];
+  conflictDetails: readonly PersistedDecisionConflict[];
   outcome: ResolverResult | null;
   verificationStatus: VerificationStatus | null;
   mappingConfidence: number | null;
@@ -73,11 +87,20 @@ export type LaboratoryResolutionDetails = Readonly<{
    * first review is exactly where the reviewer reads the explanation.
    */
   incompleteReason: IncompleteReasonClass | null;
+  storedIdentity: Readonly<{
+    measurementDefinitionKey: string | null;
+    analyteKey: string | null;
+    winningCandidateKey: string | null;
+    selectedCandidateKey: string | null;
+  }>;
   versions: Readonly<{
     catalog: string | null;
+    catalogDigest: string | null;
     resolver: string | null;
     normalization: string | null;
     trace: number | null;
+    traceSchemaVersion: string | null;
+    inputIdentityFormatVersion: string | null;
     compatibilityPolicy: string | null;
   }>;
   eligibility: LaboratoryConsumerEligibility;
@@ -88,6 +111,8 @@ export type LaboratoryOutcomeSummary = Readonly<{
   verificationStatus: VerificationStatus | null;
   measurementDefinitionKey: string | null;
   analyteKey: string | null;
+  storedMeasurementDefinitionKey: string | null;
+  storedAnalyteKey: string | null;
   registryBindingReady: boolean;
   assessmentInputKey: string | null;
   resolvedMeasurementBinding: ResolvedReviewedMeasurementBinding | null;
@@ -112,16 +137,25 @@ export type ResolutionOutcomeMetric = Readonly<{
   consumerExclusionReasons: readonly LaboratoryConsumerExclusionReason[];
 }>;
 
-type DecisionTraceLike = Partial<ResolverDecisionTrace> & {
+type DecisionTraceLike = {
+  version?: number;
+  compatibilityPolicyVersion?: string;
+  selectedCandidateKey?: string | null;
+  runnerUpCandidateKey?: string | null;
+  outcome?: ResolverResult | null;
+  missingAxes?: readonly ClinicalCompatibilityAxis[];
+  conflicts?: readonly ResolutionReasonCode[];
+  admissibilityRejections?: readonly AdmissibilityRejectionCode[];
   candidates?: readonly {
     accepted?: readonly { code?: ResolutionReasonCode }[];
     missing?: readonly { code?: ResolutionReasonCode }[];
     rejected?: readonly { code?: ResolutionReasonCode }[];
     missingAxes?: readonly ClinicalCompatibilityAxis[];
-    /** #114: a hard conflict makes a candidate unselectable, which is what makes the conflict this row's blocker. */
+    /** #114: a hard conflict makes a candidate unselectable. */
     selectable?: boolean;
-    /** #114: why admissibility excluded this candidate, when the resolver recorded it. */
+    /** #114: why admissibility excluded this candidate. */
     admissibilityRejections?: readonly AdmissibilityRejectionCode[];
+    candidateKey?: string;
   }[];
 };
 
@@ -142,39 +176,115 @@ type OutcomeProjectionOptions = {
     | null
     | undefined;
   preview?: MeasurementResolution | null;
+  decision?: PersistedDecisionRead;
 };
 
 function uniqueSorted<T extends string>(values: readonly T[]): T[] {
   return [...new Set(values)].sort();
 }
 
+function asDecisionTraceLike(
+  evidence: PersistedDecisionOperationalEvidence,
+): DecisionTraceLike {
+  return {
+    ...evidence,
+    missingAxes: evidence.missingAxes as
+      | readonly ClinicalCompatibilityAxis[]
+      | undefined,
+    conflicts: evidence.conflictCodes as
+      | readonly ResolutionReasonCode[]
+      | undefined,
+    admissibilityRejections: evidence.admissibilityRejections as
+      | readonly AdmissibilityRejectionCode[]
+      | undefined,
+    candidates:
+      evidence.candidates as unknown as DecisionTraceLike["candidates"],
+  };
+}
+
+function mergeDecisionTrace(
+  technicalTrace: NonNullable<
+    ReturnType<typeof readPersistedDecision>
+  >["technicalTrace"],
+  operationalEvidence: PersistedDecisionOperationalEvidence | null,
+  previewTrace: MeasurementResolution["decisionTrace"] | null,
+): DecisionTraceLike | null {
+  const operationalTrace = operationalEvidence
+    ? asDecisionTraceLike(operationalEvidence)
+    : null;
+  if (technicalTrace !== null && operationalTrace !== null) {
+    const topLevelRejections = operationalTrace.admissibilityRejections;
+    return {
+      ...technicalTrace,
+      missingAxes: uniqueSorted([
+        ...technicalTrace.missingAxes,
+        ...(operationalTrace.missingAxes ?? []),
+      ]),
+      conflicts: uniqueSorted([
+        ...technicalTrace.conflicts,
+        ...(operationalTrace.conflicts ?? []),
+      ]),
+      candidates: technicalTrace.candidates.map((candidate) => {
+        const operationalCandidate = operationalTrace.candidates?.find(
+          (entry) => entry.candidateKey === candidate.candidateKey,
+        );
+        const admissibilityRejections =
+          operationalCandidate?.admissibilityRejections ?? topLevelRejections;
+        return {
+          ...candidate,
+          ...(operationalCandidate?.selectable !== undefined
+            ? { selectable: operationalCandidate.selectable }
+            : {}),
+          ...(admissibilityRejections !== undefined
+            ? { admissibilityRejections }
+            : {}),
+        };
+      }),
+    };
+  }
+  return technicalTrace ?? operationalTrace ?? previewTrace;
+}
+
 function summarizeTrace(trace: DecisionTraceLike | null | undefined) {
   const candidates = trace?.candidates ?? [];
+  const missingAxes = uniqueSorted([
+    ...(trace?.missingAxes ?? []),
+    ...candidates.flatMap((candidate) => candidate.missingAxes ?? []),
+  ]);
+  const conflictCodes = uniqueSorted([
+    ...(trace?.conflicts ?? []),
+    ...candidates.flatMap((candidate) =>
+      (candidate.rejected ?? []).flatMap((evidence) =>
+        evidence.code ? [evidence.code] : [],
+      ),
+    ),
+  ]);
+  const candidateMinimalMissingAxes = minimalBlockingAxes(candidates);
   return {
-    missingAxes: uniqueSorted(
-      candidates.flatMap((candidate) => candidate.missingAxes ?? [])
-    ),
-    conflictCodes: uniqueSorted(
-      candidates.flatMap((candidate) =>
-        (candidate.rejected ?? []).flatMap((evidence) =>
-          evidence.code ? [evidence.code] : []
-        )
-      )
-    ),
+    missingAxes,
+    conflictCodes,
     supportCodes: uniqueSorted(
       candidates.flatMap((candidate) =>
         (candidate.accepted ?? []).flatMap((evidence) =>
-          evidence.code ? [evidence.code] : []
-        )
-      )
+          evidence.code ? [evidence.code] : [],
+        ),
+      ),
     ),
     candidateCount: candidates.length,
     // #114: the union above is the evidence record; this is what the copy says.
-    minimalMissingAxes: minimalBlockingAxes(candidates),
-    admissibilityRejections: uniqueSorted(
-      candidates.flatMap((candidate) => candidate.admissibilityRejections ?? [])
-    ),
-    selectableCount: candidates.filter((candidate) => candidate.selectable !== false).length,
+    minimalMissingAxes:
+      candidateMinimalMissingAxes.length > 0
+        ? candidateMinimalMissingAxes
+        : missingAxes,
+    admissibilityRejections: uniqueSorted([
+      ...(trace?.admissibilityRejections ?? []),
+      ...candidates.flatMap(
+        (candidate) => candidate.admissibilityRejections ?? [],
+      ),
+    ]),
+    selectableCount: candidates.filter(
+      (candidate) => candidate.selectable !== false,
+    ).length,
   };
 }
 
@@ -184,7 +294,9 @@ const SHARED_IDENTITY_EXCLUSIONS = new Set<AssessmentExclusionReason>([
   "candidate_only_identity",
 ]);
 
-function parseObservationValueKind(value: string | null | undefined): ValueKind | null {
+function parseObservationValueKind(
+  value: string | null | undefined,
+): ValueKind | null {
   switch (value) {
     case "numeric":
     case "qualitative":
@@ -202,12 +314,14 @@ function buildEligibility(options: {
 }): LaboratoryConsumerEligibility {
   const assessmentExclusion = options.assessmentEligibility.exclusionReason;
   const sharedExclusion =
-    assessmentExclusion !== null && SHARED_IDENTITY_EXCLUSIONS.has(assessmentExclusion)
+    assessmentExclusion !== null &&
+    SHARED_IDENTITY_EXCLUSIONS.has(assessmentExclusion)
       ? assessmentExclusion
       : null;
   const trendEligible = sharedExclusion === null;
   const conversionExclusion =
-    sharedExclusion ?? (options.conversionEligible ? null : "conversion_unavailable");
+    sharedExclusion ??
+    (options.conversionEligible ? null : "conversion_unavailable");
 
   return {
     trendEligible,
@@ -226,160 +340,126 @@ function buildEligibility(options: {
 }
 
 export function projectLaboratoryOutcome(
-  options: OutcomeProjectionOptions
+  options: OutcomeProjectionOptions,
 ): LaboratoryOutcomeSummary {
-  const binding = projectActiveRegistryV2LaboratoryBinding(
-    options.observation,
-    options.relation
+  const decision =
+    options.decision ??
+    readPersistedDecision({
+      observation: options.observation,
+      relation: options.relation,
+      preview: options.preview,
+    });
+  const trace = mergeDecisionTrace(
+    decision.technicalTrace,
+    decision.operationalEvidence,
+    decision.preview?.decisionTrace ?? null,
   );
-  const activeRevision = binding.activeRevision;
-
-  if (activeRevision) {
-    const trace = activeRevision.resolver_evidence as DecisionTraceLike | null;
-    const { admissibilityRejections, selectableCount, ...traceFields } = summarizeTrace(trace);
-    const definition = binding.measurementDefinition;
-    const reviewedAssessmentBinding = definition?.assessmentBindings.find(
-      (assessmentBinding) =>
-        assessmentBinding.status === "reviewed" &&
-        assessmentBinding.compatibility === "compatible"
-    );
-    const assessmentEligibility = evaluateAssessmentEligibility({
-      hasActiveRevision: true,
-      outcome: binding.resolutionStatus as ResolverResult | null,
-      registryBindingReady: binding.registryBindingReady,
-      hasReviewedAssessmentBinding: reviewedAssessmentBinding != null,
-      verificationStatus: binding.verificationStatus,
-      valueKind: parseObservationValueKind(options.observation.value_kind),
-      value: options.observation.value,
-      valueText: options.observation.value_text,
-      rawReferenceText: options.observation.raw_reference_text,
-      refLow: options.observation.ref_low,
-      refHigh: options.observation.ref_high,
-    });
-    const eligibility = buildEligibility({
-      conversionEligible: binding.resolvedMeasurementBinding !== null,
-      assessmentEligibility,
-    });
-
-    return {
-      outcome: binding.resolutionStatus as ResolverResult | null,
-      verificationStatus: binding.verificationStatus as VerificationStatus | null,
-      measurementDefinitionKey: binding.measurementDefinitionKey,
-      analyteKey: binding.registryBindingReady
-        ? (definition?.analyteKey ?? null)
-        : null,
-      registryBindingReady: binding.registryBindingReady,
-      assessmentInputKey: assessmentEligibility.eligible
-        ? reviewedAssessmentBinding?.assessmentInputKey ?? null
-        : null,
-      resolvedMeasurementBinding: binding.resolvedMeasurementBinding,
-      resolutionDetails: {
-        source: "active_revision",
-        outcome: binding.resolutionStatus as ResolverResult | null,
-        verificationStatus:
-          binding.verificationStatus as VerificationStatus | null,
-        mappingConfidence: activeRevision.mapping_confidence ?? null,
-        mappingConfidenceBand:
-          (activeRevision.mapping_confidence_band as MappingConfidenceBand | null) ??
-          null,
-        ...traceFields,
-        incompleteReason: classifyIncompleteReason({
-          outcome: binding.resolutionStatus as ResolverResult | null,
-          candidateCount: traceFields.candidateCount,
-          conflictCount: traceFields.conflictCodes.length,
-          selectableCount,
-          admissibilityRejections,
-        }),
-        versions: {
-          catalog: activeRevision.catalog_manifest_version ?? null,
-          resolver: activeRevision.resolver_version ?? null,
-          normalization: activeRevision.normalization_version ?? null,
-          trace: typeof trace?.version === "number" ? trace.version : null,
-          compatibilityPolicy: trace?.compatibilityPolicyVersion ?? null,
-        },
-        eligibility,
-      },
-    };
-  }
-
-  if (options.preview) {
-    const { admissibilityRejections, selectableCount, ...traceFields } = summarizeTrace(options.preview.decisionTrace);
-    const eligibility = buildEligibility({
-      conversionEligible: false,
-      assessmentEligibility: ineligibleAssessmentEligibility(),
-    });
-    return {
-      outcome: options.preview.result,
-      verificationStatus: "pending",
-      measurementDefinitionKey: null,
-      analyteKey: null,
-      registryBindingReady: false,
-      assessmentInputKey: null,
-      resolvedMeasurementBinding: null,
-      resolutionDetails: {
-        source: "preview",
-        outcome: options.preview.result,
-        verificationStatus: "pending",
-        mappingConfidence: options.preview.mappingConfidence,
-        mappingConfidenceBand: options.preview.mappingConfidenceBand,
-        ...traceFields,
-        // #114: the preview path is the one issue #114 is about — a row awaiting
-        // first review has no active revision, so this is the only place the
-        // reviewer's explanation can come from.
-        incompleteReason: classifyIncompleteReason({
-          outcome: options.preview.result,
-          candidateCount: traceFields.candidateCount,
-          conflictCount: traceFields.conflictCodes.length,
-          selectableCount,
-          admissibilityRejections,
-        }),
-        versions: {
-          catalog: null,
-          resolver: null,
-          normalization: null,
-          trace: options.preview.decisionTrace.version,
-          compatibilityPolicy:
-            options.preview.decisionTrace.compatibilityPolicyVersion,
-        },
-        eligibility,
-      },
-    };
-  }
-
+  const { admissibilityRejections, selectableCount, ...traceFields } =
+    summarizeTrace(trace);
+  const outcome = decision.stored.outcome;
+  const verificationStatus =
+    decision.stored.verificationStatus === "pending" ||
+    decision.stored.verificationStatus === "auto_verified" ||
+    decision.stored.verificationStatus === "user_verified" ||
+    decision.stored.verificationStatus === "manually_corrected"
+      ? decision.stored.verificationStatus
+      : null;
+  const currentDefinition = decision.currentBindingReady
+    ? decision.measurementDefinition
+    : null;
+  const reviewedAssessmentBinding = currentDefinition?.assessmentBindings.find(
+    (assessmentBinding) =>
+      assessmentBinding.status === "reviewed" &&
+      assessmentBinding.compatibility === "compatible",
+  );
+  const assessmentEligibility =
+    decision.source === "persisted"
+      ? evaluateAssessmentEligibility({
+          hasActiveRevision: decision.activeRevision !== null,
+          outcome,
+          registryBindingReady: decision.currentBindingReady,
+          hasReviewedAssessmentBinding: reviewedAssessmentBinding != null,
+          verificationStatus,
+          valueKind: parseObservationValueKind(options.observation.value_kind),
+          value: options.observation.value,
+          valueText: options.observation.value_text,
+          rawReferenceText: options.observation.raw_reference_text,
+          refLow: options.observation.ref_low,
+          refHigh: options.observation.ref_high,
+        })
+      : ineligibleAssessmentEligibility();
   const eligibility = buildEligibility({
-    conversionEligible: false,
-    assessmentEligibility: ineligibleAssessmentEligibility(),
+    conversionEligible: decision.resolvedMeasurementBinding !== null,
+    assessmentEligibility,
   });
-  return {
-    outcome: null,
-    verificationStatus: null,
-    measurementDefinitionKey: null,
-    analyteKey: null,
-    registryBindingReady: false,
-    assessmentInputKey: null,
-    resolvedMeasurementBinding: null,
-    resolutionDetails: {
-      source: "none",
-      outcome: null,
-      verificationStatus: null,
-      mappingConfidence: null,
-      mappingConfidenceBand: null,
-      missingAxes: [],
-      minimalMissingAxes: [],
-      conflictCodes: [],
-      supportCodes: [],
-      candidateCount: 0,
-      // No outcome at all, so there is nothing to explain.
-      incompleteReason: null,
-      versions: {
-        catalog: null,
-        resolver: null,
-        normalization: null,
-        trace: null,
-        compatibilityPolicy: null,
-      },
-      eligibility,
+  const resolutionDetails: LaboratoryResolutionDetails = {
+    source: decision.source,
+    quality: decision.quality,
+    notPersisted: decision.notPersisted,
+    qualityCodes: decision.qualityCodes,
+    conflictDetails: decision.conflicts,
+    outcome,
+    verificationStatus,
+    mappingConfidence: decision.stored.mappingConfidence,
+    mappingConfidenceBand:
+      (decision.stored.mappingConfidenceBand as MappingConfidenceBand | null) ??
+      null,
+    ...traceFields,
+    incompleteReason: classifyIncompleteReason({
+      outcome,
+      candidateCount: traceFields.candidateCount,
+      conflictCount: traceFields.conflictCodes.length,
+      selectableCount,
+      admissibilityRejections,
+    }),
+    storedIdentity: {
+      measurementDefinitionKey:
+        outcome === "resolved"
+          ? decision.stored.measurementDefinitionKey
+          : null,
+      analyteKey: outcome === "resolved" ? decision.stored.analyteKey : null,
+      winningCandidateKey:
+        outcome === "resolved"
+          ? (decision.technicalTrace?.winningCandidateKey ?? null)
+          : null,
+      selectedCandidateKey:
+        outcome === "resolved"
+          ? (decision.operationalEvidence?.selectedCandidateKey ?? null)
+          : null,
     },
+    versions: {
+      catalog: decision.release.catalogManifestVersion,
+      catalogDigest: decision.release.catalogManifestDigest,
+      resolver: decision.release.resolverVersion,
+      normalization: decision.release.normalizationVersion,
+      trace:
+        typeof decision.operationalEvidence?.version === "number"
+          ? decision.operationalEvidence.version
+          : null,
+      traceSchemaVersion: decision.release.traceSchemaVersion,
+      inputIdentityFormatVersion: decision.stored.inputIdentityFormatVersion,
+      compatibilityPolicy:
+        decision.operationalEvidence?.compatibilityPolicyVersion ?? null,
+    },
+    eligibility,
+  };
+  return {
+    outcome,
+    verificationStatus,
+    measurementDefinitionKey: decision.currentBindingReady
+      ? decision.stored.measurementDefinitionKey
+      : null,
+    analyteKey: decision.currentBindingReady
+      ? (currentDefinition?.analyteKey ?? decision.stored.analyteKey)
+      : null,
+    storedMeasurementDefinitionKey: decision.stored.measurementDefinitionKey,
+    storedAnalyteKey: decision.stored.analyteKey,
+    registryBindingReady: decision.currentBindingReady,
+    assessmentInputKey: assessmentEligibility.eligible
+      ? (reviewedAssessmentBinding?.assessmentInputKey ?? null)
+      : null,
+    resolvedMeasurementBinding: decision.resolvedMeasurementBinding,
+    resolutionDetails,
   };
 }
 
@@ -395,6 +475,10 @@ export function serializeLaboratoryOutcome<
     resolver_result: outcome.outcome,
     verification_status: outcome.verificationStatus,
     registry_binding_ready: outcome.registryBindingReady,
+    decision_source: outcome.resolutionDetails.source,
+    decision_quality: outcome.resolutionDetails.quality,
+    decision_not_persisted: outcome.resolutionDetails.notPersisted,
+    decision_quality_codes: outcome.resolutionDetails.qualityCodes,
     resolution_details: outcome.resolutionDetails,
   };
 }
@@ -424,7 +508,9 @@ export function buildResolutionOutcomeMetric(options: {
   };
 }
 
-export function emitResolutionOutcomeMetric(metric: ResolutionOutcomeMetric): void {
+export function emitResolutionOutcomeMetric(
+  metric: ResolutionOutcomeMetric,
+): void {
   console.info("[metric]", JSON.stringify(metric));
 }
 

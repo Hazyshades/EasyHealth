@@ -220,6 +220,8 @@ jobs:
         run: pnpm test:eh164
       - name: Verify EH-248 prepared evidence identity
         run: pnpm test:eh248
+      - name: Verify historical persisted decision read
+        run: pnpm test:historical-persisted-decision-read
       - name: Verify Health Profile drawer status rendering
         run: pnpm test:health-profile-drawer-status
       - name: Verify Health Profile assessment read projection

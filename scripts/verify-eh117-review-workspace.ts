@@ -38,7 +38,11 @@ function resolutionDetails(options: {
   incompleteReason?: IncompleteReasonClass | null;
 }): LaboratoryResolutionDetails {
   return {
-    source: "active_revision",
+    source: "persisted",
+    quality: "available",
+    notPersisted: false,
+    qualityCodes: [],
+    conflictDetails: [],
     outcome: options.outcome,
     verificationStatus: options.verificationStatus,
     mappingConfidence: 0.42,
@@ -51,11 +55,20 @@ function resolutionDetails(options: {
     incompleteReason:
       options.incompleteReason ??
       (options.outcome === null || options.outcome === "resolved" ? null : "axis_not_stated"),
+    storedIdentity: {
+      measurementDefinitionKey: options.outcome === "resolved" ? "alt_serum_catalytic_activity" : null,
+      analyteKey: options.outcome === "resolved" ? "alt" : null,
+      winningCandidateKey: options.outcome === "resolved" ? "alt_serum_catalytic_activity" : null,
+      selectedCandidateKey: options.outcome === "resolved" ? "alt_serum_catalytic_activity" : null,
+    },
     versions: {
       catalog: "2026-07-20.0",
+      catalogDigest: "test-digest",
       resolver: "5",
       normalization: "4",
       trace: 1,
+      traceSchemaVersion: "2",
+      inputIdentityFormatVersion: "1",
       compatibilityPolicy: "1",
     },
     eligibility: {

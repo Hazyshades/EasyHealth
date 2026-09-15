@@ -9,10 +9,16 @@ import type {
 export type PreviewCandidateEvidence =
   NormalizationReview["previewCandidateEvidence"];
 
-const TRACE_AVAILABILITY_COPY = {
-  persisted: "Recorded decision for this revision.",
-  preview: "Current preview only — it has not been saved as a decision.",
-  legacy_unavailable: "Decision trace unavailable for this historical revision.",
+const DECISION_SOURCE_LABELS = {
+  persisted: "Persisted decision",
+  preview: "Current preview",
+  none: "No decision available",
+} as const;
+
+const DECISION_QUALITY_LABELS = {
+  available: "Available",
+  unavailable: "Unavailable",
+  conflict: "Conflict",
 } as const;
 
 /** #114: plain names for the four reasons a row did not resolve. */
@@ -69,15 +75,34 @@ export function ReviewTechnicalDetails({
       </p>
 
       {decisionTrace ? (
-        <p className="mt-1">
-          {TRACE_AVAILABILITY_COPY[decisionTrace.availability]}
-        </p>
+        <>
+          <p className="mt-1">
+            Decision source: {DECISION_SOURCE_LABELS[decisionTrace.source]}
+            {decisionTrace.notPersisted ? " · not persisted" : ""}
+          </p>
+          <p className="mt-1">
+            Decision quality: {DECISION_QUALITY_LABELS[decisionTrace.quality]}
+          </p>
+          {decisionTrace.qualityCodes.length > 0 ? (
+            <p className="mt-1">
+              Quality codes: {decisionTrace.qualityCodes.join(", ")}
+            </p>
+          ) : null}
+          {decisionTrace.conflictDetails.length > 0 ? (
+            <p className="mt-1">
+              Stored conflicts:{" "}
+              {decisionTrace.conflictDetails
+                .map((conflict) => `${conflict.field} (${conflict.code})`)
+                .join(", ")}
+            </p>
+          ) : null}
+        </>
       ) : null}
-
       {details ? (
         <>
           <p className="mt-1">
-            State: {details.source}
+            Resolution source: {DECISION_SOURCE_LABELS[details.source]}
+            {details.notPersisted ? " · not persisted" : ""}
             {details.verificationStatus
               ? ` · ${details.verificationStatus}`
               : ""}
@@ -85,6 +110,22 @@ export function ReviewTechnicalDetails({
               ? ` · ${Math.round(details.mappingConfidence * 100)}% confidence`
               : ""}
           </p>
+          <p className="mt-1">
+            Decision quality: {DECISION_QUALITY_LABELS[details.quality]}
+          </p>
+          {details.qualityCodes.length > 0 ? (
+            <p className="mt-1">
+              Quality codes: {details.qualityCodes.join(", ")}
+            </p>
+          ) : null}
+          {details.conflictDetails.length > 0 ? (
+            <p className="mt-1">
+              Stored conflicts:{" "}
+              {details.conflictDetails
+                .map((conflict) => `${conflict.field} (${conflict.code})`)
+                .join(", ")}
+            </p>
+          ) : null}
           {details.incompleteReason ? (
             <p className="mt-1">
               Reason: {INCOMPLETE_REASON_LABELS[details.incompleteReason]}
@@ -99,13 +140,25 @@ export function ReviewTechnicalDetails({
           <p className="mt-1">
             Candidates considered: {details.candidateCount}
           </p>
-          <p className="mt-2 font-mono text-[var(--eh-text-muted)]">
-            Catalog/resolver: {details.versions.catalog ?? "pending"}
+          <p className="mt-1 font-mono text-[var(--eh-text-muted)]">
+            Stored identity:{" "}
+            {details.storedIdentity.measurementDefinitionKey ?? "none"}
             {" / "}
-            {details.versions.resolver ?? "pending"}
-            {details.versions.compatibilityPolicy
-              ? ` · policy ${details.versions.compatibilityPolicy}`
+            {details.storedIdentity.analyteKey ?? "none"}
+          </p>
+          <p className="mt-1 font-mono text-[var(--eh-text-muted)]">
+            Catalog: {details.versions.catalog ?? "pending"}
+            {details.versions.catalogDigest
+              ? ` · ${details.versions.catalogDigest}`
               : ""}
+            {" · resolver "}
+            {details.versions.resolver ?? "pending"}
+            {" · normalization "}
+            {details.versions.normalization ?? "pending"}
+            {" · trace "}
+            {details.versions.traceSchemaVersion ?? "pending"}
+            {" · input "}
+            {details.versions.inputIdentityFormatVersion ?? "pending"}
           </p>
         </>
       ) : null}
@@ -147,7 +200,7 @@ export function ReviewTechnicalDetails({
             {trace.resolverVersion}
           </p>
         </>
-      ) : decisionTrace?.availability === "preview" &&
+      ) : decisionTrace?.source === "preview" &&
         previewCandidateEvidence?.length ? (
         <ul className="mt-2 space-y-1">
           {previewCandidateEvidence.map((candidate) => (

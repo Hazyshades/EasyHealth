@@ -84,6 +84,7 @@
     "verify:registry": "tsx scripts/verify-biomarkers-runner.ts && tsx scripts/verify-measurement-registry-runner.ts && tsx scripts/verify-observation-identity-runner.ts && tsx scripts/verify-observation-provenance-runner.ts && tsx scripts/verify-registry-v1-baseline-runner.ts && tsx scripts/registry-v1-baseline.ts --check && tsx scripts/verify-registry-v2-runtime-cutover.ts && tsx scripts/verify-no-registry-v1-runtime-imports.ts && tsx scripts/verify-no-observations-biomarker-key.ts && tsx scripts/verify-registry-v2-candidate-corpus-runner.ts && tsx scripts/registry-v2-candidate-corpus.ts --technical-check && tsx scripts/verify-no-legacy-promotion-rpc.ts && tsx scripts/verify-cbc-measurement-regression-runner.ts && tsx scripts/verify-alias-order-insensitivity.ts && tsx scripts/verify-multilingual-lab-pipeline.ts && tsx scripts/verify-resolver-trace-v2.ts",
     "test:multilingual": "tsx scripts/verify-multilingual-lab-pipeline.ts",
     "test:trace-v2": "tsx scripts/verify-resolver-trace-v2.ts",
+    "test:historical-persisted-decision-read": "tsx scripts/verify-historical-persisted-decision-read.ts",
     "test:trace-v2-db": "node scripts/run-supabase-db-tests.mjs supabase/tests/resolver_trace_v2_alias_evidence.sql",
     "test:eh113": "tsx scripts/verify-eh113-cbc-launch-catalog.ts",
     "test:eh113-db": "node scripts/run-supabase-db-tests.mjs supabase/tests/eh113_cbc_method_evidence.sql",

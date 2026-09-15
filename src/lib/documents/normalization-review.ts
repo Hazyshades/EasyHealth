@@ -1,15 +1,15 @@
 import {
-  isPersistedResolverDecisionTrace,
-  resolveMeasurementDefinition,
+  getMeasurementDefinition,
+  normalizeMeasurementUnit,
 } from "@/lib/biomarkers";
 import type {
   AssessmentBinding,
   CandidateEvidence,
   ClinicalCompatibilityAxis,
-
   IncompleteReasonClass,
   MappingConfidenceBand,
   MeasurementMaturity,
+  MeasurementResolution,
   MeasurementResolutionInput,
   PersistedResolverDecisionTrace,
   ResolutionReasonCode,
@@ -26,11 +26,20 @@ import {
   prepareMeasurementEvidence,
   type PreparedEvidence,
 } from "./measurement-evidence-admission";
-import { compatibleManualDefinitions } from "./normalization-revisions";
 import { projectLaboratoryOutcome } from "./incomplete-laboratory-outcomes";
 import type { LaboratoryResolutionDetails } from "./incomplete-laboratory-outcomes";
+import {
+  readPersistedDecision,
+  type PersistedDecisionConflict,
+  type PersistedDecisionQuality,
+  type PersistedDecisionQualityCode,
+  type PersistedDecisionSource,
+} from "./persisted-decision-read";
 import type { RegistryV2NormalizationRevisionReadBoundary } from "./observation-read-boundaries";
-import { isRecordStatus, type RecordStatus } from "./observation-verification-workflow";
+import {
+  isRecordStatus,
+  type RecordStatus,
+} from "./observation-verification-workflow";
 
 type ExtractedReviewRow = {
   id: string;
@@ -74,6 +83,7 @@ export type NormalizationRevisionSummary =
     verification_status: VerificationStatus;
     is_active: boolean;
     catalog_manifest_version: string;
+    catalog_manifest_digest?: string | null;
     resolver_version: string;
     normalization_version: string;
     resolver_decision_trace: unknown | null;
@@ -83,11 +93,6 @@ export type NormalizationRevisionSummary =
     measurement_override?: MeasurementOverride | null;
     created_at: string;
   };
-
-export type DecisionTraceAvailability =
-  | "persisted"
-  | "preview"
-  | "legacy_unavailable";
 
 export type NormalizationReviewAction =
   | "acceptRaw"
@@ -108,7 +113,11 @@ export type NormalizationActionAvailabilityMap = Readonly<
 >;
 
 export type DecisionTraceReview = {
-  availability: DecisionTraceAvailability;
+  source: PersistedDecisionSource;
+  quality: PersistedDecisionQuality;
+  notPersisted: boolean;
+  qualityCodes: readonly PersistedDecisionQualityCode[];
+  conflictDetails: readonly PersistedDecisionConflict[];
   trace: PersistedResolverDecisionTrace | null;
 };
 
@@ -144,7 +153,10 @@ export type NormalizationReview = {
   effectiveMeasurement?: EffectiveReviewMeasurement;
   registryBindingReady: boolean;
   decisionTrace: DecisionTraceReview;
-  traceState: DecisionTraceAvailability;
+  decisionSource: PersistedDecisionSource;
+  decisionQuality: PersistedDecisionQuality;
+  decisionNotPersisted: boolean;
+  decisionQualityCodes: readonly PersistedDecisionQualityCode[];
   recordStatus: RecordStatus;
   sourceIsCurrent: boolean;
   lifecycleReasonCode: string | null;
@@ -205,7 +217,10 @@ export function effectiveMeasurementFromExtracted(
   const prepared = preparedEvidenceFromExtracted(row, override);
   return {
     ...prepared.effectiveMeasurement,
-    observedAt: "observed_at" in override ? prepared.effectiveMeasurement.observedAt : null,
+    observedAt:
+      "observed_at" in override
+        ? prepared.effectiveMeasurement.observedAt
+        : null,
   };
 }
 
@@ -214,6 +229,30 @@ export function measurementInputFromExtracted(
   override?: MeasurementOverride | null,
 ): MeasurementResolutionInput {
   return preparedEvidenceFromExtracted(row, override).input;
+}
+
+function manualOptionsFromPreview(
+  preview: MeasurementResolution | null,
+): ManualMappingOption[] {
+  return (preview?.candidateEvidence ?? [])
+    .filter(
+      (candidate) =>
+        candidate.selectable &&
+        candidate.rejected.length === 0 &&
+        candidate.missingAxes.length === 0,
+    )
+    .map((candidate) => getMeasurementDefinition(candidate.candidateKey))
+    .filter(
+      (definition): definition is NonNullable<typeof definition> =>
+        definition?.maturity === "reviewed",
+    )
+    .map((definition) => ({
+      key: definition.key,
+      displayName: definition.displayName,
+      analyteKey: definition.analyteKey,
+      maturity: definition.maturity,
+      assessmentBindings: definition.assessmentBindings,
+    }));
 }
 
 function actionAvailability(
@@ -271,7 +310,9 @@ export function buildNormalizationActionAvailability(options: {
     ),
     verifyAuto: actionAvailability(false, "system_only"),
     correct: actionAvailability(
-      lifecycleBlock === null && reviewBlock === null && options.outcome !== null,
+      lifecycleBlock === null &&
+        reviewBlock === null &&
+        options.outcome !== null,
       lifecycleBlock ?? reviewBlock ?? "no_resolution",
     ),
     reverse: actionAvailability(
@@ -290,9 +331,26 @@ export function buildNormalizationReview(
     measurement_definition_key?: string | null;
     resolver_result?: string | null;
   },
-  revisions: readonly NormalizationRevisionSummary[]
+  revisions: readonly NormalizationRevisionSummary[],
+  options: { preview?: MeasurementResolution | null } = {},
 ): NormalizationReview {
-  const activeRevision = revisions.find((revision) => revision.is_active) ?? null;
+  const decisionObservation = {
+    observation_kind: "lab" as const,
+    source_extracted_biomarker_id: row.id,
+    measurement_definition_key: row.measurement_definition_key ?? null,
+    resolution_status: row.resolver_result ?? null,
+  };
+  const decision = readPersistedDecision({
+    observation: decisionObservation,
+    relation: revisions,
+    preview: options.preview ?? null,
+  });
+  const activeRevisionId = decision.activeRevision?.id ?? null;
+  const activeRevision =
+    activeRevisionId === null
+      ? null
+      : (revisions.find((revision) => revision.id === activeRevisionId) ??
+        null);
   const activeOverride = activeRevision?.measurement_override ?? null;
   const prepared = preparedEvidenceFromExtracted(row, activeOverride);
   const effectiveMeasurement = activeOverride
@@ -304,31 +362,24 @@ export function buildNormalizationReview(
             : null,
       }
     : null;
-  const input = prepared.input;
-  const preview = resolveMeasurementDefinition(input);
   const outcome = projectLaboratoryOutcome({
-    observation: {
-      observation_kind: "lab",
-      measurement_definition_key: row.measurement_definition_key ?? null,
-      resolution_status: row.resolver_result ?? null,
-    },
+    observation: decisionObservation,
     relation: revisions,
-    preview,
+    preview: options.preview ?? null,
+    decision,
   });
-  const persistedTrace =
-    activeRevision &&
-    (activeRevision.resolver_trace_schema_version === "1" ||
-      activeRevision.resolver_trace_schema_version === "2") &&
-    isPersistedResolverDecisionTrace(activeRevision.resolver_decision_trace)
-      ? activeRevision.resolver_decision_trace
-      : null;
-  const decisionTrace: DecisionTraceReview = activeRevision
-    ? {
-        availability: persistedTrace ? "persisted" : "legacy_unavailable",
-        trace: persistedTrace,
-      }
-    : { availability: "preview", trace: null };
-  const manualOptions = compatibleManualDefinitions(input);
+  const decisionTrace: DecisionTraceReview = {
+    source: decision.source,
+    quality: decision.quality,
+    notPersisted: decision.notPersisted,
+    qualityCodes: decision.qualityCodes,
+    conflictDetails: decision.conflicts,
+    trace: decision.technicalTrace,
+  };
+  const manualOptions =
+    decision.source === "preview"
+      ? manualOptionsFromPreview(decision.preview)
+      : [];
   const recordStatus: RecordStatus = isRecordStatus(row.record_status)
     ? row.record_status
     : row.is_current === false
@@ -338,38 +389,37 @@ export function buildNormalizationReview(
   const reviewable =
     sourceIsCurrent &&
     (row.status === "needs_review" || row.status === "pending_review");
-  const verificationStatus =
-    outcome.verificationStatus ??
-    activeRevision?.verification_status ??
-    null;
+  const verificationStatus = outcome.verificationStatus;
+  const reviewResult = outcome.outcome ?? "unmapped";
   const actionAvailability = buildNormalizationActionAvailability({
     recordStatus,
     sourceIsCurrent,
     reviewable,
-    outcome: outcome.outcome ?? preview.result,
+    outcome: reviewResult,
     registryBindingReady: outcome.registryBindingReady,
     activeRevision,
     verificationStatus,
   });
   return {
-    result: outcome.outcome ?? preview.result,
+    result: reviewResult,
     candidateDefinitionKey: outcome.measurementDefinitionKey,
     analyteKey: outcome.analyteKey,
-    missingAxes: persistedTrace?.missingAxes ?? outcome.resolutionDetails.missingAxes,
-    conflicts: persistedTrace?.conflicts ?? outcome.resolutionDetails.conflictCodes,
+    missingAxes: outcome.resolutionDetails.missingAxes,
+    conflicts: outcome.resolutionDetails.conflictCodes,
     incompleteReason: outcome.resolutionDetails.incompleteReason,
-    mappingConfidence:
-      outcome.resolutionDetails.mappingConfidence ?? preview.mappingConfidence,
+    mappingConfidence: outcome.resolutionDetails.mappingConfidence ?? 0,
     mappingConfidenceBand:
-      outcome.resolutionDetails.mappingConfidenceBand ??
-      preview.mappingConfidenceBand,
+      outcome.resolutionDetails.mappingConfidenceBand ?? "low",
     userCorrected: activeOverride !== null,
     ...(effectiveMeasurement ? { effectiveMeasurement } : {}),
-    unit: preview.unit,
+    unit: normalizeMeasurementUnit(prepared.input.rawUnit),
     resolutionDetails: outcome.resolutionDetails,
     registryBindingReady: outcome.registryBindingReady,
     decisionTrace,
-    traceState: decisionTrace.availability,
+    decisionSource: decision.source,
+    decisionQuality: decision.quality,
+    decisionNotPersisted: decision.notPersisted,
+    decisionQualityCodes: decision.qualityCodes,
     recordStatus,
     sourceIsCurrent,
     lifecycleReasonCode: row.lifecycle_reason_code ?? null,
@@ -377,7 +427,10 @@ export function buildNormalizationReview(
     supersededByProcessingAttemptId:
       row.superseded_by_processing_attempt_id ?? null,
     actionAvailability,
-    previewCandidateEvidence: activeRevision ? [] : preview.candidateEvidence,
+    previewCandidateEvidence:
+      decision.source === "preview"
+        ? (decision.preview?.candidateEvidence ?? [])
+        : [],
     manualOptions: manualOptions.map((definition) => ({
       key: definition.key,
       displayName: definition.displayName,

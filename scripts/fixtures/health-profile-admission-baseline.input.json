@@ -33,15 +33,61 @@
       "specimen": "whole_blood",
       "modifier": "none",
       "relation": {
+        "observation_id": "obs-hba1c",
         "resolver_result": "resolved",
         "verification_status": "user_verified",
         "measurement_definition_key": "hba1c_whole_blood",
+        "analyte_key": "hba1c",
         "is_active": true,
+        "input_evidence_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+        "input_identity_format_version": "1",
+        "catalog_manifest_version": "2026-08-23.0",
+        "catalog_manifest_digest": "0576e6fbc6d5d6d74d93a95ca2e4ec0e653a5f34f6d61ad2127932b7174f983d",
+        "resolver_version": "11",
+        "normalization_version": "normalization-test",
+        "resolver_trace_schema_version": "2",
+        "resolver_decision_trace": {
+          "schemaVersion": "2",
+          "outcome": "resolved",
+          "decisionKind": "single_reviewed_candidate",
+          "inputEvidenceHash": "1111111111111111111111111111111111111111111111111111111111111111",
+          "catalogManifestVersion": "2026-08-23.0",
+          "catalogManifestDigest": "0576e6fbc6d5d6d74d93a95ca2e4ec0e653a5f34f6d61ad2127932b7174f983d",
+          "resolverVersion": "11",
+          "winningCandidateKey": "hba1c_whole_blood",
+          "candidates": [
+            {
+              "candidateKey": "hba1c_whole_blood",
+              "maturity": "reviewed",
+              "score": 100,
+              "accepted": [
+                {
+                  "code": "alias_normalized_match",
+                  "strength": "strong"
+                }
+              ],
+              "rejected": [],
+              "missingAxes": [],
+              "conflicts": [],
+              "aliasKey": "hba1c_whole_blood:registry:1",
+              "aliasMatchType": "normalized",
+              "aliasLocale": "en",
+              "aliasLaboratory": null,
+              "aliasFoldFallback": false
+            }
+          ],
+          "missingAxes": [],
+          "conflicts": []
+        },
         "resolver_evidence": {
           "version": 2,
           "selectedCandidateKey": "hba1c_whole_blood",
           "outcome": "resolved",
-          "candidates": []
+          "candidates": [
+            {
+              "candidateKey": "hba1c_whole_blood"
+            }
+          ]
         }
       }
     },
@@ -65,15 +111,61 @@
       "specimen": "plasma",
       "modifier": "fasting",
       "relation": {
+        "observation_id": "obs-censored",
         "resolver_result": "resolved",
         "verification_status": "user_verified",
         "measurement_definition_key": "fasting_glucose",
+        "analyte_key": "glucose",
         "is_active": true,
+        "input_evidence_hash": "2222222222222222222222222222222222222222222222222222222222222222",
+        "input_identity_format_version": "1",
+        "catalog_manifest_version": "2026-08-23.0",
+        "catalog_manifest_digest": "0576e6fbc6d5d6d74d93a95ca2e4ec0e653a5f34f6d61ad2127932b7174f983d",
+        "resolver_version": "11",
+        "normalization_version": "normalization-test",
+        "resolver_trace_schema_version": "2",
+        "resolver_decision_trace": {
+          "schemaVersion": "2",
+          "outcome": "resolved",
+          "decisionKind": "single_reviewed_candidate",
+          "inputEvidenceHash": "2222222222222222222222222222222222222222222222222222222222222222",
+          "catalogManifestVersion": "2026-08-23.0",
+          "catalogManifestDigest": "0576e6fbc6d5d6d74d93a95ca2e4ec0e653a5f34f6d61ad2127932b7174f983d",
+          "resolverVersion": "11",
+          "winningCandidateKey": "fasting_glucose",
+          "candidates": [
+            {
+              "candidateKey": "fasting_glucose",
+              "maturity": "reviewed",
+              "score": 100,
+              "accepted": [
+                {
+                  "code": "alias_normalized_match",
+                  "strength": "strong"
+                }
+              ],
+              "rejected": [],
+              "missingAxes": [],
+              "conflicts": [],
+              "aliasKey": "fasting_glucose:registry:1",
+              "aliasMatchType": "normalized",
+              "aliasLocale": "en",
+              "aliasLaboratory": null,
+              "aliasFoldFallback": false
+            }
+          ],
+          "missingAxes": [],
+          "conflicts": []
+        },
         "resolver_evidence": {
           "version": 2,
           "selectedCandidateKey": "fasting_glucose",
           "outcome": "resolved",
-          "candidates": []
+          "candidates": [
+            {
+              "candidateKey": "fasting_glucose"
+            }
+          ]
         }
       }
     },
@@ -129,15 +221,61 @@
       "specimen": "whole_blood",
       "modifier": "none",
       "relation": {
+        "observation_id": "obs-no-range",
         "resolver_result": "resolved",
         "verification_status": "user_verified",
         "measurement_definition_key": "hba1c_whole_blood",
+        "analyte_key": "hba1c",
         "is_active": true,
+        "input_evidence_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+        "input_identity_format_version": "1",
+        "catalog_manifest_version": "2026-08-23.0",
+        "catalog_manifest_digest": "0576e6fbc6d5d6d74d93a95ca2e4ec0e653a5f34f6d61ad2127932b7174f983d",
+        "resolver_version": "11",
+        "normalization_version": "normalization-test",
+        "resolver_trace_schema_version": "2",
+        "resolver_decision_trace": {
+          "schemaVersion": "2",
+          "outcome": "resolved",
+          "decisionKind": "single_reviewed_candidate",
+          "inputEvidenceHash": "1111111111111111111111111111111111111111111111111111111111111111",
+          "catalogManifestVersion": "2026-08-23.0",
+          "catalogManifestDigest": "0576e6fbc6d5d6d74d93a95ca2e4ec0e653a5f34f6d61ad2127932b7174f983d",
+          "resolverVersion": "11",
+          "winningCandidateKey": "hba1c_whole_blood",
+          "candidates": [
+            {
+              "candidateKey": "hba1c_whole_blood",
+              "maturity": "reviewed",
+              "score": 100,
+              "accepted": [
+                {
+                  "code": "alias_normalized_match",
+                  "strength": "strong"
+                }
+              ],
+              "rejected": [],
+              "missingAxes": [],
+              "conflicts": [],
+              "aliasKey": "hba1c_whole_blood:registry:1",
+              "aliasMatchType": "normalized",
+              "aliasLocale": "en",
+              "aliasLaboratory": null,
+              "aliasFoldFallback": false
+            }
+          ],
+          "missingAxes": [],
+          "conflicts": []
+        },
         "resolver_evidence": {
           "version": 2,
           "selectedCandidateKey": "hba1c_whole_blood",
           "outcome": "resolved",
-          "candidates": []
+          "candidates": [
+            {
+              "candidateKey": "hba1c_whole_blood"
+            }
+          ]
         }
       }
     }

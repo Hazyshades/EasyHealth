@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import {
+  buildPersistedResolverDecisionTrace,
+  resolveMeasurementDefinition,
+} from "../src/lib/biomarkers";
+import {
   isLaboratoryObservation,
   projectActiveRegistryV2LaboratoryBinding,
 } from "../src/lib/documents/observation-read-boundaries";
@@ -9,6 +13,20 @@ const resolverEvidence = (
   selectedCandidateKey: string | null,
   outcome: "resolved" | "partial" | "ambiguous" | "unmapped"
 ) => ({ selectedCandidateKey, outcome });
+const reviewedTrace = buildPersistedResolverDecisionTrace(
+  resolveMeasurementDefinition({
+    rawLabel: "ALT",
+    rawUnit: "U/L",
+    specimen: "serum",
+    valueKind: "numeric",
+  }),
+  {
+    inputEvidenceHash: "a".repeat(64),
+    catalogManifestVersion: "catalog-test",
+    catalogManifestDigest: "d".repeat(64),
+    resolverVersion: "resolver-test",
+  },
+);
 
 assert.equal(isLaboratoryObservation({ observation_kind: "instrumental" }), false);
 
@@ -23,8 +41,23 @@ const reviewedResolved = projectActiveRegistryV2LaboratoryBinding(
     resolver_result: "resolved",
     verification_status: "user_verified",
     measurement_definition_key: "alt_serum_catalytic_activity",
-    resolver_evidence: resolverEvidence("alt_serum_catalytic_activity", "resolved"),
-  }
+    analyte_key: "alt",
+    input_evidence_hash: reviewedTrace.inputEvidenceHash,
+    input_identity_format_version: "1",
+    catalog_manifest_version: reviewedTrace.catalogManifestVersion,
+    catalog_manifest_digest: reviewedTrace.catalogManifestDigest,
+    resolver_version: reviewedTrace.resolverVersion,
+    normalization_version: "normalization-test",
+    resolver_decision_trace: reviewedTrace,
+    resolver_trace_schema_version: "2",
+    resolver_evidence: {
+      ...resolverEvidence("alt_serum_catalytic_activity", "resolved"),
+      version: 2,
+      candidates: reviewedTrace.candidates.map((candidate) => ({
+        candidateKey: candidate.candidateKey,
+      })),
+    },
+  },
 );
 assert.equal(reviewedResolved.registryBindingReady, true);
 assert.equal(reviewedResolved.measurementDefinitionKey, "alt_serum_catalytic_activity");
