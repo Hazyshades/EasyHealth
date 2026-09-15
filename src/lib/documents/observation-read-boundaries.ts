@@ -1,28 +1,39 @@
-import { getMeasurementDefinition } from "@/lib/biomarkers";
-import type { ResolvedReviewedMeasurementBinding } from "@/lib/biomarkers";
 import type { MeasurementOverride } from "./observation-measurement-correction";
+import { readPersistedDecision } from "./persisted-decision-read";
+import type { PersistedDecisionReadOptions } from "./persisted-decision-read";
 
 type InstrumentalSourceRelation = { is_current?: boolean | null } | null;
 type LaboratorySourceRow = {
+  id?: string | null;
   record_status?: string | null;
   is_current?: boolean | null;
   is_published?: boolean | null;
 };
-type LaboratorySourceRelation = LaboratorySourceRow | LaboratorySourceRow[] | null;
+type LaboratorySourceRelation =
+  | LaboratorySourceRow
+  | LaboratorySourceRow[]
+  | null;
 
 export type DocumentObservationReadBoundary = {
+  id?: string | null;
   observation_kind?: string | null;
+  source_extracted_biomarker_id?: string | null;
   source_instrumental_measure?:
     | InstrumentalSourceRelation
     | InstrumentalSourceRelation[];
   source_extracted_biomarker?: LaboratorySourceRelation;
 };
 
-export type LaboratoryObservationReadBoundary =
-  Pick<DocumentObservationReadBoundary, "observation_kind" | "source_extracted_biomarker"> & {
-    measurement_definition_key?: string | null;
-    resolution_status?: string | null;
-  };
+export type LaboratoryObservationReadBoundary = Pick<
+  DocumentObservationReadBoundary,
+  | "id"
+  | "observation_kind"
+  | "source_extracted_biomarker_id"
+  | "source_extracted_biomarker"
+> & {
+  measurement_definition_key?: string | null;
+  resolution_status?: string | null;
+};
 
 /**
  * Minimal active-revision shape shared by Registry 2.0 consumer read models.
@@ -51,20 +62,31 @@ export type RegistryV2ResolverEvidence = {
 };
 
 export type RegistryV2NormalizationRevisionReadBoundary = {
+  id?: string | null;
+  extracted_biomarker_id?: string | null;
+  observation_id?: string | null;
   resolver_result?: string | null;
   verification_status?: string | null;
   measurement_definition_key?: string | null;
+  analyte_key?: string | null;
   mapping_confidence?: number | null;
   mapping_confidence_band?: string | null;
   catalog_manifest_version?: string | null;
+  catalog_manifest_digest?: string | null;
   resolver_version?: string | null;
   normalization_version?: string | null;
   is_active?: boolean | null;
   input_evidence_hash?: string | null;
   input_identity_format_version?: string | null;
   resolver_evidence?: RegistryV2ResolverEvidence | null;
+  resolver_decision_trace?: unknown | null;
+  resolver_trace_schema_version?: string | null;
   measurement_override?: MeasurementOverride | null;
+  created_at?: string | null;
 };
+
+export const REGISTRY_V2_NORMALIZATION_REVISION_SELECT =
+  "id, extracted_biomarker_id, observation_id, resolver_result, verification_status, measurement_definition_key, analyte_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, is_active, input_evidence_hash, input_identity_format_version, resolver_evidence, resolver_decision_trace, resolver_trace_schema_version, measurement_override, created_at";
 
 export type RegistryV2LaboratoryBindingSource =
   LaboratoryObservationReadBoundary;
@@ -74,7 +96,7 @@ export function getActiveRegistryV2NormalizationRevision(
     | RegistryV2NormalizationRevisionReadBoundary
     | readonly RegistryV2NormalizationRevisionReadBoundary[]
     | null
-    | undefined
+    | undefined,
 ): RegistryV2NormalizationRevisionReadBoundary | null {
   const revisions = Array.isArray(relation)
     ? relation
@@ -96,66 +118,43 @@ export function projectActiveRegistryV2LaboratoryBinding(
     | RegistryV2NormalizationRevisionReadBoundary
     | readonly RegistryV2NormalizationRevisionReadBoundary[]
     | null
-    | undefined
+    | undefined,
 ) {
-  const activeRevision = getActiveRegistryV2NormalizationRevision(relation);
-  const revisionDefinitionKey = activeRevision?.measurement_definition_key ?? null;
-  const resolutionStatus = activeRevision?.resolver_result ?? null;
-  const selectedCandidateKey =
-    activeRevision?.resolver_evidence?.selectedCandidateKey ?? null;
-  const measurementDefinition = revisionDefinitionKey
-    ? getMeasurementDefinition(revisionDefinitionKey)
-    : undefined;
+  const decision: PersistedDecisionReadOptions = { observation, relation };
+  const read = readPersistedDecision(decision);
   const laboratorySource = Array.isArray(observation.source_extracted_biomarker)
-    ? observation.source_extracted_biomarker[0] ?? null
-: observation.source_extracted_biomarker;
-  const sourceLifecycleActive =
-    laboratorySource == null ||
-    (laboratorySource.record_status !== "rejected" &&
-      laboratorySource.record_status !== "superseded" &&
-      laboratorySource.is_current !== false &&
-      laboratorySource.is_published !== false);
-  const registryBindingReady =
-    isLaboratoryObservation(observation) &&
-    sourceLifecycleActive &&
-    activeRevision?.is_active === true &&
-    resolutionStatus === "resolved" &&
-    activeRevision.resolver_evidence?.outcome === "resolved" &&
-    revisionDefinitionKey !== null &&
-    revisionDefinitionKey === selectedCandidateKey &&
-    measurementDefinition?.maturity === "reviewed" &&
-    measurementDefinition.sourceProvenance.kind === "registry_v2_review";
-  const measurementDefinitionKey = registryBindingReady
-    ? revisionDefinitionKey
-    : null;
-  const resolvedMeasurementBinding: ResolvedReviewedMeasurementBinding | null =
-    registryBindingReady && measurementDefinition?.conversion
-      ? {
-          measurementDefinitionKey: revisionDefinitionKey,
-          analyteKey: measurementDefinition.analyteKey,
-          conversion: measurementDefinition.conversion,
-        }
-      : null;
-
+    ? (observation.source_extracted_biomarker[0] ?? null)
+    : observation.source_extracted_biomarker;
   return {
-    activeRevision,
-    measurementDefinitionKey,
-    measurementDefinition: registryBindingReady ? measurementDefinition : undefined,
-    resolutionStatus,
-    verificationStatus: activeRevision?.verification_status ?? null,
+    activeRevision: read.activeRevision,
+    decisionSource: read.source,
+    decisionQuality: read.quality,
+    decisionNotPersisted: read.notPersisted,
+    decisionQualityCodes: read.qualityCodes,
+    conflictDetails: read.conflicts,
+    release: read.release,
+    technicalTrace: read.technicalTrace,
+    measurementDefinitionKey: read.currentBindingReady
+      ? read.stored.measurementDefinitionKey
+      : null,
+    measurementDefinition: read.currentBindingReady
+      ? (read.measurementDefinition ?? undefined)
+      : undefined,
+    resolutionStatus: read.stored.outcome,
+    verificationStatus: read.stored.verificationStatus,
     recordStatus: laboratorySource?.record_status ?? "active",
-    registryBindingReady,
-    resolvedMeasurementBinding,
+    registryBindingReady: read.currentBindingReady,
+    resolvedMeasurementBinding: read.resolvedMeasurementBinding,
   };
 }
 
 export function isCurrentDocumentObservation(
-  observation: DocumentObservationReadBoundary
+  observation: DocumentObservationReadBoundary,
 ): boolean {
   if (observation.observation_kind === "lab") {
     const source = Array.isArray(observation.source_extracted_biomarker)
-      ? observation.source_extracted_biomarker[0] ?? null
-: observation.source_extracted_biomarker;
+      ? (observation.source_extracted_biomarker[0] ?? null)
+      : observation.source_extracted_biomarker;
     return (
       source == null ||
       (source.record_status !== "rejected" &&
@@ -166,13 +165,13 @@ export function isCurrentDocumentObservation(
   }
   if (observation.observation_kind !== "instrumental") return true;
   const source = Array.isArray(observation.source_instrumental_measure)
-    ? observation.source_instrumental_measure[0] ?? null
+    ? (observation.source_instrumental_measure[0] ?? null)
     : observation.source_instrumental_measure;
   return source?.is_current === true;
 }
 
 export function isLaboratoryObservation(
-  observation: Pick<DocumentObservationReadBoundary, "observation_kind">
+  observation: Pick<DocumentObservationReadBoundary, "observation_kind">,
 ): boolean {
   return observation.observation_kind === "lab";
 }

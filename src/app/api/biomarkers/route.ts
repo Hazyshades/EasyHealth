@@ -5,6 +5,7 @@ import { presentObservation } from "@/lib/biomarkers";
 import {
   isCurrentDocumentObservation,
   projectActiveRegistryV2LaboratoryBinding,
+  REGISTRY_V2_NORMALIZATION_REVISION_SELECT,
   type RegistryV2NormalizationRevisionReadBoundary,
 } from "@/lib/documents/observation-read-boundaries";
 import { projectLaboratoryOutcome } from "@/lib/documents/incomplete-laboratory-outcomes";
@@ -67,18 +68,19 @@ type BiomarkerObservation = {
     | RegistryV2NormalizationRevisionReadBoundary
     | RegistryV2NormalizationRevisionReadBoundary[]
     | null;
-  source_extracted_biomarker: LaboratoryMeasureSource | LaboratoryMeasureSource[] | null;
+  source_extracted_biomarker:
+    | LaboratoryMeasureSource
+    | LaboratoryMeasureSource[]
+    | null;
 };
 
-function firstDocument(
-  relation: BiomarkerObservation["documents"]
-): {
+function firstDocument(relation: BiomarkerObservation["documents"]): {
   id: string;
   original_filename: string;
   lab_name?: string | null;
   archived_at: string | null;
 } | null {
-  return Array.isArray(relation) ? relation[0] ?? null : relation;
+  return Array.isArray(relation) ? (relation[0] ?? null) : relation;
 }
 
 export async function GET() {
@@ -97,7 +99,7 @@ export async function GET() {
     const { data: observations, error: observationsError } = await supabase
       .from("observations")
       .select(
-        "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, raw_name, raw_value_text, raw_unit, raw_reference_text, source_page, source_text, ref_low, ref_high, observed_at, document_id, value_kind, value_text, ordinal, specimen, modifier, documents(id, original_filename, lab_name, archived_at), source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(record_status, lifecycle_reason_code, superseded_at, superseded_by_processing_attempt_id, is_current, is_published), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence, measurement_override)"
+        `id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, raw_name, raw_value_text, raw_unit, raw_reference_text, source_page, source_text, ref_low, ref_high, observed_at, document_id, value_kind, value_text, ordinal, specimen, modifier, documents(id, original_filename, lab_name, archived_at), source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(record_status, lifecycle_reason_code, superseded_at, superseded_by_processing_attempt_id, is_current, is_published), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(${REGISTRY_V2_NORMALIZATION_REVISION_SELECT})`,
       )
       .eq("profile_id", profileId)
       .eq("observation_kind", "lab")
@@ -122,107 +124,125 @@ export async function GET() {
         return firstDocument(observation.documents)?.archived_at == null;
       })
       .map(
-        ({ normalization_revision, documents, source_extracted_biomarker, ...row }) => {
-      const laboratorySource = Array.isArray(source_extracted_biomarker)
-        ? source_extracted_biomarker[0] ?? null
-        : source_extracted_biomarker;
-      const observation = { ...row, source_extracted_biomarker: laboratorySource };
-      const outcome = projectLaboratoryOutcome({
-        observation,
-        relation: normalization_revision,
-      });
-      const binding = projectActiveRegistryV2LaboratoryBinding(
-        observation,
-        normalization_revision,
-      );
-      const { registryBindingReady, resolvedMeasurementBinding } = binding;
-      const valueKind = row.value_kind ?? "numeric";
-      const numericValue = row.value != null ? Number(row.value) : null;
+        ({
+          normalization_revision,
+          documents,
+          source_extracted_biomarker,
+          ...row
+        }) => {
+          const laboratorySource = Array.isArray(source_extracted_biomarker)
+            ? (source_extracted_biomarker[0] ?? null)
+            : source_extracted_biomarker;
+          const observation = {
+            ...row,
+            source_extracted_biomarker: laboratorySource,
+          };
+          const outcome = projectLaboratoryOutcome({
+            observation,
+            relation: normalization_revision,
+          });
+          const binding = projectActiveRegistryV2LaboratoryBinding(
+            observation,
+            normalization_revision,
+          );
+          const { registryBindingReady, resolvedMeasurementBinding } = binding;
+          const valueKind = row.value_kind ?? "numeric";
+          const numericValue = row.value != null ? Number(row.value) : null;
 
-      let display = {
-        value: numericValue as number,
-        unit: row.unit ?? "",
-        ref_low: row.ref_low != null ? Number(row.ref_low) : null,
-        ref_high: row.ref_high != null ? Number(row.ref_high) : null,
-        converted: false,
-        conversion_note: null as string | null,
-        original_value: numericValue as number,
-        original_unit: row.unit ?? "",
-        original_ref_low: row.ref_low != null ? Number(row.ref_low) : null,
-        original_ref_high: row.ref_high != null ? Number(row.ref_high) : null,
-      };
-
-      if (
-        registryBindingReady &&
-        valueKind === "numeric" &&
-        numericValue != null &&
-        resolvedMeasurementBinding
-      ) {
-        display = presentObservation(
-          {
-            resolved_measurement_binding: resolvedMeasurementBinding,
-            value: numericValue,
+          let display = {
+            value: numericValue as number,
             unit: row.unit ?? "",
             ref_low: row.ref_low != null ? Number(row.ref_low) : null,
             ref_high: row.ref_high != null ? Number(row.ref_high) : null,
-          },
-          unitSystem
-        );
-      }
+            converted: false,
+            conversion_note: null as string | null,
+            original_value: numericValue as number,
+            original_unit: row.unit ?? "",
+            original_ref_low: row.ref_low != null ? Number(row.ref_low) : null,
+            original_ref_high:
+              row.ref_high != null ? Number(row.ref_high) : null,
+          };
 
-      return {
-        ...row,
-        documents: firstDocument(documents),
-        observation_kind: "lab" as const,
-        record_status: laboratorySource?.record_status ?? null,
-        lifecycle_reason_code: laboratorySource?.lifecycle_reason_code ?? null,
-        superseded_at: laboratorySource?.superseded_at ?? null,
-        superseded_by_processing_attempt_id:
-          laboratorySource?.superseded_by_processing_attempt_id ?? null,
-        source_is_current: laboratorySource?.is_current ?? null,
-        measurement_definition_key: outcome.measurementDefinitionKey,
-        analyte_key: outcome.analyteKey,
-        resolution_status: outcome.outcome,
-        verification_status: outcome.verificationStatus,
-        registry_binding_ready: outcome.registryBindingReady,
-        resolution_details: outcome.resolutionDetails,
-        trend_eligible: outcome.resolutionDetails.eligibility.trendEligible,
-        conversion_eligible:
-          outcome.resolutionDetails.eligibility.conversionEligible,
-        assessment_eligible:
-          outcome.resolutionDetails.eligibility.assessmentEligible,
-        assessment_exclusion_reason:
-          outcome.resolutionDetails.eligibility.exclusions.assessment,
-        value: valueKind === "numeric" ? display.value : null,
-        value_kind: valueKind,
-        value_text:
-          row.value_text ?? (numericValue != null ? String(numericValue) : null),
-        ordinal: row.ordinal ?? null,
-        specimen: row.specimen ?? "unspecified",
-        modifier: row.modifier ?? "none",
-        unit: display.unit,
-        ref_low: display.ref_low,
-        ref_high: display.ref_high,
-        converted: display.converted,
-        conversion_note: display.conversion_note,
-        original_value: display.original_value,
-        original_unit: display.original_unit,
-        original_ref_low: display.original_ref_low,
-        original_ref_high: display.original_ref_high,
-      };
-    });
+          if (
+            registryBindingReady &&
+            valueKind === "numeric" &&
+            numericValue != null &&
+            resolvedMeasurementBinding
+          ) {
+            display = presentObservation(
+              {
+                resolved_measurement_binding: resolvedMeasurementBinding,
+                value: numericValue,
+                unit: row.unit ?? "",
+                ref_low: row.ref_low != null ? Number(row.ref_low) : null,
+                ref_high: row.ref_high != null ? Number(row.ref_high) : null,
+              },
+              unitSystem,
+            );
+          }
 
-    return NextResponse.json({
-      authenticated: true,
-      profile: {
-        id: profile.id,
+          return {
+            ...row,
+            documents: firstDocument(documents),
+            observation_kind: "lab" as const,
+            record_status: laboratorySource?.record_status ?? null,
+            lifecycle_reason_code:
+              laboratorySource?.lifecycle_reason_code ?? null,
+            superseded_at: laboratorySource?.superseded_at ?? null,
+            superseded_by_processing_attempt_id:
+              laboratorySource?.superseded_by_processing_attempt_id ?? null,
+            source_is_current: laboratorySource?.is_current ?? null,
+            measurement_definition_key: outcome.measurementDefinitionKey,
+            analyte_key: outcome.analyteKey,
+            resolution_status: outcome.outcome,
+            verification_status: outcome.verificationStatus,
+            decision_source: outcome.resolutionDetails.source,
+            decision_quality: outcome.resolutionDetails.quality,
+            decision_not_persisted: outcome.resolutionDetails.notPersisted,
+            decision_quality_codes: outcome.resolutionDetails.qualityCodes,
+            registry_binding_ready: outcome.registryBindingReady,
+            resolution_details: outcome.resolutionDetails,
+            conversion_eligible:
+              outcome.resolutionDetails.eligibility.conversionEligible,
+            assessment_eligible:
+              outcome.resolutionDetails.eligibility.assessmentEligible,
+            assessment_exclusion_reason:
+              outcome.resolutionDetails.eligibility.exclusions.assessment,
+            value: valueKind === "numeric" ? display.value : null,
+            value_kind: valueKind,
+            value_text:
+              row.value_text ??
+              (numericValue != null ? String(numericValue) : null),
+            ordinal: row.ordinal ?? null,
+            specimen: row.specimen ?? "unspecified",
+            modifier: row.modifier ?? "none",
+            unit: display.unit,
+            ref_low: display.ref_low,
+            ref_high: display.ref_high,
+            converted: display.converted,
+            conversion_note: display.conversion_note,
+            original_value: display.original_value,
+            original_unit: display.original_unit,
+            original_ref_low: display.original_ref_low,
+            original_ref_high: display.original_ref_high,
+          };
+        },
+      );
+
+    return NextResponse.json(
+      {
+        authenticated: true,
+        profile: {
+          id: profile.id,
+          lab_unit_system: unitSystem,
+        },
         lab_unit_system: unitSystem,
+        observations: presented,
       },
-      lab_unit_system: unitSystem,
-      observations: presented,
-    }, {
-      headers: { "Cache-Control": "no-store" },
-    });
+      {
+        headers: { "Cache-Control": "no-store" },
+      },
+    );
   } catch {
     return NextResponse.json(
       { authenticated: false },

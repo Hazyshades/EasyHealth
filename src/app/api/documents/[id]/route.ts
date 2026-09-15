@@ -16,12 +16,13 @@ import {
   resolveDisplayProcessingStatus,
 } from "@/lib/documents/access";
 import { normalizeDocumentType } from "@/lib/health-systems";
+import { reviewDataErrorMessage } from "@/lib/documents/biomarker-review-state";
 import { SIGNED_URL_TTL_SECONDS } from "@/lib/documents/constants";
 import {
   buildNormalizationReview,
   type NormalizationRevisionSummary,
 } from "@/lib/documents/normalization-review";
-import { reviewDataErrorMessage } from "@/lib/documents/biomarker-review-state";
+import { REGISTRY_V2_NORMALIZATION_REVISION_SELECT } from "@/lib/documents/observation-read-boundaries";
 import { isWorkerOffline } from "@/lib/documents/worker-health";
 import { purgeDocumentDerivedLaboratoryLineage } from "@/lib/documents/laboratory-lineage-purge";
 import { purgeDocumentInstrumentalPublicationState } from "@/lib/documents/instrumental-publication-purge";
@@ -173,9 +174,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
   const revisionsResult = extractedIds.length
     ? await supabase
         .from("observation_normalization_revisions")
-        .select(
-          "id, extracted_biomarker_id, analyte_key, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, resolver_evidence, input_evidence_hash, input_identity_format_version, catalog_manifest_version, resolver_version, normalization_version, resolver_decision_trace, resolver_trace_schema_version, measurement_override, created_at",
-        )
+        .select(REGISTRY_V2_NORMALIZATION_REVISION_SELECT)
         .in("extracted_biomarker_id", extractedIds)
         .order("created_at", { ascending: false })
     : { data: [] as Array<Record<string, unknown>> };
@@ -183,20 +182,30 @@ export async function GET(req: NextRequest, context: RouteContext) {
     string,
     Array<Record<string, unknown>>
   >();
-  for (const revision of revisionsResult.data ?? []) {
+  for (const revision of (revisionsResult.data ?? []) as Array<
+    Record<string, unknown>
+  >) {
     const key = String(revision.extracted_biomarker_id);
     const entries = revisionsByExtractedId.get(key) ?? [];
     entries.push(revision as Record<string, unknown>);
     revisionsByExtractedId.set(key, entries);
   }
-  const baseExtractedItems = extractedItems.map((item) => ({
-    ...item,
-    normalization: buildNormalizationReview(
-      item,
-      (revisionsByExtractedId.get(item.id) ??
-        []) as unknown as NormalizationRevisionSummary[],
-    ),
-  }));
+  const baseExtractedItems = extractedItems.map((item) => {
+    const revisions = (revisionsByExtractedId.get(item.id) ??
+      []) as unknown as NormalizationRevisionSummary[];
+    const preview = revisions.some((revision) => revision.is_active)
+      ? null
+      : resolveMeasurementDefinition(
+          preparedEvidenceFromWriterRow(
+            item as unknown as ExtractedBiomarkerWriterRow,
+            null,
+          ).input,
+        );
+    return {
+      ...item,
+      normalization: buildNormalizationReview(item, revisions, { preview }),
+    };
+  });
 
   const batchEligibilityById = new Map<
     string,
@@ -236,7 +245,10 @@ export async function GET(req: NextRequest, context: RouteContext) {
       ...item,
       recordStatus: item.normalization.recordStatus,
       sourceIsCurrent: item.normalization.sourceIsCurrent,
-      traceState: item.normalization.traceState,
+      decisionSource: item.normalization.decisionSource,
+      decisionQuality: item.normalization.decisionQuality,
+      decisionNotPersisted: item.normalization.decisionNotPersisted,
+      decisionQualityCodes: item.normalization.decisionQualityCodes,
       actionAvailability,
       normalization: {
         ...item.normalization,

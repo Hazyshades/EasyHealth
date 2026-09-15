@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import { MEASUREMENT_DEFINITIONS } from "../src/lib/biomarkers";
+import {
+  MEASUREMENT_DEFINITIONS,
+  buildPersistedResolverDecisionTrace,
+  resolveMeasurementDefinition,
+} from "../src/lib/biomarkers";
 import { projectHealthProfileLaboratoryAdmission } from "../src/lib/health-profile-input";
 import { buildHealthProfile } from "../src/lib/health-systems";
 
@@ -32,17 +36,43 @@ function observation(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+const resolvedTrace = buildPersistedResolverDecisionTrace(
+  resolveMeasurementDefinition({
+    rawLabel: "Glucose",
+    rawUnit: "mg/dL",
+    specimen: "serum",
+    valueKind: "numeric",
+  }),
+  {
+    inputEvidenceHash: "a".repeat(64),
+    catalogManifestVersion: "catalog-test",
+    catalogManifestDigest: "d".repeat(64),
+    resolverVersion: "resolver-test",
+  },
+);
 
 function revision(overrides: Record<string, unknown> = {}) {
   return {
     resolver_result: "resolved",
     verification_status: "user_verified",
     measurement_definition_key: "glucose_serum",
+    analyte_key: "glucose",
     is_active: true,
+    input_evidence_hash: resolvedTrace.inputEvidenceHash,
+    input_identity_format_version: "1",
+    catalog_manifest_version: resolvedTrace.catalogManifestVersion,
+    catalog_manifest_digest: resolvedTrace.catalogManifestDigest,
+    resolver_version: resolvedTrace.resolverVersion,
+    normalization_version: "normalization-test",
+    resolver_decision_trace: resolvedTrace,
+    resolver_trace_schema_version: "2",
     resolver_evidence: {
       version: 2,
       selectedCandidateKey: "glucose_serum",
       outcome: "resolved",
+      candidates: resolvedTrace.candidates.map((candidate) => ({
+        candidateKey: candidate.candidateKey,
+      })),
     },
     ...overrides,
   };

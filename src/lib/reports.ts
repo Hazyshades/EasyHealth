@@ -3,10 +3,18 @@ import { buildDocumentStructuredContext } from "@/lib/documents/structured-conte
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 import { sanitizeReportStrings } from "@/lib/report-text";
 
-export async function getEligibleDocumentIds(profileId: string): Promise<string[]> {
+export async function getEligibleDocumentIds(
+  profileId: string,
+): Promise<string[]> {
   const supabase = createAdminClient();
 
-  const [{ data: observations }, { data: findings }, { data: clinicalNotes }, { data: prescriptions }, { data: referrals }] = await Promise.all([
+  const [
+    { data: observations },
+    { data: findings },
+    { data: clinicalNotes },
+    { data: prescriptions },
+    { data: referrals },
+  ] = await Promise.all([
     supabase
       .from("observations")
       .select("document_id")
@@ -45,7 +53,7 @@ export async function getEligibleDocumentIds(profileId: string): Promise<string[
         ...(clinicalNotes ?? []).map((c) => c.document_id),
         ...(prescriptions ?? []).map((p) => p.document_id),
         ...(referrals ?? []).map((r) => r.document_id),
-      ].filter((id): id is string => typeof id === "string")
+      ].filter((id): id is string => typeof id === "string"),
     ),
   ];
 
@@ -65,7 +73,7 @@ export async function getEligibleDocumentIds(profileId: string): Promise<string[
       (doc) =>
         doc.status === "completed" ||
         doc.processing_status === "ready" ||
-        doc.processing_status === "needs_review"
+        doc.processing_status === "needs_review",
     )
     .map((d) => d.id);
 }
@@ -76,6 +84,10 @@ export type ObservationRow = {
   measurement_definition_key: string | null;
   resolution_status?: string | null;
   verification_status?: string | null;
+  decision_source?: "persisted" | "preview" | "none";
+  decision_quality?: "available" | "unavailable" | "conflict";
+  decision_not_persisted?: boolean;
+  decision_quality_codes?: readonly string[];
   registry_binding_ready?: boolean;
   value_kind?: string | null;
   value_text?: string | null;
@@ -93,6 +105,10 @@ export type ReportContextItem = {
   measurement_definition_key: string | null;
   resolution_status: string | null;
   verification_status: string | null;
+  decision_source: "persisted" | "preview" | "none";
+  decision_quality: "available" | "unavailable" | "conflict";
+  decision_not_persisted: boolean;
+  decision_quality_codes: readonly string[];
   registry_binding_ready: boolean;
   value_kind: string | null;
   value_text: string | null;
@@ -163,7 +179,10 @@ export type MultiSourceReportContext = {
 };
 
 export function isAbnormalObservation(
-  o: Pick<ObservationRow, "value" | "ref_low" | "ref_high" | "registry_binding_ready">
+  o: Pick<
+    ObservationRow,
+    "value" | "ref_low" | "ref_high" | "registry_binding_ready"
+  >,
 ): boolean {
   if (o.registry_binding_ready === false) {
     return false;
@@ -175,17 +194,25 @@ export function isAbnormalObservation(
   return false;
 }
 
-export function filterAbnormalObservations<T extends ObservationRow>(observations: T[]): T[] {
+export function filterAbnormalObservations<T extends ObservationRow>(
+  observations: T[],
+): T[] {
   return observations.filter(isAbnormalObservation);
 }
 
-export function buildReportContext(observations: ObservationRow[]): ReportContextItem[] {
+export function buildReportContext(
+  observations: ObservationRow[],
+): ReportContextItem[] {
   return observations.map((o) => ({
     biomarker: o.name,
     analyte_key: o.analyte_key,
     measurement_definition_key: o.measurement_definition_key,
     resolution_status: o.resolution_status ?? null,
     verification_status: o.verification_status ?? null,
+    decision_source: o.decision_source ?? "none",
+    decision_quality: o.decision_quality ?? "unavailable",
+    decision_not_persisted: o.decision_not_persisted === true,
+    decision_quality_codes: o.decision_quality_codes ?? [],
     registry_binding_ready: o.registry_binding_ready === true,
     value_kind: o.value_kind ?? null,
     value_text: o.value_text ?? null,
@@ -201,9 +228,11 @@ export function buildReportContext(observations: ObservationRow[]): ReportContex
 export function buildMultiSourceReportContext(
   structured: Awaited<ReturnType<typeof buildDocumentStructuredContext>>,
   observations: ObservationRow[],
-  abnormalOnly: boolean
+  abnormalOnly: boolean,
 ): MultiSourceReportContext {
-  const scopedObservations = abnormalOnly ? filterAbnormalObservations(observations) : observations;
+  const scopedObservations = abnormalOnly
+    ? filterAbnormalObservations(observations)
+    : observations;
 
   return {
     biomarkers: buildReportContext(scopedObservations),
@@ -258,7 +287,9 @@ export function buildMultiSourceReportContext(
   };
 }
 
-export function hasReportContextContent(context: MultiSourceReportContext): boolean {
+export function hasReportContextContent(
+  context: MultiSourceReportContext,
+): boolean {
   return (
     context.biomarkers.length > 0 ||
     context.instrumental_findings.length > 0 ||

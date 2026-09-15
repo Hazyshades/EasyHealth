@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { DocumentType } from "@/lib/health-systems";
 import {
   isCurrentDocumentObservation,
+  REGISTRY_V2_NORMALIZATION_REVISION_SELECT,
   type RegistryV2NormalizationRevisionReadBoundary,
 } from "@/lib/documents/observation-read-boundaries";
 import { projectLaboratoryOutcome } from "@/lib/documents/incomplete-laboratory-outcomes";
@@ -13,6 +14,10 @@ export type StructuredBiomarkerContext = {
   measurement_definition_key: string | null;
   resolution_status: string | null;
   verification_status: string | null;
+  decision_source: "persisted" | "preview" | "none";
+  decision_quality: "available" | "unavailable" | "conflict";
+  decision_not_persisted: boolean;
+  decision_quality_codes: readonly string[];
   registry_binding_ready: boolean;
   structured_context_eligible: true;
   value: number | null;
@@ -105,8 +110,12 @@ export type DocumentStructuredContext = {
   source_document_ids: string[];
 };
 
-function isProcessedDocument(processingStatus: string | null, status: string): boolean {
-  if (processingStatus === "ready" || processingStatus === "needs_review") return true;
+function isProcessedDocument(
+  processingStatus: string | null,
+  status: string,
+): boolean {
+  if (processingStatus === "ready" || processingStatus === "needs_review")
+    return true;
   return status === "completed";
 }
 
@@ -117,7 +126,13 @@ function parseStringList(value: unknown): string[] {
 
 function mapClinicalNoteRow(
   row: Record<string, unknown>,
-  doc: { id: string; original_filename: string; document_type: string; observed_at: string | null; document_summary: string | null }
+  doc: {
+    id: string;
+    original_filename: string;
+    document_type: string;
+    observed_at: string | null;
+    document_summary: string | null;
+  },
 ): StructuredClinicalNoteContext {
   return {
     document_id: row.document_id as string,
@@ -130,7 +145,7 @@ function mapClinicalNoteRow(
     history_summary: (row.history_summary as string | null) ?? null,
     exam_findings: (row.exam_findings as string | null) ?? null,
     documented_problems: parseStringList(
-      row.documented_problems ?? row.documented_diagnoses
+      row.documented_problems ?? row.documented_diagnoses,
     ),
     recommendations: parseStringList(row.recommendations),
     follow_up_plan: (row.follow_up_plan as string | null) ?? null,
@@ -139,21 +154,22 @@ function mapClinicalNoteRow(
     hospital_course: (row.hospital_course as string | null) ?? null,
     discharge_diagnoses: parseStringList(row.discharge_diagnoses),
     discharge_medications: parseStringList(row.discharge_medications),
-    follow_up_instructions: (row.follow_up_instructions as string | null) ?? null,
+    follow_up_instructions:
+      (row.follow_up_instructions as string | null) ?? null,
     summary: doc.document_summary,
   };
 }
 
 export async function buildDocumentStructuredContext(
   profileId: string,
-  documentIds?: string[] | null
+  documentIds?: string[] | null,
 ): Promise<DocumentStructuredContext> {
   const supabase = createAdminClient();
 
   let docQuery = supabase
     .from("documents")
     .select(
-      "id, original_filename, document_type, observed_at, lab_name, document_summary, processing_status, status, modality"
+      "id, original_filename, document_type, observed_at, lab_name, document_summary, processing_status, status, modality",
     )
     .eq("profile_id", profileId)
     .is("archived_at", null);
@@ -166,7 +182,7 @@ export async function buildDocumentStructuredContext(
   if (docError) throw new Error(docError.message);
 
   const eligibleDocs = (documents ?? []).filter((doc) =>
-    isProcessedDocument(doc.processing_status, doc.status)
+    isProcessedDocument(doc.processing_status, doc.status),
   );
   const eligibleIds = eligibleDocs.map((d) => d.id);
 
@@ -176,7 +192,8 @@ export async function buildDocumentStructuredContext(
   const discharge_summaries: StructuredClinicalNoteContext[] = [];
   const prescriptions: StructuredPrescriptionContext[] = [];
   const referrals: StructuredReferralContext[] = [];
-  const document_summaries: DocumentStructuredContext["document_summaries"] = [];
+  const document_summaries: DocumentStructuredContext["document_summaries"] =
+    [];
 
   if (eligibleIds.length === 0) {
     return {
@@ -201,7 +218,7 @@ export async function buildDocumentStructuredContext(
     supabase
       .from("observations")
       .select(
-        "id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, document_id, source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(record_status, is_current, is_published), documents(original_filename), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence)"
+        `id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, document_id, source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(record_status, is_current, is_published), documents(original_filename), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(${REGISTRY_V2_NORMALIZATION_REVISION_SELECT})`,
       )
       .eq("profile_id", profileId)
       .in("document_id", eligibleIds)
@@ -263,6 +280,10 @@ export async function buildDocumentStructuredContext(
       measurement_definition_key: outcome.measurementDefinitionKey,
       resolution_status: outcome.outcome,
       verification_status: outcome.verificationStatus,
+      decision_source: outcome.resolutionDetails.source,
+      decision_quality: outcome.resolutionDetails.quality,
+      decision_not_persisted: outcome.resolutionDetails.notPersisted,
+      decision_quality_codes: outcome.resolutionDetails.qualityCodes,
       registry_binding_ready: outcome.registryBindingReady,
       structured_context_eligible: true,
       value:
@@ -381,11 +402,15 @@ export async function buildDocumentStructuredContext(
   };
 }
 
-export function hashStructuredContext(context: DocumentStructuredContext): string {
+export function hashStructuredContext(
+  context: DocumentStructuredContext,
+): string {
   return createHash("sha256").update(JSON.stringify(context)).digest("hex");
 }
 
-export function hasStructuredContent(context: DocumentStructuredContext): boolean {
+export function hasStructuredContent(
+  context: DocumentStructuredContext,
+): boolean {
   return (
     context.biomarkers.length > 0 ||
     context.instrumental_findings.length > 0 ||

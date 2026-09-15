@@ -16,6 +16,8 @@ import {
   getRegistryV2ScoreReadinessGroups,
   getRegistryV2ScoreRole,
   getReviewedAssessmentBinding,
+  buildPersistedResolverDecisionTrace,
+  resolveMeasurementDefinition,
   getReviewedScoreContributionGroups,
   getReviewedScoreReadinessGroups,
   validateMeasurementRegistry,
@@ -231,17 +233,62 @@ function formatConversion(definition: MeasurementDefinition): string {
 }
 
 function projectEligibility(definition: MeasurementDefinition) {
+  const alias =
+    definition.aliases.find(
+      (candidate) =>
+        candidate.lifecycle === "active" &&
+        candidate.approvalStatus === "reviewed" &&
+        candidate.matchAuthority === "reviewed_resolution",
+    ) ??
+    definition.aliases.find((candidate) => candidate.lifecycle === "active") ??
+    definition.aliases[0];
+  const resolution = resolveMeasurementDefinition({
+    rawLabel: alias?.value ?? definition.displayName,
+    rawUnit: definition.unitPolicy.canonicalUnit ?? null,
+    rawValueText: "1",
+    specimen: definition.specimen,
+    specimenSource: "stated",
+    sourceAnalyteKey: definition.analyteKey,
+    modifier: definition.requiredModifiers?.[0] ?? definition.timing,
+    timing: definition.timing,
+    method: definition.method,
+    valueKind: definition.valueKind,
+    referenceLow: 0,
+    referenceHigh: 2,
+  });
+  const trace = buildPersistedResolverDecisionTrace(resolution, {
+    inputEvidenceHash: "d".repeat(64),
+    catalogManifestVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,
+    catalogManifestDigest: MEASUREMENT_CATALOG_MANIFEST_DIGEST,
+    resolverVersion: MEASUREMENT_RESOLVER_VERSION,
+  });
   const relation: RegistryV2NormalizationRevisionReadBoundary = {
-    resolver_result: "resolved",
+    resolver_result: resolution.result,
     verification_status: "user_verified",
-    measurement_definition_key: definition.key,
+    measurement_definition_key: resolution.measurementDefinitionKey,
+    analyte_key: resolution.analyteKey,
+    catalog_manifest_version: trace.catalogManifestVersion,
+    catalog_manifest_digest: trace.catalogManifestDigest,
+    resolver_version: trace.resolverVersion,
+    normalization_version: MEASUREMENT_NORMALIZATION_VERSION,
     is_active: true,
-    resolver_evidence: { version: 2, selectedCandidateKey: definition.key, outcome: "resolved" },
+    input_evidence_hash: trace.inputEvidenceHash,
+    input_identity_format_version: "1",
+    resolver_evidence: {
+      version: 2,
+      selectedCandidateKey: trace.winningCandidateKey,
+      outcome: trace.outcome,
+      candidates: trace.candidates.map((candidate) => ({
+        candidateKey: candidate.candidateKey,
+      })),
+    },
+    resolver_decision_trace: trace,
+    resolver_trace_schema_version: trace.schemaVersion,
   };
   const observation = {
     observation_kind: "lab" as const,
-    measurement_definition_key: definition.key,
-    resolution_status: "resolved",
+    measurement_definition_key: resolution.measurementDefinitionKey,
+    resolution_status: resolution.result,
     name: definition.displayName,
     value: 1,
     unit: definition.unitPolicy.canonicalUnit ?? "",
@@ -250,11 +297,11 @@ function projectEligibility(definition: MeasurementDefinition) {
     raw_reference_text: "0–2",
     observed_at: "2000-01-01",
     document_id: "documentation-fixture",
-    value_kind: "numeric",
+    value_kind: definition.valueKind,
     value_text: "1",
     ordinal: null,
     specimen: definition.specimen,
-    modifier: definition.timing,
+    modifier: definition.requiredModifiers?.[0] ?? definition.timing,
   };
   const binding = projectActiveRegistryV2LaboratoryBinding(observation, relation);
   const admission = projectHealthProfileLaboratoryAdmission({
@@ -506,6 +553,7 @@ function renderModule(counts: BiomarkerDocumentationCounts): string {
     "",
     "Chart-facing `GET /api/biomarkers` and `GET /api/health-profile` responses emit `Cache-Control: no-store`, so corrections are not served from an HTTP cache. Health Profile reads the latest assessment, job, and synthesis state without generating synthesis during `GET`. The score/readiness policy receives admitted assessment candidates plus explicit `asOf`, `evaluatedAt`, the immutable freshness policy, and a read-only Registry 2.0 snapshot; it selects the latest candidate by assessment identity, classifies factual freshness, evaluates required-group readiness, computes score/confidence aggregates, and returns selected markers plus provenance and exclusions. Job lifecycle is a separate display axis: when a completed version exists and a queued or processing recalculation is running, `assessment.display_state` is `outdated` while the completed named-system and overall scores remain visible.",
     "After admission, `projectHealthProfileAssessmentRead` owns persisted-versus-fallback interpretation and returns `assessment.display_state`, `has_current_version`, status, error, version, and freshness metadata as one read projection; legacy or policy-incompatible payloads use the fallback snapshot without changing Registry admission or score/readiness policy. Profile and dashboard clients consume this projected lifecycle state rather than recomputing it.",
+    "`Historical reads use one persisted-decision reader: an active revision is authoritative and exposes independent `source` (`persisted`, `preview`, `none`) and `quality` (`available`, `unavailable`, `conflict`). Preview is explicit and non-persisted; missing or conflicting historical evidence is reported without current Resolver fallback, and concrete consumers fail closed when current catalog enrichment is unavailable.`",
     "",
     "## Unknown labels and controlled reprocessing",
     "",

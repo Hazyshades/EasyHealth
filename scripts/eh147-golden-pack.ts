@@ -1,8 +1,13 @@
 import { createHash } from "node:crypto";
 import {
+  MEASUREMENT_CATALOG_MANIFEST_VERSION,
+  MEASUREMENT_RESOLVER_VERSION,
+  buildPersistedResolverDecisionTrace,
   getReviewedAssessmentBinding,
+  resolveMeasurementDefinition,
   type LabUnitSystem,
 } from "../src/lib/biomarkers";
+import { MEASUREMENT_CATALOG_MANIFEST_DIGEST } from "../src/lib/biomarkers/measurement-registry-release";
 import {
   getRegistryV2ScoreReadinessGroups,
   NAMED_BODY_SYSTEMS,
@@ -305,15 +310,51 @@ function revision(options: {
   measurementDefinitionKey: string;
   verificationStatus: string;
 }) {
+  const resolution = resolveMeasurementDefinition(
+    options.measurementDefinitionKey === "fasting_glucose"
+      ? {
+          rawLabel: "Fasting glucose",
+          rawUnit: "mg/dL",
+          specimen: "plasma",
+          modifier: "fasting",
+          timing: "fasting",
+          method: "automated",
+          valueKind: "numeric",
+        }
+      : {
+          rawLabel: "Glucose",
+          rawUnit: "mg/dL",
+          specimen: "serum",
+          valueKind: "numeric",
+        },
+  );
+  const trace = buildPersistedResolverDecisionTrace(resolution, {
+    inputEvidenceHash: "a".repeat(64),
+    catalogManifestVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,
+    catalogManifestDigest: MEASUREMENT_CATALOG_MANIFEST_DIGEST,
+    resolverVersion: MEASUREMENT_RESOLVER_VERSION,
+  });
   return {
     is_active: true,
     resolver_result: "resolved" as const,
     verification_status: options.verificationStatus,
     measurement_definition_key: options.measurementDefinitionKey,
+    analyte_key: resolution.analyteKey,
+    input_evidence_hash: trace.inputEvidenceHash,
+    input_identity_format_version: "1",
+    catalog_manifest_version: trace.catalogManifestVersion,
+    catalog_manifest_digest: trace.catalogManifestDigest,
+    resolver_version: trace.resolverVersion,
+    normalization_version: "normalization-test",
+    resolver_decision_trace: trace,
+    resolver_trace_schema_version: trace.schemaVersion,
     resolver_evidence: {
       version: 2,
       selectedCandidateKey: options.measurementDefinitionKey,
       outcome: "resolved" as const,
+      candidates: trace.candidates.map((candidate) => ({
+        candidateKey: candidate.candidateKey,
+      })),
     },
   };
 }

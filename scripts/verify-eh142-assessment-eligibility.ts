@@ -3,8 +3,14 @@ import {
   ASSESSMENT_EXCLUSION_LABELS,
   evaluateAssessmentEligibility,
 } from "../src/lib/health-profile-assessment-eligibility";
-import { MEASUREMENT_DEFINITIONS } from "../src/lib/biomarkers";
-import { projectLaboratoryOutcome } from "../src/lib/documents/incomplete-laboratory-outcomes";
+import {
+  buildPersistedResolverDecisionTrace,
+  MEASUREMENT_DEFINITIONS,
+  resolveMeasurementDefinition,
+} from "../src/lib/biomarkers";
+import {
+  projectLaboratoryOutcome,
+} from "../src/lib/documents/incomplete-laboratory-outcomes";
 import { projectHealthProfileLaboratoryAdmission } from "../src/lib/health-profile-input";
 
 function observation(overrides: Record<string, unknown> = {}) {
@@ -30,15 +36,79 @@ function observation(overrides: Record<string, unknown> = {}) {
 }
 
 function activeRevision(overrides: Record<string, unknown> = {}) {
+  const storedKey =
+    typeof overrides.measurement_definition_key === "string"
+      ? overrides.measurement_definition_key
+      : "glucose_serum";
+  const catalogManifestVersion = String(
+    overrides.catalog_manifest_version ?? "catalog-test",
+  );
+  const resolverVersion = String(
+    overrides.resolver_version ?? "resolver-test",
+  );
+  const baseTrace = buildPersistedResolverDecisionTrace(
+    resolveMeasurementDefinition({
+      rawLabel: "Glucose",
+      rawUnit: "mg/dL",
+      specimen: "serum",
+      valueKind: "numeric",
+    }),
+    {
+      inputEvidenceHash: "a".repeat(64),
+      catalogManifestVersion,
+      catalogManifestDigest: "d".repeat(64),
+      resolverVersion,
+    },
+  );
+  const rewrittenCandidates = baseTrace.candidates
+    .filter((candidate) => candidate.candidateKey !== storedKey)
+    .map((candidate) =>
+      candidate.candidateKey === "glucose_serum"
+        ? { ...candidate, candidateKey: storedKey }
+        : candidate,
+    )
+    .sort((left, right) => left.candidateKey.localeCompare(right.candidateKey));
+  const trace =
+    storedKey === "glucose_serum"
+      ? baseTrace
+      : {
+          ...baseTrace,
+          winningCandidateKey: storedKey,
+          candidates: rewrittenCandidates,
+          missingAxes: [
+            ...new Set(
+              rewrittenCandidates.flatMap((candidate) => candidate.missingAxes),
+            ),
+          ].sort(),
+          conflicts: [
+            ...new Set(
+              rewrittenCandidates.flatMap((candidate) => candidate.conflicts),
+            ),
+          ].sort(),
+        };
   return {
     is_active: true,
     resolver_result: "resolved",
     verification_status: "user_verified",
-    measurement_definition_key: "glucose_serum",
+    measurement_definition_key: storedKey,
+    analyte_key:
+      MEASUREMENT_DEFINITIONS.find((definition) => definition.key === storedKey)
+        ?.analyteKey ?? null,
+    input_evidence_hash: trace.inputEvidenceHash,
+    input_identity_format_version: "1",
+    catalog_manifest_version: catalogManifestVersion,
+    catalog_manifest_digest: trace.catalogManifestDigest,
+    resolver_version: resolverVersion,
+    normalization_version: "normalization-test",
+    resolver_decision_trace: trace,
+    resolver_trace_schema_version: "2",
     resolver_evidence: {
       version: 2,
-      selectedCandidateKey: "glucose_serum",
+      selectedCandidateKey: storedKey,
       outcome: "resolved",
+      candidates: trace.candidates.map((candidate) => ({
+        candidateKey: candidate.candidateKey,
+      })),
     },
     ...overrides,
   };
@@ -90,24 +160,7 @@ assert.equal(
 );
 const evidenceAdmission = projectHealthProfileLaboratoryAdmission({
   observation: observation(),
-  relation: activeRevision({
-    catalog_manifest_version: "catalog-test",
-    resolver_version: "resolver-test",
-    normalization_version: "normalization-test",
-    resolver_evidence: {
-      version: 2,
-      selectedCandidateKey: "glucose_serum",
-      outcome: "resolved",
-      candidates: [
-        {
-          candidateKey: "glucose_serum",
-          accepted: [{ code: "exact_key" }],
-          selectable: true,
-          score: 1,
-        },
-      ],
-    },
-  }),
+  relation: activeRevision(),
   labUnitSystem: "si",
 });
 assert.equal(evidenceAdmission.kind, "accepted");
@@ -119,7 +172,7 @@ assert.equal(
 );
 assert.equal(
   evidenceAdmission.kind === "accepted"
-    ? evidenceAdmission.evidence.resolverEvidence?.candidates?.[0]?.candidateKey
+    ? evidenceAdmission.evidence.resolverEvidence?.selectedCandidateKey
     : null,
   "glucose_serum",
 );

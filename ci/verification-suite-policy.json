@@ -161,6 +161,17 @@
       "reason": "Prepared Resolver evidence identity and no-Resolver historical batch undo require focused contract coverage."
     },
     {
+      "script": "test:historical-persisted-decision-read",
+      "verificationFiles": [
+        "scripts/verify-historical-persisted-decision-read.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "documents",
+      "reason": "Historical persisted decision source, quality, conflict, and fail-closed read contracts require focused verification."
+    },
+    {
       "script": "test:eh165",
       "verificationFiles": [
         "scripts/verify-eh165-row-level-observation-dates.ts"

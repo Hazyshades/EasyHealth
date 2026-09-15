@@ -66,7 +66,11 @@ function resolutionDetails(
   verificationStatus: "pending" | "auto_verified" | "user_verified" | "manually_corrected" | null,
 ): LaboratoryResolutionDetails {
   return {
-    source: "active_revision",
+    source: "persisted",
+    quality: "available",
+    notPersisted: false,
+    qualityCodes: [],
+    conflictDetails: [],
     outcome,
     verificationStatus,
     mappingConfidence: outcome === "resolved" ? 0.98 : 0.35,
@@ -77,11 +81,20 @@ function resolutionDetails(
     supportCodes: [],
     candidateCount: outcome === "resolved" ? 1 : 0,
     incompleteReason: outcome === "resolved" ? null : "axis_not_stated",
+    storedIdentity: {
+      measurementDefinitionKey: outcome === "resolved" ? "alt_serum_catalytic_activity" : null,
+      analyteKey: outcome === "resolved" ? "alt" : null,
+      winningCandidateKey: outcome === "resolved" ? "alt_serum_catalytic_activity" : null,
+      selectedCandidateKey: outcome === "resolved" ? "alt_serum_catalytic_activity" : null,
+    },
     versions: {
       catalog: "eh120-test-catalog",
+      catalogDigest: "eh120-test-digest",
       resolver: "eh120-test-resolver",
       normalization: "eh120-test-normalization",
       trace: 1,
+      traceSchemaVersion: "2",
+      inputIdentityFormatVersion: "1",
       compatibilityPolicy: "eh120-test-policy",
     },
     eligibility: {

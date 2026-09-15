@@ -4,13 +4,12 @@ import {
 } from "@/lib/health-profile-snapshot-canonical";
 import {
   getReviewedAssessmentBinding,
-  resolveMeasurementDefinition,
   type BodySystemId,
 } from "@/lib/biomarkers";
 import { getRegistryV2System } from "@/lib/biomarkers/registry-v2-runtime";
 import {
-  getActiveRegistryV2NormalizationRevision,
   isLaboratoryObservation,
+  REGISTRY_V2_NORMALIZATION_REVISION_SELECT,
   type RegistryV2NormalizationRevisionReadBoundary,
 } from "@/lib/documents/observation-read-boundaries";
 import { projectLaboratoryOutcome } from "@/lib/documents/incomplete-laboratory-outcomes";
@@ -31,7 +30,6 @@ import {
   projectHealthProfileLaboratoryAdmission,
   type HealthProfileLaboratoryAdmission,
 } from "@/lib/health-profile-input";
-import { preparedEvidenceFromExtracted } from "@/lib/documents/normalization-review";
 import {
   projectHealthProfileReportedResults,
   type ReportedResultProjectionRow,
@@ -169,7 +167,7 @@ export async function buildHealthProfileSnapshot(options: {
     supabase
       .from("observations")
       .select(
-        "id, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, raw_reference_text, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier, source_page, source_text, bounding_box, source_extracted_biomarker_id, source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(id, record_status, is_current, is_published), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence)",
+        `id, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, raw_reference_text, observed_at, document_id, observation_kind, value_kind, value_text, ordinal, specimen, modifier, source_page, source_text, bounding_box, source_extracted_biomarker_id, source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(id, record_status, is_current, is_published), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(${REGISTRY_V2_NORMALIZATION_REVISION_SELECT})`,
       )
       .eq("profile_id", options.profileId)
       .eq("observation_kind", "lab"),
@@ -254,9 +252,7 @@ export async function buildHealthProfileSnapshot(options: {
         async (ids) =>
           supabase
             .from("observation_normalization_revisions")
-            .select(
-              "id, extracted_biomarker_id, resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence",
-            )
+            .select(REGISTRY_V2_NORMALIZATION_REVISION_SELECT)
             .in("extracted_biomarker_id", ids)
             .eq("is_active", true),
       );
@@ -300,7 +296,6 @@ export async function buildHealthProfileSnapshot(options: {
           `Missing laboratory admission for observation ${linkedObservation.id}`,
         );
       }
-      const activeRevision = getActiveRegistryV2NormalizationRevision(relation);
       const observation =
         linkedObservation ??
         ({
@@ -335,12 +330,9 @@ export async function buildHealthProfileSnapshot(options: {
           },
           normalization_revision: relation,
         } satisfies SnapshotObservationRow);
-      const preview = activeRevision
-        ? null
-        : resolveMeasurementDefinition(preparedEvidenceFromExtracted(row).input);
       const outcome =
         linkedAdmission?.evidence.outcome ??
-        projectLaboratoryOutcome({ observation, relation, preview });
+        projectLaboratoryOutcome({ observation, relation });
       const assessmentInput =
         linkedAdmission?.kind === "accepted" ? linkedAdmission.input : null;
       return {

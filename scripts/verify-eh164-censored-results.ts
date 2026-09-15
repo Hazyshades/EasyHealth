@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   COMPARATOR_MODIFIER_TOKENS,
+  buildPersistedResolverDecisionTrace,
   coerceClinicalModifier,
   inferModifier,
   isCensoredLabValueCell,
   parseLabValueCell,
+  resolveMeasurementDefinition,
 } from "../src/lib/biomarkers";
 import { parsePipelineExtraction } from "../src/lib/documents/extraction";
 import { baseMeasurementFromExtractedRow } from "../src/lib/documents/observation-measurement-correction";
@@ -140,21 +142,51 @@ const censoredObservation = {
   value_kind: "numeric",
   value_text: "< 0.20",
   ordinal: null,
-  specimen: "serum",
+  specimen: "plasma",
   modifier: "fasting",
   observation_kind: "lab" as const,
   measurement_definition_key: "fasting_glucose",
   resolution_status: "resolved",
 };
+
+const censoredTrace = buildPersistedResolverDecisionTrace(
+  resolveMeasurementDefinition({
+    rawLabel: "Fasting glucose",
+    rawUnit: "mg/dL",
+    specimen: "plasma",
+    modifier: "fasting",
+    timing: "fasting",
+    method: "automated",
+    valueKind: "numeric",
+  }),
+  {
+    inputEvidenceHash: "a".repeat(64),
+    catalogManifestVersion: "catalog-test",
+    catalogManifestDigest: "d".repeat(64),
+    resolverVersion: "resolver-test",
+  },
+);
 const censoredRelation = {
   resolver_result: "resolved",
   verification_status: "user_verified",
   measurement_definition_key: "fasting_glucose",
+  analyte_key: "glucose",
   is_active: true,
+  input_evidence_hash: censoredTrace.inputEvidenceHash,
+  input_identity_format_version: "1",
+  catalog_manifest_version: censoredTrace.catalogManifestVersion,
+  catalog_manifest_digest: censoredTrace.catalogManifestDigest,
+  resolver_version: censoredTrace.resolverVersion,
+  normalization_version: "normalization-test",
+  resolver_decision_trace: censoredTrace,
+  resolver_trace_schema_version: "2",
   resolver_evidence: {
     version: 2,
     selectedCandidateKey: "fasting_glucose",
     outcome: "resolved",
+    candidates: censoredTrace.candidates.map((candidate) => ({
+      candidateKey: candidate.candidateKey,
+    })),
   },
 };
 const censoredAdmission = projectHealthProfileLaboratoryAdmission({

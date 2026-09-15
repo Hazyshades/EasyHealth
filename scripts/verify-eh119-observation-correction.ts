@@ -115,7 +115,11 @@ if (acknowledgedUnitLoss.ok) assert.equal(acknowledgedUnitLoss.losesDefinitionBi
 
 function resolutionDetails(): LaboratoryResolutionDetails {
   return {
-    source: "active_revision",
+    source: "persisted",
+    quality: "available",
+    notPersisted: false,
+    qualityCodes: [],
+    conflictDetails: [],
     outcome: "resolved",
     verificationStatus: "auto_verified",
     mappingConfidence: 0.9,
@@ -126,11 +130,20 @@ function resolutionDetails(): LaboratoryResolutionDetails {
     supportCodes: [],
     candidateCount: 1,
     incompleteReason: null,
+    storedIdentity: {
+      measurementDefinitionKey: "alt_serum_catalytic_activity",
+      analyteKey: "alt",
+      winningCandidateKey: "alt_serum_catalytic_activity",
+      selectedCandidateKey: "alt_serum_catalytic_activity",
+    },
     versions: {
       catalog: "2026-08-01.0",
+      catalogDigest: "test-digest",
       resolver: "5",
       normalization: "4",
       trace: 1,
+      traceSchemaVersion: "2",
+      inputIdentityFormatVersion: "1",
       compatibilityPolicy: "1",
     },
     eligibility: {

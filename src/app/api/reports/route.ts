@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getProfileById } from "@/lib/auth/profile";
-import { modelIdForStage, resolveModelForProfileStage } from "@/lib/ai-provider";
+import {
+  modelIdForStage,
+  resolveModelForProfileStage,
+} from "@/lib/ai-provider";
 import { generateDoctorSummary } from "@/lib/generate-doctor-summary";
 import {
   buildReportSystemPrompt,
@@ -21,6 +24,7 @@ import {
 import { buildDocumentStructuredContext } from "@/lib/documents/structured-context";
 import {
   isCurrentDocumentObservation,
+  REGISTRY_V2_NORMALIZATION_REVISION_SELECT,
   type RegistryV2NormalizationRevisionReadBoundary,
 } from "@/lib/documents/observation-read-boundaries";
 import { projectLaboratoryOutcome } from "@/lib/documents/incomplete-laboratory-outcomes";
@@ -57,18 +61,24 @@ export async function GET(req: NextRequest) {
   const typeParam = req.nextUrl.searchParams.get("type");
 
   if (!isReportRange(rangeParam)) {
-    return NextResponse.json({ error: "Invalid range parameter" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid range parameter" },
+      { status: 400 },
+    );
   }
 
   if (typeParam && !isReportType(typeParam)) {
-    return NextResponse.json({ error: "Invalid type parameter" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid type parameter" },
+      { status: 400 },
+    );
   }
 
   const supabase = createAdminClient();
   let query = supabase
     .from("reports")
     .select(
-      "id, title, report_type, detail_level, summary_preview, abnormal_only, created_at"
+      "id, title, report_type, detail_level, summary_preview, abnormal_only, created_at",
     )
     .eq("profile_id", profileId)
     .order("created_at", { ascending: false });
@@ -77,7 +87,7 @@ export async function GET(req: NextRequest) {
     const sanitized = sanitizeSearchTerm(q);
     if (sanitized) {
       query = query.or(
-        `title.ilike.%${sanitized}%,summary_preview.ilike.%${sanitized}%`
+        `title.ilike.%${sanitized}%,summary_preview.ilike.%${sanitized}%`,
       );
     }
   }
@@ -117,17 +127,18 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid request body", details: parsed.error.flatten() },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
-  const { title, report_type, detail_level, document_ids, abnormal_only } = parsed.data;
+  const { title, report_type, detail_level, document_ids, abnormal_only } =
+    parsed.data;
   const eligibleIds = await getEligibleDocumentIds(profileId);
 
   if (eligibleIds.length === 0) {
     return NextResponse.json(
       { error: "Upload and process documents before creating a report" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -140,14 +151,16 @@ export async function POST(req: NextRequest) {
   } else if (document_ids.length === 0) {
     return NextResponse.json(
       { error: "Select at least one document for the report" },
-      { status: 400 }
+      { status: 400 },
     );
   } else {
     const invalid = document_ids.filter((id) => !eligibleIds.includes(id));
     if (invalid.length > 0) {
       return NextResponse.json(
-        { error: "One or more selected documents are not eligible for reports" },
-        { status: 400 }
+        {
+          error: "One or more selected documents are not eligible for reports",
+        },
+        { status: 400 },
       );
     }
     scopeIds = document_ids;
@@ -160,7 +173,7 @@ export async function POST(req: NextRequest) {
   const { data: observations, error: obsError } = await supabase
     .from("observations")
     .select(
-      "name, analyte_key, measurement_definition_key, resolution_status, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, observation_kind, source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(record_status, is_current, is_published), documents(original_filename, observed_at), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(resolver_result, verification_status, measurement_definition_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, resolver_version, normalization_version, is_active, resolver_evidence)"
+      `name, analyte_key, measurement_definition_key, resolution_status, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, observation_kind, source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(record_status, is_current, is_published), documents(original_filename, observed_at), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(${REGISTRY_V2_NORMALIZATION_REVISION_SELECT})`,
     )
     .eq("profile_id", profileId)
     .in("document_id", scopeIds)
@@ -175,8 +188,8 @@ export async function POST(req: NextRequest) {
     structured,
     (observations ?? []).flatMap((o) => {
       const laboratorySource = Array.isArray(o.source_extracted_biomarker)
-        ? o.source_extracted_biomarker[0] ?? null
-        : o.source_extracted_biomarker ?? null;
+        ? (o.source_extracted_biomarker[0] ?? null)
+        : (o.source_extracted_biomarker ?? null);
       if (
         !isCurrentDocumentObservation({
           observation_kind: o.observation_kind,
@@ -199,44 +212,50 @@ export async function POST(req: NextRequest) {
 
       const numericValue = o.value != null ? Number(o.value) : null;
       const document = Array.isArray(o.documents)
-        ? o.documents[0] ?? null
-        : o.documents ?? null;
+        ? (o.documents[0] ?? null)
+        : (o.documents ?? null);
 
-      return [{
-        name: o.name,
-        analyte_key: outcome.analyteKey,
-        measurement_definition_key: outcome.measurementDefinitionKey,
-        resolution_status: outcome.outcome,
-        verification_status: outcome.verificationStatus,
-        registry_binding_ready: outcome.registryBindingReady,
-        report_eligible: outcome.resolutionDetails.eligibility.reportEligible,
-        value_kind: o.value_kind ?? "numeric",
-        value_text:
-          o.value_text ??
-          (numericValue != null && Number.isFinite(numericValue)
-            ? String(numericValue)
-            : null),
-        value:
-          numericValue != null && Number.isFinite(numericValue)
-            ? numericValue
-            : null,
-        unit: o.unit,
-        ref_low: o.ref_low != null ? Number(o.ref_low) : null,
-        ref_high: o.ref_high != null ? Number(o.ref_high) : null,
-        observed_at: o.observed_at,
-        documents: document as {
-          original_filename: string;
-          observed_at: string | null;
-        } | null,
-      }];
+      return [
+        {
+          name: o.name,
+          analyte_key: outcome.analyteKey,
+          measurement_definition_key: outcome.measurementDefinitionKey,
+          resolution_status: outcome.outcome,
+          verification_status: outcome.verificationStatus,
+          decision_source: outcome.resolutionDetails.source,
+          decision_quality: outcome.resolutionDetails.quality,
+          decision_not_persisted: outcome.resolutionDetails.notPersisted,
+          decision_quality_codes: outcome.resolutionDetails.qualityCodes,
+          registry_binding_ready: outcome.registryBindingReady,
+          report_eligible: outcome.resolutionDetails.eligibility.reportEligible,
+          value_kind: o.value_kind ?? "numeric",
+          value_text:
+            o.value_text ??
+            (numericValue != null && Number.isFinite(numericValue)
+              ? String(numericValue)
+              : null),
+          value:
+            numericValue != null && Number.isFinite(numericValue)
+              ? numericValue
+              : null,
+          unit: o.unit,
+          ref_low: o.ref_low != null ? Number(o.ref_low) : null,
+          ref_high: o.ref_high != null ? Number(o.ref_high) : null,
+          observed_at: o.observed_at,
+          documents: document as {
+            original_filename: string;
+            observed_at: string | null;
+          } | null,
+        },
+      ];
     }),
-    abnormal_only
+    abnormal_only,
   );
 
   if (!hasReportContextContent(context)) {
     return NextResponse.json(
       { error: "No structured data found for the selected documents" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -262,7 +281,7 @@ export async function POST(req: NextRequest) {
     console.error("[reports] generateDoctorSummary failed:", message);
     return NextResponse.json(
       { error: "Report generation failed", message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -282,14 +301,14 @@ export async function POST(req: NextRequest) {
       summary_preview,
     })
     .select(
-      "id, title, report_type, detail_level, document_ids, abnormal_only, content, summary_preview, created_at"
+      "id, title, report_type, detail_level, document_ids, abnormal_only, content, summary_preview, created_at",
     )
     .single();
 
   if (insertError) {
     return NextResponse.json(
       { error: "Report generation failed", message: insertError.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
