@@ -779,23 +779,6 @@ export function readPersistedDecision(
   if (operational.malformed)
     pushUnique(qualityCodes, "operational_evidence_unavailable");
   const technicalTrace = readTechnicalTrace(revision, qualityCodes, conflicts);
-  const evidenceCandidateKey =
-    technicalTrace?.winningCandidateKey ??
-    operational.evidence?.selectedCandidateKey ??
-    null;
-  const evidenceAnalyteKey =
-    evidenceCandidateKey === null
-      ? null
-      : (getMeasurementDefinition(evidenceCandidateKey)?.analyteKey ?? null);
-  compareValues(
-    qualityCodes,
-    conflicts,
-    "measurement_identity_conflict",
-    "analyte_key",
-    storedAnalyteKey,
-    null,
-    evidenceAnalyteKey,
-  );
   const operationalEvidence = operational.evidence;
   compareValues(
     qualityCodes,
