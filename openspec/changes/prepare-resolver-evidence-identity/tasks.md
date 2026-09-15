@@ -81,3 +81,6 @@
 - [x] 7.5 Validate the completed OpenSpec change with strict validation and review the apply-ready task list.
 - [x] 7.6 Preserve EH-122 reversal replay idempotency by checking an existing
       request-hash successor before active-state guards.
+
+- [x] 7.7 Align the EH-248 database fixture profile setup with the post-auth
+      `profiles` schema.

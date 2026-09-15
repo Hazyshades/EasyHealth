@@ -1,8 +1,8 @@
 -- EH-248 Change A: prepared-evidence identity, reprocess facts, and
 -- historical restore database contracts.
 begin;
-insert into public.profiles (id, wallet_address)
-values ('00000000-0000-0000-0000-000000002480', 'eh248-resolver-evidence-identity');
+insert into public.profiles (id, email)
+values ('00000000-0000-0000-0000-000000002480', 'eh248-resolver-evidence-identity@example.test');
 insert into public.documents (
   id, profile_id, storage_path, original_filename, status
 ) values (
