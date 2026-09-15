@@ -84,3 +84,6 @@
 
 - [x] 7.7 Align the EH-248 database fixture profile setup with the post-auth
       `profiles` schema.
+
+- [x] 7.8 Use the pgTAP `has_column` assertion directly in the EH-248 database
+      contract fixture.

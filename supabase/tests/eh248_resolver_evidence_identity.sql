@@ -24,8 +24,10 @@ insert into public.document_extracted_biomarkers (
 
 select plan(24);
 
-select ok(
-  has_column('public', 'observation_normalization_revisions', 'input_identity_format_version'),
+select has_column(
+  'public',
+  'observation_normalization_revisions',
+  'input_identity_format_version',
   'normalization revisions carry the nullable identity format version'
 );
 select is(
