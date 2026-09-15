@@ -375,7 +375,7 @@ export function projectLaboratoryOutcome(
   const assessmentEligibility =
     decision.source === "persisted"
       ? evaluateAssessmentEligibility({
-          hasActiveRevision: true,
+          hasActiveRevision: decision.activeRevision !== null,
           outcome,
           registryBindingReady: decision.currentBindingReady,
           hasReviewedAssessmentBinding: reviewedAssessmentBinding != null,

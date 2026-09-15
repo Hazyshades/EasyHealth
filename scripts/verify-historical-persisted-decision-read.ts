@@ -363,6 +363,14 @@ assert.deepEqual(
   multipleActive.qualityCodes,
 );
 
+const projectedMultipleActive = projectLaboratoryOutcome({
+  observation,
+  relation: [revision(), revision({ id: "revision-2" })],
+});
+assert.equal(
+  projectedMultipleActive.resolutionDetails.eligibility.exclusions.assessment,
+  "no_active_revision",
+);
 const unknownTrace = {
   schemaVersion: "2",
   outcome: "resolved",
