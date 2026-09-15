@@ -181,6 +181,18 @@ assert.equal(
   technicalTraceWithoutOperationalEvidence.operationalEvidence,
   null,
 );
+const legacyArrayEvidence = [{ axis: "unit", state: "compatible" }] as const;
+const legacyArray = read(
+  revision({
+    resolver_evidence:
+      legacyArrayEvidence as unknown as RegistryV2NormalizationRevisionReadBoundary["resolver_evidence"],
+  }),
+);
+assert.equal(legacyArray.quality, "available");
+assert.deepEqual(
+  legacyArray.operationalEvidence?.legacyEntries,
+  legacyArrayEvidence,
+);
 
 const missingTrace = read(
   revision({
@@ -252,7 +264,7 @@ const legacyPartialRevision = revision({
   input_evidence_hash: legacyPartialTrace.inputEvidenceHash,
   resolver_result: "partial",
   measurement_definition_key: null,
-  analyte_key: null,
+  analyte_key: "glucose",
   resolver_decision_trace: legacyPartialTrace,
   resolver_trace_schema_version: "1",
   resolver_evidence: {
@@ -279,6 +291,13 @@ assert.equal(
   projectedLegacyPartial.resolutionDetails.incompleteReason,
   "definition_not_reviewed",
 );
+assert.equal(projectedLegacyPartial.storedAnalyteKey, "glucose");
+assert.deepEqual(projectedLegacyPartial.resolutionDetails.storedIdentity, {
+  measurementDefinitionKey: null,
+  analyteKey: null,
+  winningCandidateKey: null,
+  selectedCandidateKey: null,
+});
 
 const unsupportedTrace = read(
   revision({
@@ -307,7 +326,6 @@ assert.equal(
   hasCode(conflictingIdentity, "measurement_identity_conflict"),
   true,
 );
-assert.equal(hasCode(conflictingIdentity, "analyte_identity_conflict"), true);
 assert.equal(
   conflictingIdentity.stored.measurementDefinitionKey,
   "alt_serum_catalytic_activity",

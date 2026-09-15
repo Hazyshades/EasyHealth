@@ -413,11 +413,19 @@ export function projectLaboratoryOutcome(
       admissibilityRejections,
     }),
     storedIdentity: {
-      measurementDefinitionKey: decision.stored.measurementDefinitionKey,
-      analyteKey: decision.stored.analyteKey,
-      winningCandidateKey: decision.technicalTrace?.winningCandidateKey ?? null,
+      measurementDefinitionKey:
+        outcome === "resolved"
+          ? decision.stored.measurementDefinitionKey
+          : null,
+      analyteKey: outcome === "resolved" ? decision.stored.analyteKey : null,
+      winningCandidateKey:
+        outcome === "resolved"
+          ? (decision.technicalTrace?.winningCandidateKey ?? null)
+          : null,
       selectedCandidateKey:
-        decision.operationalEvidence?.selectedCandidateKey ?? null,
+        outcome === "resolved"
+          ? (decision.operationalEvidence?.selectedCandidateKey ?? null)
+          : null,
     },
     versions: {
       catalog: decision.release.catalogManifestVersion,

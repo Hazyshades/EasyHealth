@@ -39,7 +39,6 @@ export type PersistedDecisionQualityCode =
   | "source_lineage_unavailable"
   | "outcome_conflict"
   | "measurement_identity_conflict"
-  | "analyte_identity_conflict"
   | "selected_candidate_conflict"
   | "candidate_set_conflict"
   | "trace_schema_conflict"
@@ -53,7 +52,6 @@ type PersistedDecisionConflictCode = Extract<
   | "multiple_active_revisions"
   | "outcome_conflict"
   | "measurement_identity_conflict"
-  | "analyte_identity_conflict"
   | "selected_candidate_conflict"
   | "candidate_set_conflict"
   | "trace_schema_conflict"
@@ -157,6 +155,9 @@ type PersistedDecisionOperationalEvidenceCandidate = {
   eligible?: boolean;
   admissibilityRejections?: readonly string[];
 };
+type PersistedDecisionLegacyOperationalEvidence = Readonly<
+  Record<string, unknown>
+>;
 
 export type PersistedDecisionOperationalEvidence = {
   version?: number;
@@ -170,13 +171,13 @@ export type PersistedDecisionOperationalEvidence = {
   missingAxes?: readonly string[];
   conflictCodes?: readonly string[];
   admissibilityRejections?: readonly string[];
+  legacyEntries?: readonly PersistedDecisionLegacyOperationalEvidence[];
 };
 
 const CONFLICT_CODES = new Set<PersistedDecisionConflictCode>([
   "multiple_active_revisions",
   "outcome_conflict",
   "measurement_identity_conflict",
-  "analyte_identity_conflict",
   "selected_candidate_conflict",
   "candidate_set_conflict",
   "trace_schema_conflict",
@@ -251,6 +252,7 @@ function sourceIsCurrent(
   );
 }
 
+const legacyOperationalEvidenceSchema = z.array(z.record(z.unknown()));
 const operationalEvidenceItemSchema = z
   .object({
     code: z.string().optional(),
@@ -295,6 +297,12 @@ function readOperationalEvidence(value: unknown): {
 } {
   if (value === null || value === undefined) {
     return { evidence: null, malformed: false };
+  }
+  if (Array.isArray(value)) {
+    const parsedLegacy = legacyOperationalEvidenceSchema.safeParse(value);
+    return parsedLegacy.success
+      ? { evidence: { legacyEntries: parsedLegacy.data }, malformed: false }
+      : { evidence: null, malformed: true };
   }
   const parsed = operationalEvidenceSchema.safeParse(value);
   if (!parsed.success) return { evidence: null, malformed: true };
@@ -715,7 +723,7 @@ export function readPersistedDecision(
   if (
     storedOutcome !== null &&
     storedOutcome !== "resolved" &&
-    (storedKey !== null || storedAnalyteKey !== null)
+    storedKey !== null
   ) {
     pushUnique(qualityCodes, "non_concrete_identity_conflict");
     conflicts.push({
@@ -837,25 +845,6 @@ export function readPersistedDecision(
         persistedValue: storedKey,
         operationalValue: operationalEvidence?.selectedCandidateKey ?? null,
         traceValue: technicalTrace.winningCandidateKey,
-      });
-    }
-  }
-  if (technicalTrace?.winningCandidateKey) {
-    const winnerDefinition = getMeasurementDefinition(
-      technicalTrace.winningCandidateKey,
-    );
-    if (
-      winnerDefinition &&
-      storedAnalyteKey !== null &&
-      winnerDefinition.analyteKey !== storedAnalyteKey
-    ) {
-      pushUnique(qualityCodes, "analyte_identity_conflict");
-      conflicts.push({
-        code: "analyte_identity_conflict",
-        field: "analyte_key",
-        persistedValue: storedAnalyteKey,
-        operationalValue: null,
-        traceValue: winnerDefinition.analyteKey,
       });
     }
   }
