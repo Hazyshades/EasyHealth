@@ -100,8 +100,9 @@ The shared preparation and identity contracts are internal service behavior. The
 - [x] Existing focused regressions: `pnpm test:eh116`, `pnpm test:eh119`, `pnpm test:eh120`, `pnpm test:eh121`, `pnpm test:trace-v2`, `pnpm test:observation-provenance`, `pnpm test:panel-specimen`, `pnpm test:stated-axis`, `pnpm test:health-profile-lab-input`, and `pnpm test:health-profile-admission-baseline`. **Passed.**
 - [x] `pnpm test:eh122` — legacy EH-122 batch reversal and idempotent replay regression verifier. **Passed.**
 - [x] `pnpm generate:biomarker-docs`, `pnpm check:biomarker-docs`, and `pnpm test:biomarker-docs` — canonical generated documentation is current and green. **Passed.**
-- [x] `pnpm render:biomarker-wiki` and explicit local staging export — seven Wiki pages rendered and staged under `.tmp/eh248-wiki-stage`; the Wiki remote is reachable by `git ls-remote`. **Local evidence only; publication is pending because this task must not push.**
-- [ ] `pnpm test:eh122-db` — migration constraints, RPC signatures, trusted writer validation, restore CAS, reprocess fact propagation, and history triggers. **Blocked locally:** Docker Desktop's Linux engine is unavailable. The database job in CI run `34946148434` passed at head `2e8b4b7`; the remaining verifier fixes are committed locally in `90a4ddc` and require a user-triggered push/rerun.
+- [x] `pnpm render:biomarker-wiki` and explicit local staging export — seven Wiki pages rendered and staged under `.tmp/eh248-wiki-stage`; the Wiki remote is reachable by `git ls-remote`. **Local evidence only; publication remains PENDING because this CI-fix commit did not publish the generated Wiki mirror.**
+- [ ] `pnpm test:eh122-db` — migration constraints, RPC signatures, trusted writer validation, restore CAS, reprocess fact propagation, and history triggers. **Blocked locally:** Docker Desktop's Linux engine is unavailable. The database job in CI run `34951259532` passed at head `238aaf2`.
+- [x] CI run `34951259532` at head `238aaf2` — integration, verify, and database jobs completed successfully. **Passed.**
 - [ ] `pnpm check:registry-v2-candidate-corpus` — release approval bindings. **Blocked/pending human renewal:** adding the required `sourceAnalyteKey` fixture evidence changed the candidate input hash, so existing signed approval records are intentionally not rewritten.
 - [x] `openspec validate prepare-resolver-evidence-identity --strict` — final artifact validation after implementation and task checklist updates. **Passed.**
 
@@ -115,4 +116,4 @@ The shared preparation and identity contracts are internal service behavior. The
 
 - Historical persisted-decision read quality/source states from Change B (`persisted`/`preview`, `unavailable`/`conflict`) are **out of scope** for EH-248 and require the separate coordinated OpenSpec change.
 - The shared prepared-evidence object, SHA-256 canonical identity, SQL constraints, RPC payload validation, reprocessing create/activate policy, and same-source CAS are not directly observable through the current product UI; use the developer commands and CI database run above.
-- The generated Wiki mirror is a non-authoritative artifact. Local rendering is complete, but remote Wiki publication is intentionally **PENDING** because the user explicitly prohibited pushing changes.
+- The generated Wiki mirror is a non-authoritative artifact. Local rendering is complete, but remote Wiki publication remains **PENDING** because this CI-fix commit did not publish Wiki content.
