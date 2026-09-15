@@ -24,6 +24,7 @@ import {
 import {
   readPersistedDecision,
   type PersistedDecisionConflict,
+  type PersistedDecisionOperationalEvidence,
   type PersistedDecisionQuality,
   type PersistedDecisionQualityCode,
   type PersistedDecisionSource,
@@ -141,6 +142,9 @@ type DecisionTraceLike = {
   selectedCandidateKey?: string | null;
   runnerUpCandidateKey?: string | null;
   outcome?: ResolverResult | null;
+  missingAxes?: readonly ClinicalCompatibilityAxis[];
+  conflicts?: readonly ResolutionReasonCode[];
+  admissibilityRejections?: readonly AdmissibilityRejectionCode[];
   candidates?: readonly {
     accepted?: readonly { code?: ResolutionReasonCode }[];
     missing?: readonly { code?: ResolutionReasonCode }[];
@@ -177,19 +181,86 @@ function uniqueSorted<T extends string>(values: readonly T[]): T[] {
   return [...new Set(values)].sort();
 }
 
+function asDecisionTraceLike(
+  evidence: PersistedDecisionOperationalEvidence,
+): DecisionTraceLike {
+  return {
+    ...evidence,
+    missingAxes: evidence.missingAxes as
+      | readonly ClinicalCompatibilityAxis[]
+      | undefined,
+    conflicts: evidence.conflictCodes as
+      | readonly ResolutionReasonCode[]
+      | undefined,
+    admissibilityRejections: evidence.admissibilityRejections as
+      | readonly AdmissibilityRejectionCode[]
+      | undefined,
+    candidates:
+      evidence.candidates as unknown as DecisionTraceLike["candidates"],
+  };
+}
+
+function mergeDecisionTrace(
+  technicalTrace: NonNullable<
+    ReturnType<typeof readPersistedDecision>
+  >["technicalTrace"],
+  operationalEvidence: PersistedDecisionOperationalEvidence | null,
+  previewTrace: MeasurementResolution["decisionTrace"] | null,
+): DecisionTraceLike | null {
+  const operationalTrace = operationalEvidence
+    ? asDecisionTraceLike(operationalEvidence)
+    : null;
+  if (technicalTrace !== null && operationalTrace !== null) {
+    const topLevelRejections = operationalTrace.admissibilityRejections;
+    return {
+      ...technicalTrace,
+      missingAxes: uniqueSorted([
+        ...technicalTrace.missingAxes,
+        ...(operationalTrace.missingAxes ?? []),
+      ]),
+      conflicts: uniqueSorted([
+        ...technicalTrace.conflicts,
+        ...(operationalTrace.conflicts ?? []),
+      ]),
+      candidates: technicalTrace.candidates.map((candidate) => {
+        const operationalCandidate = operationalTrace.candidates?.find(
+          (entry) => entry.candidateKey === candidate.candidateKey,
+        );
+        const admissibilityRejections =
+          operationalCandidate?.admissibilityRejections ?? topLevelRejections;
+        return {
+          ...candidate,
+          ...(operationalCandidate?.selectable !== undefined
+            ? { selectable: operationalCandidate.selectable }
+            : {}),
+          ...(admissibilityRejections !== undefined
+            ? { admissibilityRejections }
+            : {}),
+        };
+      }),
+    };
+  }
+  return technicalTrace ?? operationalTrace ?? previewTrace;
+}
+
 function summarizeTrace(trace: DecisionTraceLike | null | undefined) {
   const candidates = trace?.candidates ?? [];
-  return {
-    missingAxes: uniqueSorted(
-      candidates.flatMap((candidate) => candidate.missingAxes ?? []),
-    ),
-    conflictCodes: uniqueSorted(
-      candidates.flatMap((candidate) =>
-        (candidate.rejected ?? []).flatMap((evidence) =>
-          evidence.code ? [evidence.code] : [],
-        ),
+  const missingAxes = uniqueSorted([
+    ...(trace?.missingAxes ?? []),
+    ...candidates.flatMap((candidate) => candidate.missingAxes ?? []),
+  ]);
+  const conflictCodes = uniqueSorted([
+    ...(trace?.conflicts ?? []),
+    ...candidates.flatMap((candidate) =>
+      (candidate.rejected ?? []).flatMap((evidence) =>
+        evidence.code ? [evidence.code] : [],
       ),
     ),
+  ]);
+  const candidateMinimalMissingAxes = minimalBlockingAxes(candidates);
+  return {
+    missingAxes,
+    conflictCodes,
     supportCodes: uniqueSorted(
       candidates.flatMap((candidate) =>
         (candidate.accepted ?? []).flatMap((evidence) =>
@@ -199,12 +270,16 @@ function summarizeTrace(trace: DecisionTraceLike | null | undefined) {
     ),
     candidateCount: candidates.length,
     // #114: the union above is the evidence record; this is what the copy says.
-    minimalMissingAxes: minimalBlockingAxes(candidates),
-    admissibilityRejections: uniqueSorted(
-      candidates.flatMap(
+    minimalMissingAxes:
+      candidateMinimalMissingAxes.length > 0
+        ? candidateMinimalMissingAxes
+        : missingAxes,
+    admissibilityRejections: uniqueSorted([
+      ...(trace?.admissibilityRejections ?? []),
+      ...candidates.flatMap(
         (candidate) => candidate.admissibilityRejections ?? [],
       ),
-    ),
+    ]),
     selectableCount: candidates.filter(
       (candidate) => candidate.selectable !== false,
     ).length,
@@ -270,10 +345,11 @@ export function projectLaboratoryOutcome(
     relation: options.relation,
     preview: options.preview,
   });
-  const trace = (decision.technicalTrace ??
-    decision.operationalEvidence ??
-    decision.preview?.decisionTrace ??
-    null) as DecisionTraceLike | null;
+  const trace = mergeDecisionTrace(
+    decision.technicalTrace,
+    decision.operationalEvidence,
+    decision.preview?.decisionTrace ?? null,
+  );
   const { admissibilityRejections, selectableCount, ...traceFields } =
     summarizeTrace(trace);
   const outcome = decision.stored.outcome;

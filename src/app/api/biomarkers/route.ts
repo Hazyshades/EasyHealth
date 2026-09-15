@@ -202,6 +202,7 @@ export async function GET() {
             decision_quality_codes: outcome.resolutionDetails.qualityCodes,
             registry_binding_ready: outcome.registryBindingReady,
             resolution_details: outcome.resolutionDetails,
+            trend_eligible: outcome.resolutionDetails.eligibility.trendEligible,
             conversion_eligible:
               outcome.resolutionDetails.eligibility.conversionEligible,
             assessment_eligible:

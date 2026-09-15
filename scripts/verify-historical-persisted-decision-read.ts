@@ -206,6 +206,79 @@ const malformedTrace = read(
 assert.equal(malformedTrace.quality, "unavailable");
 assert.equal(hasCode(malformedTrace, "trace_invalid"), true);
 assert.equal(malformedTrace.technicalTrace, null);
+const malformedOperational = read(
+  revision({
+    resolver_evidence: {
+      ...operationalEvidence,
+      selectedCandidateKey: 42,
+    } as unknown as RegistryV2NormalizationRevisionReadBoundary["resolver_evidence"],
+  }),
+);
+assert.equal(malformedOperational.quality, "unavailable");
+assert.equal(
+  hasCode(malformedOperational, "operational_evidence_unavailable"),
+  true,
+);
+assert.equal(malformedOperational.operationalEvidence, null);
+
+const legacyPartialTrace = {
+  schemaVersion: "1",
+  outcome: "partial",
+  decisionKind: "recognized_incomplete",
+  inputEvidenceHash: "b".repeat(64),
+  catalogManifestVersion: trace.catalogManifestVersion,
+  catalogManifestDigest: trace.catalogManifestDigest,
+  resolverVersion: trace.resolverVersion,
+  winningCandidateKey: null,
+  candidates: [
+    {
+      candidateKey: "glucose_serum",
+      maturity: "reviewed",
+      score: 80,
+      accepted: [],
+      rejected: [],
+      missingAxes: [],
+      conflicts: [],
+    },
+  ],
+  missingAxes: [],
+  conflicts: [],
+} as const satisfies PersistedResolverDecisionTrace;
+const legacyPartialObservation = {
+  ...observation,
+  measurement_definition_key: null,
+};
+const legacyPartialRevision = revision({
+  input_evidence_hash: legacyPartialTrace.inputEvidenceHash,
+  resolver_result: "partial",
+  measurement_definition_key: null,
+  analyte_key: null,
+  resolver_decision_trace: legacyPartialTrace,
+  resolver_trace_schema_version: "1",
+  resolver_evidence: {
+    version: 2,
+    outcome: "partial",
+    candidateKeys: ["glucose_serum"],
+    conflictCodes: [],
+    admissibilityRejections: ["definition_not_reviewed"],
+  } as unknown as RegistryV2NormalizationRevisionReadBoundary["resolver_evidence"],
+});
+const legacyPartial = readPersistedDecision({
+  relation: legacyPartialRevision,
+  observation: legacyPartialObservation,
+});
+assert.equal(legacyPartial.quality, "available");
+assert.deepEqual(legacyPartial.operationalEvidence?.candidateKeys, [
+  "glucose_serum",
+]);
+const projectedLegacyPartial = projectLaboratoryOutcome({
+  observation: legacyPartialObservation,
+  relation: legacyPartialRevision,
+});
+assert.equal(
+  projectedLegacyPartial.resolutionDetails.incompleteReason,
+  "definition_not_reviewed",
+);
 
 const unsupportedTrace = read(
   revision({

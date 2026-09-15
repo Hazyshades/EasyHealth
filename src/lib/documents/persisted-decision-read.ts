@@ -9,6 +9,7 @@ import {
   type ResolverResult,
   type VerificationStatus,
 } from "@/lib/biomarkers";
+import { z } from "zod";
 import type {
   RegistryV2LaboratoryBindingSource,
   RegistryV2NormalizationRevisionReadBoundary,
@@ -146,6 +147,17 @@ export type PersistedDecisionReadOptions = Readonly<{
   preview?: MeasurementResolution | null;
 }>;
 
+type PersistedDecisionOperationalEvidenceCandidate = {
+  candidateKey?: string;
+  accepted?: readonly { code?: string }[];
+  missing?: readonly { code?: string }[];
+  rejected?: readonly { code?: string }[];
+  missingAxes?: readonly string[];
+  selectable?: boolean;
+  eligible?: boolean;
+  admissibilityRejections?: readonly string[];
+};
+
 export type PersistedDecisionOperationalEvidence = {
   version?: number;
   compatibilityPolicyVersion?: string;
@@ -153,7 +165,11 @@ export type PersistedDecisionOperationalEvidence = {
   runnerUpCandidateKey?: string | null;
   outcome?: ResolverResult | null;
   confidence?: number;
-  candidates?: readonly { candidateKey?: string }[];
+  candidates?: readonly PersistedDecisionOperationalEvidenceCandidate[];
+  candidateKeys?: readonly string[];
+  missingAxes?: readonly string[];
+  conflictCodes?: readonly string[];
+  admissibilityRejections?: readonly string[];
 };
 
 const CONFLICT_CODES = new Set<PersistedDecisionConflictCode>([
@@ -235,16 +251,55 @@ function sourceIsCurrent(
   );
 }
 
+const operationalEvidenceItemSchema = z
+  .object({
+    code: z.string().optional(),
+  })
+  .passthrough();
+
+const operationalEvidenceCandidateSchema = z
+  .object({
+    candidateKey: z.string().optional(),
+    accepted: z.array(operationalEvidenceItemSchema).optional(),
+    missing: z.array(operationalEvidenceItemSchema).optional(),
+    rejected: z.array(operationalEvidenceItemSchema).optional(),
+    missingAxes: z.array(z.string()).optional(),
+    selectable: z.boolean().optional(),
+    eligible: z.boolean().optional(),
+    admissibilityRejections: z.array(z.string()).optional(),
+  })
+  .passthrough();
+
+const operationalEvidenceSchema = z
+  .object({
+    version: z.number().finite().optional(),
+    compatibilityPolicyVersion: z.string().optional(),
+    selectedCandidateKey: z.string().nullable().optional(),
+    runnerUpCandidateKey: z.string().nullable().optional(),
+    outcome: z
+      .enum(["resolved", "ambiguous", "partial", "unmapped"])
+      .nullable()
+      .optional(),
+    confidence: z.number().finite().optional(),
+    candidates: z.array(operationalEvidenceCandidateSchema).optional(),
+    candidateKeys: z.array(z.string()).optional(),
+    missingAxes: z.array(z.string()).optional(),
+    conflictCodes: z.array(z.string()).optional(),
+    admissibilityRejections: z.array(z.string()).optional(),
+  })
+  .passthrough();
+
 function readOperationalEvidence(value: unknown): {
   evidence: PersistedDecisionOperationalEvidence | null;
   malformed: boolean;
 } {
-  if (value === null || value === undefined)
+  if (value === null || value === undefined) {
     return { evidence: null, malformed: false };
-  if (typeof value !== "object" || Array.isArray(value)) {
-    return { evidence: null, malformed: true };
   }
-  const record = value as Record<string, unknown>;
+  const parsed = operationalEvidenceSchema.safeParse(value);
+  if (!parsed.success) return { evidence: null, malformed: true };
+
+  const record = parsed.data;
   const hasKnownField = [
     "version",
     "compatibilityPolicyVersion",
@@ -253,43 +308,35 @@ function readOperationalEvidence(value: unknown): {
     "outcome",
     "confidence",
     "candidates",
+    "candidateKeys",
+    "missingAxes",
+    "conflictCodes",
+    "admissibilityRejections",
   ].some((key) => key in record);
   if (!hasKnownField) return { evidence: null, malformed: false };
-  const outcome =
-    record.outcome === undefined ? null : asResolverResult(record.outcome);
-  const malformedOutcome = record.outcome != null && outcome === null;
-  const candidates = Array.isArray(record.candidates)
-    ? record.candidates.filter(
-        (candidate): candidate is { candidateKey?: string } =>
-          typeof candidate === "object" && candidate !== null,
-      )
-    : undefined;
-  return {
-    evidence: {
-      ...(typeof record.version === "number"
-        ? { version: record.version }
-        : {}),
-      ...(typeof record.compatibilityPolicyVersion === "string"
-        ? { compatibilityPolicyVersion: record.compatibilityPolicyVersion }
-        : {}),
-      ...(record.selectedCandidateKey === null ||
-      typeof record.selectedCandidateKey === "string"
-        ? { selectedCandidateKey: record.selectedCandidateKey }
-        : {}),
-      ...(record.runnerUpCandidateKey === null ||
-      typeof record.runnerUpCandidateKey === "string"
-        ? { runnerUpCandidateKey: record.runnerUpCandidateKey }
-        : {}),
-      ...(outcome !== null || record.outcome === null ? { outcome } : {}),
-      ...(typeof record.confidence === "number"
-        ? { confidence: record.confidence }
-        : {}),
-      ...(candidates ? { candidates } : {}),
-    },
-    malformed:
-      malformedOutcome ||
-      ("candidates" in record && !Array.isArray(record.candidates)),
+
+  const evidence: PersistedDecisionOperationalEvidence = {
+    version: record.version,
+    compatibilityPolicyVersion: record.compatibilityPolicyVersion,
+    selectedCandidateKey: record.selectedCandidateKey,
+    runnerUpCandidateKey: record.runnerUpCandidateKey,
+    outcome: record.outcome,
+    confidence: record.confidence,
+    candidates: record.candidates,
+    candidateKeys: record.candidateKeys,
+    missingAxes: record.missingAxes,
+    conflictCodes: record.conflictCodes,
+    admissibilityRejections: record.admissibilityRejections,
   };
+  if (
+    evidence.candidates === undefined &&
+    evidence.candidateKeys !== undefined
+  ) {
+    evidence.candidates = evidence.candidateKeys.map((candidateKey) => ({
+      candidateKey,
+    }));
+  }
+  return { evidence, malformed: false };
 }
 
 function pushUnique(
