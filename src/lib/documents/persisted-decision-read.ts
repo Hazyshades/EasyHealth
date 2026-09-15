@@ -473,10 +473,12 @@ function compareLineage(
   conflicts: PersistedDecisionConflict[],
 ): void {
   const expectedExtractedId =
-    observation?.source_extracted_biomarker_id ??
-    (Array.isArray(observation?.source_extracted_biomarker)
-      ? (observation?.source_extracted_biomarker[0]?.id ?? null)
-      : (observation?.source_extracted_biomarker?.id ?? null));
+    asString(observation?.source_extracted_biomarker_id) ??
+    asString(
+      Array.isArray(observation?.source_extracted_biomarker)
+        ? observation?.source_extracted_biomarker[0]?.id
+        : observation?.source_extracted_biomarker?.id,
+    );
   const revisionExtractedId = asString(revision.extracted_biomarker_id);
   if (expectedExtractedId !== null && revisionExtractedId === null) {
     pushUnique(qualityCodes, "source_lineage_unavailable");

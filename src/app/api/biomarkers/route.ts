@@ -11,6 +11,7 @@ import { projectLaboratoryOutcome } from "@/lib/documents/incomplete-laboratory-
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type LaboratoryMeasureSource = {
+  id: string;
   record_status: "active" | "rejected" | "superseded" | null;
   lifecycle_reason_code?: string | null;
   superseded_at?: string | null;
@@ -38,6 +39,7 @@ type BiomarkerObservation = {
   ref_high: number | string | null;
   observed_at: string | null;
   document_id: string | null;
+  source_extracted_biomarker_id: string | null;
   value_kind: string | null;
   value_text: string | null;
   ordinal: number | null;
@@ -98,7 +100,7 @@ export async function GET() {
     const { data: observations, error: observationsError } = await supabase
       .from("observations")
       .select(
-        `id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, raw_name, raw_value_text, raw_unit, raw_reference_text, source_page, source_text, ref_low, ref_high, observed_at, document_id, value_kind, value_text, ordinal, specimen, modifier, documents(id, original_filename, lab_name, archived_at), source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(record_status, lifecycle_reason_code, superseded_at, superseded_by_processing_attempt_id, is_current, is_published), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(${REGISTRY_V2_NORMALIZATION_REVISION_SELECT})`,
+        `id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, raw_name, raw_value_text, raw_unit, raw_reference_text, source_page, source_text, ref_low, ref_high, observed_at, document_id, source_extracted_biomarker_id, value_kind, value_text, ordinal, specimen, modifier, documents(id, original_filename, lab_name, archived_at), source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(id, record_status, lifecycle_reason_code, superseded_at, superseded_by_processing_attempt_id, is_current, is_published), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(${REGISTRY_V2_NORMALIZATION_REVISION_SELECT})`,
       )
       .eq("profile_id", profileId)
       .eq("observation_kind", "lab")
