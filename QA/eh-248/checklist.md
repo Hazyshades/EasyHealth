@@ -106,6 +106,10 @@ The shared preparation and identity contracts are internal service behavior. The
 - [x] `openspec validate prepare-resolver-evidence-identity --strict` — final artifact validation after implementation and task checklist updates. **Passed.**
 
 - [x] `pnpm typecheck:worker` and `pnpm exec tsc --noEmit` — `DocumentType` now includes all supported typed-document categories used by runtime consumers. **Passed.**
+- [x] `pnpm check:registry-v2-cutover`, `pnpm check:no-legacy-promotion-rpc`, and `pnpm check:postgrest-embed-hints` — Registry cutover and embedding-boundary checks passed; the cutover checker now distinguishes legacy Registry paths from Knowledge Base catalog modules.
+- [x] `pnpm test:document-review` — incomplete persisted/legacy review rows remain renderable through the shared preparation adapter while writer and correction validation remain strict. **Passed with CI placeholder environment.**
+- [x] `pnpm test:eh132-fixtures` — synthetic PDF fixtures validate on Windows CRLF and CI LF checkouts. **Passed after accepting both standard PDF line endings.**
+- [x] `pnpm test:eh131` — health navigation source-link assertions pass with the current multiline `buildHealthNavigationPath` call formatting. **Passed.**
 
 ## Out of scope or not manually testable yet
 

@@ -27,7 +27,7 @@ function isAllowlisted(path: string): boolean {
   return path.startsWith(FROZEN_FIXTURE_DIRECTORY) || AUDIT_TOOLING.has(path) || path === SELF;
 }
 
-const forbiddenImport = /(?:\bfrom\s*|\bimport\s*\(|\brequire\s*\(|\bexport\s+(?:[^'";]*?\s+from\s*)?)["'][^"']*(?:launch-(?:catalog|registry)|biomarkers\/catalog|(?:^|\/)catalog(?:\/definitions)?|registry\/biomarker-registry\/v1)[^"']*["']/i;
+const forbiddenImport = /(?:\bfrom\s*|\bimport\s*\(|\brequire\s*\(|\bexport\s+(?:[^'";]*?\s+from\s*)?)["'][^"']*(?:launch-(?:catalog|registry)|biomarkers\/catalog|catalog\/definitions|registry\/biomarker-registry\/v1)[^"']*["']/i;
 const forbiddenLegacyRuntimeSymbol = /\b(?:LAUNCH_CATALOG_MIGRATION_RECORDS|getLaunch(?:CatalogRecord|Conversion|ScoreRole|Specimen|System)|listLaunchCoverageKeys|resolveLaunchCatalogKey)\b/;
 
 const offenders = ROOTS

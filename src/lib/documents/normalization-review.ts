@@ -173,6 +173,7 @@ function baseMeasurementForReview(row: ExtractedReviewRow): BaseMeasurement {
       raw_value_text: row.raw_value_text ?? null,
     },
     null,
+    { allowMissingValue: true },
   );
 }
 

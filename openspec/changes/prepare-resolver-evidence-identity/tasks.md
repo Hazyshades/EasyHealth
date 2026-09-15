@@ -93,3 +93,12 @@
 
 - [x] 7.10 Align the shared `DocumentType` union with all supported typed
       document categories so worker typecheck matches runtime consumers.
+
+- [x] 7.11 Scope Registry v1 import detection to legacy paths without
+      flagging Knowledge Base catalog modules.
+
+- [x] 7.12 Make the EH-104 document-delete source assertion tolerate
+      formatting whitespace between the chained calls.
+- [x] 7.13 Preserve incomplete review rows in shared evidence preparation while keeping mutation callers strict.
+- [x] 7.14 Accept standard PDF line endings in the EH-132 fixture verifier.
+- [x] 7.15 Make the EH-131 drawer source-link assertion formatting-tolerant.

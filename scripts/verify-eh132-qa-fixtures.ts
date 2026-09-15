@@ -54,7 +54,7 @@ for (const filename of pdfFiles) {
   const path = join(root, filename);
   assert.ok(existsSync(path), `fixture file is missing: ${filename}`);
   const pdf = readFileSync(path, "ascii");
-  assert.match(pdf, /^%PDF-1\.4\n/, `${filename} is not a PDF 1.4 fixture`);
+  assert.match(pdf, /^%PDF-1\.4\r?\n/, `${filename} is not a PDF 1.4 fixture`);
   assert.match(pdf, /%%EOF\s*$/, `${filename} has no PDF EOF marker`);
   assert.ok(statSync(path).size > 500, `${filename} is unexpectedly small`);
 }
