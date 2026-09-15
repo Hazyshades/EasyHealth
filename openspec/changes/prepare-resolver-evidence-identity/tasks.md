@@ -87,3 +87,6 @@
 
 - [x] 7.8 Use the pgTAP `has_column` assertion directly in the EH-248 database
       contract fixture.
+
+- [x] 7.9 Supply the complete measurement-override writer argument list in the
+      EH-248 database contract fixture.
