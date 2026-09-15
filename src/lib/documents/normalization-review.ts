@@ -362,6 +362,7 @@ export function buildNormalizationReview(
     observation: decisionObservation,
     relation: revisions,
     preview: options.preview ?? null,
+    decision,
   });
   const decisionTrace: DecisionTraceReview = {
     source: decision.source,

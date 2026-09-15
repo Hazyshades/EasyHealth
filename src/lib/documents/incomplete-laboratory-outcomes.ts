@@ -27,6 +27,7 @@ import {
   type PersistedDecisionOperationalEvidence,
   type PersistedDecisionQuality,
   type PersistedDecisionQualityCode,
+  type PersistedDecisionRead,
   type PersistedDecisionSource,
 } from "./persisted-decision-read";
 import type {
@@ -175,6 +176,7 @@ type OutcomeProjectionOptions = {
     | null
     | undefined;
   preview?: MeasurementResolution | null;
+  decision?: PersistedDecisionRead;
 };
 
 function uniqueSorted<T extends string>(values: readonly T[]): T[] {
@@ -340,11 +342,13 @@ function buildEligibility(options: {
 export function projectLaboratoryOutcome(
   options: OutcomeProjectionOptions,
 ): LaboratoryOutcomeSummary {
-  const decision = readPersistedDecision({
-    observation: options.observation,
-    relation: options.relation,
-    preview: options.preview,
-  });
+  const decision =
+    options.decision ??
+    readPersistedDecision({
+      observation: options.observation,
+      relation: options.relation,
+      preview: options.preview,
+    });
   const trace = mergeDecisionTrace(
     decision.technicalTrace,
     decision.operationalEvidence,
