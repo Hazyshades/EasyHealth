@@ -4,7 +4,6 @@ import { getProfileById } from "@/lib/auth/profile";
 import { presentObservation } from "@/lib/biomarkers";
 import {
   isCurrentDocumentObservation,
-  projectActiveRegistryV2LaboratoryBinding,
   REGISTRY_V2_NORMALIZATION_REVISION_SELECT,
   type RegistryV2NormalizationRevisionReadBoundary,
 } from "@/lib/documents/observation-read-boundaries";
@@ -141,11 +140,7 @@ export async function GET() {
             observation,
             relation: normalization_revision,
           });
-          const binding = projectActiveRegistryV2LaboratoryBinding(
-            observation,
-            normalization_revision,
-          );
-          const { registryBindingReady, resolvedMeasurementBinding } = binding;
+          const { registryBindingReady, resolvedMeasurementBinding } = outcome;
           const valueKind = row.value_kind ?? "numeric";
           const numericValue = row.value != null ? Number(row.value) : null;
 
