@@ -335,6 +335,23 @@ assert.equal(
   "glucose_serum",
 );
 assert.equal(conflictingIdentity.currentBindingReady, false);
+const conflictingAnalyte = read(
+  revision({
+    analyte_key: "ldl",
+  }),
+);
+assert.equal(conflictingAnalyte.source, "persisted");
+assert.equal(conflictingAnalyte.quality, "conflict");
+assert.equal(
+  hasCode(conflictingAnalyte, "measurement_identity_conflict"),
+  true,
+);
+assert.equal(
+  conflictingAnalyte.conflicts.some(
+    (conflict) => conflict.field === "analyte_key",
+  ),
+  true,
+);
 
 const lineageConflict = read(
   revision({
