@@ -3,11 +3,11 @@ import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertDocumentOwner, noStoreJson } from "@/lib/documents/access";
 import {
-  getActiveRegistryV2NormalizationRevision,
   isCurrentDocumentObservation,
   REGISTRY_V2_NORMALIZATION_REVISION_SELECT,
   type RegistryV2NormalizationRevisionReadBoundary,
 } from "@/lib/documents/observation-read-boundaries";
+import { readPersistedDecision } from "@/lib/documents/persisted-decision-read";
 import { serializeLaboratoryOutcome } from "@/lib/documents/incomplete-laboratory-outcomes";
 import {
   parseSourceRegion,
@@ -129,16 +129,20 @@ export async function GET(_req: Request, context: RouteContext) {
       ) {
         return [];
       }
-      const activeRevision = getActiveRegistryV2NormalizationRevision(
-        normalization_revision,
-      );
-      const serialized = serializeLaboratoryOutcome({
-        observation: {
-          ...observation,
-          source_extracted_biomarker: laboratorySource,
-        },
+      const observationWithSource = {
+        ...observation,
+        source_extracted_biomarker: laboratorySource,
+      };
+      const decision = readPersistedDecision({
+        observation: observationWithSource,
         relation: normalization_revision,
       });
+      const serialized = serializeLaboratoryOutcome({
+        observation: observationWithSource,
+        relation: normalization_revision,
+        decision,
+      });
+      const activeRevision = decision.activeRevision;
       // EH-118: a region only renders on the page it was measured against.
       const region = parseSourceRegion(observation.bounding_box);
       return [

@@ -110,6 +110,9 @@ export function ReviewTechnicalDetails({
               ? ` · ${Math.round(details.mappingConfidence * 100)}% confidence`
               : ""}
           </p>
+          <p className="mt-1">
+            Decision quality: {DECISION_QUALITY_LABELS[details.quality]}
+          </p>
           {details.qualityCodes.length > 0 ? (
             <p className="mt-1">
               Quality codes: {details.qualityCodes.join(", ")}

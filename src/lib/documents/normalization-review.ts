@@ -334,19 +334,6 @@ export function buildNormalizationReview(
   revisions: readonly NormalizationRevisionSummary[],
   options: { preview?: MeasurementResolution | null } = {},
 ): NormalizationReview {
-  const activeRevision =
-    revisions.find((revision) => revision.is_active) ?? null;
-  const activeOverride = activeRevision?.measurement_override ?? null;
-  const prepared = preparedEvidenceFromExtracted(row, activeOverride);
-  const effectiveMeasurement = activeOverride
-    ? {
-        ...prepared.effectiveMeasurement,
-        observedAt:
-          "observed_at" in activeOverride
-            ? prepared.effectiveMeasurement.observedAt
-            : null,
-      }
-    : null;
   const decisionObservation = {
     observation_kind: "lab" as const,
     source_extracted_biomarker_id: row.id,
@@ -358,6 +345,23 @@ export function buildNormalizationReview(
     relation: revisions,
     preview: options.preview ?? null,
   });
+  const activeRevisionId = decision.activeRevision?.id ?? null;
+  const activeRevision =
+    activeRevisionId === null
+      ? null
+      : (revisions.find((revision) => revision.id === activeRevisionId) ??
+        null);
+  const activeOverride = activeRevision?.measurement_override ?? null;
+  const prepared = preparedEvidenceFromExtracted(row, activeOverride);
+  const effectiveMeasurement = activeOverride
+    ? {
+        ...prepared.effectiveMeasurement,
+        observedAt:
+          "observed_at" in activeOverride
+            ? prepared.effectiveMeasurement.observedAt
+            : null,
+      }
+    : null;
   const outcome = projectLaboratoryOutcome({
     observation: decisionObservation,
     relation: revisions,

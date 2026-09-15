@@ -91,21 +91,6 @@ export const REGISTRY_V2_NORMALIZATION_REVISION_SELECT =
 export type RegistryV2LaboratoryBindingSource =
   LaboratoryObservationReadBoundary;
 
-export function getActiveRegistryV2NormalizationRevision(
-  relation:
-    | RegistryV2NormalizationRevisionReadBoundary
-    | readonly RegistryV2NormalizationRevisionReadBoundary[]
-    | null
-    | undefined,
-): RegistryV2NormalizationRevisionReadBoundary | null {
-  const revisions = Array.isArray(relation)
-    ? relation
-    : relation
-      ? [relation]
-      : [];
-  return revisions.find((revision) => revision.is_active === true) ?? null;
-}
-
 /**
  * Resolve the only consumer-safe Registry 2.0 laboratory binding. The active
  * revision is authoritative when present; an observation projection can still

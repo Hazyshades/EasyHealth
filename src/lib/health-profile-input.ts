@@ -9,11 +9,11 @@ import {
 import { buildHealthProfile } from "@/lib/health-systems";
 import type { AssessmentExclusionReason } from "@/lib/health-profile-assessment-eligibility";
 import {
-  getActiveRegistryV2NormalizationRevision,
   type RegistryV2LaboratoryBindingSource,
   type RegistryV2NormalizationRevisionReadBoundary,
   type RegistryV2ResolverEvidence,
 } from "@/lib/documents/observation-read-boundaries";
+import { readPersistedDecision } from "@/lib/documents/persisted-decision-read";
 import {
   projectLaboratoryOutcome,
   type LaboratoryOutcomeSummary,
@@ -88,11 +88,16 @@ export function projectHealthProfileLaboratoryAdmission(options: {
   labUnitSystem: LabUnitSystem;
 }): HealthProfileLaboratoryAdmission {
   const { observation, relation, labUnitSystem } = options;
-  const outcome: LaboratoryOutcomeSummary = projectLaboratoryOutcome({
+  const decision = readPersistedDecision({
     observation,
     relation,
   });
-  const activeRevision = getActiveRegistryV2NormalizationRevision(relation);
+  const outcome: LaboratoryOutcomeSummary = projectLaboratoryOutcome({
+    observation,
+    relation,
+    decision,
+  });
+  const activeRevision = decision.activeRevision;
   const evidence: HealthProfileLaboratoryAdmissionEvidence = {
     outcome,
     resolution: outcome.resolutionDetails,

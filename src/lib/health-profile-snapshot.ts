@@ -243,7 +243,7 @@ export async function buildHealthProfileSnapshot(options: {
   const extractedIds = extractedRows.map((row) => row.id);
   const revisionsByExtractedId = new Map<
     string,
-    SnapshotNormalizationRevisionRow
+    SnapshotNormalizationRevisionRow[]
   >();
   if (extractedIds.length > 0) {
     const revisionRows =
@@ -257,7 +257,14 @@ export async function buildHealthProfileSnapshot(options: {
             .eq("is_active", true),
       );
     for (const revision of revisionRows) {
-      revisionsByExtractedId.set(revision.extracted_biomarker_id, revision);
+      const revisions = revisionsByExtractedId.get(
+        revision.extracted_biomarker_id,
+      );
+      if (revisions) {
+        revisions.push(revision);
+      } else {
+        revisionsByExtractedId.set(revision.extracted_biomarker_id, [revision]);
+      }
     }
   }
   const admissionsByObservationId = new Map<
