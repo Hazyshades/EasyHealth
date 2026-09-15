@@ -102,4 +102,4 @@
 - [x] 7.13 Preserve incomplete review rows in shared evidence preparation while keeping mutation callers strict.
 - [x] 7.14 Accept standard PDF line endings in the EH-132 fixture verifier.
 - [x] 7.15 Make the EH-131 drawer source-link assertion formatting-tolerant.
-- [x] 7.16 Verify the pushed commit against all Measurement Registry CI jobs; run `34951259532` passed.
+- [x] 7.16 Verify the pushed commit against all Measurement Registry CI jobs; run `34951800064` passed.

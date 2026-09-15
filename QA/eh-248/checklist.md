@@ -101,8 +101,8 @@ The shared preparation and identity contracts are internal service behavior. The
 - [x] `pnpm test:eh122` — legacy EH-122 batch reversal and idempotent replay regression verifier. **Passed.**
 - [x] `pnpm generate:biomarker-docs`, `pnpm check:biomarker-docs`, and `pnpm test:biomarker-docs` — canonical generated documentation is current and green. **Passed.**
 - [x] `pnpm render:biomarker-wiki` and explicit local staging export — seven Wiki pages rendered and staged under `.tmp/eh248-wiki-stage`; the Wiki remote is reachable by `git ls-remote`. **Local evidence only; publication remains PENDING because this CI-fix commit did not publish the generated Wiki mirror.**
-- [ ] `pnpm test:eh122-db` — migration constraints, RPC signatures, trusted writer validation, restore CAS, reprocess fact propagation, and history triggers. **Blocked locally:** Docker Desktop's Linux engine is unavailable. The database job in CI run `34951259532` passed at head `238aaf2`.
-- [x] CI run `34951259532` at head `238aaf2` — integration, verify, and database jobs completed successfully. **Passed.**
+- [ ] `pnpm test:eh122-db` — migration constraints, RPC signatures, trusted writer validation, restore CAS, reprocess fact propagation, and history triggers. **Blocked locally:** Docker Desktop's Linux engine is unavailable. The database job in CI run `34951800064` passed at head `e2d583c`.
+- [x] CI run `34951800064` at head `e2d583c` — integration, verify, and database jobs completed successfully. **Passed.**
 - [ ] `pnpm check:registry-v2-candidate-corpus` — release approval bindings. **Blocked/pending human renewal:** adding the required `sourceAnalyteKey` fixture evidence changed the candidate input hash, so existing signed approval records are intentionally not rewritten.
 - [x] `openspec validate prepare-resolver-evidence-identity --strict` — final artifact validation after implementation and task checklist updates. **Passed.**
 
