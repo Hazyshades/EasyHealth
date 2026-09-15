@@ -90,3 +90,5 @@ test_ruseluts
 .artifacts
 
 .wiki-export/
+
+.omp

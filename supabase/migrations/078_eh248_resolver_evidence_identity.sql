@@ -1,0 +1,1350 @@
+-- EH-248 Change A: prepared Resolver evidence identity, reprocess decision facts,
+-- and explicit historical restoration.
+--
+-- Legacy revisions keep their existing input_evidence_hash and a NULL identity
+-- format version. Service writes with a request hash and a valid canonical
+-- identity receive format version 1; this migration never rewrites history.
+
+alter table public.observation_normalization_revisions
+  add column if not exists input_identity_format_version text;
+
+alter table public.observation_normalization_revisions
+  alter column input_identity_format_version drop default;
+
+alter table public.observation_normalization_revisions
+  drop constraint if exists observation_normalization_revisions_input_identity_format_version_check;
+alter table public.observation_normalization_revisions
+  add constraint observation_normalization_revisions_input_identity_format_version_check
+  check (
+    input_identity_format_version is null
+    or input_identity_format_version = '1'
+  );
+
+alter table public.observation_normalization_revisions
+  drop constraint if exists observation_normalization_revisions_input_evidence_hash_v1_check;
+alter table public.observation_normalization_revisions
+  add constraint observation_normalization_revisions_input_evidence_hash_v1_check
+  check (
+    input_identity_format_version is null
+    or input_evidence_hash ~ '^[0-9a-f]{64}$'
+  );
+
+create or replace function public.eh248_validate_revision_input_identity()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  restored_identity_format_version text;
+begin
+  -- Direct legacy fixtures and pre-EH-248 rows retain a NULL version. Service
+  -- writers identify themselves with writer_request_hash and receive v1 when
+  -- they supply a valid canonical hash.
+  if new.input_identity_format_version is null then
+    if new.reversal_of_revision_id is not null then
+      select input_identity_format_version
+      into restored_identity_format_version
+      from public.observation_normalization_revisions
+      where id = new.reversal_of_revision_id;
+      new.input_identity_format_version := restored_identity_format_version;
+      return new;
+    end if;
+    if new.writer_request_hash is null then
+      return new;
+    end if;
+    if new.input_evidence_hash is null
+      or new.input_evidence_hash !~ '^[0-9a-f]{64}$' then
+      raise exception using message = 'invalid_input_evidence_hash';
+    end if;
+    new.input_identity_format_version := '1';
+    return new;
+  end if;
+  if new.input_identity_format_version <> '1' then
+    raise exception using message = 'invalid_input_identity_format_version';
+  end if;
+  if new.input_evidence_hash is null
+    or new.input_evidence_hash !~ '^[0-9a-f]{64}$' then
+    raise exception using message = 'invalid_input_evidence_hash';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists eh248_validate_revision_input_identity
+  on public.observation_normalization_revisions;
+create trigger eh248_validate_revision_input_identity
+before insert on public.observation_normalization_revisions
+for each row
+execute function public.eh248_validate_revision_input_identity();
+
+comment on column public.observation_normalization_revisions.input_identity_format_version is
+  'EH-248 prepared-evidence identity format. NULL is retained for legacy revisions and direct fixtures; service writes with a canonical hash use v1.';
+
+-- ── Reprocess facts ──────────────────────────────────────────────────────────
+-- The existing EH-116 row is preserved. These columns make input, outcome and
+-- release comparisons independently auditable, and keep create/activate
+-- decisions explicit rather than deriving them from one classification string.
+
+alter table public.registry_reprocess_batch_rows
+  add column if not exists prior_input_identity_format_version text,
+  add column if not exists next_input_identity_format_version text,
+  add column if not exists input_change text,
+  add column if not exists outcome_change text,
+  add column if not exists release_change text,
+  add column if not exists create_revision boolean,
+  add column if not exists activate_revision boolean,
+  add column if not exists reprocess_change_facts jsonb;
+
+alter table public.registry_reprocess_batch_rows
+  drop constraint if exists registry_reprocess_batch_rows_prior_input_identity_format_version_check;
+alter table public.registry_reprocess_batch_rows
+  add constraint registry_reprocess_batch_rows_prior_input_identity_format_version_check
+  check (
+    prior_input_identity_format_version is null
+    or prior_input_identity_format_version = '1'
+  );
+
+alter table public.registry_reprocess_batch_rows
+  drop constraint if exists registry_reprocess_batch_rows_next_input_identity_format_version_check;
+alter table public.registry_reprocess_batch_rows
+  add constraint registry_reprocess_batch_rows_next_input_identity_format_version_check
+  check (next_input_identity_format_version is null or next_input_identity_format_version = '1');
+
+alter table public.registry_reprocess_batch_rows
+  drop constraint if exists registry_reprocess_batch_rows_input_change_check;
+alter table public.registry_reprocess_batch_rows
+  add constraint registry_reprocess_batch_rows_input_change_check
+  check (input_change is null or input_change in ('changed', 'unchanged', 'unavailable'));
+
+alter table public.registry_reprocess_batch_rows
+  drop constraint if exists registry_reprocess_batch_rows_outcome_change_check;
+alter table public.registry_reprocess_batch_rows
+  add constraint registry_reprocess_batch_rows_outcome_change_check
+  check (outcome_change is null or outcome_change in ('changed', 'unchanged'));
+
+alter table public.registry_reprocess_batch_rows
+  drop constraint if exists registry_reprocess_batch_rows_release_change_check;
+alter table public.registry_reprocess_batch_rows
+  add constraint registry_reprocess_batch_rows_release_change_check
+  check (release_change is null or release_change in ('changed', 'unchanged', 'unavailable'));
+
+alter table public.registry_reprocess_batch_rows
+  drop constraint if exists registry_reprocess_batch_rows_reprocess_change_facts_check;
+alter table public.registry_reprocess_batch_rows
+  add constraint registry_reprocess_batch_rows_reprocess_change_facts_check
+  check (reprocess_change_facts is null or jsonb_typeof(reprocess_change_facts) = 'object');
+
+create index if not exists registry_reprocess_batch_rows_change_facts_idx
+  on public.registry_reprocess_batch_rows (batch_id, input_change, outcome_change, release_change);
+
+create or replace function public.eh248_reject_reprocess_fact_mutation()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.prior_input_identity_format_version is distinct from old.prior_input_identity_format_version
+    or new.next_input_identity_format_version is distinct from old.next_input_identity_format_version
+    or new.input_change is distinct from old.input_change
+    or new.outcome_change is distinct from old.outcome_change
+    or new.release_change is distinct from old.release_change
+    or new.create_revision is distinct from old.create_revision
+    or new.activate_revision is distinct from old.activate_revision
+    or new.reprocess_change_facts is distinct from old.reprocess_change_facts then
+    raise exception using message = 'registry_reprocess_batch_row_immutable_columns';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists eh248_reprocess_fact_immutability
+  on public.registry_reprocess_batch_rows;
+create trigger eh248_reprocess_fact_immutability
+before update on public.registry_reprocess_batch_rows
+for each row
+execute function public.eh248_reject_reprocess_fact_mutation();
+
+-- New application callers use this v2 recorder. The EH-116 recorder remains
+-- available for historical SQL fixtures and writes NULL facts rather than
+-- inventing comparisons for rows recorded before EH-248.
+create function public.registry_reprocess_record_row_v2(
+  p_batch_id uuid,
+  p_extracted_biomarker_id uuid,
+  p_profile_id uuid,
+  p_document_id uuid,
+  p_prior_revision_id uuid,
+  p_prior_resolver_result text,
+  p_prior_measurement_definition_key text,
+  p_prior_analyte_key text,
+  p_prior_verification_status text,
+  p_prior_mapping_confidence_band text,
+  p_prior_input_evidence_hash text,
+  p_prior_input_identity_format_version text,
+  p_next_resolver_result text,
+  p_next_measurement_definition_key text,
+  p_next_analyte_key text,
+  p_next_mapping_confidence_band text,
+  p_next_input_evidence_hash text,
+  p_next_input_identity_format_version text,
+  p_next_mapping_change_classification text,
+  p_next_resolver_decision_trace jsonb,
+  p_next_resolver_trace_schema_version text,
+  p_diff_classification text,
+  p_diff_reason_code text,
+  p_reprocess_facts jsonb
+)
+returns public.registry_reprocess_batch_rows
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  batch public.registry_reprocess_batches;
+  row public.registry_reprocess_batch_rows;
+  input_change_value text;
+  outcome_change_value text;
+  release_change_value text;
+  create_revision_value boolean;
+  activate_revision_value boolean;
+begin
+  select * into batch
+  from public.registry_reprocess_batches
+  where id = p_batch_id
+  for update;
+  if batch.id is null then
+    raise exception using message = 'batch_not_found';
+  end if;
+  if batch.state <> 'dry_run' then
+    raise exception using message = 'batch_not_open_for_row_recording';
+  end if;
+
+  if jsonb_typeof(p_reprocess_facts) is distinct from 'object' then
+    raise exception using message = 'invalid_reprocess_change_facts';
+  end if;
+  input_change_value := nullif(btrim(p_reprocess_facts ->> 'inputChange'), '');
+  outcome_change_value := nullif(btrim(p_reprocess_facts ->> 'outcomeChange'), '');
+  release_change_value := nullif(btrim(p_reprocess_facts ->> 'releaseChange'), '');
+  if jsonb_typeof(p_reprocess_facts -> 'createRevision') is distinct from 'boolean'
+    or jsonb_typeof(p_reprocess_facts -> 'activateRevision') is distinct from 'boolean' then
+    raise exception using message = 'invalid_reprocess_change_facts';
+  end if;
+  create_revision_value := (p_reprocess_facts ->> 'createRevision')::boolean;
+  activate_revision_value := (p_reprocess_facts ->> 'activateRevision')::boolean;
+
+  if input_change_value is null
+    or input_change_value not in ('changed', 'unchanged', 'unavailable')
+    or outcome_change_value is null
+    or outcome_change_value not in ('changed', 'unchanged')
+    or release_change_value is null
+    or release_change_value not in ('changed', 'unchanged', 'unavailable')
+    or p_next_input_identity_format_version is distinct from '1'
+    or (activate_revision_value and not create_revision_value)
+    or (
+      activate_revision_value
+      and not (
+        p_diff_classification in ('improved_resolution', 'identity_changed', 'manual_selection_lost')
+        or (
+          p_diff_classification = 'unchanged'
+          and input_change_value = 'unchanged'
+          and outcome_change_value = 'unchanged'
+          and release_change_value = 'changed'
+        )
+      )
+    ) then
+    raise exception using message = 'invalid_reprocess_change_facts';
+  end if;
+
+  insert into public.registry_reprocess_batch_rows (
+    batch_id,
+    extracted_biomarker_id,
+    profile_id,
+    document_id,
+    prior_revision_id,
+    prior_resolver_result,
+    prior_measurement_definition_key,
+    prior_analyte_key,
+    prior_verification_status,
+    prior_mapping_confidence_band,
+    prior_input_evidence_hash,
+    prior_input_identity_format_version,
+    next_resolver_result,
+    next_measurement_definition_key,
+    next_analyte_key,
+    next_mapping_confidence_band,
+    next_input_evidence_hash,
+    next_input_identity_format_version,
+    next_mapping_change_classification,
+    next_resolver_decision_trace,
+    next_resolver_trace_schema_version,
+    diff_classification,
+    diff_reason_code,
+    input_change,
+    outcome_change,
+    release_change,
+    create_revision,
+    activate_revision,
+    reprocess_change_facts,
+    apply_state
+  )
+  values (
+    p_batch_id,
+    p_extracted_biomarker_id,
+    p_profile_id,
+    p_document_id,
+    p_prior_revision_id,
+    p_prior_resolver_result,
+    p_prior_measurement_definition_key,
+    p_prior_analyte_key,
+    p_prior_verification_status,
+    p_prior_mapping_confidence_band,
+    p_prior_input_evidence_hash,
+    p_prior_input_identity_format_version,
+    p_next_resolver_result,
+    p_next_measurement_definition_key,
+    p_next_analyte_key,
+    p_next_mapping_confidence_band,
+    p_next_input_evidence_hash,
+    p_next_input_identity_format_version,
+    p_next_mapping_change_classification,
+    p_next_resolver_decision_trace,
+    p_next_resolver_trace_schema_version,
+    p_diff_classification::public.registry_reprocess_diff_classification,
+    p_diff_reason_code,
+    input_change_value,
+    outcome_change_value,
+    release_change_value,
+    create_revision_value,
+    activate_revision_value,
+    p_reprocess_facts,
+    case when activate_revision_value
+      then 'pending'::public.registry_reprocess_row_apply_state
+      else 'skipped'::public.registry_reprocess_row_apply_state
+    end
+  )
+  returning * into row;
+
+  update public.registry_reprocess_batches
+  set candidates_total = candidates_total + 1,
+      candidates_unchanged = candidates_unchanged + (case when p_diff_classification = 'unchanged' then 1 else 0 end),
+      candidates_improved = candidates_improved + (case when p_diff_classification = 'improved_resolution' then 1 else 0 end),
+      candidates_regressed = candidates_regressed + (case when p_diff_classification = 'regressed_resolution' then 1 else 0 end),
+      candidates_identity_changed = candidates_identity_changed + (case when p_diff_classification = 'identity_changed' then 1 else 0 end),
+      candidates_manual_selection_lost = candidates_manual_selection_lost + (case when p_diff_classification = 'manual_selection_lost' then 1 else 0 end),
+      candidates_skipped_manual_decision = candidates_skipped_manual_decision + (case when p_diff_classification = 'skipped_manual_decision' then 1 else 0 end),
+      candidates_skipped_manual_correction = candidates_skipped_manual_correction + (case when p_diff_classification = 'skipped_manual_correction' then 1 else 0 end),
+      candidates_needs_review = candidates_needs_review + (case when p_diff_classification = 'needs_review' then 1 else 0 end),
+      candidates_writer_error = candidates_writer_error + (case when p_diff_classification = 'writer_error' then 1 else 0 end)
+  where id = p_batch_id;
+
+  return row;
+end;
+$$;
+
+revoke all on function public.registry_reprocess_record_row_v2(
+  uuid, uuid, uuid, uuid, uuid,
+  text, text, text, text, text, text, text,
+  text, text, text, text, text, text, text,
+  jsonb, text, text, text, jsonb
+) from public, anon, authenticated;
+grant execute on function public.registry_reprocess_record_row_v2(
+  uuid, uuid, uuid, uuid, uuid,
+  text, text, text, text, text, text, text,
+  text, text, text, text, text, text, text,
+  jsonb, text, text, text, jsonb
+) to service_role;
+
+comment on function public.registry_reprocess_record_row_v2(
+  uuid, uuid, uuid, uuid, uuid,
+  text, text, text, text, text, text, text,
+  text, text, text, text, text, text, text,
+  jsonb, text, text, text, jsonb
+) is
+  'EH-248 service-only reprocess recorder: independently records input, outcome and release facts plus explicit create/activate decisions.';
+
+-- ── Explicit historical restoration ──────────────────────────────────────────
+-- This path copies the selected historical decision and uses the existing
+-- atomic promotion primitive. It never invokes the current Resolver, admission
+-- policy, or panel matcher.
+
+create function public.restore_observation_normalization_revision_v1(
+  p_extracted_biomarker_id uuid,
+  p_target_revision_id uuid,
+  p_expected_active_revision_id uuid,
+  p_actor_id uuid,
+  p_correction_reason text,
+  p_request_hash text,
+  p_observation_payload jsonb
+)
+returns table (
+  observation_id uuid,
+  revision_id uuid,
+  verification_status text,
+  resolver_result text,
+  was_reused boolean
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  extracted public.document_extracted_biomarkers;
+  target public.observation_normalization_revisions;
+  active_revision public.observation_normalization_revisions;
+  successor public.observation_normalization_revisions;
+  promoted public.observation_normalization_revisions;
+  target_observation public.observations;
+  existing_successor public.observation_normalization_revisions;
+begin
+  if p_actor_id is null then
+    raise exception using message = 'normalization_writer_actor_required';
+  end if;
+  if coalesce(btrim(p_correction_reason), '') = '' then
+    raise exception using message = 'historical_restore_requires_reason';
+  end if;
+  if p_request_hash is null or p_request_hash !~ '^[0-9a-f]{64}$' then
+    raise exception using message = 'invalid_normalization_writer_request_hash';
+  end if;
+  if jsonb_typeof(p_observation_payload) is distinct from 'object' then
+    raise exception using message = 'invalid_normalization_writer_payload';
+  end if;
+
+  select * into target
+  from public.observation_normalization_revisions
+  where id = p_target_revision_id;
+  if target.id is null
+    or target.extracted_biomarker_id is distinct from p_extracted_biomarker_id then
+    raise exception using message = 'historical_restore_revision_source_mismatch';
+  end if;
+
+  select * into extracted
+  from public.document_extracted_biomarkers
+  where id = p_extracted_biomarker_id
+  for update;
+  if extracted.id is null then
+    raise exception using message = 'extracted_biomarker_not_found';
+  end if;
+
+  select * into existing_successor
+  from public.observation_normalization_revisions
+  where extracted_biomarker_id = extracted.id
+    and writer_request_hash = p_request_hash
+  for update;
+  if existing_successor.id is not null then
+    if existing_successor.reversal_of_revision_id is distinct from target.id then
+      raise exception using message = 'historical_restore_request_conflict';
+    end if;
+    return query select
+      existing_successor.observation_id,
+      existing_successor.id,
+      existing_successor.verification_status,
+      existing_successor.resolver_result,
+      true;
+    return;
+  end if;
+
+  select * into active_revision
+  from public.observation_normalization_revisions
+  where extracted_biomarker_id = extracted.id
+    and is_active
+  for update;
+  if active_revision.id is distinct from p_expected_active_revision_id then
+    raise exception using message = 'stale_revision_conflict';
+  end if;
+  if target.is_active then
+    raise exception using message = 'historical_restore_target_active';
+  end if;
+  if target.input_evidence_hash is null
+    or target.input_evidence_hash !~ '^[0-9a-f]{64}$'
+    or target.resolver_result is null
+    or target.mapping_confidence is null
+    or target.mapping_confidence_band is null
+    or target.resolver_evidence is null
+    or target.resolver_decision_trace is null
+    or target.catalog_manifest_version is null
+    or target.catalog_manifest_digest is null
+    or target.resolver_version is null
+    or target.normalization_version is null then
+    raise exception using message = 'historical_restore_missing_decision';
+  end if;
+
+  select * into target_observation
+  from public.observations
+  where source_extracted_biomarker_id = extracted.id
+  order by created_at asc
+  limit 1
+  for update;
+  if target_observation.id is null then
+    raise exception using message = 'observation_not_found';
+  end if;
+  if (p_observation_payload ->> 'profile_id')::uuid is distinct from extracted.profile_id
+    or (p_observation_payload ->> 'document_id')::uuid is distinct from extracted.document_id then
+    raise exception using message = 'observation_source_owner_mismatch';
+  end if;
+  if target.observation_id is not null
+    and target.observation_id is distinct from target_observation.id then
+    raise exception using message = 'revision_observation_binding_conflict';
+  end if;
+
+  insert into public.observation_normalization_revisions (
+    extracted_biomarker_id,
+    input_evidence_hash,
+    input_identity_format_version,
+    measurement_definition_key,
+    analyte_key,
+    resolver_result,
+    mapping_confidence,
+    mapping_confidence_band,
+    resolver_evidence,
+    catalog_manifest_version,
+    catalog_manifest_digest,
+    resolver_version,
+    normalization_version,
+    extraction_version,
+    verification_status,
+    verification_decided_at,
+    verification_actor_type,
+    verification_actor_id,
+    mapping_change_classification,
+    created_by,
+    correction_reason,
+    reversal_of_revision_id,
+    supersedes_revision_id,
+    writer_request_hash,
+    resolver_decision_trace,
+    resolver_trace_schema_version,
+    measurement_override
+  ) values (
+    extracted.id,
+    target.input_evidence_hash,
+    target.input_identity_format_version,
+    target.measurement_definition_key,
+    target.analyte_key,
+    target.resolver_result,
+    target.mapping_confidence,
+    target.mapping_confidence_band,
+    target.resolver_evidence,
+    target.catalog_manifest_version,
+    target.catalog_manifest_digest,
+    target.resolver_version,
+    target.normalization_version,
+    target.extraction_version,
+    target.verification_status,
+    case when target.verification_status = 'pending' then null else now() end,
+    case
+      when target.verification_status = 'pending' then null
+      when target.verification_status = 'auto_verified' then 'system'
+      else 'user'
+    end,
+    case
+      when target.verification_status in ('pending', 'auto_verified') then null
+      else p_actor_id
+    end,
+    target.mapping_change_classification,
+    p_actor_id,
+    p_correction_reason,
+    target.id,
+    active_revision.id,
+    p_request_hash,
+    target.resolver_decision_trace,
+    target.resolver_trace_schema_version,
+    target.measurement_override
+  )
+  returning * into successor;
+
+  select * into promoted
+  from public.promote_observation_normalization_revision_v2(
+    successor.id,
+    target_observation.id,
+    active_revision.id,
+    p_actor_id,
+    p_observation_payload
+  );
+
+  update public.document_extracted_biomarkers
+  set status = case when target.verification_status = 'pending' then 'needs_review' else 'accepted' end,
+      analyte_key = target.analyte_key,
+      measurement_definition_key = target.measurement_definition_key,
+      resolver_result = target.resolver_result,
+      resolution_status = target.resolver_result,
+      mapping_confidence = target.mapping_confidence,
+      mapping_confidence_band = target.mapping_confidence_band,
+      resolver_evidence = target.resolver_evidence,
+      catalog_manifest_version = target.catalog_manifest_version,
+      catalog_manifest_digest = target.catalog_manifest_digest,
+      resolver_version = target.resolver_version,
+      normalization_version = target.normalization_version,
+      verification_status = target.verification_status
+  where id = extracted.id;
+
+  return query select
+    promoted.observation_id,
+    promoted.id,
+    promoted.verification_status,
+    promoted.resolver_result,
+    false;
+end;
+$$;
+
+revoke all on function public.restore_observation_normalization_revision_v1(
+  uuid, uuid, uuid, uuid, text, text, jsonb
+) from public, anon, authenticated;
+grant execute on function public.restore_observation_normalization_revision_v1(
+  uuid, uuid, uuid, uuid, text, text, jsonb
+) to service_role;
+
+comment on function public.restore_observation_normalization_revision_v1(
+  uuid, uuid, uuid, uuid, text, text, jsonb
+) is
+  'EH-248 service-only historical restore: copy a selected revision, preserve its stored decision, and promote through the atomic projection boundary without current Resolver admission.';
+
+-- EH-248 adds the fail-closed panel-policy conflict to the persisted trace
+-- allowlist. Existing traces remain valid; new conflict traces must persist.
+create or replace function public.eh115_validate_resolver_decision_trace(
+  p_trace jsonb,
+  p_schema_version text
+)
+returns boolean
+language plpgsql
+immutable
+set search_path = public
+as $$
+declare
+  candidate jsonb;
+  evidence jsonb;
+  expected_conflicts jsonb;
+  expected_missing_axes jsonb;
+  expected_trace_conflicts jsonb;
+  expected_candidate_keys integer;
+begin
+  if p_schema_version not in ('1', '2')
+    or jsonb_typeof(p_trace) is distinct from 'object'
+    or p_trace ->> 'schemaVersion' is distinct from p_schema_version
+    or (select count(*) from jsonb_object_keys(p_trace)) <> 11
+    or exists (
+      select 1
+      from jsonb_object_keys(p_trace) as key
+      where key not in (
+        'schemaVersion', 'outcome', 'decisionKind', 'inputEvidenceHash',
+        'catalogManifestVersion', 'catalogManifestDigest', 'resolverVersion',
+        'winningCandidateKey', 'candidates', 'missingAxes', 'conflicts'
+      )
+    )
+    or p_trace ->> 'outcome' not in ('resolved', 'ambiguous', 'partial', 'unmapped')
+    or p_trace ->> 'decisionKind' not in (
+      'single_reviewed_candidate', 'multiple_reviewed_candidates',
+      'recognized_incomplete', 'no_matching_candidate', 'manual_selection'
+    )
+    or coalesce(p_trace ->> 'inputEvidenceHash', '') !~ '^[0-9a-f]{64}$'
+    or coalesce(p_trace ->> 'catalogManifestVersion', '') !~ '^[A-Za-z0-9._:-]{1,128}$'
+    or coalesce(p_trace ->> 'catalogManifestDigest', '') !~ '^[A-Za-z0-9._:-]{1,128}$'
+    or coalesce(p_trace ->> 'resolverVersion', '') !~ '^[A-Za-z0-9._:-]{1,128}$'
+    or jsonb_typeof(p_trace -> 'candidates') is distinct from 'array'
+    or jsonb_typeof(p_trace -> 'missingAxes') is distinct from 'array'
+    or jsonb_typeof(p_trace -> 'conflicts') is distinct from 'array'
+    or not public.eh115_is_canonical_text_array(p_trace -> 'missingAxes')
+    or not public.eh115_is_canonical_text_array(p_trace -> 'conflicts') then
+    return false;
+  end if;
+
+  if (p_trace ->> 'outcome' = 'resolved' and p_trace ->> 'decisionKind' not in ('single_reviewed_candidate', 'manual_selection'))
+    or (p_trace ->> 'outcome' = 'ambiguous' and p_trace ->> 'decisionKind' <> 'multiple_reviewed_candidates')
+    or (p_trace ->> 'outcome' = 'partial' and p_trace ->> 'decisionKind' <> 'recognized_incomplete')
+    or (p_trace ->> 'outcome' = 'unmapped' and p_trace ->> 'decisionKind' <> 'no_matching_candidate')
+    or (p_trace ->> 'outcome' = 'resolved' and jsonb_typeof(p_trace -> 'winningCandidateKey') is distinct from 'string')
+    or (p_trace ->> 'outcome' <> 'resolved' and p_trace -> 'winningCandidateKey' is distinct from 'null'::jsonb)
+    or (jsonb_typeof(p_trace -> 'winningCandidateKey') = 'string' and coalesce(p_trace ->> 'winningCandidateKey', '') !~ '^[a-z0-9]+(_[a-z0-9]+)*$') then
+    return false;
+  end if;
+
+  expected_candidate_keys := case when p_schema_version = '2' then 12 else 7 end;
+
+  for candidate in select value from jsonb_array_elements(p_trace -> 'candidates') loop
+    if jsonb_typeof(candidate) is distinct from 'object'
+      or (select count(*) from jsonb_object_keys(candidate)) <> expected_candidate_keys
+      or exists (
+        select 1
+        from jsonb_object_keys(candidate) as key
+        where key not in ('candidateKey', 'maturity', 'score', 'accepted', 'rejected', 'missingAxes', 'conflicts')
+          and not (
+            p_schema_version = '2'
+            and key in ('aliasKey', 'aliasMatchType', 'aliasLocale', 'aliasLaboratory', 'aliasFoldFallback')
+          )
+      )
+      or coalesce(candidate ->> 'candidateKey', '') !~ '^[a-z0-9]+(_[a-z0-9]+)*$'
+      or candidate ->> 'maturity' not in ('provisional', 'reviewed', 'retired')
+      or jsonb_typeof(candidate -> 'score') not in ('number', 'null')
+      or jsonb_typeof(candidate -> 'accepted') is distinct from 'array'
+      or jsonb_typeof(candidate -> 'rejected') is distinct from 'array'
+      or not public.eh115_is_canonical_text_array(candidate -> 'missingAxes')
+      or exists (
+        select 1
+        from jsonb_array_elements_text(candidate -> 'missingAxes') as axis
+        where axis not in ('unit', 'specimen', 'modifier', 'timing', 'method', 'value_kind')
+      )
+      or not public.eh115_is_canonical_text_array(candidate -> 'conflicts') then
+      return false;
+    end if;
+
+    if p_schema_version = '2' then
+      if coalesce(candidate ->> 'aliasKey', '') !~ '^[A-Za-z0-9._:-]{1,200}$'
+        or candidate ->> 'aliasMatchType' not in ('exact', 'normalized', 'ocr_variant', 'bounded_fuzzy', 'token_set')
+        or candidate ->> 'aliasLocale' not in ('en', 'ru', 'es')
+        or jsonb_typeof(candidate -> 'aliasLaboratory') not in ('string', 'null')
+        or (
+          jsonb_typeof(candidate -> 'aliasLaboratory') = 'string'
+          and coalesce(candidate ->> 'aliasLaboratory', '') !~ '^[A-Za-z0-9._:-]{1,200}$'
+        )
+        or jsonb_typeof(candidate -> 'aliasFoldFallback') is distinct from 'boolean' then
+        return false;
+      end if;
+    end if;
+
+    for evidence in
+      select value from jsonb_array_elements(candidate -> 'accepted')
+      union all
+      select value from jsonb_array_elements(candidate -> 'rejected')
+    loop
+      if jsonb_typeof(evidence) is distinct from 'object'
+        or (select count(*) from jsonb_object_keys(evidence)) <> 2
+        or exists (
+          select 1 from jsonb_object_keys(evidence) as key where key not in ('code', 'strength')
+        )
+        or evidence ->> 'code' not in (
+          'definition_key_match', 'alias_exact_match', 'alias_normalized_match', 'alias_ocr_variant_match',
+          'alias_bounded_fuzzy_match', 'proposed_key_match', 'unit_compatible', 'unit_not_required',
+          'unit_dimension_conflict', 'unit_not_accepted', 'unit_unsupported', 'unit_missing',
+          'specimen_compatible', 'specimen_from_reviewed_panel', 'panel_specimen_policy_conflict',
+          'specimen_conflict', 'specimen_unsupported', 'modifier_compatible',
+          'modifier_conflict', 'section_support', 'neighbour_support', 'reference_shape_support',
+          'specimen_missing', 'modifier_missing', 'manual_selection', 'value_kind_compatible',
+          'value_kind_conflict', 'value_kind_missing', 'timing_compatible', 'timing_conflict',
+          'timing_missing', 'method_compatible', 'method_conflict', 'method_missing',
+          'candidate_not_selected', 'alias_token_set_match'
+        )
+        or evidence ->> 'strength' not in ('hard', 'strong', 'weak') then
+        return false;
+      end if;
+    end loop;
+
+    select coalesce(jsonb_agg(value order by value), '[]'::jsonb)
+    into expected_conflicts
+    from (
+      select distinct rejected_entry.value ->> 'code' as value
+      from jsonb_array_elements(candidate -> 'rejected') as rejected_entry(value)
+      where rejected_entry.value ->> 'strength' = 'hard'
+    ) as values;
+    if candidate -> 'conflicts' is distinct from expected_conflicts then
+      return false;
+    end if;
+  end loop;
+
+  if not public.eh115_is_canonical_text_array(
+    coalesce((
+      select jsonb_agg(candidate_entry.value -> 'candidateKey')
+      from jsonb_array_elements(p_trace -> 'candidates') as candidate_entry(value)
+    ), '[]'::jsonb)
+  ) then
+    return false;
+  end if;
+
+  if p_trace ->> 'winningCandidateKey' is not null and not exists (
+    select 1
+    from jsonb_array_elements(p_trace -> 'candidates') as candidate_entry(value)
+    where candidate_entry.value ->> 'candidateKey' = p_trace ->> 'winningCandidateKey'
+  ) then
+    return false;
+  end if;
+
+  select coalesce(jsonb_agg(value order by value), '[]'::jsonb)
+  into expected_missing_axes
+  from (
+    select distinct axis as value
+    from jsonb_array_elements(p_trace -> 'candidates') as candidate_entry(value),
+      jsonb_array_elements_text(candidate_entry.value -> 'missingAxes') as axis
+  ) as values;
+  select coalesce(jsonb_agg(value order by value), '[]'::jsonb)
+  into expected_trace_conflicts
+  from (
+    select distinct conflict as value
+    from jsonb_array_elements(p_trace -> 'candidates') as candidate_entry(value),
+      jsonb_array_elements_text(candidate_entry.value -> 'conflicts') as conflict
+  ) as values;
+
+  return p_trace -> 'missingAxes' = expected_missing_axes
+    and p_trace -> 'conflicts' = expected_trace_conflicts;
+end;
+$$;
+-- Service writers must present the identity hash and its format as one
+-- explicit payload pair. Legacy rows remain nullable because they do not use
+-- these service writer entrypoints.
+create function public.eh248_require_v1_identity_payload(p_resolution jsonb)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if jsonb_typeof(p_resolution) is distinct from 'object'
+    or p_resolution ->> 'input_identity_format_version' is distinct from '1' then
+    raise exception using message = 'invalid_input_identity_format_version';
+  end if;
+end;
+$$;
+
+revoke all on function public.eh248_require_v1_identity_payload(jsonb)
+  from public, anon, authenticated, service_role;
+
+alter function public.write_observation_normalization_revision_v2(
+  uuid, jsonb, jsonb, text, uuid, text, uuid, text, text, uuid, uuid, text, boolean
+) rename to write_observation_normalization_revision_v2_pre_eh248;
+alter function public.write_observation_normalization_revision_v2(
+  uuid, jsonb, jsonb, text, uuid, text, jsonb, uuid, text, text, uuid, uuid, text, boolean
+) rename to write_observation_normalization_revision_v2_pre_eh248;
+
+create function public.write_observation_normalization_revision_v2(
+  p_extracted_biomarker_id uuid,
+  p_observation jsonb,
+  p_resolution jsonb,
+  p_write_kind text,
+  p_actor_id uuid,
+  p_request_hash text,
+  p_expected_active_revision_id uuid default null,
+  p_mapping_change_classification text default 'additive',
+  p_correction_reason text default null,
+  p_reversal_of_revision_id uuid default null,
+  p_supersedes_revision_id uuid default null,
+  p_extraction_version text default null,
+  p_reviewed_measurement_definition boolean default false
+)
+returns table (
+  observation_id uuid,
+  revision_id uuid,
+  verification_status text,
+  resolver_result text,
+  was_reused boolean
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.eh248_require_v1_identity_payload(p_resolution);
+  return query
+  select *
+  from public.write_observation_normalization_revision_v2_pre_eh248(
+    p_extracted_biomarker_id,
+    p_observation,
+    p_resolution,
+    p_write_kind,
+    p_actor_id,
+    p_request_hash,
+    p_expected_active_revision_id,
+    p_mapping_change_classification,
+    p_correction_reason,
+    p_reversal_of_revision_id,
+    p_supersedes_revision_id,
+    p_extraction_version,
+    p_reviewed_measurement_definition
+  );
+end;
+$$;
+
+create function public.write_observation_normalization_revision_v2(
+  p_extracted_biomarker_id uuid,
+  p_observation jsonb,
+  p_resolution jsonb,
+  p_write_kind text,
+  p_actor_id uuid,
+  p_request_hash text,
+  p_measurement_override jsonb default null,
+  p_expected_active_revision_id uuid default null,
+  p_mapping_change_classification text default 'additive',
+  p_correction_reason text default null,
+  p_reversal_of_revision_id uuid default null,
+  p_supersedes_revision_id uuid default null,
+  p_extraction_version text default null,
+  p_reviewed_measurement_definition boolean default false
+)
+returns table (
+  observation_id uuid,
+  revision_id uuid,
+  verification_status text,
+  resolver_result text,
+  was_reused boolean
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.eh248_require_v1_identity_payload(p_resolution);
+  return query
+  select *
+  from public.write_observation_normalization_revision_v2_pre_eh248(
+    p_extracted_biomarker_id,
+    p_observation,
+    p_resolution,
+    p_write_kind,
+    p_actor_id,
+    p_request_hash,
+    p_measurement_override,
+    p_expected_active_revision_id,
+    p_mapping_change_classification,
+    p_correction_reason,
+    p_reversal_of_revision_id,
+    p_supersedes_revision_id,
+    p_extraction_version,
+    p_reviewed_measurement_definition
+  );
+end;
+$$;
+
+alter function public.eh120_write_automatic_verification_v2(
+  uuid, jsonb, jsonb, text, uuid, text, boolean, boolean, jsonb
+) rename to eh120_write_automatic_verification_v2_pre_eh248;
+
+create function public.eh120_write_automatic_verification_v2(
+  p_extracted_biomarker_id uuid,
+  p_observation jsonb,
+  p_resolution jsonb,
+  p_request_hash text,
+  p_expected_active_revision_id uuid,
+  p_extraction_version text,
+  p_quality_gate_approved boolean,
+  p_reviewed_measurement_definition boolean,
+  p_measurement_override jsonb default null
+)
+returns table (
+  observation_id uuid,
+  revision_id uuid,
+  verification_status text,
+  resolver_result text,
+  was_reused boolean
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.eh248_require_v1_identity_payload(p_resolution);
+  return query
+  select *
+  from public.eh120_write_automatic_verification_v2_pre_eh248(
+    p_extracted_biomarker_id,
+    p_observation,
+    p_resolution,
+    p_request_hash,
+    p_expected_active_revision_id,
+    p_extraction_version,
+    p_quality_gate_approved,
+    p_reviewed_measurement_definition,
+    p_measurement_override
+  );
+end;
+$$;
+
+revoke all on function public.write_observation_normalization_revision_v2_pre_eh248(
+  uuid, jsonb, jsonb, text, uuid, text, uuid, text, text, uuid, uuid, text, boolean
+) from public, anon, authenticated, service_role;
+revoke all on function public.write_observation_normalization_revision_v2_pre_eh248(
+  uuid, jsonb, jsonb, text, uuid, text, jsonb, uuid, text, text, uuid, uuid, text, boolean
+) from public, anon, authenticated, service_role;
+revoke all on function public.eh120_write_automatic_verification_v2_pre_eh248(
+  uuid, jsonb, jsonb, text, uuid, text, boolean, boolean, jsonb
+) from public, anon, authenticated, service_role;
+revoke all on function public.write_observation_normalization_revision_v2(
+  uuid, jsonb, jsonb, text, uuid, text, uuid, text, text, uuid, uuid, text, boolean
+) from public, anon, authenticated;
+grant execute on function public.write_observation_normalization_revision_v2(
+  uuid, jsonb, jsonb, text, uuid, text, uuid, text, text, uuid, uuid, text, boolean
+) to service_role;
+revoke all on function public.write_observation_normalization_revision_v2(
+  uuid, jsonb, jsonb, text, uuid, text, jsonb, uuid, text, text, uuid, uuid, text, boolean
+) from public, anon, authenticated;
+grant execute on function public.write_observation_normalization_revision_v2(
+  uuid, jsonb, jsonb, text, uuid, text, jsonb, uuid, text, text, uuid, uuid, text, boolean
+) to service_role;
+revoke all on function public.eh120_write_automatic_verification_v2(
+  uuid, jsonb, jsonb, text, uuid, text, boolean, boolean, jsonb
+) from public, anon, authenticated;
+grant execute on function public.eh120_write_automatic_verification_v2(
+  uuid, jsonb, jsonb, text, uuid, text, boolean, boolean, jsonb
+) to service_role;
+
+-- EH-122's verification undo keeps its existing pending transition, but the
+-- successor now copies every saved Change A decision field. It remains a
+-- dedicated historical operation and never evaluates current evidence.
+create or replace function public.eh122_reverse_observation_normalization_verification(
+  p_batch_revision_id uuid,
+  p_actor_id uuid,
+  p_correction_reason text,
+  p_request_hash text
+)
+returns table (
+  observation_id uuid,
+  revision_id uuid,
+  was_reused boolean
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  prior public.observation_normalization_revisions;
+  successor public.observation_normalization_revisions;
+  promoted public.observation_normalization_revisions;
+  extracted public.document_extracted_biomarkers;
+begin
+  if p_actor_id is null then
+    raise exception using message = 'normalization_writer_actor_required';
+  end if;
+  if coalesce(btrim(p_correction_reason), '') = '' then
+    raise exception using message = 'verification_reversal_requires_reason';
+  end if;
+  if p_request_hash is null or p_request_hash !~ '^[0-9a-f]{64}$' then
+    raise exception using message = 'invalid_normalization_writer_request_hash';
+  end if;
+
+  select * into prior
+  from public.observation_normalization_revisions
+  where id = p_batch_revision_id
+  for update;
+  if prior.id is null then
+    raise exception using message = 'batch_verification_revision_not_found';
+  end if;
+  select * into successor
+  from public.observation_normalization_revisions
+  where extracted_biomarker_id = prior.extracted_biomarker_id
+    and writer_request_hash = p_request_hash;
+  if successor.id is not null then
+    if successor.reversal_of_revision_id is distinct from prior.id then
+      raise exception using message = 'verification_reversal_request_conflict';
+    end if;
+    return query select successor.observation_id, successor.id, true;
+    return;
+  end if;
+  if not prior.is_active or prior.observation_id is null then
+    raise exception using message = 'batch_verification_revision_not_active';
+  end if;
+  if prior.verification_status <> 'user_verified' then
+    raise exception using message = 'batch_verification_revision_not_reversible';
+  end if;
+  -- EH-122 has established legacy rows written through the direct legacy
+  -- writer before decision traces were persisted. Preserve a trace when one
+  -- exists, but do not break reversal of those rows merely because it is null.
+  if prior.input_evidence_hash is null
+    or prior.input_evidence_hash !~ '^[0-9a-f]{64}$'
+    or prior.resolver_evidence is null
+    or prior.catalog_manifest_version is null
+    or prior.catalog_manifest_digest is null
+    or prior.resolver_version is null
+    or prior.normalization_version is null then
+    raise exception using message = 'batch_verification_revision_not_reversible';
+  end if;
+
+
+  select * into extracted
+  from public.document_extracted_biomarkers
+  where id = prior.extracted_biomarker_id
+  for update;
+  if extracted.id is null then
+    raise exception using message = 'extracted_biomarker_not_found';
+  end if;
+
+  insert into public.observation_normalization_revisions (
+    extracted_biomarker_id,
+    input_evidence_hash,
+    input_identity_format_version,
+    measurement_definition_key,
+    analyte_key,
+    resolver_result,
+    mapping_confidence,
+    mapping_confidence_band,
+    resolver_evidence,
+    catalog_manifest_version,
+    catalog_manifest_digest,
+    resolver_version,
+    normalization_version,
+    extraction_version,
+    verification_status,
+    verification_decided_at,
+    verification_actor_type,
+    verification_actor_id,
+    mapping_change_classification,
+    created_by,
+    correction_reason,
+    reversal_of_revision_id,
+    supersedes_revision_id,
+    writer_request_hash,
+    resolver_decision_trace,
+    resolver_trace_schema_version,
+    measurement_override
+  ) values (
+    prior.extracted_biomarker_id,
+    prior.input_evidence_hash,
+    prior.input_identity_format_version,
+    prior.measurement_definition_key,
+    prior.analyte_key,
+    prior.resolver_result,
+    prior.mapping_confidence,
+    prior.mapping_confidence_band,
+    prior.resolver_evidence,
+    prior.catalog_manifest_version,
+    prior.catalog_manifest_digest,
+    prior.resolver_version,
+    prior.normalization_version,
+    prior.extraction_version,
+    'pending',
+    null,
+    null,
+    null,
+    prior.mapping_change_classification,
+    p_actor_id,
+    p_correction_reason,
+    prior.id,
+    prior.id,
+    p_request_hash,
+    prior.resolver_decision_trace,
+    prior.resolver_trace_schema_version,
+    prior.measurement_override
+  )
+  on conflict (extracted_biomarker_id, writer_request_hash)
+    where writer_request_hash is not null
+    do nothing
+  returning * into successor;
+
+  if successor.id is null then
+    select * into successor
+    from public.observation_normalization_revisions
+    where extracted_biomarker_id = prior.extracted_biomarker_id
+      and writer_request_hash = p_request_hash;
+    if successor.reversal_of_revision_id is distinct from prior.id then
+      raise exception using message = 'verification_reversal_request_conflict';
+    end if;
+    return query select successor.observation_id, successor.id, true;
+    return;
+  end if;
+
+  select * into promoted
+  from public.promote_observation_normalization_revision_v2(
+    successor.id, prior.observation_id, prior.id, p_actor_id, null::jsonb
+  );
+
+  update public.document_extracted_biomarkers
+  set status = 'needs_review', verification_status = 'pending'
+  where id = extracted.id;
+
+  return query select promoted.observation_id, promoted.id, false;
+end;
+$$;
+revoke all on function public.eh122_reverse_observation_normalization_verification(
+  uuid, uuid, text, text
+) from public, anon, authenticated;
+grant execute on function public.eh122_reverse_observation_normalization_verification(
+  uuid, uuid, text, text
+) to service_role;
+
+comment on function public.eh122_reverse_observation_normalization_verification(
+  uuid, uuid, text, text
+) is
+  'EH-122/248 service-only batch undo: append a pending reversal while copying the saved resolution, trace, identity, and release fields without current Resolver evaluation.';
+
+-- ── Change-history identity propagation ───────────────────────────────────────
+
+alter table public.observation_change_events
+  add column if not exists prior_input_identity_format_version text,
+  add column if not exists next_input_identity_format_version text,
+  add column if not exists input_change text,
+  add column if not exists outcome_change text,
+  add column if not exists release_change text,
+  add column if not exists create_revision boolean,
+  add column if not exists activate_revision boolean,
+  add column if not exists reprocess_change_facts jsonb;
+
+alter table public.observation_change_events
+  drop constraint if exists observation_change_events_prior_input_identity_format_version_check,
+  drop constraint if exists observation_change_events_next_input_identity_format_version_check,
+  drop constraint if exists observation_change_events_input_change_check,
+  drop constraint if exists observation_change_events_outcome_change_check,
+  drop constraint if exists observation_change_events_release_change_check,
+  drop constraint if exists observation_change_events_reprocess_change_facts_check;
+alter table public.observation_change_events
+  add constraint observation_change_events_prior_input_identity_format_version_check
+    check (prior_input_identity_format_version is null or prior_input_identity_format_version = '1'),
+  add constraint observation_change_events_next_input_identity_format_version_check
+    check (next_input_identity_format_version is null or next_input_identity_format_version = '1'),
+  add constraint observation_change_events_input_change_check
+    check (input_change is null or input_change in ('changed', 'unchanged', 'unavailable')),
+  add constraint observation_change_events_outcome_change_check
+    check (outcome_change is null or outcome_change in ('changed', 'unchanged')),
+  add constraint observation_change_events_release_change_check
+    check (release_change is null or release_change in ('changed', 'unchanged', 'unavailable')),
+  add constraint observation_change_events_reprocess_change_facts_check
+    check (reprocess_change_facts is null or jsonb_typeof(reprocess_change_facts) = 'object');
+
+comment on column public.observation_change_events.prior_input_identity_format_version is
+  'EH-248 identity format of the stored prior revision; NULL remains explicit for legacy rows.';
+comment on column public.observation_change_events.next_input_identity_format_version is
+  'EH-248 identity format of the next revision or applied revision.';
+comment on column public.observation_change_events.reprocess_change_facts is
+  'EH-248 immutable input, outcome, release, create and activate facts for an applied reprocess row.';
+
+/**
+ * Existing EH-121 capture functions intentionally remain unchanged. This
+ * before-insert enrichment copies the version/fact fields from their source
+ * revision or reprocess row, including old backfill and automatic-verification
+ * paths, without allowing an application caller to invent audit facts.
+ */
+create or replace function public.eh248_enrich_observation_change_event()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  prior_revision public.observation_normalization_revisions%rowtype;
+  next_revision public.observation_normalization_revisions%rowtype;
+  reprocess_row public.registry_reprocess_batch_rows%rowtype;
+begin
+  if new.source_revision_id is not null then
+    select * into next_revision
+    from public.observation_normalization_revisions
+    where id = new.source_revision_id;
+    if next_revision.id is not null then
+      new.next_input_identity_format_version := next_revision.input_identity_format_version;
+    end if;
+    if new.source_prior_revision_id is not null then
+      select * into prior_revision
+      from public.observation_normalization_revisions
+      where id = new.source_prior_revision_id;
+      if prior_revision.id is not null then
+        new.prior_input_identity_format_version := prior_revision.input_identity_format_version;
+      end if;
+    end if;
+  elsif new.source_reprocess_row_id is not null then
+    select * into reprocess_row
+    from public.registry_reprocess_batch_rows
+    where id = new.source_reprocess_row_id;
+    if reprocess_row.id is not null then
+      new.prior_input_identity_format_version := reprocess_row.prior_input_identity_format_version;
+      new.next_input_identity_format_version := reprocess_row.next_input_identity_format_version;
+      new.input_change := reprocess_row.input_change;
+      new.outcome_change := reprocess_row.outcome_change;
+      new.release_change := reprocess_row.release_change;
+      new.create_revision := reprocess_row.create_revision;
+      new.activate_revision := reprocess_row.activate_revision;
+      new.reprocess_change_facts := reprocess_row.reprocess_change_facts;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists eh248_enrich_observation_change_event
+  on public.observation_change_events;
+create trigger eh248_enrich_observation_change_event
+before insert on public.observation_change_events
+for each row
+execute function public.eh248_enrich_observation_change_event();
+
+-- EH-248 applies a dry-run only when the complete deployed release tuple still
+-- matches the batch. The older EH-116 digest-only signature is replaced here
+-- after its historical migration has created it.
+drop function if exists public.registry_reprocess_apply_batch(uuid, text, uuid);
+
+create function public.registry_reprocess_apply_batch(
+  p_batch_id uuid,
+  p_current_catalog_manifest_version text,
+  p_current_catalog_manifest_digest text,
+  p_current_resolver_version text,
+  p_current_normalization_version text,
+  p_current_compatibility_policy_version text,
+  p_actor_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  batch public.registry_reprocess_batches;
+  pending jsonb;
+begin
+  select *
+  into batch
+  from public.registry_reprocess_batches
+  where id = p_batch_id
+  for update;
+
+  if batch.id is null then
+    raise exception using message = 'batch_not_found';
+  end if;
+
+  if batch.state in ('applied', 'applied_with_errors', 'aborted') then
+    return jsonb_build_object('status', batch.state::text, 'rows', '[]'::jsonb);
+  end if;
+
+  if batch.state not in ('dry_run', 'apply_in_progress') then
+    raise exception using message = 'batch_not_open_for_apply';
+  end if;
+
+  if coalesce(btrim(p_current_catalog_manifest_version), '') = ''
+    or coalesce(btrim(p_current_catalog_manifest_digest), '') = ''
+    or coalesce(btrim(p_current_resolver_version), '') = ''
+    or coalesce(btrim(p_current_normalization_version), '') = ''
+    or coalesce(btrim(p_current_compatibility_policy_version), '') = '' then
+    raise exception using message = 'invalid_current_registry_release_tuple';
+  end if;
+
+  if batch.catalog_manifest_version is distinct from p_current_catalog_manifest_version
+    or batch.catalog_manifest_digest is distinct from p_current_catalog_manifest_digest
+    or batch.resolver_version is distinct from p_current_resolver_version
+    or batch.normalization_version is distinct from p_current_normalization_version
+    or batch.compatibility_policy_version is distinct from p_current_compatibility_policy_version then
+    update public.registry_reprocess_batches
+    set state = 'aborted',
+        abort_reason = 'catalog_manifest_drift',
+        aborted_at = now()
+    where id = p_batch_id;
+    return jsonb_build_object('status', 'catalog_manifest_drift', 'rows', '[]'::jsonb);
+  end if;
+
+  update public.registry_reprocess_batches
+  set state = 'apply_in_progress'
+  where id = p_batch_id
+    and state = 'dry_run';
+
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'row_id', r.id,
+        'extracted_biomarker_id', r.extracted_biomarker_id,
+        'diff_classification', r.diff_classification::text,
+        'diff_reason_code', r.diff_reason_code
+      )
+      order by r.created_at asc, r.id asc
+    ),
+    '[]'::jsonb
+  )
+  into pending
+  from public.registry_reprocess_batch_rows r
+  where r.batch_id = p_batch_id
+    and r.apply_state = 'pending';
+
+  return jsonb_build_object('status', 'ok', 'rows', pending);
+end;
+$$;
+
+revoke all on function public.registry_reprocess_apply_batch(
+  uuid, text, text, text, text, text, uuid
+) from public, anon, authenticated;
+grant execute on function public.registry_reprocess_apply_batch(
+  uuid, text, text, text, text, text, uuid
+) to service_role;
+
+comment on function public.registry_reprocess_apply_batch(
+  uuid, text, text, text, text, text, uuid
+) is
+  'EH-248 service-only: after a complete five-field release tuple match, move the batch to apply_in_progress and return pending rows. Release drift is durably recorded as catalog_manifest_drift.';
+
+notify pgrst, 'reload schema';

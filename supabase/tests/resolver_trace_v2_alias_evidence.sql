@@ -200,6 +200,7 @@ create function public.resolution_fixture(
 ) returns jsonb language sql immutable as $$
   select jsonb_build_object(
     'input_evidence_hash', p_hash,
+    'input_identity_format_version', '1',
     'measurement_definition_key', p_candidate_key,
     'analyte_key', p_analyte_key,
     'resolver_result', 'resolved',

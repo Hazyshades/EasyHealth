@@ -8,7 +8,7 @@ import { validateObservationFallbackConfirmation } from "@/lib/documents/biomark
 import { getActiveNormalizationRevision } from "@/lib/documents/normalization-revisions";
 import {
   buildManualCorrectionResolution,
-  measurementInputFromWriterRow,
+  preparedEvidenceFromWriterRow,
   type ExtractedBiomarkerWriterRow,
   writeExtractedBiomarkerNormalization,
 } from "@/lib/documents/observation-normalization-writer";
@@ -36,9 +36,13 @@ export async function POST(req: NextRequest, context: RouteContext) {
   const { doc, error } = await assertDocumentOwner(profileId, id);
   if (error) return error;
 
-  const body = (await req.json().catch(() => ({}))) as { observationIds?: unknown };
+  const body = (await req.json().catch(() => ({}))) as {
+    observationIds?: unknown;
+  };
   const observationIds = Array.isArray(body.observationIds)
-    ? body.observationIds.filter((value): value is string => typeof value === "string")
+    ? body.observationIds.filter(
+        (value): value is string => typeof value === "string",
+      )
     : [];
 
   const supabase = createAdminClient();
@@ -59,36 +63,46 @@ export async function POST(req: NextRequest, context: RouteContext) {
       .in("status", ["needs_review", "pending_review"]),
   ]);
 
-  const observations = (observationsResult.data ?? []) as SourceLinkedObservation[];
+  const observations = (observationsResult.data ??
+    []) as SourceLinkedObservation[];
   const validation = validateObservationFallbackConfirmation({
     documentStatus: resolveDisplayProcessingStatus(doc!),
     submittedObservationIds: observationIds,
     linkedObservationIds: observations.map((row) => row.id),
     reviewableExtractedCount: extractedResult.count ?? 0,
-    reviewDataQueryFailed: Boolean(observationsResult.error || extractedResult.error),
+    reviewDataQueryFailed: Boolean(
+      observationsResult.error || extractedResult.error,
+    ),
   });
 
   if (!validation.ok) {
-    return NextResponse.json({ error: validation.error }, { status: validation.status });
+    return NextResponse.json(
+      { error: validation.error },
+      { status: validation.status },
+    );
   }
 
-  if (observations.some((observation) => !observation.source_extracted_biomarker_id)) {
+  if (
+    observations.some(
+      (observation) => !observation.source_extracted_biomarker_id,
+    )
+  ) {
     return NextResponse.json(
       {
         error:
           "A legacy observation has no extracted source and cannot be confirmed through the Registry 2.0 writer. Reprocess this document before confirming it.",
       },
-      { status: 409 }
+      { status: 409 },
     );
   }
 
   const sourceIds = observations.map(
-    (observation) => observation.source_extracted_biomarker_id!
+    (observation) => observation.source_extracted_biomarker_id!,
   );
   const { data: sourceRows, error: sourceError } = await supabase
     .from("document_extracted_biomarkers")
     .select(
-      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, confidence, specimen, modifier, method, source_page, source_text, bounding_box, reported_alt_value, reported_alt_unit, raw_value_text, processing_version, collected_at"
+      "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, confidence, specimen, modifier, method, source_page, source_text, bounding_box, reported_alt_value, reported_alt_unit, raw_value_text, processing_version, collected_at",
     )
     .eq("document_id", id)
     .eq("profile_id", profileId)
@@ -96,24 +110,27 @@ export async function POST(req: NextRequest, context: RouteContext) {
     .eq("is_published", true)
     .eq("record_status", "active")
     .in("id", sourceIds);
-  if (sourceError) return NextResponse.json({ error: sourceError.message }, { status: 500 });
+  if (sourceError)
+    return NextResponse.json({ error: sourceError.message }, { status: 500 });
 
   const sourceRowsById = new Map(
-    ((sourceRows ?? []) as unknown as ExtractedBiomarkerWriterRow[]).map((row) => [
-      row.id,
-      row,
-    ])
+    ((sourceRows ?? []) as unknown as ExtractedBiomarkerWriterRow[]).map(
+      (row) => [row.id, row],
+    ),
   );
   const confirmedObservationIds: string[] = [];
   const failures: ConfirmationFailure[] = [];
   const observedAt = doc!.observed_at;
 
   for (const observation of observations) {
-    const sourceRow = sourceRowsById.get(observation.source_extracted_biomarker_id!);
+    const sourceRow = sourceRowsById.get(
+      observation.source_extracted_biomarker_id!,
+    );
     if (!sourceRow) {
       failures.push({
         observationId: observation.id,
-        error: "The source extraction is not available for Registry 2.0 confirmation",
+        error:
+          "The source extraction is not available for Registry 2.0 confirmation",
       });
       continue;
     }
@@ -122,15 +139,15 @@ export async function POST(req: NextRequest, context: RouteContext) {
       const activeRevision = await getActiveNormalizationRevision(sourceRow.id);
       if (!activeRevision?.measurement_definition_key) {
         throw new Error(
-          "This observation has no reviewed concrete Registry 2.0 definition to confirm"
+          "This observation has no reviewed concrete Registry 2.0 definition to confirm",
         );
       }
-      const correctedInput = measurementInputFromWriterRow(
+      const preparedEvidence = preparedEvidenceFromWriterRow(
         sourceRow,
         activeRevision.measurement_override,
       );
       const resolution = buildManualCorrectionResolution({
-        input: correctedInput,
+        preparedEvidence,
         selectedDefinitionKey: activeRevision.measurement_definition_key,
       });
       await writeExtractedBiomarkerNormalization({
@@ -141,6 +158,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
         actorId: profileId,
         writeKind: "correction",
         resolution,
+        preparedEvidence,
         expectedActiveRevision: activeRevision,
         correctionReason: "Observation confirmation",
         supersedesRevisionId: activeRevision.id,
@@ -164,7 +182,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
         failures,
         processingStatus: "needs_review",
       },
-      { status: 207 }
+      { status: 207 },
     );
   }
 
@@ -181,7 +199,10 @@ export async function POST(req: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
   if (!updatedDocument) {
-    return NextResponse.json({ error: "Document review state changed" }, { status: 409 });
+    return NextResponse.json(
+      { error: "Document review state changed" },
+      { status: 409 },
+    );
   }
 
   return NextResponse.json({

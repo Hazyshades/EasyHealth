@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { resolveMeasurementDefinition } from "@/lib/biomarkers";
+import {
+  evaluateBatchVerificationEligibility,
+  summarizeBatchVerificationEligibility,
+} from "@/lib/documents/batch-verification-eligibility";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -20,13 +25,8 @@ import { reviewDataErrorMessage } from "@/lib/documents/biomarker-review-state";
 import { isWorkerOffline } from "@/lib/documents/worker-health";
 import { purgeDocumentDerivedLaboratoryLineage } from "@/lib/documents/laboratory-lineage-purge";
 import { purgeDocumentInstrumentalPublicationState } from "@/lib/documents/instrumental-publication-purge";
-import { resolveMeasurementDefinition } from "@/lib/biomarkers";
 import {
-  evaluateBatchVerificationEligibility,
-  summarizeBatchVerificationEligibility,
-} from "@/lib/documents/batch-verification-eligibility";
-import {
-  measurementInputFromWriterRow,
+  preparedEvidenceFromWriterRow,
   type ExtractedBiomarkerWriterRow,
 } from "@/lib/documents/observation-normalization-writer";
 import { getDuplicateCandidatesForDocument } from "@/lib/documents/duplicate-candidates";
@@ -56,9 +56,13 @@ export async function GET(req: NextRequest, context: RouteContext) {
   if (error) return error;
 
   const supabase = createAdminClient();
-  const documentType = normalizeDocumentType(doc!.document_type) ?? "lab_result";
+  const documentType =
+    normalizeDocumentType(doc!.document_type) ?? "lab_result";
   const processingStatus = resolveDisplayProcessingStatus(doc!);
-  const pageParam = Number.parseInt(req.nextUrl.searchParams.get("page") ?? "1", 10);
+  const pageParam = Number.parseInt(
+    req.nextUrl.searchParams.get("page") ?? "1",
+    10,
+  );
   const requestedPage =
     Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
 
@@ -148,7 +152,9 @@ export async function GET(req: NextRequest, context: RouteContext) {
   }));
 
   const pageMatch =
-    pageRows.find((p) => p.page_number === requestedPage) ?? pageRows[0] ?? null;
+    pageRows.find((p) => p.page_number === requestedPage) ??
+    pageRows[0] ??
+    null;
   const pageSigned = pageMatch
     ? await safeSignedUrl(pageMatch.preview_storage_path)
     : null;
@@ -160,18 +166,23 @@ export async function GET(req: NextRequest, context: RouteContext) {
       message: extractedResult.error.message,
     });
   }
-  const extractedItems = extractedResult.error ? [] : (extractedResult.data ?? []);
+  const extractedItems = extractedResult.error
+    ? []
+    : (extractedResult.data ?? []);
   const extractedIds = extractedItems.map((item) => item.id);
   const revisionsResult = extractedIds.length
     ? await supabase
         .from("observation_normalization_revisions")
         .select(
-          "id, extracted_biomarker_id, analyte_key, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, resolver_evidence, catalog_manifest_version, resolver_version, normalization_version, resolver_decision_trace, resolver_trace_schema_version, measurement_override, created_at"
+          "id, extracted_biomarker_id, analyte_key, measurement_definition_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, is_active, resolver_evidence, input_evidence_hash, input_identity_format_version, catalog_manifest_version, resolver_version, normalization_version, resolver_decision_trace, resolver_trace_schema_version, measurement_override, created_at",
         )
         .in("extracted_biomarker_id", extractedIds)
         .order("created_at", { ascending: false })
     : { data: [] as Array<Record<string, unknown>> };
-  const revisionsByExtractedId = new Map<string, Array<Record<string, unknown>>>();
+  const revisionsByExtractedId = new Map<
+    string,
+    Array<Record<string, unknown>>
+  >();
   for (const revision of revisionsResult.data ?? []) {
     const key = String(revision.extracted_biomarker_id);
     const entries = revisionsByExtractedId.get(key) ?? [];
@@ -182,7 +193,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
     ...item,
     normalization: buildNormalizationReview(
       item,
-      (revisionsByExtractedId.get(item.id) ?? []) as unknown as NormalizationRevisionSummary[]
+      (revisionsByExtractedId.get(item.id) ??
+        []) as unknown as NormalizationRevisionSummary[],
     ),
   }));
 
@@ -193,17 +205,16 @@ export async function GET(req: NextRequest, context: RouteContext) {
   const batchEligibility = summarizeBatchVerificationEligibility(
     baseExtractedItems,
     (item) => {
+      const preparedEvidence = preparedEvidenceFromWriterRow(
+        item as unknown as ExtractedBiomarkerWriterRow,
+        item.normalization.activeRevision?.measurement_override,
+      );
       const eligibility = evaluateBatchVerificationEligibility({
         status: item.status,
         recordStatus: item.normalization.recordStatus,
         isCurrent: item.normalization.sourceIsCurrent,
         sourceSnapshot: item.created_at,
-        resolution: resolveMeasurementDefinition(
-          measurementInputFromWriterRow(
-            item as unknown as ExtractedBiomarkerWriterRow,
-            item.normalization.activeRevision?.measurement_override,
-          ),
-        ),
+        resolution: resolveMeasurementDefinition(preparedEvidence.input),
         activeRevision: item.normalization.activeRevision,
       });
       batchEligibilityById.set(item.id, eligibility);
@@ -218,7 +229,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
         available: eligibility?.eligible === true,
         exclusionReason: eligibility?.eligible
           ? null
-          : eligibility?.exclusionCodes[0] ?? "batch_ineligible",
+          : (eligibility?.exclusionCodes[0] ?? "batch_ineligible"),
       },
     };
     return {
@@ -234,7 +245,10 @@ export async function GET(req: NextRequest, context: RouteContext) {
     };
   });
   const extractedCount = enrichedExtractedItems.length;
-  const duplicateCandidates = await getDuplicateCandidatesForDocument(profileId, id);
+  const duplicateCandidates = await getDuplicateCandidatesForDocument(
+    profileId,
+    id,
+  );
   const file =
     fileSigned != null
       ? {
@@ -344,7 +358,9 @@ export async function DELETE(_req: Request, context: RouteContext) {
     await purgeDocumentDerivedLaboratoryLineage(id);
   } catch (purgeError) {
     const message =
-      purgeError instanceof Error ? purgeError.message : "Laboratory lineage purge failed";
+      purgeError instanceof Error
+        ? purgeError.message
+        : "Laboratory lineage purge failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 
@@ -371,9 +387,11 @@ export async function DELETE(_req: Request, context: RouteContext) {
   }
 
   const prefix = `${profileId}/${id}`;
-  const { data: listed } = await supabase.storage.from("lab-documents").list(prefix, {
-    limit: 100,
-  });
+  const { data: listed } = await supabase.storage
+    .from("lab-documents")
+    .list(prefix, {
+      limit: 100,
+    });
 
   async function removePath(path: string) {
     await supabase.storage.from("lab-documents").remove([path]);
@@ -387,16 +405,21 @@ export async function DELETE(_req: Request, context: RouteContext) {
     const nested = await Promise.all(
       listed.map(async (entry) => {
         if (entry.id) return `${prefix}/${entry.name}`;
-        const sub = await supabase.storage.from("lab-documents").list(`${prefix}/${entry.name}`);
+        const sub = await supabase.storage
+          .from("lab-documents")
+          .list(`${prefix}/${entry.name}`);
         return (sub.data ?? []).map((f) => `${prefix}/${entry.name}/${f.name}`);
-      })
+      }),
     );
     for (const p of nested.flat()) {
       if (typeof p === "string") await removePath(p);
     }
   }
 
-  const { error: deleteError } = await supabase.from("documents").delete().eq("id", id);
+  const { error: deleteError } = await supabase
+    .from("documents")
+    .delete()
+    .eq("id", id);
   if (deleteError) {
     return NextResponse.json({ error: deleteError.message }, { status: 500 });
   }

@@ -16,6 +16,14 @@ The system SHALL expose one shared preparation seam for Resolver evidence. Thin 
 - **THEN** the preparation seam SHALL treat that specimen as unstated before applying reviewed panel policy
 - **AND** it SHALL not pass the unevidenced value as stated evidence
 
+#### Scenario: Override semantics do not drift by source adapter
+
+- **WHEN** review and writer adapters receive the same value, unit, value-kind,
+  reference, and raw-text override
+- **THEN** their prepared measurement evidence SHALL be equivalent
+- **AND** the same prepared evidence SHALL be used for resolution, trace, and
+  identity hashing
+
 ### Requirement: Panel policy admission has one owner
 
 The preparation seam SHALL produce a discriminated panel-policy context distinguishing at least `stated`, `applied`, `no_match`, and `conflict`. The Resolver SHALL consume the prepared effective specimen and policy context without re-matching the raw captured heading. A policy conflict SHALL remain distinguishable from no match and SHALL fail closed for effective specimen admission.
@@ -37,6 +45,35 @@ The preparation seam SHALL produce a discriminated panel-policy context distingu
 - **WHEN** a captured heading matches zero or multiple applicable reviewed policies
 - **THEN** the preparation seam SHALL return `no_match` or `conflict` respectively
 - **AND** the Resolver SHALL not receive a fabricated policy-derived specimen
+
+#### Scenario: Policy conflict preserves no concrete specimen
+
+- **WHEN** a captured heading matches multiple distinct reviewed policies for
+  one source analyte
+- **THEN** preparation SHALL return `conflict` with the sorted policy keys
+- **AND** Resolver SHALL record a hard policy-conflict reason and return no
+  concrete mapping
+
+#### Scenario: Policy allowlists prevent cross-analyte admission
+
+- **WHEN** a CBC heading is present on a glucose or HbA1c source row without an
+  applicable reviewed policy
+- **THEN** preparation SHALL return `no_match`
+- **AND** the CBC specimen SHALL not be applied to that candidate
+
+### Requirement: Non-evidence axis sentinels are absent before resolution
+
+The shared preparation seam SHALL canonicalize `none`, `unknown`, and
+`unspecified` sentinel values to absent clinical axes before policy matching and
+Resolver evaluation. This rule SHALL not convert factual comparator or
+detection-limit text into a numeric or absent value.
+
+#### Scenario: Sentinel specimen does not become stated evidence
+
+- **WHEN** an extracted row contains `unknown` or `none` as its specimen and
+  the row provenance does not evidence a concrete specimen
+- **THEN** the prepared specimen SHALL be `null`
+- **AND** panel policy MAY be evaluated as if no concrete specimen was stated
 
 ### Requirement: Resolver input identity is canonical and versioned
 

@@ -66,6 +66,9 @@ function reviewRow(overrides: Record<string, unknown> = {}) {
     biomarker_key: "alt",
     biomarker_name: "ALT (alanine aminotransferase)",
     raw_name: "ALT (alanine aminotransferase)",
+    value_numeric: 28,
+    value_text: null,
+    ordinal: null,
     unit: "U/L",
     raw_unit: "U/L",
     reference_range: "2 - 41",
@@ -235,8 +238,8 @@ assert.equal(
 const unspecifiedRow = measurementInputFromWriterRow(
   writerRow({ specimen: "unspecified", modifier: "none", method: null }),
 );
-assert.equal(unspecifiedRow.specimen, "unspecified");
-assert.equal(unspecifiedRow.modifier, "none");
+assert.equal(unspecifiedRow.specimen, null);
+assert.equal(unspecifiedRow.modifier, null);
 assert.equal(unspecifiedRow.method, null);
 
 // --- 8. The predicate directly -----------------------------------------------

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
-import { statedAxisValue, unstatedAxes } from "../../src/lib/documents/stated-axis-evidence";
+import { unstatedAxes } from "../../src/lib/documents/stated-axis-evidence";
 import {
   MEASUREMENT_CATALOG_MANIFEST_VERSION,
   MEASUREMENT_NORMALIZATION_VERSION,
@@ -11,8 +11,13 @@ import {
   type MeasurementResolution,
   type MeasurementResolutionInput,
   type MeasurementValueKind,
+  type PanelSpecimenPolicyContext,
+  type PanelSpecimenPolicyStatus,
   type ResolverResult,
 } from "../../src/lib/biomarkers";
+import { buildPreparedEvidenceIdentity } from "../../src/lib/documents/measurement-evidence-identity";
+import { prepareMeasurementEvidence } from "../../src/lib/documents/measurement-evidence-admission";
+import { baseMeasurementFromExtractedRow } from "../../src/lib/documents/observation-measurement-correction";
 import { MEASUREMENT_CATALOG_MANIFEST_DIGEST } from "../../src/lib/biomarkers/measurement-registry-release";
 
 /**
@@ -48,6 +53,7 @@ export type CandidateCorpusRow = {
   rawUnit: string | null;
   rawValueText: string;
   valueKind: MeasurementValueKind;
+  sourceAnalyteKey?: string | null;
   specimen?: string | null;
   modifier?: string | null;
   method?: string | null;
@@ -173,7 +179,16 @@ type LoadedCandidateCorpusTechnical = {
 type LoadedCandidateCorpus = LoadedCandidateCorpusTechnical & {
   approvals: CandidateApprovalEvidence;
 };
-
+export type CandidatePreparedEvidenceReport = {
+  specimen: string | null;
+  specimenSource: "stated" | "reviewed_panel_policy" | null;
+  panelSpecimenPolicy: {
+    status: PanelSpecimenPolicyStatus;
+    policyKey: string | null;
+    sourceProvenance: PanelSpecimenPolicyContext["sourceProvenance"];
+    conflictPolicyKeys: string[];
+  };
+};
 
 export type CandidateCorpusReportRow = {
   id: string;
@@ -194,6 +209,9 @@ export type CandidateCorpusReportRow = {
     valueText: string;
     hash: string;
   };
+  preparedInputIdentityFormatVersion: string | null;
+  preparedInputIdentityHash: string | null;
+  preparedEvidence: CandidatePreparedEvidenceReport | null;
   rawPreserved: boolean;
   expectedClassification: ResolverResult;
   expectedMeasurementDefinitionKey: string | null;
@@ -868,31 +886,52 @@ export function runRegistryV2CandidateCorpusTechnical(
     const document = loaded.documents.get(row.documentId);
     if (!document) throw new Error(`Missing document fixture for row ${row.id}`);
     let resolution: MeasurementResolution | null = null;
+    let preparedInputIdentityHash: string | null = null;
+    let preparedInputIdentityFormatVersion: string | null = null;
+    let preparedEvidence: CandidatePreparedEvidenceReport | null = null;
     let error: string | null = null;
-    // #106: the corpus must cross the same boundary production does. A fixture
-    // may only supply a concrete axis when its declared provenance states it,
-    // otherwise the corpus would validate the resolver while leaving the seam
-    // that actually broke completely untested.
-    const provenance = {
-      label: row.rawLabel,
-      sourceText: row.sourceText ?? null,
-      sectionContext: row.sectionContext ?? null,
-    };
+    // The corpus must cross the same evidence-admission boundary production
+    // does. Fixture panel metadata is report context, not Resolver input.
     try {
-      const statedSpecimen = statedAxisValue("specimen", row.specimen ?? null, provenance);
-      const capturedHeading = row.sectionContext ?? null;
-      resolution = resolver({
+      const prepared = prepareMeasurementEvidence({
+        baseMeasurement: baseMeasurementFromExtractedRow(
+          {
+            value_numeric: row.valueKind === "numeric" ? row.rawValueText : null,
+            value_text: row.rawValueText,
+            value_kind: row.valueKind,
+            ordinal: null,
+            unit: row.rawUnit,
+            reference_range: null,
+            raw_reference_range: null,
+            raw_value_text: row.rawValueText,
+          },
+          null,
+        ),
         rawLabel: row.rawLabel,
         rawUnit: row.rawUnit,
         rawValueText: row.rawValueText,
-        specimen: statedSpecimen,
-        specimenSource: statedSpecimen ? "stated" : null,
-        capturedHeading,
-        modifier: statedAxisValue("modifier", row.modifier ?? null, provenance),
-        method: statedAxisValue("method", row.method ?? null, provenance),
-        section: row.panel,
-        valueKind: row.valueKind,
+        sourceText: row.sourceText ?? null,
+        sectionContext: row.sectionContext ?? null,
+        sourceAnalyteKey: row.sourceAnalyteKey ?? null,
+        proposedKey: row.sourceAnalyteKey ?? null,
+        specimen: row.specimen ?? null,
+        modifier: row.modifier ?? null,
+        method: row.method ?? null,
       });
+      const preparedIdentity = buildPreparedEvidenceIdentity(prepared);
+      preparedInputIdentityFormatVersion = preparedIdentity.formatVersion;
+      preparedInputIdentityHash = preparedIdentity.hash;
+      preparedEvidence = {
+        specimen: prepared.input.specimen ?? null,
+        specimenSource: prepared.input.specimenSource ?? null,
+        panelSpecimenPolicy: {
+          status: prepared.panelSpecimenPolicy.status,
+          policyKey: prepared.panelSpecimenPolicy.policyKey,
+          sourceProvenance: prepared.panelSpecimenPolicy.sourceProvenance,
+          conflictPolicyKeys: [...prepared.panelSpecimenPolicy.conflictPolicyKeys],
+        },
+      };
+      resolution = resolver(prepared.input);
     } catch (caught) {
       error = caught instanceof Error ? caught.message : String(caught);
     }
@@ -917,7 +956,7 @@ export function runRegistryV2CandidateCorpusTechnical(
       language: document.language,
       laboratory: document.laboratory,
       valueKind: row.valueKind,
-      contextAvailability: row.specimen || row.modifier || row.method ? "provided" : "missing",
+      contextAvailability: row.specimen || row.modifier || row.method || row.sectionContext ? "provided" : "missing",
       missingAxes: resolution?.missingAxes ?? [],
       aliasMatchTypes: [...new Set((resolution?.candidateEvidence ?? []).flatMap((candidate) => candidate.accepted.filter((item) => item.source === "label").map((item) => item.code)))].sort(),
       maturity: definition?.maturity ?? "none",
@@ -929,7 +968,10 @@ export function runRegistryV2CandidateCorpusTechnical(
         hash: hashJson({ label: row.rawLabel, unit: row.rawUnit, valueText: row.rawValueText, valueKind: row.valueKind }),
       },
       rawPreserved,
+      preparedInputIdentityFormatVersion,
+      preparedInputIdentityHash,
       expectedClassification: row.expected.classification,
+      preparedEvidence,
       expectedMeasurementDefinitionKey: expectedDefinition,
       actualClassification,
       actualMeasurementDefinitionKey,

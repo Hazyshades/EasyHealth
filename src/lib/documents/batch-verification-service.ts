@@ -6,11 +6,14 @@ import {
   type BatchVerificationExclusionCode,
 } from "./batch-verification-eligibility";
 import {
-  measurementInputFromWriterRow,
+  preparedEvidenceFromWriterRow,
   type ExtractedBiomarkerWriterRow,
   writeExtractedBiomarkerNormalization,
 } from "./observation-normalization-writer";
-import { getActiveNormalizationRevision } from "./normalization-revisions";
+import {
+  getActiveNormalizationRevision,
+  restoreBatchVerificationRevision,
+} from "./normalization-revisions";
 import {
   batchVerificationAggregateStatus,
   prepareBatchVerificationSnapshots,
@@ -151,9 +154,11 @@ export async function executeBatchVerification(options: {
       continue;
     }
     const activeRevision = await getActiveNormalizationRevision(row.id);
-    const resolution = resolveMeasurementDefinition(
-      measurementInputFromWriterRow(row, activeRevision?.measurement_override),
+    const preparedEvidence = preparedEvidenceFromWriterRow(
+      row as ExtractedBiomarkerWriterRow,
+      activeRevision?.measurement_override,
     );
+    const resolution = resolveMeasurementDefinition(preparedEvidence.input);
     const eligibility = evaluateBatchVerificationEligibility({
       status: row.status,
       recordStatus: row.record_status,
@@ -190,6 +195,7 @@ export async function executeBatchVerification(options: {
         actorId: options.profileId,
         writeKind: "acceptance",
         resolution,
+        preparedEvidence,
         expectedActiveRevision: activeRevision,
       });
       outcomes.push({
@@ -319,17 +325,10 @@ export async function reverseBatchVerification(options: {
     }
 
     try {
-      const reversal = await writeExtractedBiomarkerNormalization({
-        profileId: options.profileId,
-        documentId: options.documentId,
-        observedAt,
-        row: extracted,
+      const reversal = await restoreBatchVerificationRevision({
+        batchRevisionId: row.resulting_revision_id,
         actorId: options.profileId,
-        writeKind: "verification_reversal",
-        expectedActiveRevision: activeRevision,
         correctionReason: options.reason.trim(),
-        reversalOfRevisionId: row.resulting_revision_id,
-        supersedesRevisionId: row.resulting_revision_id,
       });
       outcomes.push({
         extractedBiomarkerId: row.extracted_biomarker_id,

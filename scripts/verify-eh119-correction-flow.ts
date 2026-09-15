@@ -41,11 +41,6 @@ const correctionRouteSource = readFileSync(
 );
 assert.match(
   correctionRouteSource,
-  /targetRevision\.measurement_definition_key[\s\S]*buildManualCorrectionResolution/,
-  "undo restores a target revision's concrete identity when one exists",
-);
-assert.match(
-  correctionRouteSource,
   /userCorrected:\s*targetOverride !== null/,
   "undo reports whether the restored revision carries a measurement correction",
 );

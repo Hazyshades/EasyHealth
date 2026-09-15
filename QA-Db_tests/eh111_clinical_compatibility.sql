@@ -19,6 +19,7 @@ create function public.eh111_db_resolution_payload(p_result text, p_key text, p_
 returns jsonb language sql immutable as $$
   select jsonb_build_object(
     'input_evidence_hash', repeat('e', 64), 'measurement_definition_key', p_key,
+    'input_identity_format_version', '1',
     'analyte_key', p_analyte, 'resolver_result', p_result, 'mapping_confidence', 0.75,
     'mapping_confidence_band', 'medium', 'resolver_evidence', p_evidence,
     'resolver_decision_trace', jsonb_build_object(

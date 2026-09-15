@@ -666,6 +666,7 @@ select lives_ok(
       ),
       jsonb_build_object(
         'input_evidence_hash', repeat('e', 64),
+        'input_identity_format_version', '1',
         'measurement_definition_key', 'alt_serum',
         'analyte_key', 'alt',
         'resolver_result', 'resolved',

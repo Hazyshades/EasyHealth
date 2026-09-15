@@ -62,6 +62,9 @@ function reviewRow(overrides: Record<string, unknown> = {}) {
     biomarker_name: "Hemoglobin (HGB)",
     raw_name: "Hemoglobin (HGB)",
     unit: "g/L",
+    value_numeric: 138,
+    value_text: null,
+    ordinal: null,
     raw_unit: "g/L",
     reference_range: "120 - 160",
     raw_reference_range: "120 - 160",
@@ -124,12 +127,12 @@ for (const [key, name, unit] of [
 }
 
 assert.equal(
-  matchReviewedPanelSpecimenPolicy("Liver chemistry", "hemoglobin"),
-  null,
+  matchReviewedPanelSpecimenPolicy("Liver chemistry", "hemoglobin").status,
+  "no_match",
   "unrecognised heading yields no policy",
 );
-assert.equal(matchReviewedPanelSpecimenPolicy(null, "hemoglobin"), null);
-assert.equal(matchReviewedPanelSpecimenPolicy(CBC_HEADING, "glucose"), null);
+assert.equal(matchReviewedPanelSpecimenPolicy(null, "hemoglobin").status, "no_match");
+assert.equal(matchReviewedPanelSpecimenPolicy(CBC_HEADING, "glucose").status, "no_match");
 
 const statedSerum = measurementInputFromWriterRow(
   writerRow({

@@ -29,7 +29,8 @@ assert.match(
 );
 
 const purgeIndex = route.indexOf("purgeDocumentDerivedLaboratoryLineage(id)");
-const deleteIndex = route.indexOf('.from("documents").delete()');
+const deleteMatch = route.match(/\.from\("documents"\)\s*\.delete\(\)/);
+const deleteIndex = deleteMatch?.index ?? -1;
 assert.ok(purgeIndex >= 0 && deleteIndex >= 0, "purge and delete calls must exist");
 assert.ok(
   purgeIndex < deleteIndex,

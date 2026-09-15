@@ -23,6 +23,8 @@ import {
 export type DocumentType =
   | "lab_result"
   | "instrumental_report"
+  | "consultation_note"
+  | "discharge_summary"
   | "prescription"
   | "referral"
   | "dicom";

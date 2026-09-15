@@ -28,6 +28,11 @@ import {
   type MeasurementOverride,
 } from "./observation-measurement-correction";
 import {
+  measurementAtObservedDate,
+  prepareMeasurementEvidence,
+  type PreparedEvidence,
+} from "./measurement-evidence-admission";
+import {
   decideAutomaticPromotion,
   isAutomaticVerificationReleaseApproved,
 } from "./normalization-policy";
@@ -42,13 +47,11 @@ import {
   getNormalizationSourceState,
   type NormalizationRevision,
 } from "./normalization-revisions";
-import { statedAxisValue } from "./stated-axis-evidence";
-import { matchReviewedPanelSpecimenPolicy } from "@/lib/biomarkers/panel-specimen-policy";
 import {
   buildResolutionOutcomeMetric,
   emitResolutionOutcomeMetricForWrite,
 } from "./incomplete-laboratory-outcomes";
-const OBSERVED_AT_NOT_USED_BY_RESOLUTION = "1970-01-01";
+import { MEASUREMENT_INPUT_IDENTITY_FORMAT_VERSION } from "./measurement-evidence-identity";
 
 export type ExtractedBiomarkerWriterRow = {
   id: string;
@@ -183,69 +186,31 @@ function normalizeWriterRpcError(error: unknown): ObservationNormalizationWriter
   );
 }
 
+export function preparedEvidenceFromWriterRow(
+  row: ExtractedBiomarkerWriterRow,
+  override?: MeasurementOverride | null,
+): PreparedEvidence {
+  return prepareMeasurementEvidence({
+    baseMeasurement: baseMeasurementFromWriterRow(row, null),
+    override,
+    rawLabel: row.raw_name ?? row.biomarker_name,
+    rawUnit: row.raw_unit ?? row.unit ?? null,
+    rawValueText: row.raw_value_text ?? null,
+    sourceText: row.source_text ?? null,
+    sectionContext: row.section_context ?? null,
+    sourceAnalyteKey: row.biomarker_key,
+    proposedKey: row.biomarker_key,
+    specimen: row.specimen ?? null,
+    modifier: row.modifier ?? null,
+    method: row.method ?? null,
+  });
+}
 
 export function measurementInputFromWriterRow(
   row: ExtractedBiomarkerWriterRow,
-  override?: MeasurementOverride | null
+  override?: MeasurementOverride | null,
 ): MeasurementResolutionInput {
-  // EH-119: a correction edits the resolver's INPUT. The restated unit, value
-  // and reference bounds are what the reviewer says the document reports, so
-  // they are what resolution must see. Without an override this is byte-for-byte
-  // the pre-EH-119 input, which is why an uncorrected row keeps its evidence
-  // hash and its stored resolution.
-  // The date is not part of `MeasurementResolutionInput`, so any placeholder
-  // would do; the composition is reused purely for value kind, value text and
-  // the reference bounds.
-  const measurement = applyMeasurementOverride(
-    baseMeasurementFromWriterRow(row, OBSERVED_AT_NOT_USED_BY_RESOLUTION),
-    override
-  );
-  // #106: the writer and EH-116 reprocessing both resolve through this builder,
-  // so the stated-evidence policy has to be applied here as well as in the
-  // review preview. Reprocessing re-runs resolution and not extraction, which
-  // is what corrects rows already stored with a fabricated axis.
-  const provenance = {
-    label: row.raw_name ?? row.biomarker_name,
-    sourceText: row.source_text ?? null,
-    sectionContext: row.section_context ?? null,
-  };
-
-function concreteStatedSpecimen(value: string | null | undefined): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim().toLowerCase();
-  if (!trimmed || trimmed === "unspecified" || trimmed === "unknown" || trimmed === "none") {
-    return null;
-  }
-  return value;
-}
-
-  const rawStatedSpecimen = statedAxisValue("specimen", row.specimen ?? null, provenance);
-  const statedSpecimen = concreteStatedSpecimen(rawStatedSpecimen);
-  const capturedHeading = row.section_context ?? null;
-  const panelPolicy = statedSpecimen
-    ? null
-    : matchReviewedPanelSpecimenPolicy(capturedHeading, row.biomarker_key);
-  return {
-    rawLabel: row.raw_name ?? row.biomarker_name,
-    rawUnit: override?.unit ?? row.raw_unit ?? row.unit,
-    specimen: panelPolicy?.specimen ?? statedSpecimen ?? rawStatedSpecimen,
-    specimenSource: statedSpecimen ? "stated" : panelPolicy ? "reviewed_panel_policy" : null,
-    capturedHeading,
-    modifier: statedAxisValue("modifier", row.modifier ?? null, provenance),
-    method: statedAxisValue("method", row.method ?? null, provenance),
-    section: row.section_context ?? null,
-    referenceLow: measurement.refLow,
-    referenceHigh: measurement.refHigh,
-    extractionConfidence: row.confidence ?? null,
-    proposedKey: row.biomarker_key,
-    valueKind:
-      measurement.valueKind === "numeric" ||
-      measurement.valueKind === "qualitative" ||
-      measurement.valueKind === "ordinal"
-        ? measurement.valueKind
-        : null,
-    rawValueText: override?.value_text ?? row.raw_value_text ?? null,
-  };
+  return preparedEvidenceFromWriterRow(row, override).input;
 }
 
 export function isReviewedResolution(resolution: MeasurementResolution): boolean {
@@ -257,10 +222,19 @@ export function isReviewedResolution(resolution: MeasurementResolution): boolean
 }
 
 export function buildManualCorrectionResolution(options: {
-  input: MeasurementResolutionInput;
+  input?: MeasurementResolutionInput;
+  preparedEvidence?: PreparedEvidence;
   selectedDefinitionKey: string;
 }): MeasurementResolution {
-  const baseResolution = resolveMeasurementDefinition(options.input);
+  const input = options.preparedEvidence?.input ?? options.input;
+  if (!input) {
+    throw new ObservationNormalizationWriterError(
+      "Prepared evidence is required for manual correction resolution",
+      422,
+      "invalid_normalization_resolution_payload",
+    );
+  }
+  const baseResolution = resolveMeasurementDefinition(input);
   const definition = getMeasurementDefinition(options.selectedDefinitionKey);
   const selectedCandidate = baseResolution.candidateEvidence.find(
     (candidate) => candidate.candidateKey === options.selectedDefinitionKey
@@ -374,19 +348,43 @@ function buildObservationPayload(options: {
     measurement_override: override,
   };
 }
+/**
+ * Historical restoration deliberately bypasses current admission and Resolver
+ * policy. It projects the selected revision's stored override over the raw
+ * source measurement and then uses the same atomic promotion payload shape.
+ */
+export function buildHistoricalObservationPayload(options: {
+  profileId: string;
+  documentId: string;
+  row: ExtractedBiomarkerWriterRow;
+  observedAt: string | null;
+  measurementOverride: MeasurementOverride | null;
+}) {
+  const measurement = applyMeasurementOverride(
+    baseMeasurementFromWriterRow(options.row, options.observedAt),
+    options.measurementOverride,
+  );
+  return buildObservationPayload({
+    profileId: options.profileId,
+    documentId: options.documentId,
+    row: options.row,
+    measurement,
+    override: options.measurementOverride,
+  });
+}
 
 export function buildNormalizationResolutionPayload(
-  input: MeasurementResolutionInput,
-  resolution: MeasurementResolution
-) {
+  evidence: PreparedEvidence | MeasurementResolutionInput,
+  resolution: MeasurementResolution,
+){
   return buildResolutionPayload(
     resolution,
     buildPersistedResolverDecisionTrace(resolution, {
-      inputEvidenceHash: buildInputEvidenceHash(input),
+      inputEvidenceHash: buildInputEvidenceHash(evidence),
       catalogManifestVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,
       catalogManifestDigest: MEASUREMENT_CATALOG_MANIFEST_RELEASE.manifestDigest,
       resolverVersion: MEASUREMENT_RESOLVER_VERSION,
-    })
+    }),
   );
 }
 
@@ -440,6 +438,7 @@ function buildResolutionPayload(
   assertTraceMatchesResolverEvidence(resolution, trace);
   return {
     input_evidence_hash: trace.inputEvidenceHash,
+    input_identity_format_version: MEASUREMENT_INPUT_IDENTITY_FORMAT_VERSION,
     measurement_definition_key: resolution.measurementDefinitionKey,
     analyte_key: resolution.analyteKey,
     resolver_result: resolution.result,
@@ -509,6 +508,7 @@ export async function writeExtractedBiomarkerNormalization(options: {
    * `null` explicitly to restore the raw extracted measurement, which is how
    * undo back to raw is expressed.
    */
+  preparedEvidence?: PreparedEvidence;
   measurementOverride?: MeasurementOverride | null;
 }): Promise<ObservationNormalizationWriterResult> {
   const expectedActiveRevision =
@@ -519,20 +519,20 @@ export async function writeExtractedBiomarkerNormalization(options: {
     options.measurementOverride === undefined
       ? expectedActiveRevision?.measurement_override ?? null
       : options.measurementOverride;
-  const input = measurementInputFromWriterRow(options.row, measurementOverride);
+  const preparedEvidence =
+    options.preparedEvidence ??
+    preparedEvidenceFromWriterRow(options.row, measurementOverride);
+  const input = preparedEvidence.input;
   const resolution = options.resolution ?? resolveMeasurementDefinition(input);
   const reviewedMeasurementDefinition = isReviewedResolution(resolution);
-  const measurement = applyMeasurementOverride(
-    baseMeasurementFromWriterRow(
-      options.row,
-      observationDateFromExtractedRow(options.row, options.observedAt),
-    ),
-    measurementOverride
+  const measurement = measurementAtObservedDate(
+    preparedEvidence,
+    observationDateFromExtractedRow(options.row, options.observedAt),
   );
   const mappingClassification =
     options.mappingClassification ??
     (options.writeKind === "correction" ? "review_required" : "additive");
-  const inputEvidenceHash = buildInputEvidenceHash(input);
+  const inputEvidenceHash = buildInputEvidenceHash(preparedEvidence);
   const decisionTrace = buildPersistedResolverDecisionTrace(resolution, {
     inputEvidenceHash,
     catalogManifestVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,
@@ -624,6 +624,7 @@ export async function writeAutomaticBiomarkerVerification(options: {
   row: ExtractedBiomarkerWriterRow;
   expectedActiveRevision?: NormalizationRevision | null;
   qualityGateApproved: boolean;
+  preparedEvidence?: PreparedEvidence;
   measurementOverride?: MeasurementOverride | null;
 }): Promise<AutomaticVerificationResult> {
   const sourceState = await getNormalizationSourceState(options.row.id);
@@ -638,7 +639,10 @@ export async function writeAutomaticBiomarkerVerification(options: {
     options.measurementOverride === undefined
       ? expectedActiveRevision?.measurement_override ?? null
       : options.measurementOverride;
-  const input = measurementInputFromWriterRow(options.row, measurementOverride);
+  const preparedEvidence =
+    options.preparedEvidence ??
+    preparedEvidenceFromWriterRow(options.row, measurementOverride);
+  const input = preparedEvidence.input;
   const resolution = resolveMeasurementDefinition(input);
   const qualityGateApproved =
     options.qualityGateApproved && isAutomaticVerificationReleaseApproved();
@@ -659,14 +663,11 @@ export async function writeAutomaticBiomarkerVerification(options: {
     return { promoted: false, reason: promotion.reason };
   }
 
-  const measurement = applyMeasurementOverride(
-    baseMeasurementFromWriterRow(
-      options.row,
-      observationDateFromExtractedRow(options.row, options.observedAt),
-    ),
-    measurementOverride,
+  const measurement = measurementAtObservedDate(
+    preparedEvidence,
+    observationDateFromExtractedRow(options.row, options.observedAt),
   );
-  const inputEvidenceHash = buildInputEvidenceHash(input);
+  const inputEvidenceHash = buildInputEvidenceHash(preparedEvidence);
   const decisionTrace = buildPersistedResolverDecisionTrace(resolution, {
     inputEvidenceHash,
     catalogManifestVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,

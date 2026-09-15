@@ -128,21 +128,53 @@ export function groundCapturedHeadingToPageOcr(
   return headingVerifiedInPageText(captured, pageOcr) ? captured : null;
 }
 
+export type ReviewedPanelSpecimenPolicyMatch = Readonly<{
+  status: "no_match" | "matched" | "conflict";
+  /** Distinct reviewed policies that matched the heading and allowlist. */
+  policies: readonly PanelSpecimenPolicy[];
+  /** Stable policy keys, sorted for diagnostics and identity. */
+  policyKeys: readonly string[];
+  /** Convenience access for the single-policy case. */
+  policy: PanelSpecimenPolicy | null;
+}>;
+
 export function matchReviewedPanelSpecimenPolicy(
   heading: string | null | undefined,
   analyteKey: string | null | undefined,
   policies: readonly PanelSpecimenPolicy[] = PANEL_SPECIMEN_POLICIES,
-): PanelSpecimenPolicy | null {
+): ReviewedPanelSpecimenPolicyMatch {
   const captured = heading?.trim() ?? "";
   const analyte = analyteKey?.trim() ?? "";
-  if (!captured || !analyte) return null;
-  const matches = policies.filter((policy) => {
-    if (policy.maturity !== "reviewed") return false;
-    if (!policy.appliesToAnalytes.includes(analyte)) return false;
-    return policy.headingForms.some((form) => headingMatchesForm(captured, form));
-  });
-  if (matches.length !== 1) return null;
-  return matches[0] ?? null;
+  if (!captured || !analyte) {
+    return { status: "no_match", policies: [], policyKeys: [], policy: null };
+  }
+  const distinctMatches = new Map<string, PanelSpecimenPolicy>();
+  for (const policy of policies) {
+    if (
+      policy.maturity !== "reviewed" ||
+      !policy.appliesToAnalytes.includes(analyte) ||
+      !policy.headingForms.some((form) => headingMatchesForm(captured, form))
+    ) {
+      continue;
+    }
+    distinctMatches.set(policy.key, policy);
+  }
+  const matches = [...distinctMatches.values()].sort((left, right) =>
+    left.key < right.key ? -1 : left.key > right.key ? 1 : 0,
+  );
+  const policyKeys = matches.map((policy) => policy.key);
+  if (matches.length === 0) {
+    return { status: "no_match", policies: [], policyKeys, policy: null };
+  }
+  if (matches.length === 1) {
+    return {
+      status: "matched",
+      policies: matches,
+      policyKeys,
+      policy: matches[0] ?? null,
+    };
+  }
+  return { status: "conflict", policies: matches, policyKeys, policy: null };
 }
 
 export type PanelSpecimenPolicyValidation = { valid: boolean; errors: string[] };

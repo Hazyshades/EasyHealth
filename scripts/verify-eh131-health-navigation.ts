@@ -52,7 +52,10 @@ assert.equal(documentContext.observation, "obs-1");
 
 const drawer = readFileSync("src/components/health-profile-drawer.tsx", "utf8");
 assert.match(drawer, /buildHealthNavigationPath\("\/app\/biomarkers"/);
-assert.match(drawer, /buildHealthNavigationPath\(`\/app\/documents\/\$\{marker\.source\.id\}`/);
+assert.match(
+  drawer,
+  /buildHealthNavigationPath\(\s*`\/app\/documents\/\$\{marker\.source\.id\}`/,
+);
 assert.match(drawer, /measurement_definition_key/);
 assert.match(drawer, /returnTo: profilePath/);
 

@@ -10,7 +10,7 @@ import {
   listMissingMultilingualSliceLocales,
   MULTILINGUAL_LAUNCH_SLICE_KEYS,
 } from "./multilingual-launch-slice";
-import { matchReviewedPanelSpecimenPolicy, PANEL_SPECIMEN_POLICIES, validatePanelSpecimenPolicies } from "./panel-specimen-policy";
+import { PANEL_SPECIMEN_POLICIES, validatePanelSpecimenPolicies } from "./panel-specimen-policy";
 import { z } from "zod";
 import type {
   AliasMatchType,
@@ -826,13 +826,23 @@ function specimenObservationForCandidate(
   input: MeasurementResolutionInput,
   analyteKey: string,
 ): [string | null | undefined, "stated" | "reviewed_panel_policy" | null] {
-  const heading = input.capturedHeading ?? null;
+  const policy = input.panelSpecimenPolicy;
+  if (policy?.status === "conflict") {
+    return [null, null];
+  }
   if (input.specimen && input.specimenSource === "stated") {
     return [input.specimen, "stated"];
   }
-  const policy = matchReviewedPanelSpecimenPolicy(heading, analyteKey);
-  if (policy) {
-    return [policy.specimen, "reviewed_panel_policy"];
+  if (policy?.status === "no_match") {
+    return [null, null];
+  }
+  if (
+    policy?.status === "applied" &&
+    policy.effectiveSpecimen &&
+    policy.sourceAnalyteKey === analyteKey &&
+    input.sourceAnalyteKey === analyteKey
+  ) {
+    return [policy.effectiveSpecimen, "reviewed_panel_policy"];
   }
   if (input.specimenSource === "reviewed_panel_policy") {
     return [null, null];
@@ -931,6 +941,15 @@ function candidateEvidence(
     selectable = false;
     rejected.push(evidence(code, source, "hard", 0, observed, expected));
   };
+  if (input.panelSpecimenPolicy?.status === "conflict") {
+    const policyKeys = input.panelSpecimenPolicy.conflictPolicyKeys;
+    conflict(
+      "panel_specimen_policy_conflict",
+      "specimen",
+      policyKeys.join(",") || "conflict",
+      policyKeys,
+    );
+  }
 
   applyCompatibility(evaluateValueKindCompatibility(definition.valueKind, input.valueKind));
   applyCompatibility(evaluateUnitCompatibility(definition.unitPolicy, unit));
@@ -1218,6 +1237,7 @@ const TRACE_REASON_CODES: Record<ResolutionReasonCode, true> = {
   unit_missing: true,
   specimen_compatible: true,
   specimen_from_reviewed_panel: true,
+  panel_specimen_policy_conflict: true,
   specimen_conflict: true,
   specimen_unsupported: true,
   modifier_compatible: true,

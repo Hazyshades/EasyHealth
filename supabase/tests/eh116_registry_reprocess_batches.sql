@@ -39,7 +39,7 @@ select ok(
 select ok(
   has_function_privilege(
     'service_role',
-    'public.registry_reprocess_apply_batch(uuid,text,uuid)'::regprocedure,
+    'public.registry_reprocess_apply_batch(uuid,text,text,text,text,text,uuid)'::regprocedure,
     'EXECUTE'
   ),
   'service_role can execute registry_reprocess_apply_batch'
@@ -48,7 +48,7 @@ select ok(
 select ok(
   not has_function_privilege(
     'anon',
-    'public.registry_reprocess_apply_batch(uuid,text,uuid)'::regprocedure,
+    'public.registry_reprocess_apply_batch(uuid,text,text,text,text,text,uuid)'::regprocedure,
     'EXECUTE'
   ),
   'anon cannot execute registry_reprocess_apply_batch'
@@ -57,7 +57,7 @@ select ok(
 select ok(
   not has_function_privilege(
     'authenticated',
-    'public.registry_reprocess_apply_batch(uuid,text,uuid)'::regprocedure,
+    'public.registry_reprocess_apply_batch(uuid,text,text,text,text,text,uuid)'::regprocedure,
     'EXECUTE'
   ),
   'authenticated cannot execute registry_reprocess_apply_batch'
@@ -193,7 +193,7 @@ select throws_ok(
   'non-outcome UPDATE on batch rows is rejected'
 );
 
--- ── 5. Digest drift is persisted, not raised ────────────────────────────────
+-- ── 5. Release-tuple drift is persisted, not raised ─────────────────────────
 
 do $$
 declare
@@ -201,7 +201,11 @@ declare
 begin
   result := public.registry_reprocess_apply_batch(
     (select id from eh116_ids where label = 'drift'),
-    repeat('f', 64),
+    '2026-08-03.0',
+    repeat('a', 64),
+    '9',
+    '5',
+    '1',
     '00000000-0000-0000-0000-000000000116'
   );
   insert into eh116_res (label, status) values ('drift_apply', result ->> 'status');
@@ -211,7 +215,7 @@ $$;
 select is(
   (select status from eh116_res where label = 'drift_apply'),
   'catalog_manifest_drift',
-  'apply reports catalog_manifest_drift when the current digest differs'
+  'apply reports catalog_manifest_drift when the current release tuple differs'
 );
 
 select is(
@@ -291,7 +295,11 @@ begin
 
   result := public.registry_reprocess_apply_batch(
     batch.id,
+    '2026-08-03.0',
     repeat('a', 64),
+    '8',
+    '5',
+    '1',
     '00000000-0000-0000-0000-000000000116'
   );
   insert into eh116_res (label, status) values ('apply_first', result ->> 'status');
@@ -372,7 +380,11 @@ declare
 begin
   result := public.registry_reprocess_apply_batch(
     (select id from eh116_ids where label = 'apply'),
+    '2026-08-03.0',
     repeat('a', 64),
+    '8',
+    '5',
+    '1',
     '00000000-0000-0000-0000-000000000116'
   );
   insert into eh116_res (label, status) values ('apply_again', result ->> 'status');

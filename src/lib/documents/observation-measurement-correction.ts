@@ -117,10 +117,15 @@ function finiteMeasurementValue(
 /**
  * Builds the client-safe correction base from immutable extracted evidence.
  * Persistence and resolver decisions remain the normalization writer's job.
+ *
+ * Review previews may preserve an incomplete extracted row so the Resolver can
+ * report its missing evidence. Writer and correction callers keep the strict
+ * default and reject unusable measurements before mutation.
  */
 export function baseMeasurementFromExtractedRow(
   row: ExtractedBiomarkerMeasurementRow,
   observedAt: string | null,
+  options: { readonly allowMissingValue?: boolean } = {},
 ): BaseMeasurement {
   let value = finiteMeasurementValue(row.value_numeric);
   let valueText = row.value_text?.trim() || null;
@@ -154,10 +159,18 @@ export function baseMeasurementFromExtractedRow(
     valueKind === "numeric" || valueKind === "qualitative" || valueKind === "ordinal"
       ? valueKind
       : "text";
-  if (normalizedValueKind === "numeric" && value == null) {
+  if (
+    normalizedValueKind === "numeric" &&
+    value == null &&
+    !options.allowMissingValue
+  ) {
     throw new Error("Numeric observation has no usable value");
   }
-  if (normalizedValueKind !== "numeric" && !valueText) {
+  if (
+    normalizedValueKind !== "numeric" &&
+    !valueText &&
+    !options.allowMissingValue
+  ) {
     throw new Error("Qualitative observation has no usable value");
   }
 

@@ -153,6 +153,17 @@ export type MeasurementSourceProvenance = {
   kind: RegistrySourceKind;
   sourceRecordKey: string;
 };
+export type PanelSpecimenPolicyStatus = "stated" | "applied" | "no_match" | "conflict";
+
+export type PanelSpecimenPolicyContext = Readonly<{
+  status: PanelSpecimenPolicyStatus;
+  policyKey: string | null;
+  effectiveSpecimen: SpecimenKey | null;
+  sourceAnalyteKey: AnalyteKey | null;
+  sourceProvenance: MeasurementSourceProvenance | null;
+  conflictPolicyKeys: readonly string[];
+}>;
+
 
 export type MeasurementUnitPolicy = {
   dimensions: readonly UnitDimension[];
@@ -199,6 +210,7 @@ export type ResolutionReasonCode =
   | "unit_missing"
   | "specimen_compatible"
   | "specimen_from_reviewed_panel"
+  | "panel_specimen_policy_conflict"
   | "specimen_conflict"
   | "specimen_unsupported"
   | "modifier_compatible"
@@ -408,13 +420,16 @@ export type MeasurementResolutionInput = {
   rawValueText?: string | null;
   specimen?: string | null;
   /**
-   * How `specimen` was obtained. Absent means the axis is missing unless a
-   * reviewed panel policy matches `capturedHeading` for the candidate analyte.
+   * How `specimen` was obtained. A missing source is not positive evidence.
+   * Prepared source rows also carry the full panel-policy context below.
    */
   specimenSource?: "stated" | "reviewed_panel_policy" | null;
-  /** Verbatim printed section heading; policy matching uses only this field. */
-  capturedHeading?: string | null;
+  /** Source analyte used to authorize a prepared panel-policy specimen. */
+  sourceAnalyteKey?: AnalyteKey | null;
+  /** Prepared panel-policy admission; Resolver never derives this from raw text. */
+  panelSpecimenPolicy?: PanelSpecimenPolicyContext | null;
   modifier?: string | null;
+  /** Canonical section-support fact, never a raw captured heading. */
   section?: string | null;
   neighbourLabels?: string[];
   referenceLow?: number | null;

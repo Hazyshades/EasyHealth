@@ -67,21 +67,37 @@ export type ObservationChangeEventRow = Readonly<{
   prior_verification_status: string | null;
   prior_mapping_confidence_band: string | null;
   prior_input_evidence_hash: string | null;
+  prior_input_identity_format_version?: string | null;
   next_measurement_definition_key: string | null;
   next_analyte_key: string | null;
   next_resolver_result: string | null;
   next_verification_status: string | null;
   next_mapping_confidence_band: string | null;
   next_input_evidence_hash: string | null;
+  next_input_identity_format_version?: string | null;
   next_mapping_change_classification: string | null;
   catalog_manifest_version: string | null;
   catalog_manifest_digest: string | null;
   resolver_version: string | null;
   normalization_version: string | null;
+  input_change?: string | null;
+  outcome_change?: string | null;
+  release_change?: string | null;
+  create_revision?: boolean | null;
+  activate_revision?: boolean | null;
+  reprocess_change_facts?: unknown;
   extraction_version: string | null;
   occurred_at: string;
   created_at: string;
 }>;
+export type ObservationChangeReprocessFacts = Readonly<{
+  inputChange: "changed" | "unchanged" | "unavailable";
+  outcomeChange: "changed" | "unchanged";
+  releaseChange: "changed" | "unchanged" | "unavailable";
+  createRevision: boolean;
+  activateRevision: boolean;
+}>;
+
 
 export type ObservationChangeField =
   | "measurement"
@@ -121,6 +137,9 @@ export type ObservationChangeEntry = Readonly<{
   actorType: ObservationChangeActorType;
   actorId: string | null;
   actorLabel: string;
+  priorInputIdentityFormatVersion: string | null;
+  nextInputIdentityFormatVersion: string | null;
+  reprocessFacts: ObservationChangeReprocessFacts | null;
   reason: string | null;
   reasonCode: LifecycleReasonCode | null;
   priorRecordStatus: RecordStatus | null;
@@ -222,6 +241,35 @@ function asConfidenceBand(value: unknown): MappingConfidenceBand | null {
 
 function asRecordStatus(value: unknown): RecordStatus | null {
   return isRecordStatus(value) ? value : null;
+}
+function asReprocessFacts(
+  value: unknown,
+): ObservationChangeReprocessFacts | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const inputChange = record.inputChange;
+  const outcomeChange = record.outcomeChange;
+  const releaseChange = record.releaseChange;
+  if (
+    (inputChange !== "changed" &&
+      inputChange !== "unchanged" &&
+      inputChange !== "unavailable") ||
+    (outcomeChange !== "changed" && outcomeChange !== "unchanged") ||
+    (releaseChange !== "changed" &&
+      releaseChange !== "unchanged" &&
+      releaseChange !== "unavailable") ||
+    typeof record.createRevision !== "boolean" ||
+    typeof record.activateRevision !== "boolean"
+  ) {
+    return null;
+  }
+  return {
+    inputChange,
+    outcomeChange,
+    releaseChange,
+    createRevision: record.createRevision,
+    activateRevision: record.activateRevision,
+  };
 }
 
 function diff(
@@ -356,6 +404,9 @@ export function buildObservationChangeEntry(
     actorType,
     actorId,
     actorLabel,
+    priorInputIdentityFormatVersion: row.prior_input_identity_format_version ?? null,
+    nextInputIdentityFormatVersion: row.next_input_identity_format_version ?? null,
+    reprocessFacts: asReprocessFacts(row.reprocess_change_facts),
     reason: reason ? reason : null,
     reasonCode: isLifecycleReasonCode(row.reason_code) ? row.reason_code : null,
     priorRecordStatus: asRecordStatus(row.prior_record_status),

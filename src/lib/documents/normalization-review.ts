@@ -17,23 +17,20 @@ import type {
   ResolverResult,
   VerificationStatus,
 } from "@/lib/biomarkers";
-import { parseReferenceRange } from "@/lib/schemas/biomarkers";
-import { matchReviewedPanelSpecimenPolicy } from "@/lib/biomarkers/panel-specimen-policy";
 import {
-  applyMeasurementOverride,
+  baseMeasurementFromExtractedRow,
   type BaseMeasurement,
   type MeasurementOverride,
-  type MeasurementValueKindKey,
 } from "./observation-measurement-correction";
+import {
+  prepareMeasurementEvidence,
+  type PreparedEvidence,
+} from "./measurement-evidence-admission";
 import { compatibleManualDefinitions } from "./normalization-revisions";
 import { projectLaboratoryOutcome } from "./incomplete-laboratory-outcomes";
 import type { LaboratoryResolutionDetails } from "./incomplete-laboratory-outcomes";
 import type { RegistryV2NormalizationRevisionReadBoundary } from "./observation-read-boundaries";
-import {
-  isRecordStatus,
-  type RecordStatus,
-} from "./observation-verification-workflow";
-import { statedAxisValue } from "./stated-axis-evidence";
+import { isRecordStatus, type RecordStatus } from "./observation-verification-workflow";
 
 type ExtractedReviewRow = {
   id: string;
@@ -80,6 +77,8 @@ export type NormalizationRevisionSummary =
     resolver_version: string;
     normalization_version: string;
     resolver_decision_trace: unknown | null;
+    input_evidence_hash?: string | null;
+    input_identity_format_version?: string | null;
     resolver_trace_schema_version: string | null;
     measurement_override?: MeasurementOverride | null;
     created_at: string;
@@ -161,22 +160,41 @@ export type EffectiveReviewMeasurement = Omit<BaseMeasurement, "observedAt"> & {
   observedAt: string | null;
 };
 
-function normalizedValueKind(
-  value: string | null | undefined,
-  fallback: MeasurementValueKindKey,
-): MeasurementValueKindKey {
-  return value === "numeric" ||
-    value === "qualitative" ||
-    value === "ordinal" ||
-    value === "text"
-    ? value
-    : fallback;
+function baseMeasurementForReview(row: ExtractedReviewRow): BaseMeasurement {
+  return baseMeasurementFromExtractedRow(
+    {
+      value_numeric: row.value_numeric ?? null,
+      value_text: row.value_text ?? null,
+      value_kind: row.value_kind ?? null,
+      ordinal: row.ordinal ?? null,
+      unit: row.unit ?? null,
+      reference_range: row.reference_range ?? null,
+      raw_reference_range: row.raw_reference_range ?? null,
+      raw_value_text: row.raw_value_text ?? null,
+    },
+    null,
+    { allowMissingValue: true },
+  );
 }
 
-function finiteNumericValue(value: number | string | null | undefined): number | null {
-  if (value == null || value === "") return null;
-  const parsed = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
+export function preparedEvidenceFromExtracted(
+  row: ExtractedReviewRow,
+  override?: MeasurementOverride | null,
+): PreparedEvidence {
+  return prepareMeasurementEvidence({
+    baseMeasurement: baseMeasurementForReview(row),
+    override,
+    rawLabel: row.raw_name ?? row.biomarker_name,
+    rawUnit: row.raw_unit ?? row.unit ?? null,
+    rawValueText: row.raw_value_text ?? null,
+    sourceText: row.source_text ?? null,
+    sectionContext: row.section_context ?? null,
+    sourceAnalyteKey: row.biomarker_key,
+    proposedKey: row.biomarker_key,
+    specimen: row.specimen ?? null,
+    modifier: row.modifier ?? null,
+    method: row.method ?? null,
+  });
 }
 
 export function effectiveMeasurementFromExtracted(
@@ -184,29 +202,10 @@ export function effectiveMeasurementFromExtracted(
   override: MeasurementOverride | null | undefined,
 ): EffectiveReviewMeasurement | null {
   if (!override) return null;
-  const { ref_low, ref_high } = parseReferenceRange(
-    row.reference_range ?? row.raw_reference_range ?? null,
-  );
-  const fallbackKind = normalizedValueKind(
-    row.value_kind,
-    finiteNumericValue(row.value_numeric) == null ? "text" : "numeric",
-  );
-  const measurement = applyMeasurementOverride(
-    {
-      value: fallbackKind === "numeric" ? finiteNumericValue(row.value_numeric) : null,
-      valueText: row.value_text ?? null,
-      valueKind: fallbackKind,
-      ordinal: row.ordinal ?? null,
-      unit: row.unit ?? row.raw_unit ?? null,
-      refLow: ref_low,
-      refHigh: ref_high,
-      observedAt: "1970-01-01",
-    },
-    override,
-  );
+  const prepared = preparedEvidenceFromExtracted(row, override);
   return {
-    ...measurement,
-    observedAt: "observed_at" in override ? measurement.observedAt : null,
+    ...prepared.effectiveMeasurement,
+    observedAt: "observed_at" in override ? prepared.effectiveMeasurement.observedAt : null,
   };
 }
 
@@ -214,80 +213,7 @@ export function measurementInputFromExtracted(
   row: ExtractedReviewRow,
   override?: MeasurementOverride | null,
 ): MeasurementResolutionInput {
-  const { ref_low, ref_high } = parseReferenceRange(
-    row.reference_range ?? row.raw_reference_range ?? null,
-  );
-  const effectiveMeasurement = effectiveMeasurementFromExtracted(row, override);
-  const correctedRawValueText =
-    override && "value_text" in override
-      ? override.value_text ?? null
-      : override && "value" in override
-        ? override.value == null
-          ? null
-          : String(override.value)
-        : row.raw_value_text ?? null;
-  // #106: an axis the document never stated must reach the resolver as absent,
-  // otherwise it satisfies a compatibility axis and unlocks `resolved`.
-  const provenance = {
-    label: row.raw_name ?? row.biomarker_name,
-    sourceText: row.source_text ?? null,
-    sectionContext: row.section_context ?? null,
-  };
-
-function concreteStatedSpecimen(value: string | null | undefined): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim().toLowerCase();
-  if (!trimmed || trimmed === "unspecified" || trimmed === "unknown" || trimmed === "none") {
-    return null;
-  }
-  return value;
-}
-
-  const rawStatedSpecimen = statedAxisValue("specimen", row.specimen ?? null, provenance);
-  const statedSpecimen = concreteStatedSpecimen(rawStatedSpecimen);
-  const capturedHeading = row.section_context ?? null;
-  const panelPolicy = statedSpecimen
-    ? null
-    : matchReviewedPanelSpecimenPolicy(capturedHeading, row.biomarker_key);
-  const effectiveValueKind = effectiveMeasurement?.valueKind;
-  const overrideValueKind = override?.value_kind;
-  const valueKind =
-    effectiveValueKind === "numeric" ||
-    effectiveValueKind === "qualitative" ||
-    effectiveValueKind === "ordinal"
-      ? effectiveValueKind
-      : overrideValueKind === "numeric" ||
-          overrideValueKind === "qualitative" ||
-          overrideValueKind === "ordinal"
-        ? overrideValueKind
-        : row.value_kind === "numeric" ||
-            row.value_kind === "qualitative" ||
-            row.value_kind === "ordinal"
-          ? row.value_kind
-          : null;
-  return {
-    rawLabel: row.raw_name ?? row.biomarker_name,
-    rawUnit:
-      override && "unit" in override
-        ? override.unit ?? null
-        : row.raw_unit ?? row.unit ?? null,
-    valueKind,
-    specimen: panelPolicy?.specimen ?? statedSpecimen ?? rawStatedSpecimen,
-    specimenSource: statedSpecimen ? "stated" : panelPolicy ? "reviewed_panel_policy" : null,
-    capturedHeading,
-    modifier: statedAxisValue("modifier", row.modifier ?? null, provenance),
-    method: statedAxisValue("method", row.method ?? null, provenance),
-    section: row.section_context ?? null,
-    referenceLow:
-      effectiveMeasurement?.refLow ??
-      (override && "ref_low" in override ? override.ref_low ?? null : ref_low),
-    referenceHigh:
-      effectiveMeasurement?.refHigh ??
-      (override && "ref_high" in override ? override.ref_high ?? null : ref_high),
-    extractionConfidence: row.confidence ?? null,
-    proposedKey: row.biomarker_key,
-    rawValueText: correctedRawValueText,
-  };
+  return preparedEvidenceFromExtracted(row, override).input;
 }
 
 function actionAvailability(
@@ -368,11 +294,17 @@ export function buildNormalizationReview(
 ): NormalizationReview {
   const activeRevision = revisions.find((revision) => revision.is_active) ?? null;
   const activeOverride = activeRevision?.measurement_override ?? null;
-  const effectiveMeasurement = effectiveMeasurementFromExtracted(
-    row,
-    activeOverride,
-  );
-  const input = measurementInputFromExtracted(row, activeOverride);
+  const prepared = preparedEvidenceFromExtracted(row, activeOverride);
+  const effectiveMeasurement = activeOverride
+    ? {
+        ...prepared.effectiveMeasurement,
+        observedAt:
+          "observed_at" in activeOverride
+            ? prepared.effectiveMeasurement.observedAt
+            : null,
+      }
+    : null;
+  const input = prepared.input;
   const preview = resolveMeasurementDefinition(input);
   const outcome = projectLaboratoryOutcome({
     observation: {

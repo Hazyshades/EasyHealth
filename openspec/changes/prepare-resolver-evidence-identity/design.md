@@ -35,18 +35,64 @@ This design covers the first coordinated change only: shared evidence preparatio
 
 ### D1 — One prepared-evidence module owns admission ordering
 
-Each source row shape gets a thin adapter that supplies the common preparation module with the extracted row and any active measurement override. The module performs, in this order:
+Each source-row shape gets a thin adapter that supplies a row-neutral source
+envelope containing the raw measurement evidence, clinical-axis provenance,
+source analyte key, and any active measurement override. The shared preparation
+module is pure and mutation-free; its proposed implementation boundary is
+`src/lib/documents/measurement-evidence-admission.ts`. Review, writer, and
+candidate-corpus modules own translation into that envelope, not evidence
+policy.
 
-1. normalize the effective measurement values and value kind;
-2. apply `statedAxisValue` to specimen, modifier, method, and timing using row provenance;
-3. apply the reviewed panel-specimen policy only when a concrete stated specimen was not evidenced;
-4. return a prepared Resolver input plus a discriminated policy context and identity record.
+The module performs exactly this order:
 
-The policy context distinguishes at least `stated`, `applied`, `no_match`, and `conflict`. A matcher result that currently collapses zero and multiple matches to `null` must expose enough information for the preparation seam to retain that distinction. A policy conflict fails closed for effective specimen admission; it is not treated as a successful policy match.
+1. Apply the measurement override and normalize the effective value, value kind,
+   unit, reference bounds, and raw value text. Comparator/detection-limit text
+   remains factual value evidence.
+2. Build `RowProvenance` and apply `statedAxisValue` to specimen, modifier,
+   method, and timing.
+3. Canonicalize non-evidence sentinels such as `none`, `unknown`, and
+   `unspecified` to an absent axis before policy matching or Resolver
+   evaluation. This does not alter the EH-164 textual-marker contract.
+4. If a concrete stated specimen remains, retain it and do not evaluate panel
+   policy. Otherwise, evaluate reviewed panel policy using the captured
+   heading and the source analyte key, including the policy allowlist.
+5. Return a discriminated panel-policy result: `stated`, `applied`,
+   `no_match`, or `conflict`. Zero applicable policies produce `no_match`;
+   one distinct policy produces `applied`; multiple distinct policies produce
+   `conflict`. Multiple matching heading forms belonging to one policy count
+   once. Conflict policy keys are sorted for deterministic diagnostics.
+6. Build one `PreparedEvidence` record and a Resolver input containing the
+   effective axes, policy context, and canonical section-support facts. Raw
+   captured heading text remains source provenance but is not sent to Resolver
+   as a policy decision input.
 
-The Resolver accepts the prepared effective specimen/policy context and does not inspect or re-match the raw captured heading. The raw heading remains source provenance on the extraction/observation rows where the existing provenance contract requires it, but it is not part of the persisted identity representation.
+The policy matcher must expose the distinction between zero and multiple
+matches rather than returning `null` for both. A policy-derived specimen is
+usable only for the declared source analyte and its reviewed allowlist; it
+must not be attached to an unrelated candidate definition. A policy conflict
+fails closed: the effective specimen is absent, Resolver emits a stable hard
+reason such as `panel_specimen_policy_conflict`, and no concrete mapping may
+be returned.
 
-**Alternative rejected:** Keep the current matcher inside the Resolver and merely call a shared builder first. That leaves two policy owners and permits a caller to hash one prepared input while the Resolver silently derives another specimen.
+The same `PreparedEvidence` object is passed unchanged to Resolver evaluation,
+identity canonicalization, decision-trace construction, writer request
+generation, and eligibility checks. No caller may reconstruct a second input
+between those operations.
+
+The Resolver consumes the prepared effective specimen and policy context. It
+does not inspect or re-match the raw captured heading and does not import the
+admission module. Direct Resolver fixtures may construct already-prepared
+inputs; source-row policy tests must use the shared preparation seam.
+
+Active persisted observations use the separate historical-decision reader
+contract, and undo/reversal copies saved historical data without a new
+admission. Health Profile admission remains a separate projection boundary;
+only an unlinked/no-active-row preview uses the shared preparation seam.
+
+**Alternative rejected:** Keep the current matcher inside the Resolver and
+merely call a shared builder first. That leaves two policy owners, collapses
+no-match and conflict, and permits a caller to hash one prepared input while
+the Resolver silently derives another specimen.
 
 ### D2 — Identity is a canonical prepared-input record, not a decision hash
 
@@ -83,6 +129,13 @@ Undo/reversal uses an explicit restore operation targeting a revision belonging 
 The restore operation does not call `matchReviewedPanelSpecimenPolicy`, `resolveMeasurementDefinition`, or any other current Resolver evaluation. It does not rebuild the target decision from the current row. If the target lacks the saved data required by the restore contract or fails same-source/CAS checks, the transaction fails closed without a partial promotion. A new evaluation is available only through an explicit acceptance, correction, or reprocessing operation.
 
 This preserves reversibility without claiming that a current extracted row is equivalent to the historical input. The saved hash/version and decision trace are historical evidence; they are not recomputed during restore.
+
+The established EH-122 batch-reversal entrypoint preserves idempotent replay
+by checking for an existing request-hash successor before requiring the source
+revision to remain active. Legacy rows written through the direct legacy writer
+may have no persisted decision trace; reversal copies that nullable field when
+present and does not backfill it. The dedicated EH-248 restore RPC remains
+strict about the saved decision contract it owns.
 
 **Alternative rejected:** Re-run the current Resolver with the target override and selected definition. That reinterprets a historical user decision through current panel policy, aliases, and compatibility rules and can produce a new decision while presenting it as an undo.
 
@@ -122,14 +175,32 @@ No identity or reprocessing decision changes Health Profile marker semantics. A 
 
 1. Add the shared preparation and identity contracts in application code, with the current format version and independent pure verification evidence.
 2. Add nullable identity-version columns to normalization revisions, reprocessing prior/next rows, and observation change events. Extend service-only RPC payload validation and history propagation without rewriting existing rows.
-3. Switch review, regular acceptance, automatic verification, correction, reversal restore, reprocessing, and corpus adapters to the shared preparation seam. New revisions persist the hash/version pair and separate release metadata.
+3. Switch review previews, regular acceptance, automatic verification,
+   prospective correction, reprocessing `next`, and corpus adapters to the
+   shared preparation seam. Historical undo/reversal restores saved data
+   without preparation; active persisted reads remain owned by the separate
+   historical-read change. New revisions persist the hash/version pair and
+   separate release metadata.
 4. Deploy the reprocessing diff/apply contract. Dry runs first expose the three change facts; application uses explicit create/activate decisions and existing manual-decision protections.
 5. Keep legacy rows readable with unavailable identity comparison. Do not run a semantic backfill or silently activate a reprocessed revision.
 6. Roll back application behavior before removing any additive columns or RPC parameters. Because legacy data is untouched, rollback can leave the new nullable metadata in place; a mixed-version deployment must not treat a null identity version as equal to a v1 identity.
 
-## Open Questions
+## Resolved implementation questions
 
-- Confirm the final canonical field table, especially whether proposed keys, exact neighbouring labels, and exact reference bounds are identity facts or only presence/support facts under the current Resolver.
-- Confirm the exact SQL/RPC shape for restore payload copying and whether any persisted decision evidence beyond the current trace/hash/version is required for a complete reversal.
-- Confirm the release tuple used by `releaseChange` and whether an explicit release-refresh command is needed in the first rollout.
-- Confirm the writer-by-writer migration order and the focused regression matrix for acceptance, automatic verification, correction, undo, reprocessing, corpus parity, and EH-164.
+- The format-1 canonical field table is the flat allowlisted record recorded
+  in `registry/adr/0002-resolver-input-identity.md`; effective corrected
+  measurement fields and the source analyte key are included, while raw
+  headings and source-record identifiers are excluded.
+- User-initiated historical restore uses the service-only
+  `restore_observation_normalization_revision_v1` RPC, which copies the
+  target revision's persisted decision, trace, identity, and release fields
+  and uses the existing atomic projection boundary. EH-122 batch undo uses its
+  dedicated `eh122_reverse_observation_normalization_verification` RPC so it
+  preserves the pending-verification transition while copying those fields.
+- `releaseChange` compares the five-field deployed release tuple:
+  catalog manifest version/digest, Resolver version, normalization version,
+  and compatibility-policy version. `--release-refresh` is the explicit
+  apply intent.
+- Review, writer, reprocessing, and corpus adapters all call the shared
+  preparation function; source-row identity reports include format version
+  alongside the hash.
