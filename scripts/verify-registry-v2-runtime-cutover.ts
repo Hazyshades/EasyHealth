@@ -1,21 +1,38 @@
 import assert from "node:assert/strict";
 import {
+  MEASUREMENT_CATALOG_MANIFEST_VERSION,
   MEASUREMENT_DEFINITIONS,
+  MEASUREMENT_NORMALIZATION_VERSION,
+  MEASUREMENT_RESOLVER_VERSION,
+  buildPersistedResolverDecisionTrace,
   getReviewedAssessmentBinding,
   presentObservation,
   resolveMeasurementDefinition,
   validateMeasurementRegistry,
 } from "../src/lib/biomarkers";
 import { MEASUREMENT_CATALOG_MANIFEST_DIGEST } from "../src/lib/biomarkers/measurement-registry-release";
-import { buildHealthProfile, getSystemForMarker } from "../src/lib/health-systems";
 import { projectActiveRegistryV2LaboratoryBinding } from "../src/lib/documents/observation-read-boundaries";
+import { buildHealthProfile, getSystemForMarker } from "../src/lib/health-systems";
 
 const validation = validateMeasurementRegistry();
 assert.equal(validation.valid, true, validation.errors.join("; "));
 assert.ok(MEASUREMENT_DEFINITIONS.every((definition) =>
   definition.maturity !== "reviewed" || definition.sourceProvenance.kind === "registry_v2_review"
 ));
-assert.equal(MEASUREMENT_CATALOG_MANIFEST_DIGEST.length, 64);
+const glucose = resolveMeasurementDefinition({
+  rawLabel: "Glucose",
+  rawUnit: "mmol/L",
+  specimen: "serum",
+  valueKind: "numeric",
+});
+assert.equal(glucose.result, "resolved");
+assert.equal(glucose.measurementDefinitionKey, "glucose_serum");
+const glucoseTrace = buildPersistedResolverDecisionTrace(glucose, {
+  inputEvidenceHash: "f".repeat(64),
+  catalogManifestVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,
+  catalogManifestDigest: MEASUREMENT_CATALOG_MANIFEST_DIGEST,
+  resolverVersion: MEASUREMENT_RESOLVER_VERSION,
+});
 const glucoseBinding = projectActiveRegistryV2LaboratoryBinding(
   {
     observation_kind: "lab",
@@ -25,22 +42,23 @@ const glucoseBinding = projectActiveRegistryV2LaboratoryBinding(
   {
     resolver_result: "resolved",
     measurement_definition_key: "glucose_serum",
+    analyte_key: glucose.analyteKey,
     is_active: true,
     resolver_evidence: {
       selectedCandidateKey: "glucose_serum",
       outcome: "resolved",
     },
-  }
+    input_evidence_hash: glucoseTrace.inputEvidenceHash,
+    input_identity_format_version: "1",
+    catalog_manifest_version: glucoseTrace.catalogManifestVersion,
+    catalog_manifest_digest: glucoseTrace.catalogManifestDigest,
+    resolver_version: glucoseTrace.resolverVersion,
+    normalization_version: MEASUREMENT_NORMALIZATION_VERSION,
+    resolver_decision_trace: glucoseTrace,
+    resolver_trace_schema_version: glucoseTrace.schemaVersion,
+  },
 ).resolvedMeasurementBinding;
 assert.ok(glucoseBinding);
-
-const glucose = resolveMeasurementDefinition({
-  rawLabel: "Glucose",
-  rawUnit: "mmol/L",
-  specimen: "serum",
-  valueKind: "numeric",
-});
-assert.equal(glucose.result, "resolved");
 assert.equal(glucose.measurementDefinitionKey, "glucose_serum");
 
 const band = resolveMeasurementDefinition({
