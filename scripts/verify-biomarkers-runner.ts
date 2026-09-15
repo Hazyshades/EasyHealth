@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   buildPageOcrArtifact,
+  buildPersistedResolverDecisionTrace,
   getAnalyte,
   getMeasurementDefinitionsForAnalyte,
   isPageOcrArtifact,
@@ -27,6 +28,29 @@ function approx(actual: number, expected: number, epsilon = 0.05) {
   );
 }
 function resolvedBinding(measurementDefinitionKey: string) {
+  const resolution = resolveMeasurementDefinition(
+    measurementDefinitionKey === "glucose_serum"
+      ? {
+          rawLabel: "Glucose",
+          rawUnit: "mg/dL",
+          specimen: "serum",
+          valueKind: "numeric",
+        }
+      : {
+          rawLabel: "LDL",
+          rawUnit: "mg/dL",
+          specimen: "serum",
+          valueKind: "numeric",
+        },
+  );
+  assert.equal(resolution.result, "resolved");
+  assert.equal(resolution.measurementDefinitionKey, measurementDefinitionKey);
+  const trace = buildPersistedResolverDecisionTrace(resolution, {
+    inputEvidenceHash: "a".repeat(64),
+    catalogManifestVersion: "catalog-test",
+    catalogManifestDigest: "d".repeat(64),
+    resolverVersion: "resolver-test",
+  });
   const binding = projectActiveRegistryV2LaboratoryBinding(
     {
       observation_kind: "lab",
@@ -36,11 +60,17 @@ function resolvedBinding(measurementDefinitionKey: string) {
     {
       resolver_result: "resolved",
       measurement_definition_key: measurementDefinitionKey,
+      analyte_key: resolution.analyteKey,
+      verification_status: "user_verified",
       is_active: true,
-      resolver_evidence: {
-        selectedCandidateKey: measurementDefinitionKey,
-        outcome: "resolved",
-      },
+      input_evidence_hash: trace.inputEvidenceHash,
+      input_identity_format_version: "1",
+      catalog_manifest_version: trace.catalogManifestVersion,
+      catalog_manifest_digest: trace.catalogManifestDigest,
+      resolver_version: trace.resolverVersion,
+      normalization_version: "normalization-test",
+      resolver_decision_trace: trace,
+      resolver_trace_schema_version: trace.schemaVersion,
     },
   ).resolvedMeasurementBinding;
   assert.ok(binding);

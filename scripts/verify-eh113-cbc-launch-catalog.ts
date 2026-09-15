@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   SAMPLE_NEWEST_LAUNCH_FIXTURES,
   buildLaunchCoverageReport,
+  buildPersistedResolverDecisionTrace,
   getMeasurementConversionPolicy,
   getMeasurementDefinition,
   getReviewedAssessmentBinding,
@@ -54,6 +55,20 @@ const sampleRbc = getMeasurementDefinition("sample_red_blood_cells")!;
 assert.equal(sampleRbc.maturity, "provisional");
 assert.deepEqual(sampleRbc.assessmentBindings, []);
 assert.equal(getMeasurementConversionPolicy(sampleRbc.key), null);
+const reviewedWbcResolution = resolveMeasurementDefinition({
+  rawLabel: "White blood cells (WBC)",
+  rawUnit: "x10^9/L",
+  specimen: "whole_blood",
+  valueKind: "numeric",
+});
+assert.equal(reviewedWbcResolution.result, "resolved");
+assert.equal(reviewedWbcResolution.measurementDefinitionKey, "wbc_whole_blood");
+const reviewedWbcTrace = buildPersistedResolverDecisionTrace(reviewedWbcResolution, {
+  inputEvidenceHash: "b".repeat(64),
+  catalogManifestVersion: "catalog-test",
+  catalogManifestDigest: "e".repeat(64),
+  resolverVersion: "resolver-test",
+});
 
 const unsafeCandidateProjection = projectActiveRegistryV2LaboratoryBinding(
   { observation_kind: "lab", measurement_definition_key: "neutrophils_percent", resolution_status: "resolved" },
@@ -65,7 +80,21 @@ assert.equal(getReviewedAssessmentBinding(partialNeutrophils.measurementDefiniti
 
 const reviewedProjection = projectActiveRegistryV2LaboratoryBinding(
   { observation_kind: "lab", measurement_definition_key: "wbc_whole_blood", resolution_status: "resolved" },
-  { is_active: true, resolver_result: "resolved", measurement_definition_key: "wbc_whole_blood", verification_status: "auto_verified", resolver_evidence: { outcome: "resolved", selectedCandidateKey: "wbc_whole_blood" } }
+  {
+    is_active: true,
+    resolver_result: "resolved",
+    measurement_definition_key: "wbc_whole_blood",
+    analyte_key: reviewedWbcResolution.analyteKey,
+    verification_status: "auto_verified",
+    input_evidence_hash: reviewedWbcTrace.inputEvidenceHash,
+    input_identity_format_version: "1",
+    catalog_manifest_version: reviewedWbcTrace.catalogManifestVersion,
+    catalog_manifest_digest: reviewedWbcTrace.catalogManifestDigest,
+    resolver_version: reviewedWbcTrace.resolverVersion,
+    normalization_version: "normalization-test",
+    resolver_decision_trace: reviewedWbcTrace,
+    resolver_trace_schema_version: reviewedWbcTrace.schemaVersion,
+  },
 );
 assert.equal(reviewedProjection.registryBindingReady, true, "an active reviewed resolved CBC revision is consumer-safe");
 

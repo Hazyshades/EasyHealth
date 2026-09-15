@@ -98,14 +98,44 @@ export function projectHealthProfileLaboratoryAdmission(options: {
     decision,
   });
   const activeRevision = decision.activeRevision;
+  const censoredValueText =
+    [observation.value_text, typeof observation.value === "string" ? observation.value : null]
+      .map((candidate) => (typeof candidate === "string" ? candidate.trim() : ""))
+      .find((candidate) => isCensoredLabValueCell(candidate)) ?? null;
+  const markerMeasurementDefinitionKey =
+    decision.source === "persisted" &&
+    decision.stored.outcome === "resolved" &&
+    decision.stored.measurementDefinitionKey !== null &&
+    decision.currentCatalog.status === "available"
+      ? decision.stored.measurementDefinitionKey
+      : null;
+  const markerBinding = markerMeasurementDefinitionKey
+    ? getReviewedAssessmentBinding(markerMeasurementDefinitionKey)
+    : null;
+  const markerAssessmentInputKey =
+    markerBinding?.binding.assessmentInputKey ?? null;
+  const canPreserveCensoredMarker =
+    censoredValueText !== null &&
+    markerAssessmentInputKey !== null &&
+    outcome.resolutionDetails.eligibility.exclusions.assessment !==
+      "verification_required";
+  const assessmentInputKey =
+    outcome.assessmentInputKey ??
+    (canPreserveCensoredMarker ? markerAssessmentInputKey : null);
+  const measurementDefinitionKey =
+    outcome.measurementDefinitionKey ??
+    (canPreserveCensoredMarker ? markerMeasurementDefinitionKey : null);
+  const analyteKey =
+    outcome.analyteKey ??
+    (canPreserveCensoredMarker ? decision.stored.analyteKey : null);
   const evidence: HealthProfileLaboratoryAdmissionEvidence = {
     outcome,
     resolution: outcome.resolutionDetails,
     resolverEvidence: activeRevision?.resolver_evidence ?? null,
     binding: {
-      measurementDefinitionKey: outcome.measurementDefinitionKey,
-      analyteKey: outcome.analyteKey,
-      assessmentInputKey: outcome.assessmentInputKey,
+      measurementDefinitionKey,
+      analyteKey,
+      assessmentInputKey,
       registryBindingReady: outcome.registryBindingReady,
       verificationStatus: outcome.verificationStatus,
     },
@@ -114,18 +144,6 @@ export function projectHealthProfileLaboratoryAdmission(options: {
       incompleteReason: outcome.resolutionDetails.incompleteReason,
     },
   };
-  const censoredValueText =
-    [observation.value_text, typeof observation.value === "string" ? observation.value : null]
-      .map((candidate) => (typeof candidate === "string" ? candidate.trim() : ""))
-      .find((candidate) => isCensoredLabValueCell(candidate)) ?? null;
-  const canPreserveCensoredMarker =
-    censoredValueText !== null &&
-    outcome.resolutionDetails.eligibility.exclusions.assessment === "non_numeric_value";
-  const assessmentInputKey =
-    outcome.assessmentInputKey ??
-    (canPreserveCensoredMarker && outcome.measurementDefinitionKey
-      ? getReviewedAssessmentBinding(outcome.measurementDefinitionKey)?.binding.assessmentInputKey ?? null
-      : null);
   if (!assessmentInputKey) {
     return {
       kind: "excluded",
@@ -144,7 +162,7 @@ export function projectHealthProfileLaboratoryAdmission(options: {
       input: {
         biomarker_key: assessmentInputKey,
         observation_id: observation.id ?? null,
-        measurement_definition_key: outcome.measurementDefinitionKey,
+        measurement_definition_key: measurementDefinitionKey,
         name: observation.name,
         value: null,
         unit: observation.unit ?? "",

@@ -4,6 +4,7 @@ import {
   MEASUREMENT_COMPATIBILITY_POLICY_VERSION,
   MEASUREMENT_NORMALIZATION_VERSION,
   MEASUREMENT_RESOLVER_VERSION,
+  buildPersistedResolverDecisionTrace,
   evaluateSpecimenCompatibility,
   evaluateUnitCompatibility,
   evaluateValueKindCompatibility,
@@ -259,9 +260,36 @@ const observation = {
   measurement_definition_key: "glucose_serum",
   resolution_status: "resolved",
 };
+const resolvedGlucoseMgDl = resolveMeasurementDefinition({
+  rawLabel: "Glucose",
+  rawUnit: "mg/dL",
+  specimen: "serum",
+  valueKind: "numeric",
+});
+assert.equal(resolvedGlucoseMgDl.result, "resolved");
+assert.equal(resolvedGlucoseMgDl.measurementDefinitionKey, "glucose_serum");
+const resolvedGlucoseTrace = buildPersistedResolverDecisionTrace(resolvedGlucoseMgDl, {
+  inputEvidenceHash: "c".repeat(64),
+  catalogManifestVersion: MEASUREMENT_CATALOG_MANIFEST_VERSION,
+  catalogManifestDigest: "e".repeat(64),
+  resolverVersion: MEASUREMENT_RESOLVER_VERSION,
+});
+const resolvedGlucoseRelation: RegistryV2NormalizationRevisionReadBoundary = {
+  ...relation("resolved", "glucose_serum", "glucose_serum"),
+  analyte_key: resolvedGlucoseMgDl.analyteKey,
+  verification_status: "auto_verified",
+  input_evidence_hash: resolvedGlucoseTrace.inputEvidenceHash,
+  input_identity_format_version: "1",
+  catalog_manifest_version: resolvedGlucoseTrace.catalogManifestVersion,
+  catalog_manifest_digest: resolvedGlucoseTrace.catalogManifestDigest,
+  resolver_version: resolvedGlucoseTrace.resolverVersion,
+  normalization_version: MEASUREMENT_NORMALIZATION_VERSION,
+  resolver_decision_trace: resolvedGlucoseTrace,
+  resolver_trace_schema_version: resolvedGlucoseTrace.schemaVersion,
+};
 const resolvedBinding = projectActiveRegistryV2LaboratoryBinding(
   observation,
-  relation("resolved", "glucose_serum", "glucose_serum")
+  resolvedGlucoseRelation,
 );
 assert.equal(resolvedBinding.registryBindingReady, true);
 assert.ok(resolvedBinding.resolvedMeasurementBinding);
@@ -305,15 +333,13 @@ for (const [name, revision] of deniedBindings) {
 const historicalTraceBinding = projectActiveRegistryV2LaboratoryBinding(
   observation,
   {
-    resolver_result: "resolved",
-    measurement_definition_key: "glucose_serum",
-    is_active: true,
+    ...resolvedGlucoseRelation,
     resolver_evidence: {
       version: 1,
       selectedCandidateKey: "glucose_serum",
       outcome: "resolved",
     },
-  }
+  },
 );
 assert.equal(historicalTraceBinding.registryBindingReady, true);
 
@@ -364,11 +390,9 @@ const readAfterPublication = projectActiveRegistryV2LaboratoryBinding(
     resolution_status: persistencePayload.resolver_result,
   },
   {
-    resolver_result: persistencePayload.resolver_result,
-    measurement_definition_key: persistencePayload.measurement_definition_key,
+    ...persistencePayload,
     is_active: true,
-    resolver_evidence: persistencePayload.resolver_evidence,
-  }
+  },
 );
 assert.equal(readAfterPublication.registryBindingReady, true);
 assert.equal(

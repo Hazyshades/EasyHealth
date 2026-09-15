@@ -204,6 +204,47 @@ assert.equal(censoredInput?.biomarker_key, "fasting_glucose");
 assert.equal(censoredInput?.value, null);
 assert.equal(censoredInput?.value_kind, "text");
 assert.equal(censoredInput?.value_text, "< 0.20");
+const missingTraceCensoredAdmission =
+  projectHealthProfileLaboratoryAdmission({
+    observation: censoredObservation,
+    relation: {
+      ...censoredRelation,
+      resolver_decision_trace: null,
+      resolver_trace_schema_version: null,
+    },
+    labUnitSystem: "si",
+  });
+assert.equal(missingTraceCensoredAdmission.kind, "accepted");
+assert.equal(
+  missingTraceCensoredAdmission.evidence.resolution.quality,
+  "unavailable",
+);
+if (missingTraceCensoredAdmission.kind === "accepted") {
+  assert.equal(
+    missingTraceCensoredAdmission.input.measurement_definition_key,
+    "fasting_glucose",
+  );
+  assert.equal(missingTraceCensoredAdmission.input.value, null);
+  assert.equal(missingTraceCensoredAdmission.input.value_kind, "text");
+  assert.equal(missingTraceCensoredAdmission.input.value_text, "< 0.20");
+}
+const conflictingTraceCensoredAdmission =
+  projectHealthProfileLaboratoryAdmission({
+    observation: censoredObservation,
+    relation: {
+      ...censoredRelation,
+      resolver_evidence: {
+        ...censoredRelation.resolver_evidence,
+        selectedCandidateKey: "glucose_serum",
+      },
+    },
+    labUnitSystem: "si",
+  });
+assert.equal(conflictingTraceCensoredAdmission.kind, "accepted");
+assert.equal(
+  conflictingTraceCensoredAdmission.evidence.resolution.quality,
+  "conflict",
+);
 
 const missingRangeAdmission = projectHealthProfileLaboratoryAdmission({
   observation: {
