@@ -691,22 +691,61 @@ export function readPersistedDecision(
         };
   }
 
+  if (activeRows.length > 1) {
+    const activeRevisionIds = activeRows
+      .map((entry) => safeValue(entry.id))
+      .filter((id): id is string => id !== null)
+      .sort()
+      .join(",");
+    return {
+      source: "persisted",
+      quality: "conflict",
+      notPersisted: false,
+      qualityCodes: ["multiple_active_revisions"],
+      conflicts: [
+        {
+          code: "multiple_active_revisions",
+          field: "active_revision",
+          persistedValue: activeRevisionIds,
+          operationalValue: null,
+          traceValue: null,
+        },
+      ],
+      activeRevision: null,
+      stored: {
+        outcome: null,
+        verificationStatus: null,
+        measurementDefinitionKey: null,
+        analyteKey: null,
+        mappingConfidence: null,
+        mappingConfidenceBand: null,
+        inputEvidenceHash: null,
+        inputIdentityFormatVersion: null,
+      },
+      release: {
+        catalogManifestVersion: null,
+        catalogManifestDigest: null,
+        resolverVersion: null,
+        normalizationVersion: null,
+        traceSchemaVersion: null,
+      },
+      technicalTrace: null,
+      operationalEvidence: null,
+      preview: null,
+      currentCatalog: {
+        status: "not_required",
+        reason: null,
+        definition: null,
+      },
+      currentBindingReady: false,
+      measurementDefinition: null,
+      resolvedMeasurementBinding: null,
+    };
+  }
+
   const revision = activeRows[0]!;
   const qualityCodes: PersistedDecisionQualityCode[] = [];
   const conflicts: PersistedDecisionConflict[] = [];
-  if (activeRows.length > 1) {
-    pushUnique(qualityCodes, "multiple_active_revisions");
-    conflicts.push({
-      code: "multiple_active_revisions",
-      field: "active_revision",
-      persistedValue: activeRows
-        .map((entry) => safeValue(entry.id))
-        .filter(Boolean)
-        .join(","),
-      operationalValue: null,
-      traceValue: null,
-    });
-  }
 
   const storedOutcome = asResolverResult(revision.resolver_result);
   if (revision.resolver_result != null && storedOutcome === null) {

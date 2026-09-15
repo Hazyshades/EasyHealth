@@ -106,7 +106,7 @@ HTML указывает, что release corpus вручную восстанав
 
 1. **Завершено как архитектурный контракт:** Resolver decision identity.
 2. **Следующий отдельный разбор:** evidence admission, потому что identity должна получать уже подготовленное evidence и не дублировать policy.
-3. **Параллельно уточняется Draft:** persisted-decision read; его OpenSpec уже создан, но решение нужно довести до implementation-ready состояния.
+3. **Реализовано:** persisted-decision read; его OpenSpec закрыт, а оставшиеся публикационные gates отслеживаются отдельно.
 4. **После уточнения основных seam:** Registry release identity.
 5. **Последним:** corpus adapter, поскольку он зависит от evidence-admission seam и остаётся speculative.
 

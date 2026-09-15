@@ -349,7 +349,19 @@ const multipleActive = read([revision(), revision({ id: "revision-2" })]);
 assert.equal(multipleActive.source, "persisted");
 assert.equal(multipleActive.quality, "conflict");
 assert.equal(hasCode(multipleActive, "multiple_active_revisions"), true);
-assert.equal(multipleActive.activeRevision?.id, "revision-1");
+assert.equal(multipleActive.activeRevision, null);
+assert.equal(multipleActive.stored.outcome, null);
+assert.equal(multipleActive.technicalTrace, null);
+assert.equal(multipleActive.operationalEvidence, null);
+const reorderedMultipleActive = read([
+  revision({ id: "revision-2" }),
+  revision(),
+]);
+assert.deepEqual(reorderedMultipleActive.conflicts, multipleActive.conflicts);
+assert.deepEqual(
+  reorderedMultipleActive.qualityCodes,
+  multipleActive.qualityCodes,
+);
 
 const unknownTrace = {
   schemaVersion: "2",
