@@ -1,8 +1,8 @@
 # EH-248: Resolver evidence identity and admission
 
-- **Roadmap status:** Change A and Change B implementation complete on the dedicated branch; database execution, candidate approval renewal, Wiki publication, and remote PR publication remain pending external gates
-- **Build / environment:** `feat/248-historical-persisted-decision-read` — Change B implementation verification
-- **Test run date:** `2026-09-15`
+- **Roadmap status:** Change A and Change B implementation complete; candidate corpus technical checks and hash-bound approval renewal are complete; database execution remains pending local Docker availability
+- **Build / environment:** `chore/registry-candidate-approval-renewal` — Registry candidate approval renewal and Change B release evidence
+- **Test run date:** `2026-09-16`
 **Tester:** `Codex implementation verification`
 
 ## What this checklist covers
@@ -133,14 +133,14 @@ The shared preparation, identity, and historical-read contracts are internal ser
 - [x] `pnpm exec tsc --noEmit` — application TypeScript compilation. **Passed.**
 - [x] `pnpm check:ci-suite-coverage-contract` and `pnpm check:ci-suite-coverage` — the focused reader verifier is registered in CI with no orphaned or partial suite entries. **Passed.**
 - [x] `pnpm generate:biomarker-docs`, `pnpm check:biomarker-docs`, and `pnpm test:biomarker-docs` — canonical generated documentation is current and green. **Passed.**
-- [x] `pnpm render:biomarker-wiki` and explicit local staging export — seven Wiki pages rendered and staged under `.tmp/eh248-change-b-wiki-stage-final`; `git ls-remote` confirmed the Wiki remote is reachable. **Local evidence only; publication remains PENDING because no push is authorized.**
+- [x] `pnpm render:biomarker-wiki` and explicit local staging export — seven Wiki pages rendered, reviewed, and staged under `.tmp/eh248-change-b-wiki-stage-final`; `git ls-remote` confirmed the Wiki remote and published `master` commit `868a12d1670c8bea1a5d40a032a15e0ceff2b9ff`. **Passed.**
 - [ ] `pnpm test:eh248-db` — no Change B migration was added; local execution remains unavailable because Docker Desktop's Linux engine is unavailable. Reuse the inherited Change A CI database evidence when the branch is published.
-- [ ] `pnpm check:registry-v2-candidate-corpus` — inherited release approval bindings remain pending human renewal; signed records are intentionally not rewritten by Change B.
-- [ ] Remote Wiki publication and remote PR creation — **PENDING** because the user explicitly prohibited pushing the branch.
+- [x] `pnpm check:registry-v2-candidate-corpus` — current 16 hash-bound approvals were renewed under candidate input hash `60bafa4dddf6f49900cb6bdec5bcaae3c2589c894ac71fd196035ea3261f182e`; `launchable: true`. **Passed.**
+- [x] Remote Wiki publication and remote PR creation — Wiki published at `868a12d1670c8bea1a5d40a032a15e0ceff2b9ff`; PR #257 merged at `6fe1baa6f79d80809b526f32338799572777a08f`. **Passed.**
 - [x] `openspec validate historical-persisted-decision-read --strict` — final Change B artifact validation after implementation and task checklist updates. **Passed.**
 
 ## Out of scope or not manually testable yet
 
 - Live product-interface checks are `N/A` in this implementation environment; the numbered actions and expected outcomes above are the handoff for a tester with a seeded non-production account.
 - The shared prepared-evidence object, SHA-256 canonical identity, SQL constraints, RPC payload validation, reprocessing create/activate policy, and same-source CAS are not directly observable through the current product UI; use the developer commands and CI database run above.
-- The generated Wiki mirror is a non-authoritative artifact. Local rendering is complete, but remote Wiki publication remains **PENDING** until the generated pages are published through the approved Wiki path.
+- The generated Wiki mirror is published and tracked by the release evidence above.
