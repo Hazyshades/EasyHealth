@@ -1,9 +1,9 @@
 # Panel-policy approval record
 
-Issued 2026-08-29. This file is not a hashed candidate input.
+Issued 2026-09-16 after Project Owner review. This file is not a hashed candidate input.
 
-- candidateInputHash: `f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807`
-- Approval id: `assessment-cbc-whole-blood-panel-policy-review-2026-08-29`
+- candidateInputHash: `60bafa4dddf6f49900cb6bdec5bcaae3c2589c894ac71fd196035ea3261f182e`
+- Approval id: `assessment-cbc-whole-blood-panel-policy-review-2026-09-16`
 - Scope: `panel_specimen_policy`
 - Binding key: `cbc_whole_blood`
 - Owner: `assessment-owner` / `Project Owner`

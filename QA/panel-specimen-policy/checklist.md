@@ -85,7 +85,7 @@
 84:- [x] `pnpm test:stated-axis`
 85:- [x] `pnpm test:panel-specimen-db` on disposable local Supabase (3/3 PASS)
 86:- [x] Candidate corpus rows `hemoglobin-cbc-heading` resolved; `glucose-cbc-heading` and `hemoglobin-unrecognised-heading` partial
-87:- [x] Hash-bound `panel_specimen_policy` approval exists; `launchable: true` for `f5e7bdcd97c6df589d77626811968af095e26972547e9090b5aa88c28ed63807`
+- [x] Hash-bound `panel_specimen_policy` approval exists; `launchable: true` for the reviewed candidate input hash `60bafa4dddf6f49900cb6bdec5bcaae3c2589c894ac71fd196035ea3261f182e` on 2026-09-16
 88:- [x] Heading absent from that page `ocr_text` is not stored as `section_context` (worker grounding + harness)
 89:
 90:## Out of scope or not manually testable yet
