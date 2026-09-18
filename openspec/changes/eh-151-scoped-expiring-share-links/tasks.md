@@ -11,7 +11,7 @@ Domain: **reports / auth-shell**
 ## 2. Auth-shell — token and public capability
 
 - [ ] 2.1 Implement token format `v<token_key_version>.<random>`, keyed digest lookup through the configured current/previous key ring, and no plaintext or unkeyed fallback.
-- [ ] 2.2 Implement optional salted slow PIN hashing plus `src/lib/share-links/rate-limit.ts` over the shared Supabase Postgres adapter: HMAC-derived token/requester keys, atomic fixed-window limits `10/60s` and `30/60s`, explicit environment settings, generic `429` exhaustion, generic `503` store-failure denial, and no local fallback.
+- [ ] 2.2 Implement optional salted slow PIN hashing plus `src/lib/share-links/rate-limit.ts` over the shared Supabase Postgres adapter: HMAC-derived token/requester keys, the ingress-authenticated `requestContext.edgeVerifiedClientAddress`/`SHARE_TRUSTED_PROXY_CIDRS` boundary with strict single-address parsing and spoofed-header rejection, atomic fixed-window limits `10/60s` and `30/60s`, explicit environment settings, generic `429` exhaustion, generic `503` store/proxy/configuration failure, and no local fallback.
 - [ ] 2.3 Add the owner creation endpoint that returns the plaintext link once, persists only keyed token digests and optional salted slow PIN verifier material, and omits plaintext token/PIN material from logs and telemetry.
 - [ ] 2.4 Add the public page/API boundary with generic invalid/expired/revoked/PIN/rate-limit failures, no session-profile fallback, and no disclosure of limiter cause or raw identifiers.
 - [ ] 2.5 Enforce the EH-148 read projection's `valid`/`limited` validation status and recognized version, expiry, revocation, exact report scope, `allowed_export_formats`, and download policy on every public read; consume `report-read.ts` so archived/deleted cited sources become `SOURCE_UNAVAILABLE` limitations without exposing live/raw source data; keep report scope distinct from raw-document child scope.
@@ -20,7 +20,7 @@ Domain: **reports / auth-shell**
 
 ## 3. Verification and handoff
 
-- [ ] 3.1 Add focused route fixtures for scope, profile isolation, token failures, PIN retries, expiry, revoke, repeated token/PIN failures, unavailable rate-limit store, deleted-report cascade, archived/deleted cited-source read resolution, cache headers, raw-download denial, and revoke/expiry after a prior raw-download request.
+- [ ] 3.1 Add focused route fixtures for scope, profile isolation, token failures, PIN retries, expiry, revoke, repeated token/PIN failures, unavailable rate-limit store, missing/malformed trusted requester address, spoofed forwarding headers, deleted-report cascade, archived/deleted cited-source read resolution, cache headers, raw-download denial, and revoke/expiry after a prior raw-download request.
 - [ ] 3.2 Expose the owner management repository seam required by EH-152 without moving management UI into the public route.
 - [ ] 3.3 Expose a named export-actions integration seam on the public share page for EH-153; EH-151 remains the page owner.
 - [ ] 3.4 Run the EH-151 QA checklist, prove worker scheduling, xact-lock release, repeated-batch access-event and rate-limit-bucket backlog drain, `SHARE_ACCESS_EVENT_RETENTION_DAYS`, `SHARE_RATE_LIMIT_CLEANUP_INTERVAL_MS`, `SHARE_RATE_LIMIT_CLEANUP_RETRY_INTERVAL_MS`, 500-row/20-batch cleanup caps, continuation signals, bounded retry/alert behavior, rate-limit threshold/window/store-failure behavior, and malformed/unknown-token event handling, and provide evidence inputs to the EH-154 release gate.

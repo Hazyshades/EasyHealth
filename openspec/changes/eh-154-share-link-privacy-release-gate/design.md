@@ -69,7 +69,7 @@ The gate has `blocked`, `ready-with-risk`, and `ready` states. Any unresolved hi
 
 ### 2. Privacy sign-off is explicit
 
-The release package must include the final share scope matrix, access-event fields/retention, token/PIN storage proof, evidence that `SHARE_RATE_LIMIT_PEPPER` is present in the approved secret manager identified only by reference/version or approved fingerprint (never by value), the deployed non-secret rate-limit settings (`SHARE_RATE_LIMIT_WINDOW_SECONDS`, `SHARE_RATE_LIMIT_TOKEN_FAILURES`, `SHARE_RATE_LIMIT_REQUESTER_FAILURES`, `SHARE_RATE_LIMIT_CLEANUP_INTERVAL_MS`, and `SHARE_RATE_LIMIT_CLEANUP_RETRY_INTERVAL_MS`), bounded cleanup/backlog/failure signals, cache/header evidence, and an owner sign-off. If the production rate-limit store, Wiki/incident destination, or privacy approver is unavailable, the gate remains blocked or explicitly pending; it is not assumed green.
+The release package must include the final share scope matrix, access-event fields/retention, token/PIN storage proof, evidence that `SHARE_RATE_LIMIT_PEPPER` is present in the approved secret manager identified only by reference/version or approved fingerprint (never by value), the deployed non-secret rate-limit settings (`SHARE_TRUSTED_PROXY_CIDRS`, `SHARE_RATE_LIMIT_WINDOW_SECONDS`, `SHARE_RATE_LIMIT_TOKEN_FAILURES`, `SHARE_RATE_LIMIT_REQUESTER_FAILURES`, `SHARE_RATE_LIMIT_CLEANUP_INTERVAL_MS`, and `SHARE_RATE_LIMIT_CLEANUP_RETRY_INTERVAL_MS`), bounded cleanup/backlog/failure signals, cache/header evidence, and an owner sign-off. If the production rate-limit store, Wiki/incident destination, or privacy approver is unavailable, the gate remains blocked or explicitly pending; it is not assumed green.
 
 ### 3. Incident runbook is fail-closed
 
@@ -79,7 +79,7 @@ For planned or emergency key rotation: provision and health-check a new secret-s
 
 ## Verification plan
 
-EH-154 owns a focused verification harness that exercises the same production adapters used by public routes with synthetic profiles and documents: invalid token, wrong PIN, expired token, revoked token, cross-profile report ID, out-of-scope document, allowed report export, denied raw download, repeated token/PIN failures through both HMAC-keyed dimensions, unavailable rate-limit store, current/previous/unknown token-key selectors, and generic `429`/`503` behavior. It also inspects response headers and captured logs for token/PIN/source leakage. The harness must run against the same adapter and deployed settings used by production routes; mocks may cover unavailable external stores only when the production contract is separately evidenced.
+EH-154 owns a focused verification harness that exercises the same production adapters used by public routes with synthetic profiles and documents: invalid token, wrong PIN, expired token, revoked token, cross-profile report ID, out-of-scope document, allowed report export, denied raw download, repeated token/PIN failures through both HMAC-keyed dimensions, missing/malformed trusted requester address, spoofed `X-Forwarded-For`/`Forwarded`/`X-Real-IP` headers that cannot change the requester bucket, unavailable rate-limit store, current/previous/unknown token-key selectors, and generic `429`/`503` behavior. It also inspects response headers and captured logs for token/PIN/source leakage. The harness must run against the same adapter and deployed settings used by production routes; mocks may cover unavailable external stores only when the production contract is separately evidenced.
 
 ## Risks / Trade-offs
 
