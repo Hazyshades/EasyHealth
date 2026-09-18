@@ -5,11 +5,11 @@ Domain: **reports / auth-shell**
 ## 1. Reports — owner management API and audit projection
 
 - [ ] 1.1 Add profile-scoped share list and revoke endpoints over the EH-151 repository seam with no-store responses.
-- [ ] 1.2 Return active, expired, revoked, scope, download policy, timestamps, and approved aggregate access fields without tokens, PINs, raw IPs, full user agents, or storage paths.
+- [ ] 1.2 Return active, expired, revoked, scope, download policy, timestamps, and approved aggregate access fields without tokens, PINs, raw IPs, full user agents, or storage paths; read EH-151's monotonic `last_accessed_at` without deriving or writing it.
 - [ ] 1.3 Make revoke transactional and ensure the public verifier observes it on the next request.
 - [ ] 1.4 Consume EH-151's owner-scoped event read contract and retention state before exposing access history; do not create a second event store.
 - [ ] 1.5 Add an owner-authenticated replacement-link endpoint that mints plaintext/digest server-side and calls EH-151's service-only `public.replace_report_share` RPC with scoped idempotency, copied scope/policy, rollback on RPC failure, and conflict handling for concurrent requests.
-- [ ] 1.6 Add failure, retry, and concurrent-replacement fixtures proving the predecessor remains active on rollback and exactly one successor is created.
+- [ ] 1.6 Add failure, retry, concurrent-replacement, and reverse-order successful-access fixtures proving the predecessor remains active on rollback, exactly one successor is created, and the owner list shows EH-151's greatest successful access timestamp.
 
 ## 2. Auth-shell — owner interface
 
@@ -20,6 +20,6 @@ Domain: **reports / auth-shell**
 
 ## 3. Verification and handoff
 
-- [ ] 3.1 Add synthetic owner/profile fixtures for mixed statuses, cross-profile IDs, revoke races, clipboard failure, and minimized events.
+- [ ] 3.1 Add synthetic owner/profile fixtures for mixed statuses, cross-profile IDs, revoke races, reverse-order successful accesses, PIN-only/denied attempts that must not update last access, clipboard failure, and minimized events.
 - [ ] 3.2 Verify management UI and API behavior with the EH-152 QA checklist.
 - [ ] 3.3 Provide access-log/header evidence to EH-154 without changing public token verification.

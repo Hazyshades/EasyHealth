@@ -25,6 +25,23 @@ An authenticated owner SHALL be able to create a share only for a validated EH-1
 - **THEN** the dependent rows are removed by the declared cascade and a later public request returns the generic share failure
 - **AND** no active capability or orphaned child state remains
 
+
+### Requirement: Atomic authorized share creation
+
+The owner-creation path SHALL call a fixed-search-path, service-only `public.create_report_share` transition. The transition SHALL lock and recheck the owner profile and report, require the report to have a recognized EH-148 publishable validation envelope, verify every requested raw-document ID belongs to the owner and the report's materialized source scope, and atomically insert the share row plus all explicit `report_share_documents` rows. Direct `INSERT`, `UPDATE`, or `DELETE` on `report_share_links` and `report_share_documents` SHALL be denied to `service_role`, `authenticated`, `anon`, and `PUBLIC`; only the named transition may create new share state. Any validation, child-scope, uniqueness, or downstream insert failure SHALL roll back the complete capability and child-scope graph.
+
+#### Scenario: Share creation rolls back as one transition
+
+- **WHEN** an owner creates a share with an invalid report, an out-of-scope document, or a child-row insertion failure
+- **THEN** `public.create_report_share` rejects the request
+- **AND** no share, raw-document scope row, plaintext link, or partially usable capability remains
+
+#### Scenario: Authorized share creation persists complete scope
+
+- **WHEN** an owner creates a share for a publishable report with an allowed raw-document subset
+- **THEN** the transition rechecks ownership and scope under lock and commits the share plus every selected child row atomically
+- **AND** the endpoint returns the plaintext link only after the transition commits
+
 ### Requirement: Public token verification
 
 The public share route SHALL verify token digest, expiry, revocation, optional PIN, report ownership, report validation status, requested resource scope, and EH-148's read-time source availability resolver on every request. A report read may preserve a historical snapshot only when a cited source row is archived/removed while its parent document remains active, with a visible `SOURCE_UNAVAILABLE` limitation; a source document in `deleting`/tombstoned state SHALL invalidate the complete report before public content is read and return a generic unavailable failure. Raw-document requests for archived/removed sources or tombstoned documents SHALL fail with a generic denial. Raw-document requests SHALL use a verifier-backed proxy/stream route and SHALL NOT return storage signed URLs. Invalid, expired, revoked, or missing shares SHALL fail with the same non-enumerating response without exposing live/raw source data.
@@ -81,6 +98,23 @@ For a share configured with a PIN, the public boundary SHALL expose exactly `POS
 - **WHEN** a PIN submission succeeds or fails
 - **THEN** the PIN, proof, cookie value, and request body value are absent from URLs, referrers, logs, telemetry, access events, and response fields
 
+
+### Requirement: Successful-access timestamp semantics
+
+After a public request has selected an active share, passed token/PIN/resource authorization, and is about to return report, export, or raw-document bytes, EH-151 SHALL call the service-only `public.touch_report_share_last_accessed(share_id, observed_at)` transition. The transition SHALL update `report_share_links.last_accessed_at` with `GREATEST(COALESCE(last_accessed_at, '-infinity'::timestamptz), observed_at)` under a row lock. PIN establishment, failed token/PIN attempts, expired/revoked/denied requests, and rate-limited requests SHALL NOT update the timestamp. The value SHALL be the source for EH-152's owner-facing last-access field; out-of-order concurrent requests SHALL never move it backward.
+
+#### Scenario: Only an allowed resource read updates last access
+
+- **WHEN** a recipient successfully reads the shared page, API resource, approved export, or permitted raw document
+- **THEN** `last_accessed_at` records that successful authorization time before bytes are returned
+- **AND** PIN establishment and denied/expired/revoked/rate-limited requests leave the value unchanged
+
+#### Scenario: Concurrent access preserves the newest timestamp
+
+- **WHEN** two allowed resource requests for one share complete with timestamps in reverse arrival order
+- **THEN** the stored `last_accessed_at` is the greatest observed timestamp
+- **AND** EH-152 reads that monotonic value without writing a second timestamp
+
 ### Requirement: Durable deletion handoff
 
 EH-151 SHALL depend on the committed `make-document-deletion-durable` tombstone/report-invalidation/final-purge and owner report-delete transitions. A source document's durable `deleting` state is the only deletion signal accepted by the public share boundary.
@@ -95,6 +129,7 @@ EH-151 SHALL depend on the committed `make-document-deletion-durable` tombstone/
 The public route SHALL call the service-only `public.consume_report_share_rate_limit` RPC over the shared Supabase Postgres store for failed token/PIN outcomes before returning a public response. The RPC SHALL atomically maintain fixed-window counters in `share_rate_limit_buckets` with a unique conflict key `(key_digest, window_started_at)`, keyed by `HMAC-SHA-256(SHARE_RATE_LIMIT_PEPPER, dimension + ":" + normalized_key)`: one token-digest dimension and one server-derived requester dimension consisting of an IPv4 `/24` or IPv6 `/64` prefix plus the fixed coarse user-agent class `browser`, `automation`, or `other` (`unknown` for missing values). Raw token, IP, and user-agent values SHALL NOT be persisted or logged. `SHARE_RATE_LIMIT_WINDOW_SECONDS` SHALL default to `60` and accept `10..300`; `SHARE_RATE_LIMIT_TOKEN_FAILURES` SHALL default to `10` and accept `1..100`; `SHARE_RATE_LIMIT_REQUESTER_FAILURES` SHALL default to `30` and accept `1..300`; `SHARE_RATE_LIMIT_PEPPER` is required. A missing pepper or invalid setting SHALL fail closed. The bounded cleanup RPC SHALL delete at most 500 expired rows per batch and 20 batches per invocation, return `deleted_count`, `remaining_expired_count`, and `exhausted`, and run from the worker `tick()` loop at `SHARE_RATE_LIMIT_CLEANUP_INTERVAL_MS` (default `900_000`) with continuation at `SHARE_RATE_LIMIT_CLEANUP_RETRY_INTERVAL_MS` (default `60_000`) while rows remain, bounded retries, and backlog/failure signals. EH-154 SHALL record the deployed non-secret settings and cleanup evidence without recording the pepper value.
 The requester address SHALL come only from `requestContext.edgeVerifiedClientAddress`, populated by `TrustedIngressRuntime.getImmediatePeerAddress(request): string | null` and `getTrustedIngressContext(request, runtime): TrustedIngressContext | TrustedIngressFailure` in the EH-151-owned `src/lib/share-links/trusted-ingress-transport.ts`; it SHALL never be derived from request headers. The versioned deployment artifact `openspec/changes/eh-151-scoped-expiring-share-links/deployment/trusted-ingress.yaml` SHALL expose an unauthenticated public HTTPS listener for share recipients, forward only over its separate private/mTLS ingress-to-application leg, make the app origin private-only, strip client-supplied forwarding headers, and ensure direct origin access is forbidden. `X-Forwarded-For`, `Forwarded`, and `X-Real-IP` values received by the app SHALL NOT be trusted. The adapter SHALL strictly parse one canonical IPv4/IPv6 address, reject multiple or malformed values, and return the same generic non-enumerating `503` when the trusted address, peer metadata, or required proxy configuration is absent. EH-154 evidence SHALL include browser reachability at the public listener and direct-origin rejection, plus a harness case proving spoofed untrusted forwarding headers cannot change the requester bucket.
 The EH-151-owned `src/lib/share-links/trusted-ingress.ts` adapter SHALL be invoked by both `/share/[token]` and `/api/share/[token]` before token lookup or limiter calls. The private ingress leg SHALL strip client-supplied forwarding and `X-EH-Edge-*` headers, and write `X-EH-Edge-Client-Address`, `X-EH-Edge-Request-Id`, `X-EH-Edge-Timestamp`, and `X-EH-Edge-Signature = HMAC-SHA-256(SHARE_TRUSTED_PROXY_ATTESTATION_KEY, request_id + "." + timestamp + "." + client_address)`. The request ID SHALL be a canonical UUID, the timestamp SHALL be ASCII decimal Unix seconds in UTC, the client address SHALL be the strict canonical single IPv4/IPv6 text accepted by the adapter, and the signature SHALL be base64url without padding over the UTF-8 framing bytes. The adapter SHALL verify the signature and `SHARE_TRUSTED_PROXY_ATTESTATION_MAX_AGE_SECONDS` (default `30`, range `5..120`) using the non-forgeable peer metadata and `SHARE_TRUSTED_PROXY_CIDRS`; missing/malformed/expired metadata or attestation SHALL return generic non-enumerating `503` and expose no requester dimension. The attestation key and raw assertion SHALL never be persisted, logged, or emitted as evidence, and only the verified canonical client address SHALL reach the HMAC requester dimension.
+The same adapter SHALL run before token lookup, requester-dimension limiter calls, or body/bytes handling on `POST /api/share/[token]/pin`, every EH-153 public export handler, and the verifier-backed raw-document proxy; a shared dispatcher MAY centralize this only if no subroute can bypass it.
 
 #### Scenario: Token and PIN failures exhaust fixed windows
 
@@ -118,6 +153,12 @@ The EH-151-owned `src/lib/share-links/trusted-ingress.ts` adapter SHALL be invok
 
 - **WHEN** the worker runs the bounded rate-limit cleanup RPC
 - **THEN** expired bucket rows are removed without exposing or logging raw token/requester identifiers
+
+#### Scenario: Every public subroute enforces trusted ingress
+
+- **WHEN** the PIN, export, or raw-document subroute receives a direct-origin request, missing peer metadata, spoofed forwarding headers, or an invalid trusted-ingress attestation
+- **THEN** the subroute returns the same generic `503` boundary failure before token/PIN lookup, limiter calls, or response bytes
+- **AND** a valid browser request reaches the public HTTPS listener and only the private mTLS application leg supplies the verified requester context
 
 ### Requirement: Atomic replacement idempotency
 
@@ -143,7 +184,7 @@ The service-only `public.replace_report_share` RPC SHALL accept the authenticate
 
 ### Requirement: Public response privacy
 
-Public share responses and approved shared-export responses SHALL NOT expose bearer tokens, PIN fields, profile IDs, storage paths, unrelated documents, or third-party analytics data. The public page/API and EH-153 export route SHALL apply EH-151's `applyPublicShareResponsePolicy` helper, setting private no-store caching, noindex/nofollow, and a restrictive referrer policy before returning content or PDF/CSV/JSON bytes.
+Public share responses and approved shared-export responses SHALL NOT expose bearer tokens, PIN fields, profile IDs, storage paths, unrelated documents, or third-party analytics data. The public page/API, EH-153 export route, and verifier-backed raw-document proxy SHALL apply EH-151's `applyPublicShareResponsePolicy` helper before returning content or bytes, setting `Cache-Control: no-store, private`, `X-Robots-Tag: noindex, nofollow`, and a restrictive referrer policy. The raw-document proxy SHALL apply the policy before streaming headers or body and SHALL never issue a storage signed URL.
 
 #### Scenario: Public response headers are inspected
 
@@ -151,6 +192,12 @@ Public share responses and approved shared-export responses SHALL NOT expose bea
 - **THEN** the response includes `Cache-Control: no-store, private`
 - **AND** includes `X-Robots-Tag: noindex, nofollow`
 - **AND** does not include a raw storage path
+
+#### Scenario: Raw-document headers are protected
+
+- **WHEN** a valid recipient downloads an explicitly permitted raw document
+- **THEN** the proxy response includes the same no-store/private, noindex/nofollow, and restrictive referrer policy headers before streaming bytes
+- **AND** no storage URL or third-party analytics request is emitted
 
 ### Requirement: Durable minimized access events
 

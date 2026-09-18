@@ -25,11 +25,11 @@ EH-151 provides share creation and public verification but intentionally leaves 
 
 Add `GET /api/share-management` and `POST /api/share-management/[id]/revoke` (names are implementation details fixed before coding). Both resolve the session profile, filter by `profile_id`, return no-store JSON, and use 404 for an ID outside the profile. The revoke mutation sets `revoked_at` in the same transaction used for the response; the public verifier reads that field on every request.
 
-The list DTO contains share ID, resource label, created/expiry timestamps, status, download policy, allowed export formats, last access timestamp, and aggregate outcomes. It never contains token digests, PIN fields, document storage paths, or another profile's report metadata.
+The list DTO contains share ID, resource label, created/expiry timestamps, status, download policy, allowed export formats, last access timestamp, and aggregate outcomes. `last_accessed_at` is written only by EH-151's service-only monotonic touch transition after an allowed report/API/export/raw-document read; PIN establishment and denied, expired, revoked, or rate-limited requests do not update it. EH-152 reads this value and never derives or writes a client timestamp. It never contains token digests, PIN fields, document storage paths, or another profile's report metadata.
 
 ### 2. Record minimized access events
 
-EH-151 persists events through the `report_share_access_events` repository. The durable fields are share ID, event time, result (`allowed`, `denied`, `expired`, `revoked`, `rate_limited`), resource kind, coarse client class, and retention expiry. Raw IP and full user agent are not persisted. EH-152 consumes the owner-scoped read projection and may filter/group events, but does not create a second event store or alter retention.
+EH-151 persists events through the `report_share_access_events` repository. The durable fields are share ID, event time, result (`allowed`, `denied`, `expired`, `revoked`, `rate_limited`), resource kind, coarse client class, and retention expiry. Raw IP and full user agent are not persisted. EH-152 consumes the owner-scoped read projection and may filter/group events, but does not create a second event store or alter retention. EH-152 also consumes EH-151's monotonic `last_accessed_at`; it does not update that field while rendering the list.
 
 A failed event write does not echo the supplied token, PIN, report title, or source text. Event writes are best-effort only after the authorization decision; an event failure must not turn a denied request into an allowed request or leak an error oracle. EH-151 owns the cleanup job; EH-152 exposes only rows whose retention has not expired.
 

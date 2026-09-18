@@ -70,6 +70,7 @@ This checklist covers the authenticated owner's share-management surface: status
 - [ ] Owner list and revoke endpoints enforce profile ownership and return no-store responses. *(Evidence provider: EH-152 management API owner.)*
 - [ ] Revoke visibility is tested against the same public verifier used by EH-151. *(Evidence provider: EH-152 management owner; EH-151 verifier owner.)*
 - [ ] Access events contain only approved fields with documented retention; raw IP/full user agent are absent. *(Evidence provider: EH-151 event owner; EH-152 projection owner.)*
+- [ ] Last-access evidence proves the owner list reads EH-151's monotonic timestamp from successful report/API/export/raw-document authorization, ignores PIN-only/denied/expired/revoked/rate-limited requests, preserves the greatest reverse-order concurrent value, and never accepts or writes a client timestamp. *(Evidence provider: EH-151 route/repository owner; EH-152 management owner.)*
 - [ ] Cross-profile IDs return safe not-found/authorization behavior without metadata leakage. *(Evidence provider: EH-152 management API owner.)*
 - [ ] EH-154 receives event, revoke, and header evidence. *(Evidence provider: EH-152 management owner; EH-154 gate owner.)*
 - [ ] Analytics request capture and application-log inspection prove creation/replacement tokens are absent from telemetry and errors. *(Evidence provider: EH-152 management owner; EH-154 gate owner.)*

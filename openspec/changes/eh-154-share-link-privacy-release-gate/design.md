@@ -86,6 +86,8 @@ EH-154 owns a focused verification harness that exercises the same production ad
 
 The verification harness also proves that correct body-only PIN submission establishes only the protected proof cookie, missing/wrong/expired/revoked/cross-share proofs fail generically before any page/API/export/raw-document bytes, invalid cookies are cleared, and PIN/proof/cookie/request-body values are absent from URLs, referrers, logs, telemetry, access events, and response fields.
 
+The harness applies the trusted-ingress adapter before token lookup, limiter calls, PIN body processing, and bytes on the page, API, PIN, EH-153 export, and raw-document handlers, and checks shared response-policy headers before page/API/export/raw-document responses. It includes reverse-order concurrent successful-access evidence for EH-151's monotonic `last_accessed_at` and confirms EH-152 only reads that value.
+
 ## Risks / Trade-offs
 
 - Bearer links remain copyable by design. Expiry, PIN, revoke, no-store, and minimized logs reduce but do not remove that risk.

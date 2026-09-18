@@ -4,7 +4,7 @@
 
 ### Requirement: Owner share list
 
-The authenticated owner SHALL see only that profile's share links with active, expired, and revoked status, scope label, creation time, expiry, last access time, `download_policy`, allowed export formats, and approved aggregate access outcomes.
+The authenticated owner SHALL see only that profile's share links with active, expired, and revoked status, scope label, creation time, expiry, last access time, `download_policy`, allowed export formats, and approved aggregate access outcomes. `last access time` SHALL be EH-151's monotonic timestamp from the latest successful report/API/export/raw-document authorization; PIN establishment and denied, expired, revoked, or rate-limited requests SHALL NOT change it, and EH-152 SHALL NOT write it.
 
 #### Scenario: Owner views mixed share statuses
 
@@ -12,6 +12,12 @@ The authenticated owner SHALL see only that profile's share links with active, e
 - **THEN** the page distinguishes all three states
 - **AND** no link or report belonging to another profile appears
 - **AND** token digests, PIN fields, storage paths, raw IPs, and full user agents are absent
+
+#### Scenario: Last access is server-derived and monotonic
+
+- **WHEN** an owner views a share after successful reads and failed/PIN-only attempts, including concurrent successful requests that complete out of order
+- **THEN** the list shows the greatest EH-151-recorded successful access timestamp
+- **AND** the management surface does not derive, overwrite, or accept a client-provided timestamp
 
 ### Requirement: Immediate revoke
 
