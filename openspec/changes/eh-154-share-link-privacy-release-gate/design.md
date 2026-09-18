@@ -57,7 +57,7 @@ EH-151 creates an unauthenticated capability, EH-152 exposes owner management, a
 | Scope expansion | Persist explicit report/document scope; reject unknown resource IDs; export consumes verified scope | EH-151 + EH-153 |
 | Browser/CDN/search leakage | `Cache-Control: no-store, private`; `X-Robots-Tag: noindex, nofollow`; restrictive referrer policy; no third-party analytics | EH-151 |
 | Access-log PHI/token exposure | Minimized event fields; no URL/token/PIN/source text; short retention | EH-152 + EH-154 |
-| Raw storage bypass | Do not return storage paths; issue signed URL only after per-document scope and active-source check | EH-151 + EH-153 |
+| Raw storage bypass | Stream raw documents through an EH-151 verifier-backed proxy; recheck active share state, expiry, revocation, report scope, child document scope, archive state, and download policy on every request; never return a storage signed URL | EH-151 + EH-153 |
 | Abuse/availability | Shared rate limiter for token and PIN failures; bounded export/report size; alert on spikes | EH-151 + EH-154 |
 | Stale source after archive/delete | Preserve report snapshot only; deny raw source access; show limitation | EH-148 + EH-151 |
 
