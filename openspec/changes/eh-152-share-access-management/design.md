@@ -25,7 +25,7 @@ EH-151 provides share creation and public verification but intentionally leaves 
 
 Add `GET /api/share-management` and `POST /api/share-management/[id]/revoke` (names are implementation details fixed before coding). Both resolve the session profile, filter by `profile_id`, return no-store JSON, and use 404 for an ID outside the profile. The revoke mutation sets `revoked_at` in the same transaction used for the response; the public verifier reads that field on every request.
 
-The list DTO contains share ID, resource label, created/expiry timestamps, status, download policy, last access timestamp, and aggregate outcomes. It never contains token digests, PIN fields, document storage paths, or another profile's report metadata.
+The list DTO contains share ID, resource label, created/expiry timestamps, status, download policy, allowed export formats, last access timestamp, and aggregate outcomes. It never contains token digests, PIN fields, document storage paths, or another profile's report metadata.
 
 ### 2. Record minimized access events
 
@@ -33,9 +33,9 @@ EH-151 emits events through a repository seam. The event fields are share ID, ev
 
 A failed event does not echo the supplied token, PIN, report title, or source text. Event writes are best-effort only after the authorization decision; an event failure must not turn a denied request into an allowed request or leak an error oracle.
 
-### 3. Make copy status explicit
+### 3. Make copy and rotation status explicit
 
-The UI requests a one-time owner creation response from EH-151, stores the returned link only in component state, and clears it when the page is left. The copy button reports success/failure locally. Analytics receives a boolean outcome and share ID, never the URL or token.
+The management list never returns a link or token. The EH-151 creation response is held only in component state, can be copied once, and is cleared when the page is left. For an existing active share, the UI offers **Create replacement link**, not copy-from-list. `POST /api/share-management/[id]/rotate` authenticates the owner, atomically revokes the old token, asks the EH-151 token repository to mint a replacement with the same scope, expiry, and export policy, and returns the new plaintext link once. The UI can copy that response and then clears it. Analytics receives a boolean outcome and share ID, never the URL or token.
 
 ### 4. Keep UI state server-derived
 

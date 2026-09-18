@@ -22,11 +22,17 @@ The release gate SHALL execute focused evidence for invalid, expired, revoked, c
 - **THEN** the gate status is blocked
 - **AND** the milestone cannot be declared ready
 
-#### Scenario: All mandatory controls have evidence
+#### Scenario: Mandatory controls pass with residual risk
 
 - **WHEN** all mandatory controls pass and only documented low/medium residual risks remain
+- **THEN** the gate records the commands, scenarios, evidence owner, risk owner, risk expiry, and sign-off
+- **AND** the status is `ready-with-risk` only for the reviewed deployment configuration
+
+#### Scenario: Mandatory controls pass without residual risk
+
+- **WHEN** all mandatory controls pass and no residual risk remains
 - **THEN** the gate records the commands, scenarios, evidence owner, and sign-off
-- **AND** the status is ready only for the reviewed deployment configuration
+- **AND** the status is `ready` only for the reviewed deployment configuration
 
 ### Requirement: Incident runbook
 

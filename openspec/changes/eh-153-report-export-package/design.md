@@ -23,13 +23,13 @@ The report detail page renders free-form strings and has no export boundary. EH-
 
 ### 1. Build one export input adapter
 
-Add `src/lib/report-export/index.ts` with `getExportableReport(accessContext, format)` returning the already validated report DTO plus a scope-limited source ledger. The owner adapter loads the signed-in profile; the share adapter receives a verified EH-151 capability and its allowed resource set. The adapter rejects legacy/unvalidated content and reports a stable error code.
+Add `src/lib/report-export/index.ts` with `getExportableReport(accessContext, format, input)` returning the already validated EH-148 report DTO, a scope-limited source ledger, and an optional frozen EH-149 `BiomarkerDynamicsReport` DTO. The owner adapter loads the signed-in profile; the share adapter receives a verified EH-151 capability containing its allowed resource IDs and `allowed_export_formats`. The adapter rejects legacy/unvalidated content, a missing required dynamics DTO, and any format not in the share allow-list.
 
 Each serializer consumes only this adapter result:
 
-- **JSON:** versioned machine-readable contract, validation metadata, limitations, claims, and source snapshots.
-- **CSV:** one row per numeric/qualitative measurement point plus source ID, document ID, observed date, native value/unit/range, display value/unit, and conversion indicator. Non-measurement claims remain in the JSON/PDF formats.
-- **PDF:** the same ordered sections, citation labels, source ledger, limitations, disclaimer, generated-at timestamp, and versions.
+- **JSON:** versioned machine-readable contract, validation metadata, limitations, claims, source snapshots, and the optional dynamics DTO.
+- **CSV:** one row per numeric/qualitative measurement point from the supplied dynamics DTO plus source ID, document ID, observed date, native value/unit/range, display value/unit, and conversion indicator. Non-measurement claims remain in the JSON/PDF formats.
+- **PDF:** the same ordered sections, citation labels, source ledger, optional dynamics section, limitations, disclaimer, generated-at timestamp, and versions.
 
 ### 2. Use a pinned server-side PDF renderer
 
@@ -37,7 +37,7 @@ Use `@react-pdf/renderer` behind `src/lib/report-export/pdf.ts` with a committed
 
 ### 3. Keep export authorization separate from serialization
 
-Authorization resolves the report and allowed document IDs before serialization. The serializers never query Supabase or storage and cannot widen scope. Shared exports permit only formats enabled by the share's download policy; report JSON/PDF may be allowed while raw document downloads remain denied.
+Authorization resolves the report, allowed document IDs, and allowed export formats before serialization. The serializers never query Supabase or storage and cannot widen scope. A shared export is allowed only when its format is in `allowed_export_formats`; `download_policy` `report` permits those report formats, `documents` additionally permits explicitly scoped raw documents, and `none` permits neither file export nor raw-document download.
 
 ### 4. Add controls through a leaf component
 

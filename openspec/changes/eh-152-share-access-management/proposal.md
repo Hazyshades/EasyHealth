@@ -11,7 +11,7 @@ Once share links exist, owners need a bounded way to see which links are active,
 - Add an authenticated share-management surface showing active, expired, and revoked links.
 - Show only approved metadata: resource scope label, creation time, expiry, status, last access time, and privacy-minimized access result.
 - Add immediate revoke with confirmation and a visible status update after the server confirms the change.
-- Add copy-link and copy-status feedback without placing plaintext tokens in application logs or analytics payloads.
+- Add one-time copy-link feedback for creation or replacement-link responses; existing rows expose replacement, never a stored plaintext token.
 - Add owner-scoped management endpoints with no-store responses and no cross-profile enumeration.
 - Keep raw IP address, full user agent, PIN material, and bearer-token plaintext out of the UI and stored audit data.
 

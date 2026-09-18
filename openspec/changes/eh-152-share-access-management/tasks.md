@@ -2,14 +2,15 @@
 
 Domain: **reports / auth-shell**
 
-## 1. Owner management API
+## 1. Reports — owner management API and audit projection
 
 - [ ] 1.1 Add profile-scoped share list and revoke endpoints over the EH-151 repository seam with no-store responses.
 - [ ] 1.2 Return active, expired, revoked, scope, download policy, timestamps, and approved aggregate access fields without tokens, PINs, raw IPs, full user agents, or storage paths.
 - [ ] 1.3 Make revoke transactional and ensure the public verifier observes it on the next request.
 - [ ] 1.4 Define event retention and minimized event projection with EH-154 before exposing access history.
+- [ ] 1.5 Add an owner-authenticated replacement-link endpoint that revokes the old token before returning the EH-151-generated plaintext link once.
 
-## 2. Owner interface
+## 2. Auth-shell — owner interface
 
 - [ ] 2.1 Add the authenticated share-management page with status grouping and empty/error states.
 - [ ] 2.2 Add revoke confirmation, pending state, server-refreshed status, and failure recovery.

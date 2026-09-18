@@ -4,7 +4,7 @@
 
 ### Requirement: Owner share list
 
-The authenticated owner SHALL see only that profile's share links with active, expired, and revoked status, scope label, creation time, expiry, last access time, download policy, and approved aggregate access outcomes.
+The authenticated owner SHALL see only that profile's share links with active, expired, and revoked status, scope label, creation time, expiry, last access time, `download_policy`, allowed export formats, and approved aggregate access outcomes.
 
 #### Scenario: Owner views mixed share statuses
 
@@ -34,12 +34,18 @@ The management view SHALL show approved access event time, result, resource kind
 - **THEN** the owner sees the event type and time
 - **AND** the UI does not reveal the submitted token, PIN, source text, or raw network identifier
 
-### Requirement: Copy feedback
+### Requirement: Copy and replacement-link feedback
 
-The management UI SHALL provide copy-link and copy-status feedback without sending the plaintext link to analytics or server logs.
+The management UI SHALL provide copy feedback only for a plaintext link returned by EH-151 creation or EH-152 replacement. Existing share-list rows SHALL NOT expose or reconstruct a stored token; a replacement action SHALL revoke the old token and return a new plaintext link once. Neither link may be sent to analytics or server logs.
 
 #### Scenario: Clipboard operation fails
 
-- **WHEN** the browser denies clipboard access
+- **WHEN** the browser denies clipboard access for a creation or replacement response
 - **THEN** the UI gives a manual selection fallback or clear failure state
 - **AND** no token is sent to telemetry
+
+#### Scenario: Existing link requires replacement
+
+- **WHEN** an owner requests a copy action for an existing active share
+- **THEN** the UI offers replacement-link creation instead of reading a token from the list
+- **AND** the old token is revoked before the new plaintext link is returned

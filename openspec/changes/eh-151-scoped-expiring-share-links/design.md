@@ -25,9 +25,9 @@ There is no share-link table or public token route. Existing report APIs resolve
 
 Add a migration for `report_share_links` and `report_share_documents`.
 
-`report_share_links` stores `id`, `profile_id`, `report_id`, `token_digest`, optional `pin_hash` and `pin_salt`, `expires_at`, `revoked_at`, `download_policy`, `created_at`, and `last_accessed_at`. `report_share_documents` stores the explicit document IDs allowed for raw-document access. A share always has a report target; document rows are optional and never imply additional reports.
+`report_share_links` stores `id`, `profile_id`, `report_id`, `token_digest`, optional `pin_hash` and `pin_salt`, `expires_at`, `revoked_at`, `download_policy`, `allowed_export_formats`, `created_at`, and `last_accessed_at`. `report_share_documents` stores the explicit document IDs allowed for raw-document access. A share always has a report target; document rows are optional and never imply additional reports.
 
-The default download policy is `none`. `report` permits the validated report snapshot only; `documents` permits only child rows that remain owner-authorized, in scope, and not archived/deleted. No row stores a plaintext token, PIN, storage path, or unrestricted profile ID in a public response.
+`download_policy` is `none` (view only), `report` (validated report plus only the formats in `allowed_export_formats`), or `documents` (the same report access plus explicitly scoped raw documents). `allowed_export_formats` accepts only `pdf`, `csv`, or `json` and defaults to an empty array; raw-document permission never implies a report export format. No row stores a plaintext token, PIN, storage path, or unrestricted profile ID in a public response.
 
 ### 2. Use a high-entropy one-time-displayed token
 

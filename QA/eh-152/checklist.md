@@ -52,15 +52,15 @@ This checklist covers the authenticated owner's share-management surface: status
 **Result:** `N/A`
 **Notes / evidence link:** `Implementation not started; execute after EH-152 delivery.`
 
-### EH152-UI-03: Copy a link safely
+### EH152-UI-03: Copy a creation or replacement link
 
-**Precondition:** An active share has a one-time creation response or owner copy action.
+**Precondition:** The owner has just created a share or requested a replacement link, and the one-time plaintext response is visible.
 
 1. Click **Copy link**.
 2. Confirm visible success feedback.
 3. Repeat with clipboard permission denied or unavailable.
 
-**Expected result:** Success or a manual fallback is clear. The link is not sent to analytics, application logs, or an error message.
+**Expected result:** Success or a manual fallback is clear. Existing list rows never reveal a stored token, and the link is not sent to analytics, application logs, or an error message.
 
 **Result:** `N/A`
 **Notes / evidence link:** `Implementation not started; execute after EH-152 delivery.`

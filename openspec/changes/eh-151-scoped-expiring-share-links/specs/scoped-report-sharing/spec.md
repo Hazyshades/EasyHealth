@@ -4,14 +4,14 @@
 
 ### Requirement: Owner creates an expiring scoped share
 
-An authenticated owner SHALL be able to create a share for a validated report with an expiry, optional PIN, explicit download policy, and optional document IDs. The server SHALL verify that the report and every selected document belong to the owner and are in the report scope.
+An authenticated owner SHALL be able to create a share for a validated report with an expiry, optional PIN, explicit `download_policy`, an `allowed_export_formats` subset of `pdf`, `csv`, and `json`, and optional document IDs. The server SHALL verify that the report and every selected document belong to the owner and are in the report scope. An empty format list SHALL deny file exports.
 
 #### Scenario: Report-only share is created
 
-- **WHEN** an owner creates a share for a validated report with download policy `report`
+- **WHEN** an owner creates a validated report share with `download_policy` `report` and `allowed_export_formats` `["pdf", "json"]`
 - **THEN** the response returns a one-time plaintext link
-- **AND** the persisted share stores only a token digest
-- **AND** raw document downloads are denied
+- **AND** the persisted share stores only a token digest and the explicit format allow-list
+- **AND** PDF and JSON exports are allowed while CSV and raw document downloads are denied
 
 #### Scenario: Out-of-scope document is rejected
 
