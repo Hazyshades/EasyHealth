@@ -7,7 +7,7 @@ Domain: **health-profile / reports**
 - [ ] 1.1 Define `BiomarkerDynamicsReport`, series, point, statistics, direction, limitation, and incompatibility types in `src/lib/biomarker-dynamics.ts`.
 - [ ] 1.2 Implement inclusive period filtering over `AuthorizedBiomarkerComparison`, preserving undated/non-numeric/ineligible/unsupported-unit exclusion reasons as explicit limitations.
 - [ ] 1.3 Add the versioned per-definition/display-unit tolerance policy and attach the reviewed entry or explicit absence to each series.
-- [ ] 1.4 Implement min/max/latest, point count, and approved numeric direction using that tolerance without improvement/deterioration wording.
+- [ ] 1.4 Implement min/max/latest, point count, and approved numeric direction using that tolerance without improvement/deterioration wording; return `not_available` with a comparison-unavailable limitation before policy lookup when fewer than two numeric points remain.
 - [ ] 1.5 Preserve exact measurement identity, native/display units, native ranges, conversion metadata, observation IDs, and document IDs for every point.
 - [ ] 1.6 Emit separate series and warnings for incompatible definitions, specimens, modifiers, methods, scales, or units from retained candidate identity metadata.
 - [ ] 1.7 Implement `src/lib/biomarker-dynamics-server.ts` and `GET /api/biomarkers/dynamics`: resolve the authenticated profile, build `AuthorizedBiomarkerComparison` for either `profile_current` or exact `report_immutable` scope, and call the pure projection without accepting client observations.

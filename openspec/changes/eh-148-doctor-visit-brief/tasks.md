@@ -23,7 +23,7 @@ Domain: **reports**
 - [ ] 3.1 Replace free-form report rendering with typed Doctor Visit Brief sections, citations, limitations, and a source ledger.
 - [ ] 3.2 Add a legacy presentation state that keeps old reports readable but disables source-grounded sharing/export until revalidation.
 - [ ] 3.3 Ensure the detail surface never renders storage paths, uncited factual strings, diagnosis, treatment, urgency directives, or `removed` claims as report facts; render factual claims from the closed server templates, questions as questions, and validation issues as safe limitations.
-- [ ] 3.4 Implement the EH-148-owned `src/lib/report-read.ts` resolver and require owner detail, EH-151 public report, and EH-153 export adapters to consume its archive/delete-after-publication limitations.
+- [ ] 3.4 Implement the EH-148-owned `src/lib/report-read.ts` resolver with explicit `legacy` owner presentation versus new structured validation states; require owner detail, EH-151 public report, and EH-153 export adapters to consume its archive/delete-after-publication limitations and fail-closed legacy/invalid results.
 
 ## 4. Verification and handoff
 

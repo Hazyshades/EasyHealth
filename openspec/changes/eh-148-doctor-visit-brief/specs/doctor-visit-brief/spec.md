@@ -128,13 +128,19 @@ A new report SHALL persist a server-only `report_evidence_sources` mapping keyed
 
 ### Requirement: Read-time source availability
 
-Owner detail, EH-151 public report, and EH-153 export reads SHALL use the EH-148 `src/lib/report-read.ts` resolver. When a mapped source row or document is archived or deleted after publication, the resolver SHALL preserve the historical snapshot, mark affected claims limited, add `SOURCE_UNAVAILABLE`, deny live/raw-source access, and return the derived read status without rewriting the persisted report payload.
+Owner detail, EH-151 public report, and EH-153 export reads SHALL use the EH-148 `src/lib/report-read.ts` resolver. For a legacy row with missing contract version or null scope, the resolver SHALL return a readable legacy presentation only to the owner and disable share/export; for a new structured row, missing, invalid, unknown-code, or tampered validation metadata SHALL fail closed. When a mapped source row or document is archived or deleted after publication, the resolver SHALL preserve the historical snapshot, mark affected claims limited, add `SOURCE_UNAVAILABLE`, deny live/raw-source access, and return the derived read status without rewriting the persisted report payload.
 
 #### Scenario: Source is archived after publication
 
 - **WHEN** a validated report is read after a cited source is archived or deleted
 - **THEN** owner, share, and export views show the source-unavailable limitation and historical snapshot
 - **AND** no reader can obtain the archived/deleted raw source or an unqualified supported claim
+
+#### Scenario: Legacy owner read does not bypass the resolver
+
+- **WHEN** an owner opens a legacy report with null scope or no contract/validation envelope
+- **THEN** the resolver returns the legacy presentation and disables sharing/export
+- **AND** EH-151 and EH-153 cannot use the legacy payload as a validated report
 
 ### Requirement: Atomic validated report persistence
 
