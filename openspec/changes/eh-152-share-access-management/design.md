@@ -29,9 +29,9 @@ The list DTO contains share ID, resource label, created/expiry timestamps, statu
 
 ### 2. Record minimized access events
 
-EH-151 emits events through a repository seam. The event fields are share ID, event time, result (`allowed`, `denied`, `expired`, `revoked`, `rate_limited`), resource kind, and a coarse client class only when the platform supplies it without retaining a full user agent. Raw IP and full user agent are not persisted. Retention is short and documented in EH-154's release gate.
+EH-151 persists events through the `report_share_access_events` repository. The durable fields are share ID, event time, result (`allowed`, `denied`, `expired`, `revoked`, `rate_limited`), resource kind, coarse client class, and retention expiry. Raw IP and full user agent are not persisted. EH-152 consumes the owner-scoped read projection and may filter/group events, but does not create a second event store or alter retention.
 
-A failed event does not echo the supplied token, PIN, report title, or source text. Event writes are best-effort only after the authorization decision; an event failure must not turn a denied request into an allowed request or leak an error oracle.
+A failed event write does not echo the supplied token, PIN, report title, or source text. Event writes are best-effort only after the authorization decision; an event failure must not turn a denied request into an allowed request or leak an error oracle. EH-151 owns the cleanup job; EH-152 exposes only rows whose retention has not expired.
 
 ### 3. Make copy and rotation status explicit
 

@@ -57,7 +57,7 @@ This checklist records the release evidence for the unauthenticated share bounda
 - [ ] Threat model lists assets, actors, trust boundaries, abuse cases, controls, residual risk, and evidence owners.
 - [ ] Harness executes invalid/expired/revoked/PIN/cross-profile/scope/export/download scenarios against production adapters.
 - [ ] Captured logs/events contain no bearer token, PIN, source text, PHI, raw IP, full user agent, or storage path.
-- [ ] Shared rate-limit store, secret/key versioning, retention, and deployment configuration are evidenced.
+- [ ] Current/previous/unknown/malformed token-key selector and bounded rotation-window evidence proves reissue/revoke behavior and safe retirement of the previous key.
 - [ ] Incident runbook covers token leakage, unauthorized access, rate-limit abuse, emergency revoke, evidence preservation, and privacy escalation.
 - [ ] Gate status is blocked for any unresolved high/critical finding and includes explicit privacy sign-off for ready status.
 

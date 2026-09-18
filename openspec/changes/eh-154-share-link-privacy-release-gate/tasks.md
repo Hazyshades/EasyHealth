@@ -13,6 +13,7 @@ Domain: **reports / auth-shell**
 - [ ] 2.1 Add synthetic two-profile route scenarios for invalid, expired, revoked, PIN-failed, cross-profile, out-of-scope, allowed report, and denied raw-document requests.
 - [ ] 2.2 Inspect cache/index/referrer headers and captured application events for token, PIN, source text, PHI, and storage-path leakage.
 - [ ] 2.3 Verify rate-limit behavior, revoke visibility, export policy, and no-store behavior against the production adapters rather than a parallel implementation.
+- [ ] 2.4 Verify current/previous/unknown/malformed token-key selectors, bounded rotation window, reissue/revoke behavior, and retirement evidence against production adapters.
 
 ## 3. Release evidence and incident response
 

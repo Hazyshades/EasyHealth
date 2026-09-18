@@ -35,7 +35,7 @@ Add `src/lib/report-contract.ts` as the only public boundary for report content.
 - `sources[]`, each with an internal `source_id`, `kind`, `document_id`, observed/recorded date when available, and a display-safe snapshot of the value, unit, range, or text.
 - `limitations[]` and the mandatory educational disclaimer.
 
-A `ReportEvidenceRef` points only to a `source_id` in the same payload and carries the document UUID needed for scope checks. It never contains a storage path or an authorization decision. The public DTO omits profile IDs and bearer credentials.
+A `ReportEvidenceRef` points only to a `source_id` in the same payload and carries the document UUID needed for scope checks. It never contains a storage path or an authorization decision. The public DTO omits profile IDs and bearer credentials. Each persisted report also has server-only `report_evidence_sources` rows keyed by `(report_id, source_id)` and mapping to `source_kind`, `source_row_id`, and `document_id`; EH-150 resolves citations through that mapping rather than treating a snapshot as row identity.
 
 The source kinds are `observation`, `finding`, `clinical_note`, `prescription`, `referral`, and `document_summary`. The schema permits non-factual patient questions without a citation, but a factual claim cannot be `supported` with an empty citation list.
 
@@ -43,7 +43,7 @@ The source kinds are `observation`, `finding`, `clinical_note`, `prescription`, 
 
 `POST /api/reports` resolves eligible documents once, applies the requested selection, and writes the exact UUID array to `reports.document_ids` even when the request means "all eligible". The array is treated as immutable evidence scope for the report. Existing rows with `null` remain `legacy` and are readable only through the legacy renderer; they are not eligible for new public sharing or export until revalidated.
 
-The persisted JSON contains the source snapshots used to render the report. A later archive or deletion can disable a live source link without changing the historical text that was already shown in the report. No source snapshot is used to authorize a new document download.
+The persisted JSON contains the source snapshots used to render the report. The `report_evidence_sources` rows are written in the same transaction as the report, cascade with report deletion, and are not exposed in public DTOs. A later archive or deletion can disable a live source link without changing the historical text already shown. No source snapshot is used to authorize a new document download.
 
 ### 3. Keep source projection server-owned
 

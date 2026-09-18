@@ -26,7 +26,7 @@ The owner SHALL be able to revoke an active share through an authenticated mutat
 
 ### Requirement: Minimized access history
 
-The management view SHALL show approved access event time, result, resource kind, and retention-safe client class when available. It SHALL NOT display or persist bearer-token plaintext, PIN material, report contents, raw IP addresses, or full user-agent strings.
+The management view SHALL read EH-151's durable `report_share_access_events` projection and show approved access event time, result, resource kind, and retention-safe client class while retention has not expired. EH-152 SHALL NOT create a second event store. It SHALL NOT display or persist bearer-token plaintext, PIN material, report contents, raw IP addresses, or full user-agent strings.
 
 #### Scenario: Owner reviews a denied attempt
 

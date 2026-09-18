@@ -15,8 +15,9 @@ The system SHALL export a validated EH-148 report as PDF, CSV, or JSON using the
 #### Scenario: Owner downloads CSV
 
 - **WHEN** an authenticated owner requests CSV export
-- **THEN** each measurement row includes source observation/document IDs, date, native value/unit/range, display value/unit, and conversion metadata
-- **AND** narrative claims are not silently represented as fabricated measurement rows
+- **THEN** metadata rows include generated-at time, contract/validator versions, disclaimer, and limitations
+- **AND** measurement rows include source observation/document IDs, date, native value/unit/range, display value/unit, and conversion metadata
+- **AND** claim rows retain section, claim status/text, and citation IDs without treating narrative claims as measurements
 
 #### Scenario: Dynamics export uses the frozen projection
 

@@ -6,8 +6,9 @@ Domain: **reports**
 
 - [ ] 1.1 Add the versioned `DoctorVisitBrief` and `ReportEvidenceRef` schemas in `src/lib/report-contract.ts`, including claim status, source kinds, limitations, and the educational disclaimer.
 - [ ] 1.2 Extend report context adapters so every observation, finding, clinical note, prescription, referral, and document summary retains its source row ID and document ID.
-- [ ] 1.3 Add the server-owned evidence projection that creates opaque source IDs and display-safe snapshots without storage paths or profile IDs in public DTOs.
+- [ ] 1.3 Add the server-owned evidence projection that creates opaque source IDs, display-safe snapshots, and `(report_id, source_id)` mappings to source kind/row/document identity without storage paths or profile IDs in public DTOs.
 - [ ] 1.4 Preserve the exact resolved document UUID array for every new report and distinguish legacy null-scope/unversioned rows without fabricating evidence.
+- [ ] 1.5 Add the `report_evidence_sources` migration and transactionally persist source-row mappings with the report; resolve citations through this mapping and cascade it on report deletion.
 
 ## 2. Generation and persistence
 

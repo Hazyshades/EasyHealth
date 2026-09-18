@@ -34,7 +34,7 @@ This checklist covers PDF, CSV, and JSON exports from the validated report contr
 2. Choose **Export CSV** and inspect rows.
 3. Choose **Export JSON** and inspect the contract.
 
-**Expected result:** All formats match the visible report sections and limitations. They include generated-at time, contract/validator versions, citations, source references, and the disclaimer. No unrelated document or storage path is present.
+**Expected result:** PDF, CSV, and JSON match the visible report sections and limitations. PDF/JSON include the full contract; CSV includes metadata, claim, and measurement rows with generated-at time, contract/validator versions, citations, source references, disclaimer, and no unrelated document or storage path.
 
 **Result:** `N/A`
 **Notes / evidence link:** `Implementation not started; execute after EH-153 delivery.`
@@ -59,7 +59,7 @@ This checklist covers PDF, CSV, and JSON exports from the validated report contr
 2. Inspect a converted point and a native-range point.
 3. Compare observation/document IDs and dates with the on-screen source ledger.
 
-**Expected result:** Each measurement row preserves native/display values and units, range, date, source observation/document IDs, and conversion metadata. Narrative claims are not fabricated as measurements.
+**Expected result:** Measurement rows preserve native/display values and units, range, date, source observation/document IDs, and conversion metadata. Metadata and claim rows preserve limitations, claim status/text, and citation IDs; narrative claims are not fabricated as measurements.
 
 **Result:** `N/A`
 **Notes / evidence link:** `Implementation not started; execute after EH-153 delivery.`
@@ -80,7 +80,7 @@ This checklist covers PDF, CSV, and JSON exports from the validated report contr
 
 - [ ] Owner and EH-151 share adapters reject legacy/unvalidated content and enforce exact scope before serialization.
 - [ ] PDF renderer/font verification covers Unicode, long content, empty sections, and explicit failure.
-- [ ] CSV/JSON fixtures prove ranges, source IDs, timestamps, versions, limitations, and conversion metadata are preserved.
+- [ ] CSV/JSON fixtures prove metadata, claims, ranges, source IDs, timestamps, versions, limitations, and conversion metadata are preserved.
 - [ ] Response headers and download policy evidence are supplied to EH-154.
 
 ## Out of scope or not manually testable yet

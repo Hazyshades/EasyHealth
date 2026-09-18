@@ -45,3 +45,13 @@ Public share responses SHALL NOT expose bearer tokens, PIN fields, profile IDs, 
 - **THEN** the response includes `Cache-Control: no-store, private`
 - **AND** includes `X-Robots-Tag: noindex, nofollow`
 - **AND** does not include a raw storage path
+
+### Requirement: Durable minimized access events
+
+After each public authorization decision, EH-151 SHALL write a minimized event to the durable `report_share_access_events` store with share ID, event time, result, resource kind, coarse client class, and retention expiry. The store SHALL omit bearer-token plaintext, PIN material, report contents, raw IP addresses, full user-agent strings, and URLs. EH-151 SHALL own retention cleanup; event-write failure SHALL NOT change the authorization result or disclose sensitive input.
+
+#### Scenario: Access history has a retention-safe source
+
+- **WHEN** a recipient makes an allowed, denied, expired, revoked, or rate-limited request
+- **THEN** the owner access-history view can read the corresponding minimized event while its retention has not expired
+- **AND** no raw token, PIN, report content, or raw network identifier is persisted

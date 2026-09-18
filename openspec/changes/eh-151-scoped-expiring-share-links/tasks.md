@@ -4,12 +4,13 @@ Domain: **reports / auth-shell**
 
 ## 1. Reports — share persistence and scope
 
-- [ ] 1.1 Add the share-link and explicit document-scope migration with profile ownership, expiry, revocation, `download_policy`, `allowed_export_formats`, and minimized event fields.
-- [ ] 1.2 Restrict creation to validated EH-148 reports and verify every selected document against report scope and owner profile.
+- [ ] 1.1 Add the share-link, explicit document-scope, and minimized access-event migrations with profile ownership, expiry, revocation, `download_policy`, and `allowed_export_formats`.
+- [ ] 1.2 Implement EH-151's durable event write and retention repository for result, resource kind, coarse client class, and retention expiry without raw network/token data.
+- [ ] 1.3 Restrict creation to validated EH-148 reports and verify every selected document against report scope and owner profile.
 
 ## 2. Auth-shell — token and public capability
 
-- [ ] 2.1 Implement cryptographically random token generation and keyed digest lookup with `token_key_version`, a configured current/previous key ring, and no plaintext or unkeyed fallback.
+- [ ] 2.1 Implement token format `v<token_key_version>.<random>`, keyed digest lookup through the configured current/previous key ring, and no plaintext or unkeyed fallback.
 - [ ] 2.2 Implement optional salted slow PIN hashing and a shared rate-limit seam for token/PIN failures.
 - [ ] 2.3 Add the owner creation endpoint that returns the plaintext link once and omits token/PIN material from persistence, logs, and telemetry.
 - [ ] 2.4 Add the public page/API boundary with generic invalid/expired/revoked/PIN failures and no session-profile fallback.

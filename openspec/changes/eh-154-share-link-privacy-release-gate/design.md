@@ -73,11 +73,13 @@ The release package must include the final share scope matrix, access-event fiel
 
 ### 3. Incident runbook is fail-closed
 
-For suspected token leakage: revoke the share, identify affected scope from the share record, preserve minimized events, rotate the share pepper only under an approved incident decision, notify the privacy owner, and create a remediation record. Do not print or paste the token into the incident channel. For active abuse, disable creation and tighten rate limits before investigating.
+For suspected token leakage: revoke the share, identify affected scope from the share record, preserve minimized events, notify the privacy owner, and create a remediation record. Do not print or paste the token into the incident channel. For active abuse, disable creation and tighten rate limits before investigating.
+
+For planned or emergency key rotation: provision and health-check a new secret-store key version; mark it active for new `v<version>.<random>` tokens; retain the previous version only for the approved bounded window; verify lookup for new, previous, malformed, and unknown selectors; reissue or revoke old links without exposing plaintext; record the window and owner; then retire the previous key and confirm old links fail. EH-154 records this evidence and never treats deletion of the active key as rotation.
 
 ## Verification plan
 
-EH-154 owns a focused verification harness that exercises public routes with synthetic profiles and documents: invalid token, wrong PIN, expired token, revoked token, cross-profile report ID, out-of-scope document, allowed report export, denied raw download, and repeated failures. It also inspects response headers and captured logs for token/PIN/source leakage. The harness must run against the same adapter used by production routes; mocks may cover unavailable external stores only when the production contract is separately evidenced.
+EH-154 owns a focused verification harness that exercises public routes with synthetic profiles and documents: invalid token, wrong PIN, expired token, revoked token, cross-profile report ID, out-of-scope document, allowed report export, denied raw download, repeated failures, and current/previous/unknown token-key selectors. It also inspects response headers and captured logs for token/PIN/source leakage. The harness must run against the same adapter used by production routes; mocks may cover unavailable external stores only when the production contract is separately evidenced.
 
 ## Risks / Trade-offs
 

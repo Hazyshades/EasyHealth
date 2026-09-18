@@ -28,7 +28,7 @@ Add `src/lib/report-export/index.ts` with `getExportableReport(accessContext, fo
 Each serializer consumes only this adapter result:
 
 - **JSON:** versioned machine-readable contract, validation metadata, limitations, claims, source snapshots, and the optional dynamics DTO.
-- **CSV:** one row per numeric/qualitative measurement point from the supplied dynamics DTO plus source ID, document ID, observed date, native value/unit/range, display value/unit, and conversion indicator. Non-measurement claims remain in the JSON/PDF formats.
+- **CSV:** a deterministic `record_type` ledger. Metadata rows carry generated-at, contract version, validator version, disclaimer, and limitations; claim rows carry section, claim text/status, and citation IDs; measurement rows carry values plus source ID, document ID, observed date, native value/unit/range, display value/unit, and conversion indicator from the supplied dynamics DTO. Claims are not fabricated as measurements.
 - **PDF:** the same ordered sections, citation labels, source ledger, optional dynamics section, limitations, disclaimer, generated-at timestamp, and versions.
 
 ### 2. Use a pinned server-side PDF renderer
@@ -46,6 +46,6 @@ Create `src/components/report-export-actions.tsx` for format selection, pending 
 ## Risks / Trade-offs
 
 - PDF rendering increases bundle size and server CPU. Keep the renderer server-only and enforce bounded report size before rendering.
-- A CSV cannot express every narrative claim. It is explicitly a measurement ledger; JSON/PDF remain the complete report formats.
+- A CSV can preserve the complete report contract only through typed metadata, claim, and measurement rows; consumers must treat `record_type` as part of the format rather than assuming every row is a measurement.
 - Unicode font licensing and loading are release risks. The font asset and license evidence are part of the EH-153 checklist.
 - Exported files are copies outside application control. The UI states the same educational disclaimer and source limitations; EH-154 verifies download policy and no-store headers.

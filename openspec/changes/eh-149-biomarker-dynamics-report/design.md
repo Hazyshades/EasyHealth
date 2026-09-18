@@ -33,9 +33,9 @@ This is a deep module: callers do not reimplement statistics, direction threshol
 
 ### 2. Define direction from versioned per-definition tolerances
 
-Add `src/lib/biomarker-dynamics-policy.ts` with a versioned policy keyed by exact `measurementDefinitionKey` and the series display unit. Each reviewed entry supplies `{ absolute, relative }` numeric tolerances in that display unit. EH-149 attaches the matching policy entry to the series; the values are numeric movement thresholds only, not clinical interpretation.
+Add `src/lib/biomarker-dynamics-policy.ts` with a versioned policy keyed by exact `measurementDefinitionKey` and the series display unit. Each reviewed entry supplies `{ absolute, relative }`, where `absolute` is in the display unit and `relative` is dimensionless. EH-149 attaches the matching policy entry to the series; the values are numeric movement thresholds only, not clinical interpretation.
 
-Direction is `increasing`, `decreasing`, `stable`, or `not_available`. A series may emit `stable` only when it has at least two numeric points and a matching policy entry whose threshold contains the delta. It may emit `increasing` or `decreasing` only when the delta exceeds that same threshold. If no reviewed policy entry exists, direction is `not_available` with a limitation; there is no arbitrary zero/default tolerance. The DTO never emits `improving` or `worsening`; those labels require a future domain rule with Registry ownership.
+Order the selected numeric points by `observedAt`; direction compares the first and latest points. Let `delta = latest - first` and `threshold = max(absolute, relative * abs(first))`. If `abs(delta) <= threshold`, direction is `stable` (the boundary is inclusive); if `delta > threshold`, it is `increasing`; if `delta < -threshold`, it is `decreasing`. If no reviewed policy entry exists, direction is `not_available` with a limitation; there is no arbitrary zero/default tolerance. The DTO never emits `improving` or `worsening`; those labels require a future domain rule with Registry ownership.
 
 ### 3. Treat incompatible data as separate evidence
 

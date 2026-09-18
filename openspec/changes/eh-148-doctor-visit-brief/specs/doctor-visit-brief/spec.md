@@ -22,7 +22,7 @@ A Doctor Visit Brief SHALL be persisted as a versioned structured payload contai
 
 ### Requirement: Source-grounded factual claims
 
-Every factual claim in a new brief SHALL reference one or more source IDs from the same report payload. Each source SHALL identify an allowed evidence kind, source row ID, document ID, and display-safe snapshot of the value, unit, range, text, or date when available.
+Every factual claim in a new brief SHALL reference one or more source IDs from the same report payload. Each source SHALL identify an allowed evidence kind, source row ID, document ID, and display-safe snapshot of the value, unit, range, text, or date when available. The server SHALL persist the source-row identity separately from the public payload so later citation validation does not rely on snapshot text.
 
 #### Scenario: Claim cites an observation and its document
 
@@ -63,3 +63,13 @@ The brief detail view SHALL render document summary, latest measurements, change
 - **WHEN** the brief contains generated questions or change descriptions
 - **THEN** the UI presents them as questions or numeric/source-grounded observations
 - **AND** it does not present a diagnosis, treatment plan, or medical directive as a report fact
+
+### Requirement: Durable evidence identity mapping
+
+A new report SHALL persist a server-only `report_evidence_sources` mapping keyed by `(report_id, source_id)` to source kind, source row ID, and document ID in the same transaction as the report payload. Citation validation SHALL resolve source references through this mapping, and the mapping SHALL be deleted with its report. The mapping SHALL NOT expose profile IDs, storage paths, bearer credentials, or raw source text.
+
+#### Scenario: Citation resolves after report persistence
+
+- **WHEN** EH-150 validates a persisted claim after the generation request has ended
+- **THEN** the validator resolves its source ID through the report-owned mapping and verifies the source row/document remains in the report's immutable scope
+- **AND** a payload snapshot alone is never treated as authorization or row identity

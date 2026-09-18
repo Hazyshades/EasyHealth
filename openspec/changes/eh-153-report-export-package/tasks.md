@@ -11,7 +11,7 @@ Domain: **reports**
 ## 2. Format serializers
 
 - [ ] 2.1 Implement deterministic JSON serialization with contract, validator, generated-at, limitation, claim, and source metadata.
-- [ ] 2.2 Implement CSV measurement serialization from the supplied dynamics DTO with source IDs, document IDs, native/display values and units, ranges, dates, and conversion indicators.
+- [ ] 2.2 Implement CSV `record_type` rows for metadata, claims, and measurements; measurement rows come from the supplied dynamics DTO with source IDs, document IDs, native/display values and units, ranges, dates, and conversion indicators.
 - [ ] 2.3 Add a pinned server-side PDF renderer and licensed embedded Unicode font; preserve section order, citations, limitations, disclaimer, and versions.
 - [ ] 2.4 Bound report size and fail explicitly on renderer/font failure instead of returning a partial PDF.
 
