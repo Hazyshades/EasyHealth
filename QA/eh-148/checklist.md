@@ -23,8 +23,9 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 | `EH148-MIXED-01` | Synthetic imaging/consultation record with accepted structured fields | Multi-source scope |
 | `EH148-LIMIT-01` | Synthetic record with one point or no comparable history | Missing-evidence path |
 | `EH148-LEGACY-01` | Existing test fixture representing an unversioned legacy report | Legacy boundary |
-| `EH148-SAFETY-01` | Validator fixture containing diagnosis, treatment, urgency, imperative, and unsupported free-form factual fields | Content-safety boundary |
+| `EH148-SAFETY-01` | Validator fixture containing model-authored factual text, unknown template/parameter, removed claim, diagnosis, treatment, urgency, imperative, and unsupported free-form factual fields | Content-safety boundary |
 | `EH148-ARCHIVE-01` | Published brief whose cited source is archived or deleted afterward | Read-time source availability |
+| `EH148-DYNAMICS-SCOPE-01` | Report request with `biomarker_dynamics_period` and one selected document while another owned eligible document remains unselected | Scope-constrained frozen dynamics |
 
 ## Interface checks
 
@@ -91,6 +92,8 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 - [ ] Service-transition evidence proves `public.create_validated_report` rechecks identity/scope and rolls back staged report/mapping/status on injected validator, RPC, and persistence failure with no readable unvalidated candidate. *(Evidence provider: EH-148 RPC owner; EH-150 validator owner.)*
 - [ ] Adversarial content verification proves prohibited diagnosis/treatment/urgency/imperative/free-form factual fields do not reach publishable content, while `clinician_question` remains a question. *(Evidence provider: EH-148 safety-policy owner; EH-150 validator owner.)*
 - [ ] Archive/delete-after-publication verification proves owner, share, and export reads use the EH-148 resolver, preserve the historical snapshot, add `SOURCE_UNAVAILABLE`, and deny live/raw-source access without rewriting the persisted payload. *(Evidence provider: EH-148 read-resolver owner; EH-151 public-read owner; EH-153 export owner.)*
+- [ ] Dynamics handoff evidence proves `biomarker_dynamics_period`, exact materialized document scope, and no client DTO/raw observations reach EH-149; the persisted extension contains only points in report scope. *(Evidence provider: EH-148 route/RPC owner; EH-149 comparison owner.)*
+- [ ] Validation-envelope evidence proves new reports persist only `valid`/`limited` status, validator version, and stable issue codes; invalid and legacy/missing envelopes are rejected from share/export by the common read projection. *(Evidence provider: EH-148 persistence/read-resolver owner; EH-150 validator owner; EH-151 share owner; EH-153 export owner.)*
 
 ## Out of scope or not manually testable yet
 

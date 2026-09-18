@@ -12,9 +12,9 @@ Domain: **reports**
 
 ## 2. Generation and persistence
 
-- [ ] 2.1 Update report prompts and parsing to accept server-provided source IDs, approved factual claim kinds/templates, and `clinician_question` items; deterministically reject unknown IDs, empty factual claims, diagnosis/treatment/urgency fields, imperative text, and unsupported free-form factual prose.
-- [ ] 2.2 Integrate structural parsing, EH-150 validation, and the optional EH-149 frozen dynamics extension into the service-only `createValidatedReport` transition, then call the EH-148-owned `public.create_validated_report` RPC with service-generated content, scope, source mappings, validator status, and generated-at metadata.
-- [ ] 2.3 Keep the summary preview derived from validated overview content without a second model call.
+- [ ] 2.1 Update report prompts and parsing to accept server-provided source IDs, only the closed `source_fact_snapshot`/`numeric_observation_snapshot` template parameters, and non-factual `clinician_question` items; deterministically reject model-authored factual text, unknown IDs/templates, empty factual claims, diagnosis/treatment/urgency fields, imperative text, and unsupported free-form factual prose.
+- [ ] 2.2 Integrate structural parsing, EH-150 validation, and the optional `biomarker_dynamics_period` plus exact report-scope handoff to EH-149 into the service-only `createValidatedReport` transition; accept only the server-generated frozen extension and validation envelope, then call the EH-148-owned `public.create_validated_report` RPC with service-generated content, scope, source mappings, validator status/version/issue codes, and generated-at metadata.
+- [ ] 2.3 Keep `summary_preview` derived from the persisted server-rendered `overview` field in the validated contract without a second model call.
 - [ ] 2.4 Preserve existing abnormal-only and multi-source eligibility behavior while moving source identity through the contract.
 - [ ] 2.5 Verify candidate validation failure, RPC rejection, mapping failure, and persistence failure roll back the transaction and leave no readable unvalidated row.
 
@@ -22,11 +22,11 @@ Domain: **reports**
 
 - [ ] 3.1 Replace free-form report rendering with typed Doctor Visit Brief sections, citations, limitations, and a source ledger.
 - [ ] 3.2 Add a legacy presentation state that keeps old reports readable but disables source-grounded sharing/export until revalidation.
-- [ ] 3.3 Ensure the detail surface never renders storage paths, uncited factual strings, diagnosis, treatment, or urgency directives as report facts; render factual claims from approved templates and questions as questions.
+- [ ] 3.3 Ensure the detail surface never renders storage paths, uncited factual strings, diagnosis, treatment, urgency directives, or `removed` claims as report facts; render factual claims from the closed server templates, questions as questions, and validation issues as safe limitations.
 - [ ] 3.4 Implement the EH-148-owned `src/lib/report-read.ts` resolver and require owner detail, EH-151 public report, and EH-153 export adapters to consume its archive/delete-after-publication limitations.
 
 ## 4. Verification and handoff
 
-- [ ] 4.1 Add focused verification for mixed source kinds, exact scope, unknown citation IDs, safety-policy diagnosis/treatment/urgency fixtures, missing evidence, archive/delete-after-publication, legacy rows, and educational wording.
+- [ ] 4.1 Add focused verification for mixed source kinds, exact scope, unknown citation/template IDs, unsafe model-authored factual text, validation-envelope status/version/issue-code cases, report-scope-constrained dynamics, missing evidence, archive/delete-after-publication, legacy rows, and educational wording.
 - [ ] 4.2 Publish the contract interface and ownership handoff for EH-149, EH-150, EH-151, and EH-153 without allowing those changes to edit the contract module directly.
 - [ ] 4.3 Run the EH-148 QA checklist and record developer evidence before calling the change complete.

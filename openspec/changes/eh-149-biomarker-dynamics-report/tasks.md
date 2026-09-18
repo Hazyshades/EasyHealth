@@ -19,11 +19,10 @@ Domain: **health-profile / reports**
 
 ## 3. Reports — export handoff
 
-- [ ] 3.1 Expose the authorized dynamics DTO plus schema version, direction-policy version, selected period, and generation metadata through the EH-148 server-side report-generation handoff required by EH-153.
+- [ ] 3.1 Expose the authorized dynamics DTO plus schema version, direction-policy version, selected `biomarker_dynamics_period`, exact `report_scope_document_ids`, and generation metadata through the EH-148 server-side report-generation handoff required by EH-153; omitted period means no extension.
 - [ ] 3.2 Have EH-148 persist that frozen extension in the validated report payload; export code must read the persisted extension through EH-148's resolver and must not accept a client DTO or query raw observations independently.
 - [ ] 3.3 Verify missing or tampered persisted dynamics metadata fails closed rather than rebuilding a different period or policy at export time.
 
 ## 4. Verification
-
-- [ ] 4.1 Add focused fixtures for compatible history, one-point history, inclusive boundaries, undated/non-numeric/excluded candidates, unsafe conversion, and same-name differences across definition/specimen/modifier/method/scale/unit.
+- [ ] 4.1 Add focused fixtures for compatible history, one-point history, inclusive boundaries, undated/non-numeric/excluded candidates, unsafe conversion, same-name differences across definition/specimen/modifier/method/scale/unit, and a selected scope that excludes another owned document.
 - [ ] 4.2 Verify the UI with synthetic observations and record the EH-149 QA checklist.

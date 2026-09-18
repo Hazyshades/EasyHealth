@@ -27,4 +27,4 @@ _None._
 
 ## Impact
 
-EH-152 consumes the EH-151 share-management API and does not edit public token verification or share persistence. It owns the authenticated management UI and its focused integration coverage. The access-log fields and retention policy are fixed by EH-154's threat model before release.
+EH-152 consumes the EH-151 share-management API and does not edit public token verification or share persistence. It owns the authenticated management UI and its focused integration coverage. EH-151 defines and owns access-event fields and retention configuration; EH-154 reviews the deployed value, privacy evidence, and cleanup behavior at the release gate. EH-152 consumes the owner-scoped read projection.

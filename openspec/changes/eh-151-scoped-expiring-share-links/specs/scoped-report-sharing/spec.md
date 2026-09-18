@@ -4,7 +4,7 @@
 
 ### Requirement: Owner creates an expiring scoped share
 
-An authenticated owner SHALL be able to create a share for a validated report with an expiry, optional PIN, explicit `download_policy`, an `allowed_export_formats` subset of `pdf`, `csv`, and `json`, and optional document IDs used only as the raw-document-download allow-list. The report's complete immutable evidence scope remains available to report rendering/export. The server SHALL select a configured token-key version, persist that version with the keyed token digest, and verify that the report and every selected document belong to the owner and are in the report scope. An empty format list SHALL deny file exports.
+An authenticated owner SHALL be able to create a share only for a validated EH-148 report whose immutable validation envelope has status `valid` or `limited` and a recognized validation version, with an expiry, optional PIN, explicit `download_policy`, an `allowed_export_formats` subset of `pdf`, `csv`, and `json`, and optional document IDs used only as the raw-document-download allow-list. The report's complete immutable evidence scope remains available to report rendering/export. The server SHALL select a configured token-key version, persist that version with the keyed token digest, and verify that the report and every selected document belong to the owner and are in the report scope. An empty format list SHALL deny file exports.
 
 #### Scenario: Report-only share is created
 

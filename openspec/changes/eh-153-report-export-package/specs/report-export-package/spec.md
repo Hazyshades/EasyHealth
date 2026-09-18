@@ -4,7 +4,7 @@
 
 ### Requirement: Export validated report formats
 
-The system SHALL export a validated EH-148 report as PDF, CSV, or JSON using the same ordered content, source scope, limitations, disclaimer, generated-at timestamp, contract version, and validator version as the on-screen report. When a dynamics section is requested, the exporter SHALL consume the persisted EH-149 `BiomarkerDynamicsReport` extension selected by EH-148's `report-read.ts` resolver and SHALL NOT accept a client DTO, query raw observations, or recompute raw observations.
+The system SHALL export a validated EH-148 report as PDF, CSV, or JSON using the same ordered content, source scope, limitations, disclaimer, generated-at timestamp, contract version, and immutable validation envelope `{ status, version, issue_codes }` as the on-screen report. Only supported/limited claims are serializable; removed claims are omitted. When a dynamics section is requested, the exporter SHALL consume the persisted EH-149 `BiomarkerDynamicsReport` extension selected by EH-148's `report-read.ts` resolver and SHALL NOT accept a client DTO, query raw observations, or recompute raw observations.
 
 #### Scenario: Owner downloads JSON
 
@@ -60,3 +60,15 @@ Export SHALL require the owner session or a verified EH-151 share capability. A 
 - **WHEN** a recipient requests an export for a report or document outside the share scope
 - **THEN** the server returns a generic authorization failure
 - **AND** the output contains no out-of-scope content
+
+#### Scenario: Invalid validation envelope fails before bytes
+
+- **WHEN** an owner or recipient requests export for a legacy, invalid, missing, or tampered validation envelope
+- **THEN** the server returns a generic validation/unavailable failure
+- **AND** it returns no partial file, report content, or issue-code details
+
+#### Scenario: Dynamics point outside report scope fails closed
+
+- **WHEN** persisted dynamics metadata contains a point whose source document is outside the report's materialized scope
+- **THEN** the EH-148 resolver rejects the export
+- **AND** no out-of-scope point or source row is serialized

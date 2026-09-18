@@ -24,7 +24,8 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 | `EH149-SINGLE-01` | One numeric observation and one qualitative result | Not-available direction |
 | `EH149-CONVERT-01` | Convertible native/display unit fixture with stored range | Conversion provenance |
 | `EH149-EXCLUSION-01` | Authorized observations containing undated, qualitative, ineligible, unsupported-unit, and method/scale variants | Exclusion and reason ledger |
-| `EH149-BIND-01` | Report-generation fixture selecting a period and persisting the frozen dynamics extension | Server-owned report binding |
+| `EH149-BIND-01` | Report-generation fixture selecting `biomarker_dynamics_period` and persisting the frozen dynamics extension | Server-owned report binding |
+| `EH149-SCOPE-01` | Two owned eligible documents with only one included in the report's materialized scope | Scope-constrained dynamics |
 
 ## Interface checks
 
@@ -87,6 +88,7 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 - [ ] API verification proves the profile authorization boundary precedes the dynamics projection. *(Evidence provider: EH-149 API owner.)*
 - [ ] Export handoff evidence proves EH-153 consumes the frozen DTO and does not query raw observations independently. *(Evidence provider: EH-149 DTO owner; EH-153 export owner.)*
 - [ ] Report-binding evidence proves EH-149 hands the DTO and schema/policy/period metadata to EH-148, EH-148 persists it, and EH-153 reads it through the EH-148 resolver without client DTO or raw-observation substitution. *(Evidence provider: EH-149 DTO owner; EH-148 persistence/read-resolver owner; EH-153 export owner.)*
+- [ ] Scope-constrained evidence proves the selected report document UUIDs reach the comparison adapter and dynamics DTO, while another owned eligible document cannot appear in owner, share, or export output. *(Evidence provider: EH-149 comparison/dynamics owner; EH-148 report-scope/RPC owner; EH-151 public-read owner; EH-153 export owner.)*
 
 ## Out of scope or not manually testable yet
 

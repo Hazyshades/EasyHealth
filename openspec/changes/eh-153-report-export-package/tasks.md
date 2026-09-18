@@ -5,7 +5,7 @@ Domain: **reports**
 ## 1. Export access adapter
 
 - [ ] 1.1 Implement owner and EH-151 share adapters that load only validated EH-148 content, its complete report-scope source ledger, and the persisted frozen EH-149 `BiomarkerDynamicsReport` extension selected by `src/lib/report-read.ts`; keep raw-document child scope separate and reject client DTO/raw-observation inputs.
-- [ ] 1.2 Reject legacy/unvalidated reports, missing required persisted dynamics data, source-unavailable states that cannot be represented safely, and unauthorized format/resource requests with safe stable errors.
+- [ ] 1.2 Reject legacy/unvalidated reports, missing or tampered validation envelopes, missing required persisted dynamics data, source-unavailable states that cannot be represented safely, and unauthorized format/resource requests with safe stable errors.
 - [ ] 1.3 Keep authorization and the `allowed_export_formats` check outside serializers so PDF, CSV, and JSON cannot widen report or document scope.
 
 ## 2. Format serializers
@@ -19,5 +19,5 @@ Domain: **reports**
 
 - [ ] 3.1 Add the leaf export-actions component with format availability, pending state, and safe failure copy.
 - [ ] 3.2 Provide the export-actions props contract and hand off integration: EH-148 wires authenticated detail, EH-151 wires the named public-share slot; EH-153 does not edit either page.
-- [ ] 3.3 Add fixtures for Unicode, long labels, empty optional sections, mixed units, persisted dynamics extension points, mixed non-lab source kinds, complete CSV source rows, denied formats, source-unavailable reads, and out-of-scope documents.
+- [ ] 3.3 Add fixtures for Unicode, long labels, empty optional sections, mixed units, persisted scope-constrained dynamics extension points, mixed non-lab source kinds, complete CSV source rows, removed-claim omission, invalid/legacy/tampered validation envelopes, denied formats, source-unavailable reads, and out-of-scope documents.
 - [ ] 3.4 Run the EH-153 QA checklist, prove `applyPublicShareResponsePolicy` is applied before shared PDF/CSV/JSON responses, and provide download-policy/header evidence to EH-154.

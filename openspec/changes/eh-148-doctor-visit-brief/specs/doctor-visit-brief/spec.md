@@ -4,7 +4,7 @@
 
 ### Requirement: Versioned report and evidence contract
 
-A Doctor Visit Brief SHALL be persisted as a versioned structured payload containing report kind, generated-at metadata, detail level, materialized source document IDs, typed sections, limitations, source snapshots, the mandatory educational disclaimer, and an optional server-generated `extensions.biomarker_dynamics` frozen DTO with period/schema/policy metadata.
+A Doctor Visit Brief SHALL be persisted as a versioned structured payload containing report kind, generated-at metadata, detail level, materialized source document IDs, a server-rendered deterministic `overview`, typed sections, limitations, source snapshots, the mandatory educational disclaimer, and an optional server-generated `extensions.biomarker_dynamics` frozen DTO with period/schema/policy metadata.
 
 #### Scenario: New brief stores a materialized scope
 
@@ -66,13 +66,55 @@ The brief detail view SHALL render document summary, latest measurements, change
 
 ### Requirement: Enforceable educational content policy
 
-Renderable factual claims SHALL use an approved source-backed template and structured claim kind; the persistence boundary SHALL reject or mark limited any model object containing diagnosis, treatment, urgency, imperative, or unsupported free-form factual fields. Only `clinician_question` items may retain model text, and the UI SHALL render them as questions rather than report facts. EH-150 SHALL enforce the schema/issue boundary; EH-148 owns template rendering and final presentation.
+Renderable factual claims SHALL use the closed EH-148 template contract: `source_fact_snapshot` accepts only `{ source_id, include_date }`, and `numeric_observation_snapshot` accepts only `{ source_id, include_range }`; the server renderer derives text solely from the cited source snapshot. Factual model input SHALL NOT contain renderable `text`. Only `clinician_question` items may retain model `question_text`, and the UI SHALL render them as questions rather than report facts. A `removed` claim is omitted from persisted/public claims. EH-150 SHALL validate this contract; EH-148 owns template rendering and final presentation.
 
 #### Scenario: Adversarial directive is not published as a fact
 
 - **WHEN** generated content contains a diagnosis, treatment direction, urgency instruction, imperative, or unsupported free-form factual claim
 - **THEN** the validator/persistence boundary rejects it or replaces it with a machine-generated limitation
 - **AND** the report detail and exports contain no such directive as a report fact
+
+### Requirement: Server-authorized dynamics handoff
+
+`POST /api/reports` MAY accept an optional `biomarker_dynamics_period` object containing inclusive UTC `start` and `end` dates. The server SHALL validate the range and exact report `source_document_ids` scope, pass only that scope and period to EH-149, and persist the returned scope-constrained frozen DTO extension through EH-148's validated report transition. If the field is omitted, no dynamics extension is persisted. The request SHALL NOT accept a dynamics DTO or raw observations from the client.
+
+#### Scenario: Dynamics period is bound at report creation
+
+- **WHEN** an authenticated owner submits a valid `biomarker_dynamics_period`
+- **THEN** EH-149 receives the server-validated period and EH-148 persists its DTO, schema/policy versions, selected period, and generation metadata
+- **AND** a later owner/share/export read selects that persisted extension rather than rebuilding observations
+
+#### Scenario: Dynamics period is omitted
+
+- **WHEN** an authenticated owner creates a brief without `biomarker_dynamics_period`
+- **THEN** the report contains no dynamics extension
+- **AND** export cannot introduce a dynamics DTO that was not persisted at creation
+
+### Requirement: Deterministic report preview
+
+The server SHALL derive `summary_preview` from the persisted report contract's server-rendered `overview`, using the existing bounded preview rule without a second model call. `overview` SHALL be derived from validated typed content and SHALL NOT be an unvalidated free-form factual field.
+
+#### Scenario: Preview uses validated overview
+
+- **WHEN** a report is generated successfully
+- **THEN** its `summary_preview` is persisted from the validated `overview`
+- **AND** changing or adding an unsafe model field cannot change the preview into a diagnosis, treatment, urgency, or imperative statement
+
+### Requirement: Immutable validation envelope
+
+Every new report SHALL persist `validation_status` (`valid` or `limited`), a non-empty `validation_version`, and stable EH-150 `validation_issue_codes` in the same transaction as the validated content. Invalid candidates SHALL not be persisted. Legacy rows MAY lack this envelope and SHALL remain unavailable for new share/export.
+
+#### Scenario: Limited report exposes only safe issue codes
+
+- **WHEN** validation removes unsupported claims but the remaining report is publishable
+- **THEN** the report persists `limited` status, validator version, and issue codes only
+- **AND** owner, share, and export reads expose limitations without source text or model prose in the envelope
+
+#### Scenario: Invalid or tampered envelope fails closed
+
+- **WHEN** a candidate has `invalid` status, missing version, unknown issue code, or a persisted envelope inconsistent with the report contract
+- **THEN** creation or read validation rejects it
+- **AND** EH-151 and EH-153 return a generic unavailable/validation failure without exposing report content
 
 ### Requirement: Durable evidence identity mapping
 
@@ -96,7 +138,7 @@ Owner detail, EH-151 public report, and EH-153 export reads SHALL use the EH-148
 
 ### Requirement: Atomic validated report persistence
 
-`POST /api/reports` SHALL delegate creation to one service-only `createValidatedReport` transition. The transition SHALL run EH-150's pure validator against a server-authorized source catalog, obtain any server-generated EH-149 frozen dynamics extension, then call the EH-148-owned `public.create_validated_report` RPC. That `SECURITY DEFINER` RPC SHALL recheck profile ownership, source-row identity, immutable document scope, and source mappings, and atomically insert the validated content, optional dynamics extension, validator status, report scope, and `report_evidence_sources`. A parse, mapping, validation, RPC, or persistence failure SHALL roll back so no unvalidated report is readable, shareable, or exportable.
+`POST /api/reports` SHALL delegate creation to one service-only `createValidatedReport` transition. The transition SHALL run EH-150's pure validator against a server-authorized source catalog, obtain any server-generated scope-constrained EH-149 frozen dynamics extension, then call the EH-148-owned `public.create_validated_report` RPC. That `SECURITY DEFINER` RPC SHALL recheck profile ownership, source-row identity, immutable document scope, claim/source relationships, and dynamics point/document scope, and atomically insert the validated content, optional dynamics extension, `validation_status`, `validation_version`, `validation_issue_codes`, report scope, and `report_evidence_sources`. A parse, mapping, validation, RPC, or persistence failure SHALL roll back so no unvalidated report is readable, shareable, or exportable.
 
 #### Scenario: Mapping validation failure rolls back
 

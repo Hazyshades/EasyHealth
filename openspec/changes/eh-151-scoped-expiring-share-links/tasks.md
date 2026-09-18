@@ -14,7 +14,7 @@ Domain: **reports / auth-shell**
 - [ ] 2.2 Implement optional salted slow PIN hashing and a shared rate-limit seam for token/PIN failures.
 - [ ] 2.3 Add the owner creation endpoint that returns the plaintext link once and omits token/PIN material from persistence, logs, and telemetry.
 - [ ] 2.4 Add the public page/API boundary with generic invalid/expired/revoked/PIN failures and no session-profile fallback.
-- [ ] 2.5 Enforce report validation, expiry, revocation, exact report scope, `allowed_export_formats`, and download policy on every public read; consume EH-148's `report-read.ts` resolver so archived/deleted cited sources become `SOURCE_UNAVAILABLE` limitations without exposing live/raw source data; keep report scope distinct from raw-document child scope.
+- [ ] 2.5 Enforce the EH-148 read projection's `valid`/`limited` validation status and recognized version, expiry, revocation, exact report scope, `allowed_export_formats`, and download policy on every public read; consume `report-read.ts` so archived/deleted cited sources become `SOURCE_UNAVAILABLE` limitations without exposing live/raw source data; keep report scope distinct from raw-document child scope.
 - [ ] 2.6 Implement EH-151's `applyPublicShareResponsePolicy` helper for no-store/private, noindex/nofollow, restrictive referrer policy, and no-third-party-analytics responses; require EH-153 public exports to call it.
 - [ ] 2.7 Serve raw documents through a verifier-backed proxy/stream route that rechecks share state on every request and never returns storage signed URLs; deny archived/deleted sources.
 

@@ -60,7 +60,7 @@ Every dynamics point SHALL retain observation ID, source document ID, observed d
 
 ### Requirement: Authorized comparison provenance
 
-The dynamics projection SHALL consume a profile-authorized comparison snapshot that retains numeric/qualitative candidates, deterministic exclusion reasons (`undated`, `non_numeric`, `ineligible`, `unsupported_unit`), and incompatibility identity for definition, specimen, modifier, method, scale, and unit. It SHALL NOT query raw observations independently or silently discard an excluded candidate without a limitation.
+The dynamics projection SHALL consume a profile-authorized comparison snapshot constrained to the immutable report `report_scope_document_ids`. It SHALL retain numeric/qualitative candidates, deterministic exclusion reasons (`undated`, `non_numeric`, `ineligible`, `unsupported_unit`), and incompatibility identity for definition, specimen, modifier, method, scale, and unit. It SHALL NOT query raw observations independently, silently discard an excluded candidate without a limitation, or emit a point whose source document is outside the report scope.
 
 #### Scenario: Excluded and incompatible candidates remain explainable
 
@@ -68,9 +68,15 @@ The dynamics projection SHALL consume a profile-authorized comparison snapshot t
 - **THEN** the dynamics DTO emits the corresponding limitation or incompatibility reason
 - **AND** no excluded candidate is merged into a compatible series
 
+#### Scenario: Selected report scope excludes another owned document
+
+- **WHEN** the profile owns two eligible documents but the report scope contains only one of them
+- **THEN** the comparison snapshot and frozen DTO contain points only from the selected document
+- **AND** owner, share, and export reads cannot expose a dynamics point from the other document
+
 ### Requirement: Frozen dynamics report binding
 
-When a report requests biomarker dynamics, EH-149 SHALL return the authorized DTO together with its schema version, direction-policy version, selected period, and generation metadata to EH-148. EH-148 SHALL persist that extension in the validated report payload. Owner/share/export reads SHALL select the persisted extension through the EH-148 report-read resolver; no client-provided DTO and no raw observation query may replace the bound period or policy.
+When EH-148 receives an optional server-authorized `biomarker_dynamics_period` with inclusive UTC `start` and `end` dates plus exact `report_scope_document_ids`, EH-149 SHALL return the authorized scope-constrained DTO together with its schema version, direction-policy version, selected period, and generation metadata to EH-148. EH-148 SHALL persist that extension in the validated report payload. Owner/share/export reads SHALL select the persisted extension through the EH-148 report-read resolver; no client-provided DTO and no raw observation query may replace the bound scope, period, or policy. When the period is omitted, no dynamics extension is created.
 
 #### Scenario: Export reproduces the selected dynamics period
 

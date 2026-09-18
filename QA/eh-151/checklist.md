@@ -24,6 +24,7 @@ This checklist covers creation and public use of expiring, revocable, explicitly
 | `EH151-OTHER-01` | Same owner's document outside the report scope | Scope denial |
 | `EH151-PROFILE-B` | Report/document owned by a second synthetic profile | Profile isolation |
 | `EH151-ARCHIVE-01` | Validated shared report whose cited source is archived or deleted after publication | Read-time source-unavailable limitation |
+| `EH151-VALIDATION-01` | Valid, limited, invalid, legacy, missing, and tampered EH-148 validation-envelope fixtures | Publication gate |
 
 ## Interface checks
 
@@ -82,6 +83,7 @@ This checklist covers creation and public use of expiring, revocable, explicitly
 - [ ] Token generation uses the platform CSPRNG, stores only keyed digests, and redacts token values from logs/telemetry. *(Evidence provider: EH-151 token owner.)*
 - [ ] PIN hashing, attempt limits, and shared rate limiting are exercised against the production adapters. *(Evidence provider: EH-151 public-boundary owner.)*
 - [ ] Cross-profile, scope, expiry, revoke, archived-source, and raw-download tests fail closed; archived/deleted cited-source report reads preserve the snapshot with `SOURCE_UNAVAILABLE` through EH-148's resolver and deny live/raw access. *(Evidence provider: EH-151 route owner; EH-148 read-resolver owner; EH-154 gate owner.)*
+- [ ] EH-148 validation-envelope evidence proves shares are created and served only for `valid`/`limited` reports with recognized versions; invalid, legacy, missing, and tampered envelopes fail closed without public issue-code leakage. *(Evidence provider: EH-148 read-resolver owner; EH-151 route/share owner; EH-154 gate owner.)*
 - [ ] Public headers prove no-store/private caching, noindex/nofollow, and restrictive referrer policy. *(Evidence provider: EH-151 policy-helper owner; EH-153 shared-export consumer.)*
 - [ ] EH-154 receives route/header/log evidence for the privacy gate. *(Evidence provider: EH-151 share owner; EH-154 gate owner.)*
 - [ ] Focused route evidence proves invalid, expired, and revoked requests use the same safe status/body contract; header and cache assertions are captured separately. *(Evidence provider: EH-151 route owner.)*
