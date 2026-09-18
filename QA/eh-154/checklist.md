@@ -40,24 +40,14 @@ This checklist records the release evidence for the unauthenticated share bounda
 **Result:** `N/A`
 **Notes / evidence link:** `Release-gate scenario; execute after EH-151 and EH-153 delivery.`
 
-### EH154-UI-02: Inspect privacy headers
-
-**Precondition:** A valid public report and export response are available.
-
-1. Inspect response headers in the browser network panel or approved harness.
-2. Follow no links from the shared page and inspect referrer/indexing controls.
-
-**Expected result:** Public responses are private/no-store, noindex/nofollow, and use a restrictive referrer policy. No third-party analytics request contains a share URL or token.
-
-**Result:** `N/A`
-**Notes / evidence link:** `Release-gate scenario; execute after public routes exist.`
-
 ## Developer evidence required
 
 - [ ] Threat model lists assets, actors, trust boundaries, abuse cases, controls, residual risk, and evidence owners.
 - [ ] Harness executes invalid/expired/revoked/PIN/cross-profile/scope/export/download scenarios against production adapters.
 - [ ] Captured logs/events contain no bearer token, PIN, source text, PHI, raw IP, full user agent, or storage path.
 - [ ] Current/previous/unknown/malformed token-key selector and bounded rotation-window evidence proves reissue/revoke behavior and safe retirement of the previous key.
+- [ ] Deployed `SHARE_ACCESS_EVENT_RETENTION_DAYS` value, hourly cleanup, retry/alert evidence, and malformed/unknown-token telemetry are recorded before release.
+- [ ] Developer harness captures no-store/private, noindex/nofollow, restrictive referrer policy, and absence of third-party analytics requests containing share URL/token.
 - [ ] Incident runbook covers token leakage, unauthorized access, rate-limit abuse, emergency revoke, evidence preservation, and privacy escalation.
 - [ ] Gate status is blocked for any unresolved high/critical finding and includes explicit privacy sign-off for ready status.
 

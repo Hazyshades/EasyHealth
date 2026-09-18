@@ -23,11 +23,13 @@
 
 ### 1. Add a pure report projection over the existing comparison model
 
-Add `src/lib/biomarker-dynamics.ts` with a narrow interface:
+Add `src/lib/biomarker-dynamics.ts` with a narrow interface.
 
-`buildBiomarkerDynamicsReport(series, period) -> BiomarkerDynamicsReport`
+The public projection signature is `buildBiomarkerDynamicsReport(input: AuthorizedBiomarkerComparison, period) -> BiomarkerDynamicsReport`.
 
-The input is the existing comparison result after profile authorization. The output contains the selected period, `series[]`, `incompatibilities[]`, and a deterministic disclaimer. Each series contains exact measurement identity, display/native units, min/max/latest over numeric points, point count, direction, the applied `directionTolerance` or its absence, and the complete point ledger. Each point retains observation ID, document ID, observed date, native value/unit/range, display value/unit, and conversion metadata.
+`AuthorizedBiomarkerComparison` is an EH-149-owned, profile-authorized snapshot from the comparison adapter; it contains retained numeric/qualitative candidates, projected series, `excluded[]` entries with deterministic reasons (`undated`, `non_numeric`, `ineligible`, `unsupported_unit`), and `incompatibilities[]` entries with grouping reasons. Each candidate retains exact measurement identity, display/native units, specimen, modifier, method, scale, observed date, and source IDs. The dynamics projection never queries raw tables and never reconstructs discarded evidence.
+
+The output contains the selected period, `series[]`, `incompatibilities[]`, explicit exclusion limitations, and a deterministic disclaimer. Each series contains exact measurement identity, display/native units, min/max/latest over numeric points, point count, direction, the applied `directionTolerance` or its absence, and the complete point ledger. Each point retains observation ID, document ID, observed date, native value/unit/range, display value/unit, and conversion metadata.
 
 This is a deep module: callers do not reimplement statistics, direction thresholds, or incompatibility wording. The page and export adapter consume the DTO.
 
@@ -39,7 +41,7 @@ Order the selected numeric points by `observedAt`; direction compares the first 
 
 ### 3. Treat incompatible data as separate evidence
 
-The existing exact-definition and unit-group keys remain authoritative. A display-name collision with different specimen, modifier, method, scale, or incompatible unit creates separate series and an `incompatibilities[]` warning containing the grouping reason and affected labels. The UI must not join them for min/max/latest or direction.
+The existing exact-definition and unit-group keys remain authoritative. The comparison adapter preserves candidate identity fields for specimen, modifier, method, and scale; a display-name collision with a different field or incompatible unit creates separate series and an `incompatibilities[]` warning containing the grouping reason and affected labels. The UI must not join them for min/max/latest or direction.
 
 ### 4. Keep period filtering inclusive and server-authorized
 

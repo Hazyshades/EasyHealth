@@ -16,8 +16,15 @@ The system SHALL export a validated EH-148 report as PDF, CSV, or JSON using the
 
 - **WHEN** an authenticated owner requests CSV export
 - **THEN** metadata rows include generated-at time, contract/validator versions, disclaimer, and limitations
-- **AND** measurement rows include source observation/document IDs, date, native value/unit/range, display value/unit, and conversion metadata
-- **AND** claim rows retain section, claim status/text, and citation IDs without treating narrative claims as measurements
+- **AND** claim rows retain section, claim status/text, citation IDs, and deterministic `row_order` without treating narrative claims as measurements
+- **AND** source rows include every report-ledger source ID, kind, document ID, display-safe snapshot, label, and deterministic `row_order`
+- **AND** measurement rows include source observation/document IDs, date, native value/unit/range, display value/unit, conversion metadata, and deterministic `row_order`
+
+#### Scenario: Report-only share retains the complete ledger
+
+- **WHEN** an authenticated recipient exports a validated report-only share with no raw-document child rows
+- **THEN** the export contains the complete report source ledger and selected report scope
+- **AND** no raw document download is granted by the absence of child rows
 
 #### Scenario: Dynamics export uses the frozen projection
 

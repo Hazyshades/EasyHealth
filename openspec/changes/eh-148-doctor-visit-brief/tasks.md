@@ -13,9 +13,10 @@ Domain: **reports**
 ## 2. Generation and persistence
 
 - [ ] 2.1 Update report prompts and parsing to accept only server-provided source IDs and typed claims, with deterministic rejection of unknown IDs and empty factual claims.
-- [ ] 2.2 Integrate structural contract parsing into `POST /api/reports`, including materialized scope, contract version, limitations, and generated-at metadata; leave the EH-150 validator hook explicit.
+- [ ] 2.2 Integrate structural parsing and EH-150 validation into the service-only `createValidatedReport` transaction, including staged mapping/scope, validator status, and generated-at metadata; do not direct-insert before validation.
 - [ ] 2.3 Keep the summary preview derived from validated overview content without a second model call.
 - [ ] 2.4 Preserve existing abnormal-only and multi-source eligibility behavior while moving source identity through the contract.
+- [ ] 2.5 Verify mapping, validation, and persistence failures roll back the candidate report and leave no readable unvalidated row.
 
 ## 3. Report detail surface
 

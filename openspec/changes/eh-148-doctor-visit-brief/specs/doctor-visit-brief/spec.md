@@ -73,3 +73,13 @@ A new report SHALL persist a server-only `report_evidence_sources` mapping keyed
 - **WHEN** EH-150 validates a persisted claim after the generation request has ended
 - **THEN** the validator resolves its source ID through the report-owned mapping and verifies the source row/document remains in the report's immutable scope
 - **AND** a payload snapshot alone is never treated as authorization or row identity
+
+### Requirement: Atomic validated report persistence
+
+`POST /api/reports` SHALL delegate creation to one service-only `createValidatedReport` transition. Within one transaction, the transition SHALL allocate a candidate report ID, stage its immutable document scope and `report_evidence_sources`, validate the candidate through EH-150's transaction-local resolver, and commit the validated content, validator status, report, and mapping together. A parse, mapping, validation, or persistence failure SHALL roll back the candidate so no unvalidated report is readable, shareable, or exportable.
+
+#### Scenario: Mapping validation failure rolls back
+
+- **WHEN** a candidate citation cannot resolve through the staged report mapping or falls outside the staged document scope
+- **THEN** the transition returns a safe validation result and persists no report, evidence mapping, or shareable validator status
+- **AND** a later read cannot observe the rejected candidate

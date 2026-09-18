@@ -23,12 +23,12 @@ The report detail page renders free-form strings and has no export boundary. EH-
 
 ### 1. Build one export input adapter
 
-Add `src/lib/report-export/index.ts` with `getExportableReport(accessContext, format, input)` returning the already validated EH-148 report DTO, a scope-limited source ledger, and an optional frozen EH-149 `BiomarkerDynamicsReport` DTO. The owner adapter loads the signed-in profile; the share adapter receives a verified EH-151 capability containing its allowed resource IDs and `allowed_export_formats`. The adapter rejects legacy/unvalidated content, a missing required dynamics DTO, and any format not in the share allow-list.
+Add `src/lib/report-export/index.ts` with `getExportableReport(accessContext, format, input)` returning the already validated EH-148 report DTO, its complete report-scope source ledger, and an optional frozen EH-149 `BiomarkerDynamicsReport` DTO. The owner adapter loads the signed-in profile; the share adapter receives a verified EH-151 capability containing distinct `report_scope_document_ids`, optional `raw_document_download_ids`, and `allowed_export_formats`. Report serializers always use the complete report-scope ledger; the raw-document proxy uses only the child allow-list and is not a serializer input. The adapter rejects legacy/unvalidated content, a missing required dynamics DTO, and any format not in the share allow-list.
 
 Each serializer consumes only this adapter result:
 
 - **JSON:** versioned machine-readable contract, validation metadata, limitations, claims, source snapshots, and the optional dynamics DTO.
-- **CSV:** a deterministic `record_type` ledger. Metadata rows carry generated-at, contract version, validator version, disclaimer, and limitations; claim rows carry section, claim text/status, and citation IDs; measurement rows carry values plus source ID, document ID, observed date, native value/unit/range, display value/unit, and conversion indicator from the supplied dynamics DTO. Claims are not fabricated as measurements.
+- **CSV:** a deterministic `record_type` ledger with `row_order` and section fields. Metadata rows carry generated-at, contract version, validator version, disclaimer, and limitations; claim rows carry section, claim text/status, and citation IDs; source rows carry every report-ledger entry's source ID, kind, document ID, display-safe snapshot, and label; measurement rows carry values plus source ID, document ID, observed date, native value/unit/range, display value/unit, and conversion indicator from the supplied dynamics DTO. `row_order` emits metadata first, then claim/measurement rows in report section order, then source rows in source-ledger order. Claims are not fabricated as measurements.
 - **PDF:** the same ordered sections, citation labels, source ledger, optional dynamics section, limitations, disclaimer, generated-at timestamp, and versions.
 
 ### 2. Use a pinned server-side PDF renderer
@@ -46,6 +46,6 @@ Create `src/components/report-export-actions.tsx` for format selection, pending 
 ## Risks / Trade-offs
 
 - PDF rendering increases bundle size and server CPU. Keep the renderer server-only and enforce bounded report size before rendering.
-- A CSV can preserve the complete report contract only through typed metadata, claim, and measurement rows; consumers must treat `record_type` as part of the format rather than assuming every row is a measurement.
+- A CSV can preserve the complete report contract only through typed metadata, claim, source, and measurement rows; consumers must treat `record_type` and `row_order` as part of the format rather than assuming every row is a measurement.
 - Unicode font licensing and loading are release risks. The font asset and license evidence are part of the EH-153 checklist.
 - Exported files are copies outside application control. The UI states the same educational disclaimer and source limitations; EH-154 verifies download policy and no-store headers.

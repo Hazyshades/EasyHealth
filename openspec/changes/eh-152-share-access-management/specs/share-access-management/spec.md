@@ -36,7 +36,7 @@ The management view SHALL read EH-151's durable `report_share_access_events` pro
 
 ### Requirement: Copy and replacement-link feedback
 
-The management UI SHALL provide copy feedback only for a plaintext link returned by EH-151 creation or EH-152 replacement. Existing share-list rows SHALL NOT expose or reconstruct a stored token; a replacement action SHALL revoke the old token and return a new plaintext link once. Neither link may be sent to analytics or server logs.
+The management UI SHALL provide copy feedback only for a plaintext link returned by EH-151 creation or EH-152 replacement. Existing share-list rows SHALL NOT expose or reconstruct a stored token; a replacement action SHALL call one transactional, owner-authenticated operation that locks the predecessor, copies its immutable scope/expiry/export policy, creates exactly one successor, and revokes the predecessor together. The operation SHALL require scoped idempotency, roll back on mint failure, and return a conflict for a competing request after the predecessor is revoked. Neither link may be sent to analytics or server logs.
 
 #### Scenario: Clipboard operation fails
 
@@ -48,4 +48,10 @@ The management UI SHALL provide copy feedback only for a plaintext link returned
 
 - **WHEN** an owner requests a copy action for an existing active share
 - **THEN** the UI offers replacement-link creation instead of reading a token from the list
-- **AND** the old token is revoked before the new plaintext link is returned
+- **AND** the transaction returns one new plaintext link only after the predecessor is revoked atomically
+
+#### Scenario: Replacement mint fails or races
+
+- **WHEN** minting the successor fails or two different replacement requests race
+- **THEN** the failed operation leaves the predecessor active, or the losing race returns a conflict after exactly one successor commits
+- **AND** no second plaintext link or uncommitted successor is exposed

@@ -27,7 +27,7 @@ Add `src/lib/report-citation-validator.ts`:
 
 `validateReportContent(content, context) -> { status, content, issues }`
 
-`context` includes the report profile ID, persisted document scope, and a source resolver that returns only rows already authorized for that profile. The pure core validates JSON shape and relationships; the adapter performs the minimal profile-scoped database lookup. Callers cannot pass an arbitrary cross-profile source catalog as proof.
+`context` includes the report profile ID, the immutable document scope, and a transaction-local source-mapping resolver that returns only rows already authorized for that profile. The pure core validates JSON shape and relationships; EH-148's persistence transition supplies the staged report ID and mapping. Callers cannot pass an arbitrary cross-profile source catalog as proof.
 
 ### 2. Validate four boundaries
 
@@ -52,7 +52,7 @@ Issue codes include `SCHEMA_INVALID`, `SOURCE_NOT_FOUND`, `PROFILE_MISMATCH`, `D
 
 ### 5. Integrate through EH-148's generation boundary
 
-EH-150 owns the validator and its fixtures. EH-148 owns the change to `POST /api/reports` that invokes it before insertion. EH-151 and EH-153 call the validator/read-only status check before public access or serialization; they do not bypass it or parse `reports.content` ad hoc.
+EH-150 owns the validator and its fixtures. EH-148 owns the service-only `createValidatedReport` transition that allocates a candidate report ID, stages `report_evidence_sources` and the immutable scope, invokes this validator through the transaction-local resolver, and commits validated content/status plus mappings atomically; any validation or persistence failure rolls the transition back. EH-151 and EH-153 call the validator/read-only status check before public access or serialization; they do not bypass it or parse `reports.content` ad hoc.
 
 ## Risks / Trade-offs
 

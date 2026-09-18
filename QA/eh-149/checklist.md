@@ -23,6 +23,7 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 | `EH149-INCOMPAT-01` | Same display name with different specimen or non-convertible unit | Separate-series warning |
 | `EH149-SINGLE-01` | One numeric observation and one qualitative result | Not-available direction |
 | `EH149-CONVERT-01` | Convertible native/display unit fixture with stored range | Conversion provenance |
+| `EH149-EXCLUSION-01` | Authorized observations containing undated, qualitative, ineligible, unsupported-unit, and method/scale variants | Exclusion and reason ledger |
 
 ## Interface checks
 
@@ -80,8 +81,8 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 
 ## Developer evidence required
 
-- [ ] Focused read-model verification covers date boundaries, empty/one-point series, tolerance-based direction, and non-numeric values.
-- [ ] Identity fixtures prove specimen, modifier, method, scale, and non-convertible unit differences cannot merge.
+- [ ] Focused read-model verification covers date boundaries, empty/one-point series, tolerance-based direction, non-numeric values, and explicit exclusion limitations/reasons.
+- [ ] Identity fixtures prove specimen, modifier, method, scale, and non-convertible unit differences cannot merge and retain their warning reason.
 - [ ] API verification proves the profile authorization boundary precedes the dynamics projection.
 - [ ] Export handoff evidence proves EH-153 consumes the frozen DTO and does not query raw observations independently.
 

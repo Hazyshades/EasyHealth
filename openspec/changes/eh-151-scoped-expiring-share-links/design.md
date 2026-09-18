@@ -23,13 +23,15 @@ There is no share-link table or public token route. Existing report APIs resolve
 
 ### 1. Model share scope explicitly
 
-Add a migration for `report_share_links` and `report_share_documents`.
+Add a migration for `report_share_links`, `report_share_documents`, and `share_replacement_operations`.
 
-`report_share_links` stores `id`, `profile_id`, `report_id`, `token_digest`, `token_key_version`, optional `pin_hash` and `pin_salt`, `expires_at`, `revoked_at`, `download_policy`, `allowed_export_formats`, `created_at`, and `last_accessed_at`. `report_share_documents` stores the explicit document IDs allowed for raw-document access. A share always has a report target; document rows are optional and never imply additional reports.
+`report_share_links` stores `id`, `profile_id`, `report_id`, `token_digest`, `token_key_version`, optional `pin_hash` and `pin_salt`, `expires_at`, `revoked_at`, `download_policy`, `allowed_export_formats`, `created_at`, and `last_accessed_at`. `report_share_documents` stores the explicit document IDs allowed for raw-document access. `share_replacement_operations` stores only the predecessor share ID, owner-scoped idempotency key, successor share ID, outcome, and timestamps with a unique `(predecessor_share_id, idempotency_key)` constraint; it never stores token/PIN material. A share always has a report target; document rows are optional and never imply additional reports. The verified capability exposes the report's complete immutable `report_scope_document_ids` separately from the optional `raw_document_download_ids`; report rendering/export always uses the former, while raw-document authorization uses only the latter.
 
 `download_policy` is `none` (view only), `report` (validated report plus only the formats in `allowed_export_formats`), or `documents` (the same report access plus explicitly scoped raw documents). `allowed_export_formats` accepts only `pdf`, `csv`, or `json` and defaults to an empty array; raw-document permission never implies a report export format. No row stores a plaintext token, PIN, storage path, or unrestricted profile ID in a public response.
 
-`report_share_access_events` is the durable minimized event store. It stores `id`, `share_id`, `occurred_at`, `result`, `resource_kind`, `client_class`, and `retention_expires_at`; it never stores raw IP, full user agent, URL/token, PIN, report title, or source text. EH-151 owns event writes and retention cleanup; EH-152 consumes the read projection.
+`report_share_access_events` is the durable minimized event store. Its non-null `share_id` rows store `id`, `share_id`, `occurred_at`, `result`, `resource_kind`, `client_class`, and `retention_expires_at`; they never store raw IP, full user agent, URL/token, PIN, report title, or source text. EH-151 writes a share-scoped event only after the token selects a share and the route has made its decision, including PIN, resource, expiry, revocation, and rate-limit outcomes. Malformed or unknown tokens have no share row; their rate limiter emits only aggregate telemetry without a token, PIN, or share identifier and they do not appear in owner history. EH-151 owns event writes and retention cleanup; EH-152 consumes the read projection.
+
+The authoritative retention setting is `SHARE_ACCESS_EVENT_RETENTION_DAYS`, default `30`, with an inclusive production range of `1..90`; EH-154 records the deployed value before release. `retention_expires_at` is `occurred_at + retention_days` in UTC. An hourly `share-access-event-retention` worker deletes rows with `retention_expires_at <= now()` in batches of 500, retries transient failures with bounded backoff, and alerts after the retry budget is exhausted. Cleanup failure does not alter authorization, but missing cleanup evidence blocks the privacy gate.
 
 ### 2. Use a high-entropy one-time-displayed token
 
@@ -46,6 +48,8 @@ Optional PIN verification uses a slow password hash with a per-share salt. Faile
 ### 4. Share snapshots, not authorization shortcuts
 
 A validated report snapshot may be rendered from `reports.content`, but the share still checks that the report belongs to the share's profile and is not deleted. Raw document access requires a child scope row and a fresh owner authorization check. Archived/deleted source documents cannot be downloaded through an existing link; the report shows a limitation instead.
+
+A raw-document request uses a capability-checked proxy/stream route that revalidates the active share, expiry, revocation, report scope, child document allow-list, archive state, and download policy on every request before streaming bytes. It never returns a storage signed URL and never delegates authorization to the storage provider's independent URL lifetime. Revocation or expiry after a recipient has obtained a report or download response cannot retract bytes already received, but a subsequent raw-document request is denied.
 
 ### 5. Keep management behind a separate seam
 

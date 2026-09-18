@@ -57,3 +57,13 @@ Every dynamics point SHALL retain observation ID, source document ID, observed d
 - **THEN** the UI shows the source document and date
 - **AND** the native value and reference range remain available
 - **AND** the displayed conversion does not replace the native evidence
+
+### Requirement: Authorized comparison provenance
+
+The dynamics projection SHALL consume a profile-authorized comparison snapshot that retains numeric/qualitative candidates, deterministic exclusion reasons (`undated`, `non_numeric`, `ineligible`, `unsupported_unit`), and incompatibility identity for definition, specimen, modifier, method, scale, and unit. It SHALL NOT query raw observations independently or silently discard an excluded candidate without a limitation.
+
+#### Scenario: Excluded and incompatible candidates remain explainable
+
+- **WHEN** an authorized comparison contains an undated, qualitative, ineligible, unsupported-unit, or identity-incompatible candidate
+- **THEN** the dynamics DTO emits the corresponding limitation or incompatibility reason
+- **AND** no excluded candidate is merged into a compatible series

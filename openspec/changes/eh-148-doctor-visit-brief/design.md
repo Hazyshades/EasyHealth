@@ -41,9 +41,11 @@ The source kinds are `observation`, `finding`, `clinical_note`, `prescription`, 
 
 ### 2. Materialize scope at generation time
 
-`POST /api/reports` resolves eligible documents once, applies the requested selection, and writes the exact UUID array to `reports.document_ids` even when the request means "all eligible". The array is treated as immutable evidence scope for the report. Existing rows with `null` remain `legacy` and are readable only through the legacy renderer; they are not eligible for new public sharing or export until revalidated.
+`POST /api/reports` resolves eligible documents once, applies the requested selection, and delegates to the service-only `createValidatedReport` transaction. The transition allocates a candidate report ID, stages the exact UUID array and `report_evidence_sources`, invokes EH-150 against that transaction-local mapping/scope, and commits the validated report content, validator status, scope, and mappings atomically. A failed parse, validation, mapping, or persistence step rolls back the candidate; no unvalidated report becomes readable or shareable.
 
 The persisted JSON contains the source snapshots used to render the report. The `report_evidence_sources` rows are written in the same transaction as the report, cascade with report deletion, and are not exposed in public DTOs. A later archive or deletion can disable a live source link without changing the historical text already shown. No source snapshot is used to authorize a new document download.
+
+The persistence transition is the only writer for a new structured report and its evidence mapping. The route does not perform a direct report insert followed by a separate validator call.
 
 ### 3. Keep source projection server-owned
 

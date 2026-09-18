@@ -34,7 +34,7 @@ This checklist covers creation and public use of expiring, revocable, explicitly
 2. Open the link.
 3. Inspect the visible report and available actions.
 
-**Expected result:** Only the selected validated report is visible. The response is not indexed, is not cacheable, and offers no raw document download when policy denies it.
+**Expected result:** Only the selected validated report is visible and no raw document download is offered when policy denies it. Cache, indexing, referrer, and analytics controls are evidenced in the developer section.
 
 **Result:** `N/A`
 **Notes / evidence link:** `Implementation not started; execute after EH-151 delivery.`
@@ -69,9 +69,9 @@ This checklist covers creation and public use of expiring, revocable, explicitly
 **Precondition:** Create one share that expires soon and one share that the owner revokes.
 
 1. Open each link before and after its expiry/revoke state.
-2. Compare the visible error and response status.
+2. Compare the visible failure message and whether report content is shown.
 
-**Expected result:** Both links fail safely after the state change with the same generic outcome. No stale cached report remains accessible.
+**Expected result:** Both links fail safely after the state change with the same generic visible outcome and no report content.
 
 **Result:** `N/A`
 **Notes / evidence link:** `Implementation not started; execute after EH-151 delivery.`
@@ -83,6 +83,11 @@ This checklist covers creation and public use of expiring, revocable, explicitly
 - [ ] Cross-profile, scope, expiry, revoke, archived-source, and raw-download tests fail closed.
 - [ ] Public headers prove no-store/private caching, noindex/nofollow, and restrictive referrer policy.
 - [ ] EH-154 receives route/header/log evidence for the privacy gate.
+- [ ] Focused route evidence proves invalid, expired, and revoked requests use the same safe status/body contract; header and cache assertions are captured separately.
+- [ ] Event retention evidence records `SHARE_ACCESS_EVENT_RETENTION_DAYS`, expiry calculation, hourly cleanup, bounded retries, and alerting at the deployed value.
+- [ ] Malformed/unknown-token requests create no share-scoped event and aggregate rate-limit telemetry contains no token, PIN, or share identifier.
+- [ ] Raw-document proxy evidence proves revocation, expiry, archive state, and child-scope checks run on every request after a prior request and no storage signed URL is issued.
+- [ ] Public request capture proves no third-party analytics request contains the share URL or token.
 
 ## Out of scope or not manually testable yet
 

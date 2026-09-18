@@ -58,9 +58,9 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 
 1. Open the source details for a measurement claim.
 2. Compare the displayed value, unit, reference range, date, and document label with the synthetic source.
-3. Inspect the rendered page source or download controls for storage paths.
+3. Inspect the visible source ledger and citation labels.
 
-**Expected result:** The ledger shows the evidence snapshot and document identity. It does not expose raw storage paths, another profile's source, or a citation derived only from a filename.
+**Expected result:** The ledger shows the evidence snapshot and document identity, and citation labels are derived from source IDs rather than filenames.
 
 **Result:** `N/A`
 **Notes / evidence link:** `Implementation not started; execute after EH-148 delivery.`
@@ -85,6 +85,8 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 - [ ] Mixed-source verification covers observations, findings, notes, prescriptions/referrals, and document summaries.
 - [ ] Legacy verification proves unversioned/null-scope rows are readable but not silently upgraded.
 - [ ] The EH-150 validator handoff and integration seam are recorded before share/export work begins.
+- [ ] Focused API/route verification proves storage paths and cross-profile source records never enter the report response or source ledger.
+- [ ] Service-transition evidence proves staged mapping, validator failure, and persistence failure roll back together with no readable unvalidated candidate.
 
 ## Out of scope or not manually testable yet
 
