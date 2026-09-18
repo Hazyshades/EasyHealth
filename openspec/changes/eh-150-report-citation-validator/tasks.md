@@ -18,5 +18,5 @@ Domain: **reports**
 ## 3. Verification and handoff
 
 - [ ] 3.1 Add fixtures for valid, missing, unknown, broken, out-of-scope, cross-profile, archived, uncited-claim, adversarial unsafe-content, current-version, recognized-historical-version, and retired/unknown-version cases.
-- [ ] 3.2 Verify sanitization does not preserve unsupported factual prose or unsafe directives, removed claims never serialize, current and recognized historical versions pass read/share/export gates, retired/unknown/missing versions fail closed, and valid limited reports show limitations while EH-148 read-time archive/delete status remains `SOURCE_UNAVAILABLE`.
+- [ ] 3.2 Verify sanitization does not preserve unsupported factual prose or unsafe directives, removed claims never serialize, current and recognized historical versions pass read/share/export gates, retired/unknown/missing versions fail closed, valid limited reports show `SOURCE_UNAVAILABLE` only for archived/removed sources under active documents, and tombstoned source documents invalidate the complete report before owner/share/export reads.
 - [ ] 3.3 Run the EH-150 QA checklist and hand the stable validator interface to EH-151 and EH-153.

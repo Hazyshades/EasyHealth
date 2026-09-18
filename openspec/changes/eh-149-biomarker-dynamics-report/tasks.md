@@ -5,7 +5,7 @@ Domain: **health-profile / reports**
 ## 1. Health-profile — dynamics read model
 
 - [ ] 1.1 Define `BiomarkerDynamicsReport`, series, point, statistics, direction, limitation, and incompatibility types in `src/lib/biomarker-dynamics.ts`.
-- [ ] 1.2 Implement inclusive period filtering over `AuthorizedBiomarkerComparison`, preserving undated/non-numeric/ineligible/unsupported-unit exclusion reasons as explicit limitations.
+- [ ] 1.2 Implement inclusive canonical `YYYY-MM-DD` UTC-calendar-date filtering over `AuthorizedBiomarkerComparison`, including timestamps anywhere on the end date, rejecting non-canonical/reversed periods, and preserving undated/non-numeric/ineligible/unsupported-unit exclusion reasons as explicit limitations.
 - [ ] 1.3 Add the versioned per-definition/display-unit tolerance policy and attach the reviewed entry or explicit absence to each series.
 - [ ] 1.4 Implement min/max/latest, point count, and approved numeric direction using that tolerance and the stable `observedAt`/canonical `observationId` ordering without improvement/deterioration wording; return `not_available` with a comparison-unavailable limitation before policy lookup when fewer than two numeric points remain.
 - [ ] 1.5 Preserve exact measurement identity, native/display units, native ranges, conversion metadata, observation IDs, and document IDs for every point.
@@ -25,5 +25,5 @@ Domain: **health-profile / reports**
 - [ ] 3.3 Verify missing or tampered persisted dynamics metadata fails closed rather than rebuilding a different period or policy at export time.
 
 ## 4. Verification
-- [ ] 4.1 Add focused fixtures for compatible history, one-point history, equal observed timestamps with a canonical observation-ID tie-breaker, inclusive boundaries, undated/non-numeric/excluded candidates, unsafe conversion, same-name differences across definition/specimen/modifier/method/scale/unit, and a selected scope that excludes another owned document.
+- [ ] 4.1 Add focused fixtures for compatible history, one-point history, equal observed timestamps with a canonical observation-ID tie-breaker, inclusive boundaries including an end-of-day timestamp, invalid/non-canonical/reversed periods, undated/non-numeric/excluded candidates, unsafe conversion, same-name differences across definition/specimen/modifier/method/scale/unit, and a selected scope that excludes another owned document.
 - [ ] 4.2 Verify both the `profile_current` page adapter and `report_immutable` report adapter with synthetic observations, prove client observations/out-of-scope documents are rejected, and record the EH-149 QA checklist.

@@ -4,13 +4,19 @@
 
 ### Requirement: Inclusive dynamics period
 
-The Biomarker Dynamics Report SHALL accept an inclusive start and end date and SHALL include only authorized observations whose observed date falls within that period. Undated observations SHALL be excluded from numeric statistics and represented in a limitation.
+The Biomarker Dynamics Report SHALL accept canonical `YYYY-MM-DD` UTC-calendar-date `start` and `end` values with `start <= end` and SHALL include only authorized observations whose UTC calendar date falls within that inclusive period, including any timestamp on the end date. Undated observations SHALL be excluded from numeric statistics and represented in a limitation.
 
 #### Scenario: Period selector filters points
 
 - **WHEN** a user selects a period with start `2025-01-01` and end `2025-03-31`
 - **THEN** observations on both boundary dates are included
 - **AND** observations outside the period are excluded from min/max/latest and direction
+
+#### Scenario: Invalid or non-canonical period fails
+
+- **WHEN** a client supplies a timestamp, malformed date, or end date before start
+- **THEN** the server rejects the period before projection
+- **AND** no point outside the canonical inclusive UTC-calendar-date range enters the DTO
 
 ### Requirement: Deterministic series statistics
 
@@ -93,7 +99,7 @@ EH-149 SHALL own a server adapter that resolves the authenticated profile and ca
 
 ### Requirement: Frozen dynamics report binding
 
-When EH-148 receives an optional server-authorized `biomarker_dynamics_period` with inclusive UTC `start` and `end` dates plus exact `report_scope_document_ids`, EH-149 SHALL return the authorized scope-constrained DTO together with its schema version, direction-policy version, selected period, and generation metadata to EH-148. EH-148 SHALL persist that extension in the validated report payload. Owner/share/export reads SHALL select the persisted extension through the EH-148 report-read resolver; no client-provided DTO and no raw observation query may replace the bound scope, period, or policy. When the period is omitted, no dynamics extension is created.
+When EH-148 receives an optional server-authorized `biomarker_dynamics_period` with canonical `YYYY-MM-DD` UTC-calendar-date `start` and `end` values plus exact `report_scope_document_ids`, EH-149 SHALL return the authorized scope-constrained DTO together with its schema version, direction-policy version, selected canonical period, and generation metadata to EH-148. EH-148 SHALL persist that extension in the validated report payload. Owner/share/export reads SHALL select the persisted extension through the EH-148 report-read resolver; no client-provided DTO and no raw observation query may replace the bound scope, period, or policy. When the period is omitted, no dynamics extension is created.
 
 #### Scenario: Export reproduces the selected dynamics period
 

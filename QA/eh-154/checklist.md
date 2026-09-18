@@ -31,11 +31,12 @@ This checklist records the release evidence for the unauthenticated share bounda
 
 **Precondition:** EH-151 public routes and EH-153 exports are deployed to the reviewed test environment.
 
-1. Open invalid, expired, revoked, wrong-PIN, cross-profile, and out-of-scope URLs using `EH154-PROFILE-A`/`EH154-PROFILE-B`.
-2. Open one valid report-only share.
-3. Attempt a denied raw-document or export resource.
+1. Open invalid, expired, revoked, wrong-PIN, cross-profile, out-of-scope, archived/removed-source, and tombstoned-source URLs using `EH154-PROFILE-A`/`EH154-PROFILE-B`.
+2. Open one valid report-only share whose cited source row is archived/removed while its parent document remains active.
+3. Open one share whose cited source document is `deleting`/tombstoned.
+4. Attempt a denied raw-document or export resource.
 
-**Expected result:** Failures are generic and fail closed. The valid share returns only its scope; the denied resource returns no data. Revocation is effective without a cache delay.
+**Expected result:** Invalid, expired, revoked, PIN, cross-profile, and out-of-scope failures are generic and fail closed. The active-document archived/removed case preserves only the historical snapshot with `SOURCE_UNAVAILABLE` and denies live/raw access. The tombstoned-source case returns generic unavailable before report/export bytes. The valid share returns only its scope; the denied resource returns no data. Revocation is effective without a cache delay.
 
 **Result:** `N/A`
 **Notes / evidence link:** `Release-gate scenario; execute after EH-151 and EH-153 delivery.`
@@ -45,8 +46,7 @@ This checklist records the release evidence for the unauthenticated share bounda
 - [ ] Threat model lists assets, actors, trust boundaries, abuse cases, controls, residual risk, and evidence owners. *(Evidence provider: EH-154 threat-model owner; privacy approver.)*
 - [ ] Harness executes invalid/expired/revoked/PIN/cross-profile/scope/export/download scenarios against production adapters. *(Evidence provider: EH-154 harness owner; EH-151/EH-153 adapter owners.)*
 - [ ] Captured logs/events contain no bearer token, PIN, source text, PHI, raw IP, full user agent, or storage path. *(Evidence provider: EH-151/EH-152/EH-153 instrumentation owners; EH-154 gate owner.)*
-- [ ] Current/previous/unknown/malformed token-key selector and bounded rotation-window evidence proves reissue/revoke behavior and safe retirement of the previous key. *(Evidence provider: EH-151 key owner; EH-154 gate owner.)*
-- [ ] Deployed rate-limit evidence proves EH-151's Postgres-backed `rate-limit.ts` adapter uses the configured `SHARE_TRUSTED_PROXY_CIDRS` and ingress-authenticated requester address, rejects missing/malformed trusted source and spoofed forwarding headers, uses a configured `SHARE_RATE_LIMIT_PEPPER` without recording its value (approved secret-manager reference/version or fingerprint only), uses the recorded non-secret `10/60s` token / `30/60s` requester limits plus cleanup intervals, returns generic `429` on exhaustion and `503` on store failure, has no local fallback, persists no raw token/IP/user-agent values, and drains expired buckets through the bounded 500-row/20-batch worker cleanup with continuation/backlog/failure signals. *(Evidence provider: EH-151 rate-limit owner; EH-154 harness/gate owner.)*
+- [ ] Deployed rate-limit evidence proves EH-151's Postgres-backed `rate-limit.ts` adapter uses the configured `SHARE_TRUSTED_PROXY_CIDRS`, private/mTLS signed `X-EH-Edge-*` assertion, and `SHARE_TRUSTED_PROXY_ATTESTATION_MAX_AGE_SECONDS`; rejects missing/malformed/expired trusted source and spoofed forwarding headers; uses configured `SHARE_RATE_LIMIT_PEPPER` and attestation key without recording either value (approved secret-manager references/versions or fingerprints only); uses recorded non-secret `10/60s` token / `30/60s` requester limits plus cleanup intervals; returns generic `429` on exhaustion and `503` on store failure, has no local fallback, persists no raw token/IP/user-agent values, and drains expired buckets through the bounded 500-row/20-batch worker cleanup with continuation/backlog/failure signals. *(Evidence provider: EH-151 rate-limit/trusted-ingress owner; EH-154 harness/gate owner.)*
 - [ ] Access-event retention evidence proves the reviewed `SHARE_ACCESS_EVENT_RETENTION_DAYS` value, UTC expiry calculation, `cleanup_report_share_access_events` worker cadence/continuation, advisory-lock contention and release, bounded repeated-batch drain, retry/backoff, and backlog-alert evidence. *(Evidence provider: EH-151 event-retention owner; EH-154 gate owner.)*
 - [ ] Developer harness captures no-store/private, noindex/nofollow, restrictive referrer policy, and absence of third-party analytics requests containing share URL/token. *(Evidence provider: EH-151 policy-helper owner; EH-153 public-export owner; EH-154 harness owner.)*
 - [ ] Incident runbook covers token leakage, unauthorized access, rate-limit abuse, emergency revoke, evidence preservation, and privacy escalation. *(Evidence provider: EH-154 incident/runbook owner; privacy approver.)*

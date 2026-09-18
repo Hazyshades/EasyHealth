@@ -23,9 +23,11 @@ This checklist covers creation and public use of expiring, revocable, explicitly
 | `EH151-DOC-01` | One document explicitly permitted for download | Narrow document scope |
 | `EH151-OTHER-01` | Same owner's document outside the report scope | Scope denial |
 | `EH151-PROFILE-B` | Report/document owned by a second synthetic profile | Profile isolation |
-| `EH151-ARCHIVE-01` | Validated shared report whose cited source is archived or deleted after publication | Read-time source-unavailable limitation |
+| `EH151-ARCHIVE-01` | Validated shared report whose cited source row is archived/removed while its parent document remains active | Read-time source-unavailable limitation |
 | `EH151-VALIDATION-01` | Valid, limited, invalid, legacy, missing, and tampered EH-148 validation-envelope fixtures | Publication gate |
 | `EH151-RATE-01` | Repeated invalid-token and wrong-PIN requests with the shared limiter available and unavailable | Production rate-limit boundary |
+| `EH151-TOMBSTONE-01` | Shared report whose source document enters `deleting`/tombstoned state | Whole-report invalidation |
+| `EH151-REPLACE-01` | Active share with repeated same-key replacement retry and competing different-key replacement request | Atomic replacement idempotency |
 
 ## Interface checks
 
@@ -82,8 +84,9 @@ This checklist covers creation and public use of expiring, revocable, explicitly
 ## Developer evidence required
 
 - [ ] Token generation uses the platform CSPRNG, stores only keyed digests, and redacts token values from logs/telemetry. *(Evidence provider: EH-151 token owner.)*
-- [ ] PIN hashing and the shared production rate limiter are exercised against the Supabase/Postgres adapter: HMAC-derived token/requester keys, ingress-authenticated `edgeVerifiedClientAddress` with `SHARE_TRUSTED_PROXY_CIDRS`, strict single-address parsing, spoofed forwarding-header rejection, generic `503` on missing/malformed trusted requester source, `10/60s` and `30/60s` limits, generic `429` exhaustion, no local fallback, no raw identifier persistence, and bounded cleanup of expired rate-limit buckets. *(Evidence provider: EH-151 public-boundary/rate-limit owner; EH-154 gate owner.)*
-- [ ] Cross-profile, scope, expiry, revoke, archived-source, and raw-download tests fail closed; archived/deleted cited-source report reads preserve the snapshot with `SOURCE_UNAVAILABLE` through EH-148's resolver and deny live/raw access. *(Evidence provider: EH-151 route owner; EH-148 read-resolver owner; EH-154 gate owner.)*
+- [ ] PIN hashing and the shared production rate limiter are exercised against the Supabase/Postgres adapter: private/mTLS trusted-ingress assertion, signed `X-EH-Edge-*` verification with `SHARE_TRUSTED_PROXY_CIDRS`, `SHARE_TRUSTED_PROXY_ATTESTATION_MAX_AGE_SECONDS`, and secret-manager presence of the attestation key (reference/version only), strict single-address parsing, spoofed forwarding-header rejection, generic `503` on missing/malformed/expired trusted source, HMAC-derived token/requester keys, `10/60s` and `30/60s` limits, generic `429` exhaustion, no local fallback, no raw identifier persistence, and bounded cleanup of expired rate-limit buckets. *(Evidence provider: EH-151 public-boundary/rate-limit owner; EH-154 gate owner.)*
+- [ ] Cross-profile, scope, expiry, revoke, archived/removed-source, tombstone, and raw-download tests fail closed; archived/removed cited-source report reads preserve the snapshot with `SOURCE_UNAVAILABLE` only through EH-148's resolver while tombstoned source documents invalidate the complete report before public bytes, and all live/raw access is denied. *(Evidence provider: EH-151 route owner; EH-148 read-resolver owner; EH-154 gate owner.)*
+- [ ] Replacement evidence proves the service-only RPC locks the predecessor, reserves owner/share-scoped idempotency atomically, commits at most one successor, copies scope/policy, revokes the predecessor, returns no plaintext token on replay/conflict, and leaves the predecessor active after failure. *(Evidence provider: EH-151 replacement/RPC owner; EH-152 management owner; EH-154 gate owner.)*
 - [ ] EH-148 validation-envelope evidence proves shares are created and served only for `valid`/`limited` reports with recognized versions; invalid, legacy, missing, and tampered envelopes fail closed without public issue-code leakage. *(Evidence provider: EH-148 read-resolver owner; EH-151 route/share owner; EH-154 gate owner.)*
 - [ ] Public headers prove no-store/private caching, noindex/nofollow, and restrictive referrer policy. *(Evidence provider: EH-151 policy-helper owner; EH-153 shared-export consumer.)*
 - [ ] EH-154 receives route/header/log evidence for the privacy gate. *(Evidence provider: EH-151 share owner; EH-154 gate owner.)*

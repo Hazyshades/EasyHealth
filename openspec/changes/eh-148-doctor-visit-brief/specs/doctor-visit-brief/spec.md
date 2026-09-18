@@ -22,7 +22,7 @@ A Doctor Visit Brief SHALL be persisted as a versioned structured payload contai
 
 ### Requirement: Bounded user questions and report date range
 
-The report request SHALL accept an optional `questions` array of at most five unique user-selected questions. Each question SHALL be NFC-normalized, trimmed, 1–240 Unicode scalar characters, and free of control characters and line breaks. The server SHALL persist accepted questions as non-factual `clinician_question` claims with `origin: user_selected`; they SHALL remain visibly questions and SHALL NOT become factual claims or model-authored answers. The request MAY include an optional `report_date_range: { start, end }` of inclusive UTC dates with `start <= end`. With a date range, measurements use observation date and other source kinds use document date; undated sources are excluded. A document enters the materialized scope only when it contributes at least one eligible in-range source (or an in-range document-summary source). Explicit document IDs that are unauthorized or have no eligible in-range source SHALL return a safe validation error, while the all-eligible path SHALL persist only documents with an eligible in-range source. The same persisted question and date-filtered scope SHALL be used by owner detail, share, and export reads.
+The report request SHALL accept an optional `questions` array of at most five unique user-selected questions. Each question SHALL be NFC-normalized, trimmed, 1–240 Unicode scalar characters, and free of control characters and line breaks. The server SHALL persist accepted questions as non-factual `clinician_question` claims with `origin: user_selected`; they SHALL remain visibly questions and SHALL NOT become factual claims or model-authored answers. The request MAY include an optional `report_date_range: { start, end }` whose `start` and `end` are canonical `YYYY-MM-DD` UTC calendar dates with `start <= end`. Filtering SHALL compare each authoritative source date by its UTC calendar date, so the entire end date is inclusive. Measurements use observation date and other source kinds use document date; undated sources are excluded. A document enters the materialized scope only when it contributes at least one eligible in-range source (or an in-range document-summary source). Explicit document IDs that are unauthorized or have no eligible in-range source SHALL return a safe validation error, while the all-eligible path SHALL persist only documents with an eligible in-range source. The same persisted question and date-filtered scope SHALL be used by owner detail, share, and export reads.
 
 #### Scenario: User-selected questions remain questions
 
@@ -38,8 +38,8 @@ The report request SHALL accept an optional `questions` array of at most five un
 
 #### Scenario: Inclusive report date range materializes scope
 
-- **WHEN** an owner submits an inclusive date range
-- **THEN** sources on either boundary and between them are eligible, while sources outside the range or without an authoritative date are excluded
+- **WHEN** an owner submits canonical `YYYY-MM-DD` UTC dates as an inclusive range
+- **THEN** sources on either boundary, including a timestamp late on the end calendar date, and between them are eligible, while sources outside the range or without an authoritative date are excluded
 - **AND** the persisted `source_document_ids` and source mappings contain no excluded document
 
 #### Scenario: Explicit document conflicts with date range
@@ -156,13 +156,19 @@ A new report SHALL persist a server-only `report_evidence_sources` mapping keyed
 
 ### Requirement: Read-time source availability
 
-Owner detail, EH-151 public report, and EH-153 export reads SHALL use the EH-148 `src/lib/report-read.ts` resolver. For a legacy row with missing contract version or null scope, the resolver SHALL return a readable legacy presentation only to the owner and disable share/export; for a new structured row, missing, invalid, unknown-code, or tampered validation metadata SHALL fail closed. When a mapped source row or document is archived or deleted after publication, the resolver SHALL preserve the historical snapshot, mark affected claims limited, add `SOURCE_UNAVAILABLE`, deny live/raw-source access, and return the derived read status without rewriting the persisted report payload.
+Owner detail, EH-151 public report, and EH-153 export reads SHALL use the EH-148 `src/lib/report-read.ts` resolver. For a legacy row with missing contract version or null scope, the resolver SHALL return a readable legacy presentation only to the owner and disable share/export; for a new structured row, missing, invalid, unknown-code, or tampered validation metadata SHALL fail closed. When a mapped source row is archived or removed while its parent document remains active, the resolver SHALL preserve the historical snapshot, mark affected claims limited, add `SOURCE_UNAVAILABLE`, deny live/raw-source access, and return the derived read status without rewriting the persisted report payload. When a source document enters `deleting`/tombstoned state, the resolver SHALL invalidate the complete report before reading content; owner, share, and export reads SHALL return generic unavailable and the report SHALL remain marked for final purge.
 
 #### Scenario: Source is archived after publication
 
-- **WHEN** a validated report is read after a cited source is archived or deleted
+- **WHEN** a validated report is read after a cited source row is archived or removed while its parent document remains active
 - **THEN** owner, share, and export views show the source-unavailable limitation and historical snapshot
-- **AND** no reader can obtain the archived/deleted raw source or an unqualified supported claim
+- **AND** no reader can obtain the archived/removed raw source or an unqualified supported claim
+
+#### Scenario: Tombstoned source invalidates the complete report
+
+- **WHEN** a source document enters `deleting`/tombstoned state after a report was generated
+- **THEN** owner detail, public share, and export return generic unavailable before reading report content
+- **AND** the complete report is marked for final purge rather than rewritten to remove one source
 
 #### Scenario: Legacy owner read does not bypass the resolver
 
@@ -172,10 +178,16 @@ Owner detail, EH-151 public report, and EH-153 export reads SHALL use the EH-148
 
 ### Requirement: Atomic validated report persistence
 
-`POST /api/reports` SHALL delegate creation to one service-only `createValidatedReport` transition. The transition SHALL run EH-150's pure validator against a server-authorized source catalog, obtain any server-generated scope-constrained EH-149 frozen dynamics extension, then call the EH-148-owned `public.create_validated_report` RPC. That `SECURITY DEFINER` RPC SHALL recheck profile ownership, source-row identity, immutable document scope, claim/source relationships, and dynamics point/document scope, and atomically insert the validated content, optional dynamics extension, `validation_status`, `validation_version`, `validation_issue_codes`, report scope, and `report_evidence_sources`. A parse, mapping, validation, RPC, or persistence failure SHALL roll back so no unvalidated report is readable, shareable, or exportable.
+`POST /api/reports` SHALL delegate creation to one service-only `createValidatedReport` transition. Before LLM work, the transition SHALL capture a non-null exact `source_document_ids` set and each source document's `write_generation`, separately from typed requested scope. It SHALL run EH-150's pure validator against a server-authorized source catalog, obtain any server-generated scope-constrained EH-149 frozen dynamics extension, then call the EH-148-owned `public.create_validated_report` RPC. That `SECURITY DEFINER` RPC SHALL lock every source document in sorted UUID order before report keys, recheck profile ownership, active/not-deleting state, source-row identity, immutable document scope, each captured `write_generation`, claim/source relationships, and dynamics point/document scope, and atomically insert the requested scope, exact actual source-document IDs, validated content, optional dynamics extension, `validation_status`, `validation_version`, `validation_issue_codes`, and `report_evidence_sources`. Direct report DML SHALL be revoked from runtime roles. A parse, mapping, validation, RPC, persistence, tombstone, or generation-drift failure SHALL roll back so no unvalidated or stale report is readable, shareable, or exportable.
 
 #### Scenario: Mapping validation failure rolls back
 
 - **WHEN** the candidate validator result or the `public.create_validated_report` RPC rejects a citation, mapping, scope, or persistence step
 - **THEN** the transition returns a safe validation/error result and persists no report, evidence mapping, or shareable validator status
 - **AND** a later read cannot observe the rejected candidate
+
+#### Scenario: Tombstone or republish races report persistence
+
+- **WHEN** report context is loaded and a source document is tombstoned or advances `write_generation` before the RPC commits
+- **THEN** the fixed-search-path writer rejects the insert after sorted document-first locking and commit-time revalidation
+- **AND** no report, summary preview, evidence mapping, or shareable validator status derived from that stale context is committed

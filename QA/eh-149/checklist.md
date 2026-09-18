@@ -19,7 +19,7 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 
 | ID | Test document or setup | Purpose |
 | --- | --- | --- |
-| `EH149-COMPAT-01` | Three same-definition numeric observations, including both period boundaries | Statistics and direction |
+| `EH149-COMPAT-01` | Three same-definition numeric observations, including both period boundaries and a timestamp late on the end boundary date | Statistics and direction |
 | `EH149-INCOMPAT-01` | Same display name with different specimen or non-convertible unit | Separate-series warning |
 | `EH149-SINGLE-01` | One numeric observation and one qualitative result | Not-available direction |
 | `EH149-CONVERT-01` | Convertible native/display unit fixture with stored range | Conversion provenance |
@@ -84,7 +84,7 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 
 ## Developer evidence required
 
-- [ ] Focused read-model verification covers date boundaries, empty/one-point series, equal-timestamp canonical observation-ID ordering, tolerance-based direction, non-numeric values, and explicit exclusion limitations/reasons. *(Evidence provider: EH-149 dynamics owner.)*
+- [ ] Focused read-model verification covers canonical `YYYY-MM-DD` UTC-calendar-date boundaries including a late end-date timestamp, invalid/reversed periods, empty/one-point series, equal-timestamp canonical observation-ID ordering, tolerance-based direction, non-numeric values, and explicit exclusion limitations/reasons. *(Evidence provider: EH-149 dynamics owner.)*
 - [ ] Identity fixtures prove specimen, modifier, method, scale, and non-convertible unit differences cannot merge and retain their warning reason. *(Evidence provider: EH-149 comparison/dynamics owner.)*
 - [ ] API verification proves the profile authorization boundary precedes the dynamics projection. *(Evidence provider: EH-149 API owner.)*
 - [ ] Export handoff evidence proves EH-153 consumes the frozen DTO and does not query raw observations independently. *(Evidence provider: EH-149 DTO owner; EH-153 export owner.)*

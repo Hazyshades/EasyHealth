@@ -47,7 +47,7 @@ The existing exact-definition and unit-group keys remain authoritative. The comp
 
 ### 4. Keep period filtering inclusive and server-authorized
 
-The `/api/biomarkers/dynamics` route resolves the authenticated profile and `profile_current` scope before returning the DTO. The EH-148 report handoff invokes the same adapter with immutable `report_scope_document_ids`. The projection applies an inclusive UTC date range to observed dates, with undated rows shown outside the dynamics series and counted in a limitation. A client may choose a period preset through `biomarker_dynamics_period` but cannot inject arbitrary observations, widen report scope, or perform its own conversion.
+The `/api/biomarkers/dynamics` route resolves the authenticated profile and `profile_current` scope before returning the DTO. The EH-148 report handoff invokes the same adapter with immutable `report_scope_document_ids`. The projection accepts only canonical `YYYY-MM-DD` `start`/`end` values with `start <= end`, applies an inclusive UTC-calendar-date range to observed dates (including timestamps anywhere on the end date), and represents undated rows outside the dynamics series with a limitation. A client may choose a period preset through `biomarker_dynamics_period` but cannot inject arbitrary observations, widen report scope, or perform its own conversion.
 
 ### 5. Reuse the existing source ledger
 
@@ -55,7 +55,7 @@ No new source storage is introduced. `src/app/app/biomarkers/biomarkers-page-cli
 
 ### 6. Bind frozen dynamics to the persisted report
 
-When EH-148 receives an optional server-authorized `biomarker_dynamics_period` with inclusive UTC `start` and `end` dates, it passes that period and immutable `report_scope_document_ids` to EH-149. EH-149 returns the authorized, scope-constrained `BiomarkerDynamicsReport` plus the DTO schema version, direction-policy version, selected period, and generation metadata through the server-side handoff. EH-148 stores that extension in the validated report payload; no client-supplied DTO or raw observation query is accepted at creation or export time. EH-153 reads the persisted extension through EH-148's report-read resolver, which rejects any extension point outside report scope, so an export reproduces the period and policy that were selected at report creation. If the period is omitted, no dynamics extension is created.
+When EH-148 receives an optional server-authorized `biomarker_dynamics_period` with canonical `YYYY-MM-DD` UTC-calendar-date `start` and `end` values, it passes that inclusive period and immutable `report_scope_document_ids` to EH-149. EH-149 returns the authorized, scope-constrained `BiomarkerDynamicsReport` plus the DTO schema version, direction-policy version, selected canonical period, and generation metadata through the server-side handoff. EH-148 stores that extension in the validated report payload; no client-supplied DTO or raw observation query is accepted at creation or export time. EH-153 reads the persisted extension through EH-148's report-read resolver, which rejects any extension point outside report scope, so an export reproduces the period and policy that were selected at report creation.
 
 ## Risks / Trade-offs
 

@@ -59,7 +59,8 @@ EH-151 creates an unauthenticated capability, EH-152 exposes owner management, a
 | Access-log PHI/token exposure | Minimized event fields; no URL/token/PIN/source text; short retention | EH-152 + EH-154 |
 | Raw storage bypass | Stream raw documents through an EH-151 verifier-backed proxy; recheck active share state, expiry, revocation, report scope, child document scope, archive state, and download policy on every request; never return a storage signed URL | EH-151 + EH-153 |
 | Abuse/availability | EH-151 `src/lib/share-links/rate-limit.ts` over the service-only Postgres `public.consume_report_share_rate_limit` RPC; atomic fixed-window HMAC-keyed counters (`10/60s` token digest, `30/60s` coarse requester), generic `429` exhaustion, generic `503` store-failure denial, no local fallback; alert on spikes | EH-151 + EH-154 |
-| Stale source after archive/delete | Preserve report snapshot only; deny raw source access; show limitation | EH-148 + EH-151 |
+| Stale source after archive/remove | Preserve report snapshot only while the parent document remains active; deny live/raw source access and show limitation | EH-148 + EH-151 + EH-153 |
+| Tombstoned source report | Invalidate the complete report before owner/share/export reads or bytes; mark for whole-report purge | EH-148 + EH-151 + EH-153 |
 
 ## Decisions
 
@@ -69,7 +70,7 @@ The gate has `blocked`, `ready-with-risk`, and `ready` states. Any unresolved hi
 
 ### 2. Privacy sign-off is explicit
 
-The release package must include the final share scope matrix, access-event fields/retention, token/PIN storage proof, evidence that `SHARE_RATE_LIMIT_PEPPER` is present in the approved secret manager identified only by reference/version or approved fingerprint (never by value), the deployed non-secret rate-limit settings (`SHARE_TRUSTED_PROXY_CIDRS`, `SHARE_RATE_LIMIT_WINDOW_SECONDS`, `SHARE_RATE_LIMIT_TOKEN_FAILURES`, `SHARE_RATE_LIMIT_REQUESTER_FAILURES`, `SHARE_RATE_LIMIT_CLEANUP_INTERVAL_MS`, and `SHARE_RATE_LIMIT_CLEANUP_RETRY_INTERVAL_MS`), bounded cleanup/backlog/failure signals, cache/header evidence, and an owner sign-off. If the production rate-limit store, Wiki/incident destination, or privacy approver is unavailable, the gate remains blocked or explicitly pending; it is not assumed green.
+The release package must include the final share scope matrix, access-event fields/retention, token/PIN storage proof, evidence that `SHARE_RATE_LIMIT_PEPPER` and `SHARE_TRUSTED_PROXY_ATTESTATION_KEY` are present in the approved secret manager identified only by reference/version or approved fingerprint (never by value), the deployed non-secret ingress/rate-limit settings (`SHARE_TRUSTED_PROXY_CIDRS`, `SHARE_TRUSTED_PROXY_ATTESTATION_MAX_AGE_SECONDS`, `SHARE_RATE_LIMIT_WINDOW_SECONDS`, `SHARE_RATE_LIMIT_TOKEN_FAILURES`, `SHARE_RATE_LIMIT_REQUESTER_FAILURES`, `SHARE_RATE_LIMIT_CLEANUP_INTERVAL_MS`, and `SHARE_RATE_LIMIT_CLEANUP_RETRY_INTERVAL_MS`), bounded cleanup/backlog/failure signals, cache/header evidence, and an owner sign-off. If the production rate-limit store, Wiki/incident destination, or privacy approver is unavailable, the gate remains blocked or explicitly pending; it is not assumed green.
 
 ### 3. Incident runbook is fail-closed
 

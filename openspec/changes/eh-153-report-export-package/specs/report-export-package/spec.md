@@ -34,13 +34,19 @@ The system SHALL export a validated EH-148 report as PDF, CSV, or JSON using the
 
 ### Requirement: Source-unavailable export fidelity
 
-When EH-148's read resolver marks a cited source unavailable after publication, export SHALL preserve the historical snapshot and visible `SOURCE_UNAVAILABLE` limitation while denying live/raw-source access. Export SHALL fail closed if the derived state cannot be represented without claiming the source is currently available.
+When EH-148's read resolver marks a cited source row archived/removed while its parent document remains active, export SHALL preserve the historical snapshot and visible `SOURCE_UNAVAILABLE` limitation while denying live/raw-source access. When the source document enters `deleting`/tombstoned state, the resolver SHALL invalidate the complete report before export reads content, and export SHALL return a generic unavailable failure with no bytes. Export SHALL fail closed if the derived state cannot be represented without claiming the source is currently available.
 
 #### Scenario: Export after source deletion
 
-- **WHEN** a report is exported after a cited source row or document is archived or deleted
+- **WHEN** a report is exported after a cited source row is archived/removed while its parent document remains active
 - **THEN** the output preserves the historical evidence snapshot and source-unavailable limitation
 - **AND** it contains no live/raw source content or unqualified supported claim
+
+#### Scenario: Export after source document tombstone
+
+- **WHEN** a report is exported after a cited source document enters `deleting`/tombstoned state
+- **THEN** the resolver returns generic unavailable before serialization
+- **AND** no report, snapshot, or partial file bytes are returned
 
 ### Requirement: Unicode-safe PDF
 

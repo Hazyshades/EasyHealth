@@ -40,7 +40,7 @@ The validator checks:
 3. **Scope:** every cited document is in the persisted report scope; no null/implicit all-documents scope is accepted for a new report.
 4. **Publication policy:** supported factual claims have at least one valid citation; unknown, broken, cross-profile, source-kind, or out-of-scope identity references are fatal `invalid` results, while uncited or unsafe-but-in-scope claim content may be sanitized into a `limited` result.
 
-A source that was later archived or deleted may retain its historical snapshot for an owner report, but EH-148's `report-read.ts` resolver must mark affected claims limited with `SOURCE_UNAVAILABLE` on owner/share/export reads; a live document link or raw download is denied. Validation and read projection never widen authorization.
+A source row that was later archived/removed while its parent document remains active may retain its historical snapshot; EH-148's `report-read.ts` resolver marks affected claims limited with `SOURCE_UNAVAILABLE` on owner/share/export reads and denies live/raw access. A source document that enters `deleting`/tombstoned state invalidates the complete report before owner/share/export reads, so no snapshot is exposed and the durable deletion path purges the report. Validation and read projection never widen authorization.
 
 ### 3. Sanitize unsupported claims deterministically
 
