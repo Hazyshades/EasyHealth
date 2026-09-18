@@ -24,6 +24,8 @@ This checklist covers PDF, CSV, and JSON exports from the validated report contr
 | `EH153-LIMIT-01` | Validated report with an explicit missing-evidence limitation | Limitation fidelity |
 | `EH153-LEGACY-01` | Legacy/unvalidated report | Fail-closed export |
 | `EH153-SOURCES-01` | Mixed validated report containing finding, note, prescription/referral, and document-summary sources | Complete CSV source ledger |
+| `EH153-BIND-01` | Validated report whose selected dynamics period is persisted in the EH-148 report extension | Frozen dynamics binding |
+| `EH153-ARCHIVE-01` | Validated report exported after a cited source is archived or deleted | Source-unavailable fidelity |
 
 ## Interface checks
 
@@ -78,10 +80,12 @@ This checklist covers PDF, CSV, and JSON exports from the validated report contr
 
 ## Developer evidence required
 
-- [ ] Owner and EH-151 share adapters reject legacy/unvalidated content and enforce exact scope before serialization.
-- [ ] PDF renderer/font verification covers Unicode, long content, empty sections, and explicit failure.
-- [ ] CSV/JSON fixtures prove metadata, claims, complete mixed-source ledger rows, ranges, source IDs, timestamps, versions, limitations, and conversion metadata are preserved.
-- [ ] Response headers and download-policy evidence prove `applyPublicShareResponsePolicy` runs before shared PDF/CSV/JSON bytes are returned and are supplied to EH-154.
+- [ ] Owner and EH-151 share adapters reject legacy/unvalidated content and enforce exact scope before serialization. *(Evidence provider: EH-153 export-adapter owner; EH-151 share owner.)*
+- [ ] PDF renderer/font verification covers Unicode, long content, empty sections, and explicit failure. *(Evidence provider: EH-153 serializer owner.)*
+- [ ] CSV/JSON fixtures prove metadata, claims, complete mixed-source ledger rows, ranges, source IDs, timestamps, versions, limitations, and conversion metadata are preserved. *(Evidence provider: EH-153 serializer owner.)*
+- [ ] Response headers and download-policy evidence prove `applyPublicShareResponsePolicy` runs before shared PDF/CSV/JSON bytes are returned and are supplied to EH-154. *(Evidence provider: EH-151 policy-helper owner; EH-153 public-export owner; EH-154 gate owner.)*
+- [ ] Frozen-dynamics evidence proves export selects the persisted EH-149 extension through EH-148's read resolver, preserves period/schema/policy metadata, and rejects client DTO or raw-observation substitution. *(Evidence provider: EH-153 adapter/serializer owner; EH-148 read-resolver owner; EH-149 DTO owner.)*
+- [ ] Source-unavailable evidence proves archive/delete-after-publication exports preserve the historical snapshot and `SOURCE_UNAVAILABLE` limitation while denying live/raw-source content. *(Evidence provider: EH-148 read-resolver owner; EH-153 export owner; EH-151 public-read owner.)*
 
 ## Out of scope or not manually testable yet
 

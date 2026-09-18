@@ -67,14 +67,14 @@ This checklist covers the authenticated owner's share-management surface: status
 
 ## Developer evidence required
 
-- [ ] Owner list and revoke endpoints enforce profile ownership and return no-store responses.
-- [ ] Revoke visibility is tested against the same public verifier used by EH-151.
-- [ ] Access events contain only approved fields with documented retention; raw IP/full user agent are absent.
-- [ ] Cross-profile IDs return safe not-found/authorization behavior without metadata leakage.
-- [ ] EH-154 receives event, revoke, and header evidence.
-- [ ] Analytics request capture and application-log inspection prove creation/replacement tokens are absent from telemetry and errors.
-- [ ] Replacement failure/retry/concurrency evidence exercises EH-151's `public.replace_report_share` RPC and proves the unique operation row enforces scoped idempotency, rollback keeps the predecessor active, and exactly one successor commits.
-- [ ] Access-history projection hides expired events and cleanup evidence matches EH-151's deployed retention value and schedule.
+- [ ] Owner list and revoke endpoints enforce profile ownership and return no-store responses. *(Evidence provider: EH-152 management API owner.)*
+- [ ] Revoke visibility is tested against the same public verifier used by EH-151. *(Evidence provider: EH-152 management owner; EH-151 verifier owner.)*
+- [ ] Access events contain only approved fields with documented retention; raw IP/full user agent are absent. *(Evidence provider: EH-151 event owner; EH-152 projection owner.)*
+- [ ] Cross-profile IDs return safe not-found/authorization behavior without metadata leakage. *(Evidence provider: EH-152 management API owner.)*
+- [ ] EH-154 receives event, revoke, and header evidence. *(Evidence provider: EH-152 management owner; EH-154 gate owner.)*
+- [ ] Analytics request capture and application-log inspection prove creation/replacement tokens are absent from telemetry and errors. *(Evidence provider: EH-152 management owner; EH-154 gate owner.)*
+- [ ] Replacement failure/retry/concurrency evidence exercises EH-151's `public.replace_report_share` RPC and proves the unique operation row enforces scoped idempotency, rollback keeps the predecessor active, and exactly one successor commits. *(Evidence provider: EH-151 replacement-RPC owner; EH-152 management owner.)*
+- [ ] Access-history projection hides expired events and cleanup evidence matches EH-151's deployed retention value and schedule. *(Evidence provider: EH-152 projection owner; EH-151 worker/RPC owner.)*
 
 ## Out of scope or not manually testable yet
 

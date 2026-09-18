@@ -14,13 +14,13 @@ Domain: **reports / auth-shell**
 - [ ] 2.2 Implement optional salted slow PIN hashing and a shared rate-limit seam for token/PIN failures.
 - [ ] 2.3 Add the owner creation endpoint that returns the plaintext link once and omits token/PIN material from persistence, logs, and telemetry.
 - [ ] 2.4 Add the public page/API boundary with generic invalid/expired/revoked/PIN failures and no session-profile fallback.
-- [ ] 2.5 Enforce report validation, expiry, revocation, exact report scope, `allowed_export_formats`, and download policy on every public read; keep report scope distinct from raw-document child scope.
+- [ ] 2.5 Enforce report validation, expiry, revocation, exact report scope, `allowed_export_formats`, and download policy on every public read; consume EH-148's `report-read.ts` resolver so archived/deleted cited sources become `SOURCE_UNAVAILABLE` limitations without exposing live/raw source data; keep report scope distinct from raw-document child scope.
 - [ ] 2.6 Implement EH-151's `applyPublicShareResponsePolicy` helper for no-store/private, noindex/nofollow, restrictive referrer policy, and no-third-party-analytics responses; require EH-153 public exports to call it.
 - [ ] 2.7 Serve raw documents through a verifier-backed proxy/stream route that rechecks share state on every request and never returns storage signed URLs; deny archived/deleted sources.
 
 ## 3. Verification and handoff
 
-- [ ] 3.1 Add focused route fixtures for scope, profile isolation, token failures, PIN retries, expiry, revoke, deleted-report cascade, cache headers, raw-download denial, and revoke/expiry after a prior raw-download request.
+- [ ] 3.1 Add focused route fixtures for scope, profile isolation, token failures, PIN retries, expiry, revoke, deleted-report cascade, archived/deleted cited-source read resolution, cache headers, raw-download denial, and revoke/expiry after a prior raw-download request.
 - [ ] 3.2 Expose the owner management repository seam required by EH-152 without moving management UI into the public route.
 - [ ] 3.3 Expose a named export-actions integration seam on the public share page for EH-153; EH-151 remains the page owner.
 - [ ] 3.4 Run the EH-151 QA checklist, prove worker scheduling, xact-lock release, repeated-batch backlog drain, retention cleanup, and malformed/unknown-token event handling, and provide evidence inputs to the EH-154 release gate.

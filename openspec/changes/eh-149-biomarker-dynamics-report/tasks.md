@@ -19,8 +19,9 @@ Domain: **health-profile / reports**
 
 ## 3. Reports — export handoff
 
-- [ ] 3.1 Expose the same dynamics DTO through the report-facing adapter required by EH-153.
-- [ ] 3.2 Hand off the immutable DTO to EH-153; export code must not query raw observations independently.
+- [ ] 3.1 Expose the authorized dynamics DTO plus schema version, direction-policy version, selected period, and generation metadata through the EH-148 server-side report-generation handoff required by EH-153.
+- [ ] 3.2 Have EH-148 persist that frozen extension in the validated report payload; export code must read the persisted extension through EH-148's resolver and must not accept a client DTO or query raw observations independently.
+- [ ] 3.3 Verify missing or tampered persisted dynamics metadata fails closed rather than rebuilding a different period or policy at export time.
 
 ## 4. Verification
 

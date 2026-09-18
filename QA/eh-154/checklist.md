@@ -42,14 +42,14 @@ This checklist records the release evidence for the unauthenticated share bounda
 
 ## Developer evidence required
 
-- [ ] Threat model lists assets, actors, trust boundaries, abuse cases, controls, residual risk, and evidence owners.
-- [ ] Harness executes invalid/expired/revoked/PIN/cross-profile/scope/export/download scenarios against production adapters.
-- [ ] Captured logs/events contain no bearer token, PIN, source text, PHI, raw IP, full user agent, or storage path.
-- [ ] Current/previous/unknown/malformed token-key selector and bounded rotation-window evidence proves reissue/revoke behavior and safe retirement of the previous key.
-- [ ] Deployed `SHARE_ACCESS_EVENT_RETENTION_DAYS`, cleanup RPC/worker schedule, `pg_try_advisory_xact_lock` release/contention, repeated 500-row backlog drain, retry/alert evidence, and malformed/unknown-token telemetry are recorded before release.
-- [ ] Developer harness captures no-store/private, noindex/nofollow, restrictive referrer policy, and absence of third-party analytics requests containing share URL/token.
-- [ ] Incident runbook covers token leakage, unauthorized access, rate-limit abuse, emergency revoke, evidence preservation, and privacy escalation.
-- [ ] Gate status is blocked for any unresolved high/critical finding and includes explicit privacy sign-off for ready status.
+- [ ] Threat model lists assets, actors, trust boundaries, abuse cases, controls, residual risk, and evidence owners. *(Evidence provider: EH-154 threat-model owner; privacy approver.)*
+- [ ] Harness executes invalid/expired/revoked/PIN/cross-profile/scope/export/download scenarios against production adapters. *(Evidence provider: EH-154 harness owner; EH-151/EH-153 adapter owners.)*
+- [ ] Captured logs/events contain no bearer token, PIN, source text, PHI, raw IP, full user agent, or storage path. *(Evidence provider: EH-151/EH-152/EH-153 instrumentation owners; EH-154 gate owner.)*
+- [ ] Current/previous/unknown/malformed token-key selector and bounded rotation-window evidence proves reissue/revoke behavior and safe retirement of the previous key. *(Evidence provider: EH-151 key owner; EH-154 gate owner.)*
+- [ ] Deployed `SHARE_ACCESS_EVENT_RETENTION_DAYS`, cleanup RPC/worker schedule, `pg_try_advisory_xact_lock` release/contention, repeated 500-row backlog drain, retry/alert evidence, and malformed/unknown-token telemetry are recorded before release. *(Evidence provider: EH-151 worker/RPC owner; EH-154 gate owner.)*
+- [ ] Developer harness captures no-store/private, noindex/nofollow, restrictive referrer policy, and absence of third-party analytics requests containing share URL/token. *(Evidence provider: EH-151 policy-helper owner; EH-153 public-export owner; EH-154 harness owner.)*
+- [ ] Incident runbook covers token leakage, unauthorized access, rate-limit abuse, emergency revoke, evidence preservation, and privacy escalation. *(Evidence provider: EH-154 incident/runbook owner; privacy approver.)*
+- [ ] Gate status is blocked for any unresolved high/critical finding and includes explicit privacy sign-off for ready status. *(Evidence provider: EH-154 gate owner; privacy approver.)*
 
 ## Out of scope or not manually testable yet
 

@@ -67,3 +67,13 @@ The dynamics projection SHALL consume a profile-authorized comparison snapshot t
 - **WHEN** an authorized comparison contains an undated, qualitative, ineligible, unsupported-unit, or identity-incompatible candidate
 - **THEN** the dynamics DTO emits the corresponding limitation or incompatibility reason
 - **AND** no excluded candidate is merged into a compatible series
+
+### Requirement: Frozen dynamics report binding
+
+When a report requests biomarker dynamics, EH-149 SHALL return the authorized DTO together with its schema version, direction-policy version, selected period, and generation metadata to EH-148. EH-148 SHALL persist that extension in the validated report payload. Owner/share/export reads SHALL select the persisted extension through the EH-148 report-read resolver; no client-provided DTO and no raw observation query may replace the bound period or policy.
+
+#### Scenario: Export reproduces the selected dynamics period
+
+- **WHEN** a report is created with an authorized dynamics period and later exported
+- **THEN** the export reads the persisted EH-149 extension, including its selected period and policy metadata
+- **AND** a client cannot substitute a different DTO, period, policy, or raw observation set at export time

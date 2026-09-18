@@ -4,7 +4,7 @@
 
 ### Requirement: Export validated report formats
 
-The system SHALL export a validated EH-148 report as PDF, CSV, or JSON using the same ordered content, source scope, limitations, disclaimer, generated-at timestamp, contract version, and validator version as the on-screen report. When a dynamics section is requested, the exporter SHALL consume the frozen EH-149 `BiomarkerDynamicsReport` DTO and SHALL NOT query or recompute raw observations.
+The system SHALL export a validated EH-148 report as PDF, CSV, or JSON using the same ordered content, source scope, limitations, disclaimer, generated-at timestamp, contract version, and validator version as the on-screen report. When a dynamics section is requested, the exporter SHALL consume the persisted EH-149 `BiomarkerDynamicsReport` extension selected by EH-148's `report-read.ts` resolver and SHALL NOT accept a client DTO, query raw observations, or recompute raw observations.
 
 #### Scenario: Owner downloads JSON
 
@@ -29,8 +29,18 @@ The system SHALL export a validated EH-148 report as PDF, CSV, or JSON using the
 #### Scenario: Dynamics export uses the frozen projection
 
 - **WHEN** an export includes an EH-149 dynamics section
-- **THEN** PDF, CSV, and JSON serialize the supplied series, points, tolerances, and provenance
+- **THEN** PDF, CSV, and JSON serialize the persisted series, points, tolerances, and provenance selected by the EH-148 resolver
 - **AND** the export path does not rebuild dynamics from database rows
+
+### Requirement: Source-unavailable export fidelity
+
+When EH-148's read resolver marks a cited source unavailable after publication, export SHALL preserve the historical snapshot and visible `SOURCE_UNAVAILABLE` limitation while denying live/raw-source access. Export SHALL fail closed if the derived state cannot be represented without claiming the source is currently available.
+
+#### Scenario: Export after source deletion
+
+- **WHEN** a report is exported after a cited source row or document is archived or deleted
+- **THEN** the output preserves the historical evidence snapshot and source-unavailable limitation
+- **AND** it contains no live/raw source content or unqualified supported claim
 
 ### Requirement: Unicode-safe PDF
 

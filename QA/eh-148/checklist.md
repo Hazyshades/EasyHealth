@@ -23,6 +23,8 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 | `EH148-MIXED-01` | Synthetic imaging/consultation record with accepted structured fields | Multi-source scope |
 | `EH148-LIMIT-01` | Synthetic record with one point or no comparable history | Missing-evidence path |
 | `EH148-LEGACY-01` | Existing test fixture representing an unversioned legacy report | Legacy boundary |
+| `EH148-SAFETY-01` | Validator fixture containing diagnosis, treatment, urgency, imperative, and unsupported free-form factual fields | Content-safety boundary |
+| `EH148-ARCHIVE-01` | Published brief whose cited source is archived or deleted afterward | Read-time source availability |
 
 ## Interface checks
 
@@ -80,13 +82,15 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 
 ## Developer evidence required
 
-- [ ] Contract/schema verification proves every new factual claim has an in-payload source ID and every source retains row/document identity.
-- [ ] API verification proves the all-eligible request stores an exact document UUID array and cannot widen explicit scope.
-- [ ] Mixed-source verification covers observations, findings, notes, prescriptions/referrals, and document summaries.
-- [ ] Legacy verification proves unversioned/null-scope rows are readable but not silently upgraded.
-- [ ] The EH-150 validator handoff and integration seam are recorded before share/export work begins.
-- [ ] Focused API/route verification proves storage paths and cross-profile source records never enter the report response or source ledger.
-- [ ] Service-transition evidence proves `public.create_validated_report` rechecks identity/scope and rolls back staged report/mapping/status on injected validator, RPC, and persistence failure with no readable unvalidated candidate.
+- [ ] Contract/schema verification proves every new factual claim has an in-payload source ID and every source retains row/document identity. *(Evidence provider: EH-148 contract owner; EH-150 validator owner.)*
+- [ ] API verification proves the all-eligible request stores an exact document UUID array and cannot widen explicit scope. *(Evidence provider: EH-148 persistence owner.)*
+- [ ] Mixed-source verification covers observations, findings, notes, prescriptions/referrals, and document summaries. *(Evidence provider: EH-148 source-projection owner.)*
+- [ ] Legacy verification proves unversioned/null-scope rows are readable but not silently upgraded. *(Evidence provider: EH-148 report-surface owner.)*
+- [ ] The EH-150 validator handoff and integration seam are recorded before share/export work begins. *(Evidence provider: EH-148 and EH-150 owners.)*
+- [ ] Focused API/route verification proves storage paths and cross-profile source records never enter the report response or source ledger. *(Evidence provider: EH-148 route owner; EH-150 validator owner.)*
+- [ ] Service-transition evidence proves `public.create_validated_report` rechecks identity/scope and rolls back staged report/mapping/status on injected validator, RPC, and persistence failure with no readable unvalidated candidate. *(Evidence provider: EH-148 RPC owner; EH-150 validator owner.)*
+- [ ] Adversarial content verification proves prohibited diagnosis/treatment/urgency/imperative/free-form factual fields do not reach publishable content, while `clinician_question` remains a question. *(Evidence provider: EH-148 safety-policy owner; EH-150 validator owner.)*
+- [ ] Archive/delete-after-publication verification proves owner, share, and export reads use the EH-148 resolver, preserve the historical snapshot, add `SOURCE_UNAVAILABLE`, and deny live/raw-source access without rewriting the persisted payload. *(Evidence provider: EH-148 read-resolver owner; EH-151 public-read owner; EH-153 export owner.)*
 
 ## Out of scope or not manually testable yet
 

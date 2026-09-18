@@ -33,26 +33,26 @@ Add `src/lib/report-citation-validator.ts`:
 
 The validator checks:
 
-1. **Schema:** version, required sections, claim IDs, source IDs, citation shape, and allowed source kinds.
+1. **Schema:** version, required sections, claim IDs, approved claim kinds/template IDs, source IDs, citation shape, allowed source kinds, and rejection of diagnosis/treatment/urgency/imperative/free-form factual fields.
 2. **Identity:** every source resolves to the claimed database row and profile; document ID matches the source row.
 3. **Scope:** every cited document is in the persisted report scope; no null/implicit all-documents scope is accepted for a new report.
 4. **Publication policy:** supported factual claims have at least one valid citation; unknown, broken, or cross-profile references cannot remain publishable.
 
-A source that was later archived may retain its historical snapshot for an owner report, but a live document link or raw download is denied. The validator records the source-unavailable limitation rather than widening authorization.
+A source that was later archived or deleted may retain its historical snapshot for an owner report, but EH-148's `report-read.ts` resolver must mark affected claims limited with `SOURCE_UNAVAILABLE` on owner/share/export reads; a live document link or raw download is denied. Validation and read projection never widen authorization.
 
 ### 3. Sanitize unsupported claims deterministically
 
-A claim with no citation, an unknown citation, or a failed scope/identity check is removed from the publishable claim list and replaced by one machine-generated limitation with an issue code. The original model text is not copied into the limitation. Non-factual patient questions may survive without citations when their `factual` flag is false. If sanitization removes an entire required section, validation fails closed.
+A claim with no citation, an unknown citation, a failed scope/identity check, or an unsafe unsupported content shape is removed from the publishable claim list and replaced by one machine-generated limitation with an issue code. The original model text is not copied into the limitation. Non-factual `clinician_question` items may survive without citations when their `factual` flag is false; they are rendered as questions, not report facts. If sanitization removes an entire required section, validation fails closed.
 
 The result statuses are `valid`, `limited`, and `invalid`. `limited` is publishable only when all remaining factual claims are valid and the limitations are visible. `invalid` cannot be persisted as a shareable/exportable report.
 
 ### 4. Keep issue codes stable and non-sensitive
 
-Issue codes include `SCHEMA_INVALID`, `SOURCE_NOT_FOUND`, `PROFILE_MISMATCH`, `DOCUMENT_OUT_OF_SCOPE`, `SOURCE_KIND_NOT_ALLOWED`, `CLAIM_UNCITED`, and `SOURCE_UNAVAILABLE`. Logs contain codes and internal request IDs only; source text, token material, and health values are excluded.
+Issue codes include `SCHEMA_INVALID`, `SOURCE_NOT_FOUND`, `PROFILE_MISMATCH`, `DOCUMENT_OUT_OF_SCOPE`, `SOURCE_KIND_NOT_ALLOWED`, `CLAIM_UNCITED`, `SOURCE_UNAVAILABLE`, and `UNSAFE_CONTENT`. Logs contain codes and internal request IDs only; source text, token material, and health values are excluded.
 
 ### 5. Integrate through EH-148's generation boundary
 
-EH-150 owns the pure validator and its fixtures. EH-148 owns the service-only `createValidatedReport` transition and the `public.create_validated_report` RPC in the report-persistence migration: it runs EH-150 against the server-authorized catalog, then the `SECURITY DEFINER` RPC rechecks profile ownership, source-row identity, scope, and mappings while atomically writing the report and validator status. Any RPC or persistence failure rolls back. EH-151 and EH-153 call the validator/read-only status check before public access or serialization; they do not bypass it or parse `reports.content` ad hoc.
+EH-150 owns the pure validator and its fixtures. EH-148 owns the service-only `createValidatedReport`, `public.create_validated_report` RPC, approved claim/template renderer, and `report-read.ts` lifecycle resolver: it runs EH-150 against the server-authorized catalog, then the `SECURITY DEFINER` RPC rechecks identity/scope/mappings while atomically writing the report, optional dynamics extension, and validator status. Any RPC or persistence failure rolls back. EH-151 and EH-153 consume EH-148's read resolver and call the validator/read-only status check before public access or serialization; they do not bypass it or parse `reports.content` ad hoc.
 
 ## Risks / Trade-offs
 

@@ -27,7 +27,7 @@ An authenticated owner SHALL be able to create a share for a validated report wi
 
 ### Requirement: Public token verification
 
-The public share route SHALL verify token digest, expiry, revocation, optional PIN, report ownership, report validation status, and requested resource scope on every request. Raw-document requests SHALL use a verifier-backed proxy/stream route and SHALL NOT return storage signed URLs. Invalid, expired, revoked, and missing shares SHALL fail with the same non-enumerating response.
+The public share route SHALL verify token digest, expiry, revocation, optional PIN, report ownership, report validation status, requested resource scope, and EH-148's read-time source availability resolver on every request. A report read may preserve a historical snapshot with a visible `SOURCE_UNAVAILABLE` limitation; a raw-document request for an archived/deleted source SHALL fail with a generic denial. Raw-document requests SHALL use a verifier-backed proxy/stream route and SHALL NOT return storage signed URLs. Invalid, expired, revoked, or missing shares SHALL fail with the same non-enumerating response without exposing live/raw source data.
 
 #### Scenario: Valid token opens the scoped report
 
@@ -46,6 +46,12 @@ The public share route SHALL verify token digest, expiry, revocation, optional P
 - **WHEN** a recipient requests an explicitly allowed raw document, the owner revokes or expires the share, and the recipient requests that document again
 - **THEN** the verifier denies the subsequent raw-document request
 - **AND** the recipient never receives a storage signed URL that could bypass the verifier
+
+#### Scenario: Published report reflects source deletion safely
+
+- **WHEN** a recipient opens a validated share after a cited source row or document is archived or deleted
+- **THEN** the public report preserves the historical snapshot and displays `SOURCE_UNAVAILABLE`
+- **AND** the recipient cannot obtain the archived/deleted raw source or an unqualified supported claim
 
 ### Requirement: Public response privacy
 

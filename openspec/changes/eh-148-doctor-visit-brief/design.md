@@ -31,13 +31,14 @@ Add `src/lib/report-contract.ts` as the only public boundary for report content.
 - `schema_version` and `report_kind`.
 - `generated_at`, `detail_level`, and the materialized `source_document_ids` represented by the existing `reports.document_ids` column for new rows.
 - `sections` containing typed items rather than arrays of unqualified strings.
-- `claims`, each with `id`, `section`, `text`, `factual`, `citations[]`, and `status` (`supported`, `limited`, or `removed`).
+- `claims`, each with `id`, `section`, `kind` (`source_fact`, `numeric_observation`, or `clinician_question`), `text` (server-rendered for factual kinds; model text is allowed only for questions), `factual`, `citations[]`, and `status` (`supported`, `limited`, or `removed`).
 - `sources[]`, each with an internal `source_id`, `kind`, `document_id`, observed/recorded date when available, and a display-safe snapshot of the value, unit, range, or text.
 - `limitations[]` and the mandatory educational disclaimer.
+- `extensions.biomarker_dynamics`, when requested, containing the frozen EH-149 `BiomarkerDynamicsReport`, its schema/policy versions, selected period, and generation metadata. EH-149 supplies this server-side extension; the report persistence transition stores it as part of the validated payload so owner/share/export reads never accept a client DTO.
 
 A `ReportEvidenceRef` points only to a `source_id` in the same payload and carries the document UUID needed for scope checks. It never contains a storage path or an authorization decision. The public DTO omits profile IDs and bearer credentials. Each persisted report also has server-only `report_evidence_sources` rows keyed by `(report_id, source_id)` and mapping to `source_kind`, `source_row_id`, and `document_id`; EH-150 resolves citations through that mapping rather than treating a snapshot as row identity.
 
-The source kinds are `observation`, `finding`, `clinical_note`, `prescription`, `referral`, and `document_summary`. The schema permits non-factual patient questions without a citation, but a factual claim cannot be `supported` with an empty citation list.
+The source kinds are `observation`, `finding`, `clinical_note`, `prescription`, `referral`, and `document_summary`. The schema permits only non-factual `clinician_question` items without a citation; `source_fact` and `numeric_observation` claims require an approved template and at least one citation before they can be `supported`.
 
 ### 2. Materialize scope at generation time
 
@@ -51,17 +52,21 @@ The `public.create_validated_report` RPC is the only writer for a new structured
 
 ### 3. Keep source projection server-owned
 
-Extend `src/lib/reports.ts` and its typed context adapters so each observation, finding, note, prescription, referral, and document summary retains its database ID and document ID. `src/lib/report-evidence.ts` converts those rows into the contract's source catalog. The LLM receives the source catalog with opaque source IDs; it may cite only those IDs. Filenames remain display labels, never citation identity.
+Extend `src/lib/reports.ts` and `src/lib/documents/structured-context.ts` so each observation, finding, note, prescription, referral, and document summary retains its database row ID and document ID. `src/lib/report-evidence.ts` converts those rows into the contract's source catalog. The LLM receives the source catalog with opaque source IDs; it may cite only those IDs. Filenames remain display labels, never citation identity.
 
 The parser rejects unknown source IDs and malformed claim objects before persistence. EH-150 supplies the reusable full validator; EH-148 keeps the structural parser and contract version check at the generation boundary.
+
+`src/lib/report-safety-policy.ts` is the EH-148-owned deterministic safety stage: it accepts only the claim kinds and approved templates above, strips/rejects prohibited diagnosis/treatment/urgency/imperative keys, and prevents free-form factual model text from reaching persistence. Its machine limitation codes are part of the EH-150 validation result.
 
 ### 4. Render a source ledger, not inline citation prose
 
 `ReportBody` renders typed sections and a source ledger grouped by document. Each claim shows its citation labels and can reveal the date/value/range snapshot. A missing or limited claim shows the associated limitation. The UI does not create links from a filename alone and does not expose raw storage paths.
 
+`src/lib/report-read.ts` is the EH-148-owned server read resolver for owner detail, EH-151 public reports, and EH-153 exports. It loads the persisted report, `report_evidence_sources`, and current source rows within the immutable scope, marks affected claims `limited`, and adds a `SOURCE_UNAVAILABLE` limitation when an observation/finding/note/prescription/referral/document is archived or deleted. It preserves the historical snapshot for display, denies live/raw-source access, and returns the derived read status without rewriting `reports.content`.
+
 ### 5. Keep the generator deterministic at the boundary
 
-The prompt asks for JSON claims with source IDs, but the server owns normalization: duplicate source references are collapsed, unknown IDs are rejected, empty factual claims are marked limited, and the disclaimer is injected by code. The generator cannot add a new source, widen scope, or write a diagnosis field. Generated patient questions are framed as questions for a clinician and do not contain treatment directions.
+The prompt asks for structured claim kinds and source IDs, but the server owns normalization and safety: duplicate source references are collapsed, unknown IDs are rejected, factual claims are rendered only from approved source-backed templates, and the disclaimer is injected by code. The parser rejects diagnosis, treatment, urgency, imperative, or free-form factual fields; only `clinician_question` may retain model text, and it is rendered as a question rather than a report fact. The generator cannot add a new source, widen scope, or write a diagnosis/treatment/urgency field.
 
 ### 6. Ownership and handoffs
 

@@ -23,6 +23,7 @@ This checklist covers the report publication gate that validates source identity
 | `EH150-UNCITED-01` | Generator fixture with one factual claim and no citation | Unsupported claim |
 | `EH150-BROKEN-01` | Fixture with unknown source ID and out-of-scope document ID | Broken/scope path |
 | `EH150-CROSS-01` | Two synthetic profiles with a source row owned by profile B | Isolation path |
+| `EH150-SAFETY-01` | Fixture containing diagnosis, treatment, urgency, imperative, and unsupported free-form factual fields plus a non-factual question | Unsafe-content path |
 
 ## Interface checks
 
@@ -47,18 +48,20 @@ EH-150 has no standalone user interface. The following checks are not manually e
 1. Generate or load the fixture through the supported report path.
 2. Inspect the affected section and limitations.
 
-**Expected result:** The unsupported factual sentence is absent from publishable content and an explicit limitation is shown. The raw model output is not exposed.
+**Expected result:** The unsupported factual sentence and unsafe directive are absent from publishable content, an explicit limitation is shown, and the raw model output is not exposed. A non-factual question may remain only as a question.
 
 **Result:** `N/A`
 **Notes / evidence link:** `Internal validator; execute only after the fixture hook is available.`
 
 ## Developer evidence required
 
-- [ ] Validator fixtures cover valid, missing, unknown, broken, out-of-scope, cross-profile, archived, and uncited claims.
-- [ ] A cross-profile citation fails closed without revealing the other profile's source data.
-- [ ] A broken factual claim is removed or marked only through the documented deterministic issue policy.
-- [ ] Generation, share, and export paths consume the same validator result/status and do not duplicate checks.
-- [ ] Logs and errors contain issue codes/request IDs only, not source text, health values, tokens, or PINs.
+- [ ] Validator fixtures cover valid, missing, unknown, broken, out-of-scope, cross-profile, archived, and uncited claims. *(Evidence provider: EH-150 validator owner.)*
+- [ ] A cross-profile citation fails closed without revealing the other profile's source data. *(Evidence provider: EH-150 validator owner; EH-148 report owner.)*
+- [ ] A broken factual claim is removed or marked only through the documented deterministic issue policy. *(Evidence provider: EH-150 validator owner.)*
+- [ ] Generation, share, and export paths consume the same validator result/status and do not duplicate checks. *(Evidence provider: EH-148 generation owner; EH-151 share owner; EH-153 export owner.)*
+- [ ] Logs and errors contain issue codes/request IDs only, not source text, health values, tokens, or PINs. *(Evidence provider: EH-150 validator owner; EH-154 gate owner.)*
+- [ ] Adversarial unsafe-content fixtures fail closed for prohibited diagnosis/treatment/urgency/imperative/free-form factual fields, while non-factual `clinician_question` content remains non-factual. *(Evidence provider: EH-150 validator owner; EH-148 safety-policy owner.)*
+- [ ] Read-time archive/delete status is supplied by EH-148's resolver as `SOURCE_UNAVAILABLE`; EH-150 does not authorize live/raw-source access from a historical snapshot. *(Evidence provider: EH-148 read-resolver owner; EH-150 validator owner.)*
 
 ## Out of scope or not manually testable yet
 

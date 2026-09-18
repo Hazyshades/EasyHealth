@@ -51,6 +51,10 @@ The API resolves the authenticated profile and returns authorized observations. 
 
 No new source storage is introduced. `src/app/app/biomarkers/biomarkers-page-client.tsx` renders the DTO and its point/source ledger. EH-153 serializes the same DTO; it does not read raw observation rows independently.
 
+### 6. Bind frozen dynamics to the persisted report
+
+When EH-148 report generation requests a period, EH-149 returns the authorized `BiomarkerDynamicsReport` plus the DTO schema version, direction-policy version, selected period, and generation metadata through the server-side handoff. EH-148 stores that extension in the validated report payload; no client-supplied DTO or raw observation query is accepted at creation or export time. EH-153 reads the persisted extension through EH-148's report-read resolver, so an export reproduces the period and policy that were selected at report creation.
+
 ## Risks / Trade-offs
 
 - A deterministic direction can be misread as clinical improvement. Labels and disclaimer explicitly describe numeric movement only.
