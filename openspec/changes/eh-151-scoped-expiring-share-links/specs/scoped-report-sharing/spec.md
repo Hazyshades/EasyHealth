@@ -19,6 +19,12 @@ An authenticated owner SHALL be able to create a share for a validated report wi
 - **THEN** the server returns a generic validation error
 - **AND** no share is created
 
+#### Scenario: Deleted report removes share capability
+
+- **WHEN** an owner deletes a report that has a share, child document rows, replacement operations, and access events
+- **THEN** the dependent rows are removed by the declared cascade and a later public request returns the generic share failure
+- **AND** no active capability or orphaned child state remains
+
 ### Requirement: Public token verification
 
 The public share route SHALL verify token digest, expiry, revocation, optional PIN, report ownership, report validation status, and requested resource scope on every request. Raw-document requests SHALL use a verifier-backed proxy/stream route and SHALL NOT return storage signed URLs. Invalid, expired, revoked, and missing shares SHALL fail with the same non-enumerating response.
@@ -43,7 +49,7 @@ The public share route SHALL verify token digest, expiry, revocation, optional P
 
 ### Requirement: Public response privacy
 
-Public share responses SHALL NOT expose bearer tokens, PIN fields, profile IDs, storage paths, unrelated documents, or third-party analytics data. The route SHALL set private no-store caching, noindex headers, and a restrictive referrer policy.
+Public share responses and approved shared-export responses SHALL NOT expose bearer tokens, PIN fields, profile IDs, storage paths, unrelated documents, or third-party analytics data. The public page/API and EH-153 export route SHALL apply EH-151's `applyPublicShareResponsePolicy` helper, setting private no-store caching, noindex/nofollow, and a restrictive referrer policy before returning content or PDF/CSV/JSON bytes.
 
 #### Scenario: Public response headers are inspected
 

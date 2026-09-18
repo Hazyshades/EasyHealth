@@ -84,10 +84,11 @@ This checklist covers creation and public use of expiring, revocable, explicitly
 - [ ] Public headers prove no-store/private caching, noindex/nofollow, and restrictive referrer policy.
 - [ ] EH-154 receives route/header/log evidence for the privacy gate.
 - [ ] Focused route evidence proves invalid, expired, and revoked requests use the same safe status/body contract; header and cache assertions are captured separately.
-- [ ] Event retention evidence records `public.cleanup_report_share_access_events`, `SHARE_ACCESS_EVENT_RETENTION_DAYS`, expiry calculation, `worker/src/index.ts` hourly scheduling, advisory-lock exclusion, 500-row batches, bounded retries, and deployment-log alerting at the deployed value.
+- [ ] Event retention evidence records `public.cleanup_report_share_access_events`, `SHARE_ACCESS_EVENT_RETENTION_DAYS`, expiry calculation, `worker/src/index.ts` hourly/continuation scheduling, `pg_try_advisory_xact_lock` release/contention, repeated 500-row backlog drain, bounded retries, and deployment-log alerting at the deployed value.
 - [ ] Malformed/unknown-token requests create no share-scoped event and aggregate rate-limit telemetry contains no token, PIN, or share identifier.
 - [ ] Raw-document proxy evidence proves revocation, expiry, archive state, and child-scope checks run on every request after a prior request and no storage signed URL is issued.
 - [ ] Public request capture proves no third-party analytics request contains the share URL or token.
+- [ ] Deleted-report fixture proves cascading share/document/operation/event cleanup and generic public failure with no active capability or orphaned child state.
 
 ## Out of scope or not manually testable yet
 

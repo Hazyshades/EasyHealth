@@ -46,7 +46,7 @@ This checklist records the release evidence for the unauthenticated share bounda
 - [ ] Harness executes invalid/expired/revoked/PIN/cross-profile/scope/export/download scenarios against production adapters.
 - [ ] Captured logs/events contain no bearer token, PIN, source text, PHI, raw IP, full user agent, or storage path.
 - [ ] Current/previous/unknown/malformed token-key selector and bounded rotation-window evidence proves reissue/revoke behavior and safe retirement of the previous key.
-- [ ] Deployed `SHARE_ACCESS_EVENT_RETENTION_DAYS` value, hourly cleanup, retry/alert evidence, and malformed/unknown-token telemetry are recorded before release.
+- [ ] Deployed `SHARE_ACCESS_EVENT_RETENTION_DAYS`, cleanup RPC/worker schedule, `pg_try_advisory_xact_lock` release/contention, repeated 500-row backlog drain, retry/alert evidence, and malformed/unknown-token telemetry are recorded before release.
 - [ ] Developer harness captures no-store/private, noindex/nofollow, restrictive referrer policy, and absence of third-party analytics requests containing share URL/token.
 - [ ] Incident runbook covers token leakage, unauthorized access, rate-limit abuse, emergency revoke, evidence preservation, and privacy escalation.
 - [ ] Gate status is blocked for any unresolved high/critical finding and includes explicit privacy sign-off for ready status.

@@ -81,7 +81,7 @@ This checklist covers PDF, CSV, and JSON exports from the validated report contr
 - [ ] Owner and EH-151 share adapters reject legacy/unvalidated content and enforce exact scope before serialization.
 - [ ] PDF renderer/font verification covers Unicode, long content, empty sections, and explicit failure.
 - [ ] CSV/JSON fixtures prove metadata, claims, complete mixed-source ledger rows, ranges, source IDs, timestamps, versions, limitations, and conversion metadata are preserved.
-- [ ] Response headers and download policy evidence are supplied to EH-154.
+- [ ] Response headers and download-policy evidence prove `applyPublicShareResponsePolicy` runs before shared PDF/CSV/JSON bytes are returned and are supplied to EH-154.
 
 ## Out of scope or not manually testable yet
 

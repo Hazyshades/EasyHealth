@@ -20,4 +20,4 @@ Domain: **reports**
 - [ ] 3.1 Add the leaf export-actions component with format availability, pending state, and safe failure copy.
 - [ ] 3.2 Provide the export-actions props contract and hand off integration: EH-148 wires authenticated detail, EH-151 wires the named public-share slot; EH-153 does not edit either page.
 - [ ] 3.3 Add fixtures for Unicode, long labels, empty optional sections, mixed units, dynamics DTO points, mixed non-lab source kinds, complete CSV source rows, denied formats, and out-of-scope documents.
-- [ ] 3.4 Run the EH-153 QA checklist and provide download-policy/header evidence to EH-154.
+- [ ] 3.4 Run the EH-153 QA checklist, prove `applyPublicShareResponsePolicy` is applied before shared PDF/CSV/JSON responses, and provide download-policy/header evidence to EH-154.

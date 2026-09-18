@@ -19,5 +19,5 @@ Domain: **reports / auth-shell**
 
 - [ ] 3.1 Assign severity to findings and make unresolved high/critical findings block the gate.
 - [ ] 3.2 Write the token-leakage, unauthorized-access, rate-limit-abuse, emergency-revoke, and privacy-escalation runbook without recording bearer tokens.
-- [ ] 3.3 Record executed commands, scenario results, deployed `SHARE_ACCESS_EVENT_RETENTION_DAYS`, hourly cleanup/retry evidence, retention decision, and privacy sign-off.
+- [ ] 3.3 Record executed commands, scenario results, deployed `SHARE_ACCESS_EVENT_RETENTION_DAYS`, cleanup RPC/worker schedule, advisory-lock contention/release, repeated-batch backlog drain/alert evidence, retention decision, and privacy sign-off.
 - [ ] 3.4 Run the EH-154 QA checklist and mark the gate ready only when evidence is complete for the reviewed build.

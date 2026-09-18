@@ -43,7 +43,7 @@ The PDF export SHALL preserve the report sections, citations, limitations, discl
 
 ### Requirement: Scope-safe export authorization
 
-Export SHALL require the owner session or a verified EH-151 share capability. A shared export SHALL honor the share's format and document download policy and SHALL reject legacy/unvalidated reports.
+Export SHALL require the owner session or a verified EH-151 share capability. A shared export SHALL honor the share's format and document download policy, reject legacy/unvalidated reports, and apply EH-151's `applyPublicShareResponsePolicy` helper before returning PDF, CSV, or JSON bytes.
 
 #### Scenario: Shared report cannot widen scope
 
