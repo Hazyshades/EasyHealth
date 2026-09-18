@@ -27,6 +27,7 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 | `EH148-ARCHIVE-01` | Published brief whose cited source row is archived/removed while its parent document remains active | Read-time source-unavailable limitation |
 | `EH148-DYNAMICS-SCOPE-01` | Report request with `biomarker_dynamics_period` and one selected document while another owned eligible document remains unselected | Scope-constrained frozen dynamics |
 | `EH148-RANGE-01` | Synthetic documents on both report-date boundaries, including a source timestamp late on the end date, outside the range, and without an authoritative date | Inclusive date-scope filtering |
+| `EH148-QUESTIONS-01` | Owner-safe report request using `EH148-RANGE-01` plus two valid questions and one invalid control-character/overlong question variant | Question normalization/origin and pre-persist rejection |
 | `EH148-TOMBSTONE-01` | Published brief whose source document is tombstoned during read or between context capture and persistence | Whole-report invalidation and writer fencing |
 
 ## Interface checks
@@ -99,7 +100,7 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 
 ## Developer evidence required
 
-- [ ] Contract/schema verification proves every new factual claim has an in-payload source ID and every source retains row/document identity. *(Evidence provider: EH-148 contract owner; EH-150 validator owner.)*
+- [ ] Contract/schema verification proves canonical six section containers use typed claim/limitation/source references, every non-removed claim/source/limitation is referenced exactly once, claim `section` matches its container, incompatible kinds fail closed, and empty sections carry explicit allowed states. *(Evidence provider: EH-148 contract owner; EH-150 validator owner; EH-153 serializer owner.)*
 - [ ] API verification proves the all-eligible request stores an exact document UUID array and cannot widen explicit scope. *(Evidence provider: EH-148 persistence owner.)*
 - [ ] Mixed-source verification covers observations, findings, notes, prescriptions/referrals, and document summaries. *(Evidence provider: EH-148 source-projection owner.)*
 - [ ] Legacy verification proves unversioned/null-scope rows are readable but not silently upgraded. *(Evidence provider: EH-148 report-surface owner.)*

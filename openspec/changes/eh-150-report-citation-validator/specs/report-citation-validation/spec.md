@@ -21,7 +21,7 @@ The citation validator SHALL validate contract version, claim shape, source kind
 
 ### Requirement: Validate closed report sections
 
-The validator SHALL require exactly one EH-148 section container for each canonical ID in order: `document_summary`, `latest_measurements`, `changes`, `clinician_questions`, `limitations`, and `source_ledger`. Each container SHALL have an `items` array and an `empty_state` whenever empty; the first four allow `no_data`, `not_applicable`, or `insufficient_evidence`, while limitations and source-ledger containers allow only `no_data`. It SHALL reject unknown, duplicate, missing, or claim-incompatible sections with `invalid` and `SCHEMA_INVALID`; limitations and source-ledger containers SHALL not accept model claims.
+The validator SHALL require exactly one EH-148 section container for each canonical ID in order: `document_summary`, `latest_measurements`, `changes`, `clinician_questions`, `limitations`, and `source_ledger`. Each container SHALL have an `items` array of typed references (`claim_ref` for the first four, `limitation_ref` for limitations, `source_ref` for the source ledger) and an `empty_state` whenever empty; the first four allow `no_data`, `not_applicable`, or `insufficient_evidence`, while limitations and source-ledger containers allow only `no_data`. Every non-removed claim/source/limitation SHALL be referenced exactly once, every claim's `section` SHALL match its containing section, and claim-incompatible references SHALL fail. It SHALL reject unknown, duplicate, missing, or claim-incompatible sections with `invalid` and `SCHEMA_INVALID`; limitations and source-ledger containers SHALL not accept model claims.
 
 #### Scenario: Missing or incompatible section fails
 

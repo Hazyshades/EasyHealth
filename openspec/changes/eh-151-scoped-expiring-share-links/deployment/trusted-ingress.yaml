@@ -5,8 +5,14 @@ metadata:
   owner: eh-151-public-boundary
 spec:
   listener:
-    protocol: https
-    private_mtls: required
+    public_https:
+      protocol: https
+      client_mtls: not_required
+      audience: unauthenticated_share_recipient
+    private_ingress_to_application:
+      protocol: https
+      server_mtls: required
+      client_certificate: trusted_ingress_ca
   application_origin:
     network: private
     direct_public_access: forbidden

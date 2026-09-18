@@ -39,7 +39,7 @@ EH-151 creates an unauthenticated capability, EH-152 exposes owner management, a
 ### Trust boundaries
 
 1. Authenticated owner browser to owner API.
-2. Versioned private/mTLS trusted ingress (`eh-151-scoped-expiring-share-links/deployment/trusted-ingress.yaml`) to the application transport adapter; the public origin is not reachable directly, and only non-forgeable peer metadata plus a signed assertion may establish the requester dimension.
+2. Public HTTPS share-recipient listener to the versioned private/mTLS trusted-ingress leg (`eh-151-scoped-expiring-share-links/deployment/trusted-ingress.yaml`); the browser does not present a client certificate, the private app origin is not reachable directly, and only the private leg can establish non-forgeable peer metadata plus a signed assertion.
 3. Unauthenticated public request to token verifier.
 4. Token verifier to Supabase/service-role data access.
 5. Application response to browser cache, CDN, referrer, and indexing systems.
@@ -53,11 +53,12 @@ EH-151 creates an unauthenticated capability, EH-152 exposes owner management, a
 | Token enumeration | At least 256 bits of random token entropy; keyed digest lookup; generic failure; rate limit | EH-151 + EH-154 |
 | Plaintext token at rest or in logs | Store only HMAC digest; redact path/query/log/analytics values; one-time owner response | EH-151 |
 | PIN brute force | Slow salted hash; bounded attempts; token/requester rate limit; generic error | EH-151 |
+| PIN proof theft or cross-share replay | Body-only PIN submission; keyed random proof digest bound to the exact share; protected `__Host-eh-share-pin` cookie; expiry/revoke checks before every page/API/export/raw-document read; clear invalid proof; never log proof/cookie/request body | EH-151 + EH-154 |
 | Replay after expiry/revoke | Check `expires_at` and `revoked_at` on every read; no cache in front of verifier | EH-151 + EH-154 |
 | Cross-profile report/document | Resolve owner scope server-side; verify report and child document ownership; no client-supplied profile ID | EH-151 |
 | Scope expansion | Persist explicit report/document scope; reject unknown resource IDs; export consumes verified scope | EH-151 + EH-153 |
 | Browser/CDN/search leakage | `Cache-Control: no-store, private`; `X-Robots-Tag: noindex, nofollow`; restrictive referrer policy; no third-party analytics | EH-151 |
-| Access-log PHI/token exposure | Minimized event fields; no URL/token/PIN/source text; short retention | EH-152 + EH-154 |
+| Access-log PHI/token exposure | Minimized event fields; no URL/token/PIN/proof/cookie/source text; short retention | EH-152 + EH-154 |
 | Raw storage bypass | Stream raw documents through an EH-151 verifier-backed proxy; recheck active share state, expiry, revocation, report scope, child document scope, archive state, and download policy on every request; never return a storage signed URL | EH-151 + EH-153 |
 | Abuse/availability | Versioned EH-151 private/mTLS trusted-ingress artifact plus `src/lib/share-links/trusted-ingress-transport.ts` and `rate-limit.ts` over the service-only Postgres `public.consume_report_share_rate_limit` RPC; reject direct origin/missing peer context, use atomic fixed-window HMAC-keyed counters (`10/60s` token digest, `30/60s` coarse requester), generic `429` exhaustion, generic `503` store/proxy-failure denial, no local fallback; alert on spikes | EH-151 + EH-154 |
 | Stale source after archive/remove | Preserve report snapshot only while the parent document remains active; deny live/raw source access and show limitation | EH-148 + EH-151 + EH-153 |
@@ -71,7 +72,7 @@ The gate has `blocked`, `ready-with-risk`, and `ready` states. Any unresolved hi
 
 ### 2. Privacy sign-off is explicit
 
-The release package must include the final share scope matrix, access-event fields/retention, token/PIN storage proof, evidence that `SHARE_RATE_LIMIT_PEPPER` and `SHARE_TRUSTED_PROXY_ATTESTATION_KEY` are present in the approved secret manager identified only by reference/version or approved fingerprint (never by value), the deployed non-secret ingress/rate-limit settings (`SHARE_TRUSTED_PROXY_CIDRS`, `SHARE_TRUSTED_PROXY_ATTESTATION_MAX_AGE_SECONDS`, `SHARE_RATE_LIMIT_WINDOW_SECONDS`, `SHARE_RATE_LIMIT_TOKEN_FAILURES`, `SHARE_RATE_LIMIT_REQUESTER_FAILURES`, `SHARE_RATE_LIMIT_CLEANUP_INTERVAL_MS`, and `SHARE_RATE_LIMIT_CLEANUP_RETRY_INTERVAL_MS`), bounded cleanup/backlog/failure signals, cache/header evidence, and an owner sign-off. If the production rate-limit store, Wiki/incident destination, or privacy approver is unavailable, the gate remains blocked or explicitly pending; it is not assumed green.
+The release package must include the final share scope matrix, access-event fields/retention, token/PIN/proof storage proof, evidence that `SHARE_RATE_LIMIT_PEPPER`, `SHARE_PIN_PROOF_PEPPER`, and `SHARE_TRUSTED_PROXY_ATTESTATION_KEY` are present in the approved secret manager identified only by reference/version or approved fingerprint (never by value), the deployed non-secret ingress/rate-limit/proof settings (`SHARE_TRUSTED_PROXY_CIDRS`, `SHARE_TRUSTED_PROXY_ATTESTATION_MAX_AGE_SECONDS`, `SHARE_RATE_LIMIT_WINDOW_SECONDS`, `SHARE_RATE_LIMIT_TOKEN_FAILURES`, `SHARE_RATE_LIMIT_REQUESTER_FAILURES`, `SHARE_RATE_LIMIT_CLEANUP_INTERVAL_MS`, `SHARE_RATE_LIMIT_CLEANUP_RETRY_INTERVAL_MS`, and `SHARE_PIN_PROOF_TTL_SECONDS`), bounded cleanup/backlog/failure signals, cache/header evidence, and an owner sign-off. If the production rate-li…
 
 ### 3. Incident runbook is fail-closed
 
@@ -81,7 +82,9 @@ For planned or emergency key rotation: provision and health-check a new secret-s
 
 ## Verification plan
 
-EH-154 owns a focused verification harness that exercises the same production adapters and versioned `deployment/trusted-ingress.yaml` contract used by public routes with synthetic profiles and documents: private-origin/direct-origin rejection, valid/missing/malformed/expired trusted peer metadata and attestation, invalid token, wrong PIN, expired token, revoked token, cross-profile report ID, out-of-scope document, allowed report export, denied raw download, repeated token/PIN failures through both HMAC-keyed dimensions, spoofed `X-Forwarded-For`/`Forwarded`/`X-Real-IP`/`X-EH-Edge-*` headers that cannot change the requester bucket, unavailable rate-limit store, current/previous/unknown token-key selectors, and generic `429`/`503` behavior. It also inspects response headers and captured logs for token/PIN/source/attestation-key leakage. The harness must run against the same `trusted-ingress-transport.ts` adapter and deployed settings used by both public routes; no header-only mock may be marked as production trust evidence.
+EH-154 owns a focused verification harness that exercises the same production adapters and versioned `deployment/trusted-ingress.yaml` contract used by public routes with synthetic profiles and documents: browser reachability at the unauthenticated public HTTPS listener, private-ingress forwarding, private-origin/direct-origin rejection, valid/missing/malformed/expired trusted peer metadata and attestation, invalid token, wrong PIN, expired token, revoked token, cross-profile report ID, out-of-scope document, allowed report export, denied raw download, repeated token/PIN failures through both HMAC-keyed dimensions, spoofed `X-Forwarded-For`/`Forwarded`/`X-Real-IP`/`X-EH-Edge-*` headers that cannot change the requester bucket, unavailable rate-limit store, current/previous/unknown token-key selectors, and generic `429`/`503` behavior. It also inspects response headers and captured logs for token/PIN/source/attestation-key leakage. The harness must run against the same `trusted-ingress-transport.ts` adapter and deployed settings used by both public routes; no header-only mock may be marked as production trust evidence.
+
+The verification harness also proves that correct body-only PIN submission establishes only the protected proof cookie, missing/wrong/expired/revoked/cross-share proofs fail generically before any page/API/export/raw-document bytes, invalid cookies are cleared, and PIN/proof/cookie/request-body values are absent from URLs, referrers, logs, telemetry, access events, and response fields.
 
 ## Risks / Trade-offs
 
