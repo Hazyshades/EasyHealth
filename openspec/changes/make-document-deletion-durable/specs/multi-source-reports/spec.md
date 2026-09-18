@@ -72,3 +72,14 @@ Reports MUST be persisted only through a service-only fixed-search-path database
 
 - **WHEN** service role issues a direct insert into `reports`
 - **THEN** permission is denied
+
+### Requirement: Owner report deletion uses a named transition
+
+The owner `DELETE /api/reports/:id` route SHALL call service-only fixed-search-path `public.delete_owner_report(profile_id, report_id)`. Direct `INSERT`/`UPDATE`/`DELETE` on `public.reports` SHALL be denied to runtime roles, including `service_role`; the transition SHALL lock and owner-check the report and atomically delete its evidence mappings, share links/scopes, replacement operations, access events, and report row through declared cascades.
+
+#### Scenario: Owner deletes a report with sharing history
+
+- **WHEN** an authenticated owner deletes a report that has citations, an active or replaced share, and access history
+- **THEN** the route returns success only after the named transition commits
+- **AND** no report, capability, scope, replacement operation, or share-scoped event remains
+- **AND** direct service-role table deletion is denied outside the transition

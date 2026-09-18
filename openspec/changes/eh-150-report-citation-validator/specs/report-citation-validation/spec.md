@@ -19,6 +19,22 @@ The citation validator SHALL validate contract version, claim shape, source kind
 - **AND** the report cannot be persisted as shareable or exportable
 - **AND** the response does not reveal the other profile's source details
 
+### Requirement: Validate closed report sections
+
+The validator SHALL require exactly one EH-148 section container for each canonical ID in order: `document_summary`, `latest_measurements`, `changes`, `clinician_questions`, `limitations`, and `source_ledger`. Each container SHALL have an `items` array and an `empty_state` whenever empty; the first four allow `no_data`, `not_applicable`, or `insufficient_evidence`, while limitations and source-ledger containers allow only `no_data`. It SHALL reject unknown, duplicate, missing, or claim-incompatible sections with `invalid` and `SCHEMA_INVALID`; limitations and source-ledger containers SHALL not accept model claims.
+
+#### Scenario: Missing or incompatible section fails
+
+- **WHEN** a candidate omits a canonical section or places a factual claim in `clinician_questions`/`limitations`/`source_ledger`
+- **THEN** the validator returns `invalid` with `SCHEMA_INVALID`
+- **AND** no candidate is persisted
+
+#### Scenario: Empty section remains explicit
+
+- **WHEN** a candidate has no comparable measurements or no user/model questions
+- **THEN** the validator accepts the canonical section only with an allowed `empty_state`
+- **AND** the publishable result includes a machine limitation when evidence is unavailable
+
 ### Requirement: Validate claim support
 
 A factual claim SHALL have at least one valid citation from the same report payload. A non-factual patient question MAY omit a citation. Unknown, broken, cross-profile, source-kind, or out-of-scope identity references SHALL return an `invalid` result and block persistence; uncited or unsafe-but-in-scope claim content SHALL be removed or marked with a machine-generated limitation and stable issue code.

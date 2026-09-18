@@ -176,7 +176,7 @@ Listing follows every nested prefix and storage page without fixed first-page as
 
 ### 5. Persist reports only through an atomic DB-guarded writer
 
-New reports MUST be inserted only by a fixed-search-path SECURITY DEFINER writer (for example `persist_owner_report`). Direct `INSERT`/`UPDATE`/`DELETE` on `public.reports` are revoked from `service_role`, `authenticated`, `anon`, and `PUBLIC`.
+New reports MUST be inserted only by EH-148's fixed-search-path SECURITY DEFINER `public.create_validated_report` writer, which also persists the exact source mappings, requested/actual scope, generation fence, validation envelope, and frozen extensions. Direct `INSERT`/`UPDATE`/`DELETE` on `public.reports` are revoked from `service_role`, `authenticated`, `anon`, and `PUBLIC`; owner report deletion uses the separate fixed-search-path SECURITY DEFINER `public.delete_owner_report` transition rather than table DML from `src/app/api/reports/[id]/route.ts`.
 
 **Global lock DAG (mandatory for every writer in this change and PR 2):**
 
@@ -203,6 +203,7 @@ At tombstone:
 - report list/detail APIs exclude invalidated rows.
 
 The final database transaction deletes those invalidated report rows. Deletion-versus-report-generation races are covered by two-session tests that tombstone between context load and persist.
+The existing `DELETE /api/reports/:id` route remains owner-authenticated at the application boundary but calls `public.delete_owner_report(profile_id, report_id)`. That transition locks and owner-checks the report, deletes its dependent evidence mappings, share links/scopes/replacement operations/access events through declared cascades, and deletes the report atomically; it returns a safe not-found/conflict result without exposing report data. EH-148 owns the validated-create contract, while this change owns the owner-delete transition, grant matrix, and route cutover. Direct table DML denial and owner-delete cascade coverage are required before the report writer is enabled.
 
 ### 6. Persist holistic synthesis through an atomic DB-guarded writer and invalidate on tombstone
 

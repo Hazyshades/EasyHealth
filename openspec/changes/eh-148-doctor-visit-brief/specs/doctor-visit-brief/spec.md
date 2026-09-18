@@ -20,6 +20,32 @@ A Doctor Visit Brief SHALL be persisted as a versioned structured payload contai
 - **AND** does not convert filenames into citation identities
 - **AND** marks the report unavailable for new sharing or export until revalidated
 
+### Requirement: Closed report sections
+
+Every new brief SHALL contain exactly one section container for each closed ID, in canonical order: `document_summary`, `latest_measurements`, `changes`, `clinician_questions`, `limitations`, and `source_ledger`; each container has an `items` array and an `empty_state` whenever that array is empty. The first four sections allow `empty_state` `no_data`, `not_applicable`, or `insufficient_evidence`; `limitations` and `source_ledger` allow only `no_data`. Unknown, duplicate, or missing section IDs SHALL fail validation. Unavailable required content SHALL produce a machine limitation. `source_fact` claims are allowed only in `document_summary`, `latest_measurements`, or `changes`; `numeric_observation` only in `latest_measurements` or `changes`; `clinician_question` only in `clinician_questions`; `limitations` and `source_ledger` contain no model claims.
+
+#### Scenario: Unknown or missing section fails closed
+
+- **WHEN** generated content contains an unknown, duplicate, or missing canonical section
+- **THEN** EH-150 returns `invalid` with `SCHEMA_INVALID`
+- **AND** no report or validation envelope is persisted
+
+#### Scenario: Empty section carries an explicit state
+
+- **WHEN** a scoped report has no comparable measurements or no clinician questions
+- **THEN** the corresponding canonical section remains present with an allowed `empty_state` and a visible limitation when evidence is unavailable
+- **AND** the renderer/exporters preserve canonical section order
+
+### Requirement: Durable document-deletion handoff
+
+EH-148 SHALL depend on the committed `make-document-deletion-durable` tombstone transaction and `document_deletion_operations` state. A document entering `deleting`/tombstoned state SHALL invalidate and mark the whole report for purge before owner, share, or export resolvers read its snapshots; EH-148 SHALL not implement a parallel document delete or infer safety from a missing row.
+
+#### Scenario: Report read waits for committed tombstone state
+
+- **WHEN** the durable document-deletion transition commits while an EH-148 report exists
+- **THEN** the report resolver returns generic unavailable before reading report snapshots
+- **AND** the report remains excluded until the durable final purge completes
+
 ### Requirement: Bounded user questions and report date range
 
 The report request SHALL accept an optional `questions` array of at most five unique user-selected questions. Each question SHALL be NFC-normalized, trimmed, 1–240 Unicode scalar characters, and free of control characters and line breaks. The server SHALL persist accepted questions as non-factual `clinician_question` claims with `origin: user_selected`; they SHALL remain visibly questions and SHALL NOT become factual claims or model-authored answers. The request MAY include an optional `report_date_range: { start, end }` whose `start` and `end` are canonical `YYYY-MM-DD` UTC calendar dates with `start <= end`. Filtering SHALL compare each authoritative source date by its UTC calendar date, so the entire end date is inclusive. Measurements use observation date and other source kinds use document date; undated sources are excluded. A document enters the materialized scope only when it contributes at least one eligible in-range source (or an in-range document-summary source). Explicit document IDs that are unauthorized or have no eligible in-range source SHALL return a safe validation error, while the all-eligible path SHALL persist only documents with an eligible in-range source. The same persisted question and date-filtered scope SHALL be used by owner detail, share, and export reads.

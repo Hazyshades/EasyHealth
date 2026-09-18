@@ -19,6 +19,8 @@ The report detail page renders free-form strings and has no export boundary. EH-
 - Exporting unrelated documents, storage paths, bearer tokens, PINs, or hidden profile metadata.
 - Editing the report or changing clinical meaning during serialization.
 
+Implementation prerequisite: `make-document-deletion-durable` is a hard prerequisite. EH-153 consumes the committed tombstone/report-invalidation/final-purge and owner report-delete transitions through EH-148's `report-read.ts`; it never infers source deletion from missing rows or serializes a snapshot after the durable resolver returns generic unavailable.
+
 ## Decisions
 
 ### 1. Build one export input adapter
@@ -28,8 +30,8 @@ Add `src/lib/report-export/index.ts` with `getExportableReport(accessContext, fo
 Each serializer consumes only this adapter result:
 
 - **JSON:** versioned machine-readable contract, safe validation projection `{ status, version }`, limitations, supported/limited claims, source snapshots, and the optional persisted dynamics DTO. Internal issue codes never serialize; removed claims are absent.
-- **CSV:** a deterministic `record_type` ledger with `row_order` and section fields. Metadata rows carry generated-at, contract version, validator version, validation status, disclaimer, and limitations; claim rows carry section, server-rendered claim text/status, and citation IDs, omitting removed claims; source rows carry every report-ledger entry's source ID, kind, document ID, display-safe snapshot, and label; measurement rows carry values plus source ID, document ID, observed date, native value/unit/range, display value/unit, and conversion indicator from the persisted dynamics DTO. `row_order` emits metadata first, then claim/measurement rows in report section order, then source rows in source-ledger order. Claims are not fabricated as measurements.
-- **PDF:** the same ordered sections, citation labels, source ledger, optional dynamics section, limitations, disclaimer, generated-at timestamp, and versions.
+- **CSV:** a deterministic `record_type` ledger with `row_order` and section fields. Metadata rows carry generated-at, contract version, validator version, validation status, disclaimer, and limitations; claim rows carry section, server-rendered claim text/status, and citation IDs, omitting removed claims; source rows carry every report-ledger entry's source ID, kind, document ID, display-safe snapshot, and label; measurement rows carry values plus source ID, document ID, observed date, native value/unit/range, display value/unit, and conversion indicator from the persisted dynamics DTO. `row_order` emits metadata first, then claim/measurement rows in the EH-148 canonical section order `document_summary`, `latest_measurements`, `changes`, `clinician_questions`, `limitations`, `source_ledger`, then source rows in source-ledger order. Claims are not fabricated as measurements.
+- **PDF:** the same EH-148 canonical section order `document_summary`, `latest_measurements`, `changes`, `clinician_questions`, `limitations`, `source_ledger`, followed by the optional dynamics extension, citation labels, source ledger, disclaimer, generated-at timestamp, and versions.
 
 ### 2. Use a pinned server-side PDF renderer
 

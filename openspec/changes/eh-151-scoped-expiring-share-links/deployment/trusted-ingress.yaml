@@ -1,0 +1,46 @@
+apiVersion: easyhealth.hazyshades.dev/v1
+kind: TrustedIngress
+metadata:
+  name: share-links
+  owner: eh-151-public-boundary
+spec:
+  listener:
+    protocol: https
+    private_mtls: required
+  application_origin:
+    network: private
+    direct_public_access: forbidden
+    upstream: easyhealth-next
+  request_headers:
+    strip_before_forward:
+      - Forwarded
+      - X-Forwarded-For
+      - X-Real-IP
+      - X-EH-Edge-Client-Address
+      - X-EH-Edge-Request-Id
+      - X-EH-Edge-Timestamp
+      - X-EH-Edge-Signature
+    overwrite:
+      X-EH-Edge-Client-Address: canonical_client_address
+      X-EH-Edge-Request-Id: canonical_uuid
+      X-EH-Edge-Timestamp: unix_seconds_utc
+      X-EH-Edge-Signature: base64url_no_padding_hmac_sha256
+  attestation:
+    key_secret: SHARE_TRUSTED_PROXY_ATTESTATION_KEY
+    framing: request_id.timestamp.client_address
+    encoding: utf8
+    max_age_seconds_env: SHARE_TRUSTED_PROXY_ATTESTATION_MAX_AGE_SECONDS
+  peer_metadata:
+    source: immediate_connection_peer
+    allowed_cidrs_env: SHARE_TRUSTED_PROXY_CIDRS
+    application_context: requestContext.edgeVerifiedClientAddress
+  application_adapter:
+    module: src/lib/share-links/trusted-ingress-transport.ts
+    runtime_interface: "TrustedIngressRuntime.getImmediatePeerAddress(request): string | null"
+    context_function: "getTrustedIngressContext(request, runtime): TrustedIngressContext | TrustedIngressFailure"
+    context_fields: edgeVerifiedClientAddress
+    missing_peer_action: reject_503
+    header_values_are_not_peer_metadata: true
+  release_gate:
+    require_private_origin_probe: true
+    require_valid_and_spoofed_header_harness: true

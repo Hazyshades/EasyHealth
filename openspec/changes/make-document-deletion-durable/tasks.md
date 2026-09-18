@@ -126,7 +126,7 @@
   - [ ] 4.3.b Implement the stated operation only at its designated authority boundary.
   - [ ] 4.3.c Exercise focused success and failure cases and capture evidence.
 
-- [ ] 4.4 Implement the atomic report writer with the global lock DAG (documents sorted → synthesis → reports), exact source ids, content-epoch write-generation revalidation at commit, and revoke direct runtime DML on `reports`.
+- [ ] 4.4 Integrate the durable tombstone/invalidation transaction with EH-148's atomic `public.create_validated_report` writer contract: preserve the global lock DAG (documents sorted → synthesis → reports), exact source ids, requested/actual scope, content-epoch write-generation revalidation at commit, and direct runtime-DML revocation on `reports`; this change owns the document invalidation/final-purge handoff and separate `public.delete_owner_report` transition, while EH-148 owns the create-writer implementation.
   - [ ] 4.4.a Define inputs, state transitions, authorization, and invariant boundaries.
   - [ ] 4.4.b Implement the stated operation only at its designated authority boundary.
   - [ ] 4.4.c Exercise focused success and failure cases and capture evidence.
@@ -215,6 +215,11 @@
   - [ ] 6.4.b Execute the stated action through its approved boundary.
   - [ ] 6.4.c Verify expected and failure behavior and record attributable evidence.
 
+- [ ] 6.5 Migrate `DELETE /api/reports/:id` to call the owner-authorized `public.delete_owner_report` transition, return its safe status, and prove direct report-table DML is denied to runtime roles while evidence mappings, share links/scopes/replacement operations/access events, and the report are deleted atomically.
+  - [ ] 6.5.a Map the current route, dependent cascades, role/grant boundary, and owner/not-found behavior.
+  - [ ] 6.5.b Apply the route and RPC cutover without retaining a direct service-role delete fallback.
+  - [ ] 6.5.c Verify owner deletion, cross-profile denial, direct-DML denial, and dependent cleanup evidence.
+
 ## 7. Verification
 
 - [ ] 7.1 Add pgTAP for tombstone idempotency, generation increment, operation uniqueness/survival, report/synthesis invalidation, grants, owner isolation, and direct final purge rollback.
@@ -237,7 +242,7 @@
   - [ ] 7.4.b Implement the stated operation only at its designated authority boundary.
   - [ ] 7.4.c Exercise focused success and failure cases and capture evidence.
 
-- [ ] 7.5 Add API integration for list/detail/file/page/thumbnail/reprocess/mutation denial, no new signed URL, Biomarkers/Health Profile exclusion, report invalidation, synthesis invalidation, operation status, and owner isolation.
+- [ ] 7.5 Add API integration for list/detail/file/page/thumbnail/reprocess/mutation denial, no new signed URL, Biomarkers/Health Profile exclusion, report invalidation, synthesis invalidation, operation status, owner isolation, owner report deletion through `public.delete_owner_report`, and dependent share/evidence cleanup.
   - [ ] 7.5.a Define inputs, state transitions, authorization, and invariant boundaries.
   - [ ] 7.5.b Implement the stated operation only at its designated authority boundary.
   - [ ] 7.5.c Exercise focused success and failure cases and capture evidence.
@@ -247,7 +252,7 @@
   - [ ] 7.6.b Execute the stated action through its approved boundary.
   - [ ] 7.6.c Verify expected and failure behavior and record attributable evidence.
 
-- [ ] 7.7 Add negative tests proving unrestricted service-role Storage upload is unused by workers and `/api/upload`, broker ticket reuse/expiry fails, exchange without valid ticket fails, and direct report/synthesis table writes are denied.
+- [ ] 7.7 Add negative tests proving unrestricted service-role Storage upload is unused by workers and `/api/upload`, broker ticket reuse/expiry fails, exchange without valid ticket fails, direct report/synthesis table writes are denied, and direct owner-report deletion is denied outside its named transition.
   - [ ] 7.7.a Define inputs, state transitions, authorization, and invariant boundaries.
   - [ ] 7.7.b Implement the stated operation only at its designated authority boundary.
   - [ ] 7.7.c Exercise focused success and failure cases and capture evidence.

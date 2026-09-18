@@ -39,11 +39,12 @@ EH-151 creates an unauthenticated capability, EH-152 exposes owner management, a
 ### Trust boundaries
 
 1. Authenticated owner browser to owner API.
-2. Unauthenticated public request to token verifier.
-3. Token verifier to Supabase/service-role data access.
-4. Application response to browser cache, CDN, referrer, and indexing systems.
-5. Application/access-log pipeline to operators and retention storage.
-6. Export serializer to generated files and raw-document storage.
+2. Versioned private/mTLS trusted ingress (`eh-151-scoped-expiring-share-links/deployment/trusted-ingress.yaml`) to the application transport adapter; the public origin is not reachable directly, and only non-forgeable peer metadata plus a signed assertion may establish the requester dimension.
+3. Unauthenticated public request to token verifier.
+4. Token verifier to Supabase/service-role data access.
+5. Application response to browser cache, CDN, referrer, and indexing systems.
+6. Application/access-log pipeline to operators and retention storage.
+7. Export serializer to generated files and raw-document storage.
 
 ### Abuse cases and required controls
 
@@ -58,7 +59,7 @@ EH-151 creates an unauthenticated capability, EH-152 exposes owner management, a
 | Browser/CDN/search leakage | `Cache-Control: no-store, private`; `X-Robots-Tag: noindex, nofollow`; restrictive referrer policy; no third-party analytics | EH-151 |
 | Access-log PHI/token exposure | Minimized event fields; no URL/token/PIN/source text; short retention | EH-152 + EH-154 |
 | Raw storage bypass | Stream raw documents through an EH-151 verifier-backed proxy; recheck active share state, expiry, revocation, report scope, child document scope, archive state, and download policy on every request; never return a storage signed URL | EH-151 + EH-153 |
-| Abuse/availability | EH-151 `src/lib/share-links/rate-limit.ts` over the service-only Postgres `public.consume_report_share_rate_limit` RPC; atomic fixed-window HMAC-keyed counters (`10/60s` token digest, `30/60s` coarse requester), generic `429` exhaustion, generic `503` store-failure denial, no local fallback; alert on spikes | EH-151 + EH-154 |
+| Abuse/availability | Versioned EH-151 private/mTLS trusted-ingress artifact plus `src/lib/share-links/trusted-ingress-transport.ts` and `rate-limit.ts` over the service-only Postgres `public.consume_report_share_rate_limit` RPC; reject direct origin/missing peer context, use atomic fixed-window HMAC-keyed counters (`10/60s` token digest, `30/60s` coarse requester), generic `429` exhaustion, generic `503` store/proxy-failure denial, no local fallback; alert on spikes | EH-151 + EH-154 |
 | Stale source after archive/remove | Preserve report snapshot only while the parent document remains active; deny live/raw source access and show limitation | EH-148 + EH-151 + EH-153 |
 | Tombstoned source report | Invalidate the complete report before owner/share/export reads or bytes; mark for whole-report purge | EH-148 + EH-151 + EH-153 |
 
@@ -66,7 +67,7 @@ EH-151 creates an unauthenticated capability, EH-152 exposes owner management, a
 
 ### 1. Release gate states are evidence-backed
 
-The gate has `blocked`, `ready-with-risk`, and `ready` states. Any unresolved high or critical finding is `blocked`; `ready-with-risk` is allowed only for documented low/medium residual risk with owner and expiry. The release record names executed commands/scenarios and their result; a checklist row is never marked pass from code inspection alone.
+The gate has `blocked`, `ready-with-risk`, and `ready` states. Any unresolved high or critical finding is `blocked`; missing committed `make-document-deletion-durable` tombstone/report-delete handoff or missing reviewed `deployment/trusted-ingress.yaml` artifact is also `blocked`. `ready-with-risk` is allowed only for documented low/medium residual risk with owner and expiry. The release record names executed commands/scenarios and their result; a checklist row is never marked pass from code inspection alone.
 
 ### 2. Privacy sign-off is explicit
 
@@ -80,7 +81,7 @@ For planned or emergency key rotation: provision and health-check a new secret-s
 
 ## Verification plan
 
-EH-154 owns a focused verification harness that exercises the same production adapters used by public routes with synthetic profiles and documents: invalid token, wrong PIN, expired token, revoked token, cross-profile report ID, out-of-scope document, allowed report export, denied raw download, repeated token/PIN failures through both HMAC-keyed dimensions, missing/malformed trusted requester address, spoofed `X-Forwarded-For`/`Forwarded`/`X-Real-IP` headers that cannot change the requester bucket, unavailable rate-limit store, current/previous/unknown token-key selectors, and generic `429`/`503` behavior. It also inspects response headers and captured logs for token/PIN/source leakage. The harness must run against the same adapter and deployed settings used by production routes; mocks may cover unavailable external stores only when the production contract is separately evidenced.
+EH-154 owns a focused verification harness that exercises the same production adapters and versioned `deployment/trusted-ingress.yaml` contract used by public routes with synthetic profiles and documents: private-origin/direct-origin rejection, valid/missing/malformed/expired trusted peer metadata and attestation, invalid token, wrong PIN, expired token, revoked token, cross-profile report ID, out-of-scope document, allowed report export, denied raw download, repeated token/PIN failures through both HMAC-keyed dimensions, spoofed `X-Forwarded-For`/`Forwarded`/`X-Real-IP`/`X-EH-Edge-*` headers that cannot change the requester bucket, unavailable rate-limit store, current/previous/unknown token-key selectors, and generic `429`/`503` behavior. It also inspects response headers and captured logs for token/PIN/source/attestation-key leakage. The harness must run against the same `trusted-ingress-transport.ts` adapter and deployed settings used by both public routes; no header-only mock may be marked as production trust evidence.
 
 ## Risks / Trade-offs
 

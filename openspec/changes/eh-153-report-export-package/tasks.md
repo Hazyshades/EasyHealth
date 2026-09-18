@@ -2,6 +2,10 @@
 
 Domain: **reports**
 
+## 0. Prerequisite and lifecycle handoff
+
+- [ ] 0.1 Require `make-document-deletion-durable` and EH-148's committed report-read tombstone outcome before export implementation; export receives generic unavailable after durable source-document tombstone and never reads snapshots independently.
+
 ## 1. Export access adapter
 
 - [ ] 1.1 Implement owner and EH-151 share adapters that load only validated EH-148 content, its complete report-scope source ledger, and the persisted frozen EH-149 `BiomarkerDynamicsReport` extension selected by `src/lib/report-read.ts`; keep raw-document child scope separate and reject client DTO/raw-observation inputs.
@@ -12,12 +16,12 @@ Domain: **reports**
 
 - [ ] 2.1 Implement deterministic JSON serialization with contract, validator, generated-at, limitation, claim, and source metadata.
 - [ ] 2.2 Implement CSV `record_type`/`row_order` rows for metadata, claims, complete source ledger entries, and measurements; measurement rows come from the persisted dynamics extension selected by the EH-148 resolver with source IDs, document IDs, native/display values and units, ranges, dates, and conversion indicators.
-- [ ] 2.3 Add a pinned server-side PDF renderer and licensed embedded Unicode font; preserve section order, citations, limitations, disclaimer, and versions.
+- [ ] 2.3 Add a pinned server-side PDF renderer and licensed embedded Unicode font; preserve EH-148's canonical section order `document_summary`, `latest_measurements`, `changes`, `clinician_questions`, `limitations`, `source_ledger`, citations, limitations, disclaimer, and versions.
 - [ ] 2.4 Bound report size and fail explicitly on renderer/font failure instead of returning a partial PDF.
 
 ## 3. UI and verification
 
 - [ ] 3.1 Add the leaf export-actions component with format availability, pending state, and safe failure copy.
 - [ ] 3.2 Provide the export-actions props contract and hand off integration: EH-148 wires authenticated detail, EH-151 wires the named public-share slot; EH-153 does not edit either page.
-- [ ] 3.3 Add fixtures for Unicode, long labels, empty optional sections, mixed units, persisted scope-constrained dynamics extension points, mixed non-lab source kinds, complete CSV source rows, removed-claim omission, invalid/legacy/tampered validation envelopes, denied formats, source-unavailable reads, and out-of-scope documents.
+- [ ] 3.3 Add fixtures for canonical section order, unknown/missing/duplicate sections, allowed empty states, Unicode, long labels, empty optional dynamics sections, mixed units, persisted scope-constrained dynamics extension points, mixed non-lab source kinds, complete CSV source rows, removed-claim omission, invalid/legacy/tampered validation envelopes, denied formats, durable tombstone/source-unavailable reads, and out-of-scope documents.
 - [ ] 3.4 Run the EH-153 QA checklist, prove `applyPublicShareResponsePolicy` is applied before shared PDF/CSV/JSON responses, and provide download-policy/header evidence to EH-154.

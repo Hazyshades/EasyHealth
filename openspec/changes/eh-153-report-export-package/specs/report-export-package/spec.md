@@ -4,7 +4,7 @@
 
 ### Requirement: Export validated report formats
 
-The system SHALL export a validated EH-148 report as PDF, CSV, or JSON using the same ordered content, source scope, limitations, disclaimer, generated-at timestamp, contract version, and safe validation projection `{ status, version }` as the on-screen report. Internal validation issue codes SHALL NOT appear in any export bytes or public response. Only supported/limited claims are serializable; removed claims are omitted. When a dynamics section is requested, the exporter SHALL consume the persisted EH-149 `BiomarkerDynamicsReport` extension selected by EH-148's `report-read.ts` resolver and SHALL NOT accept a client DTO, query raw observations, or recompute raw observations.
+The system SHALL export a validated EH-148 report as PDF, CSV, or JSON using the same canonical section order `document_summary`, `latest_measurements`, `changes`, `clinician_questions`, `limitations`, `source_ledger`, ordered content, source scope, limitations, disclaimer, generated-at timestamp, contract version, and safe validation projection `{ status, version }` as the on-screen report. Internal validation issue codes SHALL NOT appear in any export bytes or public response. Only supported/limited claims are serializable; removed claims are omitted. Unknown, duplicate, or missing section containers SHALL fail validation before serialization; allowed empty sections retain their explicit EH-148 `empty_state`. When a dynamics section is requested, the exporter SHALL consume the persisted EH-149 `BiomarkerDynamicsReport` extension selected by EH-148's `report-read.ts` resolver and SHALL NOT accept a client DTO, query raw observations, or recompute raw observations.
 
 #### Scenario: Owner downloads JSON
 
@@ -31,6 +31,12 @@ The system SHALL export a validated EH-148 report as PDF, CSV, or JSON using the
 - **WHEN** an export includes an EH-149 dynamics section
 - **THEN** PDF, CSV, and JSON serialize the persisted series, points, tolerances, and provenance selected by the EH-148 resolver
 - **AND** the export path does not rebuild dynamics from database rows
+
+#### Scenario: Section order and empty states are preserved
+
+- **WHEN** an export contains canonical sections including an allowed empty section
+- **THEN** PDF, CSV, and JSON preserve the EH-148 section order and explicit empty state
+- **AND** unknown, duplicate, or missing sections produce no export bytes
 
 ### Requirement: Source-unavailable export fidelity
 
