@@ -12,7 +12,7 @@ Domain: **reports / auth-shell**
 
 - [ ] 2.1 Implement token format `v<token_key_version>.<random>`, keyed digest lookup through the configured current/previous key ring, and no plaintext or unkeyed fallback.
 - [ ] 2.2 Implement optional salted slow PIN hashing and a shared rate-limit seam for token/PIN failures.
-- [ ] 2.3 Add the owner creation endpoint that returns the plaintext link once and omits token/PIN material from persistence, logs, and telemetry.
+- [ ] 2.3 Add the owner creation endpoint that returns the plaintext link once, persists only keyed token digests and optional salted slow PIN verifier material, and omits plaintext token/PIN material from logs and telemetry.
 - [ ] 2.4 Add the public page/API boundary with generic invalid/expired/revoked/PIN failures and no session-profile fallback.
 - [ ] 2.5 Enforce the EH-148 read projection's `valid`/`limited` validation status and recognized version, expiry, revocation, exact report scope, `allowed_export_formats`, and download policy on every public read; consume `report-read.ts` so archived/deleted cited sources become `SOURCE_UNAVAILABLE` limitations without exposing live/raw source data; keep report scope distinct from raw-document child scope.
 - [ ] 2.6 Implement EH-151's `applyPublicShareResponsePolicy` helper for no-store/private, noindex/nofollow, restrictive referrer policy, and no-third-party-analytics responses; require EH-153 public exports to call it.

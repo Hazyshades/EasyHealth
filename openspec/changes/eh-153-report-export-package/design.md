@@ -37,7 +37,7 @@ Use `@react-pdf/renderer` behind `src/lib/report-export/pdf.ts` with a committed
 
 ### 3. Keep export authorization separate from serialization
 
-Authorization resolves the report, complete report scope, optional raw-document child IDs, and allowed export formats before serialization. The serializers never query Supabase or storage and cannot widen scope. A shared export is allowed only when its format is in `allowed_export_formats`; `download_policy` `report` permits those report formats, `documents` additionally permits explicitly scoped raw documents, and `none` permits neither file export nor raw-document download. The public share export route applies EH-151's `applyPublicShareResponsePolicy` helper to every permitted PDF, CSV, and JSON response before returning bytes.
+Authorization resolves the report, complete report scope, optional raw-document child IDs, and allowed export formats before serialization. An authenticated owner of a validated report is allowed PDF, CSV, and JSON; a shared export is allowed only when its format is in `allowed_export_formats`. The serializers never query Supabase or storage and cannot widen scope. `download_policy` `report` permits the shared report formats, `documents` additionally permits explicitly scoped raw documents, and `none` permits neither file export nor raw-document download. The public share export route applies EH-151's `applyPublicShareResponsePolicy` helper to every permitted PDF, CSV, and JSON response before returning bytes.
 
 ### 4. Add controls through a leaf component
 

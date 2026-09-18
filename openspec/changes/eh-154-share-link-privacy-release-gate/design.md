@@ -24,7 +24,7 @@ EH-151 creates an unauthenticated capability, EH-152 exposes owner management, a
 ### Assets
 
 - Validated report claims, source snapshots, biomarker values, reference ranges, and limitations.
-- Raw document downloads and signed storage URLs when explicitly allowed.
+- Raw document bytes available only through the verifier-backed proxy when explicitly allowed; public shares never issue storage signed URLs.
 - Share bearer tokens, optional PIN verifiers, expiry/revocation state, and access events.
 - Owner/profile identity and the minimum metadata needed to manage a share.
 

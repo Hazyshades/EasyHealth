@@ -9,7 +9,7 @@ There is no share-link table or public token route. Existing report APIs resolve
 **Goals:**
 
 - Create expiring, revocable links for validated reports with exact resource scope.
-- Keep bearer tokens and optional PIN material out of persistent data and logs.
+- Keep bearer tokens and plaintext PINs out of persistent data and logs; persist only the keyed token digest and, when enabled, the salted slow PIN verifier material.
 - Fail closed for invalid, expired, revoked, cross-profile, and out-of-scope requests.
 - Make public responses uncacheable and non-indexable.
 

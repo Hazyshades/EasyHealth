@@ -9,7 +9,7 @@ The report detail and approved share surfaces SHALL offer PDF, CSV, and JSON act
 #### Scenario: Owner sees export actions
 
 - **WHEN** an owner opens a validated report
-- **THEN** the page offers the formats supported by the owner export policy
+- **THEN** the page offers PDF, CSV, and JSON for the validated owner report
 - **AND** the downloaded content matches the visible sections and limitations
 
 #### Scenario: Share policy denies a format
