@@ -53,6 +53,33 @@ The public share route SHALL verify token digest, expiry, revocation, optional P
 - **THEN** the public report preserves the historical snapshot and displays `SOURCE_UNAVAILABLE`
 - **AND** the recipient cannot obtain the archived/deleted raw source or an unqualified supported claim
 
+### Requirement: Production rate-limit boundary
+
+The public route SHALL call the service-only `public.consume_report_share_rate_limit` RPC over the shared Supabase Postgres store for failed token/PIN outcomes before returning a public response. The RPC SHALL atomically maintain fixed-window counters keyed by `HMAC-SHA-256(SHARE_RATE_LIMIT_PEPPER, dimension + ":" + normalized_key)`: one token-digest dimension and one server-derived requester dimension consisting of an IPv4 `/24` or IPv6 `/64` prefix plus the fixed coarse user-agent class `browser`, `automation`, or `other` (`unknown` for missing values). Raw token, IP, and user-agent values SHALL NOT be persisted or logged. `SHARE_RATE_LIMIT_WINDOW_SECONDS` SHALL default to `60` and accept `10..300`; `SHARE_RATE_LIMIT_TOKEN_FAILURES` SHALL default to `10` and accept `1..100`; `SHARE_RATE_LIMIT_REQUESTER_FAILURES` SHALL default to `30` and accept `1..300`; `SHARE_RATE_LIMIT_PEPPER` is required. A missing pepper or invalid setting SHALL fail closed. EH-151 SHALL run bounded service-only cleanup for expired rate-limit buckets, and EH-154 SHALL record the deployed non-secret settings and cleanup evidence.
+
+#### Scenario: Token and PIN failures exhaust fixed windows
+
+- **WHEN** repeated failures use a known token or an incorrect PIN
+- **THEN** token-digest failures increment the token and requester dimensions, PIN failures increment both dimensions, and the configured limits apply atomically within the fixed window
+- **AND** an exhausted window returns a generic `429` with no token/PIN cause or raw identifier
+
+#### Scenario: Unknown token uses only requester protection
+
+- **WHEN** a malformed or unknown token is presented
+- **THEN** only the requester dimension is incremented because no share-scoped token digest exists
+- **AND** no share-scoped row or token-derived telemetry is created
+
+#### Scenario: Limiter store or configuration fails
+
+- **WHEN** the limiter RPC times out/fails or the required pepper/setting validation fails
+- **THEN** the route returns a generic non-enumerating `503`
+- **AND** no local/process fallback permits the request
+
+#### Scenario: Expired limiter buckets are removed
+
+- **WHEN** the worker runs the bounded rate-limit cleanup RPC
+- **THEN** expired bucket rows are removed without exposing or logging raw token/requester identifiers
+
 ### Requirement: Public response privacy
 
 Public share responses and approved shared-export responses SHALL NOT expose bearer tokens, PIN fields, profile IDs, storage paths, unrelated documents, or third-party analytics data. The public page/API and EH-153 export route SHALL apply EH-151's `applyPublicShareResponsePolicy` helper, setting private no-store caching, noindex/nofollow, and a restrictive referrer policy before returning content or PDF/CSV/JSON bytes.
