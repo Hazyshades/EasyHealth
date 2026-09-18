@@ -22,7 +22,7 @@ The system SHALL persist each newly generated report for the authenticated profi
 
 ### Requirement: Report generation request body
 
-The `POST /api/reports` body SHALL accept `title`, `report_type`, `detail_level`, optional `document_ids`, optional `abnormal_only`, and optional `biomarker_dynamics_period: { start, end }`. `start` and `end` SHALL be inclusive UTC dates with `start <= end`; the server SHALL validate the range and report document scope, pass only the authorized scope and period to EH-149, and reject client-supplied dynamics DTOs or raw observations. A missing period means no dynamics extension. The server SHALL resolve and authorize the document scope, build a source catalog retaining row and document IDs, and pass only that catalog to the report generator. A successful new report SHALL conform to the versioned Doctor Visit Brief contract before insertion.
+The `POST /api/reports` body SHALL accept `title`, `report_type`, `detail_level`, optional `document_ids`, optional `abnormal_only`, optional bounded `questions`, optional inclusive UTC `report_date_range: { start, end }`, and optional `biomarker_dynamics_period: { start, end }`. `questions` SHALL contain at most five unique NFC-normalized strings of 1–240 Unicode scalar characters with no control characters or line breaks; accepted questions persist as non-factual `clinician_question` claims with `origin: user_selected`. `report_date_range.start` and `.end` SHALL be inclusive UTC dates with `start <= end`; measurements use observation date and other source kinds use document date, and undated sources are excluded. A document enters the materialized scope only when it contributes at least one eligible in-range source or in-range document-summary source; an explicitly supplied document with no eligible in-range source or unauthorized SHALL fail safely, while all-eligible resolution includes only documents with an eligible in-range source. The server SHALL validate both ranges and report document scope, pass only the authorized scope and dynamics period to EH-149, and reject client-supplied dynamics DTOs or raw observations. Missing optional fields mean no question claims, no date filter, or no dynamics extension respectively. The server SHALL resolve and authorize the document scope, build a source catalog retaining row and document IDs, and pass only that catalog to the report generator. A successful new report SHALL conform to the versioned Doctor Visit Brief contract before insertion.
 
 #### Scenario: Explicit scope is preserved
 
@@ -47,6 +47,20 @@ The `POST /api/reports` body SHALL accept `title`, `report_type`, `detail_level`
 - **WHEN** a client submits a malformed period or an end before start
 - **THEN** the endpoint returns HTTP 400
 - **AND** no report, dynamics extension, or validation envelope is persisted
+
+#### Scenario: User-selected questions and date range are preserved
+
+- **WHEN** an authenticated owner submits valid questions and an inclusive `report_date_range`
+- **THEN** the persisted contract contains the normalized questions as `clinician_question` claims with `origin: user_selected`
+- **AND** its immutable source scope contains only authorized, dated documents in the requested range, including boundary dates
+- **AND** owner detail, authorized share, and export use the same persisted question claims and scope
+
+#### Scenario: Invalid question or date-range input fails before persistence
+
+- **WHEN** a request contains an invalid question or a malformed/reversed `report_date_range`
+- **THEN** the endpoint returns HTTP 400
+- **AND** no report, question claim, source mapping, or validation envelope is persisted
+
 
 ### Requirement: Summary preview derives from validated overview
 

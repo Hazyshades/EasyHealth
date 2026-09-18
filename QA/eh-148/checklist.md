@@ -26,6 +26,8 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 | `EH148-SAFETY-01` | Validator fixture containing model-authored factual text, unknown template/parameter, removed claim, diagnosis, treatment, urgency, imperative, and unsupported free-form factual fields | Content-safety boundary |
 | `EH148-ARCHIVE-01` | Published brief whose cited source is archived or deleted afterward | Read-time source availability |
 | `EH148-DYNAMICS-SCOPE-01` | Report request with `biomarker_dynamics_period` and one selected document while another owned eligible document remains unselected | Scope-constrained frozen dynamics |
+| `EH148-RANGE-01` | Synthetic documents on both report-date boundaries, outside the range, and without an authoritative date | Inclusive date-scope filtering |
+| `EH148-QUESTIONS-01` | Valid user questions plus empty, duplicate, multiline, control-character, and overlong inputs | Bounded question contract |
 
 ## Interface checks
 
@@ -81,6 +83,20 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 **Result:** `N/A`
 **Notes / evidence link:** `Implementation not started; execute after EH-148 delivery.`
 
+### EH148-UI-05: Preserve questions and date-filtered scope
+
+**Precondition:** `EH148-RANGE-01` and `EH148-QUESTIONS-01` are eligible for the dedicated account, and the report form exposes the reviewed question/date controls.
+
+1. Set an inclusive report date range containing the boundary fixtures.
+2. Enter two valid user-selected questions and create the brief.
+3. Open the report detail and inspect its source ledger and questions section.
+
+**Expected result:** Boundary documents are included, outside-range and undated documents are absent, and each submitted question is visibly rendered as a question without a factual answer or invented citation.
+
+**Result:** `N/A`
+**Notes / evidence link:** `Implementation not started; execute after EH-148 delivery.`
+
+
 ## Developer evidence required
 
 - [ ] Contract/schema verification proves every new factual claim has an in-payload source ID and every source retains row/document identity. *(Evidence provider: EH-148 contract owner; EH-150 validator owner.)*
@@ -94,6 +110,8 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 - [ ] Archive/delete-after-publication verification proves owner, share, and export reads use the EH-148 resolver, preserve the historical snapshot, add `SOURCE_UNAVAILABLE`, and deny live/raw-source access without rewriting the persisted payload. *(Evidence provider: EH-148 read-resolver owner; EH-151 public-read owner; EH-153 export owner.)*
 - [ ] Dynamics handoff evidence proves `biomarker_dynamics_period`, exact materialized document scope, and no client DTO/raw observations reach EH-149; the persisted extension contains only points in report scope. *(Evidence provider: EH-148 route/RPC owner; EH-149 comparison owner.)*
 - [ ] Validation-envelope evidence proves new reports persist only `valid`/`limited` status, validator version, and stable issue codes; invalid and tampered structured rows fail closed, while legacy rows remain owner-readable through the resolver but are rejected by share/export. *(Evidence provider: EH-148 persistence/read-resolver owner; EH-150 validator owner; EH-151 share owner; EH-153 export owner.)*
+- [ ] API/UI verification proves valid user-selected questions are normalized, persisted with `origin: user_selected`, rendered as questions in owner detail, and retained by authorized share/export reads; invalid question forms fail before persistence. *(Evidence provider: EH-148 contract/route owner; EH-151 share owner; EH-153 export owner.)*
+- [ ] Report-date evidence proves inclusive UTC boundary behavior, authoritative source-date selection, undated exclusion, explicit out-of-range/undated document rejection, and exact persisted scope/mapping with no scope widening. *(Evidence provider: EH-148 route/RPC owner.)*
 
 ## Out of scope or not manually testable yet
 

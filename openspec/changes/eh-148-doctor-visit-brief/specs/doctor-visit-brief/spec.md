@@ -4,7 +4,7 @@
 
 ### Requirement: Versioned report and evidence contract
 
-A Doctor Visit Brief SHALL be persisted as a versioned structured payload containing report kind, generated-at metadata, detail level, materialized source document IDs, a server-rendered deterministic `overview`, typed sections, limitations, source snapshots, the mandatory educational disclaimer, and an optional server-generated `extensions.biomarker_dynamics` frozen DTO with period/schema/policy metadata.
+A Doctor Visit Brief SHALL be persisted as a versioned structured payload containing report kind, generated-at metadata, detail level, materialized source document IDs, bounded user-selected questions, a server-rendered deterministic `overview`, typed sections, limitations, source snapshots, the mandatory educational disclaimer, and an optional server-generated `extensions.biomarker_dynamics` frozen DTO with period/schema/policy metadata.
 
 #### Scenario: New brief stores a materialized scope
 
@@ -20,6 +20,34 @@ A Doctor Visit Brief SHALL be persisted as a versioned structured payload contai
 - **AND** does not convert filenames into citation identities
 - **AND** marks the report unavailable for new sharing or export until revalidated
 
+### Requirement: Bounded user questions and report date range
+
+The report request SHALL accept an optional `questions` array of at most five unique user-selected questions. Each question SHALL be NFC-normalized, trimmed, 1–240 Unicode scalar characters, and free of control characters and line breaks. The server SHALL persist accepted questions as non-factual `clinician_question` claims with `origin: user_selected`; they SHALL remain visibly questions and SHALL NOT become factual claims or model-authored answers. The request MAY include an optional `report_date_range: { start, end }` of inclusive UTC dates with `start <= end`. With a date range, measurements use observation date and other source kinds use document date; undated sources are excluded. A document enters the materialized scope only when it contributes at least one eligible in-range source (or an in-range document-summary source). Explicit document IDs that are unauthorized or have no eligible in-range source SHALL return a safe validation error, while the all-eligible path SHALL persist only documents with an eligible in-range source. The same persisted question and date-filtered scope SHALL be used by owner detail, share, and export reads.
+
+#### Scenario: User-selected questions remain questions
+
+- **WHEN** an owner submits two valid questions with a report request
+- **THEN** the validated payload stores both as `clinician_question` claims with `origin: user_selected`
+- **AND** owner detail, an authorized share, and export render the question text as questions without an answer or factual citation requirement
+
+#### Scenario: Invalid question input fails before persistence
+
+- **WHEN** a request contains an empty, overlong, duplicate, multiline, or control-character question
+- **THEN** the endpoint returns a safe validation error
+- **AND** no report, question claim, or validation envelope is persisted
+
+#### Scenario: Inclusive report date range materializes scope
+
+- **WHEN** an owner submits an inclusive date range
+- **THEN** sources on either boundary and between them are eligible, while sources outside the range or without an authoritative date are excluded
+- **AND** the persisted `source_document_ids` and source mappings contain no excluded document
+
+#### Scenario: Explicit document conflicts with date range
+
+- **WHEN** an explicit document ID is unauthorized or has no eligible in-range source
+- **THEN** the endpoint returns a safe validation error
+- **AND** no report or widened scope is persisted
+
 ### Requirement: Source-grounded factual claims
 
 Every factual claim in a new brief SHALL reference one or more source IDs from the same report payload. Each source SHALL identify an allowed evidence kind, source row ID, document ID, and display-safe snapshot of the value, unit, range, text, or date when available. The server SHALL persist the source-row identity separately from the public payload so later citation validation does not rely on snapshot text.
@@ -34,8 +62,8 @@ Every factual claim in a new brief SHALL reference one or more source IDs from t
 #### Scenario: Unknown citation is not persisted as supported
 
 - **WHEN** generated content references a source ID absent from the server-provided source catalog
-- **THEN** the claim is rejected or marked limited before persistence
-- **AND** the unknown identifier is not rendered as a source link
+- **THEN** EH-150 returns `invalid` with `SOURCE_NOT_FOUND` and the validated-report transition persists no report or evidence mapping
+- **AND** the unknown identifier is not rendered as a source link or exposed in the response
 
 ### Requirement: Missing evidence is explicit
 

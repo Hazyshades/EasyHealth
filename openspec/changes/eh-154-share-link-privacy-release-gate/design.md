@@ -69,7 +69,7 @@ The gate has `blocked`, `ready-with-risk`, and `ready` states. Any unresolved hi
 
 ### 2. Privacy sign-off is explicit
 
-The release package must include the final share scope matrix, access-event fields/retention, token/PIN storage proof, the deployed rate-limit adapter/settings (`SHARE_RATE_LIMIT_PEPPER`, `SHARE_RATE_LIMIT_WINDOW_SECONDS`, `SHARE_RATE_LIMIT_TOKEN_FAILURES`, `SHARE_RATE_LIMIT_REQUESTER_FAILURES`) and store-health/fail-closed evidence, cache/header evidence, and an owner sign-off. If the production rate-limit store, Wiki/incident destination, or privacy approver is unavailable, the gate remains blocked or explicitly pending; it is not assumed green.
+The release package must include the final share scope matrix, access-event fields/retention, token/PIN storage proof, evidence that `SHARE_RATE_LIMIT_PEPPER` is present in the approved secret manager identified only by reference/version or approved fingerprint (never by value), the deployed non-secret rate-limit settings (`SHARE_RATE_LIMIT_WINDOW_SECONDS`, `SHARE_RATE_LIMIT_TOKEN_FAILURES`, `SHARE_RATE_LIMIT_REQUESTER_FAILURES`, `SHARE_RATE_LIMIT_CLEANUP_INTERVAL_MS`, and `SHARE_RATE_LIMIT_CLEANUP_RETRY_INTERVAL_MS`), bounded cleanup/backlog/failure signals, cache/header evidence, and an owner sign-off. If the production rate-limit store, Wiki/incident destination, or privacy approver is unavailable, the gate remains blocked or explicitly pending; it is not assumed green.
 
 ### 3. Incident runbook is fail-closed
 

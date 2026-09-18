@@ -26,6 +26,7 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 | `EH149-EXCLUSION-01` | Authorized observations containing undated, qualitative, ineligible, unsupported-unit, and method/scale variants | Exclusion and reason ledger |
 | `EH149-BIND-01` | Report-generation fixture selecting `biomarker_dynamics_period` and persisting the frozen dynamics extension | Server-owned report binding |
 | `EH149-SCOPE-01` | Two owned eligible documents with only one included in the report's materialized scope | Scope-constrained dynamics |
+| `EH149-TIE-01` | Two compatible numeric observations with the same observed timestamp and distinct immutable observation IDs | Stable statistics/direction ordering |
 
 ## Interface checks
 
@@ -83,7 +84,7 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 
 ## Developer evidence required
 
-- [ ] Focused read-model verification covers date boundaries, empty/one-point series, tolerance-based direction, non-numeric values, and explicit exclusion limitations/reasons. *(Evidence provider: EH-149 dynamics owner.)*
+- [ ] Focused read-model verification covers date boundaries, empty/one-point series, equal-timestamp canonical observation-ID ordering, tolerance-based direction, non-numeric values, and explicit exclusion limitations/reasons. *(Evidence provider: EH-149 dynamics owner.)*
 - [ ] Identity fixtures prove specimen, modifier, method, scale, and non-convertible unit differences cannot merge and retain their warning reason. *(Evidence provider: EH-149 comparison/dynamics owner.)*
 - [ ] API verification proves the profile authorization boundary precedes the dynamics projection. *(Evidence provider: EH-149 API owner.)*
 - [ ] Export handoff evidence proves EH-153 consumes the frozen DTO and does not query raw observations independently. *(Evidence provider: EH-149 DTO owner; EH-153 export owner.)*

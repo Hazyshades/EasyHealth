@@ -14,13 +14,20 @@ The Biomarker Dynamics Report SHALL accept an inclusive start and end date and S
 
 ### Requirement: Deterministic series statistics
 
-Each compatible numeric series SHALL expose point count, minimum, maximum, latest point, native and display units, and a numeric direction of increasing, decreasing, stable, or not available. Direction SHALL use a versioned tolerance entry keyed by exact measurement definition and display unit. The server SHALL compare chronologically first/latest points with `threshold = max(absolute, relative * abs(first))`, classify `abs(delta) <= threshold` as stable, and use strict greater/less comparisons for increasing/decreasing. If no approved entry exists, direction SHALL be `not_available` with a limitation.
+Each compatible numeric series SHALL expose point count, minimum, maximum, latest point, native and display units, and a numeric direction of increasing, decreasing, stable, or not available. Direction SHALL use a versioned tolerance entry keyed by exact measurement definition and display unit. The server SHALL order points by `observedAt` ascending and immutable `observationId` ascending in canonical UUID byte order, use that order for the point ledger and chronological first/latest selection, compare those points with `threshold = max(absolute, relative * abs(first))`, classify `abs(delta) <= threshold` as stable, and use strict greater/less comparisons for increasing/decreasing. If no approved entry exists, direction SHALL be `not_available` with a limitation.
 
 #### Scenario: Series has sufficient numeric history and a policy entry
 
 - **WHEN** a compatible series has at least two numeric points in the selected period and a reviewed tolerance entry
 - **THEN** min, max, latest, and direction are calculated from the chronological first/latest points using the inclusive threshold formula
 - **AND** the result does not use the words improvement, deterioration, treatment response, or diagnosis
+
+#### Scenario: Equal timestamps use stable ordering
+
+- **WHEN** two compatible numeric points have the same observed timestamp
+- **THEN** the canonical observation-ID tie-breaker determines their point-ledger order and first/latest selection
+- **AND** repeated owner, share, or export reads produce the same statistics and direction
+
 
 #### Scenario: Series has no approved tolerance
 
