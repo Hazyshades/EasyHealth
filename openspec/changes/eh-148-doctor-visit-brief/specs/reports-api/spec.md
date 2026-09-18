@@ -33,7 +33,7 @@ The `POST /api/reports` body SHALL accept `title`, `report_type`, `detail_level`
 #### Scenario: Scope widening is rejected
 
 - **WHEN** generated content contains a source or document outside the resolved scope
-- **THEN** generation fails or sanitizes the unsupported claim before insertion
+- **THEN** generation fails with a safe validation error and no report or validation envelope is persisted
 - **AND** the out-of-scope source is not exposed in the response
 
 #### Scenario: Valid dynamics period reaches the server-owned handoff

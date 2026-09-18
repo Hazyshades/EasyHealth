@@ -38,13 +38,13 @@ The validator checks:
 1. **Schema:** version, required sections, claim IDs, EH-148's closed claim-input contract, approved template IDs and exact template parameters, source IDs, citation shape, allowed source kinds, and rejection of diagnosis/treatment/urgency/imperative/free-form factual fields. Factual `text` is invalid input; only EH-148's server renderer may create it.
 2. **Identity:** every source resolves to the claimed database row and profile; document ID matches the source row.
 3. **Scope:** every cited document is in the persisted report scope; no null/implicit all-documents scope is accepted for a new report.
-4. **Publication policy:** supported factual claims have at least one valid citation; unknown, broken, or cross-profile references cannot remain publishable.
+4. **Publication policy:** supported factual claims have at least one valid citation; unknown, broken, cross-profile, source-kind, or out-of-scope identity references are fatal `invalid` results, while uncited or unsafe-but-in-scope claim content may be sanitized into a `limited` result.
 
 A source that was later archived or deleted may retain its historical snapshot for an owner report, but EH-148's `report-read.ts` resolver must mark affected claims limited with `SOURCE_UNAVAILABLE` on owner/share/export reads; a live document link or raw download is denied. Validation and read projection never widen authorization.
 
 ### 3. Sanitize unsupported claims deterministically
 
-A claim with no citation, an unknown citation, a failed scope/identity check, or an unsafe unsupported content shape is removed from the publishable claim list and replaced by one machine-generated limitation with an issue code. The original model text is not copied into the limitation, and a `removed` claim is never persisted or serialized. Non-factual `clinician_question` items may survive without citations when their `factual` flag is false; their model `question_text` is rendered only as a question. If sanitization removes an entire required section, validation fails closed.
+Identity/scope failures (`SOURCE_NOT_FOUND`, `PROFILE_MISMATCH`, `DOCUMENT_OUT_OF_SCOPE`, and `SOURCE_KIND_NOT_ALLOWED`) return `invalid` with stable issue codes and no persisted candidate; they are never downgraded by removing only the affected claim. A claim with no citation or an unsafe unsupported content shape may instead be removed from the publishable claim list and replaced by one machine-generated limitation. The original model text is not copied into the limitation, and a `removed` claim is never persisted or serialized. Non-factual `clinician_question` items may survive without citations when their `factual` flag is false; their model `question_text` is rendered only as a question. If sanitization removes an entire required section, validation fails closed.
 
 The result statuses are `valid`, `limited`, and `invalid`. `limited` is publishable only when all remaining factual claims are valid and the limitations are visible. `invalid` cannot be persisted as a shareable/exportable report.
 

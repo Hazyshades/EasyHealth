@@ -58,7 +58,7 @@ EH-151 creates an unauthenticated capability, EH-152 exposes owner management, a
 | Browser/CDN/search leakage | `Cache-Control: no-store, private`; `X-Robots-Tag: noindex, nofollow`; restrictive referrer policy; no third-party analytics | EH-151 |
 | Access-log PHI/token exposure | Minimized event fields; no URL/token/PIN/source text; short retention | EH-152 + EH-154 |
 | Raw storage bypass | Stream raw documents through an EH-151 verifier-backed proxy; recheck active share state, expiry, revocation, report scope, child document scope, archive state, and download policy on every request; never return a storage signed URL | EH-151 + EH-153 |
-| Abuse/availability | Shared rate limiter for token and PIN failures; bounded export/report size; alert on spikes | EH-151 + EH-154 |
+| Abuse/availability | EH-151 `src/lib/share-links/rate-limit.ts` over the service-only Postgres `public.consume_report_share_rate_limit` RPC; atomic fixed-window HMAC-keyed counters (`10/60s` token digest, `30/60s` coarse requester), generic `429` exhaustion, generic `503` store-failure denial, no local fallback; alert on spikes | EH-151 + EH-154 |
 | Stale source after archive/delete | Preserve report snapshot only; deny raw source access; show limitation | EH-148 + EH-151 |
 
 ## Decisions
@@ -69,7 +69,7 @@ The gate has `blocked`, `ready-with-risk`, and `ready` states. Any unresolved hi
 
 ### 2. Privacy sign-off is explicit
 
-The release package must include the final share scope matrix, access-event fields/retention, token/PIN storage proof, cache/header evidence, rate-limit evidence, and an owner sign-off. If the production rate-limit store, Wiki/incident destination, or privacy approver is unavailable, the gate remains blocked or explicitly pending; it is not assumed green.
+The release package must include the final share scope matrix, access-event fields/retention, token/PIN storage proof, the deployed rate-limit adapter/settings (`SHARE_RATE_LIMIT_PEPPER`, `SHARE_RATE_LIMIT_WINDOW_SECONDS`, `SHARE_RATE_LIMIT_TOKEN_FAILURES`, `SHARE_RATE_LIMIT_REQUESTER_FAILURES`) and store-health/fail-closed evidence, cache/header evidence, and an owner sign-off. If the production rate-limit store, Wiki/incident destination, or privacy approver is unavailable, the gate remains blocked or explicitly pending; it is not assumed green.
 
 ### 3. Incident runbook is fail-closed
 
@@ -79,7 +79,7 @@ For planned or emergency key rotation: provision and health-check a new secret-s
 
 ## Verification plan
 
-EH-154 owns a focused verification harness that exercises public routes with synthetic profiles and documents: invalid token, wrong PIN, expired token, revoked token, cross-profile report ID, out-of-scope document, allowed report export, denied raw download, repeated failures, and current/previous/unknown token-key selectors. It also inspects response headers and captured logs for token/PIN/source leakage. The harness must run against the same adapter used by production routes; mocks may cover unavailable external stores only when the production contract is separately evidenced.
+EH-154 owns a focused verification harness that exercises the same production adapters used by public routes with synthetic profiles and documents: invalid token, wrong PIN, expired token, revoked token, cross-profile report ID, out-of-scope document, allowed report export, denied raw download, repeated token/PIN failures through both HMAC-keyed dimensions, unavailable rate-limit store, current/previous/unknown token-key selectors, and generic `429`/`503` behavior. It also inspects response headers and captured logs for token/PIN/source leakage. The harness must run against the same adapter and deployed settings used by production routes; mocks may cover unavailable external stores only when the production contract is separately evidenced.
 
 ## Risks / Trade-offs
 

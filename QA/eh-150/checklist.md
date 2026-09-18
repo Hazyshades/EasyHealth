@@ -58,8 +58,7 @@ EH-150 has no standalone user interface. The following checks are not manually e
 ## Developer evidence required
 
 - [ ] Validator fixtures cover valid, missing, unknown, broken, out-of-scope, cross-profile, archived, and uncited claims. *(Evidence provider: EH-150 validator owner.)*
-- [ ] A cross-profile citation fails closed without revealing the other profile's source data. *(Evidence provider: EH-150 validator owner; EH-148 report owner.)*
-- [ ] A broken factual claim is removed or marked only through the documented deterministic issue policy. *(Evidence provider: EH-150 validator owner.)*
+- [ ] Identity failures (unknown/broken/cross-profile/out-of-scope/source-kind) return `invalid` and block persistence; uncited or unsafe-but-in-scope claims are removed or limited only through the documented deterministic issue policy. *(Evidence provider: EH-150 validator owner; EH-148 report owner.)*
 - [ ] Generation, share, and export paths consume the same validator result/status and do not duplicate checks. *(Evidence provider: EH-148 generation owner; EH-151 share owner; EH-153 export owner.)*
 - [ ] Logs and errors contain issue codes/request IDs only, not source text, health values, tokens, or PINs. *(Evidence provider: EH-150 validator owner; EH-154 gate owner.)*
 - [ ] Adversarial unsafe-content fixtures fail closed for prohibited diagnosis/treatment/urgency/imperative/free-form factual fields, while non-factual `clinician_question` content remains non-factual. *(Evidence provider: EH-150 validator owner; EH-148 safety-policy owner.)*

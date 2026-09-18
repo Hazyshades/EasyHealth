@@ -10,8 +10,7 @@ A structured citation field is not sufficient if a report can reference a missin
 
 - Add a validator for the EH-148 report/evidence contract.
 - Validate schema version, citation shape, source existence, profile ownership, report scope, and allowed evidence kinds.
-- Reject or sanitize broken and cross-profile citations; never publish a report that contains an unresolved factual citation.
-- Remove unsupported factual claims or mark them with an explicit limitation according to a deterministic policy; do not claim that the validator proves clinical truth.
+- Reject identity/scope failures, including cross-profile citations, before persistence; remove unsupported in-scope factual claims or mark them with an explicit limitation according to a deterministic policy; do not claim that the validator proves clinical truth.
 - Return structured validation issues for generation, persistence, share, and export callers.
 - Add focused coverage for valid, missing, broken, out-of-scope, cross-profile, and unsupported-claim cases.
 
@@ -24,7 +23,6 @@ A structured citation field is not sufficient if a report can reference a missin
 ### Modified Capabilities
 
 - `reports-api`: Generated reports must pass citation validation before persistence or publication.
-- `multi-source-reports`: Report context and source snapshots must provide the identities needed by the validator.
 
 ## Impact
 

@@ -65,7 +65,7 @@ Export SHALL require the owner session or a verified EH-151 share capability. A 
 
 - **WHEN** a recipient downloads an approved shared PDF, CSV, or JSON export
 - **THEN** the output contains only the safe validation status/version and visible limitations
-- **AND** no internal validation issue code, source text, token, or profile identifier appears
+- **AND** no internal validation issue code, raw document content beyond the contract's display-safe source snapshot, token, profile identifier, or storage path appears
 
 #### Scenario: Invalid validation envelope fails before bytes
 
