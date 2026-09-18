@@ -9,7 +9,7 @@ Domain: **reports / auth-shell**
 
 ## 2. Auth-shell — token and public capability
 
-- [ ] 2.1 Implement cryptographically random token generation and keyed digest lookup with a configured pepper and key version; do not add a plaintext or unkeyed fallback.
+- [ ] 2.1 Implement cryptographically random token generation and keyed digest lookup with `token_key_version`, a configured current/previous key ring, and no plaintext or unkeyed fallback.
 - [ ] 2.2 Implement optional salted slow PIN hashing and a shared rate-limit seam for token/PIN failures.
 - [ ] 2.3 Add the owner creation endpoint that returns the plaintext link once and omits token/PIN material from persistence, logs, and telemetry.
 - [ ] 2.4 Add the public page/API boundary with generic invalid/expired/revoked/PIN failures and no session-profile fallback.
@@ -21,4 +21,5 @@ Domain: **reports / auth-shell**
 
 - [ ] 3.1 Add focused route fixtures for scope, profile isolation, token failures, PIN retries, expiry, revoke, cache headers, and raw-download denial.
 - [ ] 3.2 Expose the owner management repository seam required by EH-152 without moving management UI into the public route.
-- [ ] 3.3 Run the EH-151 QA checklist and provide evidence inputs to the EH-154 release gate.
+- [ ] 3.3 Expose a named export-actions integration seam on the public share page for EH-153; EH-151 remains the page owner.
+- [ ] 3.4 Run the EH-151 QA checklist and provide evidence inputs to the EH-154 release gate.

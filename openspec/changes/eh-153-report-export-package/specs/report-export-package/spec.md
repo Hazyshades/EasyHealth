@@ -4,7 +4,7 @@
 
 ### Requirement: Export validated report formats
 
-The system SHALL export a validated EH-148 report as PDF, CSV, or JSON using the same ordered content, source scope, limitations, disclaimer, generated-at timestamp, contract version, and validator version as the on-screen report.
+The system SHALL export a validated EH-148 report as PDF, CSV, or JSON using the same ordered content, source scope, limitations, disclaimer, generated-at timestamp, contract version, and validator version as the on-screen report. When a dynamics section is requested, the exporter SHALL consume the frozen EH-149 `BiomarkerDynamicsReport` DTO and SHALL NOT query or recompute raw observations.
 
 #### Scenario: Owner downloads JSON
 
@@ -17,6 +17,12 @@ The system SHALL export a validated EH-148 report as PDF, CSV, or JSON using the
 - **WHEN** an authenticated owner requests CSV export
 - **THEN** each measurement row includes source observation/document IDs, date, native value/unit/range, display value/unit, and conversion metadata
 - **AND** narrative claims are not silently represented as fabricated measurement rows
+
+#### Scenario: Dynamics export uses the frozen projection
+
+- **WHEN** an export includes an EH-149 dynamics section
+- **THEN** PDF, CSV, and JSON serialize the supplied series, points, tolerances, and provenance
+- **AND** the export path does not rebuild dynamics from database rows
 
 ### Requirement: Unicode-safe PDF
 

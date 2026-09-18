@@ -14,13 +14,20 @@ The Biomarker Dynamics Report SHALL accept an inclusive start and end date and S
 
 ### Requirement: Deterministic series statistics
 
-Each compatible numeric series SHALL expose point count, minimum, maximum, latest point, native and display units, and a numeric direction of increasing, decreasing, stable, or not available. Direction SHALL use only approved deterministic tolerances for that exact measurement definition.
+Each compatible numeric series SHALL expose point count, minimum, maximum, latest point, native and display units, and a numeric direction of increasing, decreasing, stable, or not available. Direction SHALL use a versioned tolerance entry keyed by exact measurement definition and display unit. If no approved entry exists, direction SHALL be `not_available` with a limitation.
 
-#### Scenario: Series has sufficient numeric history
+#### Scenario: Series has sufficient numeric history and a policy entry
 
-- **WHEN** a compatible series has at least two numeric points in the selected period
-- **THEN** min, max, latest, and direction are calculated from those points
+- **WHEN** a compatible series has at least two numeric points in the selected period and a reviewed tolerance entry
+- **THEN** min, max, latest, and direction are calculated from those points using the entry
 - **AND** the result does not use the words improvement, deterioration, treatment response, or diagnosis
+
+#### Scenario: Series has no approved tolerance
+
+- **WHEN** a compatible series has numeric history but no reviewed tolerance entry for its exact definition/display unit
+- **THEN** min, max, and latest are still calculated
+- **AND** direction is `not_available`
+- **AND** the report explains that an approved numeric threshold is unavailable
 
 #### Scenario: Series lacks comparison points
 

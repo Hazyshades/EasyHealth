@@ -41,7 +41,7 @@ Authorization resolves the report, allowed document IDs, and allowed export form
 
 ### 4. Add controls through a leaf component
 
-Create `src/components/report-export-actions.tsx` for format selection, pending state, and error messaging. EH-148 owns the report detail page integration point; EH-153 does not rewrite report content rendering or route authorization.
+Create `src/components/report-export-actions.tsx` for format selection, pending state, and error messaging. EH-148 wires it into the authenticated report detail page; EH-151 wires it into the public share page through its named integration slot. EH-153 supplies the component and props contract but does not edit either page or route authorization.
 
 ## Risks / Trade-offs
 

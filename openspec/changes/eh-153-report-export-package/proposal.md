@@ -12,8 +12,8 @@ The report detail view has no durable handoff format for a clinician. Copying re
 - Include generated-at time, contract and validator versions, limitations, source references, and reference ranges where applicable.
 - Keep CSV rows tied to source observation/document IDs and preserve native/display units without unsafe conversion.
 - Produce a readable Unicode PDF with the same sections and citations as the on-screen report.
-- Apply owner-session authorization or the EH-151 share scope and download policy; never include unrelated documents or raw storage paths.
-- Add export controls to the report detail/share surface through a separate component so the EH-148 page remains the integration owner.
+- Apply owner-session authorization or the EH-151 share scope and explicit format allow-list; never include unrelated documents or raw storage paths.
+- Add export controls to the report detail/share surfaces through a separate component; EH-148 and EH-151 remain page integration owners.
 
 ## Capabilities
 

@@ -27,13 +27,15 @@ Add `src/lib/biomarker-dynamics.ts` with a narrow interface:
 
 `buildBiomarkerDynamicsReport(series, period) -> BiomarkerDynamicsReport`
 
-The input is the existing comparison result after profile authorization. The output contains the selected period, `series[]`, `incompatibilities[]`, and a deterministic disclaimer. Each series contains exact measurement identity, display/native units, min/max/latest over numeric points, point count, direction, and the complete point ledger. Each point retains observation ID, document ID, observed date, native value/unit/range, display value/unit, and conversion metadata.
+The input is the existing comparison result after profile authorization. The output contains the selected period, `series[]`, `incompatibilities[]`, and a deterministic disclaimer. Each series contains exact measurement identity, display/native units, min/max/latest over numeric points, point count, direction, the applied `directionTolerance` or its absence, and the complete point ledger. Each point retains observation ID, document ID, observed date, native value/unit/range, display value/unit, and conversion metadata.
 
 This is a deep module: callers do not reimplement statistics, direction thresholds, or incompatibility wording. The page and export adapter consume the DTO.
 
-### 2. Define direction as numeric movement only
+### 2. Define direction from versioned per-definition tolerances
 
-Direction is `increasing`, `decreasing`, `stable`, or `not_available`. It is calculated only when at least two numeric points exist and the approved absolute/relative tolerance for that measurement definition is available. Stable means the movement is within that tolerance. The DTO never emits `improving` or `worsening`; those labels require a future domain rule with Registry ownership.
+Add `src/lib/biomarker-dynamics-policy.ts` with a versioned policy keyed by exact `measurementDefinitionKey` and the series display unit. Each reviewed entry supplies `{ absolute, relative }` numeric tolerances in that display unit. EH-149 attaches the matching policy entry to the series; the values are numeric movement thresholds only, not clinical interpretation.
+
+Direction is `increasing`, `decreasing`, `stable`, or `not_available`. A series may emit `stable` only when it has at least two numeric points and a matching policy entry whose threshold contains the delta. It may emit `increasing` or `decreasing` only when the delta exceeds that same threshold. If no reviewed policy entry exists, direction is `not_available` with a limitation; there is no arbitrary zero/default tolerance. The DTO never emits `improving` or `worsening`; those labels require a future domain rule with Registry ownership.
 
 ### 3. Treat incompatible data as separate evidence
 

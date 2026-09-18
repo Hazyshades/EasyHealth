@@ -18,6 +18,6 @@ Domain: **reports**
 ## 3. UI and verification
 
 - [ ] 3.1 Add the leaf export-actions component with format availability, pending state, and safe failure copy.
-- [ ] 3.2 Integrate actions through the EH-148 detail-page seam and the approved EH-151 share surface without duplicating report rendering.
+- [ ] 3.2 Provide the export-actions props contract and hand off integration: EH-148 wires authenticated detail, EH-151 wires the named public-share slot; EH-153 does not edit either page.
 - [ ] 3.3 Add fixtures for Unicode, long labels, empty optional sections, mixed units, dynamics DTO points, denied formats, and out-of-scope documents.
 - [ ] 3.4 Run the EH-153 QA checklist and provide download-policy/header evidence to EH-154.

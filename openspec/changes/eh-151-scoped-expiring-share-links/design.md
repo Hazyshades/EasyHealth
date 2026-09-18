@@ -25,15 +25,15 @@ There is no share-link table or public token route. Existing report APIs resolve
 
 Add a migration for `report_share_links` and `report_share_documents`.
 
-`report_share_links` stores `id`, `profile_id`, `report_id`, `token_digest`, optional `pin_hash` and `pin_salt`, `expires_at`, `revoked_at`, `download_policy`, `allowed_export_formats`, `created_at`, and `last_accessed_at`. `report_share_documents` stores the explicit document IDs allowed for raw-document access. A share always has a report target; document rows are optional and never imply additional reports.
+`report_share_links` stores `id`, `profile_id`, `report_id`, `token_digest`, `token_key_version`, optional `pin_hash` and `pin_salt`, `expires_at`, `revoked_at`, `download_policy`, `allowed_export_formats`, `created_at`, and `last_accessed_at`. `report_share_documents` stores the explicit document IDs allowed for raw-document access. A share always has a report target; document rows are optional and never imply additional reports.
 
 `download_policy` is `none` (view only), `report` (validated report plus only the formats in `allowed_export_formats`), or `documents` (the same report access plus explicitly scoped raw documents). `allowed_export_formats` accepts only `pdf`, `csv`, or `json` and defaults to an empty array; raw-document permission never implies a report export format. No row stores a plaintext token, PIN, storage path, or unrestricted profile ID in a public response.
 
 ### 2. Use a high-entropy one-time-displayed token
 
-Generate at least 32 random bytes with the platform cryptographic RNG and encode them as base64url. Return the plaintext token only in the owner creation response. Store `HMAC-SHA-256(SHARE_TOKEN_PEPPER, token)` with a unique index. If the pepper is unavailable, creation fails closed; no unkeyed fallback is allowed.
+Generate at least 32 random bytes with the platform cryptographic RNG and encode them as base64url. Return the plaintext token only in the owner creation response. Store `HMAC-SHA-256(key[token_key_version], token)` with a unique index. New links use the active key version; the verifier accepts only configured current/previous versions. If a key version is missing or the key ring is unavailable, verification and creation fail closed; no unkeyed fallback is allowed.
 
-The public route computes the same digest and performs one lookup. Invalid, expired, revoked, and missing records return the same generic not-found response and do not disclose which condition occurred. Raw tokens are redacted from request/access logs and telemetry.
+The public route computes the digest using the stored key version and performs one lookup. Invalid, expired, revoked, and missing records return the same generic not-found response and do not disclose which condition occurred. Raw tokens are redacted from request/access logs and telemetry. Key rotation is an explicit EH-154 incident/release operation: mint with the new version, reissue or revoke old links according to the approved window, then retire the old key.
 
 ### 3. Verify every public request at the capability boundary
 
