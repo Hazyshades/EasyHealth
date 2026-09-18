@@ -104,7 +104,7 @@ Renderable factual claims SHALL use the closed EH-148 template contract: `source
 
 ### Requirement: Server-authorized dynamics handoff
 
-`POST /api/reports` MAY accept an optional `biomarker_dynamics_period` object containing inclusive UTC `start` and `end` dates. The server SHALL validate the range and exact report `source_document_ids` scope, pass only that scope and period to EH-149, and persist the returned scope-constrained frozen DTO extension through EH-148's validated report transition. If the field is omitted, no dynamics extension is persisted. The request SHALL NOT accept a dynamics DTO or raw observations from the client.
+`POST /api/reports` MAY accept an optional `biomarker_dynamics_period` object containing canonical `YYYY-MM-DD` UTC calendar `start` and `end` dates, inclusive through the entire end date. The server SHALL validate the range and exact report `source_document_ids` scope, pass only that scope and period to EH-149, and persist the returned scope-constrained frozen DTO extension through EH-148's validated report transition. If the field is omitted, no dynamics extension is persisted. The request SHALL NOT accept a dynamics DTO or raw observations from the client.
 
 #### Scenario: Dynamics period is bound at report creation
 
