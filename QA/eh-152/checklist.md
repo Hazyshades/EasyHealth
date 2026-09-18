@@ -73,7 +73,7 @@ This checklist covers the authenticated owner's share-management surface: status
 - [ ] Cross-profile IDs return safe not-found/authorization behavior without metadata leakage.
 - [ ] EH-154 receives event, revoke, and header evidence.
 - [ ] Analytics request capture and application-log inspection prove creation/replacement tokens are absent from telemetry and errors.
-- [ ] Replacement failure/retry/concurrency evidence proves the unique operation row enforces scoped idempotency, rollback keeps the predecessor active, and exactly one successor commits.
+- [ ] Replacement failure/retry/concurrency evidence exercises EH-151's `public.replace_report_share` RPC and proves the unique operation row enforces scoped idempotency, rollback keeps the predecessor active, and exactly one successor commits.
 - [ ] Access-history projection hides expired events and cleanup evidence matches EH-151's deployed retention value and schedule.
 
 ## Out of scope or not manually testable yet

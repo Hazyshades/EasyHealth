@@ -11,7 +11,7 @@ Domain: **reports**
 
 ## 2. Validator contract and handoffs
 
-- [ ] 2.1 Publish the generation-boundary validator contract and integration instructions for EH-148; do not edit the EH-148 route or persistence files.
+- [ ] 2.1 Publish the generation-boundary validator contract and the handoff contract for EH-148's `public.create_validated_report` RPC; do not edit the EH-148 route, RPC migration, or persistence files.
 - [ ] 2.2 Define the validator version/status metadata contract consumed by EH-148 for report persistence; do not implement persistence in EH-150.
 - [ ] 2.3 Expose one read-only validation result contract for EH-151 and EH-153; each consumer owns its share/export adapter rejection.
 

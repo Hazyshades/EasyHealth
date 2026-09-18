@@ -41,11 +41,13 @@ The source kinds are `observation`, `finding`, `clinical_note`, `prescription`, 
 
 ### 2. Materialize scope at generation time
 
-`POST /api/reports` resolves eligible documents once, applies the requested selection, and delegates to the service-only `createValidatedReport` transaction. The transition allocates a candidate report ID, stages the exact UUID array and `report_evidence_sources`, invokes EH-150 against that transaction-local mapping/scope, and commits the validated report content, validator status, scope, and mappings atomically. A failed parse, validation, mapping, or persistence step rolls back the candidate; no unvalidated report becomes readable or shareable.
+`POST /api/reports` resolves eligible documents once, applies the requested selection, and delegates to the service-only `createValidatedReport` transition. The service runs EH-150's pure validator against the server-authorized source catalog and immutable document scope, then calls the EH-148-owned `public.create_validated_report` RPC defined in the report-persistence migration. The RPC accepts only service-generated content, scope, source mappings, validator version, and validator status; it rechecks profile ownership, source-row identity, document scope, and claim/source relationships under `SECURITY DEFINER`, then inserts the report, exact UUID array, validator metadata, and `report_evidence_sources` in one database transaction. Any parse, validation, RPC, mapping, or persistence failure rolls back; no unvalidated report becomes readable, shareable, or exportable.
+
+The migration revokes `EXECUTE` on `public.create_validated_report` from `anon`, `authenticated`, and `public`, and grants it only to the service role. The RPC never trusts a client-supplied profile or scope without re-resolving ownership and source identity inside the function.
 
 The persisted JSON contains the source snapshots used to render the report. The `report_evidence_sources` rows are written in the same transaction as the report, cascade with report deletion, and are not exposed in public DTOs. A later archive or deletion can disable a live source link without changing the historical text already shown. No source snapshot is used to authorize a new document download.
 
-The persistence transition is the only writer for a new structured report and its evidence mapping. The route does not perform a direct report insert followed by a separate validator call.
+The `public.create_validated_report` RPC is the only writer for a new structured report and its evidence mapping. The route never performs a direct report insert followed by a separate validator or mapping write.
 
 ### 3. Keep source projection server-owned
 

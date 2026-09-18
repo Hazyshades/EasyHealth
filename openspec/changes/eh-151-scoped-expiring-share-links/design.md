@@ -31,7 +31,7 @@ Add a migration for `report_share_links`, `report_share_documents`, and `share_r
 
 `report_share_access_events` is the durable minimized event store. Its non-null `share_id` rows store `id`, `share_id`, `occurred_at`, `result`, `resource_kind`, `client_class`, and `retention_expires_at`; they never store raw IP, full user agent, URL/token, PIN, report title, or source text. EH-151 writes a share-scoped event only after the token selects a share and the route has made its decision, including PIN, resource, expiry, revocation, and rate-limit outcomes. Malformed or unknown tokens have no share row; their rate limiter emits only aggregate telemetry without a token, PIN, or share identifier and they do not appear in owner history. EH-151 owns event writes and retention cleanup; EH-152 consumes the read projection.
 
-The authoritative retention setting is `SHARE_ACCESS_EVENT_RETENTION_DAYS`, default `30`, with an inclusive production range of `1..90`; EH-154 records the deployed value before release. `retention_expires_at` is `occurred_at + retention_days` in UTC. An hourly `share-access-event-retention` worker deletes rows with `retention_expires_at <= now()` in batches of 500, retries transient failures with bounded backoff, and alerts after the retry budget is exhausted. Cleanup failure does not alter authorization, but missing cleanup evidence blocks the privacy gate.
+The authoritative retention setting is `SHARE_ACCESS_EVENT_RETENTION_DAYS`, default `30`, with an inclusive production range of `1..90`; EH-154 records the deployed value before release. `retention_expires_at` is `occurred_at + retention_days` in UTC. The EH-151 migration defines service-only `public.cleanup_report_share_access_events`, which acquires a PostgreSQL advisory lock, deletes at most 500 rows with `retention_expires_at <= now()`, and returns the deleted count. `worker/src/index.ts` invokes this RPC from the existing `tick()` loop when `SHARE_ACCESS_EVENT_CLEANUP_INTERVAL_MS` (default `3_600_000`) is due; `worker/src/env.ts` validates the setting. The advisory lock makes multiple workers safe. Cleanup failures use bounded retry/backoff and emit the structured `share_access_event_cleanup_failed` worker error to the deployment log/alert sink; missing cleanup evidence blocks the privacy gate.
 
 ### 2. Use a high-entropy one-time-displayed token
 
@@ -53,7 +53,7 @@ A raw-document request uses a capability-checked proxy/stream route that revalid
 
 ### 5. Keep management behind a separate seam
 
-EH-151 exposes owner creation and public read primitives. EH-152 owns management list/revoke endpoints and UI. Both use the same share repository but no public route is allowed to call owner management operations.
+EH-151 exposes owner creation and public read primitives plus the service-only `public.replace_report_share` writer. EH-152 owns management list/revoke/replacement endpoints and UI. Both use the same share repository, but no public route is allowed to call owner management operations.
 
 ## Risks / Trade-offs
 

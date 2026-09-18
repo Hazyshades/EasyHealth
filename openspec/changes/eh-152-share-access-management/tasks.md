@@ -8,7 +8,7 @@ Domain: **reports / auth-shell**
 - [ ] 1.2 Return active, expired, revoked, scope, download policy, timestamps, and approved aggregate access fields without tokens, PINs, raw IPs, full user agents, or storage paths.
 - [ ] 1.3 Make revoke transactional and ensure the public verifier observes it on the next request.
 - [ ] 1.4 Consume EH-151's owner-scoped event read contract and retention state before exposing access history; do not create a second event store.
-- [ ] 1.5 Add an owner-authenticated replacement-link endpoint over the service-only transactional `replaceShare` operation with scoped idempotency, copied scope/policy, rollback on mint failure, and conflict handling for concurrent requests.
+- [ ] 1.5 Add an owner-authenticated replacement-link endpoint that mints plaintext/digest server-side and calls EH-151's service-only `public.replace_report_share` RPC with scoped idempotency, copied scope/policy, rollback on RPC failure, and conflict handling for concurrent requests.
 - [ ] 1.6 Add failure, retry, and concurrent-replacement fixtures proving the predecessor remains active on rollback and exactly one successor is created.
 
 ## 2. Auth-shell — owner interface

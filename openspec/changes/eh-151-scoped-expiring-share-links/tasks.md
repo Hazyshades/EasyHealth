@@ -5,7 +5,7 @@ Domain: **reports / auth-shell**
 ## 1. Reports — share persistence and scope
 
 - [ ] 1.1 Add the share-link, explicit document-scope, minimized access-event, and `share_replacement_operations` migrations with profile ownership, expiry, revocation, `download_policy`, `allowed_export_formats`, and unique owner-scoped idempotency.
-- [ ] 1.2 Implement EH-151's durable event write and retention repository for resolved-share outcomes, configured `SHARE_ACCESS_EVENT_RETENTION_DAYS` (`1..90`, default `30`), UTC expiry calculation, hourly batch cleanup, bounded retries, and alerting without raw network/token data.
+- [ ] 1.2 Implement EH-151's durable event write and retention repository plus service-only `public.cleanup_report_share_access_events` RPC for resolved-share outcomes, configured `SHARE_ACCESS_EVENT_RETENTION_DAYS` (`1..90`, default `30`), UTC expiry calculation, hourly worker invocation, advisory-lock exclusion, 500-row batches, bounded retries, and deployment-log alerting without raw network/token data.
 - [ ] 1.3 Restrict creation to validated EH-148 reports and verify every selected document against report scope and owner profile.
 
 ## 2. Auth-shell — token and public capability
@@ -23,4 +23,4 @@ Domain: **reports / auth-shell**
 - [ ] 3.1 Add focused route fixtures for scope, profile isolation, token failures, PIN retries, expiry, revoke, cache headers, raw-download denial, and revoke/expiry after a prior raw-download request.
 - [ ] 3.2 Expose the owner management repository seam required by EH-152 without moving management UI into the public route.
 - [ ] 3.3 Expose a named export-actions integration seam on the public share page for EH-153; EH-151 remains the page owner.
-- [ ] 3.4 Run the EH-151 QA checklist, prove retention cleanup and malformed/unknown-token event handling, and provide evidence inputs to the EH-154 release gate.
+- [ ] 3.4 Run the EH-151 QA checklist, prove worker scheduling and retention cleanup plus malformed/unknown-token event handling, and provide evidence inputs to the EH-154 release gate.

@@ -86,7 +86,7 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 - [ ] Legacy verification proves unversioned/null-scope rows are readable but not silently upgraded.
 - [ ] The EH-150 validator handoff and integration seam are recorded before share/export work begins.
 - [ ] Focused API/route verification proves storage paths and cross-profile source records never enter the report response or source ledger.
-- [ ] Service-transition evidence proves staged mapping, validator failure, and persistence failure roll back together with no readable unvalidated candidate.
+- [ ] Service-transition evidence proves `public.create_validated_report` rechecks identity/scope and rolls back staged report/mapping/status on injected validator, RPC, and persistence failure with no readable unvalidated candidate.
 
 ## Out of scope or not manually testable yet
 

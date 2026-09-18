@@ -27,7 +27,7 @@ Add `src/lib/report-citation-validator.ts`:
 
 `validateReportContent(content, context) -> { status, content, issues }`
 
-`context` includes the report profile ID, the immutable document scope, and a transaction-local source-mapping resolver that returns only rows already authorized for that profile. The pure core validates JSON shape and relationships; EH-148's persistence transition supplies the staged report ID and mapping. Callers cannot pass an arbitrary cross-profile source catalog as proof.
+`context` includes the report profile ID, the immutable document scope, and a batched source resolver that returns only rows already authorized for that profile. The pure core validates JSON shape, source relationships, and claim support against that server-authorized catalog; EH-148 then hands the sanitized result to `public.create_validated_report`, whose database checks are the authoritative final identity/scope guard. Callers cannot pass an arbitrary cross-profile source catalog as proof.
 
 ### 2. Validate four boundaries
 
@@ -52,7 +52,7 @@ Issue codes include `SCHEMA_INVALID`, `SOURCE_NOT_FOUND`, `PROFILE_MISMATCH`, `D
 
 ### 5. Integrate through EH-148's generation boundary
 
-EH-150 owns the validator and its fixtures. EH-148 owns the service-only `createValidatedReport` transition that allocates a candidate report ID, stages `report_evidence_sources` and the immutable scope, invokes this validator through the transaction-local resolver, and commits validated content/status plus mappings atomically; any validation or persistence failure rolls the transition back. EH-151 and EH-153 call the validator/read-only status check before public access or serialization; they do not bypass it or parse `reports.content` ad hoc.
+EH-150 owns the pure validator and its fixtures. EH-148 owns the service-only `createValidatedReport` transition and the `public.create_validated_report` RPC in the report-persistence migration: it runs EH-150 against the server-authorized catalog, then the `SECURITY DEFINER` RPC rechecks profile ownership, source-row identity, scope, and mappings while atomically writing the report and validator status. Any RPC or persistence failure rolls back. EH-151 and EH-153 call the validator/read-only status check before public access or serialization; they do not bypass it or parse `reports.content` ad hoc.
 
 ## Risks / Trade-offs
 
