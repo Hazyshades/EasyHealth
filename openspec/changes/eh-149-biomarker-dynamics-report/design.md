@@ -25,13 +25,15 @@
 
 Add `src/lib/biomarker-dynamics.ts` with a narrow interface.
 
-The public projection signature is `buildBiomarkerDynamicsReport(input: AuthorizedBiomarkerComparison, period) -> BiomarkerDynamicsReport`.
+The public projection signature is `buildBiomarkerDynamicsReport(input: AuthorizedBiomarkerComparison, period) -> BiomarkerDynamicsReport`; it is pure and never resolves authorization itself.
 
-`AuthorizedBiomarkerComparison` is an EH-149-owned snapshot from the profile-authorized comparison adapter constrained to the immutable report `report_scope_document_ids`; it contains only retained numeric/qualitative candidates from those documents, projected series, `excluded[]` entries with deterministic reasons (`undated`, `non_numeric`, `ineligible`, `unsupported_unit`), and `incompatibilities[]` entries with grouping reasons. Each candidate retains exact measurement identity, display/native units, specimen, modifier, method, scale, observed date, and source IDs. The dynamics projection never queries raw tables, never reconstructs discarded evidence, and never emits a point whose source document is outside the report scope.
+`AuthorizedBiomarkerComparison` is an EH-149-owned server snapshot with `scope_kind` (`profile_current` or `report_immutable`) and `scope_document_ids`. The profile-page adapter populates `profile_current` with all currently authorized eligible documents for the authenticated profile; the report adapter populates `report_immutable` with the exact EH-148 materialized document UUIDs. The snapshot contains only retained numeric/qualitative candidates from that scope, projected series, `excluded[]` entries with deterministic reasons (`undated`, `non_numeric`, `ineligible`, `unsupported_unit`), and `incompatibilities[]` entries with grouping reasons. Each candidate retains exact measurement identity, display/native units, specimen, modifier, method, scale, observed date, and source IDs. The dynamics projection never queries raw tables, never reconstructs discarded evidence, and never emits a point whose source document is outside `scope_document_ids`.
 
 The output contains the selected period, `series[]`, `incompatibilities[]`, explicit exclusion limitations, and a deterministic disclaimer. Each series contains exact measurement identity, display/native units, min/max/latest over numeric points, point count, direction, the applied `directionTolerance` or its absence, and the complete point ledger. Each point retains observation ID, document ID, observed date, native value/unit/range, display value/unit, and conversion metadata.
 
 This is a deep module: callers do not reimplement statistics, direction thresholds, or incompatibility wording. The page and export adapter consume the DTO.
+
+`src/lib/biomarker-dynamics-server.ts` is the EH-149-owned authorization adapter. `getAuthorizedBiomarkerDynamics({ profileId, period, scope })` resolves the profile and builds the server-side comparison snapshot before calling the pure projection. `GET /api/biomarkers/dynamics` exposes only the `profile_current` scope to the authenticated Biomarkers page; EH-148 calls the same adapter internally with `report_immutable` and exact report scope. Neither entry point accepts client observations, source rows, or a client DTO.
 
 ### 2. Define direction from versioned per-definition tolerances
 
@@ -45,11 +47,11 @@ The existing exact-definition and unit-group keys remain authoritative. The comp
 
 ### 4. Keep period filtering inclusive and server-authorized
 
-The API resolves the authenticated profile and the immutable report document scope before returning authorized observations to a report handoff. The projection applies an inclusive UTC date range to observed dates, with undated rows shown outside the dynamics series and counted in a limitation. The client may choose a period preset through `biomarker_dynamics_period` but cannot inject arbitrary observations, widen report scope, or perform its own conversion.
+The `/api/biomarkers/dynamics` route resolves the authenticated profile and `profile_current` scope before returning the DTO. The EH-148 report handoff invokes the same adapter with immutable `report_scope_document_ids`. The projection applies an inclusive UTC date range to observed dates, with undated rows shown outside the dynamics series and counted in a limitation. A client may choose a period preset through `biomarker_dynamics_period` but cannot inject arbitrary observations, widen report scope, or perform its own conversion.
 
 ### 5. Reuse the existing source ledger
 
-No new source storage is introduced. `src/app/app/biomarkers/biomarkers-page-client.tsx` renders the DTO and its point/source ledger. EH-153 serializes the same DTO; it does not read raw observation rows independently.
+No new source storage is introduced. `src/app/app/biomarkers/biomarkers-page-client.tsx` renders the DTO returned by `/api/biomarkers/dynamics` and its point/source ledger; it does not import comparison helpers, query raw observations for dynamics, re-convert values, compute statistics, or merge series. EH-153 serializes the same persisted report DTO; it does not read raw observation rows independently.
 
 ### 6. Bind frozen dynamics to the persisted report
 

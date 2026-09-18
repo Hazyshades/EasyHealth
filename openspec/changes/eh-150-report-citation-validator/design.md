@@ -25,9 +25,11 @@ EH-148 defines a versioned report/evidence DTO, but generation-time parsing alon
 
 Add `src/lib/report-citation-validator.ts`:
 
-`validateReportContent(content, context) -> { status, content, issues }`
+`validateReportContent(content, context) -> { status, content, version, issue_codes }`
 
-`context` includes the report profile ID, the immutable document scope, and a batched source resolver that returns only rows already authorized for that profile. The pure core validates JSON shape, source relationships, and claim support against that server-authorized catalog; EH-148 then hands the sanitized result to `public.create_validated_report`, whose database checks are the authoritative final identity/scope guard. Callers cannot pass an arbitrary cross-profile source catalog as proof.
+`context` includes the report profile ID, the immutable document scope, and a batched source resolver that returns only rows already authorized for that profile. The pure core validates JSON shape, source relationships, and claim support against that server-authorized catalog; EH-148 then hands the sanitized result and the returned `version` unchanged to `public.create_validated_report`, whose database checks are the authoritative final identity/scope guard. Callers cannot pass an arbitrary cross-profile source catalog as proof.
+
+EH-150 exports `CURRENT_VALIDATOR_VERSION = "eh150.v1"`, `RECOGNIZED_VALIDATOR_VERSIONS = ["eh150.v0", "eh150.v1"]`, and `isRecognizedValidatorVersion(version)`. New validation results always use the current version. A historical version remains accepted for read/share/export only while listed as recognized; retiring one requires an EH-154 release record, migration/revalidation decision, and removal from the compatibility list. Missing, unknown, or retired versions fail closed.
 
 ### 2. Validate four boundaries
 
@@ -52,7 +54,7 @@ Issue codes include `SCHEMA_INVALID`, `SOURCE_NOT_FOUND`, `PROFILE_MISMATCH`, `D
 
 ### 5. Integrate through EH-148's generation boundary
 
-EH-150 owns the pure validator and its fixtures. EH-148 owns the closed template catalog/renderer, service-only `createValidatedReport`, `public.create_validated_report` RPC, `report-read.ts` lifecycle resolver, and nullable legacy-compatible `validation_status`, `validation_version`, and `validation_issue_codes` columns. EH-150 returns only `status` plus stable issue codes; EH-148 maps them into the immutable validation envelope and runs the RPC after the server-authorized source catalog, exact report scope, and any scope-constrained dynamics extension are ready. The `SECURITY DEFINER` RPC rechecks identity/scope/mappings while atomically writing report content, optional dynamics extension, validation envelope, and evidence mapping. Any RPC or persistence failure rolls back. EH-151 and EH-153 consume EH-148's read projection and do not choose independent validation fields or parse `reports.content` ad hoc.
+EH-150 owns the pure validator, its closed-template fixtures, and the version policy. EH-148 owns the closed template catalog/renderer, service-only `createValidatedReport`, `public.create_validated_report` RPC, `report-read.ts` lifecycle resolver, and nullable legacy-compatible `validation_status`, `validation_version`, and `validation_issue_codes` columns. EH-150 returns `status`, the exact non-empty `version`, sanitized content, and stable issue codes; EH-148 persists that version unchanged, maps the result into the immutable validation envelope, and runs the RPC after the server-authorized source catalog, exact report scope, and any scope-constrained dynamics extension are ready. The `SECURITY DEFINER` RPC rechecks identity/scope/mappings while atomically writing report content, optional dynamics extension, validation envelope, and evidence mapping. Any RPC or persistence failure rolls back. EH-151 and EH-153 consume EH-148's read projection and do not choose independent validation fields or parse `reports.content` ad hoc.
 
 ## Risks / Trade-offs
 

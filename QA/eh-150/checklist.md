@@ -25,6 +25,7 @@ This checklist covers the report publication gate that validates source identity
 | `EH150-CROSS-01` | Two synthetic profiles with a source row owned by profile B | Isolation path |
 | `EH150-SAFETY-01` | Fixture containing diagnosis, treatment, urgency, imperative, and unsupported free-form factual fields plus a non-factual question | Unsafe-content path |
 | `EH150-TEMPLATE-01` | Fixture with model-authored factual text, unknown template ID/parameter, and a removed claim | Closed template contract |
+| `EH150-VERSION-01` | Current, recognized historical, missing, unknown, and retired validator-version envelopes | Version compatibility |
 
 ## Interface checks
 
@@ -64,6 +65,7 @@ EH-150 has no standalone user interface. The following checks are not manually e
 - [ ] Adversarial unsafe-content fixtures fail closed for prohibited diagnosis/treatment/urgency/imperative/free-form factual fields, while non-factual `clinician_question` content remains non-factual. *(Evidence provider: EH-150 validator owner; EH-148 safety-policy owner.)*
 - [ ] Read-time archive/delete status is supplied by EH-148's resolver as `SOURCE_UNAVAILABLE`; EH-150 does not authorize live/raw-source access from a historical snapshot. *(Evidence provider: EH-148 read-resolver owner; EH-150 validator owner.)*
 - [ ] Closed-template evidence proves factual input contains only approved template IDs/parameters, server-rendered text is derived from cited snapshots, and removed claims are absent from persistence and all export formats. *(Evidence provider: EH-148 contract/safety owner; EH-150 validator owner; EH-153 serializer owner.)*
+- [ ] Validator-version evidence proves new reports persist `eh150.v1`, recognized historical versions remain readable only while listed by EH-150, and missing/unknown/retired versions fail closed across owner/share/export reads. *(Evidence provider: EH-150 version-policy owner; EH-148 read-resolver owner; EH-151 share owner; EH-153 export owner.)*
 
 ## Out of scope or not manually testable yet
 

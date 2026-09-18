@@ -4,7 +4,7 @@
 
 ### Requirement: Export validated report formats
 
-The system SHALL export a validated EH-148 report as PDF, CSV, or JSON using the same ordered content, source scope, limitations, disclaimer, generated-at timestamp, contract version, and immutable validation envelope `{ status, version, issue_codes }` as the on-screen report. Only supported/limited claims are serializable; removed claims are omitted. When a dynamics section is requested, the exporter SHALL consume the persisted EH-149 `BiomarkerDynamicsReport` extension selected by EH-148's `report-read.ts` resolver and SHALL NOT accept a client DTO, query raw observations, or recompute raw observations.
+The system SHALL export a validated EH-148 report as PDF, CSV, or JSON using the same ordered content, source scope, limitations, disclaimer, generated-at timestamp, contract version, and safe validation projection `{ status, version }` as the on-screen report. Internal validation issue codes SHALL NOT appear in any export bytes or public response. Only supported/limited claims are serializable; removed claims are omitted. When a dynamics section is requested, the exporter SHALL consume the persisted EH-149 `BiomarkerDynamicsReport` extension selected by EH-148's `report-read.ts` resolver and SHALL NOT accept a client DTO, query raw observations, or recompute raw observations.
 
 #### Scenario: Owner downloads JSON
 
@@ -60,6 +60,12 @@ Export SHALL require the owner session or a verified EH-151 share capability. A 
 - **WHEN** a recipient requests an export for a report or document outside the share scope
 - **THEN** the server returns a generic authorization failure
 - **AND** the output contains no out-of-scope content
+
+#### Scenario: Public export omits internal validation codes
+
+- **WHEN** a recipient downloads an approved shared PDF, CSV, or JSON export
+- **THEN** the output contains only the safe validation status/version and visible limitations
+- **AND** no internal validation issue code, source text, token, or profile identifier appears
 
 #### Scenario: Invalid validation envelope fails before bytes
 

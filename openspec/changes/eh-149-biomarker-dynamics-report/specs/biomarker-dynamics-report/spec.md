@@ -60,7 +60,7 @@ Every dynamics point SHALL retain observation ID, source document ID, observed d
 
 ### Requirement: Authorized comparison provenance
 
-The dynamics projection SHALL consume a profile-authorized comparison snapshot constrained to the immutable report `report_scope_document_ids`. It SHALL retain numeric/qualitative candidates, deterministic exclusion reasons (`undated`, `non_numeric`, `ineligible`, `unsupported_unit`), and incompatibility identity for definition, specimen, modifier, method, scale, and unit. It SHALL NOT query raw observations independently, silently discard an excluded candidate without a limitation, or emit a point whose source document is outside the report scope.
+The dynamics projection SHALL consume a server-authorized comparison snapshot carrying `scope_kind` and `scope_document_ids`. A `profile_current` snapshot SHALL contain only currently authorized eligible documents for the authenticated Biomarkers page; a `report_immutable` snapshot SHALL contain only the exact materialized `report_scope_document_ids` supplied by EH-148. It SHALL retain numeric/qualitative candidates, deterministic exclusion reasons (`undated`, `non_numeric`, `ineligible`, `unsupported_unit`), and incompatibility identity for definition, specimen, modifier, method, scale, and unit. It SHALL NOT query raw observations independently, silently discard an excluded candidate without a limitation, or emit a point whose source document is outside the declared scope.
 
 #### Scenario: Excluded and incompatible candidates remain explainable
 
@@ -73,6 +73,16 @@ The dynamics projection SHALL consume a profile-authorized comparison snapshot c
 - **WHEN** the profile owns two eligible documents but the report scope contains only one of them
 - **THEN** the comparison snapshot and frozen DTO contain points only from the selected document
 - **AND** owner, share, and export reads cannot expose a dynamics point from the other document
+
+### Requirement: Server-authorized dynamics adapters
+
+EH-149 SHALL own a server adapter that resolves the authenticated profile and calls the pure dynamics projection. `GET /api/biomarkers/dynamics` SHALL use `profile_current` scope for the Biomarkers page; the EH-148 report-generation handoff SHALL call the same adapter with `report_immutable` scope and exact document UUIDs. Neither entry point SHALL accept client observations, raw source rows, or a client-generated DTO. The Biomarkers client SHALL render the returned DTO rather than compute statistics, direction, conversion, or series membership.
+
+#### Scenario: Client cannot widen either adapter
+
+- **WHEN** a client submits observations, source rows, or a document outside the authorized page/report scope
+- **THEN** the server ignores or rejects the untrusted input and builds the DTO only from server-authorized sources
+- **AND** the page and report/share/export outputs contain no injected or out-of-scope point
 
 ### Requirement: Frozen dynamics report binding
 

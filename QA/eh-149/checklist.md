@@ -89,6 +89,7 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 - [ ] Export handoff evidence proves EH-153 consumes the frozen DTO and does not query raw observations independently. *(Evidence provider: EH-149 DTO owner; EH-153 export owner.)*
 - [ ] Report-binding evidence proves EH-149 hands the DTO and schema/policy/period metadata to EH-148, EH-148 persists it, and EH-153 reads it through the EH-148 resolver without client DTO or raw-observation substitution. *(Evidence provider: EH-149 DTO owner; EH-148 persistence/read-resolver owner; EH-153 export owner.)*
 - [ ] Scope-constrained evidence proves the selected report document UUIDs reach the comparison adapter and dynamics DTO, while another owned eligible document cannot appear in owner, share, or export output. *(Evidence provider: EH-149 comparison/dynamics owner; EH-148 report-scope/RPC owner; EH-151 public-read owner; EH-153 export owner.)*
+- [ ] Server-adapter evidence proves `/api/biomarkers/dynamics` uses the authenticated profile's `profile_current` scope, EH-148 uses the same adapter with exact `report_immutable` scope, and the client never computes dynamics or injects observations/source rows. *(Evidence provider: EH-149 server-adapter/API owner; EH-148 report handoff owner; EH-153 export owner.)*
 
 ## Out of scope or not manually testable yet
 

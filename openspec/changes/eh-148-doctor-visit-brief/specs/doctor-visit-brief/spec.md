@@ -102,13 +102,13 @@ The server SHALL derive `summary_preview` from the persisted report contract's s
 
 ### Requirement: Immutable validation envelope
 
-Every new report SHALL persist `validation_status` (`valid` or `limited`), a non-empty `validation_version`, and stable EH-150 `validation_issue_codes` in the same transaction as the validated content. Invalid candidates SHALL not be persisted. Legacy rows MAY lack this envelope and SHALL remain unavailable for new share/export.
+Every new report SHALL persist `validation_status` (`valid` or `limited`), the non-empty `validation_version` returned unchanged by EH-150 (`eh150.v1` for new reports), and stable EH-150 `validation_issue_codes` in the same transaction as the validated content. EH-150's recognized compatibility set controls owner/share/export reads; retiring a historical version requires the documented release/migration decision. Invalid candidates SHALL not be persisted. Legacy rows MAY lack this envelope and SHALL remain unavailable for new share/export.
 
 #### Scenario: Limited report exposes only safe issue codes
 
 - **WHEN** validation removes unsupported claims but the remaining report is publishable
-- **THEN** the report persists `limited` status, validator version, and issue codes only
-- **AND** owner, share, and export reads expose limitations without source text or model prose in the envelope
+- **THEN** the report persists `limited` status, validator version, and issue codes internally
+- **AND** owner reads expose safe limitations while share/export projections omit internal issue codes and model prose
 
 #### Scenario: Invalid or tampered envelope fails closed
 
