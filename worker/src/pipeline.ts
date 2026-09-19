@@ -5,12 +5,8 @@ import { processMistralOcr } from "./ocr/mistral.js";
 import { selectOcrSource } from "./ocr/select.js";
 import { OcrProviderError, type OcrDocument } from "./ocr/types.js";
 import { createHash } from "node:crypto";
-import {
-  DOCUMENT_PROCESSING_VERSION,
-} from "../../src/lib/documents/constants.js";
-import {
-  isAutomaticVerificationReleaseApproved,
-} from "../../src/lib/documents/normalization-policy.js";
+import { DOCUMENT_PROCESSING_VERSION } from "../../src/lib/documents/constants.js";
+import { isAutomaticVerificationReleaseApproved } from "../../src/lib/documents/normalization-policy.js";
 import {
   writeAutomaticBiomarkerVerification,
   type ExtractedBiomarkerWriterRow,
@@ -56,19 +52,16 @@ import {
   resolveSourceRegion,
   type SourceIndexPage,
 } from "../../src/lib/documents/source-region-match.js";
-import {
-  attemptOcrFulltextPath,
-  attemptOcrPageJsonPath,
-  attemptPagePreviewObjectPath,
-  attemptThumbnailObjectPath,
-  resolveOriginalStoragePath,
-} from "../../src/lib/documents/paths.js";
+import { resolveOriginalStoragePath } from "../../src/lib/documents/paths.js";
 import {
   classifyDocumentFromImage,
   classifyDocumentFromText,
   computeTypeMismatch,
 } from "../../src/lib/documents/type-classification.js";
-import { normalizeDocumentType, type DocumentType } from "../../src/lib/health-systems.js";
+import {
+  normalizeDocumentType,
+  type DocumentType,
+} from "../../src/lib/health-systems.js";
 import {
   instrumentalSnapshotDigest,
   normalizeInstrumentalSnapshot,
@@ -86,13 +79,21 @@ import {
   type MedicalEventDateSync,
 } from "../../src/lib/documents/medical-events.js";
 import { finalizeDocumentProcessing } from "./document-completion.js";
-import { modelIdForStage, resolveModelForStage, type AiProviderId } from "./ai.js";
+import {
+  modelIdForStage,
+  resolveModelForStage,
+  type AiProviderId,
+} from "./ai.js";
 import {
   makePipelineTrace,
   runClassifyTextOrImage,
   runStageTextOrImage,
 } from "./pipeline-llm.js";
-import { extractPdfPageIndex, generatePagePreviews, generateThumbnail } from "./previews.js";
+import {
+  extractPdfPageIndex,
+  generatePagePreviews,
+  generateThumbnail,
+} from "./previews.js";
 import { LAB_DOCUMENTS_BUCKET, supabase } from "./supabase.js";
 
 type JobRow = {
@@ -102,6 +103,9 @@ type JobRow = {
   attempts: number;
   max_attempts: number;
   processing_attempt_id: string;
+  lease_token: string;
+  lease_expires_at: string;
+  captured_write_generation: number;
 };
 
 type DocumentRow = {
@@ -112,6 +116,9 @@ type DocumentRow = {
   original_filename: string;
   mime_type: string | null;
   document_type: string;
+  lifecycle_state: "active" | "deleting";
+  upload_state: "pending" | "complete" | "failed";
+  write_generation: number;
 };
 
 type SupabaseMutationResult = {
@@ -120,7 +127,7 @@ type SupabaseMutationResult = {
 
 function requireMutationSuccess<T extends SupabaseMutationResult>(
   result: T,
-  operation: string
+  operation: string,
 ): T {
   if (result.error) {
     throw new Error(`${operation}: ${result.error.message}`);
@@ -130,7 +137,7 @@ function requireMutationSuccess<T extends SupabaseMutationResult>(
 
 function consistentSourceDate(values: readonly unknown[]): string | null {
   const candidates = values.flatMap((value) =>
-    typeof value === "string" && value.trim() ? [value.trim()] : []
+    typeof value === "string" && value.trim() ? [value.trim()] : [],
   );
   if (candidates.length === 0) return null;
   const first = candidates[0];
@@ -141,8 +148,9 @@ async function syncMedicalEventDates(
   documentId: string,
   dates: Partial<Record<MedicalEventDateRole, unknown>>,
 ): Promise<void> {
-  const payload: MedicalEventDateSync[] = Object.entries(dates).map(([role, value]) =>
-    buildMedicalEventDateSync(role as MedicalEventDateRole, value)
+  const payload: MedicalEventDateSync[] = Object.entries(dates).map(
+    ([role, value]) =>
+      buildMedicalEventDateSync(role as MedicalEventDateRole, value),
   );
   const { error } = await supabase.rpc("eh126_sync_document_event_dates", {
     p_document_id: documentId,
@@ -153,26 +161,134 @@ async function syncMedicalEventDates(
   }
 }
 
-async function uploadToLabDocuments(
-  storagePath: string,
-  body: Buffer | string,
-  contentType: string
-): Promise<void> {
-  const { error } = await supabase.storage.from(LAB_DOCUMENTS_BUCKET).upload(storagePath, body, {
-    contentType,
-    upsert: true,
-  });
-  if (error) {
-    throw new Error(`Storage upload failed (${storagePath}): ${error.message}`);
+type StorageIntentRow = {
+  intent_id: string;
+  bucket: string;
+  object_path: string;
+  content_type: string;
+  write_generation: number;
+  deadline_at: string;
+};
+
+type BrokerResponse = {
+  intentId?: string;
+  objectPath?: string;
+  ticket?: string;
+  signedUrl?: string;
+};
+
+async function postToUploadBroker(
+  endpoint: string,
+  payload: Record<string, unknown>,
+): Promise<BrokerResponse> {
+  const response = await fetch(
+    `${workerEnv.documentUploadBrokerUrl.replace(/\/$/, "")}${endpoint}`,
+    {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${workerEnv.supabaseServiceKey}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+  const body = (await response
+    .json()
+    .catch(() => null)) as BrokerResponse | null;
+  if (!response.ok || !body) {
+    throw new Error(`storage_broker_${endpoint.replaceAll("/", "_")}_failed`);
   }
+  return body;
+}
+
+async function heartbeatJob(job: JobRow): Promise<void> {
+  const { error } = await supabase.rpc(
+    "heartbeat_document_processing_attempt",
+    {
+      p_attempt_id: job.processing_attempt_id,
+      p_lease_token: job.lease_token,
+      p_write_generation: job.captured_write_generation,
+      p_extend_seconds: 300,
+    },
+  );
+  if (error) throw new Error(`heartbeat processing attempt: ${error.message}`);
+}
+
+async function uploadArtifact(
+  job: JobRow,
+  operationKind:
+    | "attempt_thumbnail"
+    | "attempt_page_preview"
+    | "attempt_ocr_fulltext"
+    | "attempt_ocr_page_json",
+  body: Buffer,
+  contentType: string,
+  pageNumber: number | null = null,
+): Promise<string> {
+  await heartbeatJob(job);
+  const { data, error } = await supabase.rpc("register_storage_write_intent", {
+    p_document_id: job.document_id,
+    p_profile_id: job.profile_id,
+    p_processing_attempt_id: job.processing_attempt_id,
+    p_lease_token: job.lease_token,
+    p_write_generation: job.captured_write_generation,
+    p_operation_kind: operationKind,
+    p_content_type: contentType,
+    p_page_number: pageNumber,
+    p_extension: null,
+  });
+  const intent = (
+    Array.isArray(data) ? data[0] : data
+  ) as StorageIntentRow | null;
+  if (error || !intent) throw new Error("storage_intent_registration_failed");
+
+  const ticket = await postToUploadBroker("/api/storage/upload-ticket", {
+    intent_id: intent.intent_id,
+    profile_id: job.profile_id,
+    processing_attempt_id: job.processing_attempt_id,
+    lease_token: job.lease_token,
+    write_generation: job.captured_write_generation,
+  });
+  if (!ticket.ticket) throw new Error("storage_ticket_missing");
+
+  const exchanged = await postToUploadBroker("/api/storage/upload-exchange", {
+    intent_id: intent.intent_id,
+    ticket: ticket.ticket,
+  });
+  if (!exchanged.signedUrl) throw new Error("storage_signed_url_missing");
+
+  const bodyBuffer = body.buffer.slice(
+    body.byteOffset,
+    body.byteOffset + body.byteLength,
+  ) as ArrayBuffer;
+  const uploadResponse = await fetch(exchanged.signedUrl, {
+    method: "PUT",
+    headers: {
+      "content-type": contentType,
+      "x-upsert": "false",
+    },
+    body: bodyBuffer,
+  });
+  if (!uploadResponse.ok) throw new Error("storage_upload_failed");
+
+  await postToUploadBroker("/api/storage/upload-complete", {
+    intent_id: intent.intent_id,
+    ticket: ticket.ticket,
+  });
+  return exchanged.objectPath ?? intent.object_path;
 }
 
 export async function failJob(
-  job: Pick<JobRow, "processing_attempt_id">,
-  message: string
+  job: Pick<
+    JobRow,
+    "processing_attempt_id" | "lease_token" | "captured_write_generation"
+  >,
+  message: string,
 ) {
   const { error } = await supabase.rpc("fail_document_processing_attempt", {
     p_attempt_id: job.processing_attempt_id,
+    p_lease_token: job.lease_token,
+    p_write_generation: job.captured_write_generation,
     p_message: message,
   });
   if (error) {
@@ -180,7 +296,10 @@ export async function failJob(
   }
 }
 
-function lifecycleRequestHash(documentId: string, processingAttemptId: string): string {
+function lifecycleRequestHash(
+  documentId: string,
+  processingAttemptId: string,
+): string {
   return createHash("sha256")
     .update(
       JSON.stringify({
@@ -203,14 +322,14 @@ async function runTextOrImageExtraction<T>(
     text: string,
     model: LanguageModel,
     filename: string,
-    ctx: PipelineLlmContext
+    ctx: PipelineLlmContext,
   ) => Promise<T>,
   fromImage: (
     buffer: Buffer,
     model: LanguageModel,
     filename: string,
-    ctx: PipelineLlmContext
-  ) => Promise<T>
+    ctx: PipelineLlmContext,
+  ) => Promise<T>,
 ): Promise<{ result: T; modelId: string }> {
   return runStageTextOrImage({
     ocrText,
@@ -226,11 +345,10 @@ async function runTextOrImageExtraction<T>(
   });
 }
 
-
 async function prepareInstrumentalPublicationRpc(
   job: JobRow,
   documentId: string,
-  snapshot: InstrumentalSnapshotInput
+  snapshot: InstrumentalSnapshotInput,
 ): Promise<PrepareInstrumentalPublicationRow> {
   const args: PrepareInstrumentalPublicationArgs = {
     p_document_id: documentId,
@@ -238,8 +356,13 @@ async function prepareInstrumentalPublicationRpc(
     p_processing_attempt_id: job.processing_attempt_id,
     p_snapshot: snapshot,
     p_caller_digest: instrumentalSnapshotDigest(snapshot),
+    p_lease_token: job.lease_token,
+    p_write_generation: job.captured_write_generation,
   };
-  const { data, error } = await supabase.rpc("prepare_instrumental_publication", args);
+  const { data, error } = await supabase.rpc(
+    "prepare_instrumental_publication",
+    args,
+  );
   if (error) {
     throw new Error(`prepare instrumental publication: ${error.message}`);
   }
@@ -253,7 +376,11 @@ async function prepareInstrumentalPublicationRpc(
 }
 function layoutPagesFromOcrDocument(
   ocrDocument: OcrDocument,
-  renderedPages: readonly { pageNumber: number; width: number; height: number }[],
+  renderedPages: readonly {
+    pageNumber: number;
+    width: number;
+    height: number;
+  }[],
 ): PdfLayoutPage[] {
   return ocrDocument.pages.map((page) => {
     const rendered = renderedPages[page.pageNumber - 1];
@@ -299,7 +426,10 @@ async function recordOcrInvocation(input: {
     processing_attempt_id: input.processingAttemptId,
   });
   if (error) {
-    console.error("[pipeline] OCR invocation telemetry write failed:", error.message);
+    console.error(
+      "[pipeline] OCR invocation telemetry write failed:",
+      error.message,
+    );
   }
 }
 
@@ -307,10 +437,9 @@ async function finalizeInstrumentalPublicationRpc(
   job: JobRow,
   documentId: string,
 
-
   prepared: PrepareInstrumentalPublicationRow,
   summaryText: string | null,
-  completion: InstrumentalPublicationCompletion
+  completion: InstrumentalPublicationCompletion,
 ): Promise<FinalizeInstrumentalPublicationRow> {
   const args: FinalizeInstrumentalPublicationArgs = {
     p_document_id: documentId,
@@ -322,8 +451,13 @@ async function finalizeInstrumentalPublicationRpc(
     p_snapshot_hash: prepared.snapshot_hash,
     p_summary_text: summaryText,
     p_completion: completion,
+    p_lease_token: job.lease_token,
+    p_write_generation: job.captured_write_generation,
   };
-  const { data, error } = await supabase.rpc("finalize_instrumental_publication", args);
+  const { data, error } = await supabase.rpc(
+    "finalize_instrumental_publication",
+    args,
+  );
   if (error) {
     throw new Error(`finalize instrumental publication: ${error.message}`);
   }
@@ -336,14 +470,19 @@ async function finalizeInstrumentalPublicationRpc(
   return row;
 }
 
-export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> {
+export async function runPipeline(
+  job: JobRow,
+): Promise<"failed" | "completed"> {
+  await heartbeatJob(job);
   const { data: document, error: docError } = await supabase
     .from("documents")
     .select(
-      "id, profile_id, storage_path, original_storage_path, original_filename, mime_type, document_type"
+      "id, profile_id, storage_path, original_storage_path, original_filename, mime_type, document_type, lifecycle_state, upload_state, write_generation",
     )
     .eq("id", job.document_id)
-    .single();
+    .eq("lifecycle_state", "active")
+    .eq("upload_state", "complete")
+    .maybeSingle();
 
   if (docError || !document) {
     await failJob(job, docError?.message ?? "Document not found");
@@ -359,16 +498,21 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
       ? "application/pdf"
       : "image/jpeg");
 
-  requireMutationSuccess(await supabase
-    .from("documents")
-    .update({
-      processing_status: "processing",
-      status: "processing",
-      type_mismatch_warning: false,
-      type_mismatch_reason: null,
-      detected_document_type: null,
-    })
-    .eq("id", doc.id), "mark document processing");
+  requireMutationSuccess(
+    await supabase
+      .from("documents")
+      .update({
+        processing_status: "processing",
+        status: "processing",
+        type_mismatch_warning: false,
+        type_mismatch_reason: null,
+        detected_document_type: null,
+      })
+      .eq("id", doc.id)
+      .eq("lifecycle_state", "active")
+      .eq("write_generation", job.captured_write_generation),
+    "mark document processing",
+  );
 
   const { data: fileData, error: downloadError } = await supabase.storage
     .from(LAB_DOCUMENTS_BUCKET)
@@ -388,14 +532,19 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
   try {
     pages = await generatePagePreviews(buffer, mimeType, doc.original_filename);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Preview generation failed";
+    const message =
+      error instanceof Error ? error.message : "Preview generation failed";
     await failJob(job, message);
     return "failed";
   }
 
   const thumbBuffer = await generateThumbnail(pages[0].buffer);
-  const thumbPath = attemptThumbnailObjectPath(profileId, documentId, processingAttemptId);
-  await uploadToLabDocuments(thumbPath, thumbBuffer, "image/webp");
+  const thumbPath = await uploadArtifact(
+    job,
+    "attempt_thumbnail",
+    thumbBuffer,
+    "image/webp",
+  );
 
   // EH-118: the page index is the provenance ground truth. Word geometry comes
   // from poppler when the PDF has a complete text layer; Mistral blocks remain
@@ -478,31 +627,44 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
   }
 
   if (ocrText.trim()) {
-    await uploadToLabDocuments(
-      attemptOcrFulltextPath(profileId, documentId, processingAttemptId),
-      ocrText,
-      "text/plain"
+    await uploadArtifact(
+      job,
+      "attempt_ocr_fulltext",
+      Buffer.from(ocrText, "utf8"),
+      "text/plain",
     );
   }
   const pageTextByNumber = new Map<number, string>();
   const sourceIndex: SourceIndexPage[] = buildSourceIndex(layoutPages);
-  const ocrProvider = ocrDocument ? "mistral" : ocrSelection.kind === "poppler" ? "poppler" : null;
+  const ocrProvider = ocrDocument
+    ? "mistral"
+    : ocrSelection.kind === "poppler"
+      ? "poppler"
+      : null;
   const ocrModel = ocrDocument?.model ?? null;
-  const ocrAdapterVersion = ocrDocument?.adapterVersion ?? workerEnv.mistralOcrAdapterVersion;
+  const ocrAdapterVersion =
+    ocrDocument?.adapterVersion ?? workerEnv.mistralOcrAdapterVersion;
 
   for (const page of pages) {
-    const previewPath = attemptPagePreviewObjectPath(
-      profileId,
-      documentId,
-      processingAttemptId,
-      page.pageNumber
+    const previewPath = await uploadArtifact(
+      job,
+      "attempt_page_preview",
+      page.buffer,
+      "image/webp",
+      page.pageNumber,
     );
-    await uploadToLabDocuments(previewPath, page.buffer, "image/webp");
 
-    const layout = layoutPages.find((candidate) => candidate.page_number === page.pageNumber);
-    const ocrPage = ocrDocument?.pages.find((candidate) => candidate.pageNumber === page.pageNumber);
+    const layout = layoutPages.find(
+      (candidate) => candidate.page_number === page.pageNumber,
+    );
+    const ocrPage = ocrDocument?.pages.find(
+      (candidate) => candidate.pageNumber === page.pageNumber,
+    );
     const pageText = layout?.text.trim() ? layout.text : "";
-    pageTextByNumber.set(page.pageNumber, pageText ? pageText.slice(0, 50000) : "");
+    pageTextByNumber.set(
+      page.pageNumber,
+      pageText ? pageText.slice(0, 50000) : "",
+    );
     const blocks: PageOcrBlock[] =
       ocrPage?.blocks.map((block) => ({
         text: block.text,
@@ -526,16 +688,12 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         markdown: ocrPage?.markdown ?? pageText,
         blocks,
       });
-      ocrJsonPath = attemptOcrPageJsonPath(
-        profileId,
-        documentId,
-        processingAttemptId,
-        page.pageNumber
-      );
-      await uploadToLabDocuments(
-        ocrJsonPath,
+      ocrJsonPath = await uploadArtifact(
+        job,
+        "attempt_ocr_page_json",
         Buffer.from(JSON.stringify(artifact), "utf8"),
-        "application/json"
+        "application/json",
+        page.pageNumber,
       );
     }
 
@@ -552,7 +710,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         ocr_text: pageText ? pageText.slice(0, 50000) : null,
         ocr_json_storage_path: ocrJsonPath,
       }),
-      "write document page"
+      "write document page",
     );
   }
 
@@ -561,8 +719,9 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
   // ambiguous degrades to page-only provenance rather than a misplaced box.
   const resolveProvenance = (
     hintedPage: number | null | undefined,
-    snippet: string | null | undefined
-  ) => resolveSourceRegion({ pages: sourceIndex, pageCount, snippet, hintedPage });
+    snippet: string | null | undefined,
+  ) =>
+    resolveSourceRegion({ pages: sourceIndex, pageCount, snippet, hintedPage });
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -616,9 +775,16 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         profileId,
         documentId,
         doc.original_filename,
-        (text, model, filename, ctx) => extractPipelineBiomarkersFromText(text, model, filename, ctx),
+        (text, model, filename, ctx) =>
+          extractPipelineBiomarkersFromText(text, model, filename, ctx),
         (image, model, filename, ctx) =>
-          extractPipelineBiomarkersFromImage(image, "image/webp", model, filename, ctx)
+          extractPipelineBiomarkersFromImage(
+            image,
+            "image/webp",
+            model,
+            filename,
+            ctx,
+          ),
       );
 
       extractionModel = modelId;
@@ -627,8 +793,12 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
       labName = extraction.lab_name;
       await syncMedicalEventDates(documentId, {
         occurred: observedAt,
-        collected: consistentSourceDate(extraction.biomarkers.map((row) => row.collected_at)),
-        authored: consistentSourceDate(extraction.biomarkers.map((row) => row.reported_at)),
+        collected: consistentSourceDate(
+          extraction.biomarkers.map((row) => row.collected_at),
+        ),
+        authored: consistentSourceDate(
+          extraction.biomarkers.map((row) => row.reported_at),
+        ),
       });
 
       if (extraction.biomarkers.length > 0) {
@@ -662,7 +832,10 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
                   reported_at?: string | null;
                   inferred_axes?: unknown;
                 };
-                const provenance = resolveProvenance(anyB.source_page, anyB.source_text);
+                const provenance = resolveProvenance(
+                  anyB.source_page,
+                  anyB.source_text,
+                );
                 const sectionContext = groundCapturedHeadingToPageOcr(
                   anyB.section_context,
                   provenance.page,
@@ -674,9 +847,11 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
                       ...anyB,
                       raw_name: anyB.raw_name ?? anyB.name,
                       value_text:
-                        anyB.value_text ?? (anyB.value != null ? String(anyB.value) : null),
+                        anyB.value_text ??
+                        (anyB.value != null ? String(anyB.value) : null),
                       value_kind:
-                        anyB.value_kind ?? (anyB.value != null ? "numeric" : "text"),
+                        anyB.value_kind ??
+                        (anyB.value != null ? "numeric" : "text"),
                       ordinal: anyB.ordinal ?? null,
                       ref_low: anyB.ref_low ?? null,
                       ref_high: anyB.ref_high ?? null,
@@ -714,27 +889,35 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
                   is_current: true,
                   is_published: false,
                 };
-              })
+              }),
             )
             .select(),
-          "write extracted laboratory biomarkers"
+          "write extracted laboratory biomarkers",
         );
-        const insertedRows = (insertedBiomarkers.data ?? []) as unknown as ExtractedBiomarkerWriterRow[];
+        const insertedRows = (insertedBiomarkers.data ??
+          []) as unknown as ExtractedBiomarkerWriterRow[];
         if (insertedRows.length !== extraction.biomarkers.length) {
-          throw new Error("write extracted laboratory biomarkers returned an incomplete row set");
+          throw new Error(
+            "write extracted laboratory biomarkers returned an incomplete row set",
+          );
         }
         pendingAutomaticVerificationRows.push(...insertedRows);
         processingStatus = "needs_review";
       }
 
       const summaryModel = resolveModelForStage(provider, "summarize");
-      const summaryCtx = makePipelineTrace(provider, profileId, documentId, "summarize");
+      const summaryCtx = makePipelineTrace(
+        provider,
+        profileId,
+        documentId,
+        "summarize",
+      );
       documentSummary = await generateDocumentSummary(
         summaryModel,
         documentType as DocumentType,
         extraction,
         doc.original_filename,
-        summaryCtx
+        summaryCtx,
       );
     } else if (documentType === "instrumental_report") {
       const { result: extraction, modelId } = await runTextOrImageExtraction(
@@ -744,9 +927,16 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         profileId,
         documentId,
         doc.original_filename,
-        (text, model, filename, ctx) => extractInstrumentalFromText(text, model, filename, ctx),
+        (text, model, filename, ctx) =>
+          extractInstrumentalFromText(text, model, filename, ctx),
         (image, model, filename, ctx) =>
-          extractInstrumentalFromImage(image, "image/webp", model, filename, ctx)
+          extractInstrumentalFromImage(
+            image,
+            "image/webp",
+            model,
+            filename,
+            ctx,
+          ),
       );
 
       extractionModel = modelId;
@@ -768,7 +958,10 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         processing_version: DOCUMENT_PROCESSING_VERSION,
         extraction_model: extractionModel,
         measures: extraction.numeric_measures.map((measure) => {
-          const provenance = resolveProvenance(measure.source_page, measure.source_text);
+          const provenance = resolveProvenance(
+            measure.source_page,
+            measure.source_text,
+          );
           return {
             ...measure,
             source_page: provenance.page,
@@ -777,35 +970,53 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         }),
         findings: extraction.findings.map((finding) => ({
           ...finding,
-          source_page: resolveProvenance(finding.source_page, finding.source_text).page,
+          source_page: resolveProvenance(
+            finding.source_page,
+            finding.source_text,
+          ).page,
         })),
       });
 
-      const prepared = await prepareInstrumentalPublicationRpc(job, documentId, snapshot);
+      const prepared = await prepareInstrumentalPublicationRpc(
+        job,
+        documentId,
+        snapshot,
+      );
 
       const summaryModel = resolveModelForStage(provider, "summarize");
-      const summaryCtx = makePipelineTrace(provider, profileId, documentId, "summarize");
+      const summaryCtx = makePipelineTrace(
+        provider,
+        profileId,
+        documentId,
+        "summarize",
+      );
       documentSummary = await generateDocumentSummary(
         summaryModel,
         documentType as DocumentType,
         extraction,
         doc.original_filename,
-        summaryCtx
+        summaryCtx,
       );
 
       // One transaction: publish measures/findings/impression/summary,
       // supersede the prior publication, advance write_generation, complete
       // the document/job/attempt, and invalidate synthesis.
-      await finalizeInstrumentalPublicationRpc(job, documentId, prepared, documentSummary, {
-        page_count: pages.length,
-        thumbnail_storage_path: thumbPath,
-        content_sha256: sourceSha256,
-        ocr_status: ocrText ? "completed" : "skipped",
-        extraction_status: "completed",
-        detected_document_type: detectedDocumentType,
-        type_mismatch_warning: typeMismatchWarning,
-        type_mismatch_reason: typeMismatchReason,
-      });
+      await finalizeInstrumentalPublicationRpc(
+        job,
+        documentId,
+        prepared,
+        documentSummary,
+        {
+          page_count: pages.length,
+          thumbnail_storage_path: thumbPath,
+          content_sha256: sourceSha256,
+          ocr_status: ocrText ? "completed" : "skipped",
+          extraction_status: "completed",
+          detected_document_type: detectedDocumentType,
+          type_mismatch_warning: typeMismatchWarning,
+          type_mismatch_reason: typeMismatchReason,
+        },
+      );
 
       return "completed";
     } else if (documentType === "consultation_note") {
@@ -816,9 +1027,16 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         profileId,
         documentId,
         doc.original_filename,
-        (text, model, filename, ctx) => extractConsultationFromText(text, model, filename, ctx),
+        (text, model, filename, ctx) =>
+          extractConsultationFromText(text, model, filename, ctx),
         (image, model, filename, ctx) =>
-          extractConsultationFromImage(image, "image/webp", model, filename, ctx)
+          extractConsultationFromImage(
+            image,
+            "image/webp",
+            model,
+            filename,
+            ctx,
+          ),
       );
 
       extractionModel = modelId;
@@ -847,7 +1065,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
           extraction_model: extractionModel,
           status: "accepted",
         }),
-        "write extracted clinical note"
+        "write extracted clinical note",
       );
 
       documentSummary = await generateDocumentSummary(
@@ -855,7 +1073,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         documentType as DocumentType,
         extraction,
         doc.original_filename,
-        makePipelineTrace(provider, profileId, documentId, "summarize")
+        makePipelineTrace(provider, profileId, documentId, "summarize"),
       );
     } else if (documentType === "discharge_summary") {
       const { result: extraction, modelId } = await runTextOrImageExtraction(
@@ -865,9 +1083,10 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         profileId,
         documentId,
         doc.original_filename,
-        (text, model, filename, ctx) => extractDischargeFromText(text, model, filename, ctx),
+        (text, model, filename, ctx) =>
+          extractDischargeFromText(text, model, filename, ctx),
         (image, model, filename, ctx) =>
-          extractDischargeFromImage(image, "image/webp", model, filename, ctx)
+          extractDischargeFromImage(image, "image/webp", model, filename, ctx),
       );
       extractionModel = modelId;
       structuredPayload = extraction;
@@ -904,7 +1123,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
           extraction_model: extractionModel,
           status: "accepted",
         }),
-        "write extracted discharge note"
+        "write extracted discharge note",
       );
 
       documentSummary = await generateDocumentSummary(
@@ -912,7 +1131,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         documentType as DocumentType,
         extraction,
         doc.original_filename,
-        makePipelineTrace(provider, profileId, documentId, "summarize")
+        makePipelineTrace(provider, profileId, documentId, "summarize"),
       );
     } else if (documentType === "prescription") {
       const { result: extraction, modelId } = await runTextOrImageExtraction(
@@ -922,9 +1141,16 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         profileId,
         documentId,
         doc.original_filename,
-        (text, model, filename, ctx) => extractPrescriptionFromText(text, model, filename, ctx),
+        (text, model, filename, ctx) =>
+          extractPrescriptionFromText(text, model, filename, ctx),
         (image, model, filename, ctx) =>
-          extractPrescriptionFromImage(image, "image/webp", model, filename, ctx)
+          extractPrescriptionFromImage(
+            image,
+            "image/webp",
+            model,
+            filename,
+            ctx,
+          ),
       );
       extractionModel = modelId;
       structuredPayload = extraction;
@@ -946,7 +1172,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
           extraction_model: extractionModel,
           status: "accepted",
         }),
-        "write extracted prescription"
+        "write extracted prescription",
       );
 
       documentSummary = await generateDocumentSummary(
@@ -954,7 +1180,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         documentType as DocumentType,
         extraction,
         doc.original_filename,
-        makePipelineTrace(provider, profileId, documentId, "summarize")
+        makePipelineTrace(provider, profileId, documentId, "summarize"),
       );
     } else if (documentType === "referral") {
       const { result: extraction, modelId } = await runTextOrImageExtraction(
@@ -964,9 +1190,10 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         profileId,
         documentId,
         doc.original_filename,
-        (text, model, filename, ctx) => extractReferralFromText(text, model, filename, ctx),
+        (text, model, filename, ctx) =>
+          extractReferralFromText(text, model, filename, ctx),
         (image, model, filename, ctx) =>
-          extractReferralFromImage(image, "image/webp", model, filename, ctx)
+          extractReferralFromImage(image, "image/webp", model, filename, ctx),
       );
       extractionModel = modelId;
       structuredPayload = extraction;
@@ -992,7 +1219,7 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
           extraction_model: extractionModel,
           status: "accepted",
         }),
-        "write extracted referral"
+        "write extracted referral",
       );
 
       documentSummary = await generateDocumentSummary(
@@ -1000,11 +1227,12 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         documentType as DocumentType,
         extraction,
         doc.original_filename,
-        makePipelineTrace(provider, profileId, documentId, "summarize")
+        makePipelineTrace(provider, profileId, documentId, "summarize"),
       );
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Extraction failed";
+    const message =
+      error instanceof Error ? error.message : "Extraction failed";
     await failJob(job, message);
     return "failed";
   }
@@ -1037,11 +1265,15 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
         documentType === "lab_result"
           ? {
               p_attempt_id: job.processing_attempt_id,
+              p_lease_token: job.lease_token,
+              p_write_generation: job.captured_write_generation,
               p_document: pDocument,
               p_lifecycle_request_hash: lifecycleHash,
             }
           : {
               p_attempt_id: job.processing_attempt_id,
+              p_lease_token: job.lease_token,
+              p_write_generation: job.captured_write_generation,
               p_document: pDocument,
             },
       );
@@ -1069,11 +1301,14 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
           qualityGateApproved: true,
         });
         if (!("promoted" in result)) {
-          console.info("[pipeline] Automatically verified extracted biomarker", {
-            documentId,
-            extractedBiomarkerId: row.id,
-            revisionId: result.revisionId,
-          });
+          console.info(
+            "[pipeline] Automatically verified extracted biomarker",
+            {
+              documentId,
+              extractedBiomarkerId: row.id,
+              revisionId: result.revisionId,
+            },
+          );
         }
       } catch (error) {
         console.error("[pipeline] Automatic biomarker verification skipped:", {
@@ -1083,7 +1318,6 @@ export async function runPipeline(job: JobRow): Promise<"failed" | "completed"> 
       }
     }
   }
-
 
   void structuredPayload;
 

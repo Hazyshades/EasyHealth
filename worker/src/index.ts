@@ -2,11 +2,13 @@ import { workerEnv } from "./env.js";
 import { ensureWorkerAiReady } from "./ai.js";
 import { failJob, runPipeline } from "./pipeline.js";
 import { supabase } from "./supabase.js";
-import {
-  reclaimStaleJobs,
-  type ReclaimableJob,
-} from "./job-reliability.js";
+import { reclaimStaleJobs, type ReclaimableJob } from "./job-reliability.js";
 import { buildHealthProfileSnapshot } from "../../src/lib/health-profile-snapshot.js";
+import {
+  processOneDeletionOperation,
+  pruneExpiredDeletionReceipts,
+} from "./deletion-cleanup.js";
+import { sweepExpiredStorageIntents } from "./storage-orphan-sweeper.js";
 
 type JobRow = {
   id: string;
@@ -15,6 +17,9 @@ type JobRow = {
   attempts: number;
   max_attempts: number;
   processing_attempt_id: string;
+  lease_token: string;
+  lease_expires_at: string;
+  captured_write_generation: number;
 };
 
 type ClaimedJobRow = {
@@ -26,6 +31,8 @@ type ClaimedJobRow = {
   processing_attempt_id: string;
   attempt_number: number;
   captured_write_generation: number;
+  lease_token: string;
+  lease_expires_at: string;
 };
 
 type StaleJobQueryRow = {
@@ -35,7 +42,12 @@ type StaleJobQueryRow = {
   attempts: number;
   max_attempts: number;
   started_at: string | null;
-  document_processing_attempts: Array<{ id: string; state: string }> | null;
+  document_processing_attempts: Array<{
+    id: string;
+    state: string;
+    lease_token: string;
+    captured_write_generation: number;
+  }> | null;
 };
 
 async function claimJob(): Promise<JobRow | null> {
@@ -79,6 +91,9 @@ async function claimJob(): Promise<JobRow | null> {
       attempts: claimed.attempts,
       max_attempts: claimed.max_attempts,
       processing_attempt_id: claimed.processing_attempt_id,
+      lease_token: claimed.lease_token,
+      lease_expires_at: claimed.lease_expires_at,
+      captured_write_generation: claimed.captured_write_generation,
     };
   }
 
@@ -95,7 +110,8 @@ async function processJob(job: JobRow) {
     }
     console.log(`Completed job ${job.id}`);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown worker error";
+    const message =
+      error instanceof Error ? error.message : "Unknown worker error";
     console.error(`Job ${job.id} failed:`, message);
 
     if (job.attempts >= job.max_attempts) {
@@ -105,6 +121,8 @@ async function processJob(job: JobRow) {
         "requeue_document_processing_attempt",
         {
           p_attempt_id: job.processing_attempt_id,
+          p_lease_token: job.lease_token,
+          p_write_generation: job.captured_write_generation,
           p_message: message,
         },
       );
@@ -123,9 +141,13 @@ type ClaimedAssessmentJob = {
 };
 
 async function processAssessmentJob() {
-  const { data, error } = await supabase.rpc("claim_assessment_recalculation_job");
+  const { data, error } = await supabase.rpc(
+    "claim_assessment_recalculation_job",
+  );
   if (error) throw new Error(`Assessment claim error: ${error.message}`);
-  const job = (Array.isArray(data) ? data[0] : data) as ClaimedAssessmentJob | null;
+  const job = (
+    Array.isArray(data) ? data[0] : data
+  ) as ClaimedAssessmentJob | null;
   if (!job) return;
 
   try {
@@ -151,12 +173,20 @@ async function processAssessmentJob() {
     );
     if (completeError) throw new Error(completeError.message);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Assessment recalculation failed";
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Assessment recalculation failed";
     const { error: failError } = await supabase.rpc(
       "fail_assessment_recalculation_job",
-      { p_job_id: job.job_id, p_error_code: "assessment_recalculation_failed", p_error_message: message },
+      {
+        p_job_id: job.job_id,
+        p_error_code: "assessment_recalculation_failed",
+        p_error_message: message,
+      },
     );
-    if (failError) console.error("Assessment failure recording error:", failError.message);
+    if (failError)
+      console.error("Assessment failure recording error:", failError.message);
   }
 }
 
@@ -170,7 +200,6 @@ async function recordHeartbeat() {
   );
   if (error) console.error("Worker heartbeat error:", error.message);
 }
-
 async function reclaimStaleProcessingJobs() {
   const summary = await reclaimStaleJobs(
     {
@@ -178,14 +207,13 @@ async function reclaimStaleProcessingJobs() {
         const { data, error } = await supabase
           .from("document_processing_jobs")
           .select(
-            "id, document_id, profile_id, attempts, max_attempts, started_at, document_processing_attempts(id, state)",
+            "id, document_id, profile_id, attempts, max_attempts, started_at, document_processing_attempts(id, state, lease_token, captured_write_generation)",
           )
           .eq("status", "processing")
           .eq("document_processing_attempts.state", "active")
           .lt("started_at", cutoffIso)
           .order("started_at", { ascending: true });
         if (error) throw new Error(`Stale job query failed: ${error.message}`);
-        // Untyped supabase client: assert the selected row shape once.
         const rows = (data ?? []) as StaleJobQueryRow[];
         return rows.map((row) => ({
           id: row.id,
@@ -194,7 +222,13 @@ async function reclaimStaleProcessingJobs() {
           attempts: row.attempts,
           max_attempts: row.max_attempts,
           started_at: row.started_at,
-          processing_attempt_id: row.document_processing_attempts?.[0]?.id ?? null,
+          processing_attempt_id:
+            row.document_processing_attempts?.[0]?.id ?? null,
+          lease_token:
+            row.document_processing_attempts?.[0]?.lease_token ?? null,
+          captured_write_generation:
+            row.document_processing_attempts?.[0]?.captured_write_generation ??
+            null,
         }));
       },
       async requeue(job, message) {
@@ -222,14 +256,20 @@ async function reclaimAttempt(
   message: string,
   fail: boolean,
 ) {
-  if (!job.processing_attempt_id) {
+  if (
+    !job.processing_attempt_id ||
+    !job.lease_token ||
+    job.captured_write_generation == null
+  ) {
     console.error(
-      `Stale processing job ${job.id} has no active attempt; leaving it for manual review`,
+      `Stale processing job ${job.id} has no active fenced attempt; leaving it for manual review`,
     );
     return;
   }
   const { error } = await supabase.rpc("reclaim_document_processing_attempt", {
     p_attempt_id: job.processing_attempt_id,
+    p_lease_token: job.lease_token,
+    p_write_generation: job.captured_write_generation,
     p_message: message,
     p_fail: fail,
   });
@@ -250,12 +290,42 @@ async function tick() {
   }
 
   try {
-    const reclaimed = await supabase.rpc("reclaim_stale_assessment_recalculation_jobs");
+    const reclaimed = await supabase.rpc(
+      "reclaim_stale_assessment_recalculation_jobs",
+    );
     if (reclaimed.error) throw new Error(reclaimed.error.message);
     await processAssessmentJob();
   } catch (error) {
     console.error(
       "Assessment recalculation error:",
+      error instanceof Error ? error.message : error,
+    );
+  }
+  try {
+    const swept = await sweepExpiredStorageIntents();
+    if (swept > 0) console.log(`Swept ${swept} expired storage intents`);
+  } catch (error) {
+    console.error(
+      "Expired storage intent sweep error:",
+      error instanceof Error ? error.message : error,
+    );
+  }
+
+  try {
+    const pruned = await pruneExpiredDeletionReceipts();
+    if (pruned > 0) console.log(`Pruned ${pruned} expired deletion receipts`);
+  } catch (error) {
+    console.error(
+      "Deletion receipt prune error:",
+      error instanceof Error ? error.message : error,
+    );
+  }
+
+  try {
+    await processOneDeletionOperation();
+  } catch (error) {
+    console.error(
+      "Document deletion cleanup error:",
       error instanceof Error ? error.message : error,
     );
   }

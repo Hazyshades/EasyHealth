@@ -24,9 +24,14 @@ export async function POST(req: NextRequest, context: RouteContext) {
   if (error) return error;
 
   const body = (await req.json()) as { ids?: string[] };
-  const ids = Array.isArray(body.ids) ? body.ids.filter((v) => typeof v === "string") : [];
+  const ids = Array.isArray(body.ids)
+    ? body.ids.filter((v) => typeof v === "string")
+    : [];
   if (ids.length === 0) {
-    return NextResponse.json({ error: "No biomarker ids provided" }, { status: 400 });
+    return NextResponse.json(
+      { error: "No biomarker ids provided" },
+      { status: 400 },
+    );
   }
 
   const observedAt = doc!.observed_at;
@@ -68,6 +73,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
           .update({ processing_status: "ready", status: "completed" })
           .eq("id", id)
           .eq("profile_id", profileId)
+          .eq("lifecycle_state", "active")
+          .eq("upload_state", "complete")
           .eq("processing_status", "needs_review");
 
         if (updateError) {
@@ -87,7 +94,10 @@ export async function POST(req: NextRequest, context: RouteContext) {
     );
   } catch (error) {
     if (error instanceof BiomarkerAcceptanceError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     }
     throw error;
   }

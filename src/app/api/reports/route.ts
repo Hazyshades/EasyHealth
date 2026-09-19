@@ -21,7 +21,10 @@ import {
   hasReportContextContent,
   withDisclaimer,
 } from "@/lib/reports";
-import { buildDocumentStructuredContext } from "@/lib/documents/structured-context";
+import {
+  buildDocumentStructuredContext,
+  getDocumentWriteGenerations,
+} from "@/lib/documents/structured-context";
 import {
   isCurrentDocumentObservation,
   REGISTRY_V2_NORMALIZATION_REVISION_SELECT,
@@ -81,6 +84,7 @@ export async function GET(req: NextRequest) {
       "id, title, report_type, detail_level, summary_preview, abnormal_only, created_at",
     )
     .eq("profile_id", profileId)
+    .is("invalidated_at", null)
     .order("created_at", { ascending: false });
 
   if (q) {
@@ -173,7 +177,7 @@ export async function POST(req: NextRequest) {
   const { data: observations, error: obsError } = await supabase
     .from("observations")
     .select(
-      `id, name, analyte_key, measurement_definition_key, resolution_status, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, observation_kind, source_extracted_biomarker_id, source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(id, record_status, is_current, is_published), documents(original_filename, observed_at), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(${REGISTRY_V2_NORMALIZATION_REVISION_SELECT})`,
+      `id, document_id, name, analyte_key, measurement_definition_key, resolution_status, value, unit, ref_low, ref_high, observed_at, value_kind, value_text, observation_kind, source_extracted_biomarker_id, source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(id, record_status, is_current, is_published), documents(original_filename, observed_at), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(${REGISTRY_V2_NORMALIZATION_REVISION_SELECT})`,
     )
     .eq("profile_id", profileId)
     .in("document_id", scopeIds)
@@ -217,6 +221,8 @@ export async function POST(req: NextRequest) {
 
       return [
         {
+          id: o.id,
+          document_id: o.document_id,
           name: o.name,
           analyte_key: outcome.analyteKey,
           measurement_definition_key: outcome.measurementDefinitionKey,
@@ -288,27 +294,46 @@ export async function POST(req: NextRequest) {
   const content = withDisclaimer(object);
   const summary_preview = buildSummaryPreview(content.overview);
 
-  const { data: report, error: insertError } = await supabase
-    .from("reports")
-    .insert({
-      profile_id: profileId,
-      title,
-      report_type,
-      detail_level,
-      document_ids: storedDocumentIds,
-      abnormal_only,
-      content,
-      summary_preview,
-    })
-    .select(
-      "id, title, report_type, detail_level, document_ids, abnormal_only, content, summary_preview, created_at",
+  const actualSourceDocumentIds = structured.source_document_ids;
+  const sourceWriteGenerations = await getDocumentWriteGenerations(
+    profileId,
+    actualSourceDocumentIds,
+  );
+  if (
+    actualSourceDocumentIds.some(
+      (documentId) => sourceWriteGenerations[documentId] == null,
     )
-    .single();
-
-  if (insertError) {
+  ) {
     return NextResponse.json(
-      { error: "Report generation failed", message: insertError.message },
-      { status: 500 },
+      { error: "Report sources changed while generating the report" },
+      { status: 409 },
+    );
+  }
+
+  const { data, error: insertError } = await supabase.rpc(
+    "create_validated_report",
+    {
+      p_profile_id: profileId,
+      p_title: title,
+      p_report_type: report_type,
+      p_detail_level: detail_level,
+      p_requested_document_ids: storedDocumentIds,
+      p_actual_source_document_ids: actualSourceDocumentIds,
+      p_source_write_generations: sourceWriteGenerations,
+      p_abnormal_only: abnormal_only,
+      p_content: content,
+      p_summary_preview: summary_preview,
+    },
+  );
+  const report = Array.isArray(data) ? data[0] : data;
+
+  if (insertError || !report) {
+    return NextResponse.json(
+      {
+        error: "Report generation failed",
+        message: insertError?.message ?? "Report writer returned no row",
+      },
+      { status: 409 },
     );
   }
 
