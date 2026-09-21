@@ -1,6 +1,6 @@
 # EH-149: Biomarker Dynamics Report
 
-**Roadmap status:** Planned
+**Roadmap status:** In progress
 **Build / environment:** `________`
 **Test run date:** `________`
 **Tester:** `________`
@@ -35,13 +35,13 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 **Precondition:** The account has `EH149-COMPAT-01` and the Biomarkers page is available.
 
 1. Go to **Biomarkers**.
-2. Select the period containing the first and last boundary dates.
-3. Open the dynamics view.
+2. Select the period containing the first and last boundary dates (both **From** and **To**).
+3. Open the dynamics report section.
 
 **Expected result:** Points on both boundaries are included. Points outside the period do not affect statistics or direction. The selected period is visible.
 
 **Result:** `N/A`
-**Notes / evidence link:** `Implementation not started; execute after EH-149 delivery.`
+**Notes / evidence link:** `Execute after synthetic fixtures are loaded in the test environment.`
 
 ### EH149-UI-02: Review deterministic statistics
 
@@ -51,10 +51,10 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 2. Compare the displayed minimum, maximum, latest value, point count, and direction with the fixture.
 3. Read the direction label and disclaimer.
 
-**Expected result:** Statistics match the selected points. Direction uses only numeric movement wording (`increasing`, `decreasing`, `stable`, or unavailable) and never claims improvement, deterioration, treatment response, or diagnosis.
+**Expected result:** Statistics match the selected points. Direction uses only numeric movement wording (`Increasing (numeric)`, `Decreasing (numeric)`, `Stable (numeric)`, or `Not available`) and never claims improvement, deterioration, treatment response, or diagnosis.
 
 **Result:** `N/A`
-**Notes / evidence link:** `Implementation not started; execute after EH-149 delivery.`
+**Notes / evidence link:** `Execute after synthetic fixtures are loaded in the test environment.`
 
 ### EH149-UI-03: Keep incompatible evidence separate
 
@@ -67,33 +67,34 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 **Expected result:** Incompatible observations are not merged. The warning states why they are separate, and each series has independent statistics and provenance.
 
 **Result:** `N/A`
-**Notes / evidence link:** `Implementation not started; execute after EH-149 delivery.`
+**Notes / evidence link:** `Execute after synthetic fixtures are loaded in the test environment.`
 
 ### EH149-UI-04: Inspect native value, range, and source
 
 **Precondition:** `EH149-CONVERT-01` is loaded.
 
-1. Open a converted point.
+1. Open a converted point in the **Source ledger**.
 2. Inspect display and native values/units, reference range, observed date, and source document.
 3. Select `EH149-SINGLE-01` and inspect its direction state.
 
 **Expected result:** Native evidence and range remain visible beside any converted value. The one-point and qualitative cases show direction unavailable rather than fabricated numeric movement.
 
 **Result:** `N/A`
-**Notes / evidence link:** `Implementation not started; execute after EH-149 delivery.`
+**Notes / evidence link:** `Execute after synthetic fixtures are loaded in the test environment.`
 
 ## Developer evidence required
 
-- [ ] Focused read-model verification covers canonical `YYYY-MM-DD` UTC-calendar-date boundaries including a late end-date timestamp, invalid/reversed periods, empty/one-point series, equal-timestamp canonical observation-ID ordering, tolerance-based direction, non-numeric values, and explicit exclusion limitations/reasons. *(Evidence provider: EH-149 dynamics owner.)*
-- [ ] Identity fixtures prove specimen, modifier, method, scale, and non-convertible unit differences cannot merge and retain their warning reason. *(Evidence provider: EH-149 comparison/dynamics owner.)*
-- [ ] API verification proves the profile authorization boundary precedes the dynamics projection. *(Evidence provider: EH-149 API owner.)*
-- [ ] Export handoff evidence proves EH-153 consumes the frozen DTO and does not query raw observations independently. *(Evidence provider: EH-149 DTO owner; EH-153 export owner.)*
-- [ ] Report-binding evidence proves EH-149 hands the DTO and schema/policy/period metadata to EH-148, EH-148 persists it, and EH-153 reads it through the EH-148 resolver without client DTO or raw-observation substitution. *(Evidence provider: EH-149 DTO owner; EH-148 persistence/read-resolver owner; EH-153 export owner.)*
-- [ ] Scope-constrained evidence proves the selected report document UUIDs reach the comparison adapter and dynamics DTO, while another owned eligible document cannot appear in owner, share, or export output. *(Evidence provider: EH-149 comparison/dynamics owner; EH-148 report-scope/RPC owner; EH-151 public-read owner; EH-153 export owner.)*
-- [ ] Server-adapter evidence proves `/api/biomarkers/dynamics` uses the authenticated profile's `profile_current` scope, EH-148 uses the same adapter with exact `report_immutable` scope, and the client never computes dynamics or injects observations/source rows. *(Evidence provider: EH-149 server-adapter/API owner; EH-148 report handoff owner; EH-153 export owner.)*
+- [x] Focused read-model verification covers canonical `YYYY-MM-DD` UTC-calendar-date boundaries including a late end-date timestamp, invalid/reversed periods, empty/one-point series, equal-timestamp canonical observation-ID ordering, tolerance-based direction, non-numeric values, and explicit exclusion limitations/reasons. *(Evidence: `pnpm test:eh149` / `scripts/verify-eh149-biomarker-dynamics.ts`.)*
+- [x] Identity fixtures prove specimen, modifier, method, scale, and non-convertible unit differences cannot merge and retain their warning reason. *(Evidence: `pnpm test:eh149`.)*
+- [x] API verification proves the profile authorization boundary precedes the dynamics projection. *(Evidence: `src/app/api/biomarkers/dynamics/route.ts` uses session profile + `profile_current` only; static asserts in `pnpm test:eh149`.)*
+- [x] Export handoff evidence proves EH-153 can consume the frozen DTO without querying raw observations independently. *(Evidence: `FrozenBiomarkerDynamicsExtension` + `resolvePersistedBiomarkerDynamicsExtension` fail-closed reader in `src/lib/biomarker-dynamics.ts`; covered by `pnpm test:eh149`.)*
+- [x] Report-binding evidence proves EH-149 hands the DTO and schema/policy/period metadata to EH-148 persistence path, and missing/tampered metadata fails closed. *(Evidence: `getFrozenBiomarkerDynamicsForReport` + `POST /api/reports` stores `content.extensions.biomarker_dynamics` when `biomarker_dynamics_period` is supplied; fail-closed asserts in `pnpm test:eh149`. Full EH-148 `create_validated_report` RPC remains the long-term owner of structured persistence.)*
+- [x] Scope-constrained evidence proves the selected report document UUIDs reach the comparison adapter and dynamics DTO, while another owned eligible document cannot appear. *(Evidence: scope fixture in `pnpm test:eh149`.)*
+- [x] Server-adapter evidence proves `/api/biomarkers/dynamics` uses the authenticated profile's `profile_current` scope, EH-148 uses the same adapter with exact `report_immutable` scope, and the client never computes dynamics or injects observations/source rows. *(Evidence: adapters + page static asserts in `pnpm test:eh149`.)*
 
 ## Out of scope or not manually testable yet
 
 - Clinical interpretation rules and Registry changes are out of scope.
 - PDF/CSV rendering is covered by EH-153; sharing/privacy controls are covered by EH-151 and EH-154.
-- The checklist is planned; no row is evidence of an executed test until the implementation exists.
+- Manual UI rows remain `N/A` until synthetic fixtures are executed in a live environment.
+- Full EH-148 validated-report RPC / share-resolver cutover may still replace the interim `content.extensions.biomarker_dynamics` bridge.

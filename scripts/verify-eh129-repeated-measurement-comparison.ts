@@ -176,11 +176,15 @@ assert.match(apiRoute, /original_ref_low/);
 assert.match(apiRoute, /original_ref_high/);
 
 const page = readFileSync("src/app/app/biomarkers/biomarkers-page-client.tsx", "utf8");
-assert.match(page, /buildMeasurementComparisonSeries/);
-assert.match(page, /filterMeasurementComparisonSeries/);
+assert.match(page, /\/api\/biomarkers\/dynamics/);
 assert.match(page, /id="comparison-from"/);
 assert.match(page, /id="comparison-to"/);
 assert.match(page, /Clear range/);
+assert.doesNotMatch(
+  page,
+  /buildMeasurementComparisonSeries/,
+  "EH-149 page renders the server dynamics DTO instead of recomputing comparison series",
+);
 
 const comparison = readFileSync("src/lib/biomarker-comparison.ts", "utf8");
 assert.match(comparison, /`\/app\/documents\/\$\{documentId\}`/);

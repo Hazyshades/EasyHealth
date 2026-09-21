@@ -31,12 +31,12 @@ import {
   healthRouteLabel,
   readHealthNavigationContext,
 } from "@/lib/health-navigation";
-import {
-  buildMeasurementComparisonSeries,
-  filterMeasurementComparisonSeries,
-} from "@/lib/biomarker-comparison";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 import type { AssessmentExclusionReason } from "@/lib/health-profile-assessment-eligibility";
+import type {
+  BiomarkerDynamicsReport,
+  BiomarkerDynamicsSeries,
+} from "@/lib/biomarker-dynamics";
 
 type LabUnitSystem = "us" | "si";
 
@@ -90,6 +90,16 @@ const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
   { id: "high", label: "High" },
 ];
 
+const DIRECTION_LABELS: Record<
+  BiomarkerDynamicsSeries["direction"]["value"],
+  string
+> = {
+  increasing: "Increasing (numeric)",
+  decreasing: "Decreasing (numeric)",
+  stable: "Stable (numeric)",
+  not_available: "Not available",
+};
+
 function observationStatus(o: Observation): StatusFilter {
   if (!o.registry_binding_ready) return "mapping";
   if (o.value_kind && o.value_kind !== "numeric") return "normal";
@@ -115,6 +125,11 @@ function getReviewedMeasurementKey(
   return reviewedMeasurementKeys.includes(key) ? key : null;
 }
 
+function formatNumber(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return String(value);
+}
+
 export default function BiomarkersPage({
   reviewedMeasurementKeys,
 }: BiomarkersPageProps) {
@@ -134,6 +149,12 @@ export default function BiomarkersPage({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [labUnitSystem, setLabUnitSystem] = useState<LabUnitSystem>("si");
   const [savingUnits, setSavingUnits] = useState(false);
+  const [dynamics, setDynamics] = useState<BiomarkerDynamicsReport | null>(
+    null,
+  );
+  const [dynamicsError, setDynamicsError] = useState<string | null>(null);
+  const [dynamicsLoading, setDynamicsLoading] = useState(false);
+  const [expandedPointId, setExpandedPointId] = useState<string | null>(null);
 
   useEffect(() => {
     const requested = navigationContext.measurement;
@@ -166,8 +187,6 @@ export default function BiomarkersPage({
               requestedMeasurement,
               reviewedMeasurementKeys,
             );
-            // Related catalog links may target a reviewed definition with no
-            // saved observation; keep that context for the educational graph.
             if (requested) return requested;
             if (requestedMeasurement) return "";
             if (
@@ -273,6 +292,51 @@ export default function BiomarkersPage({
     selectedObservationId,
   ]);
 
+  // Fetch server-authorized dynamics DTO — never compute statistics in the browser.
+  useEffect(() => {
+    let cancelled = false;
+    const params = new URLSearchParams();
+    // Inclusive period requires both canonical dates; otherwise request all dated points.
+    if (comparisonFrom && comparisonTo) {
+      params.set("start", comparisonFrom);
+      params.set("end", comparisonTo);
+    }
+    const query = params.toString();
+
+    setDynamicsLoading(true);
+    setDynamicsError(null);
+    void fetch(`/api/biomarkers/dynamics${query ? `?${query}` : ""}`)
+      .then(async (response) => {
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(
+            typeof body.error === "string"
+              ? body.error
+              : "Failed to load dynamics",
+          );
+        }
+        return body as BiomarkerDynamicsReport;
+      })
+      .then((report) => {
+        if (cancelled) return;
+        setDynamics(report);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setDynamics(null);
+        setDynamicsError(
+          error instanceof Error ? error.message : "Failed to load dynamics",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setDynamicsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [comparisonFrom, comparisonTo, labUnitSystem, observations]);
+
   async function setUnitSystem(next: LabUnitSystem) {
     if (next === labUnitSystem) return;
     setSavingUnits(true);
@@ -310,46 +374,32 @@ export default function BiomarkersPage({
     });
   }, [observations, search, statusFilter]);
 
-  const comparisonSeries = useMemo(
-    () => buildMeasurementComparisonSeries(observations),
-    [observations],
-  );
+  const dynamicsSeries = dynamics?.series ?? [];
 
   useEffect(() => {
     setSelectedSeriesId((current) => {
       const requested = navigationContext.measurement;
       const requestedSeries = requested
-        ? comparisonSeries.find(
+        ? dynamicsSeries.find(
             (series) => series.measurementDefinitionKey === requested,
           )
         : undefined;
       if (requestedSeries) return requestedSeries.id;
-      if (comparisonSeries.some((series) => series.id === current)) {
+      if (dynamicsSeries.some((series) => series.id === current)) {
         return current;
       }
       const currentDefinitionKey = current.split("::", 1)[0];
       return (
-        comparisonSeries.find(
+        dynamicsSeries.find(
           (series) => series.measurementDefinitionKey === currentDefinitionKey,
         )?.id ??
-        comparisonSeries[0]?.id ??
+        dynamicsSeries[0]?.id ??
         ""
       );
     });
-  }, [comparisonSeries, navigationContext.measurement]);
+  }, [dynamicsSeries, navigationContext.measurement]);
 
-  const selectedSeries = comparisonSeries.find(
-    (series) => series.id === selectedSeriesId,
-  );
-  const filteredComparisonSeries = useMemo(
-    () =>
-      filterMeasurementComparisonSeries(comparisonSeries, {
-        from: comparisonFrom || null,
-        to: comparisonTo || null,
-      }),
-    [comparisonFrom, comparisonTo, comparisonSeries],
-  );
-  const selectedFilteredSeries = filteredComparisonSeries.find(
+  const selectedSeries = dynamicsSeries.find(
     (series) => series.id === selectedSeriesId,
   );
   const biomarkerContextPath = buildHealthNavigationPath("/app/biomarkers", {
@@ -358,40 +408,33 @@ export default function BiomarkersPage({
     observation: selectedObservationId || null,
     returnTo: navigationContext.returnTo,
   });
-  const selectedPoints = selectedFilteredSeries?.points ?? [];
+  const selectedPoints = selectedSeries?.points ?? [];
   const chartData = selectedPoints.map((point) => ({
     observed_at: point.observedAt,
-    value: point.displayValue,
+    value: point.displayValue ?? 0,
   }));
   const chartPoints: BiomarkerChartPoint[] = selectedPoints.map((point) => {
-    const observation = observations.find((item) => item.id === point.id);
-    const sourceHref = observation?.documents?.id
-      ? buildHealthNavigationPath(
-          `/app/documents/${observation.documents.id}`,
-          {
-            system: navigationContext.system,
-            measurement:
-              selectedSeries?.measurementDefinitionKey ?? selectedKey,
-            observation: point.id,
-            returnTo: biomarkerContextPath,
-          },
-        )
+    const sourceHref = point.source?.documentId
+      ? buildHealthNavigationPath(`/app/documents/${point.source.documentId}`, {
+          system: navigationContext.system,
+          measurement:
+            selectedSeries?.measurementDefinitionKey ?? selectedKey,
+          observation: point.id,
+          returnTo: biomarkerContextPath,
+        })
       : (point.source?.href ?? null);
     return {
       id: point.id,
       observed_at: point.observedAt,
-      value: point.displayValue,
+      value: point.displayValue ?? 0,
       unit: point.displayUnit,
-      native_value: point.nativeValue,
+      native_value: point.nativeValue ?? point.displayValue ?? 0,
       native_unit: point.nativeUnit,
       native_ref_low: point.nativeReferenceLow,
       native_ref_high: point.nativeReferenceHigh,
       laboratory: point.source?.laboratory ?? null,
       sourceHref,
-      sourceLabel:
-        observation?.documents?.original_filename ??
-        point.source?.filename ??
-        null,
+      sourceLabel: point.source?.filename ?? null,
       source: point.source
         ? { ...point.source, href: sourceHref ?? point.source.href }
         : null,
@@ -476,9 +519,9 @@ export default function BiomarkersPage({
       <SurfaceCard padding="lg" className="mt-8">
         <div className="mb-4 flex flex-wrap items-center gap-4">
           <span className="text-sm font-semibold text-[var(--eh-text-primary)]">
-            Repeated measurement comparison
+            Biomarker dynamics report
           </span>
-          {comparisonSeries.length > 0 ? (
+          {dynamicsSeries.length > 0 ? (
             <Select
               value={selectedSeriesId}
               onValueChange={setSelectedSeriesId}
@@ -487,7 +530,7 @@ export default function BiomarkersPage({
                 <SelectValue placeholder="Select measurement series" />
               </SelectTrigger>
               <SelectContent>
-                {comparisonSeries.map((series) => (
+                {dynamicsSeries.map((series) => (
                   <SelectItem key={series.id} value={series.id}>
                     {series.label}
                   </SelectItem>
@@ -497,103 +540,271 @@ export default function BiomarkersPage({
           ) : null}
         </div>
 
-        {comparisonSeries.length === 0 ? (
+        <div className="mb-4 flex flex-wrap items-end gap-3">
+          <div>
+            <label
+              className="mb-1.5 block text-xs font-medium text-[var(--eh-text-secondary)]"
+              htmlFor="comparison-from"
+            >
+              From
+            </label>
+            <div className="relative">
+              <CalendarDays
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--eh-text-muted)]"
+                aria-hidden
+              />
+              <input
+                id="comparison-from"
+                type="date"
+                value={comparisonFrom}
+                onChange={(event) => setComparisonFrom(event.target.value)}
+                className="h-10 rounded-xl border border-[var(--eh-border)] bg-white py-2 pl-9 pr-3 text-sm text-[var(--eh-text-primary)] outline-none transition focus:border-[var(--eh-brand)] focus:ring-2 focus:ring-[var(--eh-brand)]/20"
+                aria-label="Dynamics period start date"
+              />
+            </div>
+          </div>
+          <div>
+            <label
+              className="mb-1.5 block text-xs font-medium text-[var(--eh-text-secondary)]"
+              htmlFor="comparison-to"
+            >
+              To
+            </label>
+            <div className="relative">
+              <CalendarDays
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--eh-text-muted)]"
+                aria-hidden
+              />
+              <input
+                id="comparison-to"
+                type="date"
+                value={comparisonTo}
+                onChange={(event) => setComparisonTo(event.target.value)}
+                className="h-10 rounded-xl border border-[var(--eh-border)] bg-white py-2 pl-9 pr-3 text-sm text-[var(--eh-text-primary)] outline-none transition focus:border-[var(--eh-brand)] focus:ring-2 focus:ring-[var(--eh-brand)]/20"
+                aria-label="Dynamics period end date"
+              />
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={clearComparisonRange}
+            disabled={!hasActiveComparisonRange}
+            className="h-10 rounded-xl"
+          >
+            <SlidersHorizontal className="size-4" aria-hidden />
+            Clear range
+          </Button>
+        </div>
+
+        {dynamics?.period ? (
+          <p className="mb-3 text-xs text-[var(--eh-text-secondary)]">
+            Selected period: {dynamics.period.start} → {dynamics.period.end}{" "}
+            (inclusive UTC calendar dates)
+          </p>
+        ) : null}
+
+        {dynamicsError ? (
+          <p className="mb-4 text-sm text-red-700" role="alert">
+            {dynamicsError}
+          </p>
+        ) : null}
+
+        {dynamicsLoading && !dynamics ? (
+          <p className="text-sm text-[var(--eh-text-secondary)]">
+            Loading dynamics…
+          </p>
+        ) : null}
+
+        {(dynamics?.incompatibilities.length ?? 0) > 0 ? (
+          <div
+            className="mb-4 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-950"
+            role="status"
+          >
+            <p className="font-medium">Incompatible series kept separate</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5">
+              {dynamics!.incompatibilities.map((item, index) => (
+                <li key={`${item.groupingReason}-${index}`}>
+                  {item.groupingReason}. Affected:{" "}
+                  {item.affectedSeriesLabels.join("; ")}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {!dynamics || dynamicsSeries.length === 0 ? (
           <p className="text-sm text-[var(--eh-text-secondary)]">
             No resolved numeric measurement definitions are available for
-            comparison yet.
+            dynamics yet.
           </p>
+        ) : !selectedSeries ? (
+          <SurfaceCard padding="lg" className="border-dashed text-center">
+            <p className="text-sm text-[var(--eh-text-secondary)]">
+              No measurements match the selected date range.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={clearComparisonRange}
+              className="mt-4 rounded-xl"
+            >
+              Clear range
+            </Button>
+          </SurfaceCard>
         ) : (
           <>
-            <div className="mb-4 flex flex-wrap items-end gap-3">
-              <div>
-                <label
-                  className="mb-1.5 block text-xs font-medium text-[var(--eh-text-secondary)]"
-                  htmlFor="comparison-from"
-                >
-                  From
-                </label>
-                <div className="relative">
-                  <CalendarDays
-                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--eh-text-muted)]"
-                    aria-hidden
-                  />
-                  <input
-                    id="comparison-from"
-                    type="date"
-                    value={comparisonFrom}
-                    onChange={(event) => setComparisonFrom(event.target.value)}
-                    className="h-10 rounded-xl border border-[var(--eh-border)] bg-white py-2 pl-9 pr-3 text-sm text-[var(--eh-text-primary)] outline-none transition focus:border-[var(--eh-brand)] focus:ring-2 focus:ring-[var(--eh-brand)]/20"
-                    aria-label="Comparison start date"
-                  />
-                </div>
+            <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="rounded-xl border border-[var(--eh-border)] px-3 py-2">
+                <p className="text-[11px] uppercase tracking-wide text-[var(--eh-text-muted)]">
+                  Points
+                </p>
+                <p className="text-sm font-semibold text-[var(--eh-text-primary)]">
+                  {selectedSeries.statistics.pointCount}
+                </p>
               </div>
-              <div>
-                <label
-                  className="mb-1.5 block text-xs font-medium text-[var(--eh-text-secondary)]"
-                  htmlFor="comparison-to"
-                >
-                  To
-                </label>
-                <div className="relative">
-                  <CalendarDays
-                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--eh-text-muted)]"
-                    aria-hidden
-                  />
-                  <input
-                    id="comparison-to"
-                    type="date"
-                    value={comparisonTo}
-                    onChange={(event) => setComparisonTo(event.target.value)}
-                    className="h-10 rounded-xl border border-[var(--eh-border)] bg-white py-2 pl-9 pr-3 text-sm text-[var(--eh-text-primary)] outline-none transition focus:border-[var(--eh-brand)] focus:ring-2 focus:ring-[var(--eh-brand)]/20"
-                    aria-label="Comparison end date"
-                  />
-                </div>
+              <div className="rounded-xl border border-[var(--eh-border)] px-3 py-2">
+                <p className="text-[11px] uppercase tracking-wide text-[var(--eh-text-muted)]">
+                  Min
+                </p>
+                <p className="text-sm font-semibold text-[var(--eh-text-primary)]">
+                  {formatNumber(selectedSeries.statistics.min)}
+                  {selectedSeries.statistics.displayUnit
+                    ? ` ${selectedSeries.statistics.displayUnit}`
+                    : ""}
+                </p>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={clearComparisonRange}
-                disabled={!hasActiveComparisonRange}
-                className="h-10 rounded-xl"
-              >
-                <SlidersHorizontal className="size-4" aria-hidden />
-                Clear range
-              </Button>
+              <div className="rounded-xl border border-[var(--eh-border)] px-3 py-2">
+                <p className="text-[11px] uppercase tracking-wide text-[var(--eh-text-muted)]">
+                  Max
+                </p>
+                <p className="text-sm font-semibold text-[var(--eh-text-primary)]">
+                  {formatNumber(selectedSeries.statistics.max)}
+                  {selectedSeries.statistics.displayUnit
+                    ? ` ${selectedSeries.statistics.displayUnit}`
+                    : ""}
+                </p>
+              </div>
+              <div className="rounded-xl border border-[var(--eh-border)] px-3 py-2">
+                <p className="text-[11px] uppercase tracking-wide text-[var(--eh-text-muted)]">
+                  Latest
+                </p>
+                <p className="text-sm font-semibold text-[var(--eh-text-primary)]">
+                  {formatNumber(selectedSeries.statistics.latest?.displayValue)}
+                  {selectedSeries.statistics.displayUnit
+                    ? ` ${selectedSeries.statistics.displayUnit}`
+                    : ""}
+                </p>
+              </div>
+              <div className="rounded-xl border border-[var(--eh-border)] px-3 py-2">
+                <p className="text-[11px] uppercase tracking-wide text-[var(--eh-text-muted)]">
+                  Direction
+                </p>
+                <p className="text-sm font-semibold text-[var(--eh-text-primary)]">
+                  {DIRECTION_LABELS[selectedSeries.direction.value]}
+                </p>
+                {selectedSeries.direction.limitation ? (
+                  <p className="mt-1 text-[11px] leading-4 text-[var(--eh-text-muted)]">
+                    {selectedSeries.direction.limitation.message}
+                  </p>
+                ) : null}
+              </div>
             </div>
 
             <p className="mb-4 text-xs leading-5 text-[var(--eh-text-muted)]">
-              {selectedSeries?.normalized
-                ? `Values are normalized to ${selectedSeries.unit ?? "the reviewed display unit"} by the server's reviewed conversion binding. Each point retains its laboratory value and range.`
-                : `Values are shown in ${selectedSeries?.unit ?? "their native units"}. Unit variants without a reviewed conversion remain separate series.`}
+              {selectedSeries.points.some(
+                (point) => point.conversionMetadata?.converted,
+              )
+                ? `Values are shown in ${selectedSeries.unit ?? "the reviewed display unit"}. Each point retains its laboratory-native value and range.`
+                : `Values are shown in ${selectedSeries.unit ?? "their native units"}. Unit variants without a reviewed conversion remain separate series.`}
             </p>
 
-            {!selectedFilteredSeries ? (
-              <SurfaceCard padding="lg" className="border-dashed text-center">
-                <p className="text-sm text-[var(--eh-text-secondary)]">
-                  No measurements match the selected date range.
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={clearComparisonRange}
-                  className="mt-4 rounded-xl"
-                >
-                  Clear range
-                </Button>
-              </SurfaceCard>
-            ) : (
-              <BiomarkerChart
-                data={chartData}
-                points={chartPoints}
-                biomarkerName={selectedSeries?.label ?? "Measurement"}
-                selectedObservationId={selectedObservationId}
-              />
-            )}
+            <BiomarkerChart
+              data={chartData}
+              points={chartPoints}
+              biomarkerName={selectedSeries.label}
+              selectedObservationId={selectedObservationId}
+            />
+
+            <div className="mt-6">
+              <p className="mb-2 text-xs font-medium text-[var(--eh-text-secondary)]">
+                Source ledger
+              </p>
+              <ul className="space-y-2">
+                {selectedPoints.map((point) => {
+                  const open = expandedPointId === point.id;
+                  return (
+                    <li
+                      key={point.id}
+                      className="rounded-xl border border-[var(--eh-border)] px-3 py-2 text-sm"
+                    >
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between gap-3 text-left"
+                        onClick={() =>
+                          setExpandedPointId(open ? null : point.id)
+                        }
+                        aria-expanded={open}
+                      >
+                        <span>
+                          {point.observedAt.slice(0, 10)} ·{" "}
+                          {formatNumber(point.displayValue)}
+                          {point.displayUnit ? ` ${point.displayUnit}` : ""}
+                        </span>
+                        <span className="text-xs text-[var(--eh-text-muted)]">
+                          {open ? "Hide" : "Source"}
+                        </span>
+                      </button>
+                      {open ? (
+                        <div className="mt-2 space-y-1 text-xs leading-5 text-[var(--eh-text-secondary)]">
+                          <p>
+                            Native: {formatNumber(point.nativeValue)}
+                            {point.nativeUnit ? ` ${point.nativeUnit}` : ""}
+                            {point.nativeReferenceLow != null ||
+                            point.nativeReferenceHigh != null
+                              ? ` · range ${formatNumber(point.nativeReferenceLow)}–${formatNumber(point.nativeReferenceHigh)}`
+                              : ""}
+                          </p>
+                          {point.conversionMetadata?.converted ? (
+                            <p>
+                              Converted from{" "}
+                              {formatNumber(
+                                point.conversionMetadata.originalValue,
+                              )}
+                              {point.conversionMetadata.originalUnit
+                                ? ` ${point.conversionMetadata.originalUnit}`
+                                : ""}
+                            </p>
+                          ) : null}
+                          {point.source ? (
+                            <p>
+                              Source:{" "}
+                              <a
+                                href={point.source.href}
+                                className="text-[var(--eh-brand)] underline-offset-2 hover:underline"
+                              >
+                                {point.source.filename}
+                              </a>
+                              {point.source.laboratory
+                                ? ` · ${point.source.laboratory}`
+                                : ""}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           </>
         )}
       </SurfaceCard>
 
       <p className="mt-6 text-xs text-[var(--eh-text-muted)]">
+        {dynamics?.disclaimer ?? MEDICAL_DISCLAIMER}
+      </p>
+      <p className="mt-2 text-xs text-[var(--eh-text-muted)]">
         {MEDICAL_DISCLAIMER}
       </p>
     </div>
