@@ -198,6 +198,8 @@ jobs:
         run: pnpm test:eh128
       - name: Verify EH-129 repeated measurement comparison
         run: pnpm test:eh129
+      - name: Verify EH-149 biomarker dynamics report
+        run: pnpm test:eh149
       - name: Verify EH-130 duplicate-document contracts
         run: pnpm test:eh130
       - name: Verify EH-131 health navigation
