@@ -54,7 +54,21 @@ mvp_steps.md
 mvp_steps.md
 hachakton.md
 
-.cursor/
+# Keep local Cursor state untracked, but version shared OpenSpec skills.
+!.cursor/
+.cursor/*
+!.cursor/skills/
+.cursor/skills/*
+!.cursor/skills/openspec-apply-change/
+!.cursor/skills/openspec-apply-change/**
+!.cursor/skills/openspec-archive-change/
+!.cursor/skills/openspec-archive-change/**
+!.cursor/skills/openspec-explore/
+!.cursor/skills/openspec-explore/**
+!.cursor/skills/openspec-propose/
+!.cursor/skills/openspec-propose/**
+!.cursor/skills/openspec-sync-specs/
+!.cursor/skills/openspec-sync-specs/**
 /worker/.env
 /worker/node_modules    
 
