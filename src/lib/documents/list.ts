@@ -68,6 +68,8 @@ export async function listDocumentsForProfile(
     .from("documents")
     .select(DOCUMENT_LIST_SELECT)
     .eq("profile_id", profileId)
+    .eq("lifecycle_state", "active")
+    .eq("upload_state", "complete")
     .is("archived_at", null)
     .order("created_at", { ascending: false });
 
@@ -95,7 +97,10 @@ export async function listDocumentsForProfile(
   const rows = (documents ?? []) as DocumentListRow[];
   const thumbUrls = await mapPool(rows, THUMB_SIGN_CONCURRENCY, async (doc) => {
     if (!doc.thumbnail_storage_path) {
-      return { thumbnail_url: null as string | null, thumbnail_expires_in: null as number | null };
+      return {
+        thumbnail_url: null as string | null,
+        thumbnail_expires_in: null as number | null,
+      };
     }
     try {
       const signed = await createSignedStorageUrl(doc.thumbnail_storage_path);
@@ -118,7 +123,9 @@ export async function listDocumentsForProfile(
       processing_status: resolveDisplayProcessingStatus(
         doc as Parameters<typeof resolveDisplayProcessingStatus>[0],
       ),
-      is_legacy: isLegacyDocument(doc as Parameters<typeof isLegacyDocument>[0]),
+      is_legacy: isLegacyDocument(
+        doc as Parameters<typeof isLegacyDocument>[0],
+      ),
       has_thumbnail: Boolean(doc.thumbnail_storage_path),
       thumbnail_url: thumbUrls[i]?.thumbnail_url ?? null,
       thumbnail_expires_in: thumbUrls[i]?.thumbnail_expires_in ?? null,

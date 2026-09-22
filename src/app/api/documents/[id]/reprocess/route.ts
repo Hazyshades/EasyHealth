@@ -36,7 +36,10 @@ export async function POST(req: Request, context: RouteContext) {
         type_mismatch_reason: null,
         detected_document_type: null,
       })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("profile_id", profileId)
+      .eq("lifecycle_state", "active")
+      .eq("upload_state", "complete");
   } else {
     await supabase
       .from("documents")
@@ -44,7 +47,10 @@ export async function POST(req: Request, context: RouteContext) {
         type_mismatch_warning: false,
         type_mismatch_reason: null,
       })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("profile_id", profileId)
+      .eq("lifecycle_state", "active")
+      .eq("upload_state", "complete");
   }
 
   await enqueueFullPipelineJob(profileId, id);

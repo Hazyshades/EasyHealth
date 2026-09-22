@@ -9,6 +9,7 @@ import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 import type { HolisticSynthesis } from "@/lib/health-systems";
 import {
   buildDocumentStructuredContext,
+  getDocumentWriteGenerations,
   hashStructuredContext,
   hasStructuredContent,
   type DocumentStructuredContext,
@@ -31,7 +32,7 @@ export async function generateHolisticSynthesisText(
     provider: import("@/lib/ai-provider").AiProviderId;
     modelId: string;
     supabase: ReturnType<typeof createAdminClient>;
-  }
+  },
 ): Promise<string> {
   const userContent = `Synthesize these records:\n${JSON.stringify(
     {
@@ -44,7 +45,7 @@ export async function generateHolisticSynthesisText(
       document_summaries: context.document_summaries,
     },
     null,
-    2
+    2,
   )}`;
 
   if (options) {
@@ -78,14 +79,16 @@ export async function generateHolisticSynthesisText(
 }
 
 export async function forceRegenerateHolisticSynthesis(
-  profileId: string
+  profileId: string,
 ): Promise<HolisticSynthesis | null> {
   const context = await buildDocumentStructuredContext(profileId);
   if (!hasStructuredContent(context)) return null;
 
   const inputHash = hashStructuredContext(context);
   const supabase = createAdminClient();
-  const profile = await (await import("@/lib/auth/profile")).getProfileById(profileId);
+  const profile = await (
+    await import("@/lib/auth/profile")
+  ).getProfileById(profileId);
   const provider = profile.ai_provider;
   const model = await resolveModelForProfileStage(profileId, "synthesis");
   const modelId = modelIdForStage(provider, "synthesis");
@@ -96,39 +99,34 @@ export async function forceRegenerateHolisticSynthesis(
     supabase,
   });
   const generatedAt = new Date().toISOString();
+  const sourceWriteGenerations = await getDocumentWriteGenerations(
+    profileId,
+    context.source_document_ids,
+  );
+  if (
+    context.source_document_ids.some(
+      (documentId) => sourceWriteGenerations[documentId] == null,
+    )
+  ) {
+    throw new Error("synthesis_source_changed");
+  }
 
-  const { data: inserted, error: insertError } = await supabase
-    .from("profile_health_synthesis")
-    .insert({
-      profile_id: profileId,
-      synthesis_text: synthesisText,
-      source_document_ids: context.source_document_ids,
-      input_hash: inputHash,
-      model: modelId,
-      generated_at: generatedAt,
-    })
-    .select("id")
-    .maybeSingle();
-  if (insertError) throw new Error(insertError.message);
-  const synthesisId = inserted?.id ?? (
-    await supabase
-      .from("profile_health_synthesis")
-      .select("id")
-      .eq("profile_id", profileId)
-      .eq("input_hash", inputHash)
-      .single()
-  ).data?.id;
-  if (!synthesisId) throw new Error("synthesis_version_write_failed");
-  const { error: stateError } = await supabase
-    .from("profile_health_synthesis_state")
-    .upsert({
-      profile_id: profileId,
-      current_synthesis_id: synthesisId,
-      stale: false,
-      invalidated_at: null,
-      updated_at: generatedAt,
-    });
-  if (stateError) throw new Error(stateError.message);
+  const { data, error: persistError } = await supabase.rpc(
+    "persist_profile_health_synthesis",
+    {
+      p_profile_id: profileId,
+      p_source_document_ids: context.source_document_ids,
+      p_source_write_generations: sourceWriteGenerations,
+      p_input_hash: inputHash,
+      p_model: modelId,
+      p_synthesis_text: synthesisText,
+      p_generated_at: generatedAt,
+    },
+  );
+  const persisted = Array.isArray(data) ? data[0] : data;
+  if (persistError || !persisted) {
+    throw new Error(persistError?.message ?? "synthesis_version_write_failed");
+  }
 
   return {
     text: synthesisText,
@@ -139,19 +137,24 @@ export async function forceRegenerateHolisticSynthesis(
 }
 
 export async function getLatestHolisticSynthesis(
-  profileId: string
+  profileId: string,
 ): Promise<{ synthesis: HolisticSynthesis | null; stale: boolean }> {
   const supabase = createAdminClient();
   const { data: state, error: stateError } = await supabase
     .from("profile_health_synthesis_state")
-    .select("stale, profile_health_synthesis(id, synthesis_text, source_document_ids, generated_at)")
+    .select(
+      "stale, profile_health_synthesis(id, synthesis_text, source_document_ids, generated_at)",
+    )
     .eq("profile_id", profileId)
     .maybeSingle();
   if (stateError) throw new Error(stateError.message);
   const version = Array.isArray(state?.profile_health_synthesis)
     ? state.profile_health_synthesis[0]
     : state?.profile_health_synthesis;
-  if (!version?.synthesis_text) return { synthesis: null, stale: Boolean(state?.stale) };
+  const stale = Boolean(state?.stale);
+  if (stale || !version?.synthesis_text) {
+    return { synthesis: null, stale };
+  }
   return {
     synthesis: {
       text: version.synthesis_text,
@@ -159,6 +162,6 @@ export async function getLatestHolisticSynthesis(
       source_document_ids: version.source_document_ids ?? [],
       disclaimer: MEDICAL_DISCLAIMER,
     },
-    stale: Boolean(state?.stale),
+    stale,
   };
 }

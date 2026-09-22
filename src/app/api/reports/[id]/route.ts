@@ -16,10 +16,11 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
   const { data: report, error } = await supabase
     .from("reports")
     .select(
-      "id, title, report_type, detail_level, document_ids, abnormal_only, content, summary_preview, created_at"
+      "id, title, report_type, detail_level, document_ids, actual_source_document_ids, abnormal_only, content, summary_preview, created_at",
     )
     .eq("id", id)
     .eq("profile_id", profileId)
+    .is("invalidated_at", null)
     .maybeSingle();
 
   if (error) {
@@ -32,7 +33,6 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
 
   return NextResponse.json({ report });
 }
-
 export async function DELETE(_req: NextRequest, { params }: RouteParams) {
   const profileId = await getSessionProfileId();
   if (!profileId) {
@@ -40,23 +40,17 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
   }
 
   const { id } = await params;
-  const supabase = createAdminClient();
-
-  const { data: existing } = await supabase
-    .from("reports")
-    .select("id")
-    .eq("id", id)
-    .eq("profile_id", profileId)
-    .maybeSingle();
-
-  if (!existing) {
-    return NextResponse.json({ error: "Report not found" }, { status: 404 });
-  }
-
-  const { error } = await supabase.from("reports").delete().eq("id", id);
+  const { error } = await createAdminClient().rpc("delete_owner_report", {
+    p_profile_id: profileId,
+    p_report_id: id,
+  });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const notFound = error.message.includes("report_not_found");
+    return NextResponse.json(
+      { error: notFound ? "Report not found" : "Report deletion unavailable" },
+      { status: notFound ? 404 : 409 },
+    );
   }
 
   return new NextResponse(null, { status: 204 });

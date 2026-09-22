@@ -18,7 +18,7 @@ import {
 } from "@/lib/timeline";
 
 const DOCUMENT_SELECT =
-  "id, original_filename, document_type, lab_name, observed_at, created_at, status, processing_status, error_message, processing_error, document_summary, modality";
+  "id, original_filename, document_type, lab_name, observed_at, created_at, status, processing_status, error_message, processing_error, document_summary, modality, lifecycle_state, upload_state";
 const OBSERVATION_SELECT =
   "id, document_id, observation_kind, name, value, value_text, value_kind, unit, observed_at, source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(record_status, is_current)";
 const TIMELINE_DOCUMENT_PAGE_SIZE = 500;
@@ -31,7 +31,8 @@ function isHealthTimelinePageRequest(request: NextRequest): boolean {
 
 async function getHealthTimelinePage(request: NextRequest) {
   const profileId = await getSessionProfileId();
-  if (!profileId) return noStoreJson({ error: "Unauthorized" }, { status: 401 });
+  if (!profileId)
+    return noStoreJson({ error: "Unauthorized" }, { status: 401 });
 
   const parsedQuery = parseTimelineQuery(request.nextUrl.searchParams);
   if ("error" in parsedQuery) {
@@ -44,28 +45,30 @@ async function getHealthTimelinePage(request: NextRequest) {
   try {
     profile = await getProfileById(profileId);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load profile";
+    const message =
+      error instanceof Error ? error.message : "Failed to load profile";
     return noStoreJson({ error: message }, { status: 500 });
   }
 
   let rows: TimelineDocumentRow[];
   try {
-    rows = await collectTimelinePages(
-      async (offset, limit) => {
-        const { data, error } = await supabase
-          .from("documents")
-          .select(DOCUMENT_SELECT)
-          .eq("profile_id", profileId)
-          .is("archived_at", null)
-          .order("created_at", { ascending: false })
-          .range(offset, offset + limit - 1);
-        if (error) throw new Error(error.message);
-        return (data ?? []) as TimelineDocumentRow[];
-      },
-      TIMELINE_DOCUMENT_PAGE_SIZE,
-    );
+    rows = await collectTimelinePages(async (offset, limit) => {
+      const { data, error } = await supabase
+        .from("documents")
+        .select(DOCUMENT_SELECT)
+        .eq("profile_id", profileId)
+        .eq("lifecycle_state", "active")
+        .eq("upload_state", "complete")
+        .is("archived_at", null)
+        .range(offset, offset + limit - 1);
+      if (error) throw new Error(error.message);
+      return (data ?? []) as TimelineDocumentRow[];
+    }, TIMELINE_DOCUMENT_PAGE_SIZE);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load timeline documents";
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Failed to load timeline documents";
     return noStoreJson({ error: message }, { status: 500 });
   }
   const emptyResult = Promise.resolve({ data: [], error: null });
@@ -79,7 +82,9 @@ async function getHealthTimelinePage(request: NextRequest) {
   const findingsResult = rows.length
     ? supabase
         .from("document_extracted_findings")
-        .select("id, document_id, modality, body_region, finding_text, impression, source_page")
+        .select(
+          "id, document_id, modality, body_region, finding_text, impression, source_page",
+        )
         .eq("profile_id", profileId)
         .eq("status", "accepted")
     : emptyResult;
@@ -129,7 +134,9 @@ async function getHealthTimelinePage(request: NextRequest) {
     prescriptionsResponse,
     referralsResponse,
   ];
-  const relatedError = relatedResponses.find((response) => response.error)?.error;
+  const relatedError = relatedResponses.find(
+    (response) => response.error,
+  )?.error;
   if (relatedError) {
     return noStoreJson({ error: relatedError.message }, { status: 500 });
   }
@@ -138,8 +145,10 @@ async function getHealthTimelinePage(request: NextRequest) {
     documents: rows,
     observations: (observationsResponse.data ?? []) as TimelineObservationRow[],
     findings: (findingsResponse.data ?? []) as TimelineInstrumentalFindingRow[],
-    clinicalNotes: (clinicalNotesResponse.data ?? []) as TimelineClinicalNoteRow[],
-    prescriptions: (prescriptionsResponse.data ?? []) as TimelinePrescriptionRow[],
+    clinicalNotes: (clinicalNotesResponse.data ??
+      []) as TimelineClinicalNoteRow[],
+    prescriptions: (prescriptionsResponse.data ??
+      []) as TimelinePrescriptionRow[],
     referrals: (referralsResponse.data ?? []) as TimelineReferralRow[],
   });
   const filtered = filterTimelineEvents(events, query);
@@ -208,7 +217,11 @@ type TimelineRow = {
   observations: TimelineObservation[];
 };
 
-function boundedInteger(value: string | null, fallback: number, maximum: number): number {
+function boundedInteger(
+  value: string | null,
+  fallback: number,
+  maximum: number,
+): number {
   if (value === null || !/^\d+$/.test(value)) return fallback;
   return Math.min(Number.parseInt(value, 10), maximum);
 }
@@ -223,15 +236,26 @@ async function getNormalizedTimeline(request: NextRequest) {
 
   const directionParam = request.nextUrl.searchParams.get("direction") ?? "asc";
   if (directionParam !== "asc" && directionParam !== "desc") {
-    return NextResponse.json({ error: "Invalid timeline direction" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid timeline direction" },
+      { status: 400 },
+    );
   }
   const direction: TimelineDirection = directionParam;
   const ascending = direction === "asc";
   const limit = Math.max(
     1,
-    boundedInteger(request.nextUrl.searchParams.get("limit"), DEFAULT_LIMIT, MAX_LIMIT),
+    boundedInteger(
+      request.nextUrl.searchParams.get("limit"),
+      DEFAULT_LIMIT,
+      MAX_LIMIT,
+    ),
   );
-  const offset = boundedInteger(request.nextUrl.searchParams.get("offset"), 0, Number.MAX_SAFE_INTEGER);
+  const offset = boundedInteger(
+    request.nextUrl.searchParams.get("offset"),
+    0,
+    Number.MAX_SAFE_INTEGER,
+  );
   const supabase = createAdminClient();
 
   const { data, error } = await supabase
@@ -255,7 +279,9 @@ async function getNormalizedTimeline(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const rows = (data ?? []) as Array<Omit<TimelineRow, "dates" | "observations">>;
+  const rows = (data ?? []) as Array<
+    Omit<TimelineRow, "dates" | "observations">
+  >;
   const eventIds = rows.map((row) => row.event_id);
   const datesByEvent = new Map<string, TimelineDate[]>();
   const observationsByEvent = new Map<string, TimelineObservation[]>();
@@ -273,21 +299,30 @@ async function getNormalizedTimeline(request: NextRequest) {
         .order("id", { ascending: true }),
       supabase
         .from("medical_event_dates")
-        .select("medical_event_id, date_role, precision, value_text, raw_text, timezone")
+        .select(
+          "medical_event_id, date_role, precision, value_text, raw_text, timezone",
+        )
         .in("medical_event_id", eventIds)
         .order("medical_event_id", { ascending: true })
         .order("date_role", { ascending: true }),
     ]);
 
     if (observations.error) {
-      return NextResponse.json({ error: observations.error.message }, { status: 500 });
+      return NextResponse.json(
+        { error: observations.error.message },
+        { status: 500 },
+      );
     }
     if (eventDates.error) {
-      return NextResponse.json({ error: eventDates.error.message }, { status: 500 });
+      return NextResponse.json(
+        { error: eventDates.error.message },
+        { status: 500 },
+      );
     }
 
     for (const observation of observations.data ?? []) {
-      const eventObservations = observationsByEvent.get(observation.medical_event_id) ?? [];
+      const eventObservations =
+        observationsByEvent.get(observation.medical_event_id) ?? [];
       eventObservations.push({
         id: observation.id,
         name: observation.name,

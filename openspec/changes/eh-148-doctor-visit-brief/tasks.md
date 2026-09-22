@@ -8,9 +8,9 @@ Domain: **reports**
 
 ## 1. Contract and evidence projection
 
-- [ ] 1.1 Add the versioned `DoctorVisitBrief` and `ReportEvidenceRef` schemas in `src/lib/report-contract.ts`, including the closed canonical section IDs/order, required/empty-state rules, claim status, question origin (`generated`/`user_selected`), bounded user-selected questions, source kinds, limitations, and the educational disclaimer.
-- [ ] 1.2 Extend `src/lib/reports.ts` and `src/lib/documents/structured-context.ts` so every observation, finding, clinical note, prescription, referral, and document summary retains its source row ID and document ID.
-- [ ] 1.3 Add the server-owned evidence projection that creates opaque source IDs, display-safe snapshots, and `(report_id, source_id)` mappings to source kind/row/document identity without storage paths or profile IDs in public DTOs.
+- [x] 1.1 Add the versioned `DoctorVisitBrief` and `ReportEvidenceRef` schemas in `src/lib/report-contract.ts`, including the closed canonical section IDs/order, required/empty-state rules, claim status, question origin (`generated`/`user_selected`), bounded user-selected questions, source kinds, limitations, and the educational disclaimer.
+- [x] 1.2 Extend `src/lib/reports.ts` and `src/lib/documents/structured-context.ts` so every observation, finding, clinical note, prescription, referral, and document summary retains its source row ID and document ID.
+- [x] 1.3 Add the server-owned evidence projection that creates opaque source IDs, display-safe snapshots, and `(report_id, source_id)` mappings to source kind/row/document identity without storage paths or profile IDs in public DTOs.
 - [ ] 1.4 Preserve the typed requested scope separately from the exact non-null actual `source_document_ids` set for every new report, capture each source document's `write_generation` before LLM work, and distinguish legacy null-scope/unversioned rows without fabricating evidence.
 - [ ] 1.5 Add the `report_evidence_sources` migration and transactionally persist source-row mappings with the report; resolve citations through this mapping and cascade it on report deletion.
 
