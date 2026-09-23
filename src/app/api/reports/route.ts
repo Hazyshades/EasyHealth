@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(
     {
       error:
-        "Report generation is unavailable until the EH-150 validator handoff is present",
+        "Report generation is unavailable until EH-150 validation and structured persistence integration are complete",
     },
     { status: 503 },
   );

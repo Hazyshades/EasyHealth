@@ -125,8 +125,8 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 - `pnpm test:eh104` passed the durable writer/document-delete boundary checks.
 - `pnpm test:eh148-contract` passed after updating the fixture to use a valid-shaped unknown source ID.
 - `pnpm exec supabase db lint` is `BLOCKED`: local Postgres is not running; migration 083 needs target/CI SQL validation.
-- EH-150's validator change is not present in this repository. The legacy free-form generation path and writer call were removed; `POST /api/reports` now fails closed with HTTP 503 until the validator handoff and structured RPC integration are available. No publishable new report is claimed from this partial implementation.
-- Report UI checks remain `N/A`: the service generation route intentionally fails closed until it is cut over to the structured candidate/validator path.
+- EH-150's validator module is present in current master and its contract verifier passes. The EH-148 generation route still fails closed with HTTP 503 because the service-owned validator call, structured persistence RPC integration, and runtime handoff are not complete. No publishable new report is claimed from this partial implementation.
+- Report UI checks remain `N/A`: the service generation route intentionally fails closed until it is cut over to the structured candidate, validator, and persistence path.
 
 ## Out of scope or not manually testable yet
 

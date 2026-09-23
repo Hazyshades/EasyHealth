@@ -9,8 +9,8 @@ import { createClient } from "@supabase/supabase-js";
 // endpoint on the dual-constraint transition schema, plus one old-hint read
 // proving the compatibility alias resolves during rolling deployment.
 //
-// Requires a live Supabase stack (local `supabase start` or a target
-// environment) with migrations through 035 applied.
+// Requires a live Supabase stack (local `supabase start`) with migrations
+// through EH-104 durable document deletion applied.
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -122,17 +122,80 @@ async function insertFixture(): Promise<void> {
 }
 
 async function cleanupFixture(): Promise<void> {
-  // Mirrors the owner DELETE route: controlled lineage purge, then document,
-  // then profile. Every cleanup failure is retained and fails the contract
-  // after all deletion attempts have run.
+  // Use the EH-104 owner deletion workflow. Direct document DELETE is
+  // intentionally revoked after the durable-deletion migration.
   const failures: string[] = [];
-  const { error: purgeError } = await supabase.rpc(
-    "purge_document_derived_laboratory_lineage",
-    { p_document_id: documentId }
-  );
-  if (purgeError) failures.push(`lineage purge: ${purgeError.message}`);
-  const { error: docError } = await supabase.from("documents").delete().eq("id", documentId);
-  if (docError) failures.push(`document delete: ${docError.message}`);
+  let operationId: string | null = null;
+  let cleanupLeaseToken: string | null = null;
+
+  try {
+    const { data: requestRows, error: requestError } = await supabase.rpc(
+      "request_document_deletion",
+      { p_profile_id: profileId, p_document_id: documentId }
+    );
+    if (requestError) throw new Error(`request deletion: ${requestError.message}`);
+    const request = Array.isArray(requestRows) ? requestRows[0] : null;
+    assert.ok(request, "request deletion returned no operation");
+    operationId = request.operation_id;
+
+    const { data: claimRows, error: claimError } = await supabase.rpc(
+      "claim_document_deletion_operation",
+      { p_worker_id: "postgrest-embed-fixture" }
+    );
+    if (claimError) throw new Error(`claim deletion: ${claimError.message}`);
+    const claim = Array.isArray(claimRows) ? claimRows[0] : null;
+    assert.ok(claim, "claim deletion returned no operation");
+    assert.equal(
+      claim.operation_id,
+      operationId,
+      "fixture cleanup claimed a different deletion operation"
+    );
+    cleanupLeaseToken = claim.cleanup_lease_token;
+
+    const transitionArgs = {
+      p_operation_id: operationId,
+      p_cleanup_lease_token: cleanupLeaseToken,
+      p_manifest_digest: null,
+      p_empty_listing_count: null,
+      p_last_empty_at: null,
+      p_error_code: null
+    };
+    const { error: storageError } = await supabase.rpc(
+      "transition_document_deletion_operation",
+      {
+        ...transitionArgs,
+        p_expected_status: "waiting_for_writers",
+        p_next_status: "cleaning_storage"
+      }
+    );
+    if (storageError) throw new Error(`enter storage cleanup: ${storageError.message}`);
+
+    const { error: verificationError } = await supabase.rpc(
+      "transition_document_deletion_operation",
+      {
+        ...transitionArgs,
+        p_expected_status: "cleaning_storage",
+        p_next_status: "verifying_storage",
+        p_empty_listing_count: 2,
+        p_last_empty_at: new Date(Date.now() - 10_000).toISOString()
+      }
+    );
+    if (verificationError) {
+      throw new Error(`verify storage cleanup: ${verificationError.message}`);
+    }
+
+    const { error: finalizeError } = await supabase.rpc(
+      "finalize_document_deletion",
+      {
+        p_operation_id: operationId,
+        p_cleanup_lease_token: cleanupLeaseToken
+      }
+    );
+    if (finalizeError) throw new Error(`finalize deletion: ${finalizeError.message}`);
+  } catch (error) {
+    failures.push(error instanceof Error ? error.message : String(error));
+  }
+
   const { error: profileError } = await supabase.from("profiles").delete().eq("id", profileId);
   if (profileError) failures.push(`profile delete: ${profileError.message}`);
   if (failures.length > 0) {
@@ -144,11 +207,11 @@ async function cleanupFixture(): Promise<void> {
     ["documents", documentId],
     ["document_extracted_biomarkers", biomarkerId],
     ["observation_normalization_revisions", revisionId],
-    ["observations", observationId],
+    ["observations", observationId]
   ];
   for (const [table, id] of residueChecks) {
     const { data, error } = await supabase.from(table).select("id").eq("id", id);
-    assert.equal(error, null, `${table}: cleanup residue check failed: ${error?.message}`);
+    assert.equal(error, null, `cleanup residue check failed for ${table}: ${error?.message}`);
     assert.equal(data?.length, 0, `${table}: fixture residue remained after cleanup`);
   }
   console.log(`ok: fixture cleanup after ${FORCE_FAILURE ? "failure" : "success"} path`);

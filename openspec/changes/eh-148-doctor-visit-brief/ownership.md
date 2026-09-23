@@ -38,5 +38,5 @@ This matrix is part of the EH-148 design gate. Ownership means the named change 
 ## Handoff snapshot
 
 - EH-148 publishes `REPORT_CONTRACT_VERSION`, the canonical section/source/claim types, `prepareDoctorVisitBrief`, `buildReportEvidenceProjection`, and `resolveReportRead` as the shared server boundaries.
-- EH-150 must provide `src/lib/report-citation-validator.ts` and return the immutable `eh150.v1` validation envelope before the generation route can call the new persistence RPC. The validator change is not present in this repository; EH-148 does not duplicate that owner module.
+- EH-150 now provides `src/lib/report-citation-validator.ts` and the immutable `eh150.v1` validation envelope in current master. EH-148 still owns the generation-route integration and must call the validator before the structured persistence RPC; EH-148 does not duplicate the validator module.
 - EH-149 remains the owner of frozen biomarker dynamics; EH-148 may pass only the exact materialized report scope to its server adapter.
