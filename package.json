@@ -142,6 +142,7 @@
     "test:eh130-db": "node scripts/run-supabase-db-tests.mjs supabase/tests/eh130_duplicate_document_detection.sql",
     "test:writer-seam": "node scripts/run-supabase-db-tests.mjs supabase/tests/writer_rpc_seam.sql",
     "test:eh143": "tsx scripts/verify-eh143-readiness.ts",
+    "test:eh150": "tsx scripts/verify-eh150-report-citation-validator.ts",
     "test:eh140": "tsx scripts/verify-eh140-knowledge-base.ts",
     "check:eh140-kb": "tsx scripts/verify-eh140-knowledge-base.ts --require-surface",
     "test:public-panel-education": "tsx scripts/verify-public-panel-education.ts",
