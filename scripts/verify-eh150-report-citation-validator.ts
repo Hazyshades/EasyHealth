@@ -24,6 +24,8 @@ const VALIDATOR_SCRIPT_NAME = "verify-eh150-report-citation-validator";
 type MutableContent = {
   schema_version: string;
   overview?: string;
+  disclaimer?: unknown;
+  extensions?: unknown;
   source_document_ids: string[];
   sections: Array<Record<string, unknown>>;
   claims: Array<Record<string, unknown>>;
@@ -107,6 +109,19 @@ async function main(): Promise<void> {
   const candidateOverviewResult = await validate(candidateOverview);
   assert.equal(candidateOverviewResult.status, "invalid");
   assert.deepEqual(candidateOverviewResult.issue_codes, ["SCHEMA_INVALID"]);
+  const candidateDisclaimer = mutableContent();
+  candidateDisclaimer.disclaimer =
+    "Treatment instructions must not bypass server rendering";
+  const candidateDisclaimerResult = await validate(candidateDisclaimer);
+  assert.equal(candidateDisclaimerResult.status, "invalid");
+  assert.deepEqual(candidateDisclaimerResult.issue_codes, ["SCHEMA_INVALID"]);
+  const candidateExtension = mutableContent();
+  candidateExtension.extensions = {
+    biomarker_dynamics: { diagnosis: "Synthetic diagnosis" },
+  };
+  const candidateExtensionResult = await validate(candidateExtension);
+  assert.equal(candidateExtensionResult.status, "invalid");
+  assert.deepEqual(candidateExtensionResult.issue_codes, ["SCHEMA_INVALID"]);
 
   const unknownSection = mutableContent();
   unknownSection.sections[2].id = "unknown_section";
@@ -304,6 +319,18 @@ async function main(): Promise<void> {
     JSON.stringify(removedResult.content).includes('"claim-summary"'),
     false,
   );
+  const removedUnsafe = mutableContent();
+  addRetainedSummaryClaim(removedUnsafe);
+  const removedUnsafeClaim = findClaim(removedUnsafe, "claim-summary");
+  removedUnsafeClaim.status = "removed";
+  removedUnsafeClaim.diagnosis = "Synthetic diagnosis";
+  const removedUnsafeResult = await validate(removedUnsafe);
+  assert.equal(removedUnsafeResult.status, "limited");
+  assert.deepEqual(removedUnsafeResult.issue_codes, ["UNSAFE_CONTENT"]);
+  assert.equal(
+    JSON.stringify(removedUnsafeResult).includes("Synthetic diagnosis"),
+    false,
+  );
 
   const unsafeSnapshot = mutableContent();
   findSource(unsafeSnapshot, SOURCE_SUMMARY).snapshot = {
@@ -316,6 +343,27 @@ async function main(): Promise<void> {
   assert.deepEqual(unsafeSnapshotResult.issue_codes, ["SCHEMA_INVALID"]);
   assert.equal(
     JSON.stringify(unsafeSnapshotResult).includes("secret-token"),
+    false,
+  );
+  const unsafeAuthorizedRows = VALID_AUTHORIZED_SOURCES.map((row) =>
+    row.source_id === SOURCE_SUMMARY
+      ? {
+          ...row,
+          snapshot: {
+            text: "Trusted synthetic document summary.",
+            email: "private@example.test",
+          },
+        }
+      : row,
+  );
+  const unsafeAuthorizedResult = await validate(
+    cloneReportContent(),
+    makeValidationContext(unsafeAuthorizedRows),
+  );
+  assert.equal(unsafeAuthorizedResult.status, "invalid");
+  assert.deepEqual(unsafeAuthorizedResult.issue_codes, ["SCHEMA_INVALID"]);
+  assert.equal(
+    JSON.stringify(unsafeAuthorizedResult).includes("private@example.test"),
     false,
   );
 

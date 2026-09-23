@@ -12,7 +12,7 @@ import {
   invalidResult,
   isOneOf,
   isRecord,
-  hasSensitiveSnapshotField,
+  projectDisplaySafeSnapshot,
   nonEmptyString,
   orderedIssueCodes,
   resultIssues,
@@ -109,6 +109,7 @@ export async function validateReportContent(
     const rowSourceStatus = sourceStatus(row);
     const rowDocumentStatus = documentStatus(row);
     const rowSnapshot = row.snapshot;
+    const projectedSnapshot = projectDisplaySafeSnapshot(rowSnapshot);
     const observedAt = row.observed_at;
     const recordedAt = row.recorded_at;
 
@@ -148,8 +149,7 @@ export async function validateReportContent(
       addIssue(issues, "SOURCE_UNAVAILABLE");
     }
     if (
-      !isRecord(rowSnapshot) ||
-      hasSensitiveSnapshotField(rowSnapshot) ||
+      projectedSnapshot === null ||
       (observedAt !== undefined &&
         observedAt !== null &&
         typeof observedAt !== "string") ||
@@ -162,14 +162,13 @@ export async function validateReportContent(
     if (
       isOneOf(rowKind, REPORT_SOURCE_KINDS) &&
       nonEmptyString(rowDocumentId) &&
-      isRecord(rowSnapshot) &&
-      !hasSensitiveSnapshotField(rowSnapshot)
+      projectedSnapshot !== null
     ) {
       trustedSources.set(source.source_id, {
         source_id: source.source_id,
         kind: rowKind,
         document_id: rowDocumentId,
-        snapshot: rowSnapshot,
+        snapshot: projectedSnapshot,
         ...(typeof observedAt === "string" || observedAt === null
           ? { observed_at: observedAt }
           : {}),
@@ -204,11 +203,6 @@ export async function validateReportContent(
   const removedClaimIds = new Set<string>();
 
   for (const claim of parsed.value.claims) {
-    if (claim.status === "removed") {
-      removedClaimIds.add(claim.id);
-      continue;
-    }
-
     if (!CLAIM_SECTION_RULES[claim.kind].includes(claim.section)) {
       addIssue(issues, "SCHEMA_INVALID");
       continue;
@@ -260,10 +254,16 @@ export async function validateReportContent(
       addIssue(issues, "SCHEMA_INVALID");
       continue;
     }
-
     if (claim.unsafe) {
       removedClaimIds.add(claim.id);
       addIssue(issues, "UNSAFE_CONTENT");
+      continue;
+    }
+    if (claim.status === "removed") {
+      removedClaimIds.add(claim.id);
+      if (claim.kind !== "clinician_question" && claim.citations.length === 0) {
+        addIssue(issues, "CLAIM_UNCITED");
+      }
       continue;
     }
     if (claim.kind !== "clinician_question" && claim.citations.length === 0) {

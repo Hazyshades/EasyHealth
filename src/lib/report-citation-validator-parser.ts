@@ -62,7 +62,6 @@ function parseHeader(
   const generatedAt = record.generated_at;
   const detailLevel = record.detail_level;
   const documentIds = record.source_document_ids;
-  const disclaimer = record.disclaimer;
 
   if (
     !nonEmptyString(schemaVersion) ||
@@ -73,8 +72,7 @@ function parseHeader(
     !isOneOf(detailLevel, REPORT_DETAIL_LEVELS) ||
     !Array.isArray(documentIds) ||
     !documentIds.every(nonEmptyString) ||
-    !uniqueStrings(documentIds) ||
-    !nonEmptyString(disclaimer)
+    !uniqueStrings(documentIds)
   ) {
     addIssue(issues, "SCHEMA_INVALID");
     return { ok: false };
@@ -88,10 +86,6 @@ function parseHeader(
       generated_at: generatedAt,
       detail_level: detailLevel,
       source_document_ids: [...documentIds],
-      disclaimer: disclaimer.trim(),
-      ...(record.extensions !== undefined
-        ? { extensions: record.extensions }
-        : {}),
     },
   };
 }

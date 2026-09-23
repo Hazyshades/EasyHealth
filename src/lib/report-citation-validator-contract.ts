@@ -166,9 +166,6 @@ export type ReportContent = Readonly<{
   claims: readonly ReportClaim[];
   sources: readonly ReportSource[];
   limitations: readonly ReportLimitation[];
-  disclaimer: string;
-  overview?: string;
-  extensions?: unknown;
 }>;
 
 /** Model-facing input. It contains references only; EH-150 supplies snapshots. */
@@ -182,8 +179,6 @@ export type ReportCandidateContent = Readonly<{
   claims: readonly ReportCandidateClaim[];
   sources: readonly ReportSourceReference[];
   limitations: readonly [];
-  disclaimer: string;
-  extensions?: unknown;
 }>;
 
 export type SourceAvailability = "active" | "archived" | "removed";
@@ -336,8 +331,6 @@ const CONTENT_KEYS: KeyTable = {
   claims: true,
   sources: true,
   limitations: true,
-  disclaimer: true,
-  extensions: true,
 };
 
 const SOURCE_KEYS: KeyTable = {
@@ -368,23 +361,25 @@ const VALIDATION_ENVELOPE_KEYS: KeyTable = {
   issue_codes: true,
 };
 
-const SENSITIVE_SNAPSHOT_FIELDS: KeyTable = {
-  profile_id: true,
-  profileId: true,
-  source_row_id: true,
-  sourceRowId: true,
-  storage_path: true,
-  original_storage_path: true,
-  token: true,
-  access_token: true,
-  refresh_token: true,
-  authorization: true,
-  bearer: true,
-  pin: true,
-  secret: true,
-  private_key: true,
-  raw_document: true,
-  raw_text: true,
+const DISPLAY_SAFE_SNAPSHOT_KEYS: KeyTable = {
+  label: true,
+  value: true,
+  unit: true,
+  range: true,
+  reference_range: true,
+  reference_low: true,
+  reference_high: true,
+  text: true,
+  date: true,
+  observed_at: true,
+  recorded_at: true,
+};
+const DISPLAY_SAFE_RANGE_KEYS: KeyTable = {
+  low: true,
+  high: true,
+  min: true,
+  max: true,
+  unit: true,
 };
 
 const CLAIM_REF_KEYS: KeyTable = { type: true, claim_id: true };
@@ -470,32 +465,46 @@ type ParsedHeader = Pick<
   | "generated_at"
   | "detail_level"
   | "source_document_ids"
-  | "disclaimer"
-> &
-  Readonly<{
-    extensions?: unknown;
-  }>;
+>;
 
 export function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function hasSensitiveSnapshotField(
-  value: unknown,
-  seen = new Set<unknown>(),
-): boolean {
-  if (Array.isArray(value)) {
-    if (seen.has(value)) return false;
-    seen.add(value);
-    return value.some((item) => hasSensitiveSnapshotField(item, seen));
-  }
-  if (!isRecord(value)) return false;
-  if (seen.has(value)) return false;
-  seen.add(value);
-  return Object.entries(value).some(
-    ([key, nested]) =>
-      SENSITIVE_SNAPSHOT_FIELDS[key] === true ||
-      hasSensitiveSnapshotField(nested, seen),
+function isDisplaySafeScalar(value: unknown): boolean {
+  return (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "boolean" ||
+    (typeof value === "number" && Number.isFinite(value))
   );
+}
+
+function projectDisplaySafeSnapshot(
+  value: unknown,
+): Readonly<Record<string, unknown>> | null {
+  if (!isRecord(value)) return null;
+  const projected: Record<string, unknown> = {};
+  for (const [key, nested] of Object.entries(value)) {
+    if (DISPLAY_SAFE_SNAPSHOT_KEYS[key] === true) {
+      if (isDisplaySafeScalar(nested)) {
+        projected[key] = nested;
+        continue;
+      }
+      if (
+        (key === "range" || key === "reference_range") &&
+        isRecord(nested) &&
+        Object.keys(nested).every(
+          (nestedKey) => DISPLAY_SAFE_RANGE_KEYS[nestedKey] === true,
+        ) &&
+        Object.values(nested).every(isDisplaySafeScalar)
+      ) {
+        projected[key] = { ...nested };
+        continue;
+      }
+    }
+    return null;
+  }
+  return Object.keys(projected).length > 0 ? projected : null;
 }
 
 function nonEmptyString(value: unknown): value is string {
@@ -683,7 +692,7 @@ export {
   getProfileId,
   getSourceResolver,
   hasOnlyKeys,
-  hasSensitiveSnapshotField,
+  projectDisplaySafeSnapshot,
   invalidResult,
   isOneOf,
   LIMITATION_KEYS,

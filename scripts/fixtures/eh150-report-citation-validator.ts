@@ -96,8 +96,6 @@ export const VALID_REPORT_CONTENT: ReportCandidateContent = {
     },
   ],
   limitations: [],
-  disclaimer:
-    "Educational information only. Discuss this report with a clinician.",
 };
 
 export const VALID_AUTHORIZED_SOURCES: readonly AuthorizedReportSource[] = [
