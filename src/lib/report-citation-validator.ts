@@ -661,7 +661,7 @@ function parseHeader(
     return { ok: false };
   }
 
-  if (record.overview !== undefined && typeof record.overview !== "string") {
+  if (record.overview !== undefined) {
     addIssue(issues, "SCHEMA_INVALID");
     return { ok: false };
   }

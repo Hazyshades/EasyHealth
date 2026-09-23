@@ -23,6 +23,7 @@ import {
 const VALIDATOR_SCRIPT_NAME = "verify-eh150-report-citation-validator";
 type MutableContent = {
   schema_version: string;
+  overview?: string;
   source_document_ids: string[];
   sections: Array<Record<string, unknown>>;
   claims: Array<Record<string, unknown>>;
@@ -95,6 +96,12 @@ async function main(): Promise<void> {
   assert.deepEqual(unknownContractVersionResult.issue_codes, [
     "SCHEMA_INVALID",
   ]);
+  const candidateOverview = mutableContent();
+  candidateOverview.overview =
+    "Diagnosis or treatment prose must not bypass claims";
+  const candidateOverviewResult = await validate(candidateOverview);
+  assert.equal(candidateOverviewResult.status, "invalid");
+  assert.deepEqual(candidateOverviewResult.issue_codes, ["SCHEMA_INVALID"]);
 
   const unknownSection = mutableContent();
   unknownSection.sections[2].id = "unknown_section";
