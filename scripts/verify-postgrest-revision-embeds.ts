@@ -137,20 +137,22 @@ async function cleanupFixture(): Promise<void> {
     const request = Array.isArray(requestRows) ? requestRows[0] : null;
     assert.ok(request, "request deletion returned no operation");
     operationId = request.operation_id;
-
-    const { data: claimRows, error: claimError } = await supabase.rpc(
-      "claim_document_deletion_operation",
-      { p_worker_id: "postgrest-embed-fixture" }
-    );
-    if (claimError) throw new Error(`claim deletion: ${claimError.message}`);
-    const claim = Array.isArray(claimRows) ? claimRows[0] : null;
-    assert.ok(claim, "claim deletion returned no operation");
-    assert.equal(
-      claim.operation_id,
-      operationId,
-      "fixture cleanup claimed a different deletion operation"
-    );
-    cleanupLeaseToken = claim.cleanup_lease_token;
+    const claimCleanupLease = async (): Promise<string> => {
+      const { data: claimRows, error: claimError } = await supabase.rpc(
+        "claim_document_deletion_operation",
+        { p_worker_id: "postgrest-embed-fixture" }
+      );
+      if (claimError) throw new Error(`claim deletion: ${claimError.message}`);
+      const claim = Array.isArray(claimRows) ? claimRows[0] : null;
+      assert.ok(claim, "claim deletion returned no operation");
+      assert.equal(
+        claim.operation_id,
+        operationId,
+        "fixture cleanup claimed a different deletion operation"
+      );
+      return claim.cleanup_lease_token;
+    };
+    cleanupLeaseToken = await claimCleanupLease();
 
     const transitionArgs = {
       p_operation_id: operationId,
@@ -170,6 +172,8 @@ async function cleanupFixture(): Promise<void> {
     );
     if (storageError) throw new Error(`enter storage cleanup: ${storageError.message}`);
 
+    cleanupLeaseToken = await claimCleanupLease();
+    transitionArgs.p_cleanup_lease_token = cleanupLeaseToken;
     const { error: verificationError } = await supabase.rpc(
       "transition_document_deletion_operation",
       {
@@ -184,6 +188,7 @@ async function cleanupFixture(): Promise<void> {
       throw new Error(`verify storage cleanup: ${verificationError.message}`);
     }
 
+    cleanupLeaseToken = await claimCleanupLease();
     const { error: finalizeError } = await supabase.rpc(
       "finalize_document_deletion",
       {

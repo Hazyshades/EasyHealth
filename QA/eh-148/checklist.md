@@ -43,7 +43,7 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 **Expected result:** The brief shows typed document summaries, latest measurements, changes, questions, limitations, and a visible disclaimer. Each factual item has an inspectable source reference; no unrelated document appears.
 
 **Result:** `N/A`
-**Notes / evidence link:** `N/A`: runtime UI execution is blocked by the missing EH-150 validator handoff and unavailable local Supabase/OpenAI environment.
+**Notes / evidence link:** `N/A`: runtime UI execution is blocked because the EH-148 generation route remains fail-closed pending EH-150 validator and structured-persistence integration, plus unavailable local Supabase/OpenAI environment.
 
 ### EH148-UI-02: Show missing evidence as a limitation
 
@@ -56,7 +56,7 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 **Expected result:** The page explains that a comparison is unavailable. It does not label the result as improving, worsening, diagnosed, or treated.
 
 **Result:** `N/A`
-**Notes / evidence link:** `N/A`: runtime UI execution is blocked by the missing EH-150 validator handoff and unavailable local Supabase/OpenAI environment.
+**Notes / evidence link:** `N/A`: runtime UI execution is blocked because the EH-148 generation route remains fail-closed pending EH-150 validator and structured-persistence integration, plus unavailable local Supabase/OpenAI environment.
 
 ### EH148-UI-03: Inspect the source ledger
 
@@ -69,7 +69,7 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 **Expected result:** The ledger shows the evidence snapshot and document identity, and citation labels are derived from source IDs rather than filenames.
 
 **Result:** `N/A`
-**Notes / evidence link:** `N/A`: runtime UI execution is blocked by the missing EH-150 validator handoff and unavailable local Supabase/OpenAI environment.
+**Notes / evidence link:** `N/A`: runtime UI execution is blocked because the EH-148 generation route remains fail-closed pending EH-150 validator and structured-persistence integration, plus unavailable local Supabase/OpenAI environment.
 
 ### EH148-UI-04: Keep legacy reports readable without fabricated citations
 
@@ -82,7 +82,7 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 **Expected result:** Legacy content is identified as legacy. Source-grounded sharing/export is unavailable until revalidation; no citation markers are invented from old filenames.
 
 **Result:** `N/A`
-**Notes / evidence link:** `N/A`: runtime UI execution is blocked by the missing EH-150 validator handoff and unavailable local Supabase/OpenAI environment.
+**Notes / evidence link:** `N/A`: runtime UI execution is blocked because the EH-148 generation route remains fail-closed pending EH-150 validator and structured-persistence integration, plus unavailable local Supabase/OpenAI environment.
 
 ### EH148-UI-05: Preserve questions and date-filtered scope
 
@@ -95,7 +95,7 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 **Expected result:** Boundary documents are included, outside-range and undated documents are absent, and each submitted question is visibly rendered as a question without a factual answer or invented citation.
 
 **Result:** `N/A`
-**Notes / evidence link:** `N/A`: runtime UI execution is blocked by the missing EH-150 validator handoff and unavailable local Supabase/OpenAI environment.
+**Notes / evidence link:** `N/A`: runtime UI execution is blocked because the EH-148 generation route remains fail-closed pending EH-150 validator and structured-persistence integration, plus unavailable local Supabase/OpenAI environment.
 
 ## Developer evidence required
 
@@ -103,7 +103,7 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 - [ ] API verification proves the all-eligible request stores an exact document UUID array and cannot widen explicit scope. _(Evidence provider: EH-148 persistence owner.)_
 - [ ] Mixed-source verification covers observations, findings, notes, prescriptions/referrals, and document summaries. _(Evidence provider: EH-148 source-projection owner.)_
 - [ ] Legacy verification proves unversioned/null-scope rows are readable but not silently upgraded. _(Evidence provider: EH-148 report-surface owner.)_
-- [ ] The EH-150 validator handoff and integration seam are recorded before share/export work begins. _(Evidence provider: EH-148 and EH-150 owners.)_
+- [ ] The EH-150 validator handoff is present, but the EH-148 integration seam and structured persistence transition remain to be recorded before share/export work begins. _(Evidence provider: EH-148 and EH-150 owners.)_
 - [ ] Focused API/route verification proves storage paths and cross-profile source rows never enter the report response or source ledger. _(Evidence provider: EH-148 route owner; EH-150 validator owner.)_
 - [ ] Service-transition evidence proves `public.create_validated_report` rechecks identity/scope and rolls back staged report/mapping/status on injected validator, RPC, and persistence failure with no readable unvalidated candidate; direct report/evidence table DML is denied to runtime roles and owner report deletion uses the durable `public.delete_owner_report` transition. _(Evidence provider: EH-148 RPC owner; durable-deletion owner; EH-150 validator owner.)_
 - [ ] Section-contract evidence proves the canonical six section containers/order, claim-kind compatibility, unknown/missing/duplicate rejection, and explicit allowed empty states with machine limitations. _(Evidence provider: EH-148 contract owner; EH-150 validator owner; EH-153 serializer owner.)_
