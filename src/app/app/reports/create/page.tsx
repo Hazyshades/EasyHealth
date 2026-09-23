@@ -58,6 +58,9 @@ export default function CreateReportPage() {
     const selectionTriggerRef = useRef<HTMLButtonElement>(null);
   const [selectedIds, setSelectedIds] = useState<string[] | null>(null);
   const [abnormalOnly, setAbnormalOnly] = useState(false);
+  const [dynamicsEnabled, setDynamicsEnabled] = useState(false);
+  const [dynamicsFrom, setDynamicsFrom] = useState("");
+  const [dynamicsTo, setDynamicsTo] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,11 +89,19 @@ export default function CreateReportPage() {
       detail_level: detailLevel,
       document_ids: selectedIds,
       abnormal_only: abnormalOnly,
+      biomarker_dynamics_period: dynamicsEnabled
+        ? { start: dynamicsFrom, end: dynamicsTo }
+        : null,
     };
   }
 
   async function submitReport() {
     if (!hasEligibleDocs) return;
+    if (dynamicsEnabled && (!dynamicsFrom || !dynamicsTo || dynamicsFrom > dynamicsTo)) {
+      setError("Choose a valid biomarker dynamics period.");
+      return;
+    }
+
 
     setSubmitting(true);
     setError(null);
@@ -158,7 +169,7 @@ export default function CreateReportPage() {
         </p>
         <h1 className="mt-1 text-2xl font-bold">New health report</h1>
         <p className="text-muted-foreground">
-          Educational clinician-ready summary across labs, imaging, and consultations — free
+          Educational clinician-ready summary across labs, imaging, and consultations. Free to create.
         </p>
       </div>
 
@@ -231,6 +242,54 @@ export default function CreateReportPage() {
             </p>
           )}
         </div>
+        <fieldset className="space-y-3 rounded-lg border p-4">
+          <legend className="px-1 text-sm font-medium">
+            Biomarker dynamics
+          </legend>
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={dynamicsEnabled}
+              onChange={(event) => setDynamicsEnabled(event.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-700"
+            />
+            <span>
+              Include a frozen numeric comparison in this report
+              <span className="mt-1 block text-xs text-muted-foreground">
+                The report stores the exact selected records and comparison period.
+              </span>
+            </span>
+          </label>
+          {dynamicsEnabled ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <label htmlFor="dynamics-from" className="text-xs font-medium">
+                  From
+                </label>
+                <Input
+                  id="dynamics-from"
+                  type="date"
+                  value={dynamicsFrom}
+                  onChange={(event) => setDynamicsFrom(event.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="dynamics-to" className="text-xs font-medium">
+                  To
+                </label>
+                <Input
+                  id="dynamics-to"
+                  type="date"
+                  value={dynamicsTo}
+                  onChange={(event) => setDynamicsTo(event.target.value)}
+                  required
+                />
+              </div>
+            </div>
+          ) : null}
+        </fieldset>
+
 
         <Button
           type="submit"

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isCanonicalBiomarkerDynamicsDate } from "@/lib/biomarker-dynamics";
 
 export const REPORT_TYPES = [
   "general_practice",
@@ -49,6 +50,20 @@ export const REPORT_RANGE_LABELS: Record<ReportRange, string> = {
   "90d": "Last 90 days",
   year: "This year",
 };
+const biomarkerDynamicsPeriodSchema = z
+  .object({
+    start: z.string().refine(isCanonicalBiomarkerDynamicsDate),
+    end: z.string().refine(isCanonicalBiomarkerDynamicsDate),
+  })
+  .superRefine((period, context) => {
+    if (period.start > period.end) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Dynamics period end must not be before its start",
+        path: ["end"],
+      });
+    }
+  });
 
 export const createReportBodySchema = z.object({
   title: z.string().min(1).max(200),
@@ -56,6 +71,7 @@ export const createReportBodySchema = z.object({
   detail_level: z.enum(DETAIL_LEVELS),
   document_ids: z.array(z.string().uuid()).nullable().optional(),
   abnormal_only: z.boolean().optional().default(false),
+  biomarker_dynamics_period: biomarkerDynamicsPeriodSchema.nullable().optional(),
 });
 
 export type CreateReportBody = z.infer<typeof createReportBodySchema>;

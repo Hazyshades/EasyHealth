@@ -21,6 +21,7 @@ export type BiomarkerChartPoint = {
   native_ref_low: number | null;
   native_ref_high: number | null;
   laboratory: string | null;
+  conversion_note?: string | null;
   source: {
     href: string;
     filename: string;
@@ -48,14 +49,13 @@ export function BiomarkerChart({
     );
   }
 
-  const sorted = [...data].sort((a, b) => a.observed_at.localeCompare(b.observed_at));
 
   return (
     <div className="rounded-lg border p-4">
       <h3 className="mb-4 font-medium">{biomarkerName} over time</h3>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={sorted}>
+          <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="observed_at" tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 12 }} />
@@ -64,7 +64,7 @@ export function BiomarkerChart({
           </LineChart>
         </ResponsiveContainer>
       </div>
-      {sorted.length === 1 && (
+      {data.length === 1 && (
         <p className="mt-2 text-xs text-muted-foreground">
           Upload more labs with this biomarker to see a trend line.
         </p>
@@ -96,11 +96,16 @@ export function BiomarkerChart({
                     <p className="font-medium text-[var(--eh-text-primary)]">
                       {point.observed_at} · {point.value}
                       {point.unit ? ` ${point.unit}` : ""}
-                    </p>
+</p>
                     <p className="text-xs text-[var(--eh-text-secondary)]">
                       Lab value: {point.native_value}
                       {point.native_unit ? ` ${point.native_unit}` : ""} · Native range: {nativeRange}
                     </p>
+                    {point.conversion_note ? (
+                      <p className="text-xs text-[var(--eh-text-muted)]">
+                        {point.conversion_note}
+                      </p>
+                    ) : null}
                     {point.laboratory ? (
                       <p className="text-xs text-[var(--eh-text-muted)]">{point.laboratory}</p>
                     ) : null}

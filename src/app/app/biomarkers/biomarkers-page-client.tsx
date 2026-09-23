@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CalendarDays, SlidersHorizontal } from "lucide-react";
 import {
@@ -31,10 +31,11 @@ import {
   healthRouteLabel,
   readHealthNavigationContext,
 } from "@/lib/health-navigation";
+import type { BiomarkerDynamicsReport } from "@/lib/biomarker-dynamics";
 import {
-  buildMeasurementComparisonSeries,
-  filterMeasurementComparisonSeries,
-} from "@/lib/biomarker-comparison";
+  formatBiomarkerDynamicsSeriesLabel,
+  formatBiomarkerDynamicsValue,
+} from "@/lib/biomarker-dynamics-format";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 import type { AssessmentExclusionReason } from "@/lib/health-profile-assessment-eligibility";
 
@@ -127,6 +128,13 @@ export default function BiomarkersPage({
     useState<MeasurementRelationshipGraph | null>(null);
   const [relatedGraphStatus, setRelatedGraphStatus] =
     useState<RelatedMeasurementGraphStatus>("idle");
+  const [dynamics, setDynamics] = useState<BiomarkerDynamicsReport | null>(
+    null,
+  );
+  const [dynamicsStatus, setDynamicsStatus] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [dynamicsError, setDynamicsError] = useState<string | null>(null);
   const [selectedSeriesId, setSelectedSeriesId] = useState("");
   const [comparisonFrom, setComparisonFrom] = useState("");
   const [comparisonTo, setComparisonTo] = useState("");
@@ -134,6 +142,7 @@ export default function BiomarkersPage({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [labUnitSystem, setLabUnitSystem] = useState<LabUnitSystem>("si");
   const [savingUnits, setSavingUnits] = useState(false);
+  const dynamicsRequestId = useRef(0);
 
   useEffect(() => {
     const requested = navigationContext.measurement;
@@ -310,46 +319,79 @@ export default function BiomarkersPage({
     });
   }, [observations, search, statusFilter]);
 
-  const comparisonSeries = useMemo(
-    () => buildMeasurementComparisonSeries(observations),
-    [observations],
-  );
+  const loadDynamics = useCallback(async () => {
+    const requestId = dynamicsRequestId.current + 1;
+    dynamicsRequestId.current = requestId;
+    if (
+      (comparisonFrom && !comparisonTo) ||
+      (!comparisonFrom && comparisonTo)
+    ) {
+      setDynamics(null);
+      setDynamicsStatus("error");
+      setDynamicsError("Choose both dates to filter the dynamics report.");
+      return;
+    }
+
+    setDynamicsStatus("loading");
+    setDynamicsError(null);
+    const params = new URLSearchParams();
+    if (comparisonFrom && comparisonTo) {
+      params.set("start", comparisonFrom);
+      params.set("end", comparisonTo);
+    }
+
+    try {
+      const response = await fetch(
+        `/api/biomarkers/dynamics${params.size ? `?${params}` : ""}`,
+        { headers: { Accept: "application/json" } },
+      );
+      if (requestId !== dynamicsRequestId.current) return;
+      const body = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        series?: unknown;
+      };
+      if (!response.ok) {
+        throw new Error(body.error ?? "Biomarker dynamics are unavailable");
+      }
+      if (!Array.isArray(body.series)) {
+        throw new Error("The dynamics response is invalid");
+      }
+      if (requestId !== dynamicsRequestId.current) return;
+      setDynamics(body as BiomarkerDynamicsReport);
+      setDynamicsStatus("ready");
+    } catch (error) {
+      if (requestId !== dynamicsRequestId.current) return;
+      setDynamics(null);
+      setDynamicsStatus("error");
+      setDynamicsError(
+        error instanceof Error
+          ? error.message
+          : "Biomarker dynamics are unavailable",
+      );
+    }
+  }, [comparisonFrom, comparisonTo, labUnitSystem]);
 
   useEffect(() => {
+    void loadDynamics();
+  }, [loadDynamics]);
+
+  useEffect(() => {
+    const availableSeries = dynamics?.series ?? [];
     setSelectedSeriesId((current) => {
       const requested = navigationContext.measurement;
       const requestedSeries = requested
-        ? comparisonSeries.find(
+        ? availableSeries.find(
             (series) => series.measurementDefinitionKey === requested,
           )
         : undefined;
       if (requestedSeries) return requestedSeries.id;
-      if (comparisonSeries.some((series) => series.id === current)) {
+      if (availableSeries.some((series) => series.id === current))
         return current;
-      }
-      const currentDefinitionKey = current.split("::", 1)[0];
-      return (
-        comparisonSeries.find(
-          (series) => series.measurementDefinitionKey === currentDefinitionKey,
-        )?.id ??
-        comparisonSeries[0]?.id ??
-        ""
-      );
+      return availableSeries[0]?.id ?? "";
     });
-  }, [comparisonSeries, navigationContext.measurement]);
+  }, [dynamics, navigationContext.measurement]);
 
-  const selectedSeries = comparisonSeries.find(
-    (series) => series.id === selectedSeriesId,
-  );
-  const filteredComparisonSeries = useMemo(
-    () =>
-      filterMeasurementComparisonSeries(comparisonSeries, {
-        from: comparisonFrom || null,
-        to: comparisonTo || null,
-      }),
-    [comparisonFrom, comparisonTo, comparisonSeries],
-  );
-  const selectedFilteredSeries = filteredComparisonSeries.find(
+  const selectedSeries = dynamics?.series.find(
     (series) => series.id === selectedSeriesId,
   );
   const biomarkerContextPath = buildHealthNavigationPath("/app/biomarkers", {
@@ -358,27 +400,23 @@ export default function BiomarkersPage({
     observation: selectedObservationId || null,
     returnTo: navigationContext.returnTo,
   });
-  const selectedPoints = selectedFilteredSeries?.points ?? [];
+  const selectedPoints = selectedSeries?.points ?? [];
   const chartData = selectedPoints.map((point) => ({
     observed_at: point.observedAt,
     value: point.displayValue,
   }));
   const chartPoints: BiomarkerChartPoint[] = selectedPoints.map((point) => {
-    const observation = observations.find((item) => item.id === point.id);
-    const sourceHref = observation?.documents?.id
-      ? buildHealthNavigationPath(
-          `/app/documents/${observation.documents.id}`,
-          {
-            system: navigationContext.system,
-            measurement:
-              selectedSeries?.measurementDefinitionKey ?? selectedKey,
-            observation: point.id,
-            returnTo: biomarkerContextPath,
-          },
-        )
-      : (point.source?.href ?? null);
+    const sourceHref = buildHealthNavigationPath(
+      `/app/documents/${point.documentId}`,
+      {
+        system: navigationContext.system,
+        measurement: selectedSeries?.measurementDefinitionKey ?? selectedKey,
+        observation: point.observationId,
+        returnTo: biomarkerContextPath,
+      },
+    );
     return {
-      id: point.id,
+      id: point.observationId,
       observed_at: point.observedAt,
       value: point.displayValue,
       unit: point.displayUnit,
@@ -386,15 +424,11 @@ export default function BiomarkersPage({
       native_unit: point.nativeUnit,
       native_ref_low: point.nativeReferenceLow,
       native_ref_high: point.nativeReferenceHigh,
-      laboratory: point.source?.laboratory ?? null,
+      laboratory: point.source.laboratory,
+      conversion_note: point.conversion.applied ? point.conversion.note : null,
       sourceHref,
-      sourceLabel:
-        observation?.documents?.original_filename ??
-        point.source?.filename ??
-        null,
-      source: point.source
-        ? { ...point.source, href: sourceHref ?? point.source.href }
-        : null,
+      sourceLabel: point.source.filename,
+      source: { href: sourceHref, filename: point.source.filename },
     };
   });
   const hasActiveComparisonRange = Boolean(comparisonFrom || comparisonTo);
@@ -403,6 +437,15 @@ export default function BiomarkersPage({
     setComparisonFrom("");
     setComparisonTo("");
   }
+  const selectedStatistics = selectedSeries?.statistics;
+  const selectedIncompatibilities =
+    dynamics?.incompatibilities.filter((item) =>
+      item.seriesIds.includes(selectedSeriesId),
+    ) ?? [];
+  const selectedLimitations = [
+    ...(dynamics?.limitations ?? []).filter((item) => item.seriesId === null),
+    ...(selectedSeries?.limitations ?? []),
+  ];
   const originPath = navigationContext.returnTo ?? "/app";
 
   return (
@@ -474,11 +517,17 @@ export default function BiomarkersPage({
       />
 
       <SurfaceCard padding="lg" className="mt-8">
-        <div className="mb-4 flex flex-wrap items-center gap-4">
-          <span className="text-sm font-semibold text-[var(--eh-text-primary)]">
-            Repeated measurement comparison
-          </span>
-          {comparisonSeries.length > 0 ? (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-sm font-semibold text-[var(--eh-text-primary)]">
+              Biomarker dynamics
+            </h2>
+            <p className="mt-1 text-xs text-[var(--eh-text-secondary)]">
+              Numeric movement only. The server keeps each point tied to its
+              source.
+            </p>
+          </div>
+          {dynamics && dynamics.series.length > 0 ? (
             <Select
               value={selectedSeriesId}
               onValueChange={setSelectedSeriesId}
@@ -487,9 +536,9 @@ export default function BiomarkersPage({
                 <SelectValue placeholder="Select measurement series" />
               </SelectTrigger>
               <SelectContent>
-                {comparisonSeries.map((series) => (
+                {dynamics.series.map((series) => (
                   <SelectItem key={series.id} value={series.id}>
-                    {series.label}
+                    {formatBiomarkerDynamicsSeriesLabel(series)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -497,99 +546,215 @@ export default function BiomarkersPage({
           ) : null}
         </div>
 
-        {comparisonSeries.length === 0 ? (
-          <p className="text-sm text-[var(--eh-text-secondary)]">
-            No resolved numeric measurement definitions are available for
-            comparison yet.
-          </p>
-        ) : (
-          <>
-            <div className="mb-4 flex flex-wrap items-end gap-3">
-              <div>
-                <label
-                  className="mb-1.5 block text-xs font-medium text-[var(--eh-text-secondary)]"
-                  htmlFor="comparison-from"
-                >
-                  From
-                </label>
-                <div className="relative">
-                  <CalendarDays
-                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--eh-text-muted)]"
-                    aria-hidden
-                  />
-                  <input
-                    id="comparison-from"
-                    type="date"
-                    value={comparisonFrom}
-                    onChange={(event) => setComparisonFrom(event.target.value)}
-                    className="h-10 rounded-xl border border-[var(--eh-border)] bg-white py-2 pl-9 pr-3 text-sm text-[var(--eh-text-primary)] outline-none transition focus:border-[var(--eh-brand)] focus:ring-2 focus:ring-[var(--eh-brand)]/20"
-                    aria-label="Comparison start date"
-                  />
-                </div>
-              </div>
-              <div>
-                <label
-                  className="mb-1.5 block text-xs font-medium text-[var(--eh-text-secondary)]"
-                  htmlFor="comparison-to"
-                >
-                  To
-                </label>
-                <div className="relative">
-                  <CalendarDays
-                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--eh-text-muted)]"
-                    aria-hidden
-                  />
-                  <input
-                    id="comparison-to"
-                    type="date"
-                    value={comparisonTo}
-                    onChange={(event) => setComparisonTo(event.target.value)}
-                    className="h-10 rounded-xl border border-[var(--eh-border)] bg-white py-2 pl-9 pr-3 text-sm text-[var(--eh-text-primary)] outline-none transition focus:border-[var(--eh-brand)] focus:ring-2 focus:ring-[var(--eh-brand)]/20"
-                    aria-label="Comparison end date"
-                  />
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={clearComparisonRange}
-                disabled={!hasActiveComparisonRange}
-                className="h-10 rounded-xl"
-              >
-                <SlidersHorizontal className="size-4" aria-hidden />
-                Clear range
-              </Button>
+        <div className="mb-5 flex flex-wrap items-end gap-3">
+          <div>
+            <label
+              className="mb-1.5 block text-xs font-medium text-[var(--eh-text-secondary)]"
+              htmlFor="comparison-from"
+            >
+              From
+            </label>
+            <div className="relative">
+              <CalendarDays
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--eh-text-muted)]"
+                aria-hidden
+              />
+              <input
+                id="comparison-from"
+                type="date"
+                value={comparisonFrom}
+                onChange={(event) => setComparisonFrom(event.target.value)}
+                className="h-10 rounded-xl border border-[var(--eh-border)] bg-white py-2 pl-9 pr-3 text-sm text-[var(--eh-text-primary)] outline-none transition focus:border-[var(--eh-brand)] focus:ring-2 focus:ring-[var(--eh-brand)]/20"
+                aria-label="Dynamics start date"
+              />
             </div>
+          </div>
+          <div>
+            <label
+              className="mb-1.5 block text-xs font-medium text-[var(--eh-text-secondary)]"
+              htmlFor="comparison-to"
+            >
+              To
+            </label>
+            <div className="relative">
+              <CalendarDays
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--eh-text-muted)]"
+                aria-hidden
+              />
+              <input
+                id="comparison-to"
+                type="date"
+                value={comparisonTo}
+                onChange={(event) => setComparisonTo(event.target.value)}
+                className="h-10 rounded-xl border border-[var(--eh-border)] bg-white py-2 pl-9 pr-3 text-sm text-[var(--eh-text-primary)] outline-none transition focus:border-[var(--eh-brand)] focus:ring-2 focus:ring-[var(--eh-brand)]/20"
+                aria-label="Dynamics end date"
+              />
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={clearComparisonRange}
+            disabled={!hasActiveComparisonRange}
+            className="h-10 rounded-xl"
+          >
+            <SlidersHorizontal className="size-4" aria-hidden />
+            Clear range
+          </Button>
+        </div>
 
-            <p className="mb-4 text-xs leading-5 text-[var(--eh-text-muted)]">
-              {selectedSeries?.normalized
-                ? `Values are normalized to ${selectedSeries.unit ?? "the reviewed display unit"} by the server's reviewed conversion binding. Each point retains its laboratory value and range.`
-                : `Values are shown in ${selectedSeries?.unit ?? "their native units"}. Unit variants without a reviewed conversion remain separate series.`}
+        {dynamicsStatus === "loading" || dynamicsStatus === "idle" ? (
+          <p className="text-sm text-[var(--eh-text-secondary)]">
+            Loading biomarker dynamics…
+          </p>
+        ) : dynamicsStatus === "error" ? (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+            <p className="text-sm text-red-800">
+              {dynamicsError ?? "Biomarker dynamics are unavailable."}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void loadDynamics()}
+              className="mt-3 rounded-lg"
+            >
+              Retry dynamics
+            </Button>
+          </div>
+        ) : dynamics?.series.length === 0 ? (
+          <SurfaceCard padding="lg" className="border-dashed">
+            <p className="text-sm text-[var(--eh-text-secondary)]">
+              No compatible numeric history is available for this period.
+            </p>
+            <p className="mt-2 text-xs text-[var(--eh-text-secondary)]">
+              Upload and review another lab document, then return here.
+            </p>
+            {(dynamics?.limitations.length ?? 0) > 0 ? (
+              <div className="mt-4 border-t pt-4 text-left">
+                <h3 className="text-sm font-semibold text-[var(--eh-text-primary)]">
+                  Data limitations
+                </h3>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[var(--eh-text-secondary)]">
+                  {dynamics?.limitations.map((item, index) => (
+                    <li key={`${item.code}-${index}`}>{item.message}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </SurfaceCard>
+        ) : selectedSeries ? (
+          <>
+            <p className="mb-4 text-xs leading-5 text-[var(--eh-text-secondary)]">
+              {selectedSeries.normalized
+                ? `Values are normalized to ${selectedSeries.displayUnit ?? "the reviewed display unit"} by the server's reviewed conversion binding. Native values and ranges remain in each source record.`
+                : `Values are shown in ${selectedSeries.displayUnit ?? "their native units"}. Unit variants without a reviewed conversion remain separate series.`}
             </p>
 
-            {!selectedFilteredSeries ? (
-              <SurfaceCard padding="lg" className="border-dashed text-center">
-                <p className="text-sm text-[var(--eh-text-secondary)]">
-                  No measurements match the selected date range.
+            <div className="mb-5 grid gap-3 sm:grid-cols-4">
+              <div className="rounded-lg border border-[var(--eh-border)] bg-[var(--eh-canvas-bg)] p-3">
+                <p className="text-xs text-[var(--eh-text-secondary)]">
+                  Minimum
                 </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={clearComparisonRange}
-                  className="mt-4 rounded-xl"
-                >
-                  Clear range
-                </Button>
-              </SurfaceCard>
-            ) : (
-              <BiomarkerChart
-                data={chartData}
-                points={chartPoints}
-                biomarkerName={selectedSeries?.label ?? "Measurement"}
-                selectedObservationId={selectedObservationId}
-              />
-            )}
+                <p className="mt-1 text-lg font-semibold text-[var(--eh-text-primary)]">
+                  {formatBiomarkerDynamicsValue(
+                    selectedStatistics?.minimum ?? null,
+                    selectedSeries.displayUnit,
+                  )}
+                </p>
+              </div>
+              <div className="rounded-lg border border-[var(--eh-border)] bg-[var(--eh-canvas-bg)] p-3">
+                <p className="text-xs text-[var(--eh-text-secondary)]">
+                  Maximum
+                </p>
+                <p className="mt-1 text-lg font-semibold text-[var(--eh-text-primary)]">
+                  {formatBiomarkerDynamicsValue(
+                    selectedStatistics?.maximum ?? null,
+                    selectedSeries.displayUnit,
+                  )}
+                </p>
+              </div>
+              <div className="rounded-lg border border-[var(--eh-border)] bg-[var(--eh-canvas-bg)] p-3">
+                <p className="text-xs text-[var(--eh-text-secondary)]">
+                  Latest
+                </p>
+                <p className="mt-1 text-lg font-semibold text-[var(--eh-text-primary)]">
+                  {formatBiomarkerDynamicsValue(
+                    selectedStatistics?.latest?.displayValue ?? null,
+                    selectedSeries.displayUnit,
+                  )}
+                </p>
+              </div>
+              <div className="rounded-lg border border-[var(--eh-border)] bg-[var(--eh-canvas-bg)] p-3">
+                <p className="text-xs text-[var(--eh-text-secondary)]">
+                  Numeric direction
+                </p>
+                <p className="mt-1 text-lg font-semibold capitalize text-[var(--eh-text-primary)]">
+                  {selectedSeries.direction.replace("_", " ")}
+                </p>
+                <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
+                  {selectedStatistics?.pointCount ?? 0} point
+                  {(selectedStatistics?.pointCount ?? 0) === 1 ? "" : "s"}
+                </p>
+              </div>
+            </div>
+
+            {selectedIncompatibilities.length > 0 ? (
+              <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <h3 className="text-sm font-semibold text-amber-900">
+                  Separate evidence
+                </h3>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900">
+                  {selectedIncompatibilities.map((item) => {
+                    const affectedSeries = item.seriesIds.flatMap(
+                      (seriesId) => {
+                        const series = dynamics?.series.find(
+                          (candidate) => candidate.id === seriesId,
+                        );
+                        return series
+                          ? [formatBiomarkerDynamicsSeriesLabel(series)]
+                          : [];
+                      },
+                    );
+                    return (
+                      <li key={item.id}>
+                        {item.detail} Affected series:{" "}
+                        {affectedSeries.join("; ") || item.seriesIds.join(", ")}
+                        .
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
+
+            {selectedLimitations.length > 0 ? (
+              <div className="mb-4 rounded-lg border border-[var(--eh-border)] bg-white p-4">
+                <h3 className="text-sm font-semibold text-[var(--eh-text-primary)]">
+                  Data limitations
+                </h3>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[var(--eh-text-secondary)]">
+                  {selectedLimitations.map((item, index) => (
+                    <li
+                      key={`${item.code}-${item.seriesId ?? "report"}-${index}`}
+                    >
+                      {item.message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            <BiomarkerChart
+              data={chartData}
+              points={chartPoints}
+              biomarkerName={selectedSeries.label}
+              selectedObservationId={selectedObservationId}
+            />
           </>
+        ) : (
+          <p className="text-sm text-[var(--eh-text-secondary)]">
+            Select a measurement series to view its dynamics.
+          </p>
         )}
       </SurfaceCard>
 

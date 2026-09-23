@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
+import {
+  InvalidPersistedBiomarkerDynamicsError,
+  resolvePersistedBiomarkerDynamics,
+} from "@/lib/reports";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -28,6 +32,18 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
 
   if (!report) {
     return NextResponse.json({ error: "Report not found" }, { status: 404 });
+  }
+
+  try {
+    resolvePersistedBiomarkerDynamics(report.content);
+  } catch (error) {
+    if (error instanceof InvalidPersistedBiomarkerDynamicsError) {
+      return NextResponse.json(
+        { error: "Report dynamics metadata is invalid" },
+        { status: 500 },
+      );
+    }
+    throw error;
   }
 
   return NextResponse.json({ report });

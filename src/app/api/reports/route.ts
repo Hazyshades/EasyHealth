@@ -17,10 +17,16 @@ import {
 import {
   buildMultiSourceReportContext,
   buildSummaryPreview,
+  createPersistedBiomarkerDynamicsBinding,
   getEligibleDocumentIds,
   hasReportContextContent,
   withDisclaimer,
+  type PersistedBiomarkerDynamicsBinding,
 } from "@/lib/reports";
+import {
+  BiomarkerDynamicsAuthorizationError,
+  getAuthorizedBiomarkerDynamics,
+} from "@/lib/biomarker-dynamics-server";
 import { buildDocumentStructuredContext } from "@/lib/documents/structured-context";
 import {
   isCurrentDocumentObservation,
@@ -131,8 +137,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { title, report_type, detail_level, document_ids, abnormal_only } =
-    parsed.data;
+  const {
+    title,
+    report_type,
+    detail_level,
+    document_ids,
+    abnormal_only,
+    biomarker_dynamics_period,
+  } = parsed.data;
   const eligibleIds = await getEligibleDocumentIds(profileId);
 
   if (eligibleIds.length === 0) {
@@ -166,6 +178,26 @@ export async function POST(req: NextRequest) {
     scopeIds = document_ids;
     storedDocumentIds = document_ids;
   }
+  let biomarkerDynamicsBinding: PersistedBiomarkerDynamicsBinding | null = null;
+  if (biomarker_dynamics_period) {
+    try {
+      const dynamics = await getAuthorizedBiomarkerDynamics({
+        profileId,
+        period: biomarker_dynamics_period,
+        scope: { kind: "report_immutable", documentIds: scopeIds },
+      });
+      biomarkerDynamicsBinding =
+        createPersistedBiomarkerDynamicsBinding(dynamics);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const status = error instanceof BiomarkerDynamicsAuthorizationError ? 400 : 500;
+      return NextResponse.json(
+        { error: "Unable to bind biomarker dynamics", message },
+        { status },
+      );
+    }
+  }
+
 
   const supabase = createAdminClient();
   const structured = await buildDocumentStructuredContext(profileId, scopeIds);
@@ -285,7 +317,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const content = withDisclaimer(object);
+  const baseContent = withDisclaimer(object);
+  const content = biomarkerDynamicsBinding
+    ? { ...baseContent, biomarker_dynamics: biomarkerDynamicsBinding }
+    : baseContent;
   const summary_preview = buildSummaryPreview(content.overview);
 
   const { data: report, error: insertError } = await supabase
