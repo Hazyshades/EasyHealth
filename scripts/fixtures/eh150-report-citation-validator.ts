@@ -1,7 +1,7 @@
 import type {
   AuthorizedReportSource,
   ReportCitationValidationContext,
-  ReportContent,
+  ReportCandidateContent,
 } from "../../src/lib/report-citation-validator";
 
 export const PROFILE_A = "profile-a";
@@ -12,7 +12,7 @@ export const DOCUMENT_B = "document-b";
 export const SOURCE_SUMMARY = "source-summary";
 export const SOURCE_OBSERVATION = "source-observation";
 
-export const VALID_REPORT_CONTENT: ReportContent = {
+export const VALID_REPORT_CONTENT: ReportCandidateContent = {
   schema_version: "eh148.v1",
   report_kind: "doctor_visit_brief",
   generated_at: "2026-09-22T12:00:00.000Z",
@@ -88,13 +88,11 @@ export const VALID_REPORT_CONTENT: ReportContent = {
       source_id: SOURCE_SUMMARY,
       kind: "document_summary",
       document_id: DOCUMENT_A,
-      snapshot: { text: "Synthetic document summary." },
     },
     {
       source_id: SOURCE_OBSERVATION,
       kind: "observation",
       document_id: DOCUMENT_A,
-      snapshot: { label: "Synthetic observation", value: 5, unit: "units" },
     },
   ],
   limitations: [],
@@ -109,6 +107,7 @@ export const VALID_AUTHORIZED_SOURCES: readonly AuthorizedReportSource[] = [
     profile_id: PROFILE_A,
     kind: "document_summary",
     document_id: DOCUMENT_A,
+    snapshot: { text: "Trusted synthetic document summary." },
     source_status: "active",
     document_status: "active",
   },
@@ -118,6 +117,11 @@ export const VALID_AUTHORIZED_SOURCES: readonly AuthorizedReportSource[] = [
     profile_id: PROFILE_A,
     kind: "observation",
     document_id: DOCUMENT_A,
+    snapshot: {
+      label: "Trusted synthetic observation",
+      value: 5,
+      unit: "units",
+    },
     source_status: "active",
     document_status: "active",
   },
@@ -141,6 +145,8 @@ export function makeValidationContext(
   };
 }
 
-export function cloneReportContent(): ReportContent {
-  return JSON.parse(JSON.stringify(VALID_REPORT_CONTENT)) as ReportContent;
+export function cloneReportContent(): ReportCandidateContent {
+  return JSON.parse(
+    JSON.stringify(VALID_REPORT_CONTENT),
+  ) as ReportCandidateContent;
 }

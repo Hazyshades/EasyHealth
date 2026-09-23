@@ -83,6 +83,11 @@ async function main(): Promise<void> {
   assert.equal(valid.content?.claims.length, 3);
   assert.equal(valid.content?.limitations.length, 1);
   assert.equal(JSON.stringify(valid.content).includes(PROFILE_A), false);
+  assert.deepEqual(
+    valid.content?.sources.find((source) => source.source_id === SOURCE_SUMMARY)
+      ?.snapshot,
+    { text: "Trusted synthetic document summary." },
+  );
 
   const missingSection = mutableContent();
   missingSection.sections.splice(2, 1);
