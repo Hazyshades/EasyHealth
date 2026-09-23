@@ -98,7 +98,8 @@ export function buildReportEvidenceProjection(
   for (const item of context.biomarkers) {
     const snapshot: ObservationSourceSnapshot = {
       kind: "observation",
-      label: item.source,
+      label:
+        item.measurement_definition_key ?? item.analyte_key ?? item.biomarker,
       observed_at: item.observed_at,
       value: item.value,
       value_text: item.value_text,
@@ -189,7 +190,7 @@ export function buildReportEvidenceProjection(
     const snapshot: DocumentSummarySourceSnapshot = {
       kind: "document_summary",
       label: item.filename,
-      observed_at: null,
+      observed_at: item.observed_at,
       document_type: item.document_type,
       summary: item.summary,
     };

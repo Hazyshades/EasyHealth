@@ -20,8 +20,8 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 | ID                        | Test document or setup                                                                                                                                                                   | Purpose                                                 |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | `EH148-LAB-01`            | Synthetic lab with two dated numeric observations and ranges                                                                                                                             | Normal evidence path                                    |
-| `EH148-MIXED-01`          | Synthetic imaging/consultation record with accepted structured fields                                                                                                                    | Multi-source scope                                      |
-| `EH148-LIMIT-01`          | Synthetic record with one point or no comparable history                                                                                                                                 | Missing-evidence path                                   |
+| `EH148-MIXED-01`          | Synthetic imaging/consultation document with accepted structured fields                                                                                                                  | Multi-source scope                                      |
+| `EH148-LIMIT-01`          | Synthetic document with one point or no comparable history                                                                                                                               | Missing-evidence path                                   |
 | `EH148-LEGACY-01`         | Existing test fixture representing an unversioned legacy report                                                                                                                          | Legacy boundary                                         |
 | `EH148-SAFETY-01`         | Validator fixture containing model-authored factual text, unknown template/parameter, removed claim, diagnosis, treatment, urgency, imperative, and unsupported free-form factual fields | Content-safety boundary                                 |
 | `EH148-ARCHIVE-01`        | Published brief whose cited source row is archived/removed while its parent document remains active                                                                                      | Read-time source-unavailable limitation                 |
@@ -43,7 +43,7 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 **Expected result:** The brief shows typed document summaries, latest measurements, changes, questions, limitations, and a visible disclaimer. Each factual item has an inspectable source reference; no unrelated document appears.
 
 **Result:** `N/A`
-**Notes / evidence link:** `Implementation not started; execute after EH-148 delivery.`
+**Notes / evidence link:** `N/A`: runtime UI execution is blocked by the missing EH-150 validator handoff and unavailable local Supabase/OpenAI environment.
 
 ### EH148-UI-02: Show missing evidence as a limitation
 
@@ -56,7 +56,7 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 **Expected result:** The page explains that a comparison is unavailable. It does not label the result as improving, worsening, diagnosed, or treated.
 
 **Result:** `N/A`
-**Notes / evidence link:** `Implementation not started; execute after EH-148 delivery.`
+**Notes / evidence link:** `N/A`: runtime UI execution is blocked by the missing EH-150 validator handoff and unavailable local Supabase/OpenAI environment.
 
 ### EH148-UI-03: Inspect the source ledger
 
@@ -69,7 +69,7 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 **Expected result:** The ledger shows the evidence snapshot and document identity, and citation labels are derived from source IDs rather than filenames.
 
 **Result:** `N/A`
-**Notes / evidence link:** `Implementation not started; execute after EH-148 delivery.`
+**Notes / evidence link:** `N/A`: runtime UI execution is blocked by the missing EH-150 validator handoff and unavailable local Supabase/OpenAI environment.
 
 ### EH148-UI-04: Keep legacy reports readable without fabricated citations
 
@@ -82,7 +82,7 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 **Expected result:** Legacy content is identified as legacy. Source-grounded sharing/export is unavailable until revalidation; no citation markers are invented from old filenames.
 
 **Result:** `N/A`
-**Notes / evidence link:** `Implementation not started; execute after EH-148 delivery.`
+**Notes / evidence link:** `N/A`: runtime UI execution is blocked by the missing EH-150 validator handoff and unavailable local Supabase/OpenAI environment.
 
 ### EH148-UI-05: Preserve questions and date-filtered scope
 
@@ -95,7 +95,7 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 **Expected result:** Boundary documents are included, outside-range and undated documents are absent, and each submitted question is visibly rendered as a question without a factual answer or invented citation.
 
 **Result:** `N/A`
-**Notes / evidence link:** `Implementation not started; execute after EH-148 delivery.`
+**Notes / evidence link:** `N/A`: runtime UI execution is blocked by the missing EH-150 validator handoff and unavailable local Supabase/OpenAI environment.
 
 ## Developer evidence required
 
@@ -104,7 +104,7 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 - [ ] Mixed-source verification covers observations, findings, notes, prescriptions/referrals, and document summaries. _(Evidence provider: EH-148 source-projection owner.)_
 - [ ] Legacy verification proves unversioned/null-scope rows are readable but not silently upgraded. _(Evidence provider: EH-148 report-surface owner.)_
 - [ ] The EH-150 validator handoff and integration seam are recorded before share/export work begins. _(Evidence provider: EH-148 and EH-150 owners.)_
-- [ ] Focused API/route verification proves storage paths and cross-profile source records never enter the report response or source ledger. _(Evidence provider: EH-148 route owner; EH-150 validator owner.)_
+- [ ] Focused API/route verification proves storage paths and cross-profile source rows never enter the report response or source ledger. _(Evidence provider: EH-148 route owner; EH-150 validator owner.)_
 - [ ] Service-transition evidence proves `public.create_validated_report` rechecks identity/scope and rolls back staged report/mapping/status on injected validator, RPC, and persistence failure with no readable unvalidated candidate; direct report/evidence table DML is denied to runtime roles and owner report deletion uses the durable `public.delete_owner_report` transition. _(Evidence provider: EH-148 RPC owner; durable-deletion owner; EH-150 validator owner.)_
 - [ ] Section-contract evidence proves the canonical six section containers/order, claim-kind compatibility, unknown/missing/duplicate rejection, and explicit allowed empty states with machine limitations. _(Evidence provider: EH-148 contract owner; EH-150 validator owner; EH-153 serializer owner.)_
 - [ ] Adversarial content verification proves prohibited diagnosis/treatment/urgency/imperative/free-form factual fields do not reach publishable content, while `clinician_question` remains a question. _(Evidence provider: EH-148 safety-policy owner; EH-150 validator owner.)_
@@ -117,12 +117,16 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 
 ## Automated regression coverage
 
-- [x] `pnpm test:eh148-contract` verifies the canonical section order, typed claim/source/limitation references, opaque source projection for all six source kinds, bounded questions, inclusive UTC end-date handling, and rejection of an unknown citation. _(Executed 2026-09-18; passed.)_
+- [x] `pnpm test:eh148-contract` verifies the canonical section order, typed claim/source/limitation references, opaque source projection for all six source kinds, bounded questions, inclusive UTC end-date handling, deterministic candidate rendering with user-selected question origin, rejection of model-authored factual text and imperative generated question text, and rejection of an unknown citation. _(Executed 2026-09-22; passed.)_
 
 ## Local verification record
 
-- Contract and evidence foundation implemented.
-- Report persistence, generation-route cutover, read resolver, and UI migration remain pending.
+- `pnpm exec tsc --noEmit --pretty false` passed after the contract, safety-policy, resolver, and typed-renderer changes.
+- `pnpm test:eh104` passed the durable writer/document-delete boundary checks.
+- `pnpm test:eh148-contract` passed after updating the fixture to use a valid-shaped unknown source ID.
+- `pnpm exec supabase db lint` is `BLOCKED`: local Postgres is not running; migration 083 needs target/CI SQL validation.
+- EH-150's validator change is not present in this repository. The legacy free-form generation path and writer call were removed; `POST /api/reports` now fails closed with HTTP 503 until the validator handoff and structured RPC integration are available. No publishable new report is claimed from this partial implementation.
+- Report UI checks remain `N/A`: the service generation route intentionally fails closed until it is cut over to the structured candidate/validator path.
 
 ## Out of scope or not manually testable yet
 

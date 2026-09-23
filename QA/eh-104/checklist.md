@@ -113,22 +113,22 @@ surface is shipped, and use the developer evidence section for route behavior.
 
 ### EH104-DD-UI-01: Owner deletion is asynchronous and idempotent
 
-**Result:** `N/A` — no owner-delete control is available in the current UI.  
+**Result:** `N/A`: no owner-delete control is available in the current UI.
 **Developer evidence instead:** exercise `DELETE /api/documents/:id` with a
 synthetic owner session and verify `202`, a stable operation id, and active-view
 exclusion.
 
 ### EH104-DD-UI-02: Deletion status does not expose private data
 
-**Result:** `N/A` — no deletion status surface is available in the current UI.  
+**Result:** `N/A`: no deletion status surface is available in the current UI.
 **Developer evidence instead:** exercise
 `GET /api/documents/:id/deletion` as the owner and a different test account;
 verify safe fields only and `404`/equivalent denial for the other account.
 
 ### EH104-DD-UI-03: Upload and processing remain fenced during deletion
 
-**Result:** `N/A` — no deletion control or status surface is available in the
-current UI.  
+**Result:** `N/A`: no deletion control or status surface is available in the
+current UI.
 **Developer evidence instead:** use synthetic API/worker fixtures to request
 deletion during upload or processing, then verify no late artifact is visible,
 retryable cleanup is reported for storage failure, and finalization waits for

@@ -30,7 +30,7 @@ select ok(
   'cleanup finalizer RPC exists'
 );
 select ok(
-  to_regprocedure('public.create_validated_report(uuid,text,text,text,uuid[],uuid[],jsonb,boolean,jsonb,text)') is not null,
+  to_regprocedure('public.create_validated_report(uuid,text,text,text,text,uuid[],uuid[],jsonb,boolean,jsonb,text,text,text,text[],jsonb)') is not null,
   'validated report writer exists'
 );
 select ok(
@@ -288,12 +288,54 @@ select throws_ok(
     'late report',
     'general_practice',
     'standard',
+    'explicit',
     array['00000000-0000-0000-0000-000000104002']::uuid[],
     array['00000000-0000-0000-0000-000000104002']::uuid[],
     '{"00000000-0000-0000-0000-000000104002":0}'::jsonb,
     false,
-    '{"overview":"late"}'::jsonb,
-    'late'
+    '{
+      "schema_version":"eh148.v1",
+      "report_kind":"doctor_visit_brief",
+      "requested_scope":{"kind":"explicit","document_ids":["00000000-0000-0000-0000-000000104002"]},
+      "source_document_ids":["00000000-0000-0000-0000-000000104002"],
+      "sections":[
+        {"id":"document_summary","items":[],"empty_state":"no_data"},
+        {"id":"latest_measurements","items":[],"empty_state":"no_data"},
+        {"id":"changes","items":[],"empty_state":"no_data"},
+        {"id":"clinician_questions","items":[],"empty_state":"no_data"},
+        {"id":"limitations","items":[],"empty_state":"no_data"},
+        {"id":"source_ledger","items":[{"type":"source_ref","source_id":"src_ffffffffffffffffffffffffffffffff"}]}
+      ],
+      "claims":[],
+      "limitations":[],
+      "validation":{"status":"valid","version":"eh150.v1","issue_codes":[]},
+      "overview":"Synthetic source-grounded overview.",
+      "sources":[{
+        "source_id":"src_ffffffffffffffffffffffffffffffff",
+        "kind":"observation",
+        "document_id":"00000000-0000-0000-0000-000000104002",
+        "snapshot":{
+          "kind":"observation",
+          "label":"Synthetic",
+          "observed_at":"2026-09-20",
+          "value":1,
+          "value_text":"1",
+          "unit":"unit",
+          "ref_low":null,
+          "ref_high":null
+        }
+      }]
+    }'::jsonb,
+    'late',
+    'valid',
+    'eh150.v1',
+    '{}'::text[],
+    '[{
+      "source_id":"src_ffffffffffffffffffffffffffffffff",
+      "source_kind":"observation",
+      "source_row_id":"00000000-0000-0000-0000-000000104002",
+      "document_id":"00000000-0000-0000-0000-000000104002"
+    }]'::jsonb
   )$$,
   'report_source_unavailable',
   'report writer rejects a tombstoned source'

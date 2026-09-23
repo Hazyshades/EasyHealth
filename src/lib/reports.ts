@@ -2,6 +2,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { DocumentStructuredContext } from "@/lib/documents/structured-context";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 import { sanitizeReportStrings } from "@/lib/report-text";
+import {
+  isDateInInclusiveRange,
+  type ReportDateRange,
+} from "@/lib/report-contract";
 
 export async function getEligibleDocumentIds(
   profileId: string,
@@ -206,6 +210,7 @@ export type MultiSourceReportContext = {
     document_id: string;
     filename: string;
     document_type: string;
+    observed_at: string | null;
     summary: string;
   }>;
 };
@@ -263,14 +268,36 @@ export function buildMultiSourceReportContext(
   structured: DocumentStructuredContext,
   observations: ObservationRow[],
   abnormalOnly: boolean,
+  dateRange: ReportDateRange | null = null,
 ): MultiSourceReportContext {
-  const scopedObservations = abnormalOnly
-    ? filterAbnormalObservations(observations)
-    : observations;
+  const scopedObservations = (
+    abnormalOnly ? filterAbnormalObservations(observations) : observations
+  ).filter((observation) =>
+    isDateInInclusiveRange(observation.observed_at, dateRange),
+  );
+  const scopedFindings = structured.instrumental_findings.filter((finding) =>
+    isDateInInclusiveRange(finding.study_date, dateRange),
+  );
+  const scopedConsultationNotes = structured.consultation_notes.filter((note) =>
+    isDateInInclusiveRange(note.document_observed_at, dateRange),
+  );
+  const scopedDischargeSummaries = structured.discharge_summaries.filter(
+    (summary) =>
+      isDateInInclusiveRange(summary.document_observed_at, dateRange),
+  );
+  const scopedPrescriptions = structured.prescriptions.filter((prescription) =>
+    isDateInInclusiveRange(prescription.document_observed_at, dateRange),
+  );
+  const scopedReferrals = structured.referrals.filter((referral) =>
+    isDateInInclusiveRange(referral.document_observed_at, dateRange),
+  );
+  const scopedDocumentSummaries = structured.document_summaries.filter(
+    (summary) => isDateInInclusiveRange(summary.observed_at, dateRange),
+  );
 
   return {
     biomarkers: buildReportContext(scopedObservations),
-    instrumental_findings: structured.instrumental_findings.map((f) => ({
+    instrumental_findings: scopedFindings.map((f) => ({
       source_row_id: f.source_row_id,
       document_id: f.document_id,
       filename: f.filename,
@@ -280,7 +307,7 @@ export function buildMultiSourceReportContext(
       impression: f.impression,
       study_date: f.study_date,
     })),
-    consultation_notes: structured.consultation_notes.map((c) => ({
+    consultation_notes: scopedConsultationNotes.map((c) => ({
       source_row_id: c.source_row_id,
       document_id: c.document_id,
       filename: c.filename,
@@ -292,7 +319,7 @@ export function buildMultiSourceReportContext(
       follow_up_plan: c.follow_up_plan,
       summary: c.summary,
     })),
-    discharge_summaries: structured.discharge_summaries.map((d) => ({
+    discharge_summaries: scopedDischargeSummaries.map((d) => ({
       source_row_id: d.source_row_id,
       document_id: d.document_id,
       filename: d.filename,
@@ -304,7 +331,7 @@ export function buildMultiSourceReportContext(
       discharge_medications: d.discharge_medications ?? [],
       follow_up_instructions: d.follow_up_instructions ?? null,
     })),
-    prescriptions: structured.prescriptions.map((p) => ({
+    prescriptions: scopedPrescriptions.map((p) => ({
       source_row_id: p.source_row_id,
       document_id: p.document_id,
       filename: p.filename,
@@ -313,7 +340,7 @@ export function buildMultiSourceReportContext(
       medications: p.medications,
       summary: p.summary,
     })),
-    referrals: structured.referrals.map((r) => ({
+    referrals: scopedReferrals.map((r) => ({
       source_row_id: r.source_row_id,
       document_id: r.document_id,
       filename: r.filename,
@@ -325,11 +352,12 @@ export function buildMultiSourceReportContext(
       clinical_summary: r.clinical_summary,
       urgency: r.urgency,
     })),
-    document_summaries: structured.document_summaries.map((s) => ({
+    document_summaries: scopedDocumentSummaries.map((s) => ({
       source_row_id: s.source_row_id,
       document_id: s.document_id,
       filename: s.filename,
       document_type: s.document_type,
+      observed_at: s.observed_at,
       summary: s.summary,
     })),
   };

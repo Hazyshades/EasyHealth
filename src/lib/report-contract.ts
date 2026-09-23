@@ -42,6 +42,14 @@ export type ReportEmptyState = (typeof REPORT_EMPTY_STATES)[number];
 export const REPORT_CLAIM_STATUSES = ["supported", "limited"] as const;
 export type ReportClaimStatus = (typeof REPORT_CLAIM_STATUSES)[number];
 
+export const REPORT_CLAIM_CANDIDATE_STATUSES = [
+  "supported",
+  "limited",
+  "removed",
+] as const;
+export type ReportClaimCandidateStatus =
+  (typeof REPORT_CLAIM_CANDIDATE_STATUSES)[number];
+
 export const REPORT_QUESTION_ORIGINS = ["generated", "user_selected"] as const;
 export type ReportQuestionOrigin = (typeof REPORT_QUESTION_ORIGINS)[number];
 
@@ -75,6 +83,11 @@ export const REPORT_VALIDATION_ISSUE_CODES = [
 ] as const;
 export type ReportValidationIssueCode =
   (typeof REPORT_VALIDATION_ISSUE_CODES)[number];
+
+export type ReportDateRange = {
+  start: string;
+  end: string;
+};
 
 export type ReportRequestedScope =
   | { kind: "all_eligible"; document_ids: null }
@@ -197,7 +210,12 @@ export type ReportClaim =
   | NumericObservationClaim
   | ClinicianQuestionClaim;
 
-type ClaimCandidateBase = Omit<ClaimBase, never>;
+type ClaimCandidateBase = {
+  id: string;
+  section: Exclude<ReportSectionId, "limitations" | "source_ledger">;
+  citations: ReportEvidenceRef[];
+  status: ReportClaimCandidateStatus;
+};
 
 export type SourceFactClaimCandidate = ClaimCandidateBase & {
   kind: "source_fact";
@@ -221,10 +239,14 @@ export type NumericObservationClaimCandidate = ClaimCandidateBase & {
   };
 };
 
-export type ClinicianQuestionClaimCandidate = Omit<
-  ClinicianQuestionClaim,
-  "question_text"
-> & {
+export type ClinicianQuestionClaimCandidate = {
+  id: string;
+  section: "clinician_questions";
+  kind: "clinician_question";
+  origin: ReportQuestionOrigin;
+  factual: false;
+  citations: [];
+  status: ReportClaimCandidateStatus;
   question_text: string;
 };
 
@@ -248,6 +270,11 @@ export type ReportLimitation = {
   id: string;
   code: string;
   message: string;
+};
+
+export type ReportLimitationCandidate = {
+  id: string;
+  code: string;
 };
 
 export type ReportValidationEnvelope = {
@@ -276,212 +303,284 @@ export type DoctorVisitBrief = {
 };
 
 const uuidSchema = z.string().uuid();
-const sourceIdSchema = z.string().min(8).max(128);
-const claimIdSchema = z.string().min(1).max(128);
+const sourceIdSchema = z.string().regex(/^src_[0-9a-f]{32}$/u);
+const claimIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/u);
 const sectionIdSchema = z.enum(REPORT_SECTION_IDS);
+const factualSectionIdSchema = z.enum([
+  "document_summary",
+  "latest_measurements",
+  "changes",
+]);
 const sourceKindSchema = z.enum(REPORT_SOURCE_KINDS);
 const emptyStateSchema = z.enum(REPORT_EMPTY_STATES);
 const claimStatusSchema = z.enum(REPORT_CLAIM_STATUSES);
+const claimCandidateStatusSchema = z.enum(REPORT_CLAIM_CANDIDATE_STATUSES);
 const questionOriginSchema = z.enum(REPORT_QUESTION_ORIGINS);
 const detailLevelSchema = z.enum(REPORT_DETAIL_LEVELS);
 
-const evidenceRefSchema = z.object({
-  source_id: sourceIdSchema,
-  document_id: uuidSchema,
-});
+const evidenceRefSchema = z
+  .object({
+    source_id: sourceIdSchema,
+    document_id: uuidSchema,
+  })
+  .strict();
 
 const sourceSnapshotSchema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("observation"),
-    label: z.string().min(1),
-    observed_at: z.string().nullable(),
-    value: z.number().finite().nullable(),
-    value_text: z.string().nullable(),
-    unit: z.string(),
-    ref_low: z.number().finite().nullable(),
-    ref_high: z.number().finite().nullable(),
-  }),
-  z.object({
-    kind: z.literal("finding"),
-    label: z.string().min(1),
-    observed_at: z.string().nullable(),
-    finding_text: z.string().min(1),
-    impression: z.string().nullable(),
-  }),
-  z.object({
-    kind: z.literal("clinical_note"),
-    label: z.string().min(1),
-    observed_at: z.string().nullable(),
-    provider_name: z.string().nullable(),
-    summary: z.string().nullable(),
-  }),
-  z.object({
-    kind: z.literal("prescription"),
-    label: z.string().min(1),
-    observed_at: z.string().nullable(),
-    prescriber_name: z.string().nullable(),
-    summary: z.string().nullable(),
-  }),
-  z.object({
-    kind: z.literal("referral"),
-    label: z.string().min(1),
-    observed_at: z.string().nullable(),
-    referring_provider: z.string().nullable(),
-    referred_to_specialty: z.string().nullable(),
-    summary: z.string().nullable(),
-  }),
-  z.object({
-    kind: z.literal("document_summary"),
-    label: z.string().min(1),
-    observed_at: z.string().nullable(),
-    document_type: z.string().min(1),
-    summary: z.string().min(1),
-  }),
+  z
+    .object({
+      kind: z.literal("observation"),
+      label: z.string().min(1),
+      observed_at: z.string().nullable(),
+      value: z.number().finite().nullable(),
+      value_text: z.string().nullable(),
+      unit: z.string(),
+      ref_low: z.number().finite().nullable(),
+      ref_high: z.number().finite().nullable(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("finding"),
+      label: z.string().min(1),
+      observed_at: z.string().nullable(),
+      finding_text: z.string().min(1),
+      impression: z.string().nullable(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("clinical_note"),
+      label: z.string().min(1),
+      observed_at: z.string().nullable(),
+      provider_name: z.string().nullable(),
+      summary: z.string().nullable(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("prescription"),
+      label: z.string().min(1),
+      observed_at: z.string().nullable(),
+      prescriber_name: z.string().nullable(),
+      summary: z.string().nullable(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("referral"),
+      label: z.string().min(1),
+      observed_at: z.string().nullable(),
+      referring_provider: z.string().nullable(),
+      referred_to_specialty: z.string().nullable(),
+      summary: z.string().nullable(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("document_summary"),
+      label: z.string().min(1),
+      observed_at: z.string().nullable(),
+      document_type: z.string().min(1),
+      summary: z.string().min(1),
+    })
+    .strict(),
 ]);
 
-const sourceSchema = z.object({
-  source_id: sourceIdSchema,
-  kind: sourceKindSchema,
-  document_id: uuidSchema,
-  snapshot: sourceSnapshotSchema,
-});
+const sourceSchema = z
+  .object({
+    source_id: sourceIdSchema,
+    kind: sourceKindSchema,
+    document_id: uuidSchema,
+    snapshot: sourceSnapshotSchema,
+  })
+  .strict();
 
-const sourceFactTemplateSchema = z.object({
-  source_id: sourceIdSchema,
-  include_date: z.boolean(),
-});
+const sourceFactTemplateSchema = z
+  .object({
+    source_id: sourceIdSchema,
+    include_date: z.boolean(),
+  })
+  .strict();
 
-const numericObservationTemplateSchema = z.object({
-  source_id: sourceIdSchema,
-  include_range: z.boolean(),
-});
+const numericObservationTemplateSchema = z
+  .object({
+    source_id: sourceIdSchema,
+    include_range: z.boolean(),
+  })
+  .strict();
 
 const claimCandidateSchema = z.discriminatedUnion("kind", [
-  z.object({
-    id: claimIdSchema,
-    section: sectionIdSchema,
-    kind: z.literal("source_fact"),
-    origin: z.literal("generated"),
-    factual: z.literal(true),
-    citations: z.array(evidenceRefSchema),
-    status: claimStatusSchema,
-    template_id: z.literal("source_fact_snapshot"),
-    template_params: sourceFactTemplateSchema,
-  }),
-  z.object({
-    id: claimIdSchema,
-    section: sectionIdSchema,
-    kind: z.literal("numeric_observation"),
-    origin: z.literal("generated"),
-    factual: z.literal(true),
-    citations: z.array(evidenceRefSchema),
-    status: claimStatusSchema,
-    template_id: z.literal("numeric_observation_snapshot"),
-    template_params: numericObservationTemplateSchema,
-  }),
-  z.object({
-    id: claimIdSchema,
-    section: z.literal("clinician_questions"),
-    kind: z.literal("clinician_question"),
-    origin: questionOriginSchema,
-    factual: z.literal(false),
-    citations: z.array(evidenceRefSchema).length(0),
-    status: claimStatusSchema,
-    question_text: z.string().min(1).max(240),
-  }),
+  z
+    .object({
+      id: claimIdSchema,
+      section: factualSectionIdSchema,
+      kind: z.literal("source_fact"),
+      origin: z.literal("generated"),
+      factual: z.literal(true),
+      citations: z.array(evidenceRefSchema),
+      status: claimCandidateStatusSchema,
+      template_id: z.literal("source_fact_snapshot"),
+      template_params: sourceFactTemplateSchema,
+    })
+    .strict(),
+  z
+    .object({
+      id: claimIdSchema,
+      section: factualSectionIdSchema,
+      kind: z.literal("numeric_observation"),
+      origin: z.literal("generated"),
+      factual: z.literal(true),
+      citations: z.array(evidenceRefSchema),
+      status: claimCandidateStatusSchema,
+      template_id: z.literal("numeric_observation_snapshot"),
+      template_params: numericObservationTemplateSchema,
+    })
+    .strict(),
+  z
+    .object({
+      id: claimIdSchema,
+      section: z.literal("clinician_questions"),
+      kind: z.literal("clinician_question"),
+      origin: questionOriginSchema,
+      factual: z.literal(false),
+      citations: z.array(evidenceRefSchema).length(0),
+      status: claimCandidateStatusSchema,
+      question_text: z.string().min(1).max(240),
+    })
+    .strict(),
 ]);
 
 const claimSchema = z.discriminatedUnion("kind", [
-  z.object({
-    id: claimIdSchema,
-    section: sectionIdSchema,
-    kind: z.literal("source_fact"),
-    origin: z.literal("generated"),
-    factual: z.literal(true),
-    citations: z.array(evidenceRefSchema),
-    status: claimStatusSchema,
-    template_id: z.literal("source_fact_snapshot"),
-    template_params: sourceFactTemplateSchema,
-    text: z.string().min(1),
-  }),
-  z.object({
-    id: claimIdSchema,
-    section: sectionIdSchema,
-    kind: z.literal("numeric_observation"),
-    origin: z.literal("generated"),
-    factual: z.literal(true),
-    citations: z.array(evidenceRefSchema),
-    status: claimStatusSchema,
-    template_id: z.literal("numeric_observation_snapshot"),
-    template_params: numericObservationTemplateSchema,
-    text: z.string().min(1),
-  }),
-  z.object({
-    id: claimIdSchema,
-    section: z.literal("clinician_questions"),
-    kind: z.literal("clinician_question"),
-    origin: questionOriginSchema,
-    factual: z.literal(false),
-    citations: z.array(evidenceRefSchema).length(0),
-    status: claimStatusSchema,
-    question_text: z.string().min(1).max(240),
-  }),
+  z
+    .object({
+      id: claimIdSchema,
+      section: factualSectionIdSchema,
+      kind: z.literal("source_fact"),
+      origin: z.literal("generated"),
+      factual: z.literal(true),
+      citations: z.array(evidenceRefSchema),
+      status: claimStatusSchema,
+      template_id: z.literal("source_fact_snapshot"),
+      template_params: sourceFactTemplateSchema,
+      text: z.string().min(1),
+    })
+    .strict(),
+  z
+    .object({
+      id: claimIdSchema,
+      section: factualSectionIdSchema,
+      kind: z.literal("numeric_observation"),
+      origin: z.literal("generated"),
+      factual: z.literal(true),
+      citations: z.array(evidenceRefSchema),
+      status: claimStatusSchema,
+      template_id: z.literal("numeric_observation_snapshot"),
+      template_params: numericObservationTemplateSchema,
+      text: z.string().min(1),
+    })
+    .strict(),
+  z
+    .object({
+      id: claimIdSchema,
+      section: z.literal("clinician_questions"),
+      kind: z.literal("clinician_question"),
+      origin: questionOriginSchema,
+      factual: z.literal(false),
+      citations: z.array(evidenceRefSchema).length(0),
+      status: claimStatusSchema,
+      question_text: z.string().min(1).max(240),
+    })
+    .strict(),
 ]);
 
 const sectionItemSchema = z.union([
-  z.object({ type: z.literal("claim_ref"), claim_id: claimIdSchema }),
-  z.object({ type: z.literal("limitation_ref"), limitation_id: claimIdSchema }),
-  z.object({ type: z.literal("source_ref"), source_id: sourceIdSchema }),
+  z.object({ type: z.literal("claim_ref"), claim_id: claimIdSchema }).strict(),
+  z
+    .object({
+      type: z.literal("limitation_ref"),
+      limitation_id: claimIdSchema,
+    })
+    .strict(),
+  z
+    .object({ type: z.literal("source_ref"), source_id: sourceIdSchema })
+    .strict(),
 ]);
 
-const sectionSchema = z.object({
-  id: sectionIdSchema,
-  items: z.array(sectionItemSchema),
-  empty_state: emptyStateSchema.optional(),
-});
+const sectionSchema = z
+  .object({
+    id: sectionIdSchema,
+    items: z.array(sectionItemSchema),
+    empty_state: emptyStateSchema.optional(),
+  })
+  .strict();
 
-const limitationSchema = z.object({
-  id: claimIdSchema,
-  code: z.string().regex(/^[A-Z0-9_]+$/),
-  message: z.string().min(1),
-});
+const limitationCandidateSchema = z
+  .object({
+    id: claimIdSchema,
+    code: z.string().regex(/^[A-Z0-9_]+$/u),
+  })
+  .strict();
 
-const validationSchema = z.object({
-  status: z.enum(REPORT_VALIDATION_STATUSES),
-  version: z.string().min(1),
-  issue_codes: z.array(z.enum(REPORT_VALIDATION_ISSUE_CODES)),
-});
+const limitationSchema = z
+  .object({
+    id: claimIdSchema,
+    code: z.string().regex(/^[A-Z0-9_]+$/u),
+    message: z.string().min(1),
+  })
+  .strict();
+
+const validationSchema = z
+  .object({
+    status: z.enum(REPORT_VALIDATION_STATUSES),
+    version: z.string().min(1),
+    issue_codes: z.array(z.enum(REPORT_VALIDATION_ISSUE_CODES)),
+  })
+  .strict();
 
 const requestedScopeSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("all_eligible"), document_ids: z.null() }),
-  z.object({
-    kind: z.literal("explicit"),
-    document_ids: z.array(uuidSchema).min(1),
-  }),
+  z
+    .object({ kind: z.literal("all_eligible"), document_ids: z.null() })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("explicit"),
+      document_ids: z.array(uuidSchema).min(1),
+    })
+    .strict(),
 ]);
 
-export const doctorVisitBriefCandidateSchema = z.object({
-  schema_version: z.literal(REPORT_CONTRACT_VERSION),
-  report_kind: z.literal(REPORT_KIND),
-  generated_at: z.string().datetime({ offset: true }),
-  detail_level: detailLevelSchema,
-  requested_scope: requestedScopeSchema,
-  source_document_ids: z.array(uuidSchema),
-  sections: z.array(sectionSchema),
-  claims: z.array(claimCandidateSchema),
-  sources: z.array(sourceSchema),
-  limitations: z.array(limitationSchema),
-});
+export const doctorVisitBriefCandidateSchema = z
+  .object({
+    schema_version: z.literal(REPORT_CONTRACT_VERSION),
+    report_kind: z.literal(REPORT_KIND),
+    generated_at: z.string().datetime({ offset: true }),
+    detail_level: detailLevelSchema,
+    requested_scope: requestedScopeSchema,
+    source_document_ids: z.array(uuidSchema),
+    sections: z.array(sectionSchema),
+    claims: z.array(claimCandidateSchema),
+    sources: z.array(sourceSchema),
+    limitations: z.array(limitationCandidateSchema),
+  })
+  .strict();
 
-export const doctorVisitBriefSchema = doctorVisitBriefCandidateSchema.extend({
-  claims: z.array(claimSchema),
-  disclaimer: z.literal(MEDICAL_DISCLAIMER),
-  validation: validationSchema,
-  overview: z.string().min(1),
-  extensions: z
-    .object({ biomarker_dynamics: z.unknown().optional() })
-    .optional(),
-});
+export type DoctorVisitBriefCandidate = z.infer<
+  typeof doctorVisitBriefCandidateSchema
+>;
+
+export const doctorVisitBriefSchema = doctorVisitBriefCandidateSchema
+  .extend({
+    claims: z.array(claimSchema),
+    limitations: z.array(limitationSchema),
+    disclaimer: z.literal(MEDICAL_DISCLAIMER),
+    validation: validationSchema,
+    overview: z.string().min(1),
+    extensions: z
+      .object({ biomarker_dynamics: z.unknown().optional() })
+      .strict()
+      .optional(),
+  })
+  .strict();
 
 export function normalizeUserSelectedQuestions(value: unknown): string[] {
   if (!Array.isArray(value)) {
@@ -524,9 +623,7 @@ export function parseInclusiveUtcDate(value: unknown): string {
   return value;
 }
 
-export function parseReportDateRange(
-  value: unknown,
-): { start: string; end: string } | null {
+export function parseReportDateRange(value: unknown): ReportDateRange | null {
   if (value == null) return null;
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("report_date_range_is_invalid");
@@ -555,6 +652,179 @@ export function isDateInInclusiveRange(
   return date !== null && date >= range.start && date <= range.end;
 }
 
+export function assertDoctorVisitBriefCandidate(
+  value: unknown,
+): DoctorVisitBriefCandidate {
+  const parsed = doctorVisitBriefCandidateSchema.safeParse(value);
+  if (!parsed.success) throw new Error("REPORT_CANDIDATE_INVALID");
+
+  const candidate = parsed.data;
+  if (
+    candidate.sections.length !== REPORT_SECTION_IDS.length ||
+    candidate.sections.some(
+      (section, index) => section.id !== REPORT_SECTION_IDS[index],
+    )
+  ) {
+    throw new Error("REPORT_CANDIDATE_SECTIONS_INVALID");
+  }
+
+  const sourceById = new Map(
+    candidate.sources.map((source) => [source.source_id, source]),
+  );
+  if (sourceById.size !== candidate.sources.length) {
+    throw new Error("REPORT_CANDIDATE_SOURCES_DUPLICATED");
+  }
+  if (
+    new Set(candidate.source_document_ids).size !==
+    candidate.source_document_ids.length
+  ) {
+    throw new Error("REPORT_CANDIDATE_SCOPE_DUPLICATED");
+  }
+  if (candidate.requested_scope.kind === "explicit") {
+    const requestedIds = new Set(candidate.requested_scope.document_ids);
+    if (
+      requestedIds.size !== candidate.requested_scope.document_ids.length ||
+      requestedIds.size !== candidate.source_document_ids.length ||
+      candidate.source_document_ids.some(
+        (documentId) => !requestedIds.has(documentId),
+      )
+    ) {
+      throw new Error("REPORT_CANDIDATE_REQUESTED_SCOPE_INVALID");
+    }
+  }
+
+  const claimById = new Map(candidate.claims.map((claim) => [claim.id, claim]));
+  if (claimById.size !== candidate.claims.length) {
+    throw new Error("REPORT_CANDIDATE_CLAIMS_DUPLICATED");
+  }
+  const claimReferences = new Map<string, number>();
+  const limitationReferences = new Map<string, number>();
+  const sourceReferences = new Map<string, number>();
+
+  for (const section of candidate.sections) {
+    if (section.items.length === 0 && !section.empty_state) {
+      throw new Error("REPORT_CANDIDATE_EMPTY_SECTION_STATE_REQUIRED");
+    }
+    if (section.items.length > 0 && section.empty_state) {
+      throw new Error("REPORT_CANDIDATE_NONEMPTY_SECTION_STATE_FORBIDDEN");
+    }
+
+    for (const item of section.items) {
+      if (item.type === "claim_ref") {
+        const claim = claimById.get(item.claim_id);
+        if (!claim) throw new Error("REPORT_CANDIDATE_CLAIM_REFERENCE_UNKNOWN");
+        if (claim.section !== section.id) {
+          throw new Error("REPORT_CANDIDATE_CLAIM_SECTION_MISMATCH");
+        }
+        if (
+          claim.kind === "clinician_question" &&
+          section.id !== "clinician_questions"
+        ) {
+          throw new Error("REPORT_CANDIDATE_QUESTION_SECTION_INVALID");
+        }
+        if (
+          claim.kind !== "clinician_question" &&
+          section.id === "clinician_questions"
+        ) {
+          throw new Error("REPORT_CANDIDATE_FACT_SECTION_INVALID");
+        }
+        claimReferences.set(
+          item.claim_id,
+          (claimReferences.get(item.claim_id) ?? 0) + 1,
+        );
+      } else if (item.type === "limitation_ref") {
+        if (section.id !== "limitations") {
+          throw new Error("REPORT_CANDIDATE_LIMITATION_SECTION_MISMATCH");
+        }
+        if (
+          !candidate.limitations.some(
+            (limitation) => limitation.id === item.limitation_id,
+          )
+        ) {
+          throw new Error("REPORT_CANDIDATE_LIMITATION_REFERENCE_UNKNOWN");
+        }
+        limitationReferences.set(
+          item.limitation_id,
+          (limitationReferences.get(item.limitation_id) ?? 0) + 1,
+        );
+      } else {
+        if (section.id !== "source_ledger") {
+          throw new Error("REPORT_CANDIDATE_SOURCE_SECTION_MISMATCH");
+        }
+        if (!sourceById.has(item.source_id)) {
+          throw new Error("REPORT_CANDIDATE_SOURCE_REFERENCE_UNKNOWN");
+        }
+        sourceReferences.set(
+          item.source_id,
+          (sourceReferences.get(item.source_id) ?? 0) + 1,
+        );
+      }
+    }
+  }
+
+  for (const claim of candidate.claims) {
+    if (claim.status === "removed") {
+      if (claimReferences.has(claim.id)) {
+        throw new Error("REPORT_REMOVED_CLAIM_EXPOSED");
+      }
+      continue;
+    }
+    if ((claimReferences.get(claim.id) ?? 0) !== 1) {
+      throw new Error("REPORT_CANDIDATE_CLAIM_REFERENCE_CARDINALITY_INVALID");
+    }
+    if (claim.kind === "clinician_question") continue;
+    if (claim.citations.length === 0) {
+      throw new Error("REPORT_CANDIDATE_FACT_CITATION_REQUIRED");
+    }
+    const citedIds = new Set(
+      claim.citations.map((citation) => citation.source_id),
+    );
+    if (citedIds.size !== claim.citations.length) {
+      throw new Error("REPORT_CANDIDATE_CITATIONS_DUPLICATED");
+    }
+    if (!citedIds.has(claim.template_params.source_id)) {
+      throw new Error("REPORT_CANDIDATE_TEMPLATE_SOURCE_NOT_CITED");
+    }
+    for (const citation of claim.citations) {
+      const source = sourceById.get(citation.source_id);
+      if (!source || source.document_id !== citation.document_id) {
+        throw new Error("REPORT_CANDIDATE_CITATION_INVALID");
+      }
+      if (!candidate.source_document_ids.includes(citation.document_id)) {
+        throw new Error("REPORT_CANDIDATE_CITATION_OUT_OF_SCOPE");
+      }
+    }
+    if (claim.kind === "numeric_observation") {
+      const source = sourceById.get(claim.template_params.source_id);
+      if (!source || source.kind !== "observation") {
+        throw new Error("REPORT_CANDIDATE_TEMPLATE_SOURCE_KIND_INVALID");
+      }
+    }
+  }
+
+  for (const source of candidate.sources) {
+    if ((sourceReferences.get(source.source_id) ?? 0) !== 1) {
+      throw new Error("REPORT_CANDIDATE_SOURCE_REFERENCE_CARDINALITY_INVALID");
+    }
+    if (source.kind !== source.snapshot.kind) {
+      throw new Error("REPORT_CANDIDATE_SOURCE_SNAPSHOT_KIND_INVALID");
+    }
+    if (!candidate.source_document_ids.includes(source.document_id)) {
+      throw new Error("REPORT_CANDIDATE_SOURCE_OUT_OF_SCOPE");
+    }
+  }
+
+  for (const limitation of candidate.limitations) {
+    if ((limitationReferences.get(limitation.id) ?? 0) !== 1) {
+      throw new Error(
+        "REPORT_CANDIDATE_LIMITATION_REFERENCE_CARDINALITY_INVALID",
+      );
+    }
+  }
+
+  return candidate;
+}
+
 export function assertDoctorVisitBrief(value: unknown): DoctorVisitBrief {
   const parsed = doctorVisitBriefSchema.safeParse(value);
   if (!parsed.success) throw new Error("REPORT_CONTRACT_INVALID");
@@ -579,7 +849,22 @@ export function assertDoctorVisitBrief(value: unknown): DoctorVisitBrief {
   ) {
     throw new Error("REPORT_SCOPE_DUPLICATED");
   }
-  if (brief.requested_scope.kind === "explicit") {
+  const sourceDocumentIds = new Set(
+    brief.sources.map((source) => source.document_id),
+  );
+  if (
+    sourceDocumentIds.size !== brief.source_document_ids.length ||
+    brief.source_document_ids.some(
+      (documentId) => !sourceDocumentIds.has(documentId),
+    )
+  ) {
+    throw new Error("REPORT_SOURCE_SCOPE_INVALID");
+  }
+  if (brief.requested_scope.kind === "all_eligible") {
+    if (brief.requested_scope.document_ids !== null) {
+      throw new Error("REPORT_REQUESTED_SCOPE_INVALID");
+    }
+  } else {
     const requestedIds = new Set(brief.requested_scope.document_ids);
     if (
       requestedIds.size !== brief.requested_scope.document_ids.length ||
@@ -590,6 +875,15 @@ export function assertDoctorVisitBrief(value: unknown): DoctorVisitBrief {
     ) {
       throw new Error("REPORT_REQUESTED_SCOPE_INVALID");
     }
+  }
+  if (
+    brief.validation.version !== REPORT_VALIDATION_VERSION ||
+    (brief.validation.status === "valid" &&
+      brief.validation.issue_codes.length > 0) ||
+    (brief.validation.status === "limited" &&
+      brief.validation.issue_codes.length === 0)
+  ) {
+    throw new Error("REPORT_VALIDATION_ENVELOPE_INVALID");
   }
 
   const claimById = new Map(brief.claims.map((claim) => [claim.id, claim]));
@@ -613,6 +907,18 @@ export function assertDoctorVisitBrief(value: unknown): DoctorVisitBrief {
         if (!claim) throw new Error("REPORT_CLAIM_REFERENCE_UNKNOWN");
         if (claim.section !== section.id)
           throw new Error("REPORT_CLAIM_SECTION_MISMATCH");
+        if (
+          claim.kind === "clinician_question" &&
+          section.id !== "clinician_questions"
+        ) {
+          throw new Error("REPORT_QUESTION_SECTION_INVALID");
+        }
+        if (
+          claim.kind !== "clinician_question" &&
+          section.id === "clinician_questions"
+        ) {
+          throw new Error("REPORT_FACT_SECTION_INVALID");
+        }
         claimReferences.set(
           item.claim_id,
           (claimReferences.get(item.claim_id) ?? 0) + 1,
@@ -654,6 +960,9 @@ export function assertDoctorVisitBrief(value: unknown): DoctorVisitBrief {
     const citedIds = new Set(
       claim.citations.map((citation) => citation.source_id),
     );
+    if (citedIds.size !== claim.citations.length) {
+      throw new Error("REPORT_CITATIONS_DUPLICATED");
+    }
     if (!citedIds.has(claim.template_params.source_id)) {
       throw new Error("REPORT_TEMPLATE_SOURCE_NOT_CITED");
     }

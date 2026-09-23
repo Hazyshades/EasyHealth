@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   assertDoctorVisitBrief,
+  assertDoctorVisitBriefCandidate,
   normalizeUserSelectedQuestions,
   parseReportDateRange,
   isDateInInclusiveRange,
@@ -11,6 +12,7 @@ import {
   materializeReportEvidenceMappings,
   type ReportEvidenceProjection,
 } from "@/lib/report-evidence";
+import { prepareDoctorVisitBrief } from "@/lib/report-safety-policy";
 import type { MultiSourceReportContext } from "@/lib/reports";
 import type { ReportSourceKind } from "@/lib/report-contract";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
@@ -107,6 +109,7 @@ const context: MultiSourceReportContext = {
       document_id: documentIds.summary,
       filename: "summary.pdf",
       document_type: "lab_result",
+      observed_at: "2026-09-16",
       summary: "Synthetic document summary",
     },
   ],
@@ -323,13 +326,114 @@ assert.equal(
   true,
 );
 
+const {
+  disclaimer: _disclaimer,
+  validation: _validation,
+  overview: _overview,
+  ...candidateEnvelope
+} = brief;
+const candidate = {
+  ...candidateEnvelope,
+  claims: brief.claims.map((claim) => {
+    if (claim.kind === "clinician_question") {
+      return { ...claim, origin: "generated" as const };
+    }
+    const { text: _text, ...withoutText } = claim;
+    return withoutText;
+  }),
+  limitations: [{ id: "lim-no-trend", code: "NO_COMPARABLE_HISTORY" }],
+};
+assert.equal(assertDoctorVisitBriefCandidate(candidate).claims.length, 7);
+const prepared = prepareDoctorVisitBrief({
+  candidate,
+  projection,
+  requested_scope: brief.requested_scope,
+  detail_level: brief.detail_level,
+  generated_at: brief.generated_at,
+  user_questions: ["What changed?"],
+});
+assert.equal(prepared.status, "limited");
+assert(prepared.issue_codes.includes("EMPTY_FACTUAL_CLAIM"));
+assert.equal(
+  prepared.brief.claims.find(
+    (claim) =>
+      claim.kind === "clinician_question" &&
+      claim.question_text === "What changed?",
+  )?.origin,
+  "user_selected",
+);
+const sourceFactText = prepared.brief.claims
+  .filter(
+    (claim): claim is Extract<typeof claim, { kind: "source_fact" }> =>
+      claim.kind === "source_fact",
+  )
+  .map((claim) => claim.text)
+  .join("\n");
+for (const sourceText of [
+  "Synthetic finding",
+  "Synthetic consultation summary",
+  "Synthetic prescription summary",
+  "Synthetic referral summary",
+  "Synthetic document summary",
+]) {
+  assert(!sourceFactText.includes(sourceText));
+}
+
+const factualCandidate = candidate.claims.find(
+  (claim) => claim.kind !== "clinician_question",
+);
+assert(factualCandidate);
+const unsafeCandidate = {
+  ...candidate,
+  claims: candidate.claims.map((claim) =>
+    claim.id === factualCandidate.id ? { ...claim, text: "model fact" } : claim,
+  ),
+};
+assert.throws(
+  () => assertDoctorVisitBriefCandidate(unsafeCandidate),
+  /REPORT_CANDIDATE_INVALID/,
+);
+
+const imperativeCandidate = structuredClone(candidate);
+const imperativeQuestion = imperativeCandidate.claims.find(
+  (claim) => claim.kind === "clinician_question",
+);
+assert(imperativeQuestion && imperativeQuestion.kind === "clinician_question");
+imperativeQuestion.question_text = "Start taking a new medicine immediately?";
+assert.throws(
+  () =>
+    prepareDoctorVisitBrief({
+      candidate: imperativeCandidate,
+      projection,
+      requested_scope: brief.requested_scope,
+      detail_level: brief.detail_level,
+      generated_at: brief.generated_at,
+    }),
+  /REPORT_CANDIDATE_IMPERATIVE_TEXT/,
+);
+assert.throws(
+  () =>
+    prepareDoctorVisitBrief({
+      candidate,
+      projection,
+      requested_scope: brief.requested_scope,
+      detail_level: brief.detail_level,
+      generated_at: brief.generated_at,
+      user_questions: ["Please schedule an appointment?"],
+    }),
+  /REPORT_USER_QUESTION_IMPERATIVE_TEXT/,
+);
+
 const unknownCitation = structuredClone(brief);
 const unknownClaim = unknownCitation.claims.find(
   (claim) => claim.id === "claim-glucose",
 );
 assert(unknownClaim && unknownClaim.kind !== "clinician_question");
 unknownClaim.citations = [
-  { source_id: "src_unknown", document_id: documentIds.lab },
+  {
+    source_id: "src_ffffffffffffffffffffffffffffffff",
+    document_id: documentIds.lab,
+  },
 ];
 assert.throws(
   () => assertDoctorVisitBrief(unknownCitation),

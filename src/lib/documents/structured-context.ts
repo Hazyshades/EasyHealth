@@ -53,6 +53,7 @@ export type StructuredClinicalNoteContext = {
   note_kind?: string | null;
   provider_name: string | null;
   visit_date: string | null;
+  document_observed_at: string | null;
   chief_complaint: string | null;
   history_summary: string | null;
   exam_findings: string | null;
@@ -75,6 +76,7 @@ export type StructuredPrescriptionContext = {
   document_type: DocumentType;
   prescriber_name: string | null;
   prescribed_at: string | null;
+  document_observed_at: string | null;
   medications: Array<{
     name: string;
     dose: string | null;
@@ -94,6 +96,7 @@ export type StructuredReferralContext = {
   referred_to_specialty: string | null;
   referred_to_provider: string | null;
   referral_date: string | null;
+  document_observed_at: string | null;
   reason_for_referral: string | null;
   clinical_summary: string | null;
   urgency: string | null;
@@ -112,6 +115,7 @@ export type DocumentStructuredContext = {
     document_id: string;
     filename: string;
     document_type: string;
+    observed_at: string | null;
     summary: string;
   }>;
   source_document_ids: string[];
@@ -149,6 +153,7 @@ function mapClinicalNoteRow(
     note_kind: typeof row.note_kind === "string" ? row.note_kind : null,
     provider_name: (row.provider_name as string | null) ?? null,
     visit_date: (row.visit_date as string | null) ?? null,
+    document_observed_at: doc.observed_at,
     chief_complaint: (row.chief_complaint as string | null) ?? null,
     history_summary: (row.history_summary as string | null) ?? null,
     exam_findings: (row.exam_findings as string | null) ?? null,
@@ -356,6 +361,7 @@ export async function buildDocumentStructuredContext(
       document_type: doc.document_type as DocumentType,
       prescriber_name: row.prescriber_name,
       prescribed_at: row.prescribed_at,
+      document_observed_at: doc.observed_at,
       medications: meds as StructuredPrescriptionContext["medications"],
       summary: doc.document_summary,
     });
@@ -373,13 +379,13 @@ export async function buildDocumentStructuredContext(
       referred_to_specialty: row.referred_to_specialty,
       referred_to_provider: row.referred_to_provider,
       referral_date: row.referral_date,
+      document_observed_at: doc.observed_at,
       reason_for_referral: row.reason_for_referral,
       clinical_summary: row.clinical_summary,
       urgency: row.urgency,
       summary: doc.document_summary,
     });
   }
-
   for (const doc of eligibleDocs) {
     if (doc.document_summary) {
       document_summaries.push({
@@ -387,6 +393,7 @@ export async function buildDocumentStructuredContext(
         document_id: doc.id,
         filename: doc.original_filename,
         document_type: doc.document_type,
+        observed_at: doc.observed_at,
         summary: doc.document_summary,
       });
     }
