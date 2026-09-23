@@ -106,6 +106,7 @@
     "test:eh248-db": "node scripts/run-supabase-db-tests.mjs supabase/tests/eh248_resolver_evidence_identity.sql",
     "test:eh123": "tsx scripts/verify-health-profile-lab-input.ts && tsx scripts/verify-eh123-assessment-recalculation.ts",
     "test:eh145": "tsx scripts/verify-eh145-score-provenance.ts",
+    "test:eh149": "tsx scripts/verify-eh149-biomarker-dynamics.ts",
     "test:eh147": "tsx scripts/verify-eh147-assessment-golden.ts --technical-check",
     "check:eh147": "tsx scripts/verify-eh147-assessment-golden.ts --check",
     "report:eh147": "tsx scripts/verify-eh147-assessment-golden.ts --technical-check --report",
