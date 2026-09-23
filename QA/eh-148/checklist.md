@@ -43,7 +43,7 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 **Expected result:** The brief shows typed document summaries, latest measurements, changes, questions, limitations, and a visible disclaimer. Each factual item has an inspectable source reference; no unrelated document appears.
 
 **Result:** `N/A`
-**Notes / evidence link:** `N/A`: runtime UI execution is blocked because the EH-148 generation route remains fail-closed pending EH-150 validator and structured-persistence integration, plus unavailable local Supabase/OpenAI environment.
+**Notes / evidence link:** `N/A`: runtime UI execution is blocked because the EH-148 generation route remains fail-closed pending the service-owned EH-150 validator call and structured-persistence integration, plus unavailable local Supabase/OpenAI environment.
 
 ### EH148-UI-02: Show missing evidence as a limitation
 
@@ -56,7 +56,7 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 **Expected result:** The page explains that a comparison is unavailable. It does not label the result as improving, worsening, diagnosed, or treated.
 
 **Result:** `N/A`
-**Notes / evidence link:** `N/A`: runtime UI execution is blocked because the EH-148 generation route remains fail-closed pending EH-150 validator and structured-persistence integration, plus unavailable local Supabase/OpenAI environment.
+**Notes / evidence link:** `N/A`: runtime UI execution is blocked because the EH-148 generation route remains fail-closed pending the service-owned EH-150 validator call and structured-persistence integration, plus unavailable local Supabase/OpenAI environment.
 
 ### EH148-UI-03: Inspect the source ledger
 
@@ -69,7 +69,7 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 **Expected result:** The ledger shows the evidence snapshot and document identity, and citation labels are derived from source IDs rather than filenames.
 
 **Result:** `N/A`
-**Notes / evidence link:** `N/A`: runtime UI execution is blocked because the EH-148 generation route remains fail-closed pending EH-150 validator and structured-persistence integration, plus unavailable local Supabase/OpenAI environment.
+**Notes / evidence link:** `N/A`: runtime UI execution is blocked because the EH-148 generation route remains fail-closed pending the service-owned EH-150 validator call and structured-persistence integration, plus unavailable local Supabase/OpenAI environment.
 
 ### EH148-UI-04: Keep legacy reports readable without fabricated citations
 
@@ -82,7 +82,7 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 **Expected result:** Legacy content is identified as legacy. Source-grounded sharing/export is unavailable until revalidation; no citation markers are invented from old filenames.
 
 **Result:** `N/A`
-**Notes / evidence link:** `N/A`: runtime UI execution is blocked because the EH-148 generation route remains fail-closed pending EH-150 validator and structured-persistence integration, plus unavailable local Supabase/OpenAI environment.
+**Notes / evidence link:** `N/A`: runtime UI execution is blocked because the EH-148 generation route remains fail-closed pending the service-owned EH-150 validator call and structured-persistence integration, plus unavailable local Supabase/OpenAI environment.
 
 ### EH148-UI-05: Preserve questions and date-filtered scope
 
@@ -95,7 +95,7 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 **Expected result:** Boundary documents are included, outside-range and undated documents are absent, and each submitted question is visibly rendered as a question without a factual answer or invented citation.
 
 **Result:** `N/A`
-**Notes / evidence link:** `N/A`: runtime UI execution is blocked because the EH-148 generation route remains fail-closed pending EH-150 validator and structured-persistence integration, plus unavailable local Supabase/OpenAI environment.
+**Notes / evidence link:** `N/A`: runtime UI execution is blocked because the EH-148 generation route remains fail-closed pending the service-owned EH-150 validator call and structured-persistence integration, plus unavailable local Supabase/OpenAI environment.
 
 ## Developer evidence required
 
