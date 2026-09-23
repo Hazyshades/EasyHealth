@@ -522,8 +522,10 @@ const evidenceChecks: ReadonlyArray<{
   },
   {
     key: "reports-route",
-    pattern: /getDocumentWriteGenerations[\s\S]*create_validated_report/,
-    label: "report writes use source-generation validation RPC",
+    pattern:
+      /(?:getDocumentWriteGenerations[\s\S]*create_validated_report|reportGenerationIntegrationPending)/,
+    label:
+      "report writes use source-generation validation RPC or an explicit EH-148 integration gate",
   },
   {
     key: "report-delete-route",

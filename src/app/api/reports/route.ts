@@ -8,6 +8,16 @@ import {
   type ReportRange,
 } from "@/lib/report-prompts";
 
+function reportGenerationIntegrationPending(): NextResponse {
+  return NextResponse.json(
+    {
+      error:
+        "Report generation is unavailable until EH-150 validation and structured persistence integration are complete",
+    },
+    { status: 503 },
+  );
+}
+
 function sanitizeSearchTerm(value: string): string {
   return value.replace(/[%_,]/g, "").trim();
 }
@@ -111,11 +121,5 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  return NextResponse.json(
-    {
-      error:
-        "Report generation is unavailable until EH-150 validation and structured persistence integration are complete",
-    },
-    { status: 503 },
-  );
+  return reportGenerationIntegrationPending();
 }
