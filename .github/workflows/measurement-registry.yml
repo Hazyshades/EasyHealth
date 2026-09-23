@@ -78,6 +78,8 @@ jobs:
         run: pnpm test:eh105
       - name: Verify EH-111 clinical compatibility unit contract
         run: pnpm test:eh111
+      - name: Verify EH-150 report citation validator
+        run: pnpm test:eh150
       - name: Verify EH-113 CBC launch catalog
         run: pnpm test:eh113
       - name: Verify EH-116 registry reprocess batch

@@ -185,14 +185,14 @@ export type SourceAvailability = "active" | "archived" | "removed";
 export type SourceDocumentStatus = "active" | "deleting" | "tombstoned";
 
 /**
- * Returned by EH-148's server-authorized batch adapter. The optional profile
- * field lets an adapter omit a redundant value when authorization is already
- * enforced by its query; when present, it is checked by this module.
+ * Returned by EH-148's server-authorized batch adapter. Row and profile
+ * identity are required so this validator can fail closed without trusting
+ * payload-level source references as authorization.
  */
 export type AuthorizedReportSource = Readonly<{
   source_id: string;
-  source_row_id?: string | null;
-  profile_id?: string | null;
+  source_row_id: string;
+  profile_id: string;
   kind: ReportSourceKind;
   document_id: string;
   snapshot: Readonly<Record<string, unknown>>;
@@ -268,8 +268,7 @@ const SAFE_ISSUE_MESSAGES: Readonly<Record<ReportCitationIssueCode, string>> = {
   SOURCE_KIND_NOT_ALLOWED:
     "A cited source kind is not allowed for this report.",
   CLAIM_UNCITED: "Some report content was omitted because it had no citation.",
-  SOURCE_UNAVAILABLE:
-    "A cited source is unavailable; its saved evidence is shown without a live source link.",
+  SOURCE_UNAVAILABLE: "A cited source is unavailable for this report.",
   UNSAFE_CONTENT:
     "Some report content was omitted because it did not meet the safety contract.",
 };

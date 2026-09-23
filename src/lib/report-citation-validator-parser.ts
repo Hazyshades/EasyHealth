@@ -530,12 +530,12 @@ function parseTopLevelArrays(
 }
 
 function sourceStatus(row: UnknownRecord): SourceAvailability | null {
+  if (row.is_removed === true) return "removed";
+  if (row.is_archived === true) return "archived";
   const value = row.source_status ?? row.availability ?? row.status;
   if (value === "active" || value === "archived" || value === "removed") {
     return value;
   }
-  if (row.is_archived === true) return "archived";
-  if (row.is_removed === true) return "removed";
   return value === undefined ? "active" : null;
 }
 
@@ -644,7 +644,7 @@ function safeQuestionText(value: string): boolean {
   if (
     normalized.length === 0 ||
     [...normalized].length > 240 ||
-    /[\u0000-\u001f\u007f]/u.test(normalized)
+    /[\u0000-\u001f\u007f\u0085\u2028\u2029]/u.test(normalized)
   ) {
     return false;
   }

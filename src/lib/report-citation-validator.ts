@@ -1,4 +1,58 @@
-export * from "./report-citation-validator-contract";
+export {
+  CURRENT_REPORT_SCHEMA_VERSION,
+  CURRENT_VALIDATOR_VERSION,
+  PUBLISHABLE_VALIDATION_STATUSES,
+  RECOGNIZED_REPORT_SCHEMA_VERSIONS,
+  RECOGNIZED_VALIDATOR_VERSIONS,
+  REPORT_CLAIM_KINDS,
+  REPORT_CLAIM_ORIGINS,
+  REPORT_CLAIM_STATUSES,
+  REPORT_CITATION_ISSUE_CODES,
+  REPORT_DETAIL_LEVELS,
+  REPORT_EMPTY_STATES,
+  REPORT_SECTION_IDS,
+  REPORT_SOURCE_KINDS,
+  RETIRED_VALIDATOR_VERSIONS,
+  VALIDATION_STATUSES,
+  isPublishableValidationStatus,
+  isRecognizedValidatorVersion,
+  isReportCitationIssueCode,
+  validateReportValidationEnvelope,
+} from "./report-citation-validator-contract";
+
+export type {
+  AuthorizedReportSource,
+  MachineLimitationCode,
+  PublishableValidationStatus,
+  ReportCandidateClaim,
+  ReportCandidateContent,
+  ReportClaim,
+  ReportClaimKind,
+  ReportClaimOrigin,
+  ReportClaimStatus,
+  ReportCitation,
+  ReportCitationIssueCode,
+  ReportCitationValidationContext,
+  ReportContent,
+  ReportDetailLevel,
+  ReportEmptyState,
+  ReportLimitation,
+  ReportSection,
+  ReportSectionId,
+  ReportSectionItem,
+  ReportSource,
+  ReportSourceKind,
+  ReportSourceReference,
+  ReportSourceResolver,
+  ReportTemplateParams,
+  ReportValidationEnvelope,
+  ReportValidationEnvelopeResult,
+  ReportValidationIssue,
+  ReportValidationResult,
+  SourceAvailability,
+  SourceDocumentStatus,
+  ValidationStatus,
+} from "./report-citation-validator-contract";
 
 import {
   addIssue,
@@ -106,6 +160,7 @@ export async function validateReportContent(
     const rowKind = row.kind;
     const rowDocumentId = row.document_id;
     const rowProfileId = row.profile_id;
+    const rowSourceRowId = row.source_row_id;
     const rowSourceStatus = sourceStatus(row);
     const rowDocumentStatus = documentStatus(row);
     const rowSnapshot = row.snapshot;
@@ -116,10 +171,11 @@ export async function validateReportContent(
     if (!isOneOf(rowKind, REPORT_SOURCE_KINDS)) {
       addIssue(issues, "SOURCE_KIND_NOT_ALLOWED");
     }
-    if (rowProfileId !== undefined && rowProfileId !== null) {
-      if (!nonEmptyString(rowProfileId) || rowProfileId !== profileId) {
-        addIssue(issues, "PROFILE_MISMATCH");
-      }
+    if (!nonEmptyString(rowProfileId) || rowProfileId !== profileId) {
+      addIssue(issues, "PROFILE_MISMATCH");
+    }
+    if (!nonEmptyString(rowSourceRowId)) {
+      addIssue(issues, "SOURCE_NOT_FOUND");
     }
     if (
       !nonEmptyString(rowDocumentId) ||

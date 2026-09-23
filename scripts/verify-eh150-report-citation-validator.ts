@@ -141,6 +141,14 @@ async function main(): Promise<void> {
   const missingEmptyStateResult = await validate(missingEmptyState);
   assert.equal(missingEmptyStateResult.status, "invalid");
   assert.deepEqual(missingEmptyStateResult.issue_codes, ["SCHEMA_INVALID"]);
+  const unicodeLineSeparatorQuestion = mutableContent();
+  findClaim(unicodeLineSeparatorQuestion, "claim-question").question_text =
+    "What changed?\u2028Please explain.";
+  const unicodeLineSeparatorResult = await validate(
+    unicodeLineSeparatorQuestion,
+  );
+  assert.equal(unicodeLineSeparatorResult.status, "invalid");
+  assert.deepEqual(unicodeLineSeparatorResult.issue_codes, ["SCHEMA_INVALID"]);
 
   const incompatibleClaim = mutableContent();
   findClaim(incompatibleClaim, "claim-summary").section = "clinician_questions";
@@ -191,6 +199,28 @@ async function main(): Promise<void> {
     ...row,
     profile_id: PROFILE_B,
   }));
+  const missingProfileRows = VALID_AUTHORIZED_SOURCES.map((row) => {
+    const copy = { ...row } as Record<string, unknown>;
+    delete copy.profile_id;
+    return copy;
+  }) as unknown as AuthorizedReportSource[];
+  const missingProfileResult = await validate(
+    cloneReportContent(),
+    makeValidationContext(missingProfileRows),
+  );
+  assert.equal(missingProfileResult.status, "invalid");
+  assert.deepEqual(missingProfileResult.issue_codes, ["PROFILE_MISMATCH"]);
+  const missingSourceRowRows = VALID_AUTHORIZED_SOURCES.map((row) => {
+    const copy = { ...row } as Record<string, unknown>;
+    delete copy.source_row_id;
+    return copy;
+  }) as unknown as AuthorizedReportSource[];
+  const missingSourceRowResult = await validate(
+    cloneReportContent(),
+    makeValidationContext(missingSourceRowRows),
+  );
+  assert.equal(missingSourceRowResult.status, "invalid");
+  assert.deepEqual(missingSourceRowResult.issue_codes, ["SOURCE_NOT_FOUND"]);
   const crossProfileResult = await validate(
     cloneReportContent(),
     makeValidationContext(crossProfileRows, { profileId: PROFILE_A }),
@@ -243,6 +273,19 @@ async function main(): Promise<void> {
   );
   assert.equal(removedSourceResult.status, "limited");
   assert.deepEqual(removedSourceResult.issue_codes, ["SOURCE_UNAVAILABLE"]);
+  const contradictoryRemovalRows = VALID_AUTHORIZED_SOURCES.map((row) =>
+    row.source_id === SOURCE_OBSERVATION
+      ? { ...row, source_status: "active" as const, is_removed: true }
+      : row,
+  );
+  const contradictoryRemovalResult = await validate(
+    cloneReportContent(),
+    makeValidationContext(contradictoryRemovalRows),
+  );
+  assert.equal(contradictoryRemovalResult.status, "limited");
+  assert.deepEqual(contradictoryRemovalResult.issue_codes, [
+    "SOURCE_UNAVAILABLE",
+  ]);
 
   const tombstonedRows = VALID_AUTHORIZED_SOURCES.map((row) =>
     row.source_id === SOURCE_OBSERVATION
@@ -256,6 +299,11 @@ async function main(): Promise<void> {
   assert.equal(tombstonedResult.status, "invalid");
   assert.deepEqual(tombstonedResult.issue_codes, ["SOURCE_UNAVAILABLE"]);
   assert.equal(tombstonedResult.content, null);
+  assert.equal(
+    tombstonedResult.issues.find((issue) => issue.code === "SOURCE_UNAVAILABLE")
+      ?.message,
+    "A cited source is unavailable for this report.",
+  );
 
   const uncited = mutableContent();
   addRetainedSummaryClaim(uncited);
