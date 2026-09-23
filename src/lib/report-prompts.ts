@@ -71,7 +71,14 @@ export const createReportBodySchema = z.object({
   detail_level: z.enum(DETAIL_LEVELS),
   document_ids: z.array(z.string().uuid()).nullable().optional(),
   abnormal_only: z.boolean().optional().default(false),
-  biomarker_dynamics_period: biomarkerDynamicsPeriodSchema.nullable().optional(),
+  /** Optional inclusive UTC calendar period for the EH-149 frozen dynamics extension. */
+  biomarker_dynamics_period: z
+    .object({
+      start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    })
+    .nullable()
+    .optional(),
 });
 
 export type CreateReportBody = z.infer<typeof createReportBodySchema>;
@@ -87,6 +94,7 @@ Rules:
 - You MUST populate every JSON field. Do not leave changes or questions_for_clinician empty.
 - changes: at least 2 items. Compare values across dates when multiple dates exist; if only one lab date exists, note that longitudinal comparison is limited and cite the available values.
 - questions_for_clinician: at least 3 specific questions that reference the patient's biomarker values, imaging findings, or consultation notes.
+- Do not call a numeric change an improvement, deterioration, or treatment response without an approved domain rule.
 - Always append the required medical disclaimer in the final output (added automatically by the server).`;
 
 const SPECIALTY_PROMPTS: Record<ReportType, string> = {

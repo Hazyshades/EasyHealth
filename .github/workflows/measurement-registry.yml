@@ -78,6 +78,8 @@ jobs:
         run: pnpm test:eh105
       - name: Verify EH-111 clinical compatibility unit contract
         run: pnpm test:eh111
+      - name: Verify EH-150 report citation validator
+        run: pnpm test:eh150
       - name: Verify EH-113 CBC launch catalog
         run: pnpm test:eh113
       - name: Verify EH-116 registry reprocess batch
@@ -198,13 +200,8 @@ jobs:
         run: pnpm test:eh128
       - name: Verify EH-129 repeated measurement comparison
         run: pnpm test:eh129
-      - name: Verify EH-149 biomarker dynamics
+      - name: Verify EH-149 biomarker dynamics report
         run: pnpm test:eh149
-        env:
-          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
-          OPENAI_API_KEY: ci-placeholder
-          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
       - name: Verify EH-130 duplicate-document contracts
         run: pnpm test:eh130
       - name: Verify EH-131 health navigation

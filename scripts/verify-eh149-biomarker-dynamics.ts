@@ -1,676 +1,571 @@
 import assert from "node:assert/strict";
-import { createReportBodySchema } from "../src/lib/report-prompts";
+import { readFileSync } from "node:fs";
 import {
+  buildAuthorizedBiomarkerComparison,
   buildBiomarkerDynamicsReport,
-  isCanonicalBiomarkerDynamicsDate,
-  parseBiomarkerDynamicsPeriod,
+  buildFrozenBiomarkerDynamicsExtension,
+  resolvePersistedBiomarkerDynamicsExtension,
+  validatePeriod,
   type AuthorizedBiomarkerComparison,
-  type AuthorizedBiomarkerComparisonPoint,
-  type AuthorizedBiomarkerComparisonSeries,
-  type BiomarkerDynamicsIdentity,
+  type AuthorizedComparisonObservation,
 } from "../src/lib/biomarker-dynamics";
 import {
-  BiomarkerDynamicsAuthorizationError,
-  buildAuthorizedBiomarkerComparison,
-  type DynamicsObservation,
-} from "../src/lib/biomarker-dynamics-server";
-import {
-  createPersistedBiomarkerDynamicsBinding,
-  InvalidPersistedBiomarkerDynamicsError,
-  resolvePersistedBiomarkerDynamics,
-} from "../src/lib/reports";
-
-if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  process.env.SUPABASE_SERVICE_ROLE_KEY = "eh149-test-integrity-key";
-}
+  clearAllDirectionTolerances,
+  compareCanonicalObservationId,
+  setDirectionTolerance,
+} from "../src/lib/biomarker-dynamics-policy";
 
 const UUID = (suffix: string) =>
   `00000000-0000-4000-8000-${suffix.padStart(12, "0")}`;
-const PROFILE_DOCUMENT = UUID("1");
-const SECOND_DOCUMENT = UUID("2");
 
-const identity = (
-  measurementDefinitionKey = "glucose_serum",
-  overrides: Partial<BiomarkerDynamicsIdentity> = {},
-): BiomarkerDynamicsIdentity => ({
-  measurementDefinitionKey,
-  analyteKey: "glucose",
-  specimen: "serum",
-  modifier: "none",
-  method: "enzymatic",
-  scale: "ratio",
-  ...overrides,
-});
-
-function point(
-  id: string,
-  observedAt: string,
-  displayValue: number,
-  overrides: Partial<AuthorizedBiomarkerComparisonPoint> = {},
-): AuthorizedBiomarkerComparisonPoint {
-  const documentId = overrides.documentId ?? PROFILE_DOCUMENT;
-  const unit = overrides.displayUnit ?? "mmol/L";
+function obs(
+  idSuffix: string,
+  overrides: Partial<AuthorizedComparisonObservation> = {},
+): AuthorizedComparisonObservation {
+  const id = overrides.id ?? UUID(idSuffix);
+  const documentId = overrides.documentId ?? UUID(`d${idSuffix}`);
   return {
-    observationId: UUID(id),
-    documentId,
-    observedAt,
-    nativeValue: displayValue,
-    nativeUnit: unit,
-    nativeReferenceLow: 3.5,
-    nativeReferenceHigh: 6.1,
-    displayValue,
-    displayUnit: unit,
-    displayReferenceLow: 3.5,
-    displayReferenceHigh: 6.1,
-    conversion: {
-      applied: false,
-      note: null,
-      nativeUnit: unit,
-      displayUnit: unit,
+    name: "Glucose",
+    value: 5.5,
+    unit: "mmol/L",
+    originalValue: 99,
+    originalUnit: "mg/dL",
+    refLow: 3.5,
+    refHigh: 6.1,
+    originalRefLow: 70,
+    originalRefHigh: 110,
+    observedAt: "2025-02-15",
+    documents: {
+      id: documentId,
+      original_filename: `${idSuffix}.pdf`,
+      lab_name: "Synthetic Lab",
     },
-    identity: identity(),
-    source: {
-      documentId,
-      filename: `${id}.pdf`,
-      laboratory: "Synthetic Lab",
-      href: `/app/documents/${documentId}`,
-    },
+    valueKind: "numeric",
+    converted: true,
+    conversionEligible: true,
+    trendEligible: true,
+    specimen: "serum",
+    modifier: "none",
+    method: "automated",
+    scale: "quantitative",
+    measurementDefinitionKey: "glucose_serum",
     ...overrides,
-  };
-}
-
-function series(
-  id: string,
-  label: string,
-  points: readonly AuthorizedBiomarkerComparisonPoint[],
-  overrides: Partial<AuthorizedBiomarkerComparisonSeries> = {},
-): AuthorizedBiomarkerComparisonSeries {
-  const firstPoint = points[0];
-  return {
     id,
-    label,
-    measurementDefinitionKey:
-      firstPoint?.identity.measurementDefinitionKey ?? "glucose_serum",
-    analyteKey: firstPoint?.identity.analyteKey ?? "glucose",
-    displayUnit: firstPoint?.displayUnit ?? "mmol/L",
-    nativeUnit: firstPoint?.nativeUnit ?? "mmol/L",
-    normalized: false,
-    identity: firstPoint?.identity ?? identity(),
-    points,
-    ...overrides,
+    documentId,
   };
 }
 
 function comparison(
-  seriesItems: readonly AuthorizedBiomarkerComparisonSeries[],
   overrides: Partial<AuthorizedBiomarkerComparison> = {},
 ): AuthorizedBiomarkerComparison {
+  const documentIds = [UUID("d1"), UUID("d2")];
   return {
-    scopeKind: "profile_current",
-    scopeDocumentIds: [PROFILE_DOCUMENT, SECOND_DOCUMENT],
-    candidates: [],
-    series: seriesItems,
+    scope_kind: "profile_current",
+    scope_document_ids: documentIds,
+    series: [
+      {
+        id: "glucose_serum::mmol/l::__shared__::serum::none::automated::quantitative",
+        measurementDefinitionKey: "glucose_serum",
+        name: "Glucose · mmol/L",
+        specimen: "serum",
+        modifier: "none",
+        method: "automated",
+        scale: "quantitative",
+        observations: [
+          obs("1", {
+            documentId: documentIds[0],
+            observedAt: "2025-01-01",
+            value: 5.0,
+            originalValue: 90,
+          }),
+          obs("2", {
+            documentId: documentIds[0],
+            observedAt: "2025-02-15",
+            value: 5.5,
+            originalValue: 99,
+          }),
+          obs("3", {
+            documentId: documentIds[1],
+            observedAt: "2025-03-31T23:59:59.000Z",
+            value: 6.0,
+            originalValue: 108,
+          }),
+          obs("4", {
+            documentId: documentIds[1],
+            observedAt: "2025-04-01",
+            value: 7.0,
+            originalValue: 126,
+          }),
+        ],
+      },
+    ],
     excluded: [],
     incompatibilities: [],
-    generatedAt: "2026-02-01T00:00:00.000Z",
     ...overrides,
   };
 }
 
-const ordered = buildBiomarkerDynamicsReport(
-  comparison([
-    series("glucose", "Glucose", [
-      point("a", "2026-01-10T10:00:00Z", 5.4),
-      point("1", "2026-01-10T10:00:00Z", 5.2),
-    ]),
-  ]),
-);
+clearAllDirectionTolerances();
+
+// ── Period validation ───────────────────────────────────────────────────
+assert.equal(validatePeriod(null, null).valid, true);
+assert.equal(validatePeriod("2025-01-01", "2025-03-31").valid, true);
+assert.equal(validatePeriod("2025-01-01T00:00:00Z", "2025-03-31").valid, false);
+assert.equal(validatePeriod("2025-03-31", "2025-01-01").valid, false);
+assert.equal(validatePeriod("2025-01-01", null).valid, false);
+assert.equal(validatePeriod("2025-02-30", "2025-03-01").valid, false);
+
+// ── Inclusive period + end-of-day timestamp ─────────────────────────────
+const periodReport = buildBiomarkerDynamicsReport(comparison(), {
+  start: "2025-01-01",
+  end: "2025-03-31",
+});
+assert.equal(periodReport.series[0]?.statistics.pointCount, 3);
 assert.deepEqual(
-  ordered.series[0]?.points.map((item) => item.observationId),
-  [UUID("1"), UUID("a")],
-  "equal timestamps use canonical UUID byte ordering",
+  periodReport.series[0]?.points.map((p) => p.id),
+  [UUID("1"), UUID("2"), UUID("3")],
 );
+assert.equal(periodReport.series[0]?.statistics.min, 5);
+assert.equal(periodReport.series[0]?.statistics.max, 6);
+assert.equal(periodReport.series[0]?.statistics.latest?.displayValue, 6);
 
-const periodReport = buildBiomarkerDynamicsReport(
-  comparison([
-    series("glucose", "Glucose", [
-      point("early", "2026-01-10T23:59:59Z", 5.2),
-      point("end", "2026-01-11T00:00:00Z", 5.8),
-      point("late", "2026-01-12T00:00:00Z", 9),
-    ]),
-  ]),
-  { start: "2026-01-10", end: "2026-01-11" },
-);
-assert.equal(periodReport.series[0]?.statistics.pointCount, 2);
-assert.equal(periodReport.series[0]?.statistics.minimum, 5.2);
-assert.equal(periodReport.series[0]?.statistics.maximum, 5.8);
-assert.equal(periodReport.series[0]?.direction, "increasing");
-assert.deepEqual(
-  periodReport.series[0]?.points.map((item) => item.observationId),
-  [UUID("early"), UUID("end")],
-  "period boundaries include timestamps anywhere on the end calendar date",
-);
-
-const stableReport = buildBiomarkerDynamicsReport(
-  comparison([
-    series("glucose", "Glucose", [
-      point("stable-1", "2026-01-01", 5),
-      point("stable-2", "2026-01-02", 5.04),
-    ]),
-  ]),
-);
-assert.equal(stableReport.series[0]?.direction, "stable");
-assert.equal(
-  stableReport.series[0]?.directionTolerance?.policyVersion,
-  "eh-149-direction-v1",
-);
-
-const onePointReport = buildBiomarkerDynamicsReport(
-  comparison([
-    series("glucose", "Glucose", [point("single", "2026-01-01", 5)]),
-  ]),
-);
-assert.equal(onePointReport.series[0]?.direction, "not_available");
-assert.equal(onePointReport.series[0]?.directionTolerance, null);
-assert.equal(
-  onePointReport.series[0]?.limitations[0]?.code,
-  "comparison_unavailable",
-);
-
-const policyUnavailableReport = buildBiomarkerDynamicsReport(
-  comparison([
-    series(
-      "unknown",
-      "Unknown measurement",
-      [
-        point("unknown-1", "2026-01-01", 1, {
-          identity: identity("not_in_reviewed_policy"),
-        }),
-        point("unknown-2", "2026-01-02", 2, {
-          identity: identity("not_in_reviewed_policy"),
-        }),
-      ],
-      {
-        measurementDefinitionKey: "not_in_reviewed_policy",
-        identity: identity("not_in_reviewed_policy"),
-      },
-    ),
-  ]),
-);
-assert.equal(policyUnavailableReport.series[0]?.direction, "not_available");
-assert.equal(
-  policyUnavailableReport.series[0]?.limitations[0]?.code,
-  "direction_policy_unavailable",
-);
-
-const incompatibleReport = buildBiomarkerDynamicsReport(
-  comparison([
-    series("glucose-a", "Glucose", [point("compat-a", "2026-01-01", 5)], {
-      measurementDefinitionKey: "glucose_serum",
+assert.throws(
+  () =>
+    buildBiomarkerDynamicsReport(comparison(), {
+      start: "2025-03-31",
+      end: "2025-01-01",
     }),
-    series(
-      "glucose-b",
-      "Glucose",
-      [
-        point("compat-b", "2026-01-01", 5, {
-          identity: identity("different_glucose_definition"),
-        }),
-      ],
-      {
-        measurementDefinitionKey: "different_glucose_definition",
-        identity: identity("different_glucose_definition"),
-      },
-    ),
-  ]),
-);
-assert.equal(
-  incompatibleReport.incompatibilities[0]?.reason,
-  "measurement_definition",
+  /Invalid period/,
 );
 
-const identityAxisFixtures: Array<
-  readonly [
-    "measurementDefinitionKey" | "specimen" | "modifier" | "method" | "scale",
-    string,
-  ]
-> = [
-  ["measurementDefinitionKey", "different_definition"],
-  ["specimen", "plasma"],
-  ["modifier", "post_prandial"],
-  ["method", "mass_spectrometry"],
-  ["scale", "ordinal"],
-];
-for (const [axis, value] of identityAxisFixtures) {
-  const leftIdentity = identity("axis_left");
-  const rightIdentity = {
-    ...identity("axis_left"),
-    [axis]: value,
-  } as BiomarkerDynamicsIdentity;
-  const axisReport = buildBiomarkerDynamicsReport(
-    comparison([
-      series(
-        "axis-left",
-        "Axis fixture",
-        [
-          point(`axis-left-${axis}`, "2026-01-01", 1, {
-            identity: leftIdentity,
+// ── Equal timestamps use canonical observation-ID order ─────────────────
+const tieLeft = UUID("aaaa");
+const tieRight = UUID("bbbb");
+assert.ok(compareCanonicalObservationId(tieLeft, tieRight) < 0);
+const tied = buildBiomarkerDynamicsReport(
+  comparison({
+    series: [
+      {
+        id: "glucose_serum::mmol/l::__shared__::serum::none::automated::quantitative",
+        measurementDefinitionKey: "glucose_serum",
+        name: "Glucose · mmol/L",
+        specimen: "serum",
+        modifier: "none",
+        method: "automated",
+        scale: "quantitative",
+        observations: [
+          obs("bbbb", {
+            id: tieRight,
+            documentId: UUID("d1"),
+            observedAt: "2025-02-15T12:00:00.000Z",
+            value: 8,
+          }),
+          obs("aaaa", {
+            id: tieLeft,
+            documentId: UUID("d1"),
+            observedAt: "2025-02-15T12:00:00.000Z",
+            value: 4,
           }),
         ],
-        { identity: leftIdentity },
-      ),
-      series(
-        "axis-right",
-        "Axis fixture",
-        [
-          point(`axis-right-${axis}`, "2026-01-01", 1, {
-            identity: rightIdentity,
-          }),
-        ],
-        {
-          identity: rightIdentity,
-          measurementDefinitionKey: rightIdentity.measurementDefinitionKey,
-        },
-      ),
-    ]),
-  );
-  assert.equal(
-    axisReport.incompatibilities[0]?.reason,
-    axis === "measurementDefinitionKey" ? "measurement_definition" : axis,
-    `identity axis ${axis} stays separate`,
-  );
-}
-
-const unitReport = buildBiomarkerDynamicsReport(
-  comparison([
-    series("unit-left", "Unit fixture", [point("unit-left", "2026-01-01", 1)]),
-    series("unit-right", "Unit fixture", [
-      point("unit-right", "2026-01-01", 1, { displayUnit: "mg/dL" }),
-    ]),
-  ]),
-);
-assert.equal(unitReport.incompatibilities[0]?.reason, "unit");
-
-const excludedReport = buildBiomarkerDynamicsReport(
-  comparison(
-    [series("glucose", "Glucose", [point("valid", "2026-01-01", 5)])],
-    {
-      excluded: [
-        {
-          observationId: UUID("qualitative"),
-          documentId: PROFILE_DOCUMENT,
-          label: "Glucose",
-          reason: "non_numeric",
-          detail: "Qualitative fixture",
-          identity: identity(),
-          unit: null,
-        },
-        {
-          observationId: UUID("undated"),
-          documentId: PROFILE_DOCUMENT,
-          label: "Glucose",
-          reason: "undated",
-          detail: "Undated fixture",
-          identity: identity(),
-          unit: null,
-        },
-        {
-          observationId: UUID("ineligible"),
-          documentId: PROFILE_DOCUMENT,
-          label: "Glucose",
-          reason: "ineligible",
-          detail: "Ineligible fixture",
-          identity: identity(),
-          unit: null,
-        },
-        {
-          observationId: UUID("unsupported"),
-          documentId: PROFILE_DOCUMENT,
-          label: "Glucose",
-          reason: "unsupported_unit",
-          detail: "Unsafe conversion fixture",
-          identity: identity(),
-          unit: null,
-        },
-      ],
-    },
-  ),
-);
-assert.deepEqual(
-  new Set(excludedReport.limitations.map((item) => item.code)),
-  new Set(["non_numeric", "undated", "ineligible", "unsupported_unit"]),
-);
-const plasmaIdentity = identity("glucose_plasma", { specimen: "plasma" });
-const scopedExclusionReport = buildBiomarkerDynamicsReport(
-  comparison(
-    [
-      series("scoped-serum", "Glucose", [
-        point("scoped-serum-point", "2026-01-01", 5),
-      ]),
-      series(
-        "scoped-plasma",
-        "Glucose",
-        [
-          point("scoped-plasma-point", "2026-01-01", 5, {
-            identity: plasmaIdentity,
-          }),
-        ],
-        { identity: plasmaIdentity },
-      ),
-    ],
-    {
-      excluded: [
-        {
-          observationId: UUID("scoped-excluded"),
-          documentId: PROFILE_DOCUMENT,
-          label: "Glucose",
-          reason: "undated",
-          detail: "Scoped exclusion fixture",
-          identity: identity(),
-          unit: "mmol/L",
-        },
-      ],
-    },
-  ),
-);
-assert.equal(
-  scopedExclusionReport.series
-    .find((item) => item.id === "scoped-serum")
-    ?.limitations.some((item) => item.code === "undated"),
-  true,
-);
-assert.equal(
-  scopedExclusionReport.series
-    .find((item) => item.id === "scoped-plasma")
-    ?.limitations.some((item) => item.code === "undated"),
-  false,
-);
-
-assert.equal(isCanonicalBiomarkerDynamicsDate("2026-02-28"), true);
-assert.equal(isCanonicalBiomarkerDynamicsDate("2026-02-29"), false);
-assert.throws(
-  () =>
-    parseBiomarkerDynamicsPeriod({ start: "2026-02-02", end: "2026-02-01" }),
-  /canonical dates/,
-);
-assert.throws(
-  () =>
-    parseBiomarkerDynamicsPeriod({ start: "2026-02-30", end: "2026-03-01" }),
-  /canonical dates/,
-);
-
-const validReportRequest = createReportBodySchema.safeParse({
-  title: "Synthetic dynamics report",
-  report_type: "general_practice",
-  detail_level: "standard",
-  document_ids: null,
-  biomarker_dynamics_period: { start: "2026-01-01", end: "2026-01-31" },
-});
-assert.equal(validReportRequest.success, true);
-const invalidReportRequest = createReportBodySchema.safeParse({
-  title: "Synthetic dynamics report",
-  report_type: "general_practice",
-  detail_level: "standard",
-  biomarker_dynamics_period: { start: "2026-02-02", end: "2026-02-01" },
-});
-assert.equal(invalidReportRequest.success, false);
-
-const outOfScopeObservation = {
-  id: UUID("out-of-scope"),
-  observation_kind: "lab",
-  analyte_key: "glucose",
-  measurement_definition_key: "glucose_serum",
-  resolution_status: "resolved",
-  name: "Glucose",
-  value: 5,
-  unit: "mmol/L",
-  ref_low: 3.5,
-  ref_high: 6.1,
-  observed_at: "2026-01-01",
-  document_id: SECOND_DOCUMENT,
-  value_kind: "numeric",
-  value_text: null,
-  raw_reference_text: null,
-  specimen: "serum",
-  modifier: "none",
-  documents: {
-    id: SECOND_DOCUMENT,
-    original_filename: "outside.pdf",
-    archived_at: null,
-  },
-  source_extracted_biomarker: null,
-  normalization_revision: null,
-} satisfies DynamicsObservation;
-assert.throws(
-  () =>
-    buildAuthorizedBiomarkerComparison({
-      observations: [outOfScopeObservation],
-      scopeKind: "report_immutable",
-      scopeDocumentIds: [PROFILE_DOCUMENT],
-      unitSystem: "si",
-      generatedAt: "2026-02-01T00:00:00.000Z",
-    }),
-  (error: unknown) => error instanceof BiomarkerDynamicsAuthorizationError,
-);
-const mismatchedSourceObservation: DynamicsObservation = {
-  ...outOfScopeObservation,
-  document_id: PROFILE_DOCUMENT,
-};
-assert.throws(
-  () =>
-    buildAuthorizedBiomarkerComparison({
-      observations: [mismatchedSourceObservation],
-      scopeKind: "profile_current",
-      scopeDocumentIds: [PROFILE_DOCUMENT],
-      unitSystem: "si",
-      generatedAt: "2026-02-01T00:00:00.000Z",
-    }),
-  (error: unknown) => error instanceof BiomarkerDynamicsAuthorizationError,
-);
-
-const inScopeObservation: DynamicsObservation = {
-  ...outOfScopeObservation,
-  document_id: PROFILE_DOCUMENT,
-  documents: {
-    id: PROFILE_DOCUMENT,
-    original_filename: "inside.pdf",
-    archived_at: null,
-  },
-};
-const profileCurrentComparison = buildAuthorizedBiomarkerComparison({
-  observations: [inScopeObservation],
-  scopeKind: "profile_current",
-  scopeDocumentIds: [PROFILE_DOCUMENT],
-  unitSystem: "si",
-  generatedAt: "2026-02-01T00:00:00.000Z",
-});
-assert.deepEqual(profileCurrentComparison.scopeDocumentIds, [PROFILE_DOCUMENT]);
-const immutableComparison = buildAuthorizedBiomarkerComparison({
-  observations: [inScopeObservation],
-  scopeKind: "report_immutable",
-  scopeDocumentIds: [PROFILE_DOCUMENT],
-  unitSystem: "si",
-  generatedAt: "2026-02-01T00:00:00.000Z",
-});
-assert.deepEqual(immutableComparison.scopeDocumentIds, [PROFILE_DOCUMENT]);
-
-const immutable = buildBiomarkerDynamicsReport(
-  comparison([series("glucose", "Glucose", [point("3", "2026-01-01", 5)])], {
-    scopeKind: "report_immutable",
-    scopeDocumentIds: [PROFILE_DOCUMENT],
-    excluded: [
-      {
-        observationId: UUID("4"),
-        documentId: PROFILE_DOCUMENT,
-        label: "Glucose",
-        reason: "non_numeric",
-        detail: "Synthetic non-numeric exclusion",
-        identity: identity(),
-        unit: "mmol/L",
       },
     ],
   }),
-  { start: "2026-01-01", end: "2026-01-31" },
+  { start: "2025-01-01", end: "2025-12-31" },
 );
-const binding = createPersistedBiomarkerDynamicsBinding(immutable);
 assert.deepEqual(
-  resolvePersistedBiomarkerDynamics({ biomarker_dynamics: binding }),
-  binding,
+  tied.series[0]?.points.map((p) => p.id),
+  [tieLeft, tieRight],
+);
+assert.equal(tied.series[0]?.statistics.latest?.id, tieRight);
+
+// ── Direction with reviewed tolerance ───────────────────────────────────
+setDirectionTolerance("glucose_serum", "mmol/L", {
+  absolute: 0.2,
+  relative: 0.05,
+});
+const directed = buildBiomarkerDynamicsReport(comparison(), {
+  start: "2025-01-01",
+  end: "2025-03-31",
+});
+assert.equal(directed.series[0]?.direction.value, "increasing");
+assert.ok(directed.series[0]?.tolerance);
+
+const stable = buildBiomarkerDynamicsReport(
+  comparison({
+    series: [
+      {
+        id: "glucose_serum::mmol/l::__shared__::serum::none::automated::quantitative",
+        measurementDefinitionKey: "glucose_serum",
+        name: "Glucose · mmol/L",
+        specimen: "serum",
+        modifier: "none",
+        method: "automated",
+        scale: "quantitative",
+        observations: [
+          obs("10", {
+            documentId: UUID("d1"),
+            observedAt: "2025-01-01",
+            value: 5.0,
+          }),
+          obs("11", {
+            documentId: UUID("d1"),
+            observedAt: "2025-02-01",
+            value: 5.1,
+          }),
+        ],
+      },
+    ],
+  }),
+  { start: "2025-01-01", end: "2025-12-31" },
+);
+assert.equal(stable.series[0]?.direction.value, "stable");
+
+clearAllDirectionTolerances();
+const noPolicy = buildBiomarkerDynamicsReport(comparison(), {
+  start: "2025-01-01",
+  end: "2025-03-31",
+});
+assert.equal(noPolicy.series[0]?.direction.value, "not_available");
+assert.equal(
+  noPolicy.series[0]?.direction.limitation?.type,
+  "tolerance_unavailable",
 );
 
-const currentIntegrityKeyId = process.env.BIOMARKER_DYNAMICS_INTEGRITY_KEY_ID;
-const previousIntegrityKeyId =
-  process.env.BIOMARKER_DYNAMICS_PREVIOUS_INTEGRITY_KEY_ID;
-const previousIntegritySecret =
-  process.env.BIOMARKER_DYNAMICS_PREVIOUS_INTEGRITY_SECRET;
-process.env.BIOMARKER_DYNAMICS_INTEGRITY_KEY_ID = "service-role-v2";
-process.env.BIOMARKER_DYNAMICS_PREVIOUS_INTEGRITY_KEY_ID =
-  binding.integrity_key_id;
-process.env.BIOMARKER_DYNAMICS_PREVIOUS_INTEGRITY_SECRET =
-  process.env.SUPABASE_SERVICE_ROLE_KEY;
-assert.deepEqual(
-  resolvePersistedBiomarkerDynamics({ biomarker_dynamics: binding }),
-  binding,
-  "previous integrity keys remain valid during rotation",
+// ── One-point / empty comparison ────────────────────────────────────────
+const onePoint = buildBiomarkerDynamicsReport(
+  comparison({
+    series: [
+      {
+        id: "glucose_serum::mmol/l::__shared__::serum::none::automated::quantitative",
+        measurementDefinitionKey: "glucose_serum",
+        name: "Glucose · mmol/L",
+        specimen: "serum",
+        modifier: "none",
+        method: "automated",
+        scale: "quantitative",
+        observations: [
+          obs("20", {
+            documentId: UUID("d1"),
+            observedAt: "2025-02-01",
+            value: 5.2,
+          }),
+        ],
+      },
+    ],
+  }),
+  { start: "2025-01-01", end: "2025-12-31" },
 );
-if (currentIntegrityKeyId === undefined) {
-  delete process.env.BIOMARKER_DYNAMICS_INTEGRITY_KEY_ID;
-} else {
-  process.env.BIOMARKER_DYNAMICS_INTEGRITY_KEY_ID = currentIntegrityKeyId;
-}
-if (previousIntegrityKeyId === undefined) {
-  delete process.env.BIOMARKER_DYNAMICS_PREVIOUS_INTEGRITY_KEY_ID;
-} else {
-  process.env.BIOMARKER_DYNAMICS_PREVIOUS_INTEGRITY_KEY_ID =
-    previousIntegrityKeyId;
-}
-if (previousIntegritySecret === undefined) {
-  delete process.env.BIOMARKER_DYNAMICS_PREVIOUS_INTEGRITY_SECRET;
-} else {
-  process.env.BIOMARKER_DYNAMICS_PREVIOUS_INTEGRITY_SECRET =
-    previousIntegritySecret;
-}
+assert.equal(onePoint.series[0]?.direction.value, "not_available");
+assert.equal(
+  onePoint.series[0]?.direction.limitation?.type,
+  "comparison_unavailable",
+);
+assert.equal(onePoint.series[0]?.statistics.pointCount, 1);
 
-const tamperedLimitations = structuredClone(binding) as Record<string, unknown>;
-const limitationsDto = tamperedLimitations.dto as Record<string, unknown>;
-limitationsDto.limitations = [];
-assert.throws(
-  () =>
-    resolvePersistedBiomarkerDynamics({
-      biomarker_dynamics: tamperedLimitations,
-    }),
-  (error: unknown) => error instanceof InvalidPersistedBiomarkerDynamicsError,
+// ── Exclusions and incompatibilities ────────────────────────────────────
+const withExclusions = buildBiomarkerDynamicsReport(
+  comparison({
+    excluded: [
+      {
+        observationId: UUID("90"),
+        reason: "undated",
+        message: "Observation has no observed date",
+      },
+      {
+        observationId: UUID("91"),
+        reason: "non_numeric",
+        message: "Observation value is not numeric",
+      },
+      {
+        observationId: UUID("92"),
+        reason: "ineligible",
+        message: "Observation is not trend eligible",
+      },
+      {
+        observationId: UUID("93"),
+        reason: "unsupported_unit",
+        message: "Observation has an unsupported unit",
+      },
+    ],
+    incompatibilities: [
+      {
+        groupingReason: "Same display name has incompatible identity: specimen",
+        affectedLabels: ["Glucose · mmol/L", "Glucose · mg/dL"],
+      },
+    ],
+  }),
+  { start: "2025-01-01", end: "2025-03-31" },
 );
+assert.equal(withExclusions.limitations.length, 4);
+assert.equal(withExclusions.incompatibilities.length, 1);
 
-const tamperedScope = structuredClone(binding) as Record<string, unknown>;
-tamperedScope.report_scope_document_ids = [SECOND_DOCUMENT];
-assert.throws(
-  () =>
-    resolvePersistedBiomarkerDynamics({ biomarker_dynamics: tamperedScope }),
-  (error: unknown) => error instanceof InvalidPersistedBiomarkerDynamicsError,
+// ── Scope excludes another owned document ───────────────────────────────
+const scopedDoc = UUID("d1");
+const otherDoc = UUID("d2");
+const scoped = buildBiomarkerDynamicsReport(
+  comparison({
+    scope_kind: "report_immutable",
+    scope_document_ids: [scopedDoc],
+    series: [
+      {
+        id: "glucose_serum::mmol/l::__shared__::serum::none::automated::quantitative",
+        measurementDefinitionKey: "glucose_serum",
+        name: "Glucose · mmol/L",
+        specimen: "serum",
+        modifier: "none",
+        method: "automated",
+        scale: "quantitative",
+        observations: [
+          obs("30", {
+            documentId: scopedDoc,
+            observedAt: "2025-02-01",
+            value: 5.0,
+          }),
+          obs("31", {
+            documentId: otherDoc,
+            observedAt: "2025-02-10",
+            value: 9.0,
+          }),
+        ],
+      },
+    ],
+  }),
+  { start: "2025-01-01", end: "2025-12-31" },
 );
-
-const tamperedPoint = structuredClone(binding) as Record<string, unknown>;
-const tamperedDto = tamperedPoint.dto as Record<string, unknown>;
-const tamperedSeries = tamperedDto.series as Array<Record<string, unknown>>;
-const tamperedPoints = tamperedSeries[0]?.points as Array<
-  Record<string, unknown>
->;
-if (!tamperedPoints?.[0]) throw new Error("Fixture point missing");
-tamperedPoints[0].documentId = SECOND_DOCUMENT;
-assert.throws(
-  () =>
-    resolvePersistedBiomarkerDynamics({ biomarker_dynamics: tamperedPoint }),
-  (error: unknown) => error instanceof InvalidPersistedBiomarkerDynamicsError,
-);
-const tamperedObservedAt = structuredClone(binding) as Record<string, unknown>;
-const observedAtDto = tamperedObservedAt.dto as Record<string, unknown>;
-const observedAtSeries = observedAtDto.series as Array<Record<string, unknown>>;
-const observedAtPoints = observedAtSeries[0]?.points as Array<
-  Record<string, unknown>
->;
-if (!observedAtPoints?.[0]) throw new Error("Fixture date point missing");
-observedAtPoints[0].observedAt = "not-a-date";
-assert.throws(
-  () =>
-    resolvePersistedBiomarkerDynamics({
-      biomarker_dynamics: tamperedObservedAt,
-    }),
-  (error: unknown) => error instanceof InvalidPersistedBiomarkerDynamicsError,
-);
-
-const tamperedCalendarDate = structuredClone(binding) as Record<
-  string,
-  unknown
->;
-const calendarDateDto = tamperedCalendarDate.dto as Record<string, unknown>;
-const calendarDateSeries = calendarDateDto.series as Array<
-  Record<string, unknown>
->;
-const calendarDatePoints = calendarDateSeries[0]?.points as Array<
-  Record<string, unknown>
->;
-if (!calendarDatePoints?.[0]) throw new Error("Fixture calendar point missing");
-calendarDatePoints[0].observedAt = "2026-02-30";
-assert.throws(
-  () =>
-    resolvePersistedBiomarkerDynamics({
-      biomarker_dynamics: tamperedCalendarDate,
-    }),
-  (error: unknown) => error instanceof InvalidPersistedBiomarkerDynamicsError,
-);
-
-const tamperedSource = structuredClone(binding) as Record<string, unknown>;
-const sourceDto = tamperedSource.dto as Record<string, unknown>;
-const sourceSeries = sourceDto.series as Array<Record<string, unknown>>;
-if (!sourceSeries[0]) throw new Error("Fixture source series missing");
-sourceSeries[0].label = "Forged source label";
-assert.throws(
-  () =>
-    resolvePersistedBiomarkerDynamics({
-      biomarker_dynamics: tamperedSource,
-    }),
-  (error: unknown) => error instanceof InvalidPersistedBiomarkerDynamicsError,
-);
-const missingDtoCollections = structuredClone(binding) as Record<
-  string,
-  unknown
->;
-const missingDto = missingDtoCollections.dto as Record<string, unknown>;
-delete missingDto.incompatibilities;
-assert.throws(
-  () =>
-    resolvePersistedBiomarkerDynamics({
-      biomarker_dynamics: missingDtoCollections,
-    }),
-  (error: unknown) => error instanceof InvalidPersistedBiomarkerDynamicsError,
-);
-const tamperedStatistics = structuredClone(binding) as Record<string, unknown>;
-const statisticsDto = tamperedStatistics.dto as Record<string, unknown>;
-const statisticsSeries = statisticsDto.series as Array<Record<string, unknown>>;
-if (!statisticsSeries[0]?.statistics) {
-  throw new Error("Fixture statistics missing");
-}
-const statistics = statisticsSeries[0].statistics as Record<string, unknown>;
-statistics.minimum = 999;
-assert.throws(
-  () =>
-    resolvePersistedBiomarkerDynamics({
-      biomarker_dynamics: tamperedStatistics,
-    }),
-  (error: unknown) => error instanceof InvalidPersistedBiomarkerDynamicsError,
+assert.equal(scoped.series[0]?.statistics.pointCount, 1);
+assert.equal(scoped.series[0]?.points[0]?.documentId, scopedDoc);
+assert.ok(
+  scoped.limitations.some((item) => item.type === "scope_excluded"),
 );
 
-const tamperedDirection = structuredClone(binding) as Record<string, unknown>;
-const directionDto = tamperedDirection.dto as Record<string, unknown>;
-const directionSeries = directionDto.series as Array<Record<string, unknown>>;
-if (!directionSeries[0]) throw new Error("Fixture direction missing");
-directionSeries[0].direction = "increasing";
-assert.throws(
-  () =>
-    resolvePersistedBiomarkerDynamics({
-      biomarker_dynamics: tamperedDirection,
-    }),
-  (error: unknown) => error instanceof InvalidPersistedBiomarkerDynamicsError,
+// ── Provenance retained on points ───────────────────────────────────────
+const point = periodReport.series[0]?.points[0];
+assert.ok(point);
+assert.equal(point.nativeValue, 90);
+assert.equal(point.nativeUnit, "mg/dL");
+assert.equal(point.nativeReferenceLow, 70);
+assert.ok(point.conversionMetadata?.converted);
+assert.ok(point.source?.href.startsWith("/app/documents/"));
+
+// ── Adapter grouping: incompatible units / identity ─────────────────────
+const grouped = buildAuthorizedBiomarkerComparison(
+  [
+    {
+      id: UUID("40"),
+      name: "Free T4",
+      measurement_definition_key: "free_t4_serum",
+      value: 1.2,
+      unit: "ng/dL",
+      ref_low: null,
+      ref_high: null,
+      observed_at: "2025-02-01",
+      document_id: UUID("d1"),
+      documents: {
+        id: UUID("d1"),
+        original_filename: "a.pdf",
+        lab_name: null,
+      },
+      value_kind: "numeric",
+      value_text: "1.2",
+      converted: false,
+      original_value: 1.2,
+      original_unit: "ng/dL",
+      original_ref_low: null,
+      original_ref_high: null,
+      trend_eligible: true,
+      conversion_eligible: false,
+      registry_binding_ready: true,
+      specimen: "serum",
+      modifier: "none",
+      method: "automated",
+      scale: "quantitative",
+    },
+    {
+      id: UUID("41"),
+      name: "Free T4",
+      measurement_definition_key: "free_t4_serum",
+      value: 15,
+      unit: "pmol/L",
+      ref_low: null,
+      ref_high: null,
+      observed_at: "2025-02-10",
+      document_id: UUID("d1"),
+      documents: {
+        id: UUID("d1"),
+        original_filename: "a.pdf",
+        lab_name: null,
+      },
+      value_kind: "numeric",
+      value_text: "15",
+      converted: false,
+      original_value: 15,
+      original_unit: "pmol/L",
+      original_ref_low: null,
+      original_ref_high: null,
+      trend_eligible: true,
+      conversion_eligible: false,
+      registry_binding_ready: true,
+      specimen: "serum",
+      modifier: "none",
+      method: "automated",
+      scale: "quantitative",
+    },
+    {
+      id: UUID("42"),
+      name: "Glucose",
+      measurement_definition_key: "glucose_serum",
+      value: null,
+      unit: "",
+      ref_low: null,
+      ref_high: null,
+      observed_at: "2025-02-01",
+      document_id: UUID("d1"),
+      documents: null,
+      value_kind: "qualitative",
+      value_text: "positive",
+      converted: false,
+      original_value: null,
+      original_unit: null,
+      original_ref_low: null,
+      original_ref_high: null,
+      trend_eligible: true,
+      conversion_eligible: false,
+      registry_binding_ready: true,
+      specimen: "serum",
+      modifier: "none",
+      method: "automated",
+      scale: "quantitative",
+    },
+    {
+      id: UUID("43"),
+      name: "Glucose",
+      measurement_definition_key: "glucose_serum",
+      value: 5.1,
+      unit: "mmol/L",
+      ref_low: null,
+      ref_high: null,
+      observed_at: null,
+      document_id: UUID("d1"),
+      documents: null,
+      value_kind: "numeric",
+      value_text: "5.1",
+      converted: false,
+      original_value: 5.1,
+      original_unit: "mmol/L",
+      original_ref_low: null,
+      original_ref_high: null,
+      trend_eligible: true,
+      conversion_eligible: true,
+      registry_binding_ready: true,
+      specimen: "serum",
+      modifier: "none",
+      method: "automated",
+      scale: "quantitative",
+    },
+  ],
+  "profile_current",
+  [UUID("d1")],
 );
+assert.equal(grouped.series.length, 2, "incompatible units stay separate");
+assert.ok(grouped.incompatibilities.length >= 1);
+assert.ok(grouped.excluded.some((item) => item.reason === "undated"));
+assert.ok(grouped.excluded.some((item) => item.reason === "non_numeric"));
+
+// ── Frozen extension + fail-closed reader ───────────────────────────────
+setDirectionTolerance("glucose_serum", "mmol/L", {
+  absolute: 0.1,
+  relative: 0,
+});
+const reportForFreeze = buildBiomarkerDynamicsReport(
+  comparison({
+    scope_kind: "report_immutable",
+    scope_document_ids: [UUID("d1")],
+  }),
+  { start: "2025-01-01", end: "2025-03-31" },
+);
+const frozen = buildFrozenBiomarkerDynamicsExtension(
+  reportForFreeze,
+  { start: "2025-01-01", end: "2025-03-31" },
+  [UUID("d1")],
+);
+const ok = resolvePersistedBiomarkerDynamicsExtension(frozen, [UUID("d1")]);
+assert.equal(ok.ok, true);
+
+assert.equal(
+  resolvePersistedBiomarkerDynamicsExtension(null).ok,
+  false,
+  "missing extension fails closed",
+);
+assert.equal(
+  resolvePersistedBiomarkerDynamicsExtension({
+    ...frozen,
+    schemaVersion: "999",
+  }).ok,
+  false,
+  "tampered schema fails closed",
+);
+assert.equal(
+  resolvePersistedBiomarkerDynamicsExtension({
+    ...frozen,
+    directionPolicyVersion: "999",
+  }).ok,
+  false,
+  "tampered policy fails closed",
+);
+assert.equal(
+  resolvePersistedBiomarkerDynamicsExtension({
+    ...frozen,
+    biomarker_dynamics_period: { start: "2024-01-01", end: "2024-01-02" },
+    report: {
+      ...frozen.report,
+      series: [
+        {
+          ...frozen.report.series[0]!,
+          points: [
+            {
+              ...frozen.report.series[0]!.points[0]!,
+              documentId: UUID("outsider"),
+            },
+          ],
+        },
+      ],
+    },
+  }).ok,
+  false,
+  "out-of-scope frozen point fails closed",
+);
+assert.equal(
+  resolvePersistedBiomarkerDynamicsExtension(frozen, [UUID("d1"), UUID("d2")])
+    .ok,
+  false,
+  "scope mismatch fails closed",
+);
+
+// ── Static integration contracts ────────────────────────────────────────
+const apiRoute = readFileSync("src/app/api/biomarkers/dynamics/route.ts", "utf8");
+assert.match(apiRoute, /getAuthorizedBiomarkerDynamics/);
+assert.match(apiRoute, /profile_current/);
+assert.doesNotMatch(apiRoute, /observations:\s*body/);
+
+const page = readFileSync(
+  "src/app/app/biomarkers/biomarkers-page-client.tsx",
+  "utf8",
+);
+assert.match(page, /\/api\/biomarkers\/dynamics/);
+assert.doesNotMatch(page, /buildMeasurementComparisonSeries/);
+assert.doesNotMatch(page, /filterMeasurementComparisonSeries/);
+assert.match(page, /DIRECTION_LABELS/);
+assert.match(page, /Source ledger/);
+assert.match(page, /Incompatible series kept separate/);
+
+const reportsRoute = readFileSync("src/app/api/reports/route.ts", "utf8");
+assert.match(reportsRoute, /getFrozenBiomarkerDynamicsForReport/);
+assert.match(reportsRoute, /biomarker_dynamics_period/);
+assert.match(reportsRoute, /biomarker_dynamics/);
+
+const server = readFileSync("src/lib/biomarker-dynamics-server.ts", "utf8");
+assert.match(server, /report_immutable/);
+assert.match(server, /presentObservation/);
+assert.match(server, /projectLaboratoryOutcome/);
 
 console.log("verify-eh149-biomarker-dynamics: all checks passed");

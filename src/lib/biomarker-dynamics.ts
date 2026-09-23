@@ -1,558 +1,867 @@
-import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
-import { normalizeComparisonUnit } from "@/lib/biomarker-comparison";
+/**
+ * EH-149: Biomarker Dynamics Report — pure projection layer.
+ *
+ * Public signature:
+ *   buildBiomarkerDynamicsReport(input: AuthorizedBiomarkerComparison, period)
+ *     -> BiomarkerDynamicsReport
+ *
+ * Pure: never resolves authorization or queries storage.
+ */
+
 import {
-  BIOMARKER_DIRECTION_POLICY_VERSION,
-  getBiomarkerDirectionTolerance,
-  type BiomarkerDirectionTolerance,
-} from "@/lib/biomarker-dynamics-policy";
+  compareCanonicalObservationId,
+  computeDirection,
+  DIRECTION_POLICY_VERSION,
+  type DirectionTolerance,
+} from "./biomarker-dynamics-policy";
+import { normalizeComparisonUnit } from "./biomarker-comparison";
 
-export const BIOMARKER_DYNAMICS_SCHEMA_VERSION = "eh-149-dynamics-v1";
+export const BIOMARKER_DYNAMICS_SCHEMA_VERSION = "1";
 
-export type BiomarkerDynamicsScopeKind = "profile_current" | "report_immutable";
-
-export type BiomarkerDynamicsPeriod = Readonly<{
-  start: string;
-  end: string;
-}>;
-
-export type BiomarkerDynamicsIdentity = Readonly<{
-  measurementDefinitionKey: string;
-  analyteKey: string | null;
-  specimen: string | null;
-  modifier: string | null;
-  method: string | null;
-  scale: string | null;
-}>;
-
-export type BiomarkerDynamicsConversion = Readonly<{
-  applied: boolean;
-  note: string | null;
-  nativeUnit: string | null;
-  displayUnit: string | null;
-}>;
-
-export type AuthorizedBiomarkerComparisonPoint = Readonly<{
-  observationId: string;
-  documentId: string;
-  observedAt: string;
-  nativeValue: number;
-  nativeUnit: string | null;
-  nativeReferenceLow: number | null;
-  nativeReferenceHigh: number | null;
-  displayValue: number;
-  displayUnit: string | null;
-  displayReferenceLow: number | null;
-  displayReferenceHigh: number | null;
-  conversion: BiomarkerDynamicsConversion;
-  identity: BiomarkerDynamicsIdentity;
-  source: Readonly<{
-    documentId: string;
-    filename: string;
-    laboratory: string | null;
-    href: string;
-  }>;
-}>;
-
-export type AuthorizedBiomarkerComparisonCandidate = Readonly<{
-  observationId: string;
-  documentId: string | null;
-  label: string | null;
-  valueKind: string | null;
-  identity: Partial<BiomarkerDynamicsIdentity> | null;
-  point: AuthorizedBiomarkerComparisonPoint | null;
-}>;
-
-export type AuthorizedBiomarkerComparisonSeries = Readonly<{
-  id: string;
-  label: string;
-  measurementDefinitionKey: string;
-  analyteKey: string | null;
-  displayUnit: string | null;
-  nativeUnit: string | null;
-  normalized: boolean;
-  identity: BiomarkerDynamicsIdentity;
-  points: readonly AuthorizedBiomarkerComparisonPoint[];
-}>;
-
-export type BiomarkerDynamicsExclusionReason =
+export type BiomarkerDynamicsLimitationType =
   | "undated"
   | "non_numeric"
   | "ineligible"
-  | "unsupported_unit";
+  | "unsupported_unit"
+  | "comparison_unavailable"
+  | "scope_excluded"
+  | "tolerance_unavailable";
 
-export type AuthorizedBiomarkerComparisonExclusion = Readonly<{
-  observationId: string;
-  documentId: string | null;
-  label: string | null;
-  reason: BiomarkerDynamicsExclusionReason;
-  detail: string;
-  identity: Partial<BiomarkerDynamicsIdentity> | null;
-  unit: string | null;
-}>;
+export type BiomarkerDynamicsLimitation = {
+  type: BiomarkerDynamicsLimitationType;
+  message: string;
+  detail?: string;
+  observationId?: string;
+};
 
-export type BiomarkerDynamicsIncompatibilityReason =
-  | "measurement_definition"
-  | "specimen"
-  | "modifier"
-  | "method"
-  | "scale"
-  | "unit";
+export type BiomarkerDynamicsIncompatibility = {
+  groupingReason: string;
+  affectedSeriesLabels: string[];
+};
 
-export type BiomarkerDynamicsIncompatibility = Readonly<{
+export type BiomarkerDynamicsPoint = {
   id: string;
-  label: string;
-  reason: BiomarkerDynamicsIncompatibilityReason;
-  detail: string;
-  seriesIds: readonly string[];
-  observationIds: readonly string[];
-}>;
+  observedAt: string;
+  documentId: string;
+  nativeValue: number | null;
+  nativeUnit: string | null;
+  displayValue: number | null;
+  displayUnit: string | null;
+  nativeReferenceLow: number | null;
+  nativeReferenceHigh: number | null;
+  displayReferenceLow: number | null;
+  displayReferenceHigh: number | null;
+  conversionMetadata: {
+    converted: boolean;
+    originalValue: number | null;
+    originalUnit: string | null;
+    conversionEligible: boolean;
+  } | null;
+  source: {
+    documentId: string;
+    href: string;
+    filename: string;
+    laboratory: string | null;
+  } | null;
+};
 
-export type AuthorizedBiomarkerComparison = Readonly<{
-  scopeKind: BiomarkerDynamicsScopeKind;
-  scopeDocumentIds: readonly string[];
-  candidates: readonly AuthorizedBiomarkerComparisonCandidate[];
-  series: readonly AuthorizedBiomarkerComparisonSeries[];
-  excluded: readonly AuthorizedBiomarkerComparisonExclusion[];
-  incompatibilities: readonly BiomarkerDynamicsIncompatibility[];
-  generatedAt: string;
-}>;
+export type BiomarkerDynamicsStatistics = {
+  pointCount: number;
+  min: number | null;
+  max: number | null;
+  latest: BiomarkerDynamicsPoint | null;
+  nativeUnit: string | null;
+  displayUnit: string | null;
+};
 
-export type BiomarkerDynamicsDirection =
+export type BiomarkerDynamicsDirectionValue =
   | "increasing"
   | "decreasing"
   | "stable"
   | "not_available";
 
-export type BiomarkerDynamicsLimitationCode =
-  | BiomarkerDynamicsExclusionReason
-  | "comparison_unavailable"
-  | "direction_policy_unavailable";
+export type BiomarkerDynamicsDirection = {
+  value: BiomarkerDynamicsDirectionValue;
+  tolerance: DirectionTolerance | undefined;
+  limitation: BiomarkerDynamicsLimitation | null;
+};
 
-export type BiomarkerDynamicsLimitation = Readonly<{
-  code: BiomarkerDynamicsLimitationCode;
-  message: string;
-  observationIds: readonly string[];
-  seriesId: string | null;
-}>;
-
-export type BiomarkerDynamicsStatistics = Readonly<{
-  pointCount: number;
-  minimum: number | null;
-  maximum: number | null;
-  latest: AuthorizedBiomarkerComparisonPoint | null;
-}>;
-
-export type BiomarkerDynamicsSeries = Readonly<{
+export type BiomarkerDynamicsSeries = {
   id: string;
-  label: string;
   measurementDefinitionKey: string;
-  analyteKey: string | null;
-  displayUnit: string | null;
-  nativeUnit: string | null;
-  normalized: boolean;
-  identity: BiomarkerDynamicsIdentity;
-  statistics: BiomarkerDynamicsStatistics;
+  label: string;
+  specimen: string | null;
+  modifier: string | null;
+  method: string | null;
+  scale: string | null;
+  unit: string | null;
   direction: BiomarkerDynamicsDirection;
-  directionTolerance: BiomarkerDirectionTolerance | null;
-  points: readonly AuthorizedBiomarkerComparisonPoint[];
-  limitations: readonly BiomarkerDynamicsLimitation[];
-}>;
+  statistics: BiomarkerDynamicsStatistics;
+  points: BiomarkerDynamicsPoint[];
+  limitations: BiomarkerDynamicsLimitation[];
+  tolerance: DirectionTolerance | undefined;
+};
 
-export type BiomarkerDynamicsReport = Readonly<{
+export type AuthorizedComparisonObservation = {
+  id: string;
+  name: string;
+  value: number | string | null;
+  unit: string | null;
+  originalValue: number | string | null;
+  originalUnit: string | null;
+  refLow: number | string | null;
+  refHigh: number | string | null;
+  originalRefLow: number | string | null;
+  originalRefHigh: number | string | null;
+  observedAt: string | null;
+  documentId: string | null;
+  documents?: {
+    id: string;
+    original_filename: string;
+    lab_name?: string | null;
+  } | null;
+  valueKind: string | null;
+  converted: boolean;
+  conversionEligible: boolean;
+  trendEligible: boolean;
+  specimen: string | null;
+  modifier: string | null;
+  method: string | null;
+  scale: string | null;
+  measurementDefinitionKey: string | null;
+};
+
+export type AuthorizedBiomarkerComparison = {
+  scope_kind: "profile_current" | "report_immutable";
+  scope_document_ids: string[];
+  series: Array<{
+    id: string;
+    measurementDefinitionKey: string;
+    name: string;
+    specimen: string | null;
+    modifier: string | null;
+    method: string | null;
+    scale: string | null;
+    observations: AuthorizedComparisonObservation[];
+  }>;
+  excluded: Array<{
+    observationId: string;
+    reason: "undated" | "non_numeric" | "ineligible" | "unsupported_unit";
+    message: string;
+    detail?: string;
+  }>;
+  incompatibilities: Array<{
+    groupingReason: string;
+    affectedLabels: string[];
+  }>;
+};
+
+export type BiomarkerDynamicsPeriod = {
+  start: string;
+  end: string;
+};
+
+export type BiomarkerDynamicsReport = {
   schemaVersion: string;
   directionPolicyVersion: string;
-  generatedAt: string;
   period: BiomarkerDynamicsPeriod | null;
-  scope: Readonly<{
-    kind: BiomarkerDynamicsScopeKind;
-    documentIds: readonly string[];
-  }>;
-  series: readonly BiomarkerDynamicsSeries[];
-  excluded: readonly AuthorizedBiomarkerComparisonExclusion[];
-  limitations: readonly BiomarkerDynamicsLimitation[];
-  incompatibilities: readonly BiomarkerDynamicsIncompatibility[];
+  series: BiomarkerDynamicsSeries[];
+  incompatibilities: BiomarkerDynamicsIncompatibility[];
+  limitations: BiomarkerDynamicsLimitation[];
   disclaimer: string;
-}>;
+  generationMetadata: {
+    scopeKind: "profile_current" | "report_immutable";
+    scopeDocumentIds: string[];
+    generatedAt: string;
+  };
+};
 
-export class BiomarkerDynamicsPeriodError extends Error {
-  readonly code = "invalid_period";
+/** Frozen extension handed to EH-148 / required by EH-153. */
+export type FrozenBiomarkerDynamicsExtension = {
+  schemaVersion: string;
+  directionPolicyVersion: string;
+  biomarker_dynamics_period: BiomarkerDynamicsPeriod;
+  report_scope_document_ids: string[];
+  generatedAt: string;
+  report: BiomarkerDynamicsReport;
+};
 
-  constructor(
-    message = "Dynamics period must use canonical dates with start <= end",
-  ) {
-    super(message);
-    this.name = "BiomarkerDynamicsPeriodError";
-  }
-}
+export const DYNAMICS_DISCLAIMER =
+  "Numeric direction describes movement only (increasing, decreasing, or stable). It is not improvement, deterioration, treatment response, or a diagnosis. Educational information only — not medical advice.";
 
-const CANONICAL_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-export function isCanonicalBiomarkerDynamicsDate(
-  value: unknown,
+export function isValidCanonicalDate(
+  value: string | null | undefined,
 ): value is string {
-  if (typeof value !== "string") return false;
-  const match = CANONICAL_DATE.exec(value);
-  if (!match) return false;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const date = new Date(Date.UTC(year, month - 1, day));
+  if (!value || !ISO_DATE_RE.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year!, month! - 1, day!));
   return (
     date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
+    date.getUTCMonth() === month! - 1 &&
     date.getUTCDate() === day
   );
 }
 
-export function parseBiomarkerDynamicsPeriod(
-  period: unknown,
-): BiomarkerDynamicsPeriod | null {
-  if (period == null) return null;
-  if (typeof period !== "object") throw new BiomarkerDynamicsPeriodError();
-  const value = period as { start?: unknown; end?: unknown };
-  if (
-    !isCanonicalBiomarkerDynamicsDate(value.start) ||
-    !isCanonicalBiomarkerDynamicsDate(value.end)
-  ) {
-    throw new BiomarkerDynamicsPeriodError();
+export type PeriodValidation =
+  | { valid: true; period: BiomarkerDynamicsPeriod | null }
+  | { valid: false; error: string };
+
+/**
+ * Omitting both start and end means no period filter.
+ * Providing either requires both canonical YYYY-MM-DD values with start <= end.
+ */
+export function validatePeriod(
+  start: string | null | undefined,
+  end: string | null | undefined,
+): PeriodValidation {
+  const hasStart = Boolean(start);
+  const hasEnd = Boolean(end);
+  if (!hasStart && !hasEnd) {
+    return { valid: true, period: null };
   }
-  if (value.start > value.end) throw new BiomarkerDynamicsPeriodError();
-  return { start: value.start, end: value.end };
-}
-
-function numericTimestamp(value: string): number | null {
-  if (isCanonicalBiomarkerDynamicsDate(value)) {
-    const [year, month, day] = value.split("-").map(Number);
-    return Date.UTC(year, month - 1, day);
+  if (!hasStart || !hasEnd) {
+    return {
+      valid: false,
+      error: "Period requires both start and end as canonical YYYY-MM-DD",
+    };
   }
-  const timestamp = Date.parse(value);
-  return Number.isFinite(timestamp) ? timestamp : null;
-}
-
-function utcCalendarDate(value: string): string | null {
-  if (isCanonicalBiomarkerDynamicsDate(value)) return value;
-  const timestamp = numericTimestamp(value);
-  if (timestamp === null) return null;
-  const date = new Date(timestamp);
-  return [
-    String(date.getUTCFullYear()).padStart(4, "0"),
-    String(date.getUTCMonth() + 1).padStart(2, "0"),
-    String(date.getUTCDate()).padStart(2, "0"),
-  ].join("-");
-}
-
-function compareUuidBytes(left: string, right: string): number {
-  const leftMatch =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      left,
-    );
-  const rightMatch =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      right,
-    );
-  if (!leftMatch || !rightMatch) return left.localeCompare(right);
-  const leftBytes = left.replaceAll("-", "").toLowerCase();
-  const rightBytes = right.replaceAll("-", "").toLowerCase();
-  return leftBytes < rightBytes ? -1 : leftBytes > rightBytes ? 1 : 0;
-}
-
-function comparePoints(
-  left: AuthorizedBiomarkerComparisonPoint,
-  right: AuthorizedBiomarkerComparisonPoint,
-): number {
-  const leftTimestamp = numericTimestamp(left.observedAt);
-  const rightTimestamp = numericTimestamp(right.observedAt);
-  if (
-    leftTimestamp !== null &&
-    rightTimestamp !== null &&
-    leftTimestamp !== rightTimestamp
-  ) {
-    return leftTimestamp - rightTimestamp;
+  if (!isValidCanonicalDate(start) || !isValidCanonicalDate(end)) {
+    return {
+      valid: false,
+      error: "Period must use canonical YYYY-MM-DD format",
+    };
   }
-  if (left.observedAt !== right.observedAt)
-    return left.observedAt.localeCompare(right.observedAt);
-  return compareUuidBytes(left.observationId, right.observationId);
+  if (start! > end!) {
+    return { valid: false, error: "Period start must be <= end" };
+  }
+  return { valid: true, period: { start: start!, end: end! } };
 }
 
-function periodIncludes(
-  observedAt: string,
+function utcCalendarDate(observedAt: string): string {
+  return observedAt.includes("T") ? observedAt.split("T")[0]! : observedAt.slice(0, 10);
+}
+
+function isWithinPeriod(
+  observedAt: string | null,
   period: BiomarkerDynamicsPeriod | null,
 ): boolean {
+  if (!observedAt) return false;
   if (!period) return true;
-  const date = utcCalendarDate(observedAt);
-  return date !== null && date >= period.start && date <= period.end;
+  const dateStr = utcCalendarDate(observedAt);
+  if (!ISO_DATE_RE.test(dateStr)) return false;
+  return dateStr >= period.start && dateStr <= period.end;
 }
 
-function limitation(
-  code: BiomarkerDynamicsLimitationCode,
-  message: string,
-  observationIds: readonly string[] = [],
-  seriesId: string | null = null,
-): BiomarkerDynamicsLimitation {
-  return { code, message, observationIds, seriesId };
+function numericValue(value: number | string | null | undefined): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string" || value.trim() === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
-function exclusionMessage(
-  exclusion: AuthorizedBiomarkerComparisonExclusion,
-): string {
-  switch (exclusion.reason) {
-    case "undated":
-      return "This result has no usable observed date and is excluded from the selected period statistics.";
-    case "non_numeric":
-      return "This result is qualitative or not a finite number, so it is not used in numeric statistics.";
-    case "ineligible":
-      return "This result is not eligible for a dynamics comparison under the current Registry decision.";
-    case "unsupported_unit":
-      return "This result is not combined across unit variants; when a safe native projection is available, it remains in its native unit.";
-  }
+function nonEmpty(value: string | null | undefined): string | null {
+  const normalized = value?.trim();
+  return normalized ? normalized : null;
 }
 
-function identityDifference(
-  left: BiomarkerDynamicsIdentity,
-  right: BiomarkerDynamicsIdentity,
-): BiomarkerDynamicsIncompatibilityReason | null {
-  if (left.measurementDefinitionKey !== right.measurementDefinitionKey)
-    return "measurement_definition";
-  if (left.specimen !== right.specimen) return "specimen";
-  if (left.modifier !== right.modifier) return "modifier";
-  if (left.method !== right.method) return "method";
-  if (left.scale !== right.scale) return "scale";
-  return null;
+function pointSource(
+  documentId: string | null,
+  documents?: {
+    id: string;
+    original_filename: string;
+    lab_name?: string | null;
+  } | null,
+): BiomarkerDynamicsPoint["source"] {
+  const id = nonEmpty(documentId);
+  if (!id) return null;
+  return {
+    documentId: id,
+    href: `/app/documents/${id}`,
+    filename: nonEmpty(documents?.original_filename) ?? "Source document",
+    laboratory: nonEmpty(documents?.lab_name),
+  };
 }
 
-function buildIncompatibilityDetail(
-  reason: BiomarkerDynamicsIncompatibilityReason,
-): string {
-  switch (reason) {
-    case "measurement_definition":
-      return "The same display name maps to different measurement definitions.";
-    case "specimen":
-      return "The same display name uses different specimens.";
-    case "modifier":
-      return "The same display name uses different modifiers.";
-    case "method":
-      return "The same display name uses different methods.";
-    case "scale":
-      return "The same display name uses different scales.";
-    case "unit":
-      return "The same display name uses units that cannot be safely combined.";
-  }
+function sortDynamicsPoints(points: BiomarkerDynamicsPoint[]): BiomarkerDynamicsPoint[] {
+  return [...points].sort((a, b) => {
+    const byDate = a.observedAt.localeCompare(b.observedAt);
+    return byDate !== 0 ? byDate : compareCanonicalObservationId(a.id, b.id);
+  });
 }
 
-function reportIncompatibilities(
-  series: readonly AuthorizedBiomarkerComparisonSeries[],
-): BiomarkerDynamicsIncompatibility[] {
-  const byLabel = new Map<string, AuthorizedBiomarkerComparisonSeries[]>();
-  for (const item of series) {
-    const key = item.label.trim().toLocaleLowerCase();
-    const group = byLabel.get(key) ?? [];
-    group.push(item);
-    byLabel.set(key, group);
-  }
-
-  const result: BiomarkerDynamicsIncompatibility[] = [];
-  for (const [labelKey, group] of byLabel) {
-    if (group.length < 2) continue;
-    for (let leftIndex = 0; leftIndex < group.length; leftIndex += 1) {
-      for (
-        let rightIndex = leftIndex + 1;
-        rightIndex < group.length;
-        rightIndex += 1
-      ) {
-        const left = group[leftIndex];
-        const right = group[rightIndex];
-        const reason =
-          identityDifference(left.identity, right.identity) ??
-          (left.displayUnit !== right.displayUnit ? "unit" : null);
-        if (!reason) continue;
-        const seriesIds = [left.id, right.id].sort();
-        const observationIds = [...left.points, ...right.points]
-          .map((point) => point.observationId)
-          .sort(compareUuidBytes);
-        result.push({
-          id: `${labelKey}::${reason}::${seriesIds.join("|")}`,
-          label: left.label,
-          reason,
-          detail: buildIncompatibilityDetail(reason),
-          seriesIds,
-          observationIds,
-        });
-      }
-    }
-  }
-  return result;
-}
-
-function uniqueLimitations(
-  values: readonly BiomarkerDynamicsLimitation[],
-): BiomarkerDynamicsLimitation[] {
-  const seen = new Set<string>();
-  const result: BiomarkerDynamicsLimitation[] = [];
-  for (const value of values) {
-    const key = `${value.code}::${value.seriesId ?? ""}::${value.observationIds.join(",")}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(value);
-  }
-  return result;
-}
-const DYNAMICS_IDENTITY_KEYS: readonly (keyof BiomarkerDynamicsIdentity)[] = [
-  "measurementDefinitionKey",
-  "analyteKey",
-  "specimen",
-  "modifier",
-  "method",
-  "scale",
-];
-
-function exclusionMatchesSeries(
-  exclusion: AuthorizedBiomarkerComparisonExclusion,
-  series: AuthorizedBiomarkerComparisonSeries,
-): boolean {
-  if (
-    exclusion.label?.trim().toLocaleLowerCase() !==
-    series.label.trim().toLocaleLowerCase()
-  ) {
-    return false;
-  }
-
-  const identity = exclusion.identity;
-  if (!identity?.measurementDefinitionKey) return false;
-  for (const key of DYNAMICS_IDENTITY_KEYS) {
-    const value = identity[key];
-    if (value != null && value !== series.identity[key]) return false;
-  }
-
-  const excludedUnit = normalizeComparisonUnit(exclusion.unit);
-  if (
-    excludedUnit &&
-    ![series.displayUnit, series.nativeUnit]
-      .map((unit) => normalizeComparisonUnit(unit))
-      .includes(excludedUnit)
-  ) {
-    return false;
-  }
-
-  return true;
-}
-
-function buildSeries(
-  input: AuthorizedBiomarkerComparisonSeries,
+function projectDynamicsPoint(
+  obs: AuthorizedComparisonObservation,
   period: BiomarkerDynamicsPeriod | null,
-  exclusions: readonly AuthorizedBiomarkerComparisonExclusion[],
-): BiomarkerDynamicsSeries {
-  const points = input.points
-    .filter((point) => periodIncludes(point.observedAt, period))
-    .sort(comparePoints);
-  const values = points.map((point) => point.displayValue);
-  const tolerance =
-    points.length >= 2
-      ? getBiomarkerDirectionTolerance(
-          input.measurementDefinitionKey,
-          input.displayUnit,
-        )
-      : null;
-  const seriesLimitations: BiomarkerDynamicsLimitation[] = [];
+  scopeDocumentIds: ReadonlySet<string>,
+): BiomarkerDynamicsPoint | null {
+  if (!obs.trendEligible) return null;
+  if (!obs.measurementDefinitionKey) return null;
+  if (!obs.documentId || !scopeDocumentIds.has(obs.documentId)) return null;
+  if (!isWithinPeriod(obs.observedAt, period)) return null;
+  if (obs.valueKind && obs.valueKind !== "numeric") return null;
 
-  const matchingExclusions = exclusions.filter((item) =>
-    exclusionMatchesSeries(item, input),
-  );
-  for (const exclusion of matchingExclusions) {
-    seriesLimitations.push(
-      limitation(
-        exclusion.reason,
-        exclusionMessage(exclusion),
-        [exclusion.observationId],
-        input.id,
-      ),
-    );
-  }
+  const displayValue = numericValue(obs.value);
+  if (displayValue === null) return null;
 
-  let direction: BiomarkerDynamicsDirection = "not_available";
-  if (points.length < 2) {
-    seriesLimitations.push(
-      limitation(
-        "comparison_unavailable",
-        "At least two numeric points are required for a numeric direction.",
-        points.map((point) => point.observationId),
-        input.id,
-      ),
-    );
-  } else if (!tolerance) {
-    seriesLimitations.push(
-      limitation(
-        "direction_policy_unavailable",
-        "An approved numeric direction threshold is unavailable for this exact definition and display unit.",
-        points.map((point) => point.observationId),
-        input.id,
-      ),
-    );
-  } else {
-    const first = points[0].displayValue;
-    const latest = points[points.length - 1].displayValue;
-    const delta = latest - first;
-    const threshold = Math.max(
-      tolerance.absolute,
-      tolerance.relative * Math.abs(first),
-    );
-    if (Math.abs(delta) <= threshold) direction = "stable";
-    else if (delta > threshold) direction = "increasing";
-    else direction = "decreasing";
-  }
+  const nativeValue = numericValue(obs.originalValue) ?? displayValue;
+  const observedAt = obs.observedAt ?? "";
 
   return {
-    id: input.id,
-    label: input.label,
-    measurementDefinitionKey: input.measurementDefinitionKey,
-    analyteKey: input.analyteKey,
-    displayUnit: input.displayUnit,
-    nativeUnit: input.nativeUnit,
-    normalized: input.normalized,
-    identity: input.identity,
-    statistics: {
-      pointCount: points.length,
-      minimum: values.length > 0 ? Math.min(...values) : null,
-      maximum: values.length > 0 ? Math.max(...values) : null,
-      latest: points[points.length - 1] ?? null,
+    id: obs.id,
+    observedAt,
+    documentId: obs.documentId,
+    nativeValue,
+    nativeUnit: nonEmpty(obs.originalUnit),
+    displayValue,
+    displayUnit: nonEmpty(obs.unit),
+    nativeReferenceLow: numericValue(obs.originalRefLow),
+    nativeReferenceHigh: numericValue(obs.originalRefHigh),
+    displayReferenceLow: numericValue(obs.refLow),
+    displayReferenceHigh: numericValue(obs.refHigh),
+    conversionMetadata: {
+      converted: obs.converted,
+      originalValue: numericValue(obs.originalValue),
+      originalUnit: nonEmpty(obs.originalUnit),
+      conversionEligible: obs.conversionEligible,
     },
-    direction,
-    directionTolerance: tolerance,
-    points,
-    limitations: uniqueLimitations(seriesLimitations),
+    source: pointSource(obs.documentId, obs.documents),
   };
 }
 
 export function buildBiomarkerDynamicsReport(
   input: AuthorizedBiomarkerComparison,
-  selectedPeriod: unknown = null,
+  periodInput: { start: string | null; end: string | null } | null,
 ): BiomarkerDynamicsReport {
-  const period = parseBiomarkerDynamicsPeriod(selectedPeriod);
-  const series = input.series.map((item) =>
-    buildSeries(item, period, input.excluded),
+  const validation = validatePeriod(
+    periodInput?.start ?? null,
+    periodInput?.end ?? null,
   );
-  const limitations = input.excluded.map((exclusion) =>
-    limitation(exclusion.reason, exclusionMessage(exclusion), [
-      exclusion.observationId,
-    ]),
-  );
-  const incompatibilities =
-    input.incompatibilities.length > 0
-      ? [...input.incompatibilities]
-      : reportIncompatibilities(input.series);
+  if (!validation.valid) {
+    throw new Error(`Invalid period: ${validation.error}`);
+  }
+
+  const period = validation.period;
+  const now = new Date().toISOString();
+  const scopeDocIds = new Set(input.scope_document_ids);
+  const limitations: BiomarkerDynamicsLimitation[] = [];
+  const incompatibilities: BiomarkerDynamicsIncompatibility[] =
+    input.incompatibilities.map((inc) => ({
+      groupingReason: inc.groupingReason,
+      affectedSeriesLabels: inc.affectedLabels,
+    }));
+
+  for (const exc of input.excluded) {
+    limitations.push({
+      type: exc.reason,
+      message: exc.message,
+      detail: exc.detail,
+      observationId: exc.observationId,
+    });
+  }
+
+  for (const seriesData of input.series) {
+    for (const obs of seriesData.observations) {
+      if (obs.documentId && !scopeDocIds.has(obs.documentId)) {
+        limitations.push({
+          type: "scope_excluded",
+          message: `Observation from document ${obs.documentId} is outside the authorized scope`,
+          detail:
+            "This point was excluded because its source document is not within the authorized report scope",
+          observationId: obs.id,
+        });
+      }
+    }
+  }
+
+  const series: BiomarkerDynamicsSeries[] = input.series.map((seriesData) => {
+    const definitionKey = seriesData.measurementDefinitionKey;
+    const points = sortDynamicsPoints(
+      seriesData.observations
+        .map((obs) => projectDynamicsPoint(obs, period, scopeDocIds))
+        .filter((point): point is BiomarkerDynamicsPoint => point !== null),
+    );
+
+    const displayUnit = points[0]?.displayUnit ?? null;
+    const nativeUnit = points[0]?.nativeUnit ?? null;
+    const values = points
+      .map((p) => p.displayValue)
+      .filter((v): v is number => v !== null);
+    const min = values.length > 0 ? Math.min(...values) : null;
+    const max = values.length > 0 ? Math.max(...values) : null;
+    const latest = points.length > 0 ? points[points.length - 1]! : null;
+
+    const seriesLimitations: BiomarkerDynamicsLimitation[] = [];
+    let directionLimitation: BiomarkerDynamicsLimitation | null = null;
+
+    if (points.length < 2) {
+      directionLimitation = {
+        type: "comparison_unavailable",
+        message:
+          "Comparison requires at least two numeric data points in the selected period",
+        detail:
+          points.length === 0
+            ? "No numeric points are available in the selected period"
+            : "Only one numeric point is available in the selected period",
+      };
+      seriesLimitations.push(directionLimitation);
+    }
+
+    const directionResult = computeDirection(
+      definitionKey,
+      displayUnit ?? "",
+      points.map((point) => ({
+        observedAt: point.observedAt,
+        observationId: point.id,
+        displayValue: point.displayValue!,
+      })),
+    );
+
+    if (
+      points.length >= 2 &&
+      directionResult.direction === "not_available" &&
+      !directionResult.tolerance
+    ) {
+      directionLimitation = {
+        type: "tolerance_unavailable",
+        message:
+          "No approved numeric threshold exists for this measurement definition and display unit",
+        detail: "Direction classification requires a reviewed tolerance entry",
+      };
+      seriesLimitations.push(directionLimitation);
+    }
+
+    for (const obs of seriesData.observations) {
+      if (!obs.observedAt) {
+        seriesLimitations.push({
+          type: "undated",
+          message: "Observation has no date and is excluded from dynamics",
+          observationId: obs.id,
+        });
+      }
+      if (obs.valueKind && obs.valueKind !== "numeric") {
+        seriesLimitations.push({
+          type: "non_numeric",
+          message: "Observation is non-numeric and excluded from statistics",
+          observationId: obs.id,
+        });
+      }
+    }
+
+    return {
+      id: seriesData.id,
+      measurementDefinitionKey: definitionKey,
+      label: seriesData.name,
+      specimen: seriesData.specimen,
+      modifier: seriesData.modifier,
+      method: seriesData.method,
+      scale: seriesData.scale,
+      unit: displayUnit,
+      direction: {
+        value: directionResult.direction,
+        tolerance: directionResult.tolerance,
+        limitation: directionLimitation,
+      },
+      statistics: {
+        pointCount: points.length,
+        min,
+        max,
+        latest,
+        nativeUnit,
+        displayUnit,
+      },
+      points,
+      limitations: seriesLimitations,
+      tolerance: directionResult.tolerance,
+    };
+  });
 
   return {
     schemaVersion: BIOMARKER_DYNAMICS_SCHEMA_VERSION,
-    directionPolicyVersion: BIOMARKER_DIRECTION_POLICY_VERSION,
-    generatedAt: input.generatedAt,
+    directionPolicyVersion: DIRECTION_POLICY_VERSION,
     period,
-    scope: {
-      kind: input.scopeKind,
-      documentIds: [...input.scopeDocumentIds],
-    },
     series,
-    excluded: [...input.excluded],
-    limitations: uniqueLimitations(limitations),
     incompatibilities,
-    disclaimer: MEDICAL_DISCLAIMER,
+    limitations,
+    disclaimer: DYNAMICS_DISCLAIMER,
+    generationMetadata: {
+      scopeKind: input.scope_kind,
+      scopeDocumentIds: [...input.scope_document_ids],
+      generatedAt: now,
+    },
+  };
+}
+
+export function buildFrozenBiomarkerDynamicsExtension(
+  report: BiomarkerDynamicsReport,
+  period: BiomarkerDynamicsPeriod,
+  reportScopeDocumentIds: readonly string[],
+): FrozenBiomarkerDynamicsExtension {
+  return {
+    schemaVersion: report.schemaVersion,
+    directionPolicyVersion: report.directionPolicyVersion,
+    biomarker_dynamics_period: period,
+    report_scope_document_ids: [...reportScopeDocumentIds],
+    generatedAt: report.generationMetadata.generatedAt,
+    report,
+  };
+}
+
+export type PersistedDynamicsResolution =
+  | { ok: true; extension: FrozenBiomarkerDynamicsExtension }
+  | { ok: false; reason: string };
+
+/**
+ * Fail-closed reader for a persisted EH-149 extension.
+ * Does not rebuild from observations or accept a client-substituted DTO.
+ */
+export function resolvePersistedBiomarkerDynamicsExtension(
+  value: unknown,
+  expectedScopeDocumentIds?: readonly string[],
+): PersistedDynamicsResolution {
+  if (value == null || typeof value !== "object") {
+    return { ok: false, reason: "Missing biomarker dynamics extension" };
+  }
+  const ext = value as Record<string, unknown>;
+  if (ext.schemaVersion !== BIOMARKER_DYNAMICS_SCHEMA_VERSION) {
+    return { ok: false, reason: "Unsupported or tampered dynamics schema version" };
+  }
+  if (ext.directionPolicyVersion !== DIRECTION_POLICY_VERSION) {
+    return {
+      ok: false,
+      reason: "Unsupported or tampered dynamics direction-policy version",
+    };
+  }
+  const period = ext.biomarker_dynamics_period;
+  if (
+    !period ||
+    typeof period !== "object" ||
+    !isValidCanonicalDate((period as BiomarkerDynamicsPeriod).start) ||
+    !isValidCanonicalDate((period as BiomarkerDynamicsPeriod).end) ||
+    (period as BiomarkerDynamicsPeriod).start >
+      (period as BiomarkerDynamicsPeriod).end
+  ) {
+    return { ok: false, reason: "Tampered or invalid biomarker_dynamics_period" };
+  }
+  const scopeIds = ext.report_scope_document_ids;
+  if (!Array.isArray(scopeIds) || scopeIds.some((id) => typeof id !== "string")) {
+    return { ok: false, reason: "Tampered or missing report_scope_document_ids" };
+  }
+  if (expectedScopeDocumentIds) {
+    const expected = new Set(expectedScopeDocumentIds);
+    if (
+      scopeIds.length !== expected.size ||
+      scopeIds.some((id) => !expected.has(id))
+    ) {
+      return {
+        ok: false,
+        reason: "Persisted dynamics scope does not match report scope",
+      };
+    }
+  }
+  const report = ext.report;
+  if (!report || typeof report !== "object") {
+    return { ok: false, reason: "Missing frozen dynamics report payload" };
+  }
+  const typedReport = report as BiomarkerDynamicsReport;
+  for (const series of typedReport.series ?? []) {
+    for (const point of series.points ?? []) {
+      if (!scopeIds.includes(point.documentId)) {
+        return {
+          ok: false,
+          reason: "Frozen dynamics point is outside persisted report scope",
+        };
+      }
+    }
+  }
+  if (typeof ext.generatedAt !== "string" || !ext.generatedAt) {
+    return { ok: false, reason: "Missing dynamics generation metadata" };
+  }
+
+  return {
+    ok: true,
+    extension: {
+      schemaVersion: String(ext.schemaVersion),
+      directionPolicyVersion: String(ext.directionPolicyVersion),
+      biomarker_dynamics_period: period as BiomarkerDynamicsPeriod,
+      report_scope_document_ids: scopeIds as string[],
+      generatedAt: String(ext.generatedAt),
+      report: typedReport,
+    },
+  };
+}
+
+export function seriesIdentityKey(input: {
+  measurementDefinitionKey: string;
+  displayUnit: string | null;
+  nativeUnit: string | null;
+  splitByNativeUnit: boolean;
+  specimen: string | null;
+  modifier: string | null;
+  method: string | null;
+  scale: string | null;
+}): string {
+  const displayUnitKey =
+    normalizeComparisonUnit(input.displayUnit) || "__unit_not_recorded__";
+  const nativeUnitKey = input.splitByNativeUnit
+    ? normalizeComparisonUnit(input.nativeUnit) || "__native_unit_not_recorded__"
+    : "__shared__";
+  return [
+    input.measurementDefinitionKey,
+    displayUnitKey,
+    nativeUnitKey,
+    input.specimen ?? "unspecified",
+    input.modifier ?? "none",
+    input.method ?? "unspecified",
+    input.scale ?? "unspecified",
+  ].join("::");
+}
+
+/** Presented observation shape consumed by the authorized comparison builder. */
+export type DynamicsPresentedObservation = {
+  id: string;
+  name: string;
+  measurement_definition_key: string | null;
+  value: number | null;
+  unit: string;
+  ref_low: number | null;
+  ref_high: number | null;
+  observed_at: string | null;
+  document_id: string | null;
+  documents: {
+    id: string;
+    original_filename: string;
+    lab_name?: string | null;
+  } | null;
+  value_kind: string | null;
+  value_text: string | null;
+  converted: boolean;
+  original_value: number | null;
+  original_unit: string | null;
+  original_ref_low: number | null;
+  original_ref_high: number | null;
+  trend_eligible: boolean;
+  conversion_eligible: boolean;
+  registry_binding_ready: boolean;
+  specimen: string | null;
+  modifier: string | null;
+  method: string | null;
+  scale: string | null;
+};
+
+/**
+ * Pure builder for the authorized comparison snapshot.
+ * Callers supply already-presented rows; this never queries storage.
+ */
+export function buildAuthorizedBiomarkerComparison(
+  observations: readonly DynamicsPresentedObservation[],
+  scope: "profile_current" | "report_immutable",
+  scopeDocumentIds: readonly string[],
+): AuthorizedBiomarkerComparison {
+  const scopeSet = new Set(scopeDocumentIds);
+  const excluded: AuthorizedBiomarkerComparison["excluded"] = [];
+  const retained: DynamicsPresentedObservation[] = [];
+
+  for (const obs of observations) {
+    if (!obs.document_id || !scopeSet.has(obs.document_id)) {
+      continue;
+    }
+    if (!obs.measurement_definition_key || !obs.trend_eligible) {
+      excluded.push({
+        observationId: obs.id,
+        reason: "ineligible",
+        message: !obs.measurement_definition_key
+          ? "Observation has no measurement definition key"
+          : "Observation is not trend eligible",
+      });
+      continue;
+    }
+    if (!obs.observed_at) {
+      excluded.push({
+        observationId: obs.id,
+        reason: "undated",
+        message: "Observation has no observed date",
+      });
+      continue;
+    }
+    if (obs.value_kind && obs.value_kind !== "numeric") {
+      excluded.push({
+        observationId: obs.id,
+        reason: "non_numeric",
+        message: "Observation value is not numeric",
+      });
+      continue;
+    }
+    if (obs.value == null || !Number.isFinite(obs.value)) {
+      excluded.push({
+        observationId: obs.id,
+        reason: "non_numeric",
+        message: "Observation value is not numeric",
+      });
+      continue;
+    }
+    if (
+      obs.unit != null &&
+      obs.unit.trim() !== "" &&
+      normalizeComparisonUnit(obs.unit) === ""
+    ) {
+      excluded.push({
+        observationId: obs.id,
+        reason: "unsupported_unit",
+        message: "Observation has an unsupported unit",
+      });
+      continue;
+    }
+    retained.push(obs);
+  }
+
+  const byDefinition = new Map<string, DynamicsPresentedObservation[]>();
+  for (const obs of retained) {
+    const key = obs.measurement_definition_key!;
+    const list = byDefinition.get(key) ?? [];
+    list.push(obs);
+    byDefinition.set(key, list);
+  }
+
+  const seriesMap = new Map<
+    string,
+    AuthorizedBiomarkerComparison["series"][number]
+  >();
+
+  for (const [definitionKey, group] of byDefinition) {
+    const byDisplayUnit = new Map<string, DynamicsPresentedObservation[]>();
+    for (const obs of group) {
+      const displayKey =
+        normalizeComparisonUnit(obs.unit) || "__unit_not_recorded__";
+      const list = byDisplayUnit.get(displayKey) ?? [];
+      list.push(obs);
+      byDisplayUnit.set(displayKey, list);
+    }
+
+    for (const [, displayGroup] of byDisplayUnit) {
+      const conversionEligible = displayGroup.every(
+        (row) => row.conversion_eligible,
+      );
+      const nativeUnitKeys = new Set(
+        displayGroup.map(
+          (row) =>
+            normalizeComparisonUnit(row.original_unit) ||
+            "__native_unit_not_recorded__",
+        ),
+      );
+      const splitByNativeUnit = !conversionEligible && nativeUnitKeys.size > 1;
+
+      for (const row of displayGroup) {
+        const id = seriesIdentityKey({
+          measurementDefinitionKey: definitionKey,
+          displayUnit: row.unit,
+          nativeUnit: row.original_unit,
+          splitByNativeUnit,
+          specimen: row.specimen,
+          modifier: row.modifier,
+          method: row.method,
+          scale: row.scale,
+        });
+
+        if (!seriesMap.has(id)) {
+          const unitLabel = row.unit?.trim() ? row.unit : "Unit not recorded";
+          const nativeVariant =
+            splitByNativeUnit && row.original_unit
+              ? ` (native ${row.original_unit})`
+              : splitByNativeUnit
+                ? " (native unit not recorded)"
+                : "";
+          seriesMap.set(id, {
+            id,
+            measurementDefinitionKey: definitionKey,
+            name: `${row.name || "Measurement"} · ${unitLabel}${nativeVariant}`,
+            specimen: row.specimen,
+            modifier: row.modifier,
+            method: row.method,
+            scale: row.scale,
+            observations: [],
+          });
+        }
+
+        const candidate: AuthorizedComparisonObservation = {
+          id: row.id,
+          name: row.name,
+          value: row.value,
+          unit: row.unit,
+          originalValue: row.original_value,
+          originalUnit: row.original_unit,
+          refLow: row.ref_low,
+          refHigh: row.ref_high,
+          originalRefLow: row.original_ref_low,
+          originalRefHigh: row.original_ref_high,
+          observedAt: row.observed_at,
+          documentId: row.document_id,
+          documents: row.documents,
+          valueKind: row.value_kind ?? "numeric",
+          converted: row.converted,
+          conversionEligible: row.conversion_eligible,
+          trendEligible: row.trend_eligible,
+          specimen: row.specimen,
+          modifier: row.modifier,
+          method: row.method,
+          scale: row.scale,
+          measurementDefinitionKey: definitionKey,
+        };
+        seriesMap.get(id)!.observations.push(candidate);
+      }
+    }
+  }
+
+  const incompatibilities: AuthorizedBiomarkerComparison["incompatibilities"] =
+    [];
+  const byDisplayName = new Map<
+    string,
+    AuthorizedBiomarkerComparison["series"]
+  >();
+  for (const series of seriesMap.values()) {
+    const displayName = series.name.split(" · ")[0]!.toLowerCase();
+    const list = byDisplayName.get(displayName) ?? [];
+    list.push(series);
+    byDisplayName.set(displayName, list);
+  }
+  for (const [, group] of byDisplayName) {
+    if (group.length < 2) continue;
+    const reasons = new Set<string>();
+    const labels: string[] = [];
+    for (const series of group) {
+      labels.push(series.name);
+      reasons.add(`definition: ${series.measurementDefinitionKey}`);
+      if (series.specimen) reasons.add(`specimen: ${series.specimen}`);
+      if (series.modifier && series.modifier !== "none") {
+        reasons.add(`modifier: ${series.modifier}`);
+      }
+      if (series.method) reasons.add(`method: ${series.method}`);
+      if (series.scale) reasons.add(`scale: ${series.scale}`);
+      const units = new Set(
+        series.observations.map(
+          (o) => normalizeComparisonUnit(o.unit) || "__none__",
+        ),
+      );
+      if (units.size > 0) {
+        reasons.add(`unit: ${[...units].join("|")}`);
+      }
+    }
+    incompatibilities.push({
+      groupingReason: `Same display name has incompatible identity: ${[
+        ...reasons,
+      ].join(", ")}`,
+      affectedLabels: labels,
+    });
+  }
+
+  return {
+    scope_kind: scope,
+    scope_document_ids: [...scopeDocumentIds],
+    series: [...seriesMap.values()].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    ),
+    excluded,
+    incompatibilities,
   };
 }

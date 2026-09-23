@@ -31,13 +31,12 @@ import {
   healthRouteLabel,
   readHealthNavigationContext,
 } from "@/lib/health-navigation";
-import type { BiomarkerDynamicsReport } from "@/lib/biomarker-dynamics";
-import {
-  formatBiomarkerDynamicsSeriesLabel,
-  formatBiomarkerDynamicsValue,
-} from "@/lib/biomarker-dynamics-format";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 import type { AssessmentExclusionReason } from "@/lib/health-profile-assessment-eligibility";
+import type {
+  BiomarkerDynamicsReport,
+  BiomarkerDynamicsSeries,
+} from "@/lib/biomarker-dynamics";
 
 type LabUnitSystem = "us" | "si";
 
@@ -91,6 +90,16 @@ const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
   { id: "high", label: "High" },
 ];
 
+const DIRECTION_LABELS: Record<
+  BiomarkerDynamicsSeries["direction"]["value"],
+  string
+> = {
+  increasing: "Increasing (numeric)",
+  decreasing: "Decreasing (numeric)",
+  stable: "Stable (numeric)",
+  not_available: "Not available",
+};
+
 function observationStatus(o: Observation): StatusFilter {
   if (!o.registry_binding_ready) return "mapping";
   if (o.value_kind && o.value_kind !== "numeric") return "normal";
@@ -114,6 +123,11 @@ function getReviewedMeasurementKey(
 ): string | null {
   const key = value?.trim() ?? "";
   return reviewedMeasurementKeys.includes(key) ? key : null;
+}
+
+function formatNumber(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return String(value);
 }
 
 export default function BiomarkersPage({
@@ -142,7 +156,12 @@ export default function BiomarkersPage({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [labUnitSystem, setLabUnitSystem] = useState<LabUnitSystem>("si");
   const [savingUnits, setSavingUnits] = useState(false);
-  const dynamicsRequestId = useRef(0);
+  const [dynamics, setDynamics] = useState<BiomarkerDynamicsReport | null>(
+    null,
+  );
+  const [dynamicsError, setDynamicsError] = useState<string | null>(null);
+  const [dynamicsLoading, setDynamicsLoading] = useState(false);
+  const [expandedPointId, setExpandedPointId] = useState<string | null>(null);
 
   useEffect(() => {
     const requested = navigationContext.measurement;
@@ -175,8 +194,6 @@ export default function BiomarkersPage({
               requestedMeasurement,
               reviewedMeasurementKeys,
             );
-            // Related catalog links may target a reviewed definition with no
-            // saved observation; keep that context for the educational graph.
             if (requested) return requested;
             if (requestedMeasurement) return "";
             if (
@@ -282,6 +299,51 @@ export default function BiomarkersPage({
     selectedObservationId,
   ]);
 
+  // Fetch server-authorized dynamics DTO — never compute statistics in the browser.
+  useEffect(() => {
+    let cancelled = false;
+    const params = new URLSearchParams();
+    // Inclusive period requires both canonical dates; otherwise request all dated points.
+    if (comparisonFrom && comparisonTo) {
+      params.set("start", comparisonFrom);
+      params.set("end", comparisonTo);
+    }
+    const query = params.toString();
+
+    setDynamicsLoading(true);
+    setDynamicsError(null);
+    void fetch(`/api/biomarkers/dynamics${query ? `?${query}` : ""}`)
+      .then(async (response) => {
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(
+            typeof body.error === "string"
+              ? body.error
+              : "Failed to load dynamics",
+          );
+        }
+        return body as BiomarkerDynamicsReport;
+      })
+      .then((report) => {
+        if (cancelled) return;
+        setDynamics(report);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setDynamics(null);
+        setDynamicsError(
+          error instanceof Error ? error.message : "Failed to load dynamics",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setDynamicsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [comparisonFrom, comparisonTo, labUnitSystem, observations]);
+
   async function setUnitSystem(next: LabUnitSystem) {
     if (next === labUnitSystem) return;
     setSavingUnits(true);
@@ -319,57 +381,7 @@ export default function BiomarkersPage({
     });
   }, [observations, search, statusFilter]);
 
-  const loadDynamics = useCallback(async () => {
-    const requestId = dynamicsRequestId.current + 1;
-    dynamicsRequestId.current = requestId;
-    if (
-      (comparisonFrom && !comparisonTo) ||
-      (!comparisonFrom && comparisonTo)
-    ) {
-      setDynamics(null);
-      setDynamicsStatus("error");
-      setDynamicsError("Choose both dates to filter the dynamics report.");
-      return;
-    }
-
-    setDynamicsStatus("loading");
-    setDynamicsError(null);
-    const params = new URLSearchParams();
-    if (comparisonFrom && comparisonTo) {
-      params.set("start", comparisonFrom);
-      params.set("end", comparisonTo);
-    }
-
-    try {
-      const response = await fetch(
-        `/api/biomarkers/dynamics${params.size ? `?${params}` : ""}`,
-        { headers: { Accept: "application/json" } },
-      );
-      if (requestId !== dynamicsRequestId.current) return;
-      const body = (await response.json().catch(() => ({}))) as {
-        error?: string;
-        series?: unknown;
-      };
-      if (!response.ok) {
-        throw new Error(body.error ?? "Biomarker dynamics are unavailable");
-      }
-      if (!Array.isArray(body.series)) {
-        throw new Error("The dynamics response is invalid");
-      }
-      if (requestId !== dynamicsRequestId.current) return;
-      setDynamics(body as BiomarkerDynamicsReport);
-      setDynamicsStatus("ready");
-    } catch (error) {
-      if (requestId !== dynamicsRequestId.current) return;
-      setDynamics(null);
-      setDynamicsStatus("error");
-      setDynamicsError(
-        error instanceof Error
-          ? error.message
-          : "Biomarker dynamics are unavailable",
-      );
-    }
-  }, [comparisonFrom, comparisonTo, labUnitSystem]);
+  const dynamicsSeries = dynamics?.series ?? [];
 
   useEffect(() => {
     void loadDynamics();
@@ -380,18 +392,26 @@ export default function BiomarkersPage({
     setSelectedSeriesId((current) => {
       const requested = navigationContext.measurement;
       const requestedSeries = requested
-        ? availableSeries.find(
+        ? dynamicsSeries.find(
             (series) => series.measurementDefinitionKey === requested,
           )
         : undefined;
       if (requestedSeries) return requestedSeries.id;
-      if (availableSeries.some((series) => series.id === current))
+      if (dynamicsSeries.some((series) => series.id === current)) {
         return current;
-      return availableSeries[0]?.id ?? "";
+      }
+      const currentDefinitionKey = current.split("::", 1)[0];
+      return (
+        dynamicsSeries.find(
+          (series) => series.measurementDefinitionKey === currentDefinitionKey,
+        )?.id ??
+        dynamicsSeries[0]?.id ??
+        ""
+      );
     });
-  }, [dynamics, navigationContext.measurement]);
+  }, [dynamicsSeries, navigationContext.measurement]);
 
-  const selectedSeries = dynamics?.series.find(
+  const selectedSeries = dynamicsSeries.find(
     (series) => series.id === selectedSeriesId,
   );
   const biomarkerContextPath = buildHealthNavigationPath("/app/biomarkers", {
@@ -403,32 +423,34 @@ export default function BiomarkersPage({
   const selectedPoints = selectedSeries?.points ?? [];
   const chartData = selectedPoints.map((point) => ({
     observed_at: point.observedAt,
-    value: point.displayValue,
+    value: point.displayValue ?? 0,
   }));
   const chartPoints: BiomarkerChartPoint[] = selectedPoints.map((point) => {
-    const sourceHref = buildHealthNavigationPath(
-      `/app/documents/${point.documentId}`,
-      {
-        system: navigationContext.system,
-        measurement: selectedSeries?.measurementDefinitionKey ?? selectedKey,
-        observation: point.observationId,
-        returnTo: biomarkerContextPath,
-      },
-    );
+    const sourceHref = point.source?.documentId
+      ? buildHealthNavigationPath(`/app/documents/${point.source.documentId}`, {
+          system: navigationContext.system,
+          measurement:
+            selectedSeries?.measurementDefinitionKey ?? selectedKey,
+          observation: point.id,
+          returnTo: biomarkerContextPath,
+        })
+      : (point.source?.href ?? null);
     return {
       id: point.observationId,
       observed_at: point.observedAt,
-      value: point.displayValue,
+      value: point.displayValue ?? 0,
       unit: point.displayUnit,
-      native_value: point.nativeValue,
+      native_value: point.nativeValue ?? point.displayValue ?? 0,
       native_unit: point.nativeUnit,
       native_ref_low: point.nativeReferenceLow,
       native_ref_high: point.nativeReferenceHigh,
       laboratory: point.source.laboratory,
       conversion_note: point.conversion.applied ? point.conversion.note : null,
       sourceHref,
-      sourceLabel: point.source.filename,
-      source: { href: sourceHref, filename: point.source.filename },
+      sourceLabel: point.source?.filename ?? null,
+      source: point.source
+        ? { ...point.source, href: sourceHref ?? point.source.href }
+        : null,
     };
   });
   const hasActiveComparisonRange = Boolean(comparisonFrom || comparisonTo);
@@ -517,17 +539,11 @@ export default function BiomarkersPage({
       />
 
       <SurfaceCard padding="lg" className="mt-8">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 className="text-sm font-semibold text-[var(--eh-text-primary)]">
-              Biomarker dynamics
-            </h2>
-            <p className="mt-1 text-xs text-[var(--eh-text-secondary)]">
-              Numeric movement only. The server keeps each point tied to its
-              source.
-            </p>
-          </div>
-          {dynamics && dynamics.series.length > 0 ? (
+        <div className="mb-4 flex flex-wrap items-center gap-4">
+          <span className="text-sm font-semibold text-[var(--eh-text-primary)]">
+            Biomarker dynamics report
+          </span>
+          {dynamicsSeries.length > 0 ? (
             <Select
               value={selectedSeriesId}
               onValueChange={setSelectedSeriesId}
@@ -536,7 +552,7 @@ export default function BiomarkersPage({
                 <SelectValue placeholder="Select measurement series" />
               </SelectTrigger>
               <SelectContent>
-                {dynamics.series.map((series) => (
+                {dynamicsSeries.map((series) => (
                   <SelectItem key={series.id} value={series.id}>
                     {formatBiomarkerDynamicsSeriesLabel(series)}
                   </SelectItem>
@@ -546,7 +562,7 @@ export default function BiomarkersPage({
           ) : null}
         </div>
 
-        <div className="mb-5 flex flex-wrap items-end gap-3">
+        <div className="mb-4 flex flex-wrap items-end gap-3">
           <div>
             <label
               className="mb-1.5 block text-xs font-medium text-[var(--eh-text-secondary)]"
@@ -565,8 +581,156 @@ export default function BiomarkersPage({
                 value={comparisonFrom}
                 onChange={(event) => setComparisonFrom(event.target.value)}
                 className="h-10 rounded-xl border border-[var(--eh-border)] bg-white py-2 pl-9 pr-3 text-sm text-[var(--eh-text-primary)] outline-none transition focus:border-[var(--eh-brand)] focus:ring-2 focus:ring-[var(--eh-brand)]/20"
-                aria-label="Dynamics start date"
+                aria-label="Dynamics period start date"
               />
+            </div>
+          </div>
+          <div>
+            <label
+              className="mb-1.5 block text-xs font-medium text-[var(--eh-text-secondary)]"
+              htmlFor="comparison-to"
+            >
+              To
+            </label>
+            <div className="relative">
+              <CalendarDays
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--eh-text-muted)]"
+                aria-hidden
+              />
+              <input
+                id="comparison-to"
+                type="date"
+                value={comparisonTo}
+                onChange={(event) => setComparisonTo(event.target.value)}
+                className="h-10 rounded-xl border border-[var(--eh-border)] bg-white py-2 pl-9 pr-3 text-sm text-[var(--eh-text-primary)] outline-none transition focus:border-[var(--eh-brand)] focus:ring-2 focus:ring-[var(--eh-brand)]/20"
+                aria-label="Dynamics period end date"
+              />
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={clearComparisonRange}
+            disabled={!hasActiveComparisonRange}
+            className="h-10 rounded-xl"
+          >
+            <SlidersHorizontal className="size-4" aria-hidden />
+            Clear range
+          </Button>
+        </div>
+
+        {dynamics?.period ? (
+          <p className="mb-3 text-xs text-[var(--eh-text-secondary)]">
+            Selected period: {dynamics.period.start} → {dynamics.period.end}{" "}
+            (inclusive UTC calendar dates)
+          </p>
+        ) : null}
+
+        {dynamicsError ? (
+          <p className="mb-4 text-sm text-red-700" role="alert">
+            {dynamicsError}
+          </p>
+        ) : null}
+
+        {dynamicsLoading && !dynamics ? (
+          <p className="text-sm text-[var(--eh-text-secondary)]">
+            Loading dynamics…
+          </p>
+        ) : null}
+
+        {(dynamics?.incompatibilities.length ?? 0) > 0 ? (
+          <div
+            className="mb-4 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-950"
+            role="status"
+          >
+            <p className="font-medium">Incompatible series kept separate</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5">
+              {dynamics!.incompatibilities.map((item, index) => (
+                <li key={`${item.groupingReason}-${index}`}>
+                  {item.groupingReason}. Affected:{" "}
+                  {item.affectedSeriesLabels.join("; ")}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {!dynamics || dynamicsSeries.length === 0 ? (
+          <p className="text-sm text-[var(--eh-text-secondary)]">
+            No resolved numeric measurement definitions are available for
+            dynamics yet.
+          </p>
+        ) : !selectedSeries ? (
+          <SurfaceCard padding="lg" className="border-dashed text-center">
+            <p className="text-sm text-[var(--eh-text-secondary)]">
+              No measurements match the selected date range.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={clearComparisonRange}
+              className="mt-4 rounded-xl"
+            >
+              Clear range
+            </Button>
+          </SurfaceCard>
+        ) : (
+          <>
+            <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="rounded-xl border border-[var(--eh-border)] px-3 py-2">
+                <p className="text-[11px] uppercase tracking-wide text-[var(--eh-text-muted)]">
+                  Points
+                </p>
+                <p className="text-sm font-semibold text-[var(--eh-text-primary)]">
+                  {selectedSeries.statistics.pointCount}
+                </p>
+              </div>
+              <div className="rounded-xl border border-[var(--eh-border)] px-3 py-2">
+                <p className="text-[11px] uppercase tracking-wide text-[var(--eh-text-muted)]">
+                  Min
+                </p>
+                <p className="text-sm font-semibold text-[var(--eh-text-primary)]">
+                  {formatNumber(selectedSeries.statistics.min)}
+                  {selectedSeries.statistics.displayUnit
+                    ? ` ${selectedSeries.statistics.displayUnit}`
+                    : ""}
+                </p>
+              </div>
+              <div className="rounded-xl border border-[var(--eh-border)] px-3 py-2">
+                <p className="text-[11px] uppercase tracking-wide text-[var(--eh-text-muted)]">
+                  Max
+                </p>
+                <p className="text-sm font-semibold text-[var(--eh-text-primary)]">
+                  {formatNumber(selectedSeries.statistics.max)}
+                  {selectedSeries.statistics.displayUnit
+                    ? ` ${selectedSeries.statistics.displayUnit}`
+                    : ""}
+                </p>
+              </div>
+              <div className="rounded-xl border border-[var(--eh-border)] px-3 py-2">
+                <p className="text-[11px] uppercase tracking-wide text-[var(--eh-text-muted)]">
+                  Latest
+                </p>
+                <p className="text-sm font-semibold text-[var(--eh-text-primary)]">
+                  {formatNumber(selectedSeries.statistics.latest?.displayValue)}
+                  {selectedSeries.statistics.displayUnit
+                    ? ` ${selectedSeries.statistics.displayUnit}`
+                    : ""}
+                </p>
+              </div>
+              <div className="rounded-xl border border-[var(--eh-border)] px-3 py-2">
+                <p className="text-[11px] uppercase tracking-wide text-[var(--eh-text-muted)]">
+                  Direction
+                </p>
+                <p className="text-sm font-semibold text-[var(--eh-text-primary)]">
+                  {DIRECTION_LABELS[selectedSeries.direction.value]}
+                </p>
+                {selectedSeries.direction.limitation ? (
+                  <p className="mt-1 text-[11px] leading-4 text-[var(--eh-text-muted)]">
+                    {selectedSeries.direction.limitation.message}
+                  </p>
+                ) : null}
+              </div>
             </div>
           </div>
           <div>
@@ -603,146 +767,13 @@ export default function BiomarkersPage({
           </Button>
         </div>
 
-        {dynamicsStatus === "loading" || dynamicsStatus === "idle" ? (
-          <p className="text-sm text-[var(--eh-text-secondary)]">
-            Loading biomarker dynamics…
-          </p>
-        ) : dynamicsStatus === "error" ? (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-            <p className="text-sm text-red-800">
-              {dynamicsError ?? "Biomarker dynamics are unavailable."}
+            <p className="mb-4 text-xs leading-5 text-[var(--eh-text-muted)]">
+              {selectedSeries.points.some(
+                (point) => point.conversionMetadata?.converted,
+              )
+                ? `Values are shown in ${selectedSeries.unit ?? "the reviewed display unit"}. Each point retains its laboratory-native value and range.`
+                : `Values are shown in ${selectedSeries.unit ?? "their native units"}. Unit variants without a reviewed conversion remain separate series.`}
             </p>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void loadDynamics()}
-              className="mt-3 rounded-lg"
-            >
-              Retry dynamics
-            </Button>
-          </div>
-        ) : dynamics?.series.length === 0 ? (
-          <SurfaceCard padding="lg" className="border-dashed">
-            <p className="text-sm text-[var(--eh-text-secondary)]">
-              No compatible numeric history is available for this period.
-            </p>
-            <p className="mt-2 text-xs text-[var(--eh-text-secondary)]">
-              Upload and review another lab document, then return here.
-            </p>
-            {(dynamics?.limitations.length ?? 0) > 0 ? (
-              <div className="mt-4 border-t pt-4 text-left">
-                <h3 className="text-sm font-semibold text-[var(--eh-text-primary)]">
-                  Data limitations
-                </h3>
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[var(--eh-text-secondary)]">
-                  {dynamics?.limitations.map((item, index) => (
-                    <li key={`${item.code}-${index}`}>{item.message}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </SurfaceCard>
-        ) : selectedSeries ? (
-          <>
-            <p className="mb-4 text-xs leading-5 text-[var(--eh-text-secondary)]">
-              {selectedSeries.normalized
-                ? `Values are normalized to ${selectedSeries.displayUnit ?? "the reviewed display unit"} by the server's reviewed conversion binding. Native values and ranges remain in each source record.`
-                : `Values are shown in ${selectedSeries.displayUnit ?? "their native units"}. Unit variants without a reviewed conversion remain separate series.`}
-            </p>
-
-            <div className="mb-5 grid gap-3 sm:grid-cols-4">
-              <div className="rounded-lg border border-[var(--eh-border)] bg-[var(--eh-canvas-bg)] p-3">
-                <p className="text-xs text-[var(--eh-text-secondary)]">
-                  Minimum
-                </p>
-                <p className="mt-1 text-lg font-semibold text-[var(--eh-text-primary)]">
-                  {formatBiomarkerDynamicsValue(
-                    selectedStatistics?.minimum ?? null,
-                    selectedSeries.displayUnit,
-                  )}
-                </p>
-              </div>
-              <div className="rounded-lg border border-[var(--eh-border)] bg-[var(--eh-canvas-bg)] p-3">
-                <p className="text-xs text-[var(--eh-text-secondary)]">
-                  Maximum
-                </p>
-                <p className="mt-1 text-lg font-semibold text-[var(--eh-text-primary)]">
-                  {formatBiomarkerDynamicsValue(
-                    selectedStatistics?.maximum ?? null,
-                    selectedSeries.displayUnit,
-                  )}
-                </p>
-              </div>
-              <div className="rounded-lg border border-[var(--eh-border)] bg-[var(--eh-canvas-bg)] p-3">
-                <p className="text-xs text-[var(--eh-text-secondary)]">
-                  Latest
-                </p>
-                <p className="mt-1 text-lg font-semibold text-[var(--eh-text-primary)]">
-                  {formatBiomarkerDynamicsValue(
-                    selectedStatistics?.latest?.displayValue ?? null,
-                    selectedSeries.displayUnit,
-                  )}
-                </p>
-              </div>
-              <div className="rounded-lg border border-[var(--eh-border)] bg-[var(--eh-canvas-bg)] p-3">
-                <p className="text-xs text-[var(--eh-text-secondary)]">
-                  Numeric direction
-                </p>
-                <p className="mt-1 text-lg font-semibold capitalize text-[var(--eh-text-primary)]">
-                  {selectedSeries.direction.replace("_", " ")}
-                </p>
-                <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
-                  {selectedStatistics?.pointCount ?? 0} point
-                  {(selectedStatistics?.pointCount ?? 0) === 1 ? "" : "s"}
-                </p>
-              </div>
-            </div>
-
-            {selectedIncompatibilities.length > 0 ? (
-              <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
-                <h3 className="text-sm font-semibold text-amber-900">
-                  Separate evidence
-                </h3>
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900">
-                  {selectedIncompatibilities.map((item) => {
-                    const affectedSeries = item.seriesIds.flatMap(
-                      (seriesId) => {
-                        const series = dynamics?.series.find(
-                          (candidate) => candidate.id === seriesId,
-                        );
-                        return series
-                          ? [formatBiomarkerDynamicsSeriesLabel(series)]
-                          : [];
-                      },
-                    );
-                    return (
-                      <li key={item.id}>
-                        {item.detail} Affected series:{" "}
-                        {affectedSeries.join("; ") || item.seriesIds.join(", ")}
-                        .
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ) : null}
-
-            {selectedLimitations.length > 0 ? (
-              <div className="mb-4 rounded-lg border border-[var(--eh-border)] bg-white p-4">
-                <h3 className="text-sm font-semibold text-[var(--eh-text-primary)]">
-                  Data limitations
-                </h3>
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[var(--eh-text-secondary)]">
-                  {selectedLimitations.map((item, index) => (
-                    <li
-                      key={`${item.code}-${item.seriesId ?? "report"}-${index}`}
-                    >
-                      {item.message}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
 
             <BiomarkerChart
               data={chartData}
@@ -750,6 +781,78 @@ export default function BiomarkersPage({
               biomarkerName={selectedSeries.label}
               selectedObservationId={selectedObservationId}
             />
+
+            <div className="mt-6">
+              <p className="mb-2 text-xs font-medium text-[var(--eh-text-secondary)]">
+                Source ledger
+              </p>
+              <ul className="space-y-2">
+                {selectedPoints.map((point) => {
+                  const open = expandedPointId === point.id;
+                  return (
+                    <li
+                      key={point.id}
+                      className="rounded-xl border border-[var(--eh-border)] px-3 py-2 text-sm"
+                    >
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between gap-3 text-left"
+                        onClick={() =>
+                          setExpandedPointId(open ? null : point.id)
+                        }
+                        aria-expanded={open}
+                      >
+                        <span>
+                          {point.observedAt.slice(0, 10)} ·{" "}
+                          {formatNumber(point.displayValue)}
+                          {point.displayUnit ? ` ${point.displayUnit}` : ""}
+                        </span>
+                        <span className="text-xs text-[var(--eh-text-muted)]">
+                          {open ? "Hide" : "Source"}
+                        </span>
+                      </button>
+                      {open ? (
+                        <div className="mt-2 space-y-1 text-xs leading-5 text-[var(--eh-text-secondary)]">
+                          <p>
+                            Native: {formatNumber(point.nativeValue)}
+                            {point.nativeUnit ? ` ${point.nativeUnit}` : ""}
+                            {point.nativeReferenceLow != null ||
+                            point.nativeReferenceHigh != null
+                              ? ` · range ${formatNumber(point.nativeReferenceLow)}–${formatNumber(point.nativeReferenceHigh)}`
+                              : ""}
+                          </p>
+                          {point.conversionMetadata?.converted ? (
+                            <p>
+                              Converted from{" "}
+                              {formatNumber(
+                                point.conversionMetadata.originalValue,
+                              )}
+                              {point.conversionMetadata.originalUnit
+                                ? ` ${point.conversionMetadata.originalUnit}`
+                                : ""}
+                            </p>
+                          ) : null}
+                          {point.source ? (
+                            <p>
+                              Source:{" "}
+                              <a
+                                href={point.source.href}
+                                className="text-[var(--eh-brand)] underline-offset-2 hover:underline"
+                              >
+                                {point.source.filename}
+                              </a>
+                              {point.source.laboratory
+                                ? ` · ${point.source.laboratory}`
+                                : ""}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           </>
         ) : (
           <p className="text-sm text-[var(--eh-text-secondary)]">
@@ -759,6 +862,9 @@ export default function BiomarkersPage({
       </SurfaceCard>
 
       <p className="mt-6 text-xs text-[var(--eh-text-muted)]">
+        {dynamics?.disclaimer ?? MEDICAL_DISCLAIMER}
+      </p>
+      <p className="mt-2 text-xs text-[var(--eh-text-muted)]">
         {MEDICAL_DISCLAIMER}
       </p>
     </div>

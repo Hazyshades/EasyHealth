@@ -34,6 +34,8 @@ import {
   type RegistryV2NormalizationRevisionReadBoundary,
 } from "@/lib/documents/observation-read-boundaries";
 import { projectLaboratoryOutcome } from "@/lib/documents/incomplete-laboratory-outcomes";
+import { validatePeriod } from "@/lib/biomarker-dynamics";
+import { getFrozenBiomarkerDynamicsForReport } from "@/lib/biomarker-dynamics-server";
 
 function sanitizeSearchTerm(value: string): string {
   return value.replace(/[%_,]/g, "").trim();
@@ -145,6 +147,25 @@ export async function POST(req: NextRequest) {
     abnormal_only,
     biomarker_dynamics_period,
   } = parsed.data;
+
+  if (biomarker_dynamics_period) {
+    const periodValidation = validatePeriod(
+      biomarker_dynamics_period.start,
+      biomarker_dynamics_period.end,
+    );
+    if (!periodValidation.valid || !periodValidation.period) {
+      return NextResponse.json(
+        {
+          error:
+            periodValidation.valid === false
+              ? periodValidation.error
+              : "Invalid biomarker_dynamics_period",
+        },
+        { status: 400 },
+      );
+    }
+  }
+
   const eligibleIds = await getEligibleDocumentIds(profileId);
 
   if (eligibleIds.length === 0) {
@@ -317,11 +338,36 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const baseContent = withDisclaimer(object);
-  const content = biomarkerDynamicsBinding
-    ? { ...baseContent, biomarker_dynamics: biomarkerDynamicsBinding }
-    : baseContent;
-  const summary_preview = buildSummaryPreview(content.overview);
+  const content = withDisclaimer(object) as Record<string, unknown> & {
+    overview?: string;
+    extensions?: Record<string, unknown>;
+  };
+
+  // EH-149 → EH-148 handoff: persist frozen dynamics only when a period is supplied.
+  // Never accept a client DTO or rebuild from client observations.
+  if (biomarker_dynamics_period) {
+    try {
+      const frozen = await getFrozenBiomarkerDynamicsForReport({
+        profileId,
+        period: biomarker_dynamics_period,
+        reportScopeDocumentIds: scopeIds,
+      });
+      content.extensions = {
+        ...(content.extensions ?? {}),
+        biomarker_dynamics: frozen,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return NextResponse.json(
+        { error: "Biomarker dynamics extension failed", message },
+        { status: 500 },
+      );
+    }
+  }
+
+  const summary_preview = buildSummaryPreview(
+    typeof content.overview === "string" ? content.overview : "",
+  );
 
   const { data: report, error: insertError } = await supabase
     .from("reports")

@@ -1,64 +1,45 @@
-import { createAdminClient } from "@/lib/supabase/admin";
-import { getProfileById } from "@/lib/auth/profile";
-import {
-  getMeasurementDefinition,
-  isCensoredLabValueCell,
-  presentObservation,
-  type LabUnitSystem,
-} from "@/lib/biomarkers";
-import { normalizeComparisonUnit } from "@/lib/biomarker-comparison";
+/**
+ * EH-149: Biomarker Dynamics Report — server-side authorization adapter.
+ *
+ * getAuthorizedBiomarkerDynamics resolves the authenticated profile,
+ * builds an AuthorizedBiomarkerComparison snapshot, and calls the pure
+ * projection. Neither this adapter nor the HTTP route accepts client
+ * observations or a client-generated DTO.
+ */
+
+import { presentObservation, getMeasurementDefinition } from "@/lib/biomarkers";
 import {
   isCurrentDocumentObservation,
   REGISTRY_V2_NORMALIZATION_REVISION_SELECT,
   type RegistryV2NormalizationRevisionReadBoundary,
 } from "@/lib/documents/observation-read-boundaries";
+import { projectLaboratoryOutcome } from "@/lib/documents/incomplete-laboratory-outcomes";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getProfileById } from "@/lib/auth/profile";
 import {
-  projectLaboratoryOutcome,
-  type LaboratoryOutcomeSummary,
-} from "@/lib/documents/incomplete-laboratory-outcomes";
-import {
+  buildAuthorizedBiomarkerComparison,
   buildBiomarkerDynamicsReport,
-  type AuthorizedBiomarkerComparison,
-  type AuthorizedBiomarkerComparisonCandidate,
-  type AuthorizedBiomarkerComparisonExclusion,
-  type AuthorizedBiomarkerComparisonPoint,
-  type AuthorizedBiomarkerComparisonSeries,
-  type BiomarkerDynamicsIdentity,
+  buildFrozenBiomarkerDynamicsExtension,
+  validatePeriod,
   type BiomarkerDynamicsPeriod,
-  type BiomarkerDynamicsScopeKind,
-} from "@/lib/biomarker-dynamics";
+  type BiomarkerDynamicsReport,
+  type DynamicsPresentedObservation,
+  type FrozenBiomarkerDynamicsExtension,
+} from "./biomarker-dynamics";
 
-export type BiomarkerDynamicsScope =
-  | Readonly<{ kind: "profile_current" }>
-  | Readonly<{
-      kind: "report_immutable";
-      documentIds: readonly string[];
-    }>;
+export { buildAuthorizedBiomarkerComparison } from "./biomarker-dynamics";
 
-export type GetAuthorizedBiomarkerDynamicsOptions = Readonly<{
+export type DynamicsScope = "profile_current" | "report_immutable";
+
+export interface GetAuthorizedBiomarkerDynamicsInput {
   profileId: string;
-  period?: BiomarkerDynamicsPeriod | null;
-  scope?: BiomarkerDynamicsScope;
-  unitSystem?: LabUnitSystem;
-}>;
-
-export class BiomarkerDynamicsAuthorizationError extends Error {
-  readonly code = "dynamics_scope_not_authorized";
-
-  constructor(message = "The requested dynamics scope is not authorized") {
-    super(message);
-    this.name = "BiomarkerDynamicsAuthorizationError";
-  }
+  period: { start: string | null; end: string | null } | null;
+  scope: DynamicsScope;
+  /** Required when scope is report_immutable. */
+  reportScopeDocumentIds?: string[];
 }
 
-type DynamicsDocument = {
-  id: string;
-  original_filename: string;
-  lab_name?: string | null;
-  archived_at: string | null;
-};
-
-type DynamicsLaboratorySource = {
+type LaboratoryMeasureSource = {
   id: string;
   record_status: "active" | "rejected" | "superseded" | null;
   lifecycle_reason_code?: string | null;
@@ -68,7 +49,7 @@ type DynamicsLaboratorySource = {
   is_published?: boolean | null;
 };
 
-export type DynamicsObservation = {
+type RawObservation = {
   id: string;
   observation_kind: "lab" | "instrumental";
   analyte_key: string | null;
@@ -81,457 +62,279 @@ export type DynamicsObservation = {
   ref_high: number | string | null;
   observed_at: string | null;
   document_id: string | null;
+  source_extracted_biomarker_id: string | null;
   value_kind: string | null;
   value_text: string | null;
-  raw_reference_text: string | null;
+  ordinal: number | null;
   specimen: string | null;
   modifier: string | null;
-  documents: DynamicsDocument | DynamicsDocument[] | null;
-  source_extracted_biomarker:
-    | DynamicsLaboratorySource
-    | DynamicsLaboratorySource[]
+  documents:
+    | {
+        id: string;
+        original_filename: string;
+        lab_name?: string | null;
+        archived_at: string | null;
+        status?: string | null;
+        processing_status?: string | null;
+      }
+    | {
+        id: string;
+        original_filename: string;
+        lab_name?: string | null;
+        archived_at: string | null;
+        status?: string | null;
+        processing_status?: string | null;
+      }[]
     | null;
   normalization_revision:
     | RegistryV2NormalizationRevisionReadBoundary
     | RegistryV2NormalizationRevisionReadBoundary[]
     | null;
+  source_extracted_biomarker:
+    | LaboratoryMeasureSource
+    | LaboratoryMeasureSource[]
+    | null;
 };
 
 function firstRelation<T>(relation: T | T[] | null | undefined): T | null {
-  return Array.isArray(relation) ? (relation[0] ?? null) : (relation ?? null);
+  if (Array.isArray(relation)) return relation[0] ?? null;
+  return relation ?? null;
 }
 
-function finiteNumber(
-  value: number | string | null | undefined,
-): number | null {
-  if (typeof value === "number") return Number.isFinite(value) ? value : null;
-  if (typeof value !== "string" || value.trim() === "") return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function eligibleDocument(document: {
-  status: string | null;
-  processing_status?: string | null;
+function isEligibleDocument(doc: {
   archived_at: string | null;
-}): boolean {
+  status?: string | null;
+  processing_status?: string | null;
+} | null): boolean {
+  if (!doc || doc.archived_at != null) return false;
+  if (doc.status == null && doc.processing_status == null) return true;
   return (
-    document.archived_at == null &&
-    (document.status === "completed" ||
-      document.processing_status === "ready" ||
-      document.processing_status === "needs_review")
+    doc.status === "completed" ||
+    doc.processing_status === "ready" ||
+    doc.processing_status === "needs_review"
   );
 }
 
-async function resolveAuthorizedDocumentIds(
+async function loadPresentedObservations(
   profileId: string,
-  scope: BiomarkerDynamicsScope,
-): Promise<string[]> {
+  documentIds: string[],
+): Promise<DynamicsPresentedObservation[]> {
+  if (documentIds.length === 0) return [];
+
+  const profile = await getProfileById(profileId);
+  const unitSystem = profile.lab_unit_system ?? "si";
   const supabase = createAdminClient();
-  const requestedIds =
-    scope.kind === "report_immutable" ? [...new Set(scope.documentIds)] : null;
 
-  let query = supabase
-    .from("documents")
-    .select("id, status, processing_status, archived_at")
+  const { data: observations, error } = await supabase
+    .from("observations")
+    .select(
+      `id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, source_extracted_biomarker_id, value_kind, value_text, ordinal, specimen, modifier, documents(id, original_filename, lab_name, archived_at, status, processing_status), source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(id, record_status, lifecycle_reason_code, superseded_at, superseded_by_processing_attempt_id, is_current, is_published), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(${REGISTRY_V2_NORMALIZATION_REVISION_SELECT})`,
+    )
     .eq("profile_id", profileId)
-    .is("archived_at", null);
-  if (requestedIds) query = query.in("id", requestedIds);
+    .in("document_id", documentIds)
+    .eq("observation_kind", "lab")
+    .order("observed_at", { ascending: true });
 
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-
-  const eligibleIds = (data ?? [])
-    .filter(eligibleDocument)
-    .map((document) => document.id as string);
-
-  if (scope.kind === "profile_current") {
-    return eligibleIds.sort();
+  if (error) {
+    throw new Error(`Failed to query observations: ${error.message}`);
   }
 
-  const reportDocumentIds = [...new Set(scope.documentIds)];
-  if (
-    reportDocumentIds.length === 0 ||
-    reportDocumentIds.length !== eligibleIds.length ||
-    reportDocumentIds.some((id) => !eligibleIds.includes(id))
-  ) {
-    throw new BiomarkerDynamicsAuthorizationError(
-      "One or more report scope documents are not currently authorized",
-    );
-  }
-
-  return reportDocumentIds.sort();
-}
-
-function exclusion(
-  observation: DynamicsObservation,
-  reason: AuthorizedBiomarkerComparisonExclusion["reason"],
-  detail: string,
-  identity: Partial<BiomarkerDynamicsIdentity> | null,
-): AuthorizedBiomarkerComparisonExclusion {
-  const document = firstRelation(observation.documents);
-  return {
-    observationId: observation.id,
-    documentId: observation.document_id ?? document?.id ?? null,
-    label: observation.name ?? null,
-    reason,
-    detail,
-    identity,
-    unit: observation.unit?.trim() || null,
-  };
-}
-
-function identityFor(
-  observation: DynamicsObservation,
-  measurementDefinitionKey: string | null,
-  analyteKey: string | null,
-): BiomarkerDynamicsIdentity | null {
-  if (!measurementDefinitionKey) return null;
-  const definition = getMeasurementDefinition(measurementDefinitionKey);
-  return {
-    measurementDefinitionKey,
-    analyteKey: analyteKey ?? definition?.analyteKey ?? null,
-    specimen: observation.specimen ?? definition?.specimen ?? null,
-    modifier: observation.modifier ?? "none",
-    method: definition?.method ?? null,
-    scale: definition?.scale ?? null,
-  };
-}
-
-function unitExclusion(outcome: LaboratoryOutcomeSummary): boolean {
-  const reason = outcome.resolutionDetails.eligibility.exclusions.trend;
-  return typeof reason === "string" && reason.toLowerCase().includes("unit");
-}
-
-function buildPoint(
-  observation: DynamicsObservation,
-  identity: BiomarkerDynamicsIdentity,
-  unitSystem: LabUnitSystem,
-  binding: LaboratoryOutcomeSummary["resolvedMeasurementBinding"],
-): AuthorizedBiomarkerComparisonPoint | null {
-  const document = firstRelation(observation.documents);
-  const documentId = observation.document_id ?? document?.id ?? null;
-  const nativeValue = finiteNumber(observation.value);
-  if (
-    !documentId ||
-    !document ||
-    nativeValue === null ||
-    !observation.observed_at
-  )
-    return null;
-
-  const nativeUnit = observation.unit?.trim() || null;
-  const nativeReferenceLow = finiteNumber(observation.ref_low);
-  const nativeReferenceHigh = finiteNumber(observation.ref_high);
-  const displayed = binding
-    ? presentObservation(
-        {
-          resolved_measurement_binding: binding,
-          value: nativeValue,
-          unit: nativeUnit ?? "",
-          ref_low: nativeReferenceLow,
-          ref_high: nativeReferenceHigh,
-        },
-        unitSystem,
-      )
-    : {
-        value: nativeValue,
-        unit: nativeUnit ?? "",
-        ref_low: nativeReferenceLow,
-        ref_high: nativeReferenceHigh,
-        converted: false,
-        conversion_note: null,
-        original_value: nativeValue,
-        original_unit: nativeUnit ?? "",
-        original_ref_low: nativeReferenceLow,
-        original_ref_high: nativeReferenceHigh,
-      };
-
-  if (!Number.isFinite(displayed.value) || !displayed.unit.trim()) return null;
-  const sourceFilename =
-    document.original_filename?.trim() || "Source document";
-  return {
-    observationId: observation.id,
-    documentId,
-    observedAt: observation.observed_at,
-    nativeValue,
-    nativeUnit,
-    nativeReferenceLow,
-    nativeReferenceHigh,
-    displayValue: displayed.value,
-    displayUnit: displayed.unit.trim() || null,
-    displayReferenceLow: displayed.ref_low,
-    displayReferenceHigh: displayed.ref_high,
-    conversion: {
-      applied: displayed.converted,
-      note: displayed.conversion_note,
-      nativeUnit,
-      displayUnit: displayed.unit.trim() || null,
-    },
-    identity,
-    source: {
-      documentId,
-      filename: sourceFilename,
-      laboratory: document.lab_name?.trim() || null,
-      href: `/app/documents/${documentId}`,
-    },
-  };
-}
-
-export function buildAuthorizedBiomarkerComparison(
-  options: Readonly<{
-    observations: readonly DynamicsObservation[];
-    scopeKind: BiomarkerDynamicsScopeKind;
-    scopeDocumentIds: readonly string[];
-    unitSystem: LabUnitSystem;
-    generatedAt: string;
-  }>,
-): AuthorizedBiomarkerComparison {
-  const excluded: AuthorizedBiomarkerComparisonExclusion[] = [];
-  const candidates: AuthorizedBiomarkerComparisonCandidate[] = [];
-  const groups = new Map<
-    string,
-    {
-      id: string;
-      label: string;
-      identity: BiomarkerDynamicsIdentity;
-      points: AuthorizedBiomarkerComparisonPoint[];
-    }
-  >();
-  const authorizedDocumentIds = new Set(options.scopeDocumentIds);
-
-  for (const observation of options.observations) {
-    const document = firstRelation(observation.documents);
-    const observationDocumentId = observation.document_id ?? null;
-    const relatedDocumentId = document?.id ?? null;
+  return ((observations ?? []) as RawObservation[]).flatMap((row) => {
+    const laboratorySource = firstRelation(row.source_extracted_biomarker);
     if (
-      (observationDocumentId !== null &&
-        !authorizedDocumentIds.has(observationDocumentId)) ||
-      (relatedDocumentId !== null &&
-        !authorizedDocumentIds.has(relatedDocumentId)) ||
-      (observationDocumentId !== null &&
-        relatedDocumentId !== null &&
-        observationDocumentId !== relatedDocumentId)
+      !isCurrentDocumentObservation({
+        observation_kind: row.observation_kind,
+        source_extracted_biomarker: laboratorySource,
+      })
     ) {
-      throw new BiomarkerDynamicsAuthorizationError(
-        "An observation falls outside the authorized dynamics scope",
-      );
+      return [];
     }
+
+    const document = firstRelation(row.documents);
+    if (!isEligibleDocument(document)) return [];
 
     const outcome = projectLaboratoryOutcome({
       observation: {
-        ...observation,
-        source_extracted_biomarker: firstRelation(
-          observation.source_extracted_biomarker,
-        ),
+        ...row,
+        source_extracted_biomarker: laboratorySource,
       },
-      relation: observation.normalization_revision,
+      relation: row.normalization_revision,
     });
-    const measurementDefinitionKey = outcome.measurementDefinitionKey;
-    const analyteKey = outcome.analyteKey ?? observation.analyte_key;
-    const identity = identityFor(
-      observation,
-      measurementDefinitionKey,
-      analyteKey,
-    );
-    const label =
-      observation.name?.trim() || measurementDefinitionKey || "Measurement";
-    const valueKind = observation.value_kind ?? "numeric";
-    const candidateBase = {
-      observationId: observation.id,
-      documentId: observation.document_id ?? document?.id ?? null,
-      label,
-      valueKind,
-      identity,
+
+    const valueKind = row.value_kind ?? "numeric";
+    const numericValue = row.value != null ? Number(row.value) : null;
+    let display = {
+      value: numericValue as number,
+      unit: row.unit ?? "",
+      ref_low: row.ref_low != null ? Number(row.ref_low) : null,
+      ref_high: row.ref_high != null ? Number(row.ref_high) : null,
+      converted: false,
+      conversion_note: null as string | null,
+      original_value: numericValue as number,
+      original_unit: row.unit ?? "",
+      original_ref_low: row.ref_low != null ? Number(row.ref_low) : null,
+      original_ref_high: row.ref_high != null ? Number(row.ref_high) : null,
     };
 
-    if (!observation.observed_at) {
-      const item = exclusion(
-        observation,
-        "undated",
-        "The observation has no observed date.",
-        identity,
-      );
-      excluded.push(item);
-      candidates.push({ ...candidateBase, point: null });
-      continue;
-    }
-
-    const nativeValue = finiteNumber(observation.value);
     if (
-      valueKind !== "numeric" ||
-      nativeValue === null ||
-      isCensoredLabValueCell(observation.value_text) ||
-      isCensoredLabValueCell(observation.value)
+      outcome.registryBindingReady &&
+      valueKind === "numeric" &&
+      numericValue != null &&
+      outcome.resolvedMeasurementBinding
     ) {
-      const item = exclusion(
-        observation,
-        "non_numeric",
-        "The observation is qualitative, censored, or not a finite numeric value.",
-        identity,
-      );
-      excluded.push(item);
-      candidates.push({ ...candidateBase, point: null });
-      continue;
-    }
-
-    const sourceIsCurrent = isCurrentDocumentObservation({
-      observation_kind: observation.observation_kind,
-      source_extracted_biomarker: firstRelation(
-        observation.source_extracted_biomarker,
-      ),
-    });
-    if (
-      !sourceIsCurrent ||
-      !outcome.resolutionDetails.eligibility.trendEligible ||
-      !measurementDefinitionKey ||
-      !identity
-    ) {
-      const item = exclusion(
-        observation,
-        unitExclusion(outcome) ? "unsupported_unit" : "ineligible",
-        sourceIsCurrent
-          ? "The observation is not eligible for numeric dynamics under its persisted Registry decision."
-          : "The observation source is not current and cannot enter the authorized dynamics snapshot.",
-        identity,
-      );
-      excluded.push(item);
-      candidates.push({ ...candidateBase, point: null });
-      continue;
-    }
-
-    const conversionEligible =
-      outcome.resolutionDetails.eligibility.conversionEligible;
-    const point = buildPoint(
-      observation,
-      identity,
-      options.unitSystem,
-      outcome.resolvedMeasurementBinding,
-    );
-    if (!point) {
-      const item = exclusion(
-        observation,
-        "unsupported_unit",
-        "The observation has no safe display unit for this dynamics series.",
-        identity,
-      );
-      excluded.push(item);
-      candidates.push({ ...candidateBase, point: null });
-      continue;
-    }
-
-    candidates.push({ ...candidateBase, point });
-    if (!conversionEligible) {
-      excluded.push(
-        exclusion(
-          observation,
-          "unsupported_unit",
-          "The point is retained in its native unit, but no reviewed conversion can combine it with another unit.",
-          identity,
-        ),
+      display = presentObservation(
+        {
+          resolved_measurement_binding: outcome.resolvedMeasurementBinding,
+          value: numericValue,
+          unit: row.unit ?? "",
+          ref_low: row.ref_low != null ? Number(row.ref_low) : null,
+          ref_high: row.ref_high != null ? Number(row.ref_high) : null,
+        },
+        unitSystem,
       );
     }
 
-    const displayUnitKey =
-      normalizeComparisonUnit(point.displayUnit) || "__unit_not_recorded__";
-    const nativeUnitKey = !conversionEligible
-      ? normalizeComparisonUnit(point.nativeUnit) ||
-        "__native_unit_not_recorded__"
-      : "__safe_conversion__";
-    const groupKey = [
-      identity.measurementDefinitionKey,
-      identity.specimen ?? "__specimen_not_recorded__",
-      identity.modifier ?? "__modifier_not_recorded__",
-      identity.method ?? "__method_not_recorded__",
-      identity.scale ?? "__scale_not_recorded__",
-      displayUnitKey,
-      nativeUnitKey,
-    ].join("::");
-    const group = groups.get(groupKey) ?? {
-      id: groupKey,
-      label,
-      identity,
-      points: [],
-    };
-    group.points.push(point);
-    groups.set(groupKey, group);
-  }
+    const definition = outcome.measurementDefinitionKey
+      ? getMeasurementDefinition(outcome.measurementDefinitionKey)
+      : null;
 
-  const series: AuthorizedBiomarkerComparisonSeries[] = [...groups.values()]
-    .map((group) => {
-      const points = [...group.points].sort((left, right) => {
-        const byObservedAt = left.observedAt.localeCompare(right.observedAt);
-        return byObservedAt !== 0
-          ? byObservedAt
-          : left.observationId.localeCompare(right.observationId);
-      });
-      return {
-        id: group.id,
-        label: group.label,
-        measurementDefinitionKey: group.identity.measurementDefinitionKey,
-        analyteKey: group.identity.analyteKey,
-        displayUnit: points[0]?.displayUnit ?? null,
-        nativeUnit: points[0]?.nativeUnit ?? null,
-        normalized: points.some((point) => point.conversion.applied),
-        identity: group.identity,
-        points,
-      };
-    })
-    .sort(
-      (left, right) =>
-        left.label.localeCompare(right.label) ||
-        left.id.localeCompare(right.id),
-    );
-
-  return {
-    scopeKind: options.scopeKind,
-    scopeDocumentIds: [...options.scopeDocumentIds],
-    candidates,
-    series,
-    excluded,
-    incompatibilities: [],
-    generatedAt: options.generatedAt,
-  };
+    return [
+      {
+        id: row.id,
+        name: row.name,
+        measurement_definition_key: outcome.measurementDefinitionKey,
+        value: valueKind === "numeric" ? display.value : null,
+        unit: display.unit,
+        ref_low: display.ref_low,
+        ref_high: display.ref_high,
+        observed_at: row.observed_at,
+        document_id: row.document_id,
+        documents: document
+          ? {
+              id: document.id,
+              original_filename: document.original_filename,
+              lab_name: document.lab_name,
+            }
+          : null,
+        value_kind: valueKind,
+        value_text: row.value_text,
+        converted: display.converted,
+        original_value: display.original_value,
+        original_unit: display.original_unit,
+        original_ref_low: display.original_ref_low,
+        original_ref_high: display.original_ref_high,
+        trend_eligible: outcome.resolutionDetails.eligibility.trendEligible,
+        conversion_eligible:
+          outcome.resolutionDetails.eligibility.conversionEligible,
+        registry_binding_ready: outcome.registryBindingReady,
+        specimen: row.specimen ?? definition?.specimen ?? "unspecified",
+        modifier: row.modifier ?? "none",
+        method: definition?.method ?? null,
+        scale: definition?.scale ?? null,
+      },
+    ];
+  });
 }
 
-async function loadDynamicsObservations(
+async function getEligibleDocumentIdsForProfile(
   profileId: string,
-  documentIds: readonly string[],
-): Promise<DynamicsObservation[]> {
-  if (documentIds.length === 0) return [];
+): Promise<string[]> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase
+  const { data: observations } = await supabase
     .from("observations")
-    .select(
-      `id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, ref_low, ref_high, observed_at, document_id, value_kind, value_text, raw_reference_text, specimen, modifier, documents(id, original_filename, lab_name, archived_at), source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(id, record_status, lifecycle_reason_code, superseded_at, superseded_by_processing_attempt_id, is_current, is_published), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(${REGISTRY_V2_NORMALIZATION_REVISION_SELECT})`,
-    )
+    .select("document_id")
     .eq("profile_id", profileId)
-    .in("document_id", [...documentIds])
-    .eq("observation_kind", "lab")
-    .order("observed_at", { ascending: true });
-  if (error) throw new Error(error.message);
-  return (data ?? []) as unknown as DynamicsObservation[];
+    .not("document_id", "is", null);
+
+  const candidateIds = [
+    ...new Set(
+      (observations ?? [])
+        .map((o) => o.document_id)
+        .filter((id): id is string => typeof id === "string"),
+    ),
+  ];
+  if (candidateIds.length === 0) return [];
+
+  const { data: documents } = await supabase
+    .from("documents")
+    .select("id, status, processing_status, archived_at")
+    .eq("profile_id", profileId)
+    .is("archived_at", null)
+    .in("id", candidateIds);
+
+  return (documents ?? [])
+    .filter(
+      (doc) =>
+        doc.status === "completed" ||
+        doc.processing_status === "ready" ||
+        doc.processing_status === "needs_review",
+    )
+    .map((d) => d.id);
 }
 
 export async function getAuthorizedBiomarkerDynamics(
-  options: GetAuthorizedBiomarkerDynamicsOptions,
-) {
-  const profile = await getProfileById(options.profileId);
-  const scope = options.scope ?? { kind: "profile_current" as const };
-  const documentIds = await resolveAuthorizedDocumentIds(
-    options.profileId,
-    scope,
+  input: GetAuthorizedBiomarkerDynamicsInput,
+): Promise<BiomarkerDynamicsReport> {
+  const periodValidation = validatePeriod(
+    input.period?.start ?? null,
+    input.period?.end ?? null,
   );
-  const observations = await loadDynamicsObservations(
-    options.profileId,
-    documentIds,
+  if (!periodValidation.valid) {
+    throw new Error(periodValidation.error);
+  }
+
+  let authorizedDocumentIds: string[];
+  if (input.scope === "report_immutable") {
+    if (
+      !input.reportScopeDocumentIds ||
+      input.reportScopeDocumentIds.length === 0
+    ) {
+      throw new Error(
+        "report_immutable scope requires exact report_scope_document_ids",
+      );
+    }
+    const eligible = new Set(
+      await getEligibleDocumentIdsForProfile(input.profileId),
+    );
+    authorizedDocumentIds = input.reportScopeDocumentIds.filter((id) =>
+      eligible.has(id),
+    );
+  } else {
+    authorizedDocumentIds = await getEligibleDocumentIdsForProfile(
+      input.profileId,
+    );
+  }
+
+  const presented = await loadPresentedObservations(
+    input.profileId,
+    authorizedDocumentIds,
   );
-  const comparison = buildAuthorizedBiomarkerComparison({
-    observations,
-    scopeKind: scope.kind,
-    scopeDocumentIds: documentIds,
-    unitSystem: options.unitSystem ?? profile.lab_unit_system,
-    generatedAt: new Date().toISOString(),
+  const comparison = buildAuthorizedBiomarkerComparison(
+    presented,
+    input.scope,
+    authorizedDocumentIds,
+  );
+  return buildBiomarkerDynamicsReport(comparison, input.period);
+}
+
+/**
+ * EH-148 handoff: build the frozen extension for a report-immutable period.
+ * Omitted period means no extension (caller should skip).
+ */
+export async function getFrozenBiomarkerDynamicsForReport(input: {
+  profileId: string;
+  period: BiomarkerDynamicsPeriod;
+  reportScopeDocumentIds: readonly string[];
+}): Promise<FrozenBiomarkerDynamicsExtension> {
+  const report = await getAuthorizedBiomarkerDynamics({
+    profileId: input.profileId,
+    period: input.period,
+    scope: "report_immutable",
+    reportScopeDocumentIds: [...input.reportScopeDocumentIds],
   });
-  return buildBiomarkerDynamicsReport(comparison, options.period ?? null);
+  return buildFrozenBiomarkerDynamicsExtension(
+    report,
+    input.period,
+    input.reportScopeDocumentIds,
+  );
 }

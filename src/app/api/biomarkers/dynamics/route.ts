@@ -1,59 +1,51 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
-import {
-  BiomarkerDynamicsPeriodError,
-  parseBiomarkerDynamicsPeriod,
-} from "@/lib/biomarker-dynamics";
+import { getProfileById } from "@/lib/auth/profile";
 import { getAuthorizedBiomarkerDynamics } from "@/lib/biomarker-dynamics-server";
+import { validatePeriod } from "@/lib/biomarker-dynamics";
 
-export async function GET(request: NextRequest) {
+export const maxDuration = 30;
+
+export async function GET(req: Request) {
   const profileId = await getSessionProfileId();
   if (!profileId) {
     return NextResponse.json(
-      { authenticated: false },
+      { error: "Unauthorized" },
       { status: 401, headers: { "Cache-Control": "no-store" } },
     );
   }
 
-  const hasStart = request.nextUrl.searchParams.has("start");
-  const hasEnd = request.nextUrl.searchParams.has("end");
-  const start = request.nextUrl.searchParams.get("start");
-  const end = request.nextUrl.searchParams.get("end");
-  if (hasStart !== hasEnd) {
+  const { searchParams } = new URL(req.url);
+  const start = searchParams.get("start");
+  const end = searchParams.get("end");
+
+  const periodValidation = validatePeriod(start, end);
+  if (!periodValidation.valid) {
     return NextResponse.json(
-      { error: "Both dynamics period dates are required" },
+      { error: periodValidation.error },
       { status: 400, headers: { "Cache-Control": "no-store" } },
     );
   }
 
-  let period = null;
   try {
-    period = parseBiomarkerDynamicsPeriod(
-      hasStart && hasEnd ? { start: start ?? "", end: end ?? "" } : null,
-    );
-  } catch (error) {
-    if (error instanceof BiomarkerDynamicsPeriodError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 400, headers: { "Cache-Control": "no-store" } },
-      );
-    }
-    throw error;
-  }
-
-  try {
+    const profile = await getProfileById(profileId);
     const report = await getAuthorizedBiomarkerDynamics({
       profileId,
-      period,
-      scope: { kind: "profile_current" },
+      period: { start, end },
+      scope: "profile_current",
     });
-    return NextResponse.json(report, {
-      headers: { "Cache-Control": "no-store" },
-    });
-  } catch (error) {
-    console.error("[biomarker-dynamics] GET failed:", error);
+
     return NextResponse.json(
-      { error: "Biomarker dynamics are unavailable" },
+      {
+        ...report,
+        labUnitSystem: profile.lab_unit_system ?? "si",
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json(
+      { error: `Failed to build dynamics report: ${message}` },
       { status: 500, headers: { "Cache-Control": "no-store" } },
     );
   }
