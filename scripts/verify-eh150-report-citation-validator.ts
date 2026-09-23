@@ -22,6 +22,7 @@ import {
 
 const VALIDATOR_SCRIPT_NAME = "verify-eh150-report-citation-validator";
 type MutableContent = {
+  schema_version: string;
   source_document_ids: string[];
   sections: Array<Record<string, unknown>>;
   claims: Array<Record<string, unknown>>;
@@ -51,6 +52,19 @@ function findSource(
   assert.ok(source, `fixture source ${id} exists`);
   return source;
 }
+function addRetainedSummaryClaim(content: MutableContent): void {
+  const original = findClaim(content, "claim-summary");
+  const retained = {
+    ...original,
+    id: "claim-summary-retained",
+    status: "supported",
+    citations: [{ source_id: SOURCE_SUMMARY, document_id: DOCUMENT_A }],
+  };
+  content.claims.push(retained);
+  const items = content.sections[0]?.items;
+  assert.ok(Array.isArray(items), "document summary items exist");
+  items.push({ type: "claim_ref", claim_id: retained.id });
+}
 
 async function validate(
   content: unknown,
@@ -74,6 +88,13 @@ async function main(): Promise<void> {
   const missingSectionResult = await validate(missingSection);
   assert.equal(missingSectionResult.status, "invalid");
   assert.deepEqual(missingSectionResult.issue_codes, ["SCHEMA_INVALID"]);
+  const unknownContractVersion = mutableContent();
+  unknownContractVersion.schema_version = "eh148.v99";
+  const unknownContractVersionResult = await validate(unknownContractVersion);
+  assert.equal(unknownContractVersionResult.status, "invalid");
+  assert.deepEqual(unknownContractVersionResult.issue_codes, [
+    "SCHEMA_INVALID",
+  ]);
 
   const unknownSection = mutableContent();
   unknownSection.sections[2].id = "unknown_section";
@@ -210,6 +231,7 @@ async function main(): Promise<void> {
   assert.equal(tombstonedResult.content, null);
 
   const uncited = mutableContent();
+  addRetainedSummaryClaim(uncited);
   findClaim(uncited, "claim-summary").citations = [];
   const uncitedResult = await validate(uncited);
   assert.equal(uncitedResult.status, "limited");
@@ -224,8 +246,17 @@ async function main(): Promise<void> {
     ),
     true,
   );
+  const emptiedBySanitization = mutableContent();
+  findClaim(emptiedBySanitization, "claim-summary").citations = [];
+  const emptiedBySanitizationResult = await validate(emptiedBySanitization);
+  assert.equal(emptiedBySanitizationResult.status, "invalid");
+  assert.equal(
+    emptiedBySanitizationResult.issue_codes.includes("SCHEMA_INVALID"),
+    true,
+  );
 
   const unsafe = mutableContent();
+  addRetainedSummaryClaim(unsafe);
   const unsafeClaim = findClaim(unsafe, "claim-summary");
   unsafeClaim.text = "Unsafe directive must never be published";
   unsafeClaim.diagnosis = "Synthetic diagnosis";
@@ -249,6 +280,7 @@ async function main(): Promise<void> {
     true,
   );
   const removed = mutableContent();
+  addRetainedSummaryClaim(removed);
   findClaim(removed, "claim-summary").status = "removed";
   const removedResult = await validate(removed);
   assert.equal(removedResult.status, "valid");
@@ -257,7 +289,7 @@ async function main(): Promise<void> {
     false,
   );
   assert.equal(
-    JSON.stringify(removedResult.content).includes("claim-summary"),
+    JSON.stringify(removedResult.content).includes('"claim-summary"'),
     false,
   );
 

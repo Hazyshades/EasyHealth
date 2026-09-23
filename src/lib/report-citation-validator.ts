@@ -4,6 +4,10 @@ export const RECOGNIZED_VALIDATOR_VERSIONS = [
   "eh150.v0",
   CURRENT_VALIDATOR_VERSION,
 ] as const;
+export const CURRENT_REPORT_SCHEMA_VERSION = "eh148.v1" as const;
+export const RECOGNIZED_REPORT_SCHEMA_VERSIONS = [
+  CURRENT_REPORT_SCHEMA_VERSION,
+] as const;
 
 /** Retire a readable version only with the EH-154 release decision. */
 export const RETIRED_VALIDATOR_VERSIONS = [] as const;
@@ -643,6 +647,7 @@ function parseHeader(
 
   if (
     !nonEmptyString(schemaVersion) ||
+    !isOneOf(schemaVersion, RECOGNIZED_REPORT_SCHEMA_VERSIONS) ||
     !nonEmptyString(reportKind) ||
     !nonEmptyString(generatedAt) ||
     !Number.isFinite(Date.parse(generatedAt)) ||
@@ -1588,6 +1593,17 @@ export async function validateReportContent(
     }
 
     if (outputItems.length === 0) {
+      const sanitizedRequiredSection =
+        section.id !== "limitations" &&
+        section.id !== "source_ledger" &&
+        section.items.length > 0 &&
+        section.items.every(
+          (item) =>
+            item.type === "claim_ref" && removedClaimIds.has(item.claim_id),
+        );
+      if (sanitizedRequiredSection) {
+        addIssue(issues, "SCHEMA_INVALID");
+      }
       const emptyState =
         section.empty_state ??
         (section.id === "limitations" || section.id === "source_ledger"
