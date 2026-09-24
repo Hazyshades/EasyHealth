@@ -70,6 +70,8 @@ export async function getDuplicateCandidatesForDocument(
     .from("documents")
     .select(DOCUMENT_SUMMARY_SELECT)
     .eq("profile_id", profileId)
+    .eq("lifecycle_state", "active")
+    .eq("upload_state", "complete")
     .is("archived_at", null)
     .in("id", documentIds);
 

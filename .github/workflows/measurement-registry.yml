@@ -238,6 +238,8 @@ jobs:
         run: pnpm test:eh146
       - name: Verify EH-147 assessment golden dataset
         run: pnpm test:eh147
+      - name: Verify EH-148 report contract
+        run: pnpm test:eh148-contract
 
       - name: Publish Registry 2.0 candidate-release evidence
         run: |
@@ -281,6 +283,8 @@ jobs:
         run: supabase db start
       - name: Run EH-104 Phase B database contract
         run: pnpm test:eh104-db
+      - name: Run EH-104 durable deletion database contract
+        run: pnpm test:eh104-durable-deletion-db
       - name: Run EH-105 instrumental lineage database contract
         run: pnpm test:eh105-db
       - name: Run EH-106 atomic writer database contract
