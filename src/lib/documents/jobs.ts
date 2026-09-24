@@ -13,6 +13,16 @@ export async function enqueueFullPipelineJob(
       ? configuredMaxAttempts
       : 3;
 
+  const { data: document, error: documentError } = await supabase
+    .from("documents")
+    .select("id")
+    .eq("id", documentId)
+    .eq("profile_id", profileId)
+    .eq("lifecycle_state", "active")
+    .eq("upload_state", "complete")
+    .maybeSingle();
+  if (documentError) throw new Error(documentError.message);
+  if (!document) throw new Error("document_unavailable");
   const { data: existingJob, error: existingJobError } = await supabase
     .from("document_processing_jobs")
     .select("id")
@@ -72,7 +82,9 @@ export async function enqueueFullPipelineJob(
       status: "processing",
     })
     .eq("id", documentId)
-    .eq("profile_id", profileId);
+    .eq("profile_id", profileId)
+    .eq("lifecycle_state", "active")
+    .eq("upload_state", "complete");
 
   if (docError) throw new Error(docError.message);
   return { jobId, created };

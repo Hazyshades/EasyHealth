@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { isCanonicalBiomarkerDynamicsDate } from "@/lib/biomarker-dynamics";
 
 export const REPORT_TYPES = [
   "general_practice",
@@ -13,7 +12,12 @@ export const REPORT_TYPES = [
 ] as const;
 export type ReportType = (typeof REPORT_TYPES)[number];
 
-export const DETAIL_LEVELS = ["compact", "standard", "detailed", "full"] as const;
+export const DETAIL_LEVELS = [
+  "compact",
+  "standard",
+  "detailed",
+  "full",
+] as const;
 export type DetailLevel = (typeof DETAIL_LEVELS)[number];
 
 export const REPORT_RANGE_OPTIONS = ["all", "30d", "90d", "year"] as const;
@@ -50,20 +54,6 @@ export const REPORT_RANGE_LABELS: Record<ReportRange, string> = {
   "90d": "Last 90 days",
   year: "This year",
 };
-const biomarkerDynamicsPeriodSchema = z
-  .object({
-    start: z.string().refine(isCanonicalBiomarkerDynamicsDate),
-    end: z.string().refine(isCanonicalBiomarkerDynamicsDate),
-  })
-  .superRefine((period, context) => {
-    if (period.start > period.end) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Dynamics period end must not be before its start",
-        path: ["end"],
-      });
-    }
-  });
 
 export const createReportBodySchema = z.object({
   title: z.string().min(1).max(200),
@@ -71,31 +61,47 @@ export const createReportBodySchema = z.object({
   detail_level: z.enum(DETAIL_LEVELS),
   document_ids: z.array(z.string().uuid()).nullable().optional(),
   abnormal_only: z.boolean().optional().default(false),
+  questions: z.array(z.string()).optional(),
+  report_date_range: z
+    .object({
+      start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
+      end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
+    })
+    .strict()
+    .nullable()
+    .optional(),
   /** Optional inclusive UTC calendar period for the EH-149 frozen dynamics extension. */
   biomarker_dynamics_period: z
     .object({
-      start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-      end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
+      end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
     })
+    .strict()
     .nullable()
     .optional(),
 });
 
 export type CreateReportBody = z.infer<typeof createReportBodySchema>;
 
-export const SAFETY_PROMPT = `You are an educational health literacy assistant for EasyHealth.
-Generate a clinician-ready SUMMARY for discussion with a healthcare professional.
+export const STRUCTURED_REPORT_SAFETY_PROMPT = `You are an educational health literacy assistant for EasyHealth.
+Return only a JSON candidate for a clinician-ready brief. The server owns scope,
+source snapshots, dates, validation, rendering, and the medical disclaimer.
 Rules:
-- Educational language only. NO diagnoses, prescriptions, or treatment plans.
-- Cite specific biomarker values, imaging findings, and consultation notes from the provided data with dates and source filenames.
-- Synthesize across labs, instrumental reports, and consultation notes when multiple record types are present.
-- Include when_to_seek_care for urgent symptoms only (general guidance).
-- Use plain text only. Do NOT use markdown, asterisks, bullet symbols, or other formatting markup.
-- You MUST populate every JSON field. Do not leave changes or questions_for_clinician empty.
-- changes: at least 2 items. Compare values across dates when multiple dates exist; if only one lab date exists, note that longitudinal comparison is limited and cite the available values.
-- questions_for_clinician: at least 3 specific questions that reference the patient's biomarker values, imaging findings, or consultation notes.
-- Do not call a numeric change an improvement, deterioration, or treatment response without an approved domain rule.
-- Always append the required medical disclaimer in the final output (added automatically by the server).`;
+- Use only the opaque source_id values and source kinds supplied in the source catalog.
+- Factual claims contain no text field. Use only source_fact_snapshot with
+  {source_id, include_date} or numeric_observation_snapshot with
+  {source_id, include_range}.
+- Every factual claim must cite the template source. Never invent source IDs,
+  dates, values, diagnoses, treatments, urgency guidance, or recommendations.
+- clinician_question is non-factual and may contain only a question_text. Do not
+  answer questions in the candidate.
+- Do not include overview, disclaimer, validation, storage paths, filenames as
+  identity, profile identifiers, access tokens, or fields not in the candidate schema.
+- Use exactly the six canonical sections in their required order. Reference each
+  claim and source once. Use machine limitation codes only; the server supplies
+  display messages.
+- Removed or unsupported claims must not be referenced by a section.
+- Return valid JSON only; no markdown fences or commentary.`;
 
 const SPECIALTY_PROMPTS: Record<ReportType, string> = {
   general_practice: `Focus on holistic wellness and preventive health literacy across all provided biomarkers.
@@ -117,14 +123,20 @@ Frame findings in terms of lung health literacy without diagnosing pulmonary dis
 };
 
 const DETAIL_INSTRUCTIONS: Record<DetailLevel, string> = {
-  compact: "Keep the report brief (~1 page). Use short bullet points and minimal prose.",
-  standard: "Provide a balanced report (2–3 pages equivalent). Moderate detail in each section.",
-  detailed: "Provide an expanded report (4–5 pages equivalent). More context per finding.",
+  compact:
+    "Keep the report brief (~1 page). Use short bullet points and minimal prose.",
+  standard:
+    "Provide a balanced report (2–3 pages equivalent). Moderate detail in each section.",
+  detailed:
+    "Provide an expanded report (4–5 pages equivalent). More context per finding.",
   full: "Provide the most comprehensive educational summary possible within safety rules.",
 };
 
-export function buildReportSystemPrompt(reportType: ReportType, detailLevel: DetailLevel): string {
-  return `${SAFETY_PROMPT}
+export function buildStructuredReportSystemPrompt(
+  reportType: ReportType,
+  detailLevel: DetailLevel,
+): string {
+  return `${STRUCTURED_REPORT_SAFETY_PROMPT}
 
 Specialty focus:
 ${SPECIALTY_PROMPTS[reportType]}

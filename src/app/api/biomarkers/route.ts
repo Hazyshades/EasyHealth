@@ -57,12 +57,16 @@ type BiomarkerObservation = {
         original_filename: string;
         lab_name?: string | null;
         archived_at: string | null;
+        lifecycle_state?: "active" | "deleting" | null;
+        upload_state?: "pending" | "complete" | "failed" | null;
       }
     | {
         id: string;
         original_filename: string;
         lab_name?: string | null;
         archived_at: string | null;
+        lifecycle_state?: "active" | "deleting" | null;
+        upload_state?: "pending" | "complete" | "failed" | null;
       }[]
     | null;
   normalization_revision:
@@ -80,6 +84,8 @@ function firstDocument(relation: BiomarkerObservation["documents"]): {
   original_filename: string;
   lab_name?: string | null;
   archived_at: string | null;
+  lifecycle_state?: "active" | "deleting" | null;
+  upload_state?: "pending" | "complete" | "failed" | null;
 } | null {
   return Array.isArray(relation) ? (relation[0] ?? null) : relation;
 }
@@ -94,13 +100,13 @@ export async function GET() {
   }
 
   const profile = await getProfileById(profileId);
+  const supabase = createAdminClient();
   try {
     const unitSystem = profile.lab_unit_system ?? "si";
-    const supabase = createAdminClient();
     const { data: observations, error: observationsError } = await supabase
       .from("observations")
       .select(
-        `id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, raw_name, raw_value_text, raw_unit, raw_reference_text, source_page, source_text, ref_low, ref_high, observed_at, document_id, source_extracted_biomarker_id, value_kind, value_text, ordinal, specimen, modifier, documents(id, original_filename, lab_name, archived_at), source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(id, record_status, lifecycle_reason_code, superseded_at, superseded_by_processing_attempt_id, is_current, is_published), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(${REGISTRY_V2_NORMALIZATION_REVISION_SELECT})`,
+        `id, observation_kind, analyte_key, measurement_definition_key, resolution_status, name, value, unit, raw_name, raw_value_text, raw_unit, raw_reference_text, source_page, source_text, ref_low, ref_high, observed_at, document_id, source_extracted_biomarker_id, value_kind, value_text, ordinal, specimen, modifier, documents(id, original_filename, lab_name, archived_at, lifecycle_state, upload_state), source_extracted_biomarker:document_extracted_biomarkers!observations_source_extracted_biomarker_fkey(id, record_status, lifecycle_reason_code, superseded_at, superseded_by_processing_attempt_id, is_current, is_published), normalization_revision:observation_normalization_revisions!observations_normalization_revision_same_source_fk(${REGISTRY_V2_NORMALIZATION_REVISION_SELECT})`,
       )
       .eq("profile_id", profileId)
       .eq("observation_kind", "lab")
@@ -122,7 +128,11 @@ export async function GET() {
         ) {
           return false;
         }
-        return firstDocument(observation.documents)?.archived_at == null;
+        return (
+          firstDocument(observation.documents)?.archived_at == null &&
+          firstDocument(observation.documents)?.lifecycle_state === "active" &&
+          firstDocument(observation.documents)?.upload_state === "complete"
+        );
       })
       .map(
         ({

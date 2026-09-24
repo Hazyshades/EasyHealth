@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CalendarDays, SlidersHorizontal } from "lucide-react";
 import {
@@ -142,13 +142,6 @@ export default function BiomarkersPage({
     useState<MeasurementRelationshipGraph | null>(null);
   const [relatedGraphStatus, setRelatedGraphStatus] =
     useState<RelatedMeasurementGraphStatus>("idle");
-  const [dynamics, setDynamics] = useState<BiomarkerDynamicsReport | null>(
-    null,
-  );
-  const [dynamicsStatus, setDynamicsStatus] = useState<
-    "idle" | "loading" | "ready" | "error"
-  >("idle");
-  const [dynamicsError, setDynamicsError] = useState<string | null>(null);
   const [selectedSeriesId, setSelectedSeriesId] = useState("");
   const [comparisonFrom, setComparisonFrom] = useState("");
   const [comparisonTo, setComparisonTo] = useState("");
@@ -384,11 +377,6 @@ export default function BiomarkersPage({
   const dynamicsSeries = dynamics?.series ?? [];
 
   useEffect(() => {
-    void loadDynamics();
-  }, [loadDynamics]);
-
-  useEffect(() => {
-    const availableSeries = dynamics?.series ?? [];
     setSelectedSeriesId((current) => {
       const requested = navigationContext.measurement;
       const requestedSeries = requested
@@ -436,7 +424,7 @@ export default function BiomarkersPage({
         })
       : (point.source?.href ?? null);
     return {
-      id: point.observationId,
+      id: point.id,
       observed_at: point.observedAt,
       value: point.displayValue ?? 0,
       unit: point.displayUnit,
@@ -444,8 +432,7 @@ export default function BiomarkersPage({
       native_unit: point.nativeUnit,
       native_ref_low: point.nativeReferenceLow,
       native_ref_high: point.nativeReferenceHigh,
-      laboratory: point.source.laboratory,
-      conversion_note: point.conversion.applied ? point.conversion.note : null,
+      laboratory: point.source?.laboratory ?? null,
       sourceHref,
       sourceLabel: point.source?.filename ?? null,
       source: point.source
@@ -459,15 +446,6 @@ export default function BiomarkersPage({
     setComparisonFrom("");
     setComparisonTo("");
   }
-  const selectedStatistics = selectedSeries?.statistics;
-  const selectedIncompatibilities =
-    dynamics?.incompatibilities.filter((item) =>
-      item.seriesIds.includes(selectedSeriesId),
-    ) ?? [];
-  const selectedLimitations = [
-    ...(dynamics?.limitations ?? []).filter((item) => item.seriesId === null),
-    ...(selectedSeries?.limitations ?? []),
-  ];
   const originPath = navigationContext.returnTo ?? "/app";
 
   return (
@@ -554,7 +532,7 @@ export default function BiomarkersPage({
               <SelectContent>
                 {dynamicsSeries.map((series) => (
                   <SelectItem key={series.id} value={series.id}>
-                    {formatBiomarkerDynamicsSeriesLabel(series)}
+                    {series.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -732,40 +710,6 @@ export default function BiomarkersPage({
                 ) : null}
               </div>
             </div>
-          </div>
-          <div>
-            <label
-              className="mb-1.5 block text-xs font-medium text-[var(--eh-text-secondary)]"
-              htmlFor="comparison-to"
-            >
-              To
-            </label>
-            <div className="relative">
-              <CalendarDays
-                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--eh-text-muted)]"
-                aria-hidden
-              />
-              <input
-                id="comparison-to"
-                type="date"
-                value={comparisonTo}
-                onChange={(event) => setComparisonTo(event.target.value)}
-                className="h-10 rounded-xl border border-[var(--eh-border)] bg-white py-2 pl-9 pr-3 text-sm text-[var(--eh-text-primary)] outline-none transition focus:border-[var(--eh-brand)] focus:ring-2 focus:ring-[var(--eh-brand)]/20"
-                aria-label="Dynamics end date"
-              />
-            </div>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={clearComparisonRange}
-            disabled={!hasActiveComparisonRange}
-            className="h-10 rounded-xl"
-          >
-            <SlidersHorizontal className="size-4" aria-hidden />
-            Clear range
-          </Button>
-        </div>
 
             <p className="mb-4 text-xs leading-5 text-[var(--eh-text-muted)]">
               {selectedSeries.points.some(
@@ -854,10 +798,6 @@ export default function BiomarkersPage({
               </ul>
             </div>
           </>
-        ) : (
-          <p className="text-sm text-[var(--eh-text-secondary)]">
-            Select a measurement series to view its dynamics.
-          </p>
         )}
       </SurfaceCard>
 

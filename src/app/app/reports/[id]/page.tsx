@@ -23,6 +23,13 @@ type ReportDetail = {
   created_at: string;
 };
 
+type ReportReadPayload = {
+  status: "legacy" | "structured";
+  can_share: boolean;
+  can_export: boolean;
+  report: ReportDetail;
+};
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
     month: "short",
@@ -35,17 +42,25 @@ export default function ReportDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const [report, setReport] = useState<ReportDetail | null>(null);
+  const [readStatus, setReadStatus] = useState<"legacy" | "structured" | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/reports/${id}`)
-      .then((r) => {
-        if (!r.ok) throw new Error("Report not found");
-        return r.json();
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Report unavailable");
+        return (await response.json()) as ReportReadPayload;
       })
-      .then((data) => setReport(data.report))
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load report"))
+      .then((data) => {
+        setReadStatus(data.status);
+        setReport(data.report);
+      })
+      .catch((e) =>
+        setError(e instanceof Error ? e.message : "Failed to load report"),
+      )
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -73,14 +88,31 @@ export default function ReportDetailPage() {
           </Button>
           <h1 className="text-2xl font-bold">{report.title}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Badge variant="secondary">{REPORT_TYPE_LABELS[report.report_type]}</Badge>
-            <Badge variant="outline">{DETAIL_LEVEL_LABELS[report.detail_level]}</Badge>
+            <Badge variant="secondary">
+              {REPORT_TYPE_LABELS[report.report_type]}
+            </Badge>
+            <Badge variant="outline">
+              {DETAIL_LEVEL_LABELS[report.detail_level]}
+            </Badge>
+            {readStatus === "legacy" && (
+              <Badge
+                variant="outline"
+                className="border-amber-300 text-amber-800"
+              >
+                Legacy format · sharing unavailable
+              </Badge>
+            )}
             {report.abnormal_only && (
-              <Badge variant="outline" className="border-amber-300 text-amber-800">
+              <Badge
+                variant="outline"
+                className="border-amber-300 text-amber-800"
+              >
                 Out-of-range only
               </Badge>
             )}
-            <span className="text-sm text-muted-foreground">{formatDate(report.created_at)}</span>
+            <span className="text-sm text-muted-foreground">
+              {formatDate(report.created_at)}
+            </span>
           </div>
         </div>
         <Button asChild variant="outline">

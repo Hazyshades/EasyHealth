@@ -15,7 +15,8 @@ const migration037 = read(
 const resetCli = read("scripts/eh105-pr2-reset.ts");
 
 assert.match(detailRoute, /document_extracted_findings/);
-assert.match(detailRoute, /purgeDocumentInstrumentalPublicationState/);
+// EH-104 owns document deletion through the durable tombstone RPC.
+assert.match(detailRoute, /request_document_deletion/);
 assert.match(observationsRoute, /isCurrentDocumentObservation/);
 assert.match(structured, /document_extracted_findings/);
 assert.match(reports, /document_extracted_findings/);

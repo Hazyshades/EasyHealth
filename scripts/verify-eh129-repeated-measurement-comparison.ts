@@ -170,7 +170,11 @@ assert.equal(
 
 const apiRoute = readFileSync("src/app/api/biomarkers/route.ts", "utf8");
 assert.match(apiRoute, /projectLaboratoryOutcome/);
-assert.match(apiRoute, /documents\(id, original_filename, lab_name(?:, archived_at)?\)/);
+// EH-104 lifecycle fields keep deleted or incomplete documents out of the read.
+assert.match(
+  apiRoute,
+  /documents\(id, original_filename, lab_name, archived_at, lifecycle_state, upload_state\)/,
+);
 assert.match(apiRoute, /conversion_eligible/);
 assert.match(apiRoute, /original_ref_low/);
 assert.match(apiRoute, /original_ref_high/);

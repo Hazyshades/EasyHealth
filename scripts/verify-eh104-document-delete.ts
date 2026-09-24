@@ -2,50 +2,50 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const route = readFileSync("src/app/api/documents/[id]/route.ts", "utf8");
-const helper = readFileSync(
-  "src/lib/documents/laboratory-lineage-purge.ts",
-  "utf8"
+const statusRoute = readFileSync(
+  "src/app/api/documents/[id]/deletion/route.ts",
+  "utf8",
+);
+const deletionMigration = readFileSync(
+  "supabase/migrations/080_eh104_document_deletion_operations.sql",
+  "utf8",
 );
 
 assert.match(
   route,
   /export async function DELETE/,
-  "document route must expose DELETE"
+  "document route must expose DELETE",
 );
 assert.match(
   route,
   /getSessionProfileId/,
-  "document DELETE must resolve the session profile"
+  "document DELETE must resolve the session profile",
 );
 assert.match(
   route,
-  /assertDocumentOwner/,
-  "document DELETE must verify document ownership before purge"
+  /request_document_deletion/,
+  "document DELETE must request the durable tombstone",
 );
-assert.match(
+assert.match(route, /status: 202/, "document DELETE must return 202 Accepted");
+assert.doesNotMatch(
   route,
-  /purgeDocumentDerivedLaboratoryLineage\(id\)/,
-  "document DELETE must purge laboratory lineage for the document id"
-);
-
-const purgeIndex = route.indexOf("purgeDocumentDerivedLaboratoryLineage(id)");
-const deleteMatch = route.match(/\.from\("documents"\)\s*\.delete\(\)/);
-const deleteIndex = deleteMatch?.index ?? -1;
-assert.ok(purgeIndex >= 0 && deleteIndex >= 0, "purge and delete calls must exist");
-assert.ok(
-  purgeIndex < deleteIndex,
-  "laboratory lineage purge must run before documents.delete"
-);
-
-assert.match(
-  helper,
-  /createAdminClient/,
-  "purge helper must use the service/admin client"
+  /\.from\(["']documents["']\)\s*\.delete\(\)/,
+  "document DELETE must not perform a synchronous table delete",
 );
 assert.match(
-  helper,
-  /purge_document_derived_laboratory_lineage/,
-  "purge helper must call the Phase B RPC"
+  statusRoute,
+  /document_deletion_operations[\s\S]*receiptExpiresAt/,
+  "deletion status must expose the retained operation receipt",
+);
+assert.match(
+  deletionMigration,
+  /create unique index if not exists document_deletion_operations_document_unique/,
+  "deletion operations must be idempotent per document",
+);
+assert.match(
+  deletionMigration,
+  /finalize_document_deletion[\s\S]*delete from public\.documents/,
+  "database finalizer must remove the root document after cleanup",
 );
 
 console.log("verify-eh104-document-delete: passed");
