@@ -202,6 +202,11 @@ jobs:
         run: pnpm test:eh129
       - name: Verify EH-149 biomarker dynamics report
         run: pnpm test:eh149
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+          OPENAI_API_KEY: ci-placeholder
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
       - name: Verify EH-130 duplicate-document contracts
         run: pnpm test:eh130
       - name: Verify EH-131 health navigation
