@@ -1,0 +1,1455 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- <?xml-stylesheet type="text/xsl" href="CDA_Fi_2008-08-19.xsl"?> -->
+<!-- <?xml-stylesheet type="text/xsl" href="CDA_Fi.xsl"?>  -->
+<ClinicalDocument xmlns="urn:hl7-org:v3" xmlns:voc="urn:hl7-org:v3/voc" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:hl7fi="urn:hl7finland" xsi:schemaLocation="urn:hl7-org:v3 CDA_fi.xsd">
+	<!-- 
+********************************************************
+HL7 CDA R2 header tiedot
+
+6/4 -09:  Header osiota ei ole vielä täysin sovitettu Labotratoriovastaukseen
+********************************************************
+-->
+	<!-- 1. Asiakirjan aluekoodi -->
+	<realmCode code="FI"/>
+	<!-- 2. Asiakirjassa noudatateetu tekninen standardiversio CDA R2 Ansi Standard 2005-04-21-->
+	<typeId root="2.16.840.1.113883.1.3" extension="POCD_HD000040"/>
+	<!-- 3. Asiakirjassa noudatettu määritys -->
+	<!-- CDA R2 Header versio 4.41 2009-18-03 -->
+	<templateId root="1.2.246.777.11.2009.28"/>
+	<!-- CDA R2 Kertomus ja lomakkeet versio 4.20 2009-05-25 -->
+	<templateId root="1.2.246.777.11.2009.3"/>
+	<!-- Laboratoriovastauksien CDA R2-rakenne 3.8 2009-08-19, Oikea OID tulee äänestyksen jälkeen -->
+	<templateId root="1.2.246.777.11.2009.9999"/>
+	<!-- 4. Asiakirjan yksilöintitunnus -->
+	<id root="1.2.246.10.1234567.11.2008.3456"/>
+	<!-- 5. Asiakirjan potilasrekisteritunnus -->
+	<code code="2" codeSystem="1.2.246.537.5.40150.2008" codeSystemName="potilasrekisteritunnus" displayName="julkinen terveydenhuolto"/>
+	<!-- 6. Asiakirjan otsikko -->
+	<title>Laboratorio</title>
+	<!-- 7. Asiakirjan luontiaika -->
+	<effectiveTime value="20080130112233"/>
+	<!-- 8. Asiakirjan luottamuksellisuus -->
+	<confidentialityCode code="5" codeSystem="1.2.246.537.5.40151.2008" codeSystemName="asiakirjan luottamuksellisuus" displayName="terveydenhuollon salassapidettävä"/>
+	<!-- 9. Asiakirjan kieli -->
+	<languageCode code="fi"/>
+	<!-- 10. Alkuperäisen asiakirjan yksilöintitunnus -->
+	<setId root="1.2.246.10.1234567.11.2008.3456"/>
+	<!-- 11. Asiakirjan versio -->
+	<versionNumber value="1"/>
+	<!-- 13. Kenen potilaan asiakirjasta on kyse -->
+	<recordTarget>
+		<!-- Potilas -->
+		<patientRole>
+			<!-- Potilaan henkilötunnus -->
+			<id extension="010144-923X" root="1.2.246.21"/>
+			<id extension="010144-9EMM" root="1.2.246.10.1234567.22.2008"/>
+			<patient>
+				<!-- Potilaan nimi -->
+				<name>
+					<given>Erkki</given>
+					<given>Matti</given>
+					<given qualifier="CL">Matti</given>
+					<family>Meikäläinen</family>
+				</name>
+				<!-- Potilaan sukupuoli -->
+				<administrativeGenderCode code="1" displayName="mies" codeSystem="1.2.246.537.5.1.1997" codeSystemName="AR/YDIN - Sukupuoli 1997"/>
+				<!-- Potilaan syntymäaika -->
+				<birthTime value="19440101"/>
+			</patient>
+		</patientRole>
+	</recordTarget>
+	<!-- 14. Ammattihenkilö 2008-12-04 -->
+	<author>
+		<!-- Ammattihenkilön rooli  -->
+		<functionCode code="HOIVAS" codeSystem="1.2.246.537.5.40006.2003" codeSystemName="HL7 - Lääkärin funktio/rooli 2003" displayName="Hoitovastuussa oleva ammattihenkilö"/>
+		<!--  Ammattihenkilön kirjautumisaika -->
+		<time value="20080130112233"/>
+		<assignedAuthor>
+			<!--  Ammattihenkilön perustunniste henkilötunnus-->
+			<id extension="123456-9234" root="1.2.246.21"/>
+			<!--  Ammattihenkilön lisätunniste 2008-12-04 -->
+			<id extension="123456" root="1.2.246.25"/>
+			<!--  Ammattihenkilön lisätunniste 2008-12-04 -->
+			<id extension="xxx" root="1.2.246.26"/>
+			<!--  Ammattihenkilön perusluokitutuskoodi -->
+			<code code="1" codeSystem="1.2.246" codeSystemName="x" displayName="y">
+				<!--  Ammattihenkilön lisäluokitutuskoodi  -->
+				<translation>
+					<qualifier>
+						<value code="11" codeSystem="1.2.246" codeSystemName="xx" displayName="yy"/>
+					</qualifier>
+				</translation>
+			</code>
+			<!--  Ammattihenkilön nimi -->
+			<assignedPerson>
+				<name>
+					<given qualifier="CL">Petri</given>
+					<family>Puukko</family>
+					<suffix>ylil.</suffix>
+				</name>
+			</assignedPerson>
+			<representedOrganization>
+				<!-- Ammattihenkilön palveluyksikkö -->
+				<id extension="102" root="1.2.246.10.1234567.10"/>
+				<name>X-X sairaanhoitopiiri os 12</name>
+			</representedOrganization>
+		</assignedAuthor>
+	</author>
+	<author>
+		<!-- Ammattihenkilön rooli  -->
+		<functionCode code="OHJ" codeSystem="1.2.246.537.5.40006.2003" codeSystemName="HL7 - Lääkärin funktio/rooli 2003" displayName="ohjelmisto"/>
+		<!--  Ammattihenkilön kirjautumisaika -->
+		<time value="20080130112233"/>
+		<assignedAuthor>
+			<!--  Ohjelmiston tunniste -->
+			<id extension="1" root="1.2.246"/>
+			<assignedAuthoringDevice>
+				<softwareName>Yritys Oy Potilaskertomus 1.12</softwareName>
+			</assignedAuthoringDevice>
+			<representedOrganization>
+				<!-- Ammattihenkilön palveluyksikkö -->
+				<id extension="100" root="1.2.246.10.1234567.10"/>
+				<name>X-X sairaanhoitopiiri</name>
+			</representedOrganization>
+		</assignedAuthor>
+	</author>
+	<!-- 17. custodian: Asiakirjan rekisterinpitäjä -->
+	<custodian>
+		<assignedCustodian>
+			<representedCustodianOrganization>
+				<!-- Rekisterinpitäjä -->
+				<id extension="0" root="1.2.246.10.1234567.19"/>
+				<name>X-X sairaanhoitopiiri</name>
+			</representedCustodianOrganization>
+		</assignedCustodian>
+	</custodian>
+	<!-- 23. documentationOf - palvelutapahtuman kuvaamat palvelut -->
+	<documentationOf>
+		<serviceEvent>
+			<code code="1340" codeSystem="1.2.246.537.6.30.2008" codeSystemName="Stakes - Terveysalan palveluluokitus 2008" displayName="sisätautien erikoisalapalvelut"/>
+			<!-- Palvelun antoaika-->
+			<effectiveTime>
+				<low value="20080120"/>
+				<high value="20080130"/>
+			</effectiveTime>
+		</serviceEvent>
+	</documentationOf>
+	<!-- 26. componentOf asiakirjaan liittyvän palvelutapahtuman tiedot -->
+	<componentOf>
+		<encompassingEncounter>
+			<!-- 26.1 palvelutapahtumatunnus  -->
+			<id root="1.2.246.10.1234567.14.2008.123"/>
+			<!-- 26.2 palvelutapahtumaluokitus -->
+			<code code="PT100" codeSystem="1.2.246.537.6.88.2008" codeSystemName="AR/YDIN - Palvelutapahtumaluokitus" displayName="Vuodeosastohoito"/>
+			<!-- 26.3 palvelutapahtuman kokonais hoitoaika -->
+			<effectiveTime>
+				<low value="20080120"/>
+				<high value="20080130"/>
+			</effectiveTime>
+			<!-- 26.4 palveluntuottaja -->
+			<responsibleParty>
+				<assignedEntity>
+					<id nullFlavor="NA"/>
+					<representedOrganization>
+						<!-- palveluntuottaja -->
+						<id root="1.2.246.10.1234567"/>
+						<name>X-X sairaanhoitopiiri</name>
+					</representedOrganization>
+				</assignedEntity>
+			</responsibleParty>
+			<!-- 26.5 palvelu palveluyksiköissä     -->
+			<encounterParticipant typeCode="CON">
+				<!-- palveluyksikön hoitoaika -->
+				<time>
+					<low value="20080120"/>
+					<high value="20080130"/>
+				</time>
+				<assignedEntity>
+					<id nullFlavor="NA"/>
+					<representedOrganization>
+						<!-- palveluyksikön OID-tunnus -->
+						<id extension="102" root="1.2.246.10.1234567.10"/>
+						<name>X-X sairaanhoitopiiri, os 12</name>
+					</representedOrganization>
+				</assignedEntity>
+			</encounterParticipant>
+		</encompassingEncounter>
+	</componentOf>
+	<!--  End of local Header -->
+	<!--
+********************************************************
+27 any HL7 CDA R2 Local Header
+********************************************************
+-->
+	<hl7fi:localHeader>
+		<!-- FI 2 hl7fi:tableOfContents - asiakirjan sisällysluettelo -->
+		<hl7fi:tableOfContents>
+			<hl7fi:contentsCode displayName="LAB" code="103" codeSystem="1.2.246.537.6.12.2002" codeSystemName="AR/YDIN - Näkymät 2002 "/>
+		</hl7fi:tableOfContents>
+		<!-- FI 6 hl7fi:fileFormat - asiakirjan tiedostomuoto -->
+		<hl7fi:fileFormat displayName="CDA R2" code="1" codeSystem="1.2.246.537.5.40179.2008" codeSystemName="kansallisen arkiston tiedostomuoto"/>
+		<!-- FI 7 hl7fi:softwareSupport - Asiakirjan tuottanut ohjelmisto ja sen versio 2008-08-19 -->
+		<hl7fi:softwareSupport moderator="Yritys Oy" product="Potilaskertomus" version="1.12">Yritys Oy Potilaskertomus 1.12</hl7fi:softwareSupport>
+		<!-- FI 9 hl7fi:documentType - asiakirjan tyyppi -->
+		<hl7fi:documentType displayName="erikoissairaanhoidon dokumentti" code="2" codeSystem="1.2.246.537.5.40153.2008" codeSystemName="asiakirjan tyyppi"/>
+		<!-- FI 12 hl7fi:functionCode - asiakirjan tehtäväluokka (eAMS) -->
+		<hl7fi:functionCode displayName="potilaskertomus" code="30" codeSystem="1.2.246.537.5.40170.2008" codeSystemName="eAMS Tehtäväluokitus - terveydenhuolto"/>
+		<!-- FI 13 hl7fi:recordStatus - asiakirjan valmistumisen tila -->
+		<hl7fi:recordStatus displayName="arkistointivalmis" code="3" codeSystem="1.2.246.537.5.40154.2008" codeSystemName="asiakirjan valmistumisen tila"/>
+		<!-- FI 15 hl7fi:serviceChainLink - asiakirjan linkit palvelukokonaisuuksiin -->
+		<hl7fi:serviceChainLink>
+			<hl7fi:serviceChainLinkId extension="123111222" root="1.2.246.10.1234567.14.2008"/>
+			<hl7fi:serviceChainLinkName>Sydänongelma</hl7fi:serviceChainLinkName>
+			<hl7fi:serviceChainLinkCode code="PK103" codeSystem="1.2.246.537.6.89.2008" codeSystemName="AR/YDIN - Palvelukokonaisuus luokitus 2008" displayName="Sydän- tai sepelvaltimosairaus"/>
+		</hl7fi:serviceChainLink>
+		<!-- FI 16 hl7fi:episodeLink Asiakirjan linkit palveluntuottajan omiin palvelukokonaisuuksiin -->
+		<hl7fi:episodeLink>
+			<hl7fi:episodeLinkId extension="45671212" root="1.2.246.10.1234567.14.2008"/>
+			<hl7fi:episodeLinkName>Pallolaajennus</hl7fi:episodeLinkName>
+			<hl7fi:episodeLinkCode code="PK103" codeSystem="1.2.246.537.6.89.2008" codeSystemName="AR/YDIN - Palvelukokonaisuus luokitus 2008" displayName="Sydän- tai sepelvaltimosairaus"/>
+		</hl7fi:episodeLink>
+		<!-- FI 17 hl7fi:product - asiakirjan toimittajan alue -->
+		<hl7fi:product moderator="Yritys Oy" product="Potilaskertomus" version="1.12">	
+		</hl7fi:product>
+		<!-- FI 18 hl7fi:signature - asiakirjan sähköiset allekirjoitustiedot -->
+		<!-- katso allekirjoitukseen liittyvät esimerkit XML allekirjoitukseen liittyvästä soveltamisoppaasta -->
+		<!-- FI  22	hl7fi:custodianTypecode – Rekisteripitäjän laji 2008-02-04 -->
+		<hl7fi:custodianTypeCode code="1" codeSystem="1.2.246.537.5.40172.2008" codeSystemName="rekisterinpitäjän laji" displayName="julkinen terveydenhuolto"/>
+		<!-- FI  23	hl7fi:encompassingEncounter.code  – sisältääkö palvelutapahtuma osastohoitoa 2008-02-04 -->
+		<hl7fi:encompassingEncounterCode code="1" codeSystem="1.2.246.537.5.40156.2008" codeSystemName="palvelutapahtuman laji" displayName="Osastohoitojakso"/>
+		<!-- FI  25	encompassingMaster.code  – palvelutapahtuman ensisijaisuus 2008-02-04 -->
+		<hl7fi:encompassingEncounterMasterCode code="1" codeSystem="1.2.246.537.5.40180.2008" codeSystemName="palvelutapahtuman ensisijaisuus" displayName="ensisiainen"/>
+		<!-- FI  26	hl7fi:secondaryEncompassingEncounterId – toissijainen palvelutapahtumatunnus 2008-02-04 -->
+		<hl7fi:secondaryEncompassingEncounterId root="1.2.246.10.2345678.14.2008.12233"/>
+		<!-- FI  28	hl7fi:retentionPeriodClass – asiakirjan säilytysaikaluokka 2008-03-31 -->
+		<hl7fi:retentionPeriodClass code="2" codeSystem="1.2.246.537.5.40158.2008" codeSystemName="säilytysaikaluokka" displayName="Potilaan eliniän ajan säilytettävät"/>
+		<!-- FI  33	hl7fi:patientHomeMunicipality – potilaan kotikunta 2008-12-04 -->
+		<hl7fi:patientHomeMunicipality code="915" codeSystem="1.2.246.537.6.21.2003" codeSystemName="VRK/Stakes - Kuntakoodit 2003" displayName="Varkaus"/>
+		<!-- FI  -->
+	</hl7fi:localHeader>
+	<!-- 
+********************************************************
+  CDA Body
+********************************************************
+-->
+	<component>
+		<structuredBody>
+			<!--
+********************************************************
+  Esimerkki  Laboratorio tutkimusmääräys
+********************************************************
+-->
+			<component>
+				<!-- merkinnän tunnus (esim. palvelutapahtuman 1.2.246.10.1234567.14.2008.123 merkintä 22) -->
+				<section ID="OID1.2.246.10.1234567.14.2008.123.22">
+					<!-- ydintietorakenteen tunnus -->
+					<templateId root="1.2.246.777.11.2008.4"/>
+					<code code="103" codeSystem="1.2.246.537.6.12.2002" codeSystemName="Näkymä" displayName="LAB"/>
+					<title>LAB</title>
+					<text>
+						<paragraph>X-X sairaanhoitopiiri os 12</paragraph>
+						<paragraph>el. Petri Puukko</paragraph>
+						<paragraph>22.1.2008 09:14</paragraph>
+					</text>
+					<!-- Potilaan tiedot Bodyssa näkymätasoalla  -->
+					<subject typeCode="SBJ">
+						<relatedSubject classCode="PAT">
+							<!-- Henkilötunnus -->
+							<code code="010144-923X" codeSystem="1.2.246.21"/>
+							<!-- Väliaikainen henkilötunnus -->
+							<!-- <code code="010144-923X" codeSystem="1.2.246.21"/> -->
+							<subject classCode="PSN">
+								<name>
+									<given>Erkki</given>
+									<given>Matti</given>
+									<given qualifier="CL">Matti</given>
+									<family>Meikäläinen</family>
+								</name>
+							</subject>
+						</relatedSubject>
+					</subject>
+					<!-- merkinnän tekijä, tapahtuma-aika ja palveluyksikkö -->
+					<author>
+						<!-- Merkinnän tekijän rooli on aina MER -->
+						<functionCode code="MER" codeSystem="1.2.246.537.5.40006.2003" codeSystemName="Ammattihenkilön funktio/rooli" displayName="merkinnän tekijä"/>
+						<!--  Määräyksen tapahtuma-aika -->
+						<time value="20080122091410"/>
+						<assignedAuthor>
+							<!--  Ammattihenkilön perustunniste henkilötunnus-->
+							<id extension="123456-9234" root="1.2.246.21"/>
+							<!--  Ammattihenkilön nimi -->
+							<assignedPerson>
+								<name>
+									<given qualifier="CL">Petri</given>
+									<family>Puukko</family>
+									<suffix>ylil.</suffix>
+								</name>
+							</assignedPerson>
+							<representedOrganization>
+								<!-- Merkinnän palveluyksikkö -->
+								<id extension="102" root="1.2.246.10.1234567.10"/>
+								<name>X-X sairaanhoitopiiri os 12</name>
+							</representedOrganization>
+						</assignedAuthor>
+					</author>
+					<!-- merkinnän kirjaaja -->
+					<author>
+						<!-- Mirkinnän kirjaajan rooli on aina KIR -->
+						<functionCode code="KIR" codeSystem="1.2.246.537.5.40006.2003" codeSystemName="Ammattihenkilön funktio/rooli" displayName="merkinnän kirjaaja"/>
+						<!-- kirjausaika -->
+						<time value="20080122091410"/>
+						<assignedAuthor>
+							<!--  Ammattihenkilön perustunniste henkilötunnus-->
+							<id extension="123456-9234" root="1.2.246.21"/>
+							<!--  Ammattihenkilön nimi -->
+							<assignedPerson>
+								<name>
+									<given qualifier="CL">Petri</given>
+									<family>Puukko</family>
+									<suffix>ylil.</suffix>
+								</name>
+							</assignedPerson>
+							<representedOrganization>
+								<!-- Merkinnän palveluyksikkö -->
+								<id extension="102" root="1.2.246.10.1234567.10"/>
+								<name>X-X sairaanhoitopiiri os 12</name>
+							</representedOrganization>
+						</assignedAuthor>
+					</author>
+					<!-- Hoitoprosessin vaihe "Hoidon suunnittelu" = Pyynnöt  -->
+					<component>
+						<section>
+							<code code="14" codeSystem="1.2.246.537.6.13.2006" codeSystemName="Hoitoprosessin vaihe" displayName="Hoidon suunnittelu"/>
+							<title>Hoidon suunnittelu</title>
+							<component>
+								<section ID="OID1.2.246.10.1234567.14.2008.123.22.1">
+									<code code="53" codeSystem="1.2.246.537.6.14.2006" codeSystemName="otsikko" displayName="Tutkimukset"/>
+									<title>Tilaukset/määräykset</title>
+									<text ID="OID1.2.246.10.1234567.14.2008.123.22.1.1">
+										<paragraph>
+											<content ID="OID1.2.246.10.1234567.14.2008.123.22.1.2.1">P-ASAT <content ID="OID1.2.246.10.1234567.14.2008.123.22.1.2.2" styleCode="xUnstructured"> Suunniteltu näytteenottoaika: 23.1.2009 08:00</content>
+											</content>
+										</paragraph>
+										<paragraph>
+											<content ID="OID1.2.246.10.1234567.14.2008.123.22.1.3.1">P-Krea <content ID="OID1.2.246.10.1234567.14.2008.123.22.1.3.2" styleCode="xUnstructured"> Potilaan paino: 72,5 kg </content>
+											</content>
+										</paragraph>
+										<paragraph>
+											<content ID="OID1.2.246.10.1234567.14.2008.123.22.1.4.1">S-Prot <content ID="OID1.2.246.10.1234567.14.2008.123.22.1.4.2" styleCode="xUnstructured"> Potilaan paino: 72,5 kg </content>
+											</content>
+											<br/>
+										</paragraph>
+									</text>
+									<!--- Pyynnön  tiedot rakenteisessa muodossa -->
+									<!-- Ensimmäinen tutkimus P-ASAT -->
+									<entry>
+										<observation classCode="OBS" moodCode="RQO">
+											<!-- tutkimuspyynnön/vastauksen ydintietorakenteen tunnus -->
+											<templateId root="1.2.246.537.6.12.999.2003.4"/>
+											<!-- pyynnön yksikäsitteinen tunnus -->
+											<id root="1.2.246.10.1234567.14.2008.123.22.1.2"/>
+											<!-- Tutkimuksen koodi (Kuntaliiton tutkimusnimikkeistö ja selväkielinen nimi displayname attribuutissa -->
+											<code code="1128" codeSystem="1.2.246.537.6.3.2006" codeSystemName="Laboratoriotutkimusnimikkeistö 2007" displayName="P-ASAT"/>
+											<text>
+												<reference value="#OID1.2.246.10.1234567.14.2008.123.22.1.2.1"/>
+											</text>
+											<!-- statusCode tietotyyppi CS, koodisto kiinnitetty ActStatus  oid="2.16.840.1.113883.5.14" -->
+											<statusCode code="completed"/>
+											<!--suunniteltu  näytteenottoaika -->
+											<effectiveTime value="20080123080000"/>
+											<!-- pyynnön tila -->
+											<value xsi:type="ED">OTETTU</value>
+											<!-- suunniteltu näytteenottoaika -->
+											<entryRelationship typeCode="COMP">
+												<observation classCode="OBS" moodCode="EVN">
+													<code code="9" codeSystem="1.2.246.537.6.12.2002.103"/>
+													<text>
+														<reference value="#OID1.2.246.10.1234567.14.2008.123.22.1.2.2"/>
+													</text>
+												</observation>
+											</entryRelationship>
+											<!-- pyyntöön liittyvä lisätieto -->
+											<entryRelationship typeCode="SPRT">
+												<observation classCode="OBS" moodCode="EVN">
+													<code code="ANAM" codeSystem="1.2.246.537.5.40027.2003" codeSystemName="PYL-HL7FI" displayName="Anamnestiset tiedot">
+														<originalText>Anamnestiset tiedot</originalText>
+													</code>
+													<value xsi:type="ED">Potilas on oireeton</value>
+												</observation>
+											</entryRelationship>
+										</observation>
+									</entry>
+									<!-- Toinen tutkimus muuta P-Krea -->
+									<entry>
+										<observation classCode="OBS" moodCode="RQO">
+											<!-- ydintietorakenteen tunnus -->
+											<templateId root="1.2.246.537.6.12.999.2003.4"/>
+											<!-- pyynnön yksikäsitteinen tunnus -->
+											<id root="1.2.246.10.1234567.14.2008.123.22.1.3"/>
+											<code code="4600" codeSystem="1.2.246.537.6.3.2006" codeSystemName="Laboratoriotutkimusnimikkeistö 2007" displayName="P-Krea"/>
+											<text>
+												<reference value="#OID1.2.246.10.1234567.14.2008.123.22.1.3.1"/>
+											</text>
+											<!-- statusCode tietotyyppi CS, koodisto kiinnitetty ActStatus  oid="2.16.840.1.113883.5.14" -->
+											<statusCode code="completed"/>
+											<!-- suunniteltu näytteenottoaika -->
+											<effectiveTime value="20080123080000"/>
+											<!-- pyynnön tila -->
+											<value xsi:type="ED">OTETTU</value>
+											<!-- Pyyntöön liittyvä lisätieto -->
+											<entryRelationship typeCode="SPRT">
+												<observation classCode="OBS" moodCode="EVN">
+													<code code="PAIN" codeSystem="1.2.246.537.5.40027.2003" codeSystemName="PYL-HL7FI" displayName="potilaan paino">
+														<originalText>Potilaan paino</originalText>
+													</code>
+													<text mediaType="text/xml">
+														<reference value="#OID1.2.246.10.1234567.14.2008.123.22.1.3.2"/>
+													</text>
+													<value xsi:type="PQ" value="72.5" unit="kg"/>
+												</observation>
+											</entryRelationship>
+										</observation>
+									</entry>
+									<!-- Kolmas tutkimus S-Prot -->
+									<entry>
+										<observation classCode="OBS" moodCode="RQO">
+											<!-- ydintietorakenteen tunnus -->
+											<templateId root="1.2.246.537.6.12.999.2003.4"/>
+											<!-- pyynnön yksikäsitteinen tunnus -->
+											<id root="1.2.246.10.1234567.14.2008.123.22.1.4"/>
+											<code code="2516" codeSystem="1.2.246.537.6.3.2006" codeSystemName="Laboratoriotutkimusnimikkeistö 2007" displayName="S-Prot"/>
+											<text>
+												<reference value="#OID1.2.246.10.1234567.14.2008.123.22.1.4.1"/>
+											</text>
+											<!-- statusCode tietotyyppi CS, koodisto kiinnitetty ActStatus  oid="2.16.840.1.113883.5.14" -->
+											<statusCode code="completed"/>
+											<!-- suunniteltu näytteenottoaika -->
+											<effectiveTime value="20080123080000"/>
+											<!-- pyynnön tila -->
+											<value xsi:type="ED">OTETTU</value>
+											<!-- Pyyntöön liittyvä lisätieto -->
+											<entryRelationship typeCode="SPRT">
+												<observation classCode="OBS" moodCode="EVN">
+													<code code="PAIN" codeSystem="1.2.246.537.5.40027.2003" codeSystemName="PYL-HL7FI" displayName="potilaan paino">
+														<originalText>Potilaan paino</originalText>
+													</code>
+													<text mediaType="text/xml">
+														<reference value="#OID1.2.246.10.1234567.14.2008.123.22.1.4.2"/>
+													</text>
+													<value xsi:type="PQ" value="72.5" unit="kg"/>
+												</observation>
+											</entryRelationship>
+										</observation>
+									</entry>
+									<!-- tähän päättyy rakenteinen pyyntö -->
+								</section>
+							</component>
+						</section>
+					</component>
+				</section>
+			</component>
+			<component>
+				<!-- merkinnän tunnus (esim. palvelutapahtuman 1.2.246.10.1234567.14.2008.123 merkintä 23) -->
+				<section ID="OID1.2.246.10.1234567.14.2008.123.23">
+					<!-- ydintietorakenteen tunnus -->
+					<templateId root="1.2.246.777.11.2008.4"/>
+					<code code="103" codeSystem="1.2.246.537.6.12.2002" codeSystemName="Näkymä" displayName="LAB"/>
+					<title>LAB</title>
+					<text>
+						<paragraph>X-X sairaanhoitopiiri os 12</paragraph>
+						<paragraph>el. Petri Puukko</paragraph>
+						<paragraph>22.1.2008 13:14</paragraph>
+					</text>
+					<!-- Potilaan tiedot Bodyssa näkymätasoalla  -->
+					<subject typeCode="SBJ">
+						<relatedSubject classCode="PAT">
+							<!-- Henkilötunnus -->
+							<code code="010144-923X" codeSystem="1.2.246.21"/>
+							<!-- Väliaikainen henkilötunnus -->
+							<!-- <code code="010144-923X" codeSystem="1.2.246.21"/> -->
+							<subject classCode="PSN">
+								<name>
+									<given>Erkki</given>
+									<given>Matti</given>
+									<given qualifier="CL">Matti</given>
+									<family>Meikäläinen</family>
+								</name>
+							</subject>
+						</relatedSubject>
+					</subject>
+					<!-- merkinnän tekijä, tapahtuma-aika ja palveluyksikkö -->
+					<author>
+						<!-- Merkinnän tekijän rooli on aina MER -->
+						<functionCode code="MER" codeSystem="1.2.246.537.5.40006.2003" codeSystemName="Ammattihenkilön funktio/rooli" displayName="merkinnän tekijä"/>
+						<!--  Määräyksen tapahtuma-aika -->
+						<time value="20080122131450"/>
+						<assignedAuthor>
+							<!--  Ammattihenkilön perustunniste henkilötunnus-->
+							<id extension="123456-9234" root="1.2.246.21"/>
+							<!--  Ammattihenkilön nimi -->
+							<assignedPerson>
+								<name>
+									<given qualifier="CL">Petri</given>
+									<family>Puukko</family>
+									<suffix>ylil.</suffix>
+								</name>
+							</assignedPerson>
+							<representedOrganization>
+								<!-- Merkinnän palveluyksikkö -->
+								<id extension="102" root="1.2.246.10.1234567.10"/>
+								<name>X-X sairaanhoitopiiri os 12</name>
+							</representedOrganization>
+						</assignedAuthor>
+					</author>
+					<!-- merkinnän kirjaaja -->
+					<author>
+						<!-- Mirkinnän kirjaajan rooli on aina KIR -->
+						<functionCode code="KIR" codeSystem="1.2.246.537.5.40006.2003" codeSystemName="Ammattihenkilön funktio/rooli" displayName="merkinnän kirjaaja"/>
+						<!-- kirjausaika -->
+						<time value="20080122131450"/>
+						<assignedAuthor>
+							<!--  Ammattihenkilön perustunniste henkilötunnus-->
+							<id extension="123456-9234" root="1.2.246.21"/>
+							<!--  Ammattihenkilön nimi -->
+							<assignedPerson>
+								<name>
+									<given qualifier="CL">Petri</given>
+									<family>Puukko</family>
+									<suffix>ylil.</suffix>
+								</name>
+							</assignedPerson>
+							<representedOrganization>
+								<!-- Merkinnän palveluyksikkö -->
+								<id extension="102" root="1.2.246.10.1234567.10"/>
+								<name>X-X sairaanhoitopiiri os 12</name>
+							</representedOrganization>
+						</assignedAuthor>
+					</author>
+					<!-- Hoitoprosessin vaihe "Hoidon suunnittelu" = Pyynnöt  -->
+					<component>
+						<section>
+							<code code="14" codeSystem="1.2.246.537.6.13.2006" codeSystemName="Hoitoprosessin vaihe" displayName="Hoidon suunnittelu"/>
+							<title>Hoidon suunnittelu</title>
+							<component>
+								<section ID="OID1.2.246.10.1234567.14.2008.123.23.1">
+									<code code="53" codeSystem="1.2.246.537.6.14.2006" codeSystemName="otsikko" displayName="Tutkimukset"/>
+									<title>Tilaukset/määräykset</title>
+									<!-- koko näyttöteksti -->
+									<text ID="OID1.2.246.10.1234567.14.2008.123.23.1.1">
+										<paragraph>
+											<content ID="OID1.2.246.10.1234567.14.2008.123.23.1.2.1">fE-Folaat <content ID="OID1.2.246.10.1234567.14.2008.123.23.1.2.2" styleCode="xUnstructured">  Suunniteltu näytteenottoaika: 23.1.2008 08:00 </content>
+												<content ID="OID1.2.246.10.1234567.14.2008.123.23.1.2.3" styleCode="xUnstructured"> Pyytäjän huomautus: 12 tunnin paasto</content>
+											</content>
+										</paragraph>
+										<paragraph>
+											<content ID="OID1.2.246.10.1234567.14.2008.123.23.1.3.1">S-Prot-Fr <content ID="OID1.2.246.10.1234567.14.2008.123.23.1.3.2" styleCode="xUnstructured">  Suunniteltu näytteenottoaika: 23.1.2008 08:00 </content>
+												<content ID="OID1.2.246.10.1234567.14.2008.123.23.1.3.3" styleCode="xUnstructured"> Potilaan paino: 72,5 kg </content>
+											</content>
+										</paragraph>
+									</text>
+									<!--- Pyynnön  tiedot rakenteisessa muodossa  fE-Folaat -->
+									<entry>
+										<observation classCode="OBS" moodCode="RQO">
+											<!-- tutkimuspyynnön/vastauksen ydintietorakenteen tunnus -->
+											<templateId root="1.2.246.537.6.12.999.2003.4"/>
+											<!-- pyynnön yksikäsitteinen tunnus -->
+											<id root="1.2.246.10.1234567.14.2008.123.23.1.2"/>
+											<!-- Tutkimuksen koodi (Kuntaliiton tutkimusnimikkeistö ja selväkielinen nimi displayname attribuutissa -->
+											<code code="1414" codeSystem="1.2.246.537.6.3.2006" codeSystemName="Laboratoriotutkimusnimikkeistö 2007" displayName="fE-Folaat"/>
+											<text>
+												<reference value="#OID1.2.246.10.1234567.14.2008.123.23.1.2.1"/>
+											</text>
+											<!-- statusCode tietotyyppi CS, koodisto kiinnitetty ActStatus  oid="2.16.840.1.113883.5.14" -->
+											<statusCode code="completed"/>
+											<!-- suunniteltu näytteenottoaika -->
+											<effectiveTime value="20080123080000"/>
+											<!-- pyynnön tila -->
+											<value xsi:type="ED">OTETTU</value>
+											<!-- pyytäjän huomautus -->
+											<entryRelationship typeCode="COMP">
+												<observation classCode="OBS" moodCode="EVN">
+													<code code="5" codeSystem="1.2.246.537.6.12.2002.103"/>
+													<text>
+														<reference value="#OID1.2.246.10.1234567.14.2008.123.23.1.2.3"/>
+													</text>
+												</observation>
+											</entryRelationship>
+											<!-- suunniteltu näytteenottoaika -->
+											<entryRelationship typeCode="COMP">
+												<observation classCode="OBS" moodCode="EVN">
+													<code code="9" codeSystem="1.2.246.537.6.12.2002.103"/>
+													<text>
+														<reference value="#OID1.2.246.10.1234567.14.2008.123.23.1.2.2"/>
+													</text>
+												</observation>
+											</entryRelationship>
+											<!-- pyyntöön liittyvä lisätieto -->
+											<entryRelationship typeCode="SPRT">
+												<observation classCode="OBS" moodCode="EVN">
+													<code code="ANAM" codeSystem="1.2.246.537.5.40027.2003" codeSystemName="PYL-HL7FI" displayName="Anamnestiset tiedot">
+														<originalText>Anamnestiset Tiedot</originalText>
+													</code>
+													<value xsi:type="ED">Potilas on oireeton</value>
+												</observation>
+											</entryRelationship>
+										</observation>
+									</entry>
+									<!--- Pyynnön  tiedot rakenteisessa muodossa, S-Prot-Fr  Proteiini, fraktiot, seerumista -->
+									<entry>
+										<observation classCode="OBS" moodCode="RQO">
+											<!-- tutkimuspyynnön/vastauksen ydintietorakenteen tunnus -->
+											<templateId root="1.2.246.537.6.12.999.2003.4"/>
+											<!-- pyynnön yksikäsitteinen tunnus -->
+											<id root="1.2.246.10.1234567.14.2008.123.23.1.3"/>
+											<!-- Tutkimuksen koodi (Kuntaliiton tutkimusnimikkeistö ja selväkielinen nimi displayname attribuutissa -->
+											<code code="2522" codeSystem="1.2.246.537.6.3.2006" codeSystemName="Laboratoriotutkimusnimikkeistö 2007" displayName="S-Prot-Fr"/>
+											<text>
+												<reference value="#OID1.2.246.10.1234567.14.2008.123.23.1.3.1"/>
+											</text>
+											<!-- statusCode tietotyyppi CS, koodisto kiinnitetty ActStatus  oid="2.16.840.1.113883.5.14" -->
+											<statusCode code="completed"/>
+											<!-- suunniteltu näytteenottoaika -->
+											<effectiveTime value="20080123080000"/>
+											<!-- pyynnön tila -->
+											<value xsi:type="ED">OTETTU</value>
+											<!-- suunniteltu näytteenottoaika -->
+											<entryRelationship typeCode="COMP">
+												<observation classCode="OBS" moodCode="EVN">
+													<code code="9" codeSystem="1.2.246.537.6.12.2002.103"/>
+													<text>
+														<reference value="#OID1.2.246.10.1234567.14.2008.123.23.1.3.2"/>
+													</text>
+												</observation>
+											</entryRelationship>
+											<!-- Pyyntöön liittyvä lisätieto -->
+											<entryRelationship typeCode="SPRT">
+												<observation classCode="OBS" moodCode="EVN">
+													<code code="PAIN" codeSystem="1.2.246.537.5.40027.2003" codeSystemName="PYL-HL7FI" displayName="potilaan paino">
+														<originalText>Potilaan paino</originalText>
+													</code>
+													<text mediaType="text/xml">
+														<reference value="#OID1.2.246.10.1234567.14.2008.123.23.1.3.3"/>
+													</text>
+													<value xsi:type="PQ" value="72.5" unit="kg"/>
+												</observation>
+											</entryRelationship>
+										</observation>
+									</entry>
+								</section>
+							</component>
+						</section>
+					</component>
+				</section>
+			</component>
+			<!--
+********************************************************
+  Esimerkki  Laboratorio tutkimusvastaukset
+********************************************************
+-->
+			<component>
+				<section ID="OID1.2.246.10.1234567.14.2008.123.24">
+					<!-- ydintietorakenteen tunnus -->
+					<templateId root="1.2.246.777.11.2008.4"/>
+					<code code="103" codeSystem="1.2.246.537.6.12.2002" codeSystemName="Näkymä" displayName="LAB"/>
+					<title>LAB</title>
+					<text>
+						<!-- Tilaava palveluyksikkö näytetään aina vastauksissa näyttömuodossa -->
+						<paragraph>X-X sairaanhoitopiiri os 12</paragraph>
+						<!-- Henkilö näytetään jos kyseessä on lausunto, aikaa ei tule näyttömuotoon
+						<paragraph>el.  Ville Lahti</paragraph>					
+						-->
+					</text>
+					<!-- Potilaan tiedot Bodyssa näkymätasoalla  -->
+					<subject typeCode="SBJ">
+						<relatedSubject classCode="PAT">
+							<!-- Henkilötunnus -->
+							<code code="010144-923X" codeSystem="1.2.246.21"/>
+							<!-- Väliaikainen henkilötunnus -->
+							<!-- <code code="010144-923X" codeSystem="1.2.246.21"/> -->
+							<subject classCode="PSN">
+								<name>
+									<given>Erkki</given>
+									<given>Matti</given>
+									<given qualifier="CL">Matti</given>
+									<family>Meikäläinen</family>
+								</name>
+							</subject>
+						</relatedSubject>
+					</subject>
+					<!-- tilaava palveluyksikkö -->
+					<author>
+						<!-- tilaavan palveluyksikön rooli on TIL-->
+						<functionCode code="TIL" codeSystem="1.2.246.537.5.40006.2003" codeSystemName="Ammattihenkilön funktio/rooli" displayName="merkinnän tekijä"/>
+						<!--  Aika ei ole tässä käytössä  -->
+						<time nullFlavor="NA"/>
+						<assignedAuthor>
+							<!--  Ammattihenkilöä ei täytetä -->
+							<id nullFlavor="NA"/>
+							<representedOrganization>
+								<!-- Tilaava palveluyksikkö -->
+								<id extension="102" root="1.2.246.10.1234567.10"/>
+								<name>X-X sairaanhoitopiiri os 12</name>
+							</representedOrganization>
+						</assignedAuthor>
+					</author>
+					<!-- merkinnän kirjaaja -->
+					<author>
+						<!-- Mirkinnän kirjaajan rooli on aina KIR -->
+						<functionCode code="KIR" codeSystem="1.2.246.537.5.40006.2003" codeSystemName="Ammattihenkilön funktio/rooli" displayName="merkinnän kirjaaja"/>
+						<!-- kirjausaika -->
+						<time value="20080124093510"/>
+						<assignedAuthor>
+							<!--  Ammattihenkilön perustunniste henkilötunnus-->
+							<id extension="123456-9234" root="1.2.246.21"/>
+							<!--  Ammattihenkilön nimi -->
+							<assignedPerson>
+								<name>
+									<given qualifier="CL">Petri</given>
+									<family>Puukko</family>
+									<suffix>ylil.</suffix>
+								</name>
+							</assignedPerson>
+							<representedOrganization>
+								<!-- Merkinnän palveluyksikkö -->
+								<id extension="102" root="1.2.246.10.1234567.10"/>
+								<name>X-X sairaanhoitopiiri os 12</name>
+							</representedOrganization>
+						</assignedAuthor>
+					</author>
+					<!-- Merkinnän tekijä. Henkilö ilmoitetaan jos kyseessä on lausunto, muutoin ilmoitetaan vain tekevä palveluyksikkö -->
+					<author>
+						<!-- Mirkinnän tekijän rooli on  MER -->
+						<functionCode code="MER" codeSystem="1.2.246.537.5.40006.2003" codeSystemName="Ammattihenkilön funktio/rooli" displayName="merkinnän kirjaaja"/>
+						<!-- aika ei käytössä -->
+						<time nullFlavor="NA"/>
+						<assignedAuthor>
+							<!--  Ammattihenkilöä ei ilmoiteta jos ei ole lausunto-->
+							<id nullFlavor="NA"/>
+							<!-- Henkilö ilmoitetaan jos kyseessä on lausunto -->
+							<!--
+							<assignedPerson>
+								<name>
+									<given qualifier="CL">Ville</given>
+									<family>Lahti</family>
+									<suffix>el.</suffix>
+								</name> 
+							</assignedPerson> -->
+							<representedOrganization>
+								<!-- Merkinnän palveluyksikkö -->
+								<id extension="102" root="1.2.246.10.1234567.10"/>
+								<name>X-X sairaanhoitopiiri os 12</name>
+							</representedOrganization>
+						</assignedAuthor>
+					</author>
+					<!-- Hoitoprosessin vaihe "Hoidon toteutus" = Vastaukset  -->
+					<component>
+						<section>
+							<code code="15" codeSystem="1.2.246.537.6.13.2006" codeSystemName="Hoitoprosessin vaihe" displayName="Hoidon toteutus"/>
+							<title>Hoidon toteutus</title>
+							<component>
+								<section ID="OID1.2.246.10.1234567.14.2008.123.24.1">
+									<code code="53" codeSystem="1.2.246.537.6.14.2006" codeSystemName="Otsikko" displayName="Tutkimukset"/>
+									<title>Tulokset</title>
+									<text ID="OID1.2.246.10.1234567.14.2008.123.24.1.1">
+										<!--- vastauksen tiedot näyttömuodossa   -->
+										<br/>
+										<table border="1" rules="all">
+											<tbody align="left" valign="top">
+												<tr>
+													<th>Näytteenottoaika</th>
+													<th>Tutkimus</th>
+													<th>Tulos</th>
+													<th>Pat</th>
+													<th>Yksikkö</th>
+													<th>Viitearvot</th>
+													<th>Lausunto tai huomautus</th>
+													<th>Tutkimuksen tehnyt palveluyksikkö</th>
+												</tr>
+												<tr ID="OID1.2.246.10.1234567.14.2008.123.24.1.2.1">
+													<td>23.1.2008 08:00</td>
+													<td>P-ASAT</td>
+													<td>77</td>
+													<td>H</td>
+													<td>U/l</td>
+													<td>15-45/miehet</td>
+													<td>&#160;</td>
+													<td>X-X Lab</td>
+												</tr>
+												<tr ID="OID1.2.246.10.1234567.14.2008.123.24.1.3.1">
+													<td>23.1.2008 08:00</td>
+													<td>P-Krea</td>
+													<td>112</td>
+													<td>H</td>
+													<td>umol/l</td>
+													<td>60-100/miehet</td>
+													<td>
+														<content ID="OID1.2.246.10.1234567.14.2008.123.24.1.3.2" styleCode="xUnstructured">
+		Huomautus: Tämä on tekijän kirjaama vapaamuotoinen huomautusteksti</content>
+													</td>
+													<td>X-X Lab</td>
+												</tr>
+												<tr ID="OID1.2.246.10.1234567.14.2008.123.24.1.4.1">
+													<td>23.1.2008 08:00</td>
+													<td>S-Prot</td>
+													<td>55</td>
+													<td>&#160;</td>
+													<td>g/l</td>
+													<td>62-78/ aikuiset</td>
+													<td>&#160;</td>
+													<td>X-X Lab</td>
+												</tr>
+												<tr ID="OID1.2.246.10.1234567.14.2008.123.24.1.5.1">
+													<td>23.1.2008 08:00</td>
+													<td>fS-Folaat</td>
+													<td>140</td>
+													<td>&#160;</td>
+													<td>nmol/l</td>
+													<td>208-972/ kaikki</td>
+													<td>&#160;</td>
+													<td>X-X Lab</td>
+												</tr>
+												<tr ID="OID1.2.246.10.1234567.14.2008.123.24.1.6.1">
+													<td>23.1.2008 17:00</td>
+													<td>P-Gluk</td>
+													<td>5.2</td>
+													<td>&#160;</td>
+													<td>mmol/l</td>
+													<td>4.0-6.1 /aikuiset</td>
+													<td>
+														<content ID="OID1.2.246.10.1234567.14.2008.123.24.1.6.2" styleCode="xUnstructured">
+															Huomautus: Tämä on käyttäjän kirjaama vapaamuotoinen huomautusteksti</content>
+													</td>
+													<td>X-X os 12</td>
+												</tr>
+											</tbody>
+										</table>
+										<br/>
+									</text>
+									<!-- Ensimmäinen tutkimus P-ASAT -->
+									<entry>
+										<observation classCode="OBS" moodCode="EVN">
+											<!-- ydintiedon osoitin -->
+											<templateId root="1.2.246.537.6.12.999.2003.4"/>
+											<!-- vastauksen yksikäsitteinen tunnus -->
+											<id root="1.2.246.10.1234567.14.2008.123.24.1.2"/>
+											<!-- tutkimuksen koodi (Kuntaliiton tutkimusnimikkeistö ja selväkielinen nimi displayname attribuutissa -->
+											<code code="1128" codeSystem="1.2.246.537.6.3.2006" codeSystemName="Laboratoriotutkimusnimikkeistö 2007" displayName="P-ASAT">
+												<qualifier>
+													<value code="F" codeSystem="1.2.246.537.5.85.1997" codeSystemName="Tutkimusvastauksen tulkintakoodi" displayName="Lopullinen tulos"/>
+												</qualifier>
+											</code>
+											<!-- viittaus koko entry-observation näyttömuotoiseen tekstiin -->
+											<text>
+												<reference value="#OID1.2.246.10.1234567.14.2008.123.24.1.2.1"/>
+											</text>
+											<!-- statusCode tietotyyppi CS, koodisto kiinnitetty ActStatus  oid="2.16.840.1.113883.5.14" -->
+											<statusCode code="completed"/>
+											<!-- tutkimuksen todellinen näytteenottoaika eli tapahtuma-aika-->
+											<effectiveTime value="20080123080000"/>
+											<!-- tutkimuksen tulos ja yksikkö tietotyyppi PQ (tai ED) -->
+											<value xsi:type="PQ" value="77" unit="U/l">
+											</value>
+											<!--viitearvopoikkeama -->
+											<interpretationCode code="H" codeSystem="1.2.246.537.5.78.1977" codeSystemName="HL7 - Poikkeustilanneviestit" displayName="Yli viitearvon ylärajan"/>
+											<!-- näytteenottokohta -->
+											<targetSiteCode nullFlavor="NA">
+												<originalText>Vasen kyynärtaive</originalText>
+											</targetSiteCode>
+											<!-- näytteen laatu -->
+											<specimen>
+												<specimenRole>
+													<specimenPlayingEntity>
+														<code nullFlavor="NA">
+															<originalText>Paastoveri</originalText>
+														</code>
+													</specimenPlayingEntity>
+												</specimenRole>
+											</specimen>
+											<performer>
+												<!-- milloin tulokset käytettävissä, aika on pakollinen -->
+												<time value="20080123122510"/>
+												<assignedEntity>
+													<!-- tekijä henkilöstä ei tietoa -->
+													<id nullFlavor="NI"/>
+												</assignedEntity>
+											</performer>
+											<!-- tutkimukseen liittyvä pyyntö -->
+											<entryRelationship typeCode="REFR">
+												<!-- moodCode = RQO -->
+												<observation moodCode="RQO" classCode="OBS">
+													<!-- Pyynnön id -->
+													<id root="1.2.246.10.1234567.14.2008.123.22.1.2"/>
+													<code code="8" codeSystem="1.2.246.537.6.12.2002.103"/>
+												</observation>
+											</entryRelationship>
+											<!-- Vastaukseen liittyvä lisätieto -->
+											<entryRelationship typeCode="SPRT">
+												<observation classCode="OBS" moodCode="EVN">
+													<code code="NOTA" codeSystem="1.2.246.537.5.40027.2003" codeSystemName="PYL-HL7FI" displayName="Näytteen ottotapa">
+														<originalText>Näytteen ottotapa</originalText>
+													</code>
+													<value xsi:type="ED">Verinäyte</value>
+												</observation>
+											</entryRelationship>
+											<!-- diagnoosi, pysyvällä diagnoosilla class code voi olla COND OBS sijaan-->
+											<entryRelationship typeCode="CAUS">
+												<observation classCode="COND" moodCode="EVN">
+													<!-- diagnoosin tyyppi, 40007 taulun käyttö ilmoittaa että kyseessä on diagnoosi -->
+													<code code="1" codeSystem="1.2.246.537.5.40007.2003" codeSystemName="HL7 - Diagnoosin tyyppi" displayName="Tulosyydiagnoosi">
+														<!-- päädiagnoosi ilmoitetaan qualifier elementillä -->
+														<qualifier>
+															<value code="PAA" codeSystem="1.2.246.537.5.40005.2003" codeSystemName="HL7 - Diagnoosin ensisijaisuus" displayName="Päädiagnoosi"/>
+														</qualifier>
+													</code>
+													<value xsi:type="CD" code="E11" codeSystem="1.2.246.537.6.1.1996" codeSystemName="Stakes-Tautiluokitus ICD-10" displayName="Aikuistyypin diabetes"/>
+												</observation>
+											</entryRelationship>
+											<!-- viittaus ulkoiseen dokumenttiin,  esimerkiksi sairaskertomusdokumenttiin -->
+											<reference typeCode="SPRT">
+												<!-- true =  tämä dokumentti on tulkittavissa yksinään irrallisena viitatusta dokumentista -->
+												<seperatableInd value="true"/>
+												<externalDocument>
+													<id root="1.2.246.537.10.15675350.11" extension="2006.100234"/>
+													<text mediaType="text/xml">
+														<!-- linkki dokumenttiin -->
+														<reference value="http://arkisto/hakemisto/dokumentti_xyz.xml"/>
+													</text>
+													<setId root="1.2.246.537.10.15675350.11" extension="2006.100234"/>
+													<versionNumber value="1"/>
+												</externalDocument>
+											</reference>
+											<!-- tutkimuksen viitearvo, toistuva -->
+											<referenceRange typeCode="REFV">
+												<observationRange moodCode="EVN.CRT">
+													<!-- Tutkimuksen koodi (Kuntaliiton tutkimusnimikkeistö ja selväkielinen nimi displayname attribuutissa -->
+													<code code="1128" codeSystem="1.2.246.537.6.3.2006" codeSystemName="Laboratoriotutkimusnimikkeistö 2007" displayName="P-ASAT"/>
+													<!-- viitearvoryhmä -->
+													<text>miehet</text>
+													<!-- viitearvo, tietotyyppi yleensä IVL_PQ -->
+													<value xsi:type="IVL_PQ">
+														<low value="15" unit="U/l"/>
+														<high value="45" unit="U/l"/>
+													</value>
+												</observationRange>
+											</referenceRange>
+										</observation>
+									</entry>
+									<!-- toinen tutkimus P-Krea -->
+									<entry>
+										<observation classCode="OBS" moodCode="EVN">
+											<!-- ydintiedon osoitin -->
+											<templateId root="1.2.246.537.6.12.999.2003.4"/>
+											<id root="1.2.246.10.1234567.14.2008.123.24.1.3"/>
+											<!-- Tutkimuksen koodi (Kuntaliiton tutkimusnimikkeistö ja selväkielinen nimi displayname attribuutissa -->
+											<code code="4600" codeSystem="1.2.246.537.6.3.2006" codeSystemName="Laboratoriotutkimusnimikkeistö 2007" displayName="P-Krea">
+												<qualifier>
+													<value code="F" codeSystem="1.2.246.537.5.85.1997" codeSystemName="Tutkimusvastauksen tulkintakoodi" displayName="Lopullinen tulos"/>
+												</qualifier>
+											</code>
+											<!-- viittaus koko entry-observation näyttömuotoiseen tekstiin -->
+											<text>
+												<reference value="#OID1.2.246.10.1234567.14.2008.123.24.1.3.1"/>
+											</text>
+											<statusCode code="completed"/>
+											<!-- todellinen näytteenottoaika -->
+											<effectiveTime value="20080123080000"/>
+											<!-- tutkimuksen tulos -->
+											<value xsi:type="PQ" value="112" unit="umol/l"/>
+											<!--viitearvopoikkeama -->
+											<interpretationCode code="H" codeSystem="1.2.246.537.5.78.1977" codeSystemName="HL7 - Poikkeustilanneviestit" displayName="Yli viitearvon ylärajan"/>
+											<!-- näytteenottokohta -->
+											<targetSiteCode nullFlavor="NA">
+												<originalText>Vasen kyynärtaive</originalText>
+											</targetSiteCode>
+											<!-- näytteen laatu -->
+											<specimen>
+												<specimenRole>
+													<specimenPlayingEntity>
+														<code nullFlavor="NA">
+															<originalText>Paastoveri</originalText>
+														</code>
+													</specimenPlayingEntity>
+												</specimenRole>
+											</specimen>
+											<performer>
+												<!-- milloin tulokset käytettävissä, aika on pakollinen -->
+												<time value="20080123123030"/>
+												<assignedEntity>
+													<!-- tekijä henkilöstä ei tietoa -->
+													<id nullFlavor="NI"/>
+												</assignedEntity>
+											</performer>
+											<!--author elementtiä ei ole. Jos tutkimukseen liittyy lausunto henkilö ilmoitetaan näymätasolla -->										
+											<!-- tekijän huomautus -->
+											<entryRelationship typeCode="SPRT">
+												<observation moodCode="EVN" classCode="OBS">
+													<code code="2" codeSystem="1.2.246.537.6.12.2002.103"/>
+													<text mediaType="text/xml">
+														<reference value="#OID1.2.246.10.1234567.14.2008.123.24.1.3.2"/>
+													</text>
+												</observation>
+											</entryRelationship>
+											<!-- tutkimukseen liittyvä pyyntö -->
+											<entryRelationship typeCode="REFR">
+												<!-- moodCode = RQO -->
+												<observation moodCode="RQO" classCode="OBS">
+													<!-- Pyynnön id -->
+													<id root="1.2.246.10.1234567.14.2008.123.22.1.3"/>
+													<code code="8" codeSystem="1.2.246.537.6.12.2002.103"/>
+												</observation>
+											</entryRelationship>
+											<!-- tutkimuksen viitearvo, toistuva -->
+											<referenceRange typeCode="REFV">
+												<observationRange moodCode="EVN.CRT">
+													<!-- Tutkimuksen koodi (Kuntaliiton tutkimusnimikkeistö ja selväkielinen nimi displayname attribuutissa -->
+													<code code="4600" codeSystem="1.2.246.537.6.3.2006" codeSystemName="Laboratoriotutkimusnimikkeistö 2007" displayName="P-Krea"/>
+													<!-- viitearvoryhmä -->
+													<text>miehet</text>
+													<!-- viitearvo, tietotyyppi yleensä IVL_PQ -->
+													<value xsi:type="IVL_PQ">
+														<low value="60" unit="umol/l"/>
+														<high value="100" unit="umol/l"/>
+													</value>
+												</observationRange>
+											</referenceRange>
+										</observation>
+									</entry>
+									<!-- kolmas tutkimus S-Prot -->
+									<entry>
+										<observation classCode="OBS" moodCode="EVN">
+											<!-- ydintiedon osoitin -->
+											<templateId root="1.2.246.537.6.12.999.2003.4"/>
+											<id root="1.2.246.10.1234567.14.2008.123.24.1.4"/>
+											<!-- Tutkimuksen koodi (Kuntaliiton tutkimusnimikkeistö ja selväkielinen nimi displayname attribuutissa -->
+											<code code="2516" codeSystem="1.2.246.537.6.3.2006" codeSystemName="Laboratoriotutkimusnimikkeistö 2007" displayName="S-Prot">
+												<qualifier>
+													<value code="F" codeSystem="1.2.246.537.5.85.1997" codeSystemName="Tutkimusvastauksen tulkintakoodi" displayName="Lopullinen tulos"/>
+												</qualifier>
+											</code>
+											<!-- viittaus koko entry-observation näyttömuotoiseen tekstiin -->
+											<text>
+												<reference value="#OID1.2.246.10.1234567.14.2008.123.24.1.4.1"/>
+											</text>
+											<statusCode code="completed"/>
+											<!-- todellinen näytteenottoaika -->
+											<effectiveTime value="20080123080000"/>
+											<!-- tutkimuksen tulos -->
+											<value xsi:type="PQ" value="55" unit="g/l"/>
+											<interpretationCode code="L" codeSystem="1.2.246.537.5.78.1977" codeSystemName="HL7 - Poikkeustilanneviestit" displayName="Alle viitearvon alarajan"/>
+											<!-- näytteenottokohta -->
+											<targetSiteCode nullFlavor="NA">
+												<originalText>Vasen kyynärtaive</originalText>
+											</targetSiteCode>
+											<!-- näytteen laatu -->
+											<specimen>
+												<specimenRole>
+													<specimenPlayingEntity>
+														<code nullFlavor="NA">
+															<originalText>Paastoveri</originalText>
+														</code>
+													</specimenPlayingEntity>
+												</specimenRole>
+											</specimen>
+											<performer>
+												<!-- milloin tulokset käytettävissä, aika on pakollinen -->
+												<time value="20080123122510"/>
+												<assignedEntity>
+													<!-- tekijä henkilöstä ei tietoa -->
+													<id nullFlavor="NI"/>
+												</assignedEntity>
+											</performer>
+											<!-- tutkimukseen liittyvä pyyntö -->
+											<entryRelationship typeCode="REFR">
+												<!-- moodCode = RQO -->
+												<observation moodCode="RQO" classCode="OBS">
+													<!-- Pyynnön id -->
+													<id root="1.2.246.10.1234567.14.2008.123.22.1.4"/>
+													<code code="8" codeSystem="1.2.246.537.6.12.2002.103"/>
+												</observation>
+											</entryRelationship>
+											<!-- tutkimuksen viitearvo, toistuva -->
+											<referenceRange typeCode="REFV">
+												<observationRange moodCode="EVN.CRT">
+													<!-- Tutkimuksen koodi (Kuntaliiton tutkimusnimikkeistö ja selväkielinen nimi displayname attribuutissa -->
+													<code code="2516" codeSystem="1.2.246.537.6.3.2006" codeSystemName="Laboratoriotutkimusnimikkeistö 2007" displayName="S-Prot"/>
+													<!-- viitearvoryhmä -->
+													<text>aikuiset yli 18v</text>
+													<!-- viitearvo, tietotyyppi yleensä IVL_PQ -->
+													<value xsi:type="IVL_PQ">
+														<low value="62" unit="g/l"/>
+														<high value="78" unit="g/l"/>
+													</value>
+												</observationRange>
+											</referenceRange>
+										</observation>
+									</entry>
+									<!-- Neljäs tutkimus fE-Folaat -->
+									<entry>
+										<observation classCode="OBS" moodCode="EVN">
+											<!-- ydintiedon osoitin -->
+											<templateId root="1.2.246.537.6.12.999.2003.4"/>
+											<id root="1.2.246.10.1234567.14.2008.123.24.1.5"/>
+											<!-- Tutkimuksen koodi (Kuntaliiton tutkimusnimikkeistö ja selväkielinen nimi displayname attribuutissa -->
+											<code code="1414" codeSystem="1.2.246.537.6.3.2006" codeSystemName="Laboratoriotutkimusnimikkeistö 2007" displayName="fE-Folaat">
+												<qualifier>
+													<value code="F" codeSystem="1.2.246.537.5.85.1997" codeSystemName="Tutkimusvastauksen tulkintakoodi" displayName="Lopullinen tulos"/>
+												</qualifier>
+											</code>
+											<!-- viittaus koko entry-observation näyttömuotoiseen tekstiin -->
+											<text>
+												<reference value="#OID1.2.246.10.1234567.14.2008.123.24.1.5.1"/>
+											</text>
+											<statusCode code="completed"/>
+											<!-- todellinen näytteenottoaika -->
+											<effectiveTime value="20080123080000"/>
+											<!-- tutkimuksen tulos -->
+											<value xsi:type="PQ" value="140" unit="nmol/l"/>
+											<!--viitearvopoikkeama -->
+											<interpretationCode code="L" codeSystem="1.2.246.537.5.78.1977" codeSystemName="HL7 - Poikkeustilanneviestit" displayName="Alle viitearvon alarajan"/>
+											<!-- näytteenottokohta -->
+											<targetSiteCode nullFlavor="NA">
+												<originalText>Vasen kyynärtaive</originalText>
+											</targetSiteCode>
+											<!-- näytteen laatu -->
+											<specimen>
+												<specimenRole>
+													<specimenPlayingEntity>
+														<code nullFlavor="NA">
+															<originalText>Paastoveri</originalText>
+														</code>
+													</specimenPlayingEntity>
+												</specimenRole>
+											</specimen>
+											<performer>
+												<!-- milloin tulokset käytettävissä, aika on pakollinen -->
+												<time value="20080123141020"/>
+												<assignedEntity>
+													<!-- tekijä henkilöstä ei tietoa -->
+													<id nullFlavor="NI"/>
+												</assignedEntity>
+											</performer>
+											<!-- tutkimukseen liittyvä pyyntö -->
+											<entryRelationship typeCode="REFR">
+												<!-- moodCode = RQO -->
+												<observation moodCode="RQO" classCode="OBS">
+													<!-- Pyynnön id -->
+													<id root="1.2.246.10.1234567.14.2008.123.23.1.2"/>
+													<code code="8" codeSystem="1.2.246.537.6.12.2002.103"/>
+												</observation>
+											</entryRelationship>
+											<!-- tutkimuksen viitearvo, toistuva -->
+											<referenceRange typeCode="REFV">
+												<observationRange moodCode="EVN.CRT">
+													<!-- Tutkimuksen koodi (Kuntaliiton tutkimusnimikkeistö ja selväkielinen nimi displayname attribuutissa -->
+													<code code="2516" codeSystem="1.2.246.537.6.3.2006" codeSystemName="Laboratoriotutkimusnimikkeistö 2007" displayName="S-Prot"/>
+													<!-- viitearvoryhmä -->
+													<text>kaikki</text>
+													<!-- viitearvo, tietotyyppi yleensä IVL_PQ -->
+													<value xsi:type="IVL_PQ">
+														<low value="208" unit="nmol/l"/>
+														<high value="972" unit="nmol/l"/>
+													</value>
+												</observationRange>
+											</referenceRange>
+										</observation>
+									</entry>
+									<!-- Osastolla tehty tutkimus, johon ei liity pyyntöä P-Gluk -->
+									<entry>
+										<observation classCode="OBS" moodCode="EVN">
+											<!-- ydintiedon osoitin -->
+											<templateId root="1.2.246.537.6.12.999.2003.4"/>
+											<id root="1.2.246.10.1234567.14.2008.123.24.1.6"/>
+											<!-- Tutkimuksen koodi (Kuntaliiton tutkimusnimikkeistö ja selväkielinen nimi displayname attribuutissa -->
+											<code code="1471" codeSystem="1.2.246.537.6.3.2006" codeSystemName="Laboratoriotutkimusnimikkeistö 2007" displayName="P-Gluk">
+												<qualifier>
+													<value code="F" codeSystem="1.2.246.537.5.85.1997" codeSystemName="Tutkimusvastauksen tulkintakoodi" displayName="Lopullinen tulos"/>
+												</qualifier>
+											</code>
+											<!-- viittaus koko entry-observation näyttömuotoiseen tekstiin -->
+											<text>
+												<reference value="#OID1.2.246.10.1234567.14.2008.123.24.1.6.1"/>
+											</text>
+											<statusCode code="completed"/>
+											<!-- todellinen näytteenottoaika -->
+											<effectiveTime value="20080123170010"/>
+											<!-- tutkimuksen tulos -->
+											<value xsi:type="PQ" value="5.2" unit="mmol/l"/>
+											<!--viitearvopoikkeama -->
+											<interpretationCode code="N" codeSystem="1.2.246.537.5.78.1977" codeSystemName="HL7 - Poikkeustilanneviestit" displayName="Normaali arvo"/>
+											<!-- näytteenottokohta -->
+											<targetSiteCode nullFlavor="NA">
+												<originalText>Vasen kyynärtaive</originalText>
+											</targetSiteCode>
+											<!-- näytteen laatu -->
+											<specimen>
+												<specimenRole>
+													<specimenPlayingEntity>
+														<code nullFlavor="NA">
+															<originalText>Verinäyte</originalText>
+														</code>
+													</specimenPlayingEntity>
+												</specimenRole>
+											</specimen>
+											<!-- tutkimuksen suorittaja ja tekoaika , osastolla tehty tutkimus-->
+											<performer>
+												<!-- tutkimuksen tekoaika -->
+												<time value="20080123170010"/>
+												<assignedEntity>
+													<!--  Ammattihenkilön perustunniste henkilötunnus-->
+													<id extension="020365-9789" root="1.2.246.21"/>
+													<assignedPerson>
+														<name>
+															<given>Liisa</given>
+															<family>Hoitaja</family>
+														</name>
+													</assignedPerson>
+													<representedOrganization>
+														<!-- toimipaikan OID tunnus -->
+														<id extension="xxx" root="1.2.246.537.10.15675350.10"/>
+														<name>X-X sairaanhoitopiiri os 12</name>
+													</representedOrganization>
+												</assignedEntity>
+											</performer>											
+											<!-- tekijän huomautus -->
+											<entryRelationship typeCode="SPRT">
+												<observation moodCode="EVN" classCode="OBS">
+													<code code="2" codeSystem="1.2.246.537.6.12.2002.103"/>
+													<text mediaType="text/xml">
+														<reference value="#OID1.2.246.10.1234567.14.2008.123.24.1.6.2"/>
+													</text>
+												</observation>
+											</entryRelationship>
+											<!-- tutkimukseen ei liity pyyntöä -->
+											<!--
+											
+											-->
+											<!-- tutkimuksen viitearvo, toistuva -->
+											<referenceRange typeCode="REFV">
+												<observationRange moodCode="EVN.CRT">
+													<!-- Tutkimuksen koodi (Kuntaliiton tutkimusnimikkeistö ja selväkielinen nimi displayname attribuutissa -->
+													<code code="1471" codeSystem="1.2.246.537.6.3.2006" codeSystemName="Laboratoriotutkimusnimikkeistö 2007" displayName="P-Gluk"/>
+													<!-- viitearvoryhmä -->
+													<text>aikuiset, yli 16v</text>
+													<!-- viitearvo, tietotyyppi yleensä IVL_PQ -->
+													<value xsi:type="IVL_PQ">
+														<low value="4" unit="mmol/l"/>
+														<high value="6.1" unit="mmol/l"/>
+													</value>
+												</observationRange>
+											</referenceRange>
+										</observation>
+									</entry>
+								</section>
+							</component>
+						</section>
+					</component>
+				</section>
+			</component>
+			<component>
+				<section ID="OID1.2.246.10.1234567.14.2008.123.25">
+					<!-- ydintietorakenteen tunnus -->
+					<templateId root="1.2.246.777.11.2008.4"/>
+					<code code="103" codeSystem="1.2.246.537.6.12.2002" codeSystemName="Näkymä" displayName="LAB"/>
+					<title>LAB</title>
+					<text>
+						<!-- Tilaava palveluyksikkö näytetään aina vastauksissa näyttömuodossa -->
+						<paragraph>X-X sairaanhoitopiiri os 12</paragraph>
+						<!-- Henkilö näytetään jos kyseessä on lausunto, aikaa ei tule näyttömuotoon -->
+						<paragraph>el.  Ville Lahti</paragraph>
+					</text>
+					<!-- Potilaan tiedot Bodyssa näkymätasoalla  -->
+					<subject typeCode="SBJ">
+						<relatedSubject classCode="PAT">
+							<!-- Henkilötunnus -->
+							<code code="010144-923X" codeSystem="1.2.246.21"/>
+							<!-- Väliaikainen henkilötunnus -->
+							<!-- <code code="010144-923X" codeSystem="1.2.246.21"/> -->
+							<subject classCode="PSN">
+								<name>
+									<given>Erkki</given>
+									<given>Matti</given>
+									<given qualifier="CL">Matti</given>
+									<family>Meikäläinen</family>
+								</name>
+							</subject>
+						</relatedSubject>
+					</subject>
+					<!-- tilaava palveluyksikkö -->
+					<author>
+						<!-- tilaavan palveluyksikön rooli on TIL-->
+						<functionCode code="TIL" codeSystem="1.2.246.537.5.40006.2003" codeSystemName="Ammattihenkilön funktio/rooli" displayName="merkinnän tekijä"/>
+						<!--  Aika ei ole tässä käytössä  -->
+						<time nullFlavor="NA"/>
+						<assignedAuthor>
+							<!--  Ammattihenkilöä ei täytetä -->
+							<id nullFlavor="NA"/>
+							<representedOrganization>
+								<!-- Tilaava palveluyksikkö -->
+								<id extension="102" root="1.2.246.10.1234567.10"/>
+								<name>X-X sairaanhoitopiiri os 12</name>
+							</representedOrganization>
+						</assignedAuthor>
+					</author>
+					<!-- merkinnän kirjaaja -->
+					<author>
+						<!-- Mirkinnän kirjaajan rooli on aina KIR -->
+						<functionCode code="KIR" codeSystem="1.2.246.537.5.40006.2003" codeSystemName="Ammattihenkilön funktio/rooli" displayName="merkinnän kirjaaja"/>
+						<!-- kirjausaika -->
+						<time value="20080124133510"/>
+						<assignedAuthor>
+							<!--  Ammattihenkilön perustunniste henkilötunnus-->
+							<id extension="123456-9234" root="1.2.246.21"/>
+							<!--  Ammattihenkilön nimi -->
+							<assignedPerson>
+								<name>
+									<given qualifier="CL">Petri</given>
+									<family>Puukko</family>
+									<suffix>ylil.</suffix>
+								</name>
+							</assignedPerson>
+							<representedOrganization>
+								<!-- Merkinnän palveluyksikkö -->
+								<id extension="102" root="1.2.246.10.1234567.10"/>
+								<name>X-X sairaanhoitopiiri os 12</name>
+							</representedOrganization>
+						</assignedAuthor>
+					</author>
+					<!-- Merkinnän tekijä. Henkilö ilmoitetaan jos kyseessä on lausunto, muutoin ilmoitetaan vain tekevä palveluyksikkö -->
+					<author>
+						<!-- Mirkinnän tekijän rooli on  MER -->
+						<functionCode code="MER" codeSystem="1.2.246.537.5.40006.2003" codeSystemName="Ammattihenkilön funktio/rooli" displayName="merkinnän kirjaaja"/>
+						<!-- aika ei käytössä -->
+						<time nullFlavor="NA"/>
+						<assignedAuthor>
+							<!--  Ammattihenkilön perustunniste henkilötunnus-->
+							<id extension="123460-9567" root="1.2.246.21"/>
+							<!-- Henkilö ilmoitetaan jos kyseessä on lausunto -->
+							<assignedPerson>
+								<name>
+									<given qualifier="CL">Ville</given>
+									<family>Lahti</family>
+									<suffix>el.</suffix>
+								</name>
+							</assignedPerson>
+							<representedOrganization>
+								<!-- Merkinnän palveluyksikkö -->
+								<id extension="108" root="1.2.246.10.1234567.10"/>
+								<name>X-X sairaanhoitopiiri Lab</name>
+							</representedOrganization>
+						</assignedAuthor>
+					</author>
+					<!-- Hoitoprosessin vaihe "Hoidon toteutus" = Vastaukset  -->
+					<component>
+						<section>
+							<code code="15" codeSystem="1.2.246.537.6.13.2006" codeSystemName="Hoitoprosessin vaihe" displayName="Hoidon toteutus"/>
+							<title>Hoidon toteutus</title>
+							<component>
+								<section ID="OID1.2.246.10.1234567.14.2008.123.25.1">
+									<code code="53" codeSystem="1.2.246.537.6.14.2006" codeSystemName="Otsikko" displayName="Tutkimukset"/>
+									<title>Tulokset</title>
+									<text ID="OID1.2.246.10.1234567.14.2008.123.25.1.1">
+										<!--- vastauksen tiedot näyttömuodossa   -->
+										<br/>
+										<table border="1" rules="all">
+											<tbody align="left" valign="top">
+												<tr>
+													<th>Näytteenottoaika</th>
+													<th>Tutkimus</th>
+													<th>Tulos</th>
+													<th>Pat</th>
+													<th>Yksikkö</th>
+													<th>Viitearvot</th>
+													<th>Lausunto tai huomautus</th>
+													<th>Tutkimuksen tehnyt palveluyksikkö</th>
+												</tr>
+												<tr ID="OID1.2.246.10.1234567.14.2008.123.25.1.2.1">
+													<td>23.1.2008 08:00</td>
+													<td>Proteiinielektroforeesi: S-Prot-Fr  Proteiini, fraktiot, seerumista</td>
+													<td>&#160;</td>
+													<td>&#160;</td>
+													<td>&#160;</td>
+													<td>&#160;</td>													
+													<td ID="OID1.2.246.10.1234567.14.2008.123.25.1.2.2">Koko Proteiinielektroforeesi tutkimuksen lausunto. Myös kuvan liittäminen lausunnon yhteyteen on mahdollista.</td>
+													<td>X-X Lab</td>
+												</tr>
+											</tbody>
+										</table>
+										<br/>
+									</text>
+									<!--  S-Prot-Fr  Proteiini, fraktiot, seerumista. tutkimus sisältää lausunnon ja on se vuoksi omassa näkymäosiossaa.  -->
+									<entry>
+										<observation classCode="OBS" moodCode="EVN">
+											<!-- ydintiedon osoitin -->
+											<templateId root="1.2.246.537.6.12.999.2003.4"/>
+											<id root="1.2.246.10.1234567.14.2008.123.25.1.2"/>
+											<!-- Tutkimuksen koodi (Kuntaliiton tutkimusnimikkeistö ja selväkielinen nimi displayname attribuutissa -->
+											<code code="2522" codeSystem="1.2.246.537.6.3.2006" codeSystemName="Laboratoriotutkimusnimikkeistö 2007" displayName="S-Prot-Fr">
+												<originalText>Seerumin Proteiinielektroforeesi</originalText>
+												<qualifier>
+													<value code="F" codeSystem="1.2.246.537.5.85.1997" codeSystemName="Tutkimusvastauksen tulkintakoodi" displayName="Lopullinen tulos"/>
+												</qualifier>
+											</code>
+											<!-- viittaus koko entry-observation näyttömuotoiseen tekstiin -->
+											<text>
+												<reference value="#OID1.2.246.10.1234567.14.2008.123.25.1.2.1"/>
+											</text>
+											<statusCode code="completed"/>
+											<!-- todellinen näytteenottoaika -->
+											<effectiveTime value="200801230800"/>
+											<!-- tutkimuksen tulos tekstimuotoinen, tietotyyppi "ED" -->
+											<value xsi:type="ED">
+												<!-- viitaus näyttömuodossa olevaan lausuntoon -->
+												<reference value="#OID1.2.246.10.1234567.14.2008.123.25.1.2.2"/>
+											</value>
+											<interpretationCode code="A" codeSystem="1.2.246.537.5.78.1977" codeSystemName="HL7 - Poikkeustilanneviestit" displayName="Poikkeava arvo"/>
+											<!-- näytteenottokohta -->
+											<targetSiteCode nullFlavor="NA">
+												<originalText>Vasen kyynärtaive</originalText>
+											</targetSiteCode>
+											<!-- näytteen laatu -->
+											<specimen>
+												<specimenRole>
+													<specimenPlayingEntity>
+														<code nullFlavor="NA">
+															<originalText>Paastoveri</originalText>
+														</code>
+													</specimenPlayingEntity>
+												</specimenRole>
+											</specimen>
+											<performer>
+												<!-- milloin tulokset käytettävissä, aika on pakollinen -->
+												<time value="20080124123030"/>
+												<assignedEntity>
+													<!-- tekijä henkilöstä ei tietoa -->
+													<id nullFlavor="NI"/>
+												</assignedEntity>
+											</performer>
+											<!-- tutkimukseen liittyy laboratoriossa tehty lausunto -->
+											<entryRelationship typeCode="COMP">
+												<observation moodCode="EVN" classCode="OBS">
+													<code code="4" codeSystem="1.2.246.537.6.12.2002.103"/>
+													<text mediaType="text/xml">
+														<reference value="#OID1.2.246.10.1234567.14.2008.123.25.1.2.2"/>
+													</text>
+												</observation>
+											</entryRelationship>
+											<!-- tutkimukseen liittyvä pyyntö -->
+											<entryRelationship typeCode="REFR">
+												<!-- moodCode = RQO -->
+												<observation moodCode="RQO" classCode="OBS">
+													<!-- Pyynnön id -->
+													<id root="1.2.246.10.1234567.14.2008.123.23.1.3"/>
+													<code code="8" codeSystem="1.2.246.537.6.12.2002.103"/>
+												</observation>
+											</entryRelationship>
+										</observation>
+									</entry>
+								</section>
+							</component>
+						</section>
+					</component>
+				</section>
+			</component>
+		</structuredBody>
+	</component>
+</ClinicalDocument>
