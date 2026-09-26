@@ -78,6 +78,8 @@ jobs:
         run: pnpm test:eh105
       - name: Verify EH-111 clinical compatibility unit contract
         run: pnpm test:eh111
+      - name: Verify EH-150 report citation validator
+        run: pnpm test:eh150
       - name: Verify EH-113 CBC launch catalog
         run: pnpm test:eh113
       - name: Verify EH-116 registry reprocess batch
@@ -200,6 +202,11 @@ jobs:
         run: pnpm test:eh129
       - name: Verify EH-149 biomarker dynamics report
         run: pnpm test:eh149
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+          OPENAI_API_KEY: ci-placeholder
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
       - name: Verify EH-130 duplicate-document contracts
         run: pnpm test:eh130
       - name: Verify EH-131 health navigation
@@ -236,6 +243,8 @@ jobs:
         run: pnpm test:eh146
       - name: Verify EH-147 assessment golden dataset
         run: pnpm test:eh147
+      - name: Verify EH-148 report contract
+        run: pnpm test:eh148-contract
 
       - name: Publish Registry 2.0 candidate-release evidence
         run: |
@@ -279,6 +288,8 @@ jobs:
         run: supabase db start
       - name: Run EH-104 Phase B database contract
         run: pnpm test:eh104-db
+      - name: Run EH-104 durable deletion database contract
+        run: pnpm test:eh104-durable-deletion-db
       - name: Run EH-105 instrumental lineage database contract
         run: pnpm test:eh105-db
       - name: Run EH-106 atomic writer database contract

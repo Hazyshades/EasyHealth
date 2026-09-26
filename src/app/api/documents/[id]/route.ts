@@ -24,8 +24,6 @@ import {
 } from "@/lib/documents/normalization-review";
 import { REGISTRY_V2_NORMALIZATION_REVISION_SELECT } from "@/lib/documents/observation-read-boundaries";
 import { isWorkerOffline } from "@/lib/documents/worker-health";
-import { purgeDocumentDerivedLaboratoryLineage } from "@/lib/documents/laboratory-lineage-purge";
-import { purgeDocumentInstrumentalPublicationState } from "@/lib/documents/instrumental-publication-purge";
 import {
   preparedEvidenceFromWriterRow,
   type ExtractedBiomarkerWriterRow,
@@ -347,7 +345,10 @@ export async function PATCH(req: Request, context: RouteContext) {
     await supabase
       .from("documents")
       .update({ type_mismatch_warning: false })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("profile_id", profileId)
+      .eq("lifecycle_state", "active")
+      .eq("upload_state", "complete");
     return NextResponse.json({ ok: true });
   }
 
@@ -361,80 +362,32 @@ export async function DELETE(_req: Request, context: RouteContext) {
   }
 
   const { id } = await context.params;
-  const { doc, error } = await assertDocumentOwner(profileId, id);
-  if (error) return error;
-
   const supabase = createAdminClient();
+  const { data, error } = await supabase.rpc("request_document_deletion", {
+    p_profile_id: profileId,
+    p_document_id: id,
+  });
+  const operation = Array.isArray(data) ? data[0] : null;
 
-  try {
-    await purgeDocumentDerivedLaboratoryLineage(id);
-  } catch (purgeError) {
-    const message =
-      purgeError instanceof Error
-        ? purgeError.message
-        : "Laboratory lineage purge failed";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-
-  try {
-    await purgeDocumentInstrumentalPublicationState(id);
-  } catch (purgeError) {
-    const message =
-      purgeError instanceof Error
-        ? purgeError.message
-        : "Instrumental publication purge failed";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-
-  const paths = new Set<string>([doc!.storage_path]);
-  if (doc!.original_storage_path) paths.add(doc!.original_storage_path);
-  if (doc!.thumbnail_storage_path) paths.add(doc!.thumbnail_storage_path);
-
-  const { data: pageRows } = await supabase
-    .from("document_pages")
-    .select("preview_storage_path")
-    .eq("document_id", id);
-  for (const row of pageRows ?? []) {
-    if (row.preview_storage_path) paths.add(row.preview_storage_path);
-  }
-
-  const prefix = `${profileId}/${id}`;
-  const { data: listed } = await supabase.storage
-    .from("lab-documents")
-    .list(prefix, {
-      limit: 100,
-    });
-
-  async function removePath(path: string) {
-    await supabase.storage.from("lab-documents").remove([path]);
-  }
-
-  for (const path of paths) {
-    await removePath(path);
-  }
-
-  if (listed?.length) {
-    const nested = await Promise.all(
-      listed.map(async (entry) => {
-        if (entry.id) return `${prefix}/${entry.name}`;
-        const sub = await supabase.storage
-          .from("lab-documents")
-          .list(`${prefix}/${entry.name}`);
-        return (sub.data ?? []).map((f) => `${prefix}/${entry.name}/${f.name}`);
-      }),
+  if (error || !operation) {
+    const notFound =
+      error?.message.includes("document_not_found") ||
+      error?.message.includes("document_deletion_operation_missing");
+    return NextResponse.json(
+      {
+        error: notFound ? "Document not found" : "Deletion request unavailable",
+      },
+      { status: notFound ? 404 : 409 },
     );
-    for (const p of nested.flat()) {
-      if (typeof p === "string") await removePath(p);
-    }
   }
 
-  const { error: deleteError } = await supabase
-    .from("documents")
-    .delete()
-    .eq("id", id);
-  if (deleteError) {
-    return NextResponse.json({ error: deleteError.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ ok: true });
+  return noStoreJson(
+    {
+      operationId: operation.operation_id,
+      status: operation.operation_status,
+      requestedAt: operation.requested_at,
+      completedAt: operation.completed_at,
+    },
+    { status: 202 },
+  );
 }

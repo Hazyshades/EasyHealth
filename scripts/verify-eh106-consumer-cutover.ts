@@ -218,6 +218,8 @@ assert.equal(
 
 const [partial] = buildReportContext([
   {
+    id: "00000000-0000-4000-8000-000000000106",
+    document_id: "00000000-0000-4000-8000-000000000107",
     name: "ALT",
     analyte_key: "alt",
     measurement_definition_key: null,

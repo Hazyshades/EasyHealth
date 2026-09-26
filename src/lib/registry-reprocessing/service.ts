@@ -348,6 +348,8 @@ async function materializeRow(options: {
     .select("observed_at")
     .eq("id", row.document_id)
     .eq("profile_id", row.profile_id)
+    .eq("lifecycle_state", "active")
+    .eq("upload_state", "complete")
     .single();
   if (documentError) throw documentError;
 

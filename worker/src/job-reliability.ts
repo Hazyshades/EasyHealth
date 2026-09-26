@@ -7,6 +7,8 @@ export type ReclaimableJob = {
   started_at: string | null;
   /** Active retained processing attempt owning the stale claim, when known. */
   processing_attempt_id?: string | null;
+  lease_token?: string | null;
+  captured_write_generation?: number | null;
 };
 
 export type StaleJobActions = {

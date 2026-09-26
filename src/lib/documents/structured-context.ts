@@ -9,6 +9,8 @@ import {
 import { projectLaboratoryOutcome } from "@/lib/documents/incomplete-laboratory-outcomes";
 
 export type StructuredBiomarkerContext = {
+  source_row_id: string;
+  document_id: string;
   biomarker: string;
   analyte_key: string | null;
   measurement_definition_key: string | null;
@@ -31,6 +33,7 @@ export type StructuredBiomarkerContext = {
 };
 
 export type StructuredFindingContext = {
+  source_row_id: string;
   document_id: string;
   filename: string;
   document_type: DocumentType;
@@ -43,12 +46,14 @@ export type StructuredFindingContext = {
 };
 
 export type StructuredClinicalNoteContext = {
+  source_row_id: string;
   document_id: string;
   filename: string;
   document_type: DocumentType;
   note_kind?: string | null;
   provider_name: string | null;
   visit_date: string | null;
+  document_observed_at: string | null;
   chief_complaint: string | null;
   history_summary: string | null;
   exam_findings: string | null;
@@ -65,11 +70,13 @@ export type StructuredClinicalNoteContext = {
 };
 
 export type StructuredPrescriptionContext = {
+  source_row_id: string;
   document_id: string;
   filename: string;
   document_type: DocumentType;
   prescriber_name: string | null;
   prescribed_at: string | null;
+  document_observed_at: string | null;
   medications: Array<{
     name: string;
     dose: string | null;
@@ -81,6 +88,7 @@ export type StructuredPrescriptionContext = {
 };
 
 export type StructuredReferralContext = {
+  source_row_id: string;
   document_id: string;
   filename: string;
   document_type: DocumentType;
@@ -88,6 +96,7 @@ export type StructuredReferralContext = {
   referred_to_specialty: string | null;
   referred_to_provider: string | null;
   referral_date: string | null;
+  document_observed_at: string | null;
   reason_for_referral: string | null;
   clinical_summary: string | null;
   urgency: string | null;
@@ -102,9 +111,11 @@ export type DocumentStructuredContext = {
   prescriptions: StructuredPrescriptionContext[];
   referrals: StructuredReferralContext[];
   document_summaries: Array<{
+    source_row_id: string;
     document_id: string;
     filename: string;
     document_type: string;
+    observed_at: string | null;
     summary: string;
   }>;
   source_document_ids: string[];
@@ -135,12 +146,14 @@ function mapClinicalNoteRow(
   },
 ): StructuredClinicalNoteContext {
   return {
+    source_row_id: row.id as string,
     document_id: row.document_id as string,
     filename: doc.original_filename,
     document_type: doc.document_type as DocumentType,
     note_kind: typeof row.note_kind === "string" ? row.note_kind : null,
     provider_name: (row.provider_name as string | null) ?? null,
     visit_date: (row.visit_date as string | null) ?? null,
+    document_observed_at: doc.observed_at,
     chief_complaint: (row.chief_complaint as string | null) ?? null,
     history_summary: (row.history_summary as string | null) ?? null,
     exam_findings: (row.exam_findings as string | null) ?? null,
@@ -169,9 +182,11 @@ export async function buildDocumentStructuredContext(
   let docQuery = supabase
     .from("documents")
     .select(
-      "id, original_filename, document_type, observed_at, lab_name, document_summary, processing_status, status, modality",
+      "id, original_filename, document_type, observed_at, lab_name, document_summary, processing_status, status, modality, lifecycle_state, upload_state",
     )
     .eq("profile_id", profileId)
+    .eq("lifecycle_state", "active")
+    .eq("upload_state", "complete")
     .is("archived_at", null);
 
   if (documentIds?.length) {
@@ -275,6 +290,8 @@ export async function buildDocumentStructuredContext(
 
     const numericValue = obs.value != null ? Number(obs.value) : null;
     biomarkers.push({
+      source_row_id: obs.id as string,
+      document_id: obs.document_id as string,
       biomarker: obs.name,
       analyte_key: outcome.analyteKey,
       measurement_definition_key: outcome.measurementDefinitionKey,
@@ -309,6 +326,7 @@ export async function buildDocumentStructuredContext(
     const doc = docById.get(row.document_id);
     if (!doc) continue;
     instrumental_findings.push({
+      source_row_id: row.id as string,
       document_id: row.document_id,
       filename: doc.original_filename,
       document_type: doc.document_type as DocumentType,
@@ -337,11 +355,13 @@ export async function buildDocumentStructuredContext(
     if (!doc) continue;
     const meds = Array.isArray(row.medications) ? row.medications : [];
     prescriptions.push({
+      source_row_id: row.id as string,
       document_id: row.document_id,
       filename: doc.original_filename,
       document_type: doc.document_type as DocumentType,
       prescriber_name: row.prescriber_name,
       prescribed_at: row.prescribed_at,
+      document_observed_at: doc.observed_at,
       medications: meds as StructuredPrescriptionContext["medications"],
       summary: doc.document_summary,
     });
@@ -351,6 +371,7 @@ export async function buildDocumentStructuredContext(
     const doc = docById.get(row.document_id);
     if (!doc) continue;
     referrals.push({
+      source_row_id: row.id as string,
       document_id: row.document_id,
       filename: doc.original_filename,
       document_type: doc.document_type as DocumentType,
@@ -358,19 +379,21 @@ export async function buildDocumentStructuredContext(
       referred_to_specialty: row.referred_to_specialty,
       referred_to_provider: row.referred_to_provider,
       referral_date: row.referral_date,
+      document_observed_at: doc.observed_at,
       reason_for_referral: row.reason_for_referral,
       clinical_summary: row.clinical_summary,
       urgency: row.urgency,
       summary: doc.document_summary,
     });
   }
-
   for (const doc of eligibleDocs) {
     if (doc.document_summary) {
       document_summaries.push({
+        source_row_id: doc.id,
         document_id: doc.id,
         filename: doc.original_filename,
         document_type: doc.document_type,
+        observed_at: doc.observed_at,
         summary: doc.document_summary,
       });
     }
@@ -378,9 +401,7 @@ export async function buildDocumentStructuredContext(
 
   const source_document_ids = [
     ...new Set([
-      ...(observations ?? [])
-        .map((o) => o.document_id)
-        .filter((id): id is string => typeof id === "string"),
+      ...biomarkers.map((biomarker) => biomarker.document_id),
       ...instrumental_findings.map((f) => f.document_id),
       ...consultation_notes.map((c) => c.document_id),
       ...discharge_summaries.map((d) => d.document_id),
@@ -400,6 +421,24 @@ export async function buildDocumentStructuredContext(
     document_summaries,
     source_document_ids,
   };
+}
+
+export async function getDocumentWriteGenerations(
+  profileId: string,
+  documentIds: readonly string[],
+): Promise<Record<string, number>> {
+  if (documentIds.length === 0) return {};
+  const { data, error } = await createAdminClient()
+    .from("documents")
+    .select("id, write_generation")
+    .eq("profile_id", profileId)
+    .eq("lifecycle_state", "active")
+    .eq("upload_state", "complete")
+    .in("id", [...new Set(documentIds)]);
+  if (error) throw new Error(error.message);
+  return Object.fromEntries(
+    (data ?? []).map((row) => [row.id, Number(row.write_generation)]),
+  );
 }
 
 export function hashStructuredContext(

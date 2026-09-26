@@ -16,9 +16,14 @@ const RUNTIME_ROOTS = ["src", "worker/src"];
 const CONSUMERS = [
   "src/app/api/documents/[id]/observations/route.ts",
   "src/app/api/biomarkers/route.ts",
-  "src/app/api/reports/route.ts",
   "src/lib/documents/structured-context.ts",
   "src/lib/health-profile-snapshot.ts",
+];
+const DEFERRED_CONSUMERS = [
+  {
+    file: "src/app/api/reports/route.ts",
+    marker: "reportGenerationIntegrationPending",
+  },
 ];
 const ALIAS_MIGRATION = "supabase/migrations/035_postgrest_normalization_revision_fk_alias.sql";
 
@@ -69,6 +74,14 @@ for (const consumer of CONSUMERS) {
   assert.ok(
     text.includes(`!${NEW_HINT}(`),
     `${consumer} must embed observation_normalization_revisions via ${NEW_HINT}`
+  );
+}
+
+for (const deferred of DEFERRED_CONSUMERS) {
+  const text = readFileSync(deferred.file, "utf8");
+  assert.ok(
+    text.includes(deferred.marker),
+    `${deferred.file} must keep an explicit integration gate until the report route cutover`
   );
 }
 

@@ -191,6 +191,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
     .update({ processing_status: "ready", status: "completed" })
     .eq("id", id)
     .eq("profile_id", profileId)
+    .eq("lifecycle_state", "active")
+    .eq("upload_state", "complete")
     .eq("processing_status", "needs_review")
     .select("id")
     .maybeSingle();
