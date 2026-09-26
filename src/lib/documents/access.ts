@@ -34,10 +34,12 @@ export type DocumentRow = {
   content_sha256?: string | null;
   archived_at?: string | null;
   archive_reason?: string | null;
+  lifecycle_state?: "active" | "deleting" | null;
+  upload_state?: "pending" | "complete" | "failed" | null;
 };
 
 const DOCUMENT_SELECT =
-  "id, profile_id, storage_path, original_storage_path, original_filename, status, document_type, lab_name, observed_at, created_at, error_message, mime_type, file_size_bytes, thumbnail_storage_path, page_count, processing_status, processing_error, processing_version, extraction_model, processed_at, file_kind, document_summary, modality, detected_document_type, type_mismatch_warning, type_mismatch_reason, content_sha256, archived_at, archive_reason";
+  "id, profile_id, storage_path, original_storage_path, original_filename, status, document_type, lab_name, observed_at, created_at, error_message, mime_type, file_size_bytes, thumbnail_storage_path, page_count, processing_status, processing_error, processing_version, extraction_model, processed_at, file_kind, document_summary, modality, detected_document_type, type_mismatch_warning, type_mismatch_reason, content_sha256, archived_at, archive_reason, lifecycle_state, upload_state";
 
 export function isLegacyDocument(doc: DocumentRow): boolean {
   return doc.processing_version == null;
@@ -53,7 +55,7 @@ export function resolveDisplayProcessingStatus(doc: DocumentRow): string {
 
 export async function getOwnedDocument(
   profileId: string,
-  documentId: string
+  documentId: string,
 ): Promise<DocumentRow | null> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
@@ -61,6 +63,8 @@ export async function getOwnedDocument(
     .select(DOCUMENT_SELECT)
     .eq("id", documentId)
     .eq("profile_id", profileId)
+    .eq("lifecycle_state", "active")
+    .eq("upload_state", "complete")
     .is("archived_at", null)
     .maybeSingle();
 
@@ -68,10 +72,16 @@ export async function getOwnedDocument(
   return data as DocumentRow | null;
 }
 
-export async function assertDocumentOwner(profileId: string, documentId: string) {
+export async function assertDocumentOwner(
+  profileId: string,
+  documentId: string,
+) {
   const doc = await getOwnedDocument(profileId, documentId);
   if (!doc) {
-    return { doc: null, error: NextResponse.json({ error: "Not found" }, { status: 404 }) };
+    return {
+      doc: null,
+      error: NextResponse.json({ error: "Not found" }, { status: 404 }),
+    };
   }
   return { doc, error: null };
 }

@@ -50,7 +50,10 @@ const BATCH_EXTRACTED_BIOMARKER_SELECT =
   "id, biomarker_key, biomarker_name, raw_name, value_numeric, value_text, value_kind, ordinal, unit, raw_unit, reference_range, raw_reference_range, section_context, status, record_status, source_page, source_text, bounding_box, confidence, specimen, modifier, method, reported_alt_value, reported_alt_unit, raw_value_text, processing_version, collected_at, created_at, is_current";
 
 export class BatchVerificationError extends Error {
-  constructor(message: string, public readonly status: number) {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
     super(message);
   }
 }
@@ -62,13 +65,16 @@ function asOutcomes(value: unknown): BatchVerificationRowOutcome[] {
         const row = item as Record<string, unknown>;
         return typeof row.extracted_biomarker_id === "string" &&
           typeof row.outcome_code === "string"
-          ? [{
-              extractedBiomarkerId: row.extracted_biomarker_id,
-              outcome: row.outcome_code as BatchVerificationRowOutcome["outcome"],
-              ...(typeof row.resulting_revision_id === "string"
-                ? { resultingRevisionId: row.resulting_revision_id }
-                : {}),
-            }]
+          ? [
+              {
+                extractedBiomarkerId: row.extracted_biomarker_id,
+                outcome:
+                  row.outcome_code as BatchVerificationRowOutcome["outcome"],
+                ...(typeof row.resulting_revision_id === "string"
+                  ? { resultingRevisionId: row.resulting_revision_id }
+                  : {}),
+              },
+            ]
           : [];
       })
     : [];
@@ -86,12 +92,17 @@ export async function executeBatchVerification(options: {
     prepared = prepareBatchVerificationSnapshots(options.snapshots);
   } catch (caught) {
     throw new BatchVerificationError(
-      caught instanceof Error ? caught.message : "Invalid batch verification request",
+      caught instanceof Error
+        ? caught.message
+        : "Invalid batch verification request",
       400,
     );
   }
   const byId = new Map(
-    prepared.snapshots.map((snapshot) => [snapshot.extractedBiomarkerId, snapshot]),
+    prepared.snapshots.map((snapshot) => [
+      snapshot.extractedBiomarkerId,
+      snapshot,
+    ]),
   );
   const hash = prepared.requestHash;
   const supabase = createAdminClient();
@@ -101,10 +112,14 @@ export async function executeBatchVerification(options: {
     .eq("profile_id", options.profileId)
     .eq("operation_id", options.operationId)
     .maybeSingle();
-  if (existing.error) throw new BatchVerificationError(existing.error.message, 500);
+  if (existing.error)
+    throw new BatchVerificationError(existing.error.message, 500);
   if (existing.data) {
     if (existing.data.request_hash !== hash) {
-      throw new BatchVerificationError("This operation id was already used for a different selection", 409);
+      throw new BatchVerificationError(
+        "This operation id was already used for a different selection",
+        409,
+      );
     }
     const rows = await supabase
       .from("batch_verification_operation_rows")
@@ -113,7 +128,8 @@ export async function executeBatchVerification(options: {
     if (rows.error) throw new BatchVerificationError(rows.error.message, 500);
     return {
       operationId: options.operationId,
-      aggregateStatus: existing.data.aggregate_status as BatchVerificationResult["aggregateStatus"],
+      aggregateStatus: existing.data
+        .aggregate_status as BatchVerificationResult["aggregateStatus"],
       outcomes: asOutcomes(rows.data),
       replayed: true,
     };
@@ -131,7 +147,10 @@ export async function executeBatchVerification(options: {
     .select("id")
     .single();
   if (created.error || !created.data) {
-    throw new BatchVerificationError(created.error?.message ?? "Could not start batch verification", 500);
+    throw new BatchVerificationError(
+      created.error?.message ?? "Could not start batch verification",
+      500,
+    );
   }
 
   const rowResult = await supabase
@@ -141,9 +160,13 @@ export async function executeBatchVerification(options: {
     .eq("document_id", options.documentId)
     .eq("is_published", true)
     .in("id", [...byId.keys()]);
-  if (rowResult.error) throw new BatchVerificationError(rowResult.error.message, 500);
+  if (rowResult.error)
+    throw new BatchVerificationError(rowResult.error.message, 500);
   const rowsById = new Map(
-    ((rowResult.data ?? []) as unknown as BatchExtractedRow[]).map((row) => [row.id, row]),
+    ((rowResult.data ?? []) as unknown as BatchExtractedRow[]).map((row) => [
+      row.id,
+      row,
+    ]),
   );
   const outcomes: BatchVerificationRowOutcome[] = [];
 
@@ -181,7 +204,9 @@ export async function executeBatchVerification(options: {
         expected_source_snapshot: snapshot.sourceSnapshot,
         expected_active_revision_id: snapshot.activeRevisionId,
         prior_revision_id: activeRevision?.id ?? null,
-        request_hash: createHash("sha256").update(`${hash}:${id}`).digest("hex"),
+        request_hash: createHash("sha256")
+          .update(`${hash}:${id}`)
+          .digest("hex"),
         outcome_code: "excluded",
       });
       continue;
@@ -210,7 +235,9 @@ export async function executeBatchVerification(options: {
         expected_active_revision_id: snapshot.activeRevisionId,
         prior_revision_id: activeRevision?.id ?? null,
         resulting_revision_id: result.revisionId,
-        request_hash: createHash("sha256").update(`${hash}:${id}`).digest("hex"),
+        request_hash: createHash("sha256")
+          .update(`${hash}:${id}`)
+          .digest("hex"),
         outcome_code: "verified",
       });
     } catch (error) {
@@ -225,7 +252,9 @@ export async function executeBatchVerification(options: {
         expected_source_snapshot: snapshot.sourceSnapshot,
         expected_active_revision_id: snapshot.activeRevisionId,
         prior_revision_id: activeRevision?.id ?? null,
-        request_hash: createHash("sha256").update(`${hash}:${id}`).digest("hex"),
+        request_hash: createHash("sha256")
+          .update(`${hash}:${id}`)
+          .digest("hex"),
         outcome_code: "failed",
       });
     }
@@ -234,11 +263,20 @@ export async function executeBatchVerification(options: {
   const aggregateStatus = batchVerificationAggregateStatus(outcomes);
   const updated = await supabase
     .from("batch_verification_operations")
-    .update({ aggregate_status: aggregateStatus, completed_at: new Date().toISOString() })
+    .update({
+      aggregate_status: aggregateStatus,
+      completed_at: new Date().toISOString(),
+    })
     .eq("id", created.data.id);
-  if (updated.error) throw new BatchVerificationError(updated.error.message, 500);
+  if (updated.error)
+    throw new BatchVerificationError(updated.error.message, 500);
 
-  return { operationId: options.operationId, aggregateStatus, outcomes, replayed: false };
+  return {
+    operationId: options.operationId,
+    aggregateStatus,
+    outcomes,
+    replayed: false,
+  };
 }
 
 export async function reverseBatchVerification(options: {
@@ -248,7 +286,10 @@ export async function reverseBatchVerification(options: {
   reason: string;
 }): Promise<BatchVerificationResult> {
   if (!options.reason.trim()) {
-    throw new BatchVerificationError("Explain why this verification is being undone", 400);
+    throw new BatchVerificationError(
+      "Explain why this verification is being undone",
+      400,
+    );
   }
   const supabase = createAdminClient();
   const operation = await supabase
@@ -258,14 +299,21 @@ export async function reverseBatchVerification(options: {
     .eq("document_id", options.documentId)
     .eq("operation_id", options.operationId)
     .maybeSingle();
-  if (operation.error) throw new BatchVerificationError(operation.error.message, 500);
-  if (!operation.data) throw new BatchVerificationError("Batch verification operation not found", 404);
+  if (operation.error)
+    throw new BatchVerificationError(operation.error.message, 500);
+  if (!operation.data)
+    throw new BatchVerificationError(
+      "Batch verification operation not found",
+      404,
+    );
 
   const documentResult = await supabase
     .from("documents")
     .select("observed_at")
     .eq("id", options.documentId)
     .eq("profile_id", options.profileId)
+    .eq("lifecycle_state", "active")
+    .eq("upload_state", "complete")
     .maybeSingle();
   if (documentResult.error) {
     throw new BatchVerificationError(documentResult.error.message, 500);
@@ -277,7 +325,9 @@ export async function reverseBatchVerification(options: {
 
   const rows = await supabase
     .from("batch_verification_operation_rows")
-    .select("id, extracted_biomarker_id, resulting_revision_id, reversal_revision_id")
+    .select(
+      "id, extracted_biomarker_id, resulting_revision_id, reversal_revision_id",
+    )
     .eq("operation_id", operation.data.id);
   if (rows.error) throw new BatchVerificationError(rows.error.message, 500);
 
@@ -359,7 +409,8 @@ export async function reverseBatchVerification(options: {
   }
 
   const aggregateStatus =
-    outcomes.length > 0 && outcomes.every((outcome) => outcome.outcome === "verified")
+    outcomes.length > 0 &&
+    outcomes.every((outcome) => outcome.outcome === "verified")
       ? "completed"
       : outcomes.some((outcome) => outcome.outcome === "verified")
         ? "partially_completed"

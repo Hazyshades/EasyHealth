@@ -26,10 +26,10 @@ select ok(
 select ok(
   has_function_privilege(
     'service_role',
-    'public.prepare_instrumental_publication(uuid,uuid,uuid,jsonb,text)'::regprocedure,
+    'public.prepare_instrumental_publication(uuid,uuid,uuid,jsonb,text,uuid,bigint)'::regprocedure,
     'EXECUTE'
   ),
-  'service_role can execute prepare_instrumental_publication'
+  'service_role can execute lease-fenced prepare_instrumental_publication'
 );
 
 select ok(
@@ -125,7 +125,9 @@ from public.prepare_instrumental_publication(
   '10000000-0000-0000-0000-000000000020',
   (select processing_attempt_id from eh105_claim),
   (select payload from eh105_snapshot),
-  null
+  null,
+  (select lease_token from eh105_claim),
+  (select captured_write_generation from eh105_claim)
 );
 
 select isnt(
@@ -154,7 +156,9 @@ select lives_ok(
       (select canonicalization_version from eh105_prepared),
       (select snapshot_hash from eh105_prepared),
       'Summary A',
-      jsonb_build_object('processing_status', 'completed', 'page_count', 1)
+      jsonb_build_object('processing_status', 'completed', 'page_count', 1),
+      (select lease_token from eh105_claim),
+      (select captured_write_generation from eh105_claim)
     );
   $$,
   'finalize publishes prepared content atomically'
@@ -202,7 +206,9 @@ select throws_ok(
       '10000000-0000-0000-0000-000000000021',
       (select processing_attempt_id from eh105_claim_b),
       (select payload from eh105_snapshot),
-      null
+      null,
+      (select lease_token from eh105_claim_b),
+      (select captured_write_generation from eh105_claim_b)
     );
   $$,
   'P0001',

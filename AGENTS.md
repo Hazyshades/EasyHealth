@@ -79,3 +79,13 @@ GitHub Issues at `Hazyshades/EasyHealth` via the `gh` CLI. See `docs/agents/issu
 ### Domain docs
 
 Single-context: `CONTEXT.md` glossary at the repo root, ADRs under `docs/adr/`. Read them before exploring an area. See `docs/agents/domain.md`.
+
+<!-- antislop:start -->
+## antislop
+For UI, copy, people, mobile layout, or code comments work, load the antislop skill for the task:
+- Core filter, always on: `antislop`
+- Copy & text: `antislop-copywriting`
+- UI / visual: `antislop-ui`
+- Code comments: `antislop-code`
+Before starting, ask the user when antislop applies: during the work, or after it is done.
+<!-- antislop:end -->

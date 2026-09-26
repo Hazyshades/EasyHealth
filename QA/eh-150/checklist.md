@@ -1,9 +1,9 @@
 # EH-150: Report Citation Validator
 
-**Roadmap status:** Implemented validator; EH-148 integration and manual report UI QA pending
-**Build / environment:** Local worktree with pnpm; Supabase CLI/Docker present but `supabase_db_easyhealth` exited
+**Roadmap status:** Implemented at the EH-150 validator seam; EH-148/EH-151/EH-153 integration pending
+**Build / environment:** `pnpm test:eh150`; `pnpm exec tsc --noEmit --pretty false`
 **Test run date:** `2026-09-23`
-**Tester:** Automated developer evidence; manual tester unassigned
+**Tester:** `Automated EH-150 verifier`
 
 ## What this checklist covers
 
@@ -14,8 +14,6 @@ This checklist covers the report publication gate that validates source identity
 - [ ] Use a dedicated test account.
 - [ ] Use only synthetic or de-identified documents.
 - [ ] Confirm the listed test data has finished processing, unless the check intentionally tests processing.
-
-Developer-only execution used in-memory synthetic fixtures; no account, document upload, or database fixture is required for the EH-150 pure validator.
 
 ## Test data
 
@@ -59,28 +57,24 @@ EH-150 has no standalone user interface. The following checks are not manually e
 
 ## Developer evidence required
 
-- [ ] Validator fixtures cover valid, missing, unknown, broken, out-of-scope, cross-profile, archived/removed active-document sources, tombstoned source documents, and uncited claims. _(PARTIAL: pure-validator fixtures pass; EH-148 read-resolver and durable persistence behavior remain a handoff.)_
-- [x] Identity failures (unknown/broken/cross-profile/out-of-scope/source-kind) return `invalid` and block persistence; uncited or unsafe-but-in-scope claims are removed or limited only through the documented deterministic issue policy. _(Evidence: focused verifier passed; persistence is intentionally outside EH-150.)_
-- [ ] Generation, share, and export paths consume the same validator result/status and do not duplicate checks. **BLOCKED:** EH-148 generation, EH-151 share, and EH-153 export adapters are separate owners and are not present in this change.
-- [x] Logs and errors contain issue codes/request IDs only, not source text, health values, tokens, or PINs. _(Evidence: safe invalid-result and cross-profile assertions passed; validator output contains only stable codes and safe summaries.)_
-- [x] Candidate contract versions, authorized source profile identity, and overview provenance fail closed: unsupported `eh148` revisions, missing resolver profile IDs, and candidate-supplied overview text return `SCHEMA_INVALID`/`SOURCE_NOT_FOUND`; valid output uses the injected server overview renderer, whose output is checked for unsafe Unicode. _(Evidence: focused verifier passed.)_
-- [x] Authorized source projections require a source-row identity and closed document lifecycle; output snapshots come only from the authorized resolver. Non-factual clinician questions are NFC-normalized, unique, limited to five user-selected values, bounded by Unicode scalar count, and free of controls or line separators. _(Evidence: focused verifier passed.)_
-- [x] Adversarial unsafe-content fixtures fail closed for prohibited diagnosis/treatment/urgency/imperative/free-form factual fields, while non-factual `clinician_question` content remains non-factual. _(Evidence: focused verifier passed with all unsafe-field markers absent.)_
-- [x] Section-contract fixtures prove the EH-148 canonical six-section order, exactly one required container each, typed claim/limitation/source references bind one-to-one to the top-level collections, unknown/duplicate/missing/incompatible failures return `SCHEMA_INVALID`, and explicit allowed empty states carry visible limitations. _(Evidence: focused verifier passed.)_
-- [ ] Read-time lifecycle status is supplied by EH-148's resolver after the committed `make-document-deletion-durable` tombstone state: archived/removed source rows under active documents become `SOURCE_UNAVAILABLE` limited snapshots, while a tombstoned source document invalidates the complete report before owner/share/export bytes; EH-150 does not authorize live/raw-source access from a historical snapshot. **PARTIAL:** pure-validator archived/tombstone fixtures pass; EH-148 resolver, durable deletion, and DB smoke evidence are unavailable (`supabase_db_easyhealth` exited).
-- [ ] Closed-template evidence proves factual input contains only approved template IDs/parameters, server-rendered text is derived from cited snapshots, and removed claims are absent from persistence and all export formats. **PARTIAL:** EH-150 validates template IDs/parameters and removed-claim serialization; EH-148 renderer and EH-153 persistence/export evidence are pending.
-- [ ] Validator-version evidence proves new reports persist `eh150.v1`, recognized historical versions remain readable only while listed by EH-150, and missing/unknown/retired versions fail closed across owner/share/export reads. **PARTIAL:** current, `eh150.v0`, missing, unknown, and retired envelope checks pass; owner/share/export read gates are pending.
+- [x] Validator fixtures cover valid, missing, unknown, broken, out-of-scope, cross-profile, archived/removed active-document sources, tombstoned source documents, and uncited claims. _(Evidence: `scripts/verify-eh150-report-citation-validator.ts`, `pnpm test:eh150`.)_
+- [x] Identity failures (unknown/broken/cross-profile/out-of-scope/source-kind) return `invalid` and block persistence; uncited or unsafe-but-in-scope claims are removed or limited only through the documented deterministic issue policy. _(Evidence: `scripts/verify-eh150-report-citation-validator.ts`.)_
+- [ ] Generation, share, and export paths consume the same validator result/status and do not duplicate checks. _(Pending EH-148 generation and EH-151/EH-153 consumer integration.)_
+- [x] Validator results and safe issue messages contain stable issue codes without source text, health values, tokens, PINs, or profile identifiers. _(Evidence: `scripts/verify-eh150-report-citation-validator.ts`.)_
+- [x] Adversarial unsafe-content fixtures fail closed for prohibited diagnosis/treatment/urgency/imperative/free-form factual fields, while non-factual `clinician_question` content remains non-factual. _(Evidence: `scripts/verify-eh150-report-citation-validator.ts`.)_
+- [x] Candidate-owned overview/disclaimer/extensions and source snapshots are rejected; authorized resolver snapshots are projected through the display-safe field contract before validation output. _(Evidence: `scripts/verify-eh150-report-citation-validator.ts`.)_
+- [x] Section-contract fixtures prove the EH-148 canonical six-section order, exactly one required container each, typed claim/limitation/source references bind one-to-one to the top-level collections, unknown/duplicate/missing/incompatible failures return `SCHEMA_INVALID`, and explicit allowed empty states carry visible limitations. _(Evidence: `scripts/verify-eh150-report-citation-validator.ts`.)_
+- [ ] Read-time lifecycle status is supplied by EH-148's resolver after the committed `make-document-deletion-durable` tombstone state: archived/removed source rows under active documents become `SOURCE_UNAVAILABLE` limited snapshots, while a tombstoned source document invalidates the complete report before owner/share/export bytes; EH-150 does not authorize live/raw-source access from a historical snapshot. _(Pending EH-148 read-resolver and durable-deletion integration.)_
+- [ ] Closed-template evidence proves factual input contains only approved template IDs/parameters, server-rendered text is derived from cited snapshots, and removed claims are absent from persistence and all export formats. _(EH-150 validates the closed input and removes claims; renderer/persistence/export evidence is pending EH-148/EH-153.)_
+- [ ] Validator-version evidence proves new reports persist `eh150.v1`, recognized historical versions remain readable only while listed by EH-150, and missing/unknown/retired versions fail closed across owner/share/export reads. _(EH-150 module and envelope checks pass; persistence/read/share/export evidence is pending downstream integration.)_
 
-## Executed evidence
+## Local implementation evidence
 
-- `pnpm exec tsx scripts/verify-eh150-report-citation-validator.ts` — PASS: all focused validator, sanitization, lifecycle, section, and version checks.
-- `pnpm exec tsc --noEmit` — PASS.
-- `pnpm exec prettier --check src/lib/report-citation-validator.ts scripts/verify-eh150-report-citation-validator.ts` — PASS.
-- `openspec validate eh-150-report-citation-validator --type change --strict --no-interactive` — PASS: change is valid.
-- `supabase status` / `supabase start` — BLOCKED: `supabase_db_easyhealth` is exited and the CLI reports an existing start already running. EH-150 is a pure resolver-injected module, so no database assertion is required for its focused verifier.
+- [x] `pnpm test:eh150` passes the committed valid, identity, sanitization, lifecycle, closed-template, envelope, and batch-resolver fixtures.
+- [x] `pnpm exec tsc --noEmit --pretty false` completes without diagnostics.
 
 ## Out of scope or not manually testable yet
 
 - The validator does not prove that a cited medical value is clinically correct.
 - Share-token behavior is covered by EH-151/EH-154; export formatting is covered by EH-153.
-- EH-150 has no standalone user interface; interface rows remain `N/A`, not `Pass`, until EH-148 report generation/detail integration is available.
+- EH-150 has no standalone user interface. UI rows remain `N/A` until EH-148 exposes the report generation/detail path; downstream lifecycle, persistence, share, and export rows remain pending their owning changes.

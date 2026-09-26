@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<title>Laboratorio — test fixture</title>
+<style>
+  @page { size: A4; margin: 14mm 13mm 16mm; }
+  * { box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #17202a; font-size: 10.5pt; margin: 0; }
+  .page { min-height: 266mm; position: relative; }
+  .page + .page { page-break-before: always; }
+  header { border-bottom: 2px solid #164b70; padding-bottom: 8px; margin-bottom: 12px; }
+  .brand { color: #164b70; font-size: 17pt; font-weight: 700; letter-spacing: .02em; }
+  .sub { color: #536773; font-size: 9pt; margin-top: 2px; }
+  .fixture { background: #fff2c2; border: 1px solid #bd8b00; color: #5c4300; padding: 7px 9px; font-size: 8.5pt; margin-bottom: 12px; }
+  h1 { color: #164b70; font-size: 16pt; margin: 4px 0 10px; }
+  h2 { color: #164b70; border-bottom: 1px solid #b7c9d5; font-size: 11.5pt; margin: 15px 0 7px; padding-bottom: 3px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #aab8c1; }
+  .field { border-right: 1px solid #aab8c1; border-bottom: 1px solid #aab8c1; padding: 6px 8px; min-height: 39px; }
+  .field:nth-child(2n) { border-right: 0; }
+  .field:nth-last-child(-n+2) { border-bottom: 0; }
+  .label { color: #526570; font-size: 8pt; text-transform: uppercase; letter-spacing: .04em; }
+  .value { font-weight: 600; margin-top: 3px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 5px; }
+  th { background: #e7f0f5; color: #164b70; text-align: left; font-size: 8.5pt; }
+  td, th { border: 1px solid #aab8c1; padding: 6px 6px; vertical-align: top; }
+  td.num { text-align: right; white-space: nowrap; }
+  .high { color: #9b2c2c; font-weight: 700; }
+  .low { color: #9b2c2c; font-weight: 700; }
+  .normal { color: #246b3b; font-weight: 700; }
+  .note { color: #526570; font-size: 8.5pt; line-height: 1.35; }
+  .signature { margin-top: 22px; display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+  .line { border-top: 1px solid #536773; padding-top: 5px; color: #536773; font-size: 8pt; }
+  footer { position: absolute; bottom: 0; width: 100%; border-top: 1px solid #b7c9d5; color: #687984; font-size: 7.5pt; padding-top: 5px; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+<section class="page">
+  <header>
+    <div class="brand">X-X SAIRAANHOITOPIIRI</div>
+    <div class="sub">Laboratorio · Laboratoriotutkimusvastaus · CDA R2 test fixture</div>
+  </header>
+  <div class="fixture"><strong>TEST FIXTURE — SYNTHETIC DATA</strong><br>Fictional patient and fictional encounter for parser/integration testing. Not a real clinical record.</div>
+  <h1>Laboratoriotutkimusyhteenveto</h1>
+  <h2>Potilas ja palvelutapahtuma</h2>
+  <div class="grid">
+    <div class="field"><div class="label">Nimi</div><div class="value">Erkki Matti Meikäläinen</div></div>
+    <div class="field"><div class="label">Henkilötunnus (fixture)</div><div class="value">010144-923X</div></div>
+    <div class="field"><div class="label">Syntymäaika</div><div class="value">01.01.1944</div></div>
+    <div class="field"><div class="label">Sukupuoli</div><div class="value">Mies</div></div>
+    <div class="field"><div class="label">Palvelutapahtuma</div><div class="value">20.01.2008–30.01.2008</div></div>
+    <div class="field"><div class="label">Hoitomuoto</div><div class="value">Vuodeosastohoito</div></div>
+    <div class="field"><div class="label">Osasto</div><div class="value">X-X sairaanhoitopiiri, os 12</div></div>
+    <div class="field"><div class="label">Paino tutkimuspyynnössä</div><div class="value">72,5 kg</div></div>
+  </div>
+  <h2>Tutkimuksen tiedot</h2>
+  <div class="grid">
+    <div class="field"><div class="label">Näytteenotto</div><div class="value">23.01.2008 · 17:00</div></div>
+    <div class="field"><div class="label">Näytemateriaali</div><div class="value">Verinäyte</div></div>
+    <div class="field"><div class="label">Näytteenottokohta</div><div class="value">Vasen kyynärtaive</div></div>
+    <div class="field"><div class="label">Anamneesi</div><div class="value">Potilas on oireeton</div></div>
+  </div>
+  <h2>Laboratoriotulokset</h2>
+  <table>
+    <thead><tr><th>Tutkimus</th><th>Tulos</th><th>Yksikkö</th><th>Viitearvot</th><th>Tulkinta</th></tr></thead>
+    <tbody>
+      <tr><td>P-ASAT · Aspartaattiaminotransferaasi</td><td class="num high">77</td><td>U/l</td><td>15–45 U/l</td><td class="high">Yli viitearvon</td></tr>
+      <tr><td>P-Krea · Kreatiniini</td><td class="num high">112</td><td>µmol/l</td><td>60–100 µmol/l</td><td class="high">Yli viitearvon</td></tr>
+      <tr><td>S-Prot · Kokonaisproteiini</td><td class="num low">55</td><td>g/l</td><td>62–78 g/l</td><td class="low">Alle viitearvon</td></tr>
+      <tr><td>fE-Folaat · Folaatti</td><td class="num low">140</td><td>nmol/l</td><td>208–972 nmol/l</td><td class="low">Alle viitearvon</td></tr>
+      <tr><td>P-Gluk · Glukoosi</td><td class="num normal">5,2</td><td>mmol/l</td><td>4,0–6,1 mmol/l</td><td class="normal">Normaali arvo</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Tulokset on sovitettu virallisen Kanta OpenCDA -esimerkin näkyviin laboratoriohavaintoihin. Potilas, tunnisteet ja tämä renderöity raportti ovat testikäyttöön tarkoitettua synteettistä sisältöä.</p>
+  <footer><span>Laboratorio · TEST FIXTURE</span><span>1 / 2</span></footer>
+</section>
+<section class="page">
+  <header>
+    <div class="brand">X-X SAIRAANHOITOPIIRI</div>
+    <div class="sub">Laboratorio · Tutkimusvastaus · Test fixture continuation</div>
+  </header>
+  <div class="fixture"><strong>TEST FIXTURE — SYNTHETIC DATA</strong><br>Use this page to test longitudinal result parsing, abnormal flags, units, reference ranges, and encounter metadata.</div>
+  <h1>Laboratoriotutkimus — tulos- ja viitetiedot</h1>
+  <h2>Palvelutapahtuman kliiniset tiedot</h2>
+  <table>
+    <thead><tr><th>Kenttä</th><th>Arvo</th><th>Lisätieto</th></tr></thead>
+    <tbody>
+      <tr><td>Päädiagnoosi</td><td>Aikuistyypin diabetes</td><td>ICD-10: E11</td></tr>
+      <tr><td>Hoitopaikka</td><td>Vuodeosasto</td><td>20.01.2008–30.01.2008</td></tr>
+      <tr><td>Potilaan tila</td><td>Potilas on oireeton</td><td>Anamnestinen lisätieto</td></tr>
+      <tr><td>Näytteenotto</td><td>Verinäyte, vasen kyynärtaive</td><td>23.01.2008 17:00</td></tr>
+    </tbody>
+  </table>
+  <h2>Tulosmerkintöjen rakenne</h2>
+  <table>
+    <thead><tr><th>Laboratoriotutkimus</th><th>Arvo</th><th>Poikkeama</th><th>Viitealue</th></tr></thead>
+    <tbody>
+      <tr><td>P-ASAT</td><td>77 U/l</td><td class="high">H · Yli viitearvon ylärajan</td><td>15–45 U/l</td></tr>
+      <tr><td>P-Krea</td><td>112 µmol/l</td><td class="high">H · Yli viitearvon ylärajan</td><td>60–100 µmol/l</td></tr>
+      <tr><td>S-Prot</td><td>55 g/l</td><td class="low">L · Alle viitearvon alarajan</td><td>62–78 g/l</td></tr>
+      <tr><td>fE-Folaat</td><td>140 nmol/l</td><td class="low">L · Alle viitearvon alarajan</td><td>208–972 nmol/l</td></tr>
+      <tr><td>P-Gluk</td><td>5,2 mmol/l</td><td class="normal">N · Normaali arvo</td><td>4–6,1 mmol/l</td></tr>
+    </tbody>
+  </table>
+  <h2>Fixture metadata</h2>
+  <div class="grid">
+    <div class="field"><div class="label">Lähde</div><div class="value">Kanta OpenCDA R2 2009 sample</div></div>
+    <div class="field"><div class="label">Muoto</div><div class="value">HL7 CDA R2 + rendered PDF</div></div>
+    <div class="field"><div class="label">Käyttö</div><div class="value">Parser, OCR, PII, mapping, UI tests</div></div>
+    <div class="field"><div class="label">Kliininen kelpoisuus</div><div class="value">Ei kliiniseen käyttöön</div></div>
+  </div>
+  <div class="signature"><div class="line">Laboratorion hyväksyntä (fixture)</div><div class="line">Järjestelmätestin päivämäärä</div></div>
+  <footer><span>Laboratorio · TEST FIXTURE</span><span>2 / 2</span></footer>
+</section>
+</body>
+</html>

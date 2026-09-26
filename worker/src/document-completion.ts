@@ -10,13 +10,14 @@ export type DocumentCompletionWriter = {
 };
 
 export async function finalizeDocumentProcessing(
-  writer: DocumentCompletionWriter
+  writer: DocumentCompletionWriter,
 ): Promise<"completed" | "failed"> {
   try {
     await writer.complete();
     return "completed";
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Document completion failed";
+    const message =
+      error instanceof Error ? error.message : "Document completion failed";
     await writer.writeFailure(message);
     return "failed";
   }

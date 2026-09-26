@@ -174,9 +174,11 @@ export async function buildHealthProfileSnapshot(options: {
     supabase
       .from("documents")
       .select(
-        "id, original_filename, observed_at, lab_name, document_type, processing_status, status",
+        "id, original_filename, observed_at, lab_name, document_type, processing_status, status, lifecycle_state, upload_state",
       )
       .eq("profile_id", options.profileId)
+      .eq("lifecycle_state", "active")
+      .eq("upload_state", "complete")
       .is("archived_at", null),
   ]);
   if (obsError) throw new Error(obsError.message);

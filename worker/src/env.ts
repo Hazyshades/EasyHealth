@@ -33,7 +33,6 @@ function optionalPositiveInt(name: string, defaultValue: number): number {
   return parsed;
 }
 
-
 function mistralRegion(): "eu" | "us" {
   const value = optional("MISTRAL_OCR_REGION") ?? "eu";
   if (value !== "eu" && value !== "us") {
@@ -48,7 +47,9 @@ function mistralFailureMode(enabled: boolean): "fail" | "legacy_vision" {
     throw new Error("MISTRAL_OCR_FAILURE_MODE must be fail or legacy_vision");
   }
   if (enabled && process.env.NODE_ENV === "production" && value !== "fail") {
-    throw new Error("MISTRAL_OCR_FAILURE_MODE=legacy_vision is not allowed in production");
+    throw new Error(
+      "MISTRAL_OCR_FAILURE_MODE=legacy_vision is not allowed in production",
+    );
   }
   return value;
 }
@@ -58,7 +59,9 @@ const mistralOcrRegion = mistralRegion();
 const mistralOcrFailureMode = mistralFailureMode(mistralOcrEnabled);
 const mistralOcrModel = optional("MISTRAL_OCR_MODEL") ?? "mistral-ocr-latest";
 if (mistralOcrEnabled && !optional("MISTRAL_API_KEY")) {
-  throw new Error("Missing env: MISTRAL_API_KEY (required when MISTRAL_OCR_ENABLED=true)");
+  throw new Error(
+    "Missing env: MISTRAL_API_KEY (required when MISTRAL_OCR_ENABLED=true)",
+  );
 }
 
 export const workerEnv = {
@@ -69,10 +72,12 @@ export const workerEnv = {
   deepseekBaseUrl: optional("DEEPSEEK_BASE_URL") ?? "https://api.deepseek.com",
   deepseekModel: optional("DEEPSEEK_MODEL") ?? "deepseek-chat",
   owlAlphaApiKey: optional("OWL_ALPHA_API_KEY"),
-  openrouterBaseUrl: optional("OPENROUTER_BASE_URL") ?? "https://openrouter.ai/api/v1",
+  openrouterBaseUrl:
+    optional("OPENROUTER_BASE_URL") ?? "https://openrouter.ai/api/v1",
   owlAlphaModel: optional("OWL_ALPHA_MODEL") ?? "tencent/hy3:free",
   nebiusApiKey: optional("NEBIUS_API_KEY"),
-  nebiusBaseUrl: optional("NEBIUS_BASE_URL") ?? "https://api.tokenfactory.nebius.com/v1",
+  nebiusBaseUrl:
+    optional("NEBIUS_BASE_URL") ?? "https://api.tokenfactory.nebius.com/v1",
   nebiusRegion: optional("NEBIUS_REGION") ?? "eu-north1",
   nebiusFastFlavorSuffix: optional("NEBIUS_FAST_FLAVOR_SUFFIX") ?? "-fast",
   mistralApiKey: optional("MISTRAL_API_KEY"),
@@ -80,16 +85,23 @@ export const workerEnv = {
   mistralOcrModel,
   mistralOcrRegion,
   mistralOcrTimeoutMs: optionalPositiveInt("MISTRAL_OCR_TIMEOUT_MS", 45_000),
-  mistralOcrMaxBytes: optionalPositiveInt("MISTRAL_OCR_MAX_BYTES", 25 * 1024 * 1024),
+  mistralOcrMaxBytes: optionalPositiveInt(
+    "MISTRAL_OCR_MAX_BYTES",
+    25 * 1024 * 1024,
+  ),
   mistralOcrMaxPages: optionalPositiveInt("MISTRAL_OCR_MAX_PAGES", 100),
   mistralOcrFailureMode,
   mistralOcrAdapterVersion: "eh163-1",
   mistralOcrPageCostUsd: 0.004,
-  allowCrossProviderFallback: optionalBool("ALLOW_CROSS_PROVIDER_FALLBACK", false),
-  instanceId: optional("WORKER_INSTANCE_ID") ?? "document-worker",
-  pollIntervalMs: Number(process.env.WORKER_POLL_INTERVAL_MS ?? "5000"),
-  staleJobMaxAgeMs: optionalPositiveInt(
-    "STALE_JOB_MAX_AGE_MS",
-    10 * 60_000,
+  allowCrossProviderFallback: optionalBool(
+    "ALLOW_CROSS_PROVIDER_FALLBACK",
+    false,
   ),
+  instanceId: optional("WORKER_INSTANCE_ID") ?? "document-worker",
+  documentUploadBrokerUrl:
+    optional("DOCUMENT_UPLOAD_BROKER_URL") ??
+    optional("APP_URL") ??
+    "http://localhost:3000",
+  pollIntervalMs: Number(process.env.WORKER_POLL_INTERVAL_MS ?? "5000"),
+  staleJobMaxAgeMs: optionalPositiveInt("STALE_JOB_MAX_AGE_MS", 10 * 60_000),
 };

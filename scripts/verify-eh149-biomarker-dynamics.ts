@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import * as ts from "typescript";
 import {
   buildAuthorizedBiomarkerComparison,
   buildBiomarkerDynamicsReport,
@@ -559,9 +560,233 @@ assert.match(page, /Source ledger/);
 assert.match(page, /Incompatible series kept separate/);
 
 const reportsRoute = readFileSync("src/app/api/reports/route.ts", "utf8");
-assert.match(reportsRoute, /getFrozenBiomarkerDynamicsForReport/);
-assert.match(reportsRoute, /biomarker_dynamics_period/);
-assert.match(reportsRoute, /biomarker_dynamics/);
+const routeSource = ts.createSourceFile(
+  "reports-route.ts",
+  reportsRoute,
+  ts.ScriptTarget.Latest,
+  true,
+  ts.ScriptKind.TS,
+);
+const namedFunction = (name: string): ts.FunctionDeclaration => {
+  const declaration = routeSource.statements.find(
+    (statement): statement is ts.FunctionDeclaration =>
+      ts.isFunctionDeclaration(statement) && statement.name?.text === name,
+  );
+  assert.ok(declaration, `${name} must exist`);
+  assert.ok(declaration.body, `${name} must have a body`);
+  return declaration;
+};
+const responseStatus = (statement: ts.Statement): number | null => {
+  if (!ts.isReturnStatement(statement) || !statement.expression) return null;
+  if (!ts.isCallExpression(statement.expression)) return null;
+  const callee = statement.expression.expression;
+  if (
+    !ts.isPropertyAccessExpression(callee) ||
+    callee.name.text !== "json" ||
+    callee.expression.getText(routeSource) !== "NextResponse"
+  ) {
+    return null;
+  }
+  const options = statement.expression.arguments[1];
+  if (
+    !options ||
+    !ts.isObjectLiteralExpression(options) ||
+    options.properties.length !== 1
+  ) {
+    return null;
+  }
+  const status = options.properties[0];
+  if (
+    !ts.isPropertyAssignment(status) ||
+    !ts.isIdentifier(status.name) ||
+    status.name.text !== "status" ||
+    !ts.isNumericLiteral(status.initializer)
+  ) {
+    return null;
+  }
+  return Number(status.initializer.text);
+};
+const isAwaitedCall = (
+  expression: ts.Expression | undefined,
+  objectName: string | null,
+  methodName: string,
+): boolean => {
+  if (!expression || !ts.isAwaitExpression(expression)) return false;
+  if (!ts.isCallExpression(expression.expression)) return false;
+  if (expression.expression.arguments.length !== 0) return false;
+  const callee = expression.expression.expression;
+  if (objectName === null) {
+    return ts.isIdentifier(callee) && callee.text === methodName;
+  }
+  return (
+    ts.isPropertyAccessExpression(callee) &&
+    callee.name.text === methodName &&
+    callee.expression.getText(routeSource) === objectName
+  );
+};
+const bindingContainsName = (
+  name: ts.BindingName,
+  target: string,
+): boolean => {
+  if (ts.isIdentifier(name)) return name.text === target;
+  return name.elements.some(
+    (element) =>
+      ts.isBindingElement(element) &&
+      bindingContainsName(element.name, target),
+  );
+};
+
+const isAuthenticationGuard = (statement: ts.Statement): boolean => {
+  if (!ts.isIfStatement(statement) || statement.elseStatement) return false;
+  const condition = statement.expression;
+  if (
+    !ts.isPrefixUnaryExpression(condition) ||
+    condition.operator !== ts.SyntaxKind.ExclamationToken ||
+    condition.operand.getText(routeSource) !== "profileId"
+  ) {
+    return false;
+  }
+  const branch = ts.isBlock(statement.thenStatement)
+    ? statement.thenStatement.statements
+    : [statement.thenStatement];
+  return branch.length === 1 && responseStatus(branch[0]!) === 401;
+};
+const isJsonParseTry = (statement: ts.Statement): boolean => {
+  if (
+    !ts.isTryStatement(statement) ||
+    !statement.catchClause ||
+    statement.finallyBlock
+  ) {
+    return false;
+  }
+  const tryStatements = statement.tryBlock.statements;
+  const parseStatement = tryStatements[0];
+  if (
+    tryStatements.length !== 1 ||
+    !ts.isExpressionStatement(parseStatement) ||
+    !ts.isBinaryExpression(parseStatement.expression) ||
+    parseStatement.expression.operatorToken.kind !== ts.SyntaxKind.EqualsToken ||
+    parseStatement.expression.left.getText(routeSource) !== "body" ||
+    !isAwaitedCall(parseStatement.expression.right, "req", "json")
+  ) {
+    return false;
+  }
+  const catchStatements = statement.catchClause.block.statements;
+  return catchStatements.length === 1 && responseStatus(catchStatements[0]!) === 400;
+};
+const isReportSchemaParse = (statement: ts.Statement): boolean => {
+  if (!ts.isVariableStatement(statement)) return false;
+  const declarations = statement.declarationList.declarations;
+  if (declarations.length !== 1) return false;
+  const declaration = declarations[0]!;
+  if (
+    declaration.name.getText(routeSource) !== "parsed" ||
+    !declaration.initializer ||
+    !ts.isCallExpression(declaration.initializer) ||
+    declaration.initializer.arguments.length !== 1
+  ) {
+    return false;
+  }
+  const callee = declaration.initializer.expression;
+  return (
+    ts.isPropertyAccessExpression(callee) &&
+    callee.name.text === "safeParse" &&
+    callee.expression.getText(routeSource) === "createReportBodySchema" &&
+    declaration.initializer.arguments[0]!.getText(routeSource) === "body"
+  );
+};
+const isInvalidParsedGuard = (statement: ts.Statement): boolean => {
+  if (!ts.isIfStatement(statement) || statement.elseStatement) return false;
+  const condition = statement.expression;
+  if (
+    !ts.isPrefixUnaryExpression(condition) ||
+    condition.operator !== ts.SyntaxKind.ExclamationToken ||
+    condition.operand.getText(routeSource) !== "parsed.success"
+  ) {
+    return false;
+  }
+  const branch = ts.isBlock(statement.thenStatement)
+    ? statement.thenStatement.statements
+    : [statement.thenStatement];
+  return branch.length === 1 && responseStatus(branch[0]!) === 400;
+};
+
+const reportGenerationPost = namedFunction("POST");
+const postStatements = reportGenerationPost.body!.statements;
+const parsedIndex = postStatements.findIndex(isReportSchemaParse);
+const profileStatement = postStatements[0];
+const bodyStatement = postStatements[2];
+const profileDeclarations = ts.isVariableStatement(profileStatement)
+  ? profileStatement.declarationList.declarations
+  : [];
+const profileLookup =
+  profileDeclarations.length === 1 &&
+  profileDeclarations[0]!.name.getText(routeSource) === "profileId" &&
+  isAwaitedCall(
+    profileDeclarations[0]!.initializer,
+    null,
+    "getSessionProfileId",
+  );
+const bodyDeclarations = ts.isVariableStatement(bodyStatement)
+  ? bodyStatement.declarationList.declarations
+  : [];
+const bodyDeclaration =
+  ts.isVariableStatement(bodyStatement) &&
+  (bodyStatement.declarationList.flags & ts.NodeFlags.Let) !== 0 &&
+  bodyDeclarations.length === 1 &&
+  bodyDeclarations[0]!.name.getText(routeSource) === "body" &&
+  !bodyDeclarations[0]!.initializer &&
+  bodyDeclarations[0]!.type?.kind === ts.SyntaxKind.UnknownKeyword;
+const finalStatement = postStatements[6];
+const finalGate =
+  ts.isReturnStatement(finalStatement) &&
+  !!finalStatement.expression &&
+  ts.isCallExpression(finalStatement.expression) &&
+  finalStatement.expression.arguments.length === 0 &&
+  ts.isIdentifier(finalStatement.expression.expression) &&
+  finalStatement.expression.expression.text ===
+    "reportGenerationIntegrationPending";
+// The deferred route has one exact shape so earlier valid returns cannot hide.
+const reportGenerationIsDeferred =
+  postStatements.length === 7 &&
+  profileLookup &&
+  isAuthenticationGuard(postStatements[1]!) &&
+  bodyDeclaration &&
+  isJsonParseTry(postStatements[3]!) &&
+  parsedIndex === 4 &&
+  isInvalidParsedGuard(postStatements[5]!) &&
+  finalGate &&
+  !reportGenerationPost.parameters.some((parameter) =>
+    bindingContainsName(
+      parameter.name,
+      "reportGenerationIntegrationPending",
+    ),
+  );
+if (reportGenerationIsDeferred) {
+  const reportGenerationPendingHelper = namedFunction(
+    "reportGenerationIntegrationPending",
+  );
+  // EH-148 keeps the incomplete generation cutover fail-closed.
+  const helperStatements = reportGenerationPendingHelper.body!.statements;
+  assert.equal(
+    helperStatements.length,
+    1,
+    "the deferred helper must have one unconditional statement",
+  );
+  assert.ok(
+    ts.isReturnStatement(helperStatements[0]),
+    "the deferred helper must return its response directly",
+  );
+  assert.equal(
+    responseStatus(helperStatements[0]!),
+    503,
+    "the deferred helper must return HTTP 503",
+  );
+} else {
+  assert.match(reportsRoute, /getFrozenBiomarkerDynamicsForReport/);
+  assert.match(reportsRoute, /biomarker_dynamics_period/);
+  assert.match(reportsRoute, /biomarker_dynamics/);
+}
 
 const server = readFileSync("src/lib/biomarker-dynamics-server.ts", "utf8");
 assert.match(server, /report_immutable/);

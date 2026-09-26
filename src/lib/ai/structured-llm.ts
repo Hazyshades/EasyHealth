@@ -1,7 +1,11 @@
 import { generateText, type LanguageModel, type ModelMessage } from "ai";
 import type { AiInvocationClient } from "@/lib/ai/invocation-client";
 import { logAiInvocation } from "@/lib/ai/invocation-log";
-import type { AiInvocationRow, AiPipelineStage, AiProviderId } from "@/lib/ai/types";
+import type {
+  AiInvocationRow,
+  AiPipelineStage,
+  AiProviderId,
+} from "@/lib/ai/types";
 import { isNebiusProvider } from "@/lib/ai/types";
 import { temperatureForModel } from "@/lib/ai/model-capabilities";
 
@@ -19,9 +23,40 @@ export type TraceGenerateOptions = {
   supabase?: AiInvocationClient;
 };
 
-function nebiusUserMetadata(documentId: string | null | undefined, stage: string): string | undefined {
+function nebiusUserMetadata(
+  documentId: string | null | undefined,
+  stage: string,
+): string | undefined {
   if (!documentId) return undefined;
   return `easyhealth:${documentId}:${stage}`;
+}
+
+function privacySafeAiErrorCode(error: unknown): string {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  if (message.includes("timeout") || message.includes("timed out")) {
+    return "llm_timeout";
+  }
+  if (message.includes("rate limit") || message.includes("429")) {
+    return "llm_rate_limited";
+  }
+  if (
+    message.includes("unauthorized") ||
+    message.includes("forbidden") ||
+    message.includes("api key")
+  ) {
+    return "llm_auth_failed";
+  }
+  if (
+    message.includes("invalid") ||
+    message.includes("parse") ||
+    message.includes("json")
+  ) {
+    return "llm_invalid_response";
+  }
+  if (message.includes("content") || message.includes("prompt")) {
+    return "llm_input_rejected";
+  }
+  return "llm_provider_unavailable";
 }
 
 function splitSystemMessage(messages: ModelMessage[]): {
@@ -45,7 +80,9 @@ function splitSystemMessage(messages: ModelMessage[]): {
   };
 }
 
-export async function traceGenerateText(options: TraceGenerateOptions): Promise<string> {
+export async function traceGenerateText(
+  options: TraceGenerateOptions,
+): Promise<string> {
   const started = Date.now();
   const providerSwitch = options.providerSwitch ?? false;
   const useNebius = isNebiusProvider(options.provider);
@@ -57,7 +94,9 @@ export async function traceGenerateText(options: TraceGenerateOptions): Promise<
   );
 
   try {
-    const userMeta = useNebius ? nebiusUserMetadata(options.documentId, String(options.stage)) : undefined;
+    const userMeta = useNebius
+      ? nebiusUserMetadata(options.documentId, String(options.stage))
+      : undefined;
     // Nebius models (incl. DeepSeek-V4-Pro) may return HTTP 400 with response_format json_object.
     const useJsonResponseFormat = options.structuredJson && !useNebius;
 
@@ -69,7 +108,9 @@ export async function traceGenerateText(options: TraceGenerateOptions): Promise<
       messages,
       providerOptions: {
         openai: {
-          ...(useJsonResponseFormat ? { responseFormat: { type: "json_object" as const } } : {}),
+          ...(useJsonResponseFormat
+            ? { responseFormat: { type: "json_object" as const } }
+            : {}),
           ...(userMeta ? { user: userMeta } : {}),
         },
       },
@@ -105,7 +146,7 @@ export async function traceGenerateText(options: TraceGenerateOptions): Promise<
         input_tokens: null,
         output_tokens: null,
         success: false,
-        error_code: error instanceof Error ? error.message.slice(0, 240) : "llm_error",
+        error_code: privacySafeAiErrorCode(error),
         provider_switch: providerSwitch,
       };
       await logAiInvocation(options.supabase, row);

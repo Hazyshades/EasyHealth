@@ -50,6 +50,8 @@ export type PrepareInstrumentalPublicationArgs = {
   p_processing_attempt_id: string;
   p_snapshot: InstrumentalSnapshotInput;
   p_caller_digest: string | null;
+  p_lease_token: string;
+  p_write_generation: number;
 };
 
 export type PrepareInstrumentalPublicationRow = {
@@ -82,6 +84,8 @@ export type FinalizeInstrumentalPublicationArgs = {
   p_snapshot_hash: string;
   p_summary_text: string | null;
   p_completion: InstrumentalPublicationCompletion;
+  p_lease_token: string;
+  p_write_generation: number;
 };
 
 export type FinalizeInstrumentalPublicationRow = {
@@ -110,7 +114,7 @@ export function assertCanonicalNumber(value: number, field: string): void {
   }
   if (!/^-?\d+(\.\d+)?$/.test(String(value))) {
     throw new Error(
-      `Instrumental snapshot field ${field} is outside the canonical non-exponent numeric range`
+      `Instrumental snapshot field ${field} is outside the canonical non-exponent numeric range`,
     );
   }
 }
@@ -161,7 +165,7 @@ export function jsonbCanonicalText(value: CanonicalJson): string {
   }
   const keys = Object.keys(value).sort(jsonbKeyCompare);
   const members = keys.map(
-    (key) => `${escapeJsonString(key)}: ${jsonbCanonicalText(value[key])}`
+    (key) => `${escapeJsonString(key)}: ${jsonbCanonicalText(value[key])}`,
   );
   return `{${members.join(", ")}}`;
 }
@@ -197,8 +201,13 @@ export function normalizeInstrumentalSnapshot(input: {
   measures: InstrumentalMeasureMaterializationInput[];
   findings: InstrumentalSnapshotFinding[];
 }): InstrumentalSnapshotInput {
-  if (input.study_date !== null && !/^\d{4}-\d{2}-\d{2}$/.test(input.study_date)) {
-    throw new Error("Instrumental snapshot day projection must be YYYY-MM-DD or null");
+  if (
+    input.study_date !== null &&
+    !/^\d{4}-\d{2}-\d{2}$/.test(input.study_date)
+  ) {
+    throw new Error(
+      "Instrumental snapshot day projection must be YYYY-MM-DD or null",
+    );
   }
 
   const occurrences = new Set<string>();
@@ -207,36 +216,53 @@ export function normalizeInstrumentalSnapshot(input: {
     if (measure.confidence !== null) {
       assertCanonicalNumber(measure.confidence, "measure.confidence");
       if (measure.confidence < 0 || measure.confidence > 1) {
-        throw new Error("Instrumental measure confidence must be within [0, 1]");
+        throw new Error(
+          "Instrumental measure confidence must be within [0, 1]",
+        );
       }
     }
     if (
       measure.source_page !== null &&
       (!Number.isInteger(measure.source_page) || measure.source_page < 1)
     ) {
-      throw new Error("Instrumental measure source_page must be a positive integer");
+      throw new Error(
+        "Instrumental measure source_page must be a positive integer",
+      );
     }
-    if (!Number.isInteger(measure.occurrence_index) || measure.occurrence_index < 0) {
-      throw new Error("Instrumental measure has an invalid occurrence discriminator");
+    if (
+      !Number.isInteger(measure.occurrence_index) ||
+      measure.occurrence_index < 0
+    ) {
+      throw new Error(
+        "Instrumental measure has an invalid occurrence discriminator",
+      );
     }
     const normalized: InstrumentalMeasureMaterializationInput = {
       key_hint: normalizedOrNull(measure.key_hint),
       name: requireNormalized(measure.name, "measure.name"),
       raw_name: requireNormalized(measure.raw_name, "measure.raw_name"),
       value: measure.value,
-      raw_value_text: requireNormalized(measure.raw_value_text, "measure.raw_value_text"),
+      raw_value_text: requireNormalized(
+        measure.raw_value_text,
+        "measure.raw_value_text",
+      ),
       unit: measure.unit.trim(),
       raw_unit: measure.raw_unit.trim(),
       source_page: measure.source_page,
       source_text: normalizedOrNull(measure.source_text),
-      source_locator: requireNormalized(measure.source_locator, "measure.source_locator"),
+      source_locator: requireNormalized(
+        measure.source_locator,
+        "measure.source_locator",
+      ),
       occurrence_index: measure.occurrence_index,
       bounding_box: measure.bounding_box,
       confidence: measure.confidence,
     };
     const occurrenceKey = `${normalized.source_locator}\u0000${normalized.occurrence_index}`;
     if (occurrences.has(occurrenceKey)) {
-      throw new Error("Instrumental extraction contains duplicate source locator occurrences");
+      throw new Error(
+        "Instrumental extraction contains duplicate source locator occurrences",
+      );
     }
     occurrences.add(occurrenceKey);
     return normalized;
@@ -247,16 +273,23 @@ export function normalizeInstrumentalSnapshot(input: {
       finding.source_page !== null &&
       (!Number.isInteger(finding.source_page) || finding.source_page < 1)
     ) {
-      throw new Error("Instrumental finding source_page must be a positive integer");
+      throw new Error(
+        "Instrumental finding source_page must be a positive integer",
+      );
     }
     if (finding.confidence !== null) {
       assertCanonicalNumber(finding.confidence, "finding.confidence");
       if (finding.confidence < 0 || finding.confidence > 1) {
-        throw new Error("Instrumental finding confidence must be within [0, 1]");
+        throw new Error(
+          "Instrumental finding confidence must be within [0, 1]",
+        );
       }
     }
     return {
-      finding_text: requireNormalized(finding.finding_text, "finding.finding_text"),
+      finding_text: requireNormalized(
+        finding.finding_text,
+        "finding.finding_text",
+      ),
       source_page: finding.source_page,
       source_text: normalizedOrNull(finding.source_text),
       confidence: finding.confidence,
@@ -297,13 +330,13 @@ function compareNullableCText(a: string | null, b: string | null): number {
  * field tuple, every optional field an explicit null.
  */
 export function canonicalInstrumentalSnapshot(
-  snapshot: InstrumentalSnapshotInput
+  snapshot: InstrumentalSnapshotInput,
 ): CanonicalJson {
   const measures = [...snapshot.measures]
     .sort(
       (left, right) =>
         utf8Compare(left.source_locator, right.source_locator) ||
-        left.occurrence_index - right.occurrence_index
+        left.occurrence_index - right.occurrence_index,
     )
     .map((measure) => ({
       key_hint: measure.key_hint,
@@ -329,8 +362,8 @@ export function canonicalInstrumentalSnapshot(
         compareNullableCText(left.source_text, right.source_text) ||
         compareNullableCText(
           left.confidence === null ? null : String(left.confidence),
-          right.confidence === null ? null : String(right.confidence)
-        )
+          right.confidence === null ? null : String(right.confidence),
+        ),
     )
     .map((finding) => ({
       finding_text: finding.finding_text,
@@ -355,9 +388,14 @@ export function canonicalInstrumentalSnapshot(
 
 /** Worker-side digest of the canonical v2 payload; the database re-verifies. */
 export function instrumentalSnapshotDigest(
-  snapshot: InstrumentalSnapshotInput
+  snapshot: InstrumentalSnapshotInput,
 ): string {
   return createHash("sha256")
-    .update(Buffer.from(jsonbCanonicalText(canonicalInstrumentalSnapshot(snapshot)), "utf8"))
+    .update(
+      Buffer.from(
+        jsonbCanonicalText(canonicalInstrumentalSnapshot(snapshot)),
+        "utf8",
+      ),
+    )
     .digest("hex");
 }
