@@ -1,12 +1,8 @@
 /**
- * Pins the score-exclusion contract of `evaluateHealthProfileScorePolicy`
- * across every reachable reason branch, on both the scoreable and the
- * not-scoreable path.
- *
- * The existing EH-141/143/144/145 suites assert `reason` but never
- * `reason_detail`, so the two exclusion paths could drift without any suite
- * failing. This suite drives a synthetic registry instead of the shipped
- * catalog, so the scenarios stay exact when the catalog grows.
+ * Pins the score-exclusion contract across every reachable reason branch. The
+ * EH-141/143/144/145 suites assert `reason` but never `reason_detail`, so the
+ * two exclusion paths could drift silently. The registry is synthetic so the
+ * scenarios survive catalog growth.
  */
 
 import assert from "node:assert/strict";
@@ -132,9 +128,8 @@ function systemOf(
 }
 
 /**
- * Asserts reason, reason detail, and attributed contribution group together:
- * the exclusion ladder makes one decision, so changing the detail or the group
- * without the reason is still a contract break.
+ * The ladder makes one decision, so a changed detail or group is a contract
+ * break even when the reason is unchanged.
  */
 function assertExclusion(
   result: ScoreReadinessPolicyResult,
@@ -164,7 +159,6 @@ function assertExclusion(
   );
 }
 
-// ---------------------------------------------------------------- path A ----
 // Scoreable, score present. Every ladder branch above `score_not_available`
 // records no detail, including the two that only exist once a score exists.
 
@@ -223,11 +217,8 @@ assertExclusion(
   null,
 );
 
-// ---------------------------------------------------------------- path A2 ---
-// Scoreable, required groups satisfied, but no contribution group matches, so
-// there is no score. The readiness-incomplete detail is *false* here: nothing
-// about readiness is incomplete. Pinned separately because it is the one case
-// where `score_not_available` alone must not imply the detail.
+// Scoreable, required groups satisfied, no contribution group matched. The
+// one case where `score_not_available` must not imply the readiness detail.
 
 const scoreableWithoutScore = evaluateHealthProfileScorePolicy(
   [
@@ -266,10 +257,8 @@ assertExclusion(
   null,
 );
 
-// ---------------------------------------------------------------- path B ----
-// Not scoreable: a required group is missing. The readiness-incomplete detail
-// belongs to the score-less marker alone; a marker excluded for its own reason
-// carries that reason and nothing else.
+// Not scoreable: a required group is missing. The readiness detail belongs to
+// the score-less marker alone.
 
 const notScoreable = evaluateHealthProfileScorePolicy(
   [
@@ -300,7 +289,6 @@ assertExclusion(
 );
 assertExclusion(notScoreable, "thyroid", "t3", "non_numeric_value", null);
 
-// ------------------------------------------------------- system-gate rows ---
 // System ids that gate before the ladder, and the two shapes an id decides.
 
 const gated = evaluateHealthProfileScorePolicy(

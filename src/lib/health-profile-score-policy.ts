@@ -431,9 +431,8 @@ type ExclusionDecision = Readonly<{
 }>;
 
 /**
- * The one ladder of reasons a marker can be excluded by, shared by every
- * scoreability state. The duplicate / not-in-group distinction needs a score
- * to exist, so it is unreachable once `selections` is empty.
+ * The duplicate / not-in-group distinction needs a score to exist, so it is
+ * unreachable once `selections` is empty.
  */
 function classifyMarkerExclusion(
   systemId: BodySystemId,
@@ -481,15 +480,9 @@ function classifyMarkerExclusion(
 }
 
 /**
- * The readiness-incomplete detail is a refinement of the exclusion reason, not
- * a reason of its own: it may only accompany a marker that was excluded for
- * having no score, and only when a required readiness group really is
- * incomplete. A scoreable system whose groups are all satisfied but which
- * matched no contribution group is not a readiness problem, and a factual-only
- * system such as inflammation has no required groups to be incomplete.
- *
- * Pinned by the path-A / path-B scenarios in
- * scripts/verify-score-exclusion-contract.ts.
+ * A refinement of the reason, never a reason of its own. The `reasons` guard
+ * keeps it off systems with no incomplete group to report, factual-only ones
+ * included.
  */
 function exclusionDetail(
   reason: ScoreExclusionReason,
