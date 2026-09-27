@@ -224,8 +224,10 @@ assertExclusion(
 );
 
 // ---------------------------------------------------------------- path A2 ---
-// Scoreable, but no contribution group matches, so there is no score. The
-// readiness-incomplete detail is attached to the score-less marker only.
+// Scoreable, required groups satisfied, but no contribution group matches, so
+// there is no score. The readiness-incomplete detail is *false* here: nothing
+// about readiness is incomplete. Pinned separately because it is the one case
+// where `score_not_available` alone must not imply the detail.
 
 const scoreableWithoutScore = evaluateHealthProfileScorePolicy(
   [
@@ -243,12 +245,17 @@ assert.equal(
   "scoreable",
 );
 assert.equal(systemOf(scoreableWithoutScore, "thyroid").state_score, null);
+assert.deepEqual(
+  systemOf(scoreableWithoutScore, "thyroid").score_readiness.reasons,
+  [],
+  "every required group is satisfied, so readiness is not the cause",
+);
 assertExclusion(
   scoreableWithoutScore,
   "thyroid",
   "tsh",
   "score_not_available",
-  SCORE_UNAVAILABLE,
+  null,
 );
 assertExclusion(scoreableWithoutScore, "thyroid", "t4", "not_core", null);
 assertExclusion(
@@ -261,7 +268,8 @@ assertExclusion(
 
 // ---------------------------------------------------------------- path B ----
 // Not scoreable: a required group is missing. The readiness-incomplete detail
-// is attached to *every* numeric marker here, whatever its own reason.
+// belongs to the score-less marker alone; a marker excluded for its own reason
+// carries that reason and nothing else.
 
 const notScoreable = evaluateHealthProfileScorePolicy(
   [
@@ -282,7 +290,7 @@ assert.deepEqual(
   ),
   ["missing"],
 );
-assertExclusion(notScoreable, "thyroid", "t4", "not_core", SCORE_UNAVAILABLE);
+assertExclusion(notScoreable, "thyroid", "t4", "not_core", null);
 assertExclusion(
   notScoreable,
   "thyroid",
@@ -311,13 +319,19 @@ const gated = evaluateHealthProfileScorePolicy(
 );
 
 assert.equal(systemOf(gated, "inflammation").scoreability, "non_scoreable");
+assert.deepEqual(
+  systemOf(gated, "inflammation").score_readiness.reasons,
+  [],
+  "a factual-only system has no required groups, so it cannot be incomplete",
+);
 assertExclusion(
   gated,
   "inflammation",
   "marker_c",
   "system_not_scoreable",
-  SCORE_UNAVAILABLE,
+  null,
 );
 assert.equal(systemOf(gated, "general").scoreability, "supporting_only");
 assertExclusion(gated, "general", "free_note", "system_not_scoreable", null);
+
 console.log("verify-score-exclusion-contract: all checks passed");

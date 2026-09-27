@@ -481,28 +481,28 @@ function classifyMarkerExclusion(
 }
 
 /**
- * The readiness-incomplete detail explains an absent score, so it rides along
- * with every numeric marker when the system never became scoreable, but on the
- * scoreable path only with the marker excluded for having no score itself.
+ * The readiness-incomplete detail is a refinement of the exclusion reason, not
+ * a reason of its own: it may only accompany a marker that was excluded for
+ * having no score, and only when a required readiness group really is
+ * incomplete. A scoreable system whose groups are all satisfied but which
+ * matched no contribution group is not a readiness problem, and a factual-only
+ * system such as inflammation has no required groups to be incomplete.
+ *
  * Pinned by the path-A / path-B scenarios in
  * scripts/verify-score-exclusion-contract.ts.
  */
 function exclusionDetail(
   reason: ScoreExclusionReason,
-  marker: PolicyMarker,
-  scoreability: SystemScoreability,
+  readiness: SystemScoreReadiness,
 ): string | null {
-  if (scoreability === "scoreable") {
-    return reason === "score_not_available" ? SCORE_UNAVAILABLE_DETAIL : null;
-  }
-  return isNumericMarker(marker) ? SCORE_UNAVAILABLE_DETAIL : null;
+  if (reason !== "score_not_available") return null;
+  return readiness.reasons.length > 0 ? SCORE_UNAVAILABLE_DETAIL : null;
 }
 
 function buildSystemScoreProvenance(
   systemId: BodySystemId,
   markers: readonly PolicyMarker[],
   readiness: SystemScoreReadiness,
-  scoreability: SystemScoreability,
   selections: readonly ContributionSelection[],
   registry: ScoreReadinessRegistryContext,
 ): SystemScoreProvenance {
@@ -532,7 +532,7 @@ function buildSystemScoreProvenance(
           systemId,
           marker,
           decision.reason,
-          exclusionDetail(decision.reason, marker, scoreability),
+          exclusionDetail(decision.reason, readiness),
           decision.contribution_group,
         ),
       ];
@@ -629,7 +629,6 @@ function buildSystemResult(
       systemId,
       markers,
       readiness,
-      scoreability,
       selections,
       context.registry,
     ),
