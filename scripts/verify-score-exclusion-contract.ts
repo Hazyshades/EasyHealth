@@ -32,8 +32,13 @@ const SCORE_UNAVAILABLE = "required_readiness_group_incomplete";
 
 /**
  * `metabolic` has a contribution group covering every readiness key, so it can
- * only reach the "scoreable with a score" state. `thyroid` does not, which is
- * what makes "scoreable but no score" reachable at all.
+ * only reach the "scoreable with a score" state.
+ *
+ * `thyroid` deliberately violates the catalog coverage precondition that
+ * `verify-score-readiness-contribution-invariant` enforces: its readiness key
+ * has no contribution group. The shipped catalog cannot produce that, so this
+ * fixture exists to keep the policy's behaviour *under* violation pinned. Treat
+ * "scoreable but no contributors" as a counterfactual, not a reachable state.
  */
 const READINESS_GROUPS: Record<string, readonly ScoreRequiredGroup[]> = {
   metabolic: [["hba1c", "glucose"]],

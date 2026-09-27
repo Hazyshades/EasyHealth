@@ -493,6 +493,17 @@
       "reason": "Score exclusion reasons and readiness details are user-visible provenance and must not drift between the scoreable and the not-scoreable path."
     },
     {
+      "script": "test:score-readiness-contribution-invariant",
+      "verificationFiles": [
+        "scripts/verify-score-readiness-contribution-invariant.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "health-profile",
+      "reason": "Every scored readiness key must be covered by a contribution group, otherwise a system reports scoreable with a null state score and no suite notices."
+    },
+    {
       "script": "test:knowledge-base-routes",
       "verificationFiles": [
         "scripts/verify-knowledge-base-routes.ts"

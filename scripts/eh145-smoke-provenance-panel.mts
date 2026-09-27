@@ -213,6 +213,7 @@ for (const expected of [
 }
 const exclusionRow = global
   .split("<li")
+  .map((chunk) => chunk.split("</li>")[0] ?? "")
   .find((chunk) => chunk.includes("Resolution is incomplete"));
 assert.ok(exclusionRow, "the exclusion row must render its readable reason");
 assert.ok(
@@ -222,6 +223,10 @@ assert.ok(
 assert.ok(
   !exclusionRow.includes("axis_not_stated"),
   "the exclusion row must not print the machine reason_detail code",
+);
+assert.ok(
+  !global.includes("axis_not_stated"),
+  "no exclusion panel may print the machine reason_detail code",
 );
 
 const legacy = renderToStaticMarkup(

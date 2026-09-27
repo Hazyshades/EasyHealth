@@ -23,6 +23,8 @@ Score role, Coverage flag, readiness group, and contribution group are independe
 | Nutrients | `vitamin_d`; `b12`; `folate` | Requires the three reviewed nutrient inputs represented by the launch policy. | No additional reviewed nutrient assessment input is context-only at this time. |
 | Inflammation | None — factual-only | Inflammation has no approved current-state scoring policy in this release. | `crp` remains display evidence only and can never unlock a numeric system score. |
 
+Every key in a required group above must also appear in at least one contribution group of the same Body system. That coverage is what makes a numeric score reachable: the policy resolves a required group and a contribution group through the same usable-marker test, so full readiness coverage guarantees at least one contribution resolves. A required key with no contribution group would leave the system `scoreable` with no numeric score and no explanation, so `pnpm test:score-readiness-contribution-invariant` fails closed on any such key. Inflammation is exempt, as it is `non_scoreable` and declares no required group.
+
 ## Exclusions and limits
 
 - Empty required groups do not mean that a Body system is scoreable. Inflammation is explicitly `non_scoreable`.
@@ -61,3 +63,5 @@ The review-results and clearer-report actions are recovery entry points only. Th
 ## Verification
 
 Run `pnpm test:eh141` to verify approved groups, alternatives, strict completeness, context-only exclusions, usable references, and factual-only inflammation. Run `pnpm test:eh147` for the Health Profile v1 golden dataset (representative ranges, SI/US units, missing groups, and pending vs `manually_corrected` admission). `pnpm check:eh147` is the product-acceptance command and stays fail-closed until Clinical Product sign-off is hash-bound to the golden pack. Run the Registry documentation commands in the sign-off evidence before release; the generated catalog inventory is derived from the reviewed Registry and does not replace this rationale reference.
+
+Run `pnpm test:score-readiness-contribution-invariant` to verify that every scored required-group key is covered by a contribution group of the same system, and that the check rejects a catalog where one is not.
