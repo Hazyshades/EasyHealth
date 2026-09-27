@@ -26,7 +26,8 @@ None. This adds no product surface; it constrains an existing one.
 
 ## Impact
 
-- `src/lib/biomarkers/catalog/index.ts`: read-only input to the new check. No edit.
+- `src/lib/biomarkers/registry-v2-runtime.ts` and `src/lib/biomarkers/measurement-resolution.ts`: read-only input to the new check, through the same accessors the policy imports. No edit.
+- `src/lib/biomarkers/catalog/index.ts`: read-only input for the system list and the non-scoreable set. The static `SCORE_REQUIRED_GROUPS` and `SCORE_CONTRIBUTION_GROUPS` tables there are deliberately *not* used: nothing in the scoring path reads them, so asserting against them would guard a source the policy does not consume. No edit.
 - `scripts/verify-score-readiness-contribution-invariant.ts`: new verification script, registered in `package.json`, `ci/verification-suite-policy.json`, and the `verify` job of `.github/workflows/measurement-registry.yml`.
 - `docs/05-data/score-required-groups.md`: one clause added to the approved-groups section stating the coverage precondition.
 - `scripts/eh145-smoke-provenance-panel.mts`: assertion scoped to a single exclusion row.

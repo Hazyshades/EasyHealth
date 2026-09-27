@@ -1,6 +1,8 @@
 ## Context
 
-The score/readiness policy derives readiness groups and contribution groups independently from the Registry 2.0 catalog. `SCORE_REQUIRED_GROUPS` lists what a system needs before it may be scored; `SCORE_CONTRIBUTION_GROUPS` lists the axes that can actually produce a number. Nothing in the type system, the policy, or any suite relates the two tables.
+The score/readiness policy derives readiness groups and contribution groups independently from the Registry 2.0 catalog. Both come from the reviewed assessment bindings in `measurement-resolution.ts`: `getReviewedScoreReadinessGroups` collects `assessmentInputKey` per `binding.readinessGroup`, and `getReviewedScoreContributionGroups` collects it per `binding.contributionGroup`. Nothing in the type system, the policy, or any suite relates the two derivations.
+
+The catalog module also exports static `SCORE_REQUIRED_GROUPS` and `SCORE_CONTRIBUTION_GROUPS` tables. They mirror the derived data and nothing in the scoring path reads them; a first cut of the check used them and was wrong, because it validated a source the policy does not consume. `NAMED_BODY_SYSTEMS` and `NON_SCOREABLE_SYSTEMS` are exported from both modules, and the runtime copies are the ones the policy imports.
 
 Today they happen to be consistent. `resolveReadinessGroup` and `selectContributionMarkers` both resolve a group through the same `pickUsableMarker` with the same `isUsableCoreMarker` predicate, so the following holds by construction of the two call sites, not by any declared contract:
 
@@ -53,13 +55,17 @@ The gap is enforcement, not correctness. Constraints shaping the design:
 
 Considered: extend `verify-eh141-score-required-groups.ts`, which already validates approved readiness groups. Rejected, because EH-141 is owned by the Clinical Product sign-off trail recorded in `docs/05-data/score-required-groups.md`. Adding a structural precondition there would make a product-approval suite fail on an engineering-only violation, blurring who owns the gate. A separate script keeps the two failure causes independently diagnosable.
 
-**D2. Read the two catalog tables directly, not through the Registry 2.0 runtime facade.**
+**D2. Read the groups through the same Registry 2.0 runtime accessors the policy imports.**
 
-`registry-v2-runtime.ts` re-exports `getRegistryV2ScoreReadinessGroups` and `getRegistryV2ScoreContributionGroups` as per-system accessors. The check needs the whole table at once to compare keys across the two, so it imports `SCORE_REQUIRED_GROUPS` and `SCORE_CONTRIBUTION_GROUPS` from the catalog module. The runtime facade stays the only path for the policy itself, so the check does not become a second way to read the policy's inputs.
+`health-profile-score-policy.ts` obtains its groups from `getRegistryV2ScoreReadinessGroups` and `getRegistryV2ScoreContributionGroups` in `registry-v2-runtime.ts`, which resolve to the reviewed-binding derivations. The check imports the same accessors, so it observes exactly what the policy observes and cannot drift from it.
 
-**D3. Treat the check as a structural assertion over `Record<NamedBodySystemId, ...>`, not over the runtime snapshot.**
+Considered: read the static `SCORE_REQUIRED_GROUPS` and `SCORE_CONTRIBUTION_GROUPS` tables from the catalog module, on the assumption they are the policy's source. That was the original decision and it was wrong: a first implementation passed a check that read tables nothing in the scoring path consumes, so a real binding regression would have gone unnoticed. Reading through the runtime removes the class of error rather than the instance, at the cost of one indirection.
 
-`NAMED_BODY_SYSTEMS` and `NON_SCOREABLE_SYSTEMS` drive the iteration. A system with an empty readiness-group list is skipped rather than asserted: `inflammation` is intentionally factual-only and has no contribution groups, so requiring coverage there would be a false failure. The skip is stated in the output when it fires, so a new empty-group system is visible as a decision rather than as silence.
+**D3. Take a per-system lookup, not a whole-table argument.**
+
+The assertion function receives a `(system) => { readiness, contribution }` lookup and iterates `NAMED_BODY_SYSTEMS` itself. Considered: pass two `Record<NamedBodySystemId, ...>` tables built at the call site. Rejected, because building those records from runtime accessors requires either a `Partial` plus an undefined guard or a cast, and a static eight-entry literal would duplicate the system list. The lookup keeps the input dynamic, keeps the function free of table plumbing, and makes the counterfactual in D4 a one-line substitution.
+
+`NON_SCOREABLE_SYSTEMS` also drives the exemption. A system with an empty readiness-group list is skipped rather than asserted: `inflammation` is intentionally factual-only and has no contribution groups, so requiring coverage there would be a false failure. The skip is stated in the output when it fires, so a new empty-group system is visible as a decision rather than as silence.
 
 **D4. Prove the check fails, using a deliberate counterfactual in the same script.**
 

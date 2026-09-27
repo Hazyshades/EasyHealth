@@ -1,6 +1,6 @@
 ## 1. Catalog invariant check
 
-- [x] 1.1 Create `scripts/verify-score-readiness-contribution-invariant.ts` with an assertion function that takes the readiness-group table, the contribution-group table, and the non-scoreable set as parameters and returns the uncovered keys per system. Read `SCORE_REQUIRED_GROUPS`, `SCORE_CONTRIBUTION_GROUPS`, and `NON_SCOREABLE_SYSTEMS` directly from `src/lib/biomarkers/catalog/index.ts`.
+- [x] 1.1 Create `scripts/verify-score-readiness-contribution-invariant.ts` with an assertion function that takes a per-system lookup returning that system's readiness and contribution groups, plus the non-scoreable set, and returns the uncovered keys per system. Read the groups through `getRegistryV2ScoreReadinessGroups` and `getRegistryV2ScoreContributionGroups` from `src/lib/biomarkers/registry-v2-runtime.ts`, the same accessors `health-profile-score-policy.ts` imports, and take `NAMED_BODY_SYSTEMS` and `NON_SCOREABLE_SYSTEMS` from the same module. Do not read the static `SCORE_REQUIRED_GROUPS` or `SCORE_CONTRIBUTION_GROUPS` tables: nothing in the scoring path consumes them, so a check built on them would pass while a real binding regression went unnoticed.
 - [x] 1.2 Skip systems with an empty readiness-group list and print the exemption, so `inflammation` and any future factual-only system are recorded as a decision rather than passing silently.
 - [x] 1.3 Assert the shipped catalog returns no uncovered key, printing one line per system with its readiness-group count, contribution-group count, and exemption status.
 - [x] 1.4 Build a synthetic copy of the tables with one readiness key dropped from its system's contribution coverage, assert the assertion function rejects it, and assert the failure names the system and the key.
@@ -32,6 +32,6 @@
 
 - [x] 5.1 Run `pnpm typecheck` and `pnpm typecheck:worker`.
 - [x] 5.2 Run the new suite plus `test:score-exclusion-contract`, `test:eh145`, `smoke:eh145`, `test:eh141`, `test:eh143`, `test:eh144`, `test:eh146`, `test:eh147`, `test:biomarkers`, and `check:ci-suite-coverage`.
-- [x] 5.3 Confirm `prettier --check` passes on every changed file.
+- [x] 5.3 Confirm `prettier --check` passes on every file whose style this change controls: the new script, both touched verification scripts, `package.json`, and the workflow. **Exception, deliberately not met:** `docs/05-data/score-required-groups.md` and `ci/verification-suite-policy.json` were already prettier-dirty at `HEAD` as part of paper cut `pc_afdf8e83f341` (796 files repo-wide) and are left in their committed style rather than reformatted, because reformatting adds roughly 130 lines of unrelated churn.
 - [x] 5.4 Confirm no change to `GET /api/health-profile` output: the invariant already holds, so no score, readiness, or provenance value moves.
 - [x] 5.5 Complete the Registry documentation gate: create one `[Registry Docs]` tracking issue recording the canonical page change, the zero-diff generated output, and a verified not-applicable Wiki status with the evidence that `docs/05-data/score-required-groups.md` is not one of the seven mirrored pages.
