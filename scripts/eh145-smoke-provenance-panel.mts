@@ -152,7 +152,7 @@ assert.ok(
     scored.indexOf("Hemoglobin A1c</p>") &&
     scored.indexOf("Hemoglobin A1c</p>") <
       scored.indexOf("Another marker represents this contribution group"),
-  "the duplicate alternative must be excluded with its machine reason",
+  "the duplicate alternative must be listed under exclusions with its readable reason",
 );
 
 const incompleteProfile = buildHealthProfile([glucose], [source]);
@@ -173,7 +173,7 @@ const nullScore = renderToStaticMarkup(
 for (const expected of [
   "No numeric score is available",
   "Missing",
-  "Score unavailable until readiness is complete",
+  "No score contribution for this system",
   "No observations contributed to a numeric score",
 ]) {
   assert.ok(
@@ -211,9 +211,17 @@ for (const expected of [
     `global exclusion panel must include ${expected}`,
   );
 }
+const exclusionRow = global
+  .split("<li")
+  .find((chunk) => chunk.includes("Resolution is incomplete"));
+assert.ok(exclusionRow, "the exclusion row must render its readable reason");
 assert.ok(
-  !global.includes("axis_not_stated"),
-  "exclusion panels must not print the machine reason_detail code",
+  exclusionRow.includes("Unmapped result"),
+  "the exclusion row must name the observation it explains",
+);
+assert.ok(
+  !exclusionRow.includes("axis_not_stated"),
+  "the exclusion row must not print the machine reason_detail code",
 );
 
 const legacy = renderToStaticMarkup(

@@ -23,7 +23,7 @@ const EXCLUSION_LABELS: Record<ScoreExclusion["reason"], string> = {
   duplicate_contribution_group:
     "Another marker represents this contribution group",
   not_in_contribution_group: "Not part of a score contribution group",
-  score_not_available: "Score unavailable until readiness is complete",
+  score_not_available: "No score contribution for this system",
   system_not_scoreable: "This body system is factual-only",
 };
 
