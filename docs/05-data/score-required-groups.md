@@ -28,6 +28,7 @@ Score role, Coverage flag, readiness group, and contribution group are independe
 - Empty required groups do not mean that a Body system is scoreable. Inflammation is explicitly `non_scoreable`.
 - A missing document reference bound, nonnumeric value, non-core score role, or mismatched reviewed specimen leaves the group unsatisfied.
 - Coverage completeness, contribution eligibility, and a marker's presence in the Health Profile do not imply score readiness.
+- Exclusion provenance carries one primary `reason` per marker. `reason_detail` refines that reason and is never a reason of its own: `required_readiness_group_incomplete` appears only on a marker excluded as `score_not_available` while a required group is genuinely incomplete. A marker excluded for its own reason (`not_core`, `missing_reference_range`, and the rest) carries that reason alone, and a system with no required groups, such as Inflammation, never carries the detail. A scoreable system whose groups are all satisfied but which matched no contribution group is not a readiness problem and also carries no detail.
 - This policy does not infer fasting confirmation, pregnancy, age, assay interference, diagnoses, or any clinical threshold absent from the Observation.
 - The numeric score uses only runtime-approved contribution groups after readiness passes. This document does not change that formula.
 
