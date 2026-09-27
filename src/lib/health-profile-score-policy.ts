@@ -249,15 +249,34 @@ function pickUsableMarker(
   return null;
 }
 
+type ContributionSelection = Readonly<{
+  group: ScoreContributionGroup;
+  marker: PolicyMarker;
+  score: number;
+}>;
+
 function selectContributionMarkers(
   systemId: BodySystemId,
   markers: readonly PolicyMarker[],
   registry: ScoreReadinessRegistryContext,
-): { group: ScoreContributionGroup; marker: PolicyMarker }[] {
+): ContributionSelection[] {
   return (registry.contribution_groups_by_system.get(systemId) ?? []).flatMap(
     (group) => {
       const marker = pickUsableMarker(group.keys, markers);
-      return marker ? [{ group, marker }] : [];
+      return marker
+        ? [
+            {
+              group,
+              marker,
+              score: markerStateScore(
+                marker.status,
+                marker.value,
+                marker.ref_low,
+                marker.ref_high,
+              ),
+            },
+          ]
+        : [];
     },
   );
 }
@@ -404,160 +423,120 @@ function evaluateSystemScoreReadiness(
   };
 }
 
-function computeContributionScore(
+const SCORE_UNAVAILABLE_DETAIL = "required_readiness_group_incomplete";
+
+type ExclusionDecision = Readonly<{
+  reason: ScoreExclusionReason;
+  contribution_group: string | null;
+}>;
+
+/**
+ * The one ladder of reasons a marker can be excluded by, shared by every
+ * scoreability state. The duplicate / not-in-group distinction needs a score
+ * to exist, so it is unreachable once `selections` is empty.
+ */
+function classifyMarkerExclusion(
   systemId: BodySystemId,
-  markers: readonly PolicyMarker[],
+  marker: PolicyMarker,
+  selections: readonly ContributionSelection[],
   registry: ScoreReadinessRegistryContext,
-): number | null {
-  const selections = selectContributionMarkers(systemId, markers, registry);
-  const scores = selections.map(({ marker }) =>
-    markerStateScore(
-      marker.status,
-      marker.value,
-      marker.ref_low,
-      marker.ref_high,
-    ),
+): ExclusionDecision {
+  if (
+    systemId === "general" ||
+    registry.non_scoreable_systems.has(systemId as NamedBodySystemId)
+  ) {
+    return { reason: "system_not_scoreable", contribution_group: null };
+  }
+  if (!isNumericMarker(marker)) {
+    return { reason: "non_numeric_value", contribution_group: null };
+  }
+  if (marker.score_role !== "core") {
+    return { reason: "not_core", contribution_group: null };
+  }
+  if (!hasUsableDocumentReference(marker)) {
+    return { reason: "missing_reference_range", contribution_group: null };
+  }
+  if (!matchesReviewedSpecimen(marker)) {
+    return { reason: "specimen_mismatch", contribution_group: null };
+  }
+  if (selections.length === 0) {
+    return { reason: "score_not_available", contribution_group: null };
+  }
+  const duplicate = (
+    registry.contribution_groups_by_system.get(systemId) ?? []
+  ).find(
+    (group) =>
+      group.keys.includes(marker.key) &&
+      selections.some(
+        (selection) =>
+          selection.group.id === group.id && selection.marker !== marker,
+      ),
   );
-  return scores.length > 0 ? average(scores) : null;
+  return duplicate
+    ? {
+        reason: "duplicate_contribution_group",
+        contribution_group: duplicate.id,
+      }
+    : { reason: "not_in_contribution_group", contribution_group: null };
+}
+
+/**
+ * The readiness-incomplete detail explains an absent score, so it rides along
+ * with every numeric marker when the system never became scoreable, but on the
+ * scoreable path only with the marker excluded for having no score itself.
+ * Pinned by the path-A / path-B scenarios in
+ * scripts/verify-score-exclusion-contract.ts.
+ */
+function exclusionDetail(
+  reason: ScoreExclusionReason,
+  marker: PolicyMarker,
+  scoreability: SystemScoreability,
+): string | null {
+  if (scoreability === "scoreable") {
+    return reason === "score_not_available" ? SCORE_UNAVAILABLE_DETAIL : null;
+  }
+  return isNumericMarker(marker) ? SCORE_UNAVAILABLE_DETAIL : null;
 }
 
 function buildSystemScoreProvenance(
   systemId: BodySystemId,
   markers: readonly PolicyMarker[],
   readiness: SystemScoreReadiness,
-  stateScore: number | null,
+  scoreability: SystemScoreability,
+  selections: readonly ContributionSelection[],
   registry: ScoreReadinessRegistryContext,
 ): SystemScoreProvenance {
-  const selections =
-    stateScore == null
-      ? []
-      : selectContributionMarkers(systemId, markers, registry);
   const selectedMarkers = new Set(
     selections.map((selection) => selection.marker),
   );
-  const contributors: ScoreContributor[] = selections.map(
-    ({ group, marker }) => ({
-      ...toScoreEvidenceItem(systemId, marker),
-      contribution_group: group.id,
-      contribution_score: markerStateScore(
-        marker.status,
-        marker.value,
-        marker.ref_low,
-        marker.ref_high,
-      ),
-    }),
-  );
-  const contributionGroups =
-    registry.contribution_groups_by_system.get(systemId) ?? [];
-  const excluded = markers.flatMap((marker): ScoreExclusion[] => {
-    if (selectedMarkers.has(marker)) return [];
-
-    let reason: ScoreExclusionReason;
-    let reasonDetail: string | null = null;
-    let contributionGroup: string | null = null;
-
-    if (
-      systemId === "general" ||
-      registry.non_scoreable_systems.has(systemId as NamedBodySystemId)
-    ) {
-      reason = "system_not_scoreable";
-    } else if (!isNumericMarker(marker)) {
-      reason = "non_numeric_value";
-    } else if (marker.score_role !== "core") {
-      reason = "not_core";
-    } else if (!hasUsableDocumentReference(marker)) {
-      reason = "missing_reference_range";
-    } else if (!matchesReviewedSpecimen(marker)) {
-      reason = "specimen_mismatch";
-    } else if (stateScore == null) {
-      reason = "score_not_available";
-      reasonDetail = "required_readiness_group_incomplete";
-    } else {
-      const duplicate = contributionGroups.find(
-        (group) =>
-          group.keys.includes(marker.key) &&
-          selections.some(
-            (selection) =>
-              selection.group.id === group.id && selection.marker !== marker,
-          ),
-      );
-      if (duplicate) {
-        reason = "duplicate_contribution_group";
-        contributionGroup = duplicate.id;
-      } else {
-        reason = "not_in_contribution_group";
-      }
-    }
-
-    return [
-      buildProfileScoreExclusion(
-        systemId,
-        marker,
-        reason,
-        reasonDetail,
-        contributionGroup,
-      ),
-    ];
-  });
-
   return {
     algorithm_version: HEALTH_PROFILE_SCORE_ALGORITHM_VERSION,
     readiness_groups: readiness.required_groups,
-    contributors,
-    excluded,
-  };
-}
-
-function buildSystemScoreExplanations(
-  systemId: BodySystemId,
-  markers: readonly PolicyMarker[],
-  scoreability: SystemScoreability,
-  readiness: SystemScoreReadiness,
-  stateScore: number | null,
-  registry: ScoreReadinessRegistryContext,
-): SystemScoreProvenance {
-  if (markers.length === 0) {
-    return {
-      algorithm_version: HEALTH_PROFILE_SCORE_ALGORITHM_VERSION,
-      readiness_groups: readiness.required_groups,
-      contributors: [],
-      excluded: [],
-    };
-  }
-  if (scoreability === "scoreable") {
-    return buildSystemScoreProvenance(
-      systemId,
-      markers,
-      readiness,
-      stateScore,
-      registry,
-    );
-  }
-  return {
-    algorithm_version: HEALTH_PROFILE_SCORE_ALGORITHM_VERSION,
-    readiness_groups: readiness.required_groups,
-    contributors: [],
-    excluded: markers.map((marker) =>
-      buildProfileScoreExclusion(
-        systemId,
-        marker,
-        systemId === "general" ||
-          registry.non_scoreable_systems.has(systemId as NamedBodySystemId)
-          ? "system_not_scoreable"
-          : !isNumericMarker(marker)
-            ? "non_numeric_value"
-            : marker.score_role !== "core"
-              ? "not_core"
-              : !hasUsableDocumentReference(marker)
-                ? "missing_reference_range"
-                : !matchesReviewedSpecimen(marker)
-                  ? "specimen_mismatch"
-                  : "score_not_available",
-        stateScore == null && isNumericMarker(marker)
-          ? "required_readiness_group_incomplete"
-          : null,
-      ),
+    contributors: selections.map(
+      ({ group, marker, score }): ScoreContributor => ({
+        ...toScoreEvidenceItem(systemId, marker),
+        contribution_group: group.id,
+        contribution_score: score,
+      }),
     ),
+    excluded: markers.flatMap((marker): ScoreExclusion[] => {
+      if (selectedMarkers.has(marker)) return [];
+      const decision = classifyMarkerExclusion(
+        systemId,
+        marker,
+        selections,
+        registry,
+      );
+      return [
+        buildProfileScoreExclusion(
+          systemId,
+          marker,
+          decision.reason,
+          exclusionDetail(decision.reason, marker, scoreability),
+          decision.contribution_group,
+        ),
+      ];
+    }),
   };
 }
 
@@ -623,32 +602,35 @@ function buildSystemResult(
   markers: readonly PolicyMarker[],
   context: ScoreReadinessPolicyContext,
 ): ScoreReadinessPolicySystemResult {
-  const evaluation = evaluateSystemScoreReadiness(
+  const { scoreability, readiness } = evaluateSystemScoreReadiness(
     systemId,
     markers,
     context.registry,
   );
-  const stateScore =
-    evaluation.scoreability === "scoreable"
-      ? computeContributionScore(systemId, markers, context.registry)
-      : null;
+  const selections =
+    scoreability === "scoreable"
+      ? selectContributionMarkers(systemId, markers, context.registry)
+      : [];
   return {
     id: systemId,
     name: systemId === "general" ? "General" : BODY_SYSTEM_LABELS[systemId],
-    state_score: stateScore,
+    state_score:
+      selections.length > 0
+        ? average(selections.map((selection) => selection.score))
+        : null,
     data_confidence: computeSystemDataConfidence(
       systemId,
       markers,
       context.registry,
     ),
-    scoreability: evaluation.scoreability,
-    score_readiness: evaluation.readiness,
-    score_provenance: buildSystemScoreExplanations(
+    scoreability,
+    score_readiness: readiness,
+    score_provenance: buildSystemScoreProvenance(
       systemId,
       markers,
-      evaluation.scoreability,
-      evaluation.readiness,
-      stateScore,
+      readiness,
+      scoreability,
+      selections,
       context.registry,
     ),
     markers: markers.map(toPublicMarker),

@@ -482,6 +482,17 @@
       "reason": "Client Knowledge Base modules must not import the markdown filesystem loader."
     },
     {
+      "script": "test:score-exclusion-contract",
+      "verificationFiles": [
+        "scripts/verify-score-exclusion-contract.ts"
+      ],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "health-profile",
+      "reason": "Score exclusion reasons and readiness details are user-visible provenance and must not drift between the scoreable and the not-scoreable path."
+    },
+    {
       "script": "test:knowledge-base-routes",
       "verificationFiles": [
         "scripts/verify-knowledge-base-routes.ts"
