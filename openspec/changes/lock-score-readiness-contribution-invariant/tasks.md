@@ -34,4 +34,4 @@
 - [x] 5.2 Run the new suite plus `test:score-exclusion-contract`, `test:eh145`, `smoke:eh145`, `test:eh141`, `test:eh143`, `test:eh144`, `test:eh146`, `test:eh147`, `test:biomarkers`, and `check:ci-suite-coverage`.
 - [x] 5.3 Confirm `prettier --check` passes on every changed file.
 - [x] 5.4 Confirm no change to `GET /api/health-profile` output: the invariant already holds, so no score, readiness, or provenance value moves.
-- [ ] 5.5 Complete the Registry documentation gate: create one `[Registry Docs]` tracking issue recording the canonical page change, the zero-diff generated output, and a verified not-applicable Wiki status with the evidence that `docs/05-data/score-required-groups.md` is not one of the seven mirrored pages.
+- [x] 5.5 Complete the Registry documentation gate: create one `[Registry Docs]` tracking issue recording the canonical page change, the zero-diff generated output, and a verified not-applicable Wiki status with the evidence that `docs/05-data/score-required-groups.md` is not one of the seven mirrored pages.
