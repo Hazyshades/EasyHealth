@@ -479,19 +479,6 @@ function classifyMarkerExclusion(
     : { reason: "not_in_contribution_group", contribution_group: null };
 }
 
-/**
- * A refinement of the reason, never a reason of its own. The `reasons` guard
- * keeps it off systems with no incomplete group to report, factual-only ones
- * included.
- */
-function exclusionDetail(
-  reason: ScoreExclusionReason,
-  readiness: SystemScoreReadiness,
-): string | null {
-  if (reason !== "score_not_available") return null;
-  return readiness.reasons.length > 0 ? SCORE_UNAVAILABLE_DETAIL : null;
-}
-
 function buildSystemScoreProvenance(
   systemId: BodySystemId,
   markers: readonly PolicyMarker[],
@@ -502,6 +489,10 @@ function buildSystemScoreProvenance(
   const selectedMarkers = new Set(
     selections.map((selection) => selection.marker),
   );
+  // The readiness detail refines the reason rather than replacing it, and only
+  // a genuinely incomplete group can report it: a factual-only system has no
+  // required groups at all.
+  const readinessIncomplete = readiness.reasons.length > 0;
   return {
     algorithm_version: HEALTH_PROFILE_SCORE_ALGORITHM_VERSION,
     readiness_groups: readiness.required_groups,
@@ -525,7 +516,9 @@ function buildSystemScoreProvenance(
           systemId,
           marker,
           decision.reason,
-          exclusionDetail(decision.reason, readiness),
+          decision.reason === "score_not_available" && readinessIncomplete
+            ? SCORE_UNAVAILABLE_DETAIL
+            : null,
           decision.contribution_group,
         ),
       ];
