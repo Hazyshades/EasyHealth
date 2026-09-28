@@ -23,11 +23,14 @@ Score role, Coverage flag, readiness group, and contribution group are independe
 | Nutrients | `vitamin_d`; `b12`; `folate` | Requires the three reviewed nutrient inputs represented by the launch policy. | No additional reviewed nutrient assessment input is context-only at this time. |
 | Inflammation | None — factual-only | Inflammation has no approved current-state scoring policy in this release. | `crp` remains display evidence only and can never unlock a numeric system score. |
 
+Every key in a required group above must also appear in at least one contribution group of the same Body system. That coverage is what makes a numeric score reachable: the policy resolves a required group and a contribution group through the same usable-marker test, so full readiness coverage guarantees at least one contribution resolves. A required key with no contribution group would leave the system `scoreable` with no numeric score and no explanation, so `pnpm test:score-readiness-contribution-invariant` fails closed on any such key. Inflammation is exempt, as it is `non_scoreable` and declares no required group.
+
 ## Exclusions and limits
 
 - Empty required groups do not mean that a Body system is scoreable. Inflammation is explicitly `non_scoreable`.
 - A missing document reference bound, nonnumeric value, non-core score role, or mismatched reviewed specimen leaves the group unsatisfied.
 - Coverage completeness, contribution eligibility, and a marker's presence in the Health Profile do not imply score readiness.
+- Exclusion provenance carries one primary `reason` per marker. `reason_detail` refines that reason and is never a reason of its own: `required_readiness_group_incomplete` appears only on a marker excluded as `score_not_available` while a required group is genuinely incomplete. A marker excluded for its own reason (`not_core`, `missing_reference_range`, and the rest) carries that reason alone, and a system with no required groups, such as Inflammation, never carries the detail. A scoreable system whose groups are all satisfied but which matched no contribution group is not a readiness problem and also carries no detail.
 - This policy does not infer fasting confirmation, pregnancy, age, assay interference, diagnoses, or any clinical threshold absent from the Observation.
 - The numeric score uses only runtime-approved contribution groups after readiness passes. This document does not change that formula.
 
@@ -60,3 +63,5 @@ The review-results and clearer-report actions are recovery entry points only. Th
 ## Verification
 
 Run `pnpm test:eh141` to verify approved groups, alternatives, strict completeness, context-only exclusions, usable references, and factual-only inflammation. Run `pnpm test:eh147` for the Health Profile v1 golden dataset (representative ranges, SI/US units, missing groups, and pending vs `manually_corrected` admission). `pnpm check:eh147` is the product-acceptance command and stays fail-closed until Clinical Product sign-off is hash-bound to the golden pack. Run the Registry documentation commands in the sign-off evidence before release; the generated catalog inventory is derived from the reviewed Registry and does not replace this rationale reference.
+
+Run `pnpm test:score-readiness-contribution-invariant` to verify that every scored required-group key is covered by a contribution group of the same system, and that the check rejects a catalog where one is not.

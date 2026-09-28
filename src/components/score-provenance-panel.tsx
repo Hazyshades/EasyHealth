@@ -2,9 +2,7 @@
 
 import Link from "next/link";
 import { buildHealthNavigationPath } from "@/lib/health-navigation";
-import {
-  sourceRegionCanRender,
-} from "@/lib/documents/source-region";
+import { sourceRegionCanRender } from "@/lib/documents/source-region";
 import type {
   BodySystemId,
   HealthProfileScoreProvenance,
@@ -22,28 +20,37 @@ const EXCLUSION_LABELS: Record<ScoreExclusion["reason"], string> = {
   missing_reference_range: "No usable document reference range",
   specimen_mismatch: "Specimen does not match the reviewed definition",
   not_core: "Supporting marker; not a score driver",
-  duplicate_contribution_group: "Another marker represents this contribution group",
+  duplicate_contribution_group:
+    "Another marker represents this contribution group",
   not_in_contribution_group: "Not part of a score contribution group",
-  score_not_available: "Score unavailable until readiness is complete",
+  score_not_available: "No score contribution for this system",
   system_not_scoreable: "This body system is factual-only",
 };
 
-function formatValue(item: Pick<ScoreContributor, "value" | "value_text" | "unit">): string {
+function formatValue(
+  item: Pick<ScoreContributor, "value" | "value_text" | "unit">,
+): string {
   if (item.value != null && Number.isFinite(item.value)) {
     return `${item.value} ${item.unit}`.trim();
   }
   return item.value_text?.trim() || "Value unavailable";
 }
 
-function formatReference(item: Pick<ScoreContributor, "ref_low" | "ref_high">): string {
-  if (item.ref_low != null && item.ref_high != null) return `${item.ref_low}–${item.ref_high}`;
+function formatReference(
+  item: Pick<ScoreContributor, "ref_low" | "ref_high">,
+): string {
+  if (item.ref_low != null && item.ref_high != null)
+    return `${item.ref_low}–${item.ref_high}`;
   if (item.ref_low != null) return `≥ ${item.ref_low}`;
   if (item.ref_high != null) return `≤ ${item.ref_high}`;
   return "Not provided on document";
 }
 
 function sourceHref(
-  item: Pick<ScoreContributor, "source" | "source_page" | "measurement_definition_key" | "observation_id">,
+  item: Pick<
+    ScoreContributor,
+    "source" | "source_page" | "measurement_definition_key" | "observation_id"
+  >,
   systemId: BodySystemId,
   navigationReturnTo?: string | null,
 ): string | null {
@@ -64,12 +71,23 @@ function SourceEvidence({
   systemId,
   navigationReturnTo,
 }: {
-  item: Pick<ScoreContributor, "source" | "source_page" | "source_text" | "source_region" | "measurement_definition_key" | "observation_id">;
+  item: Pick<
+    ScoreContributor,
+    | "source"
+    | "source_page"
+    | "source_text"
+    | "source_region"
+    | "measurement_definition_key"
+    | "observation_id"
+  >;
   systemId: BodySystemId;
   navigationReturnTo?: string | null;
 }) {
   const href = sourceHref(item, systemId, navigationReturnTo);
-  const exactRegion = sourceRegionCanRender(item.source_region, item.source_page);
+  const exactRegion = sourceRegionCanRender(
+    item.source_region,
+    item.source_page,
+  );
   return (
     <div className="mt-2 space-y-1 text-xs text-slate-600">
       <p>
@@ -82,7 +100,9 @@ function SourceEvidence({
             ? " · Page-only source evidence"
             : " · Source page unavailable"}
       </p>
-      {item.source_text ? <p className="line-clamp-3">“{item.source_text}”</p> : null}
+      {item.source_text ? (
+        <p className="line-clamp-3">“{item.source_text}”</p>
+      ) : null}
       {href ? (
         <Link
           href={href}
@@ -95,14 +115,21 @@ function SourceEvidence({
   );
 }
 
-function ReadinessGroups({ provenance }: { provenance: SystemScoreProvenance }) {
+function ReadinessGroups({
+  provenance,
+}: {
+  provenance: SystemScoreProvenance;
+}) {
   if (provenance.readiness_groups.length === 0) return null;
   return (
     <section className="mt-4">
       <h4 className="text-sm font-semibold text-slate-900">Readiness groups</h4>
       <ul className="mt-2 space-y-2 text-sm">
         {provenance.readiness_groups.map((group) => (
-          <li key={group.keys.join("|")} className="rounded-lg border border-slate-200 p-2">
+          <li
+            key={group.keys.join("|")}
+            className="rounded-lg border border-slate-200 p-2"
+          >
             <div className="flex items-start justify-between gap-2">
               <span>{group.keys.join(" or ")}</span>
               <span className="shrink-0 text-xs font-medium text-slate-600">
@@ -118,11 +145,14 @@ function ReadinessGroups({ provenance }: { provenance: SystemScoreProvenance }) 
               </span>
             </div>
             {group.satisfied_by ? (
-              <p className="mt-1 text-xs text-slate-500">Satisfied by {group.satisfied_by}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Satisfied by {group.satisfied_by}
+              </p>
             ) : null}
             {group.present_keys.length > 0 ? (
               <p className="mt-1 text-xs text-slate-500">
-                Present but not usable for this assessment: {group.present_keys.join(", ")}
+                Present but not usable for this assessment:{" "}
+                {group.present_keys.join(", ")}
               </p>
             ) : null}
           </li>
@@ -145,7 +175,9 @@ function ContributorList({
     <section className="mt-4">
       <h4 className="text-sm font-semibold text-slate-900">Contributors</h4>
       {contributors.length === 0 ? (
-        <p className="mt-2 text-sm text-slate-600">No observations contributed to a numeric score.</p>
+        <p className="mt-2 text-sm text-slate-600">
+          No observations contributed to a numeric score.
+        </p>
       ) : (
         <ul className="mt-2 space-y-2">
           {contributors.map((contributor) => (
@@ -160,7 +192,9 @@ function ContributorList({
                 </p>
               </div>
               <p className="mt-1 text-xs text-slate-600">
-                Used for {contributor.contribution_group} · {formatValue(contributor)} · Document range {formatReference(contributor)}
+                Used for {contributor.contribution_group} ·{" "}
+                {formatValue(contributor)} · Document range{" "}
+                {formatReference(contributor)}
               </p>
               <SourceEvidence
                 item={contributor}
@@ -190,7 +224,9 @@ function ExclusionList({
     <section className="mt-4">
       <h4 className="text-sm font-semibold text-slate-900">{heading}</h4>
       {excluded.length === 0 ? (
-        <p className="mt-2 text-sm text-slate-600">No other observations were available for this score.</p>
+        <p className="mt-2 text-sm text-slate-600">
+          No other observations were available for this score.
+        </p>
       ) : (
         <ul className="mt-2 space-y-2">
           {excluded.map((item) => (
@@ -201,10 +237,10 @@ function ExclusionList({
               <p className="font-medium text-slate-900">{item.name}</p>
               <p className="mt-1 text-xs text-slate-600">
                 {EXCLUSION_LABELS[item.reason]}
-                {item.reason_detail ? ` · ${item.reason_detail}` : ""}
               </p>
               <p className="mt-1 text-xs text-slate-600">
-                {formatValue(item)} · Observed {item.observed_at ?? "date unavailable"}
+                {formatValue(item)} · Observed{" "}
+                {item.observed_at ?? "date unavailable"}
               </p>
               <SourceEvidence
                 item={item}
@@ -238,7 +274,10 @@ export function ScoreProvenancePanel({
       </summary>
       <div className="border-t border-slate-200 px-4 py-4">
         <p className="text-xs text-slate-600">
-          Algorithm version: <code className="rounded bg-slate-100 px-1 py-0.5">{provenance.algorithm_version}</code>
+          Algorithm version:{" "}
+          <code className="rounded bg-slate-100 px-1 py-0.5">
+            {provenance.algorithm_version}
+          </code>
         </p>
         <p className="mt-1 text-sm text-slate-700">
           {stateScore == null
@@ -272,10 +311,12 @@ export function ExcludedObservationsPanel({
   return (
     <details className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <summary className="cursor-pointer text-sm font-semibold text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600">
-        Observations not used in a score ({provenance.excluded_observations.length})
+        Observations not used in a score (
+        {provenance.excluded_observations.length})
       </summary>
       <p className="mt-2 text-sm text-slate-600">
-        These results remain factual records. They were not used for a current-state score for the reason shown.
+        These results remain factual records. They were not used for a
+        current-state score for the reason shown.
       </p>
       <ExclusionList
         excluded={provenance.excluded_observations}

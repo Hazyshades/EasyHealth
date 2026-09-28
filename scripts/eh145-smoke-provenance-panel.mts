@@ -49,7 +49,9 @@ const exactRegion = buildSourceRegion({
 });
 assert.ok(exactRegion, "fixture source region should be valid");
 
-function observation(overrides: Partial<ObservationInput> = {}): ObservationInput {
+function observation(
+  overrides: Partial<ObservationInput> = {},
+): ObservationInput {
   return {
     observation_id: "obs-hba1c",
     biomarker_key: "hba1c",
@@ -112,11 +114,9 @@ const preProjectionExclusion: ScoreExclusion = {
   contribution_group: null,
 };
 
-const profile = buildHealthProfile(
-  [observation(), glucose],
-  [source],
-  { excludedObservations: [preProjectionExclusion] },
-);
+const profile = buildHealthProfile([observation(), glucose], [source], {
+  excludedObservations: [preProjectionExclusion],
+});
 const metabolic = profile.systems.find((system) => system.id === "metabolic");
 assert.ok(metabolic, "metabolic system should be rendered");
 
@@ -151,15 +151,18 @@ assert.ok(
   scored.indexOf("Excluded observations") <
     scored.indexOf("Hemoglobin A1c</p>") &&
     scored.indexOf("Hemoglobin A1c</p>") <
-    scored.indexOf("Another marker represents this contribution group"),
-  "the duplicate alternative must be excluded with its machine reason",
+      scored.indexOf("Another marker represents this contribution group"),
+  "the duplicate alternative must be listed under exclusions with its readable reason",
 );
 
 const incompleteProfile = buildHealthProfile([glucose], [source]);
 const incompleteMetabolic = incompleteProfile.systems.find(
   (system) => system.id === "metabolic",
 );
-assert.ok(incompleteMetabolic, "incomplete metabolic system should be rendered");
+assert.ok(
+  incompleteMetabolic,
+  "incomplete metabolic system should be rendered",
+);
 const nullScore = renderToStaticMarkup(
   React.createElement(ScoreProvenancePanel, {
     systemId: incompleteMetabolic.id,
@@ -170,12 +173,18 @@ const nullScore = renderToStaticMarkup(
 for (const expected of [
   "No numeric score is available",
   "Missing",
-  "Score unavailable until readiness is complete",
+  "No score contribution for this system",
   "No observations contributed to a numeric score",
 ]) {
-  assert.ok(nullScore.includes(expected), `null-score panel must include ${expected}`);
+  assert.ok(
+    nullScore.includes(expected),
+    `null-score panel must include ${expected}`,
+  );
 }
-assert.ok(!nullScore.includes("/100"), "a null score must not display a numeric score");
+assert.ok(
+  !nullScore.includes("/100"),
+  "a null score must not display a numeric score",
+);
 
 const pageOnlyExclusion: ScoreExclusion = {
   ...preProjectionExclusion,
@@ -194,17 +203,40 @@ const global = renderToStaticMarkup(
 for (const expected of [
   "Observations not used in a score (2)",
   "Resolution is incomplete",
-  "axis_not_stated",
   "Source page unavailable",
   "Page-only source evidence",
 ]) {
-  assert.ok(global.includes(expected), `global exclusion panel must include ${expected}`);
+  assert.ok(
+    global.includes(expected),
+    `global exclusion panel must include ${expected}`,
+  );
 }
+const exclusionRow = global
+  .split("<li")
+  .map((chunk) => chunk.split("</li>")[0] ?? "")
+  .find((chunk) => chunk.includes("Resolution is incomplete"));
+assert.ok(exclusionRow, "the exclusion row must render its readable reason");
+assert.ok(
+  exclusionRow.includes("Unmapped result"),
+  "the exclusion row must name the observation it explains",
+);
+assert.ok(
+  !exclusionRow.includes("axis_not_stated"),
+  "the exclusion row must not print the machine reason_detail code",
+);
+assert.ok(
+  !global.includes("axis_not_stated"),
+  "no exclusion panel may print the machine reason_detail code",
+);
 
 const legacy = renderToStaticMarkup(
   React.createElement(ExcludedObservationsPanel, { provenance: null }),
 );
-assert.equal(legacy, "", "a legacy payload without provenance renders no fabricated panel");
+assert.equal(
+  legacy,
+  "",
+  "a legacy payload without provenance renders no fabricated panel",
+);
 
 const legacyDrawer = renderToStaticMarkup(
   React.createElement(ScoreProvenancePanel, {
@@ -213,7 +245,9 @@ const legacyDrawer = renderToStaticMarkup(
     provenance: null,
   }),
 );
-const { HealthProfileDrawer } = await import("../src/components/health-profile-drawer");
+const { HealthProfileDrawer } = await import(
+  "../src/components/health-profile-drawer"
+);
 const drawer = renderToStaticMarkup(
   React.createElement(HealthProfileDrawer, {
     system: metabolic,
@@ -228,10 +262,17 @@ for (const expected of [
   "Why highlighted",
   "Open source document",
 ]) {
-  assert.ok(drawer.includes(expected), `drawer must integrate the provenance panel (${expected})`);
+  assert.ok(
+    drawer.includes(expected),
+    `drawer must integrate the provenance panel (${expected})`,
+  );
 }
 
-assert.equal(legacyDrawer, "", "a legacy system without provenance renders no fabricated panel");
+assert.equal(
+  legacyDrawer,
+  "",
+  "a legacy system without provenance renders no fabricated panel",
+);
 
 mkdirSync(".artifacts", { recursive: true });
 writeFileSync(
@@ -243,4 +284,6 @@ writeFileSync(
 <h1>Null score</h1>${nullScore}
 <h1>Global exclusions</h1>${global}`,
 );
-console.log("smoke:eh145: all render checks passed; wrote .artifacts/eh145-provenance-panel.html");
+console.log(
+  "smoke:eh145: all render checks passed; wrote .artifacts/eh145-provenance-panel.html",
+);
