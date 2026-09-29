@@ -16,10 +16,16 @@ type PublicReport = Readonly<{
   created_at: string;
 }>;
 
+type PublicDocument = Readonly<{
+  id: string;
+  filename: string;
+}>;
+
 type PublicSharePayload = Readonly<{
   status: "structured";
   report: PublicReport;
   download_policy: "none" | "report" | "documents";
+  documents: PublicDocument[];
   allowed_export_formats: string[];
 }>;
 
@@ -236,6 +242,35 @@ export default function PublicSharePage() {
           </p>
         </header>
         <ReportBody content={report.content} />
+        {payload.documents.length > 0 && (
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            <h2 className="text-xl font-semibold tracking-tight">
+              Shared documents
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--eh-text-muted)]">
+              Original documents selected for this share.
+            </p>
+            <ul className="mt-5 space-y-3">
+              {payload.documents.map((document) => (
+                <li
+                  key={document.id}
+                  className="flex flex-col gap-3 rounded-lg border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <span className="min-w-0 break-words text-sm font-medium text-[var(--eh-text)]">
+                    {document.filename}
+                  </span>
+                  <a
+                    className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2"
+                    href={`/api/share/${encodeURIComponent(token)}/documents/${encodeURIComponent(document.id)}`}
+                    download
+                  >
+                    Download document
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
     </main>
   );

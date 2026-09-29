@@ -7,16 +7,16 @@ import {
 import {
   authorizeShareRead,
   loadShareByToken,
-  recordShareOutcome,
   SharePinRequiredError,
   ShareServiceError,
   ShareUnavailableError,
 } from "@/lib/share-links/authorization";
 import {
   consumeFailureRateLimit,
+  consumeSelectedShareFailureRateLimit,
+  recordAndConsumeSelectedShareFailure,
   verifyPublicBoundary,
 } from "@/lib/share-links/public-boundary";
-import { shareTokenDigestKey } from "@/lib/share-links/rate-limit";
 import {
   publicShareError,
   publicShareJson,
@@ -28,7 +28,6 @@ import { LAB_DOCUMENTS_BUCKET } from "@/lib/supabase/storage";
 type RouteContext = {
   params: Promise<{ token: string; documentId: string }>;
 };
-
 
 function containsPinMaterial(request: NextRequest): boolean {
   return (
@@ -51,14 +50,6 @@ function safeFilename(filename: string): string {
 export async function GET(request: NextRequest, context: RouteContext) {
   const boundary = verifyPublicBoundary(request);
   if (boundary instanceof Response) return boundary;
-  if (containsPinMaterial(request)) {
-    const limited = await consumeFailureRateLimit({
-      tokenKey: null,
-      boundary,
-    });
-    if (limited) return limited;
-    return publicShareJson({ error: "Share unavailable" }, 404);
-  }
 
   const { token, documentId } = await context.params;
 
@@ -75,35 +66,59 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return publicShareError(error);
   }
 
+  if (containsPinMaterial(request)) {
+    const limited = await recordAndConsumeSelectedShareFailure({
+      lookup,
+      boundary,
+      resourceKind: "document",
+      result: "denied",
+    });
+    if (limited) return limited;
+    return publicShareJson({ error: "Share unavailable" }, 404);
+  }
+
+  type OwnedDocument = NonNullable<
+    Awaited<ReturnType<typeof getOwnedDocument>>
+  >;
   try {
-    const authorized = await authorizeShareRead({
+    let documentRow: OwnedDocument | null = null;
+    let documentData: Blob | null = null;
+    await authorizeShareRead({
       token,
       cookieHeader: request.headers.get("cookie"),
       resource: { kind: "document", documentId },
       clientClass: boundary.clientClass,
-      beforeAllowedBytes: async (lookup) =>
-        (await getOwnedDocument(lookup.share.profile_id, documentId)) !== null,
+      beforeAllowedBytes: async (shareLookup) => {
+        documentRow = await getOwnedDocument(
+          shareLookup.share.profile_id,
+          documentId,
+        );
+        if (!documentRow) return false;
+        const storagePath = getOriginalPath(documentRow);
+        const { data, error } = await createAdminClient()
+          .storage.from(LAB_DOCUMENTS_BUCKET)
+          .download(storagePath);
+        if (error || !data) throw new ShareServiceError();
+        documentData = data;
+        return true;
+      },
     });
-    const documentRow = await getOwnedDocument(
-      authorized.lookup.share.profile_id,
-      documentId,
-    );
-    if (!documentRow) throw new ShareUnavailableError();
-    const storagePath = getOriginalPath(documentRow);
-    const { data, error } = await createAdminClient()
-      .storage.from(LAB_DOCUMENTS_BUCKET)
-      .download(storagePath);
-    if (error || !data) throw new ShareServiceError();
+
+    const downloadedDocument = documentRow as OwnedDocument | null;
+    const downloadedData = documentData as Blob | null;
+    if (downloadedDocument === null || downloadedData === null) {
+      throw new ShareServiceError();
+    }
 
     const headers = new Headers({
       "Content-Type": guessMimeType(
-        documentRow.original_filename,
-        documentRow.mime_type,
+        downloadedDocument.original_filename,
+        downloadedDocument.mime_type,
       ),
-      "Content-Disposition": `attachment; filename="${safeFilename(documentRow.original_filename)}"`,
-      "Content-Length": String(data.size),
+      "Content-Disposition": `attachment; filename="${safeFilename(downloadedDocument.original_filename)}"`,
+      "Content-Length": String(downloadedData.size),
     });
-    const response = new Response(data, { status: 200, headers });
+    const response = new Response(downloadedData, { status: 200, headers });
     applyPublicShareResponsePolicy(response);
     return response;
   } catch (error) {
@@ -111,26 +126,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
       error instanceof SharePinRequiredError ||
       error instanceof ShareUnavailableError
     ) {
-      let tokenKey: string;
-      try {
-        tokenKey = shareTokenDigestKey(lookup.token.tokenDigest);
-      } catch (rateError) {
-        return publicShareError(rateError);
-      }
-      const limited = await consumeFailureRateLimit({ tokenKey, boundary });
-      if (limited) {
-        try {
-          await recordShareOutcome(
-            lookup.share,
-            "document",
-            "rate_limited",
-            boundary.clientClass,
-          );
-        } catch {
-          return publicShareError(new ShareServiceError());
-        }
-        return limited;
-      }
+      const limited = await consumeSelectedShareFailureRateLimit({
+        lookup,
+        boundary,
+        resourceKind: "document",
+      });
+      if (limited) return limited;
     }
     return publicShareError(error);
   }

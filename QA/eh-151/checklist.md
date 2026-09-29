@@ -114,24 +114,28 @@ missing share state caused the denial.
 
 **Precondition:** A developer has created `EH151-DOCUMENT-SCOPE` with one
 explicitly allowed active document and one unselected document, and has
-provided the corresponding raw-document test URLs through the approved
+provided the corresponding share link and test URLs through the approved
 surface.
 
-1. Open the report share and confirm the report is available.
-2. Request the explicitly allowed document.
+1. Open the report share and confirm that the `Shared documents` section lists
+   only the explicitly allowed filename.
+2. Activate that document's `Download document` control.
 3. Request the unselected document using the same share.
 4. After the share is revoked or the source document is tombstoned, request
    the previously allowed document again.
 
-**Expected result:** The explicitly allowed active document is returned only
-while the share, PIN proof, report, and document remain authorized. The
-unselected document and every request after revocation or tombstoning show a
-generic denial. The browser never receives a storage signed URL.
+**Expected result:** The page lists only explicitly allowed active documents.
+The allowed document is returned only while the share, PIN proof, report, and
+document remain authorized. The unselected document and every request after
+revocation or tombstoning show a generic denial. The browser never receives a
+storage signed URL.
 
-**Result:** `Not manually testable yet`
-**Notes / evidence link:** EH-151 does not provide a document-download control
-or owner management screen; attach the developer route and storage-proxy
-record when those interfaces are available.
+**Result:** `Blocked: trusted ingress is not deployed in this workspace`
+**Notes / evidence link:** The recipient-facing document control is implemented,
+but direct-origin requests are rejected at the trusted-ingress boundary with
+HTTP `503`. A platform owner must provide the public HTTPS edge, private
+HTTPS/mTLS hop, and valid-edge/direct-origin probe evidence before this manual
+check can be executed.
 
 ## Developer evidence required
 

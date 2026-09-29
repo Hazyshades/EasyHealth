@@ -1,18 +1,19 @@
 import { NextRequest } from "next/server";
+import { getOwnedDocument } from "@/lib/documents/access";
 import {
   authorizeShareRead,
   loadShareByToken,
-  recordShareOutcome,
   SharePinRequiredError,
   ShareServiceError,
   ShareUnavailableError,
 } from "@/lib/share-links/authorization";
-import { shareTokenDigestKey } from "@/lib/share-links/rate-limit";
-import { getPublicShareExportActions } from "@/lib/share-links/public-export-actions";
 import {
   consumeFailureRateLimit,
+  consumeSelectedShareFailureRateLimit,
+  recordAndConsumeSelectedShareFailure,
   verifyPublicBoundary,
 } from "@/lib/share-links/public-boundary";
+import { getPublicShareExportActions } from "@/lib/share-links/public-export-actions";
 import {
   publicShareError,
   publicShareJson,
@@ -32,14 +33,6 @@ function containsPinMaterial(request: NextRequest): boolean {
 export async function GET(request: NextRequest, context: RouteContext) {
   const boundary = verifyPublicBoundary(request);
   if (boundary instanceof Response) return boundary;
-  if (containsPinMaterial(request)) {
-    const limited = await consumeFailureRateLimit({
-      tokenKey: null,
-      boundary,
-    });
-    if (limited) return limited;
-    return publicShareJson({ error: "Share unavailable" }, 404);
-  }
 
   const { token } = await context.params;
   let lookup;
@@ -55,6 +48,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return publicShareError(error);
   }
 
+  if (containsPinMaterial(request)) {
+    const limited = await recordAndConsumeSelectedShareFailure({
+      lookup,
+      boundary,
+      resourceKind: "report",
+      result: "denied",
+    });
+    if (limited) return limited;
+    return publicShareJson({ error: "Share unavailable" }, 404);
+  }
+
   try {
     const result = await authorizeShareRead({
       token,
@@ -63,6 +67,28 @@ export async function GET(request: NextRequest, context: RouteContext) {
       clientClass: boundary.clientClass,
     });
     const report = result.reportRead.report;
+    const documents: Array<{ id: string; filename: string }> =
+      lookup.share.download_policy === "documents"
+        ? (
+            await Promise.all(
+              lookup.share.document_ids.map(async (documentId) => {
+                const document = await getOwnedDocument(
+                  lookup.share.profile_id,
+                  documentId,
+                );
+                return document
+                  ? {
+                      id: document.id,
+                      filename: document.original_filename,
+                    }
+                  : null;
+              }),
+            )
+          ).filter(
+            (document): document is { id: string; filename: string } =>
+              document !== null,
+          )
+        : [];
     return publicShareJson({
       status: "structured",
       report: {
@@ -75,6 +101,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         created_at: report.created_at,
       },
       download_policy: lookup.share.download_policy,
+      documents,
       allowed_export_formats: lookup.share.allowed_export_formats,
       export_actions: getPublicShareExportActions(
         lookup.share.allowed_export_formats,
@@ -85,26 +112,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
       error instanceof SharePinRequiredError ||
       error instanceof ShareUnavailableError
     ) {
-      let tokenKey: string;
-      try {
-        tokenKey = shareTokenDigestKey(lookup.token.tokenDigest);
-      } catch (rateError) {
-        return publicShareError(rateError);
-      }
-      const limited = await consumeFailureRateLimit({ tokenKey, boundary });
-      if (limited) {
-        try {
-          await recordShareOutcome(
-            lookup.share,
-            "report",
-            "rate_limited",
-            boundary.clientClass,
-          );
-        } catch {
-          return publicShareError(new ShareServiceError());
-        }
-        return limited;
-      }
+      const limited = await consumeSelectedShareFailureRateLimit({
+        lookup,
+        boundary,
+        resourceKind: "report",
+      });
+      if (limited) return limited;
     }
     return publicShareError(error);
   }
