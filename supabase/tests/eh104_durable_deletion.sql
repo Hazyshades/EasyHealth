@@ -1,6 +1,6 @@
 -- EH-104: durable document deletion schema, tombstone, retention, and writer fences.
 begin;
-select plan(57);
+select plan(60);
 
 select has_table(
   'public',
@@ -61,6 +61,15 @@ select ok(
   ),
   'anon cannot consume upload tickets'
 );
+
+select ok(
+  not has_function_privilege(
+    'authenticated',
+    'public.consume_storage_upload_ticket(uuid,text)'::regprocedure,
+    'EXECUTE'
+  ),
+  'authenticated cannot consume upload tickets'
+);
 select ok(
   has_function_privilege(
     'service_role',
@@ -77,6 +86,15 @@ select ok(
   ),
   'anon cannot complete storage intents'
 );
+
+select ok(
+  not has_function_privilege(
+    'authenticated',
+    'public.complete_storage_write_intent(uuid,text,boolean)'::regprocedure,
+    'EXECUTE'
+  ),
+  'authenticated cannot complete storage intents'
+);
 select ok(
   has_function_privilege(
     'service_role',
@@ -92,6 +110,15 @@ select ok(
     'EXECUTE'
   ),
   'anon cannot persist Health Profile synthesis'
+);
+
+select ok(
+  not has_function_privilege(
+    'authenticated',
+    'public.persist_profile_health_synthesis(uuid,uuid[],jsonb,text,text,text,timestamptz)'::regprocedure,
+    'EXECUTE'
+  ),
+  'authenticated cannot persist Health Profile synthesis'
 );
 select ok(
   not exists (

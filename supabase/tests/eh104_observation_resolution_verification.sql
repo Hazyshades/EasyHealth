@@ -1,6 +1,6 @@
 begin;
 
-select plan(43);
+select plan(47);
 
 -- ── schema / grants ──────────────────────────────────────────────────────────
 
@@ -209,6 +209,48 @@ values
   ('00000000-0000-0000-0000-000000000032', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000022', 'Profile mismatch observation', 3, 'mg/dL', '2026-01-03', 'lab', 1),
   ('00000000-0000-0000-0000-000000000034', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', '00000000-0000-0000-0000-000000000024', 'Purge observation', 5, 'mg/dL', '2026-01-05', 'lab', 1),
   ('00000000-0000-0000-0000-000000000035', '00000000-0000-0000-0000-000000000001', null, null, 'Standalone both-null observation', 6, 'mg/dL', '2026-01-06', 'lab', null);
+
+select is(
+  (
+    select finding_code
+    from public.eh104_resolution_verification_preflight()
+    where subject_id = '00000000-0000-0000-0000-000000000031'::uuid
+  ),
+  'half_linked_observation',
+  'preflight preserves a live current-schema finding code'
+);
+select is(
+  (
+    select subject_type
+    from public.eh104_resolution_verification_preflight()
+    where subject_id = '00000000-0000-0000-0000-000000000031'::uuid
+  ),
+  'observation',
+  'preflight preserves the live finding subject type'
+);
+select is(
+  (
+    select subject_id
+    from public.eh104_resolution_verification_preflight()
+    where subject_id = '00000000-0000-0000-0000-000000000031'::uuid
+  ),
+  '00000000-0000-0000-0000-000000000031'::uuid,
+  'preflight preserves the live finding subject id'
+);
+select is(
+  (
+    select details
+    from public.eh104_resolution_verification_preflight()
+    where subject_id = '00000000-0000-0000-0000-000000000031'::uuid
+  ),
+  jsonb_build_object(
+    'source_extracted_biomarker_id',
+    '00000000-0000-0000-0000-000000000021'::uuid,
+    'normalization_revision_id',
+    null
+  ),
+  'preflight preserves live finding details'
+);
 
 insert into public.observation_normalization_revisions (
   id,
