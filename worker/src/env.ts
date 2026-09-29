@@ -25,12 +25,24 @@ function optionalBool(name: string, defaultValue: boolean): boolean {
 
 function optionalPositiveInt(name: string, defaultValue: number): number {
   const raw = optional(name);
-  if (raw === undefined) return defaultValue;
-  const parsed = Number(raw);
+  const parsed = raw === undefined ? defaultValue : Number(raw);
   if (!Number.isInteger(parsed) || parsed <= 0) {
     throw new Error(`Invalid positive integer env: ${name}`);
   }
   return parsed;
+}
+
+function optionalRangedInt(
+  name: string,
+  defaultValue: number,
+  minimum: number,
+  maximum: number,
+): number {
+  const value = optionalPositiveInt(name, defaultValue);
+  if (value < minimum || value > maximum) {
+    throw new Error(`Invalid ranged integer env: ${name}`);
+  }
+  return value;
 }
 
 function mistralRegion(): "eu" | "us" {
@@ -104,4 +116,40 @@ export const workerEnv = {
     "http://localhost:3000",
   pollIntervalMs: Number(process.env.WORKER_POLL_INTERVAL_MS ?? "5000"),
   staleJobMaxAgeMs: optionalPositiveInt("STALE_JOB_MAX_AGE_MS", 10 * 60_000),
+  shareAccessEventRetentionDays: optionalRangedInt(
+    "SHARE_ACCESS_EVENT_RETENTION_DAYS",
+    30,
+    1,
+    90,
+  ),
+  shareAccessEventCleanupIntervalMs: optionalRangedInt(
+    "SHARE_ACCESS_EVENT_CLEANUP_INTERVAL_MS",
+    3_600_000,
+    1_000,
+    86_400_000,
+  ),
+  shareAccessEventCleanupRetryIntervalMs: optionalRangedInt(
+    "SHARE_ACCESS_EVENT_CLEANUP_RETRY_INTERVAL_MS",
+    60_000,
+    1_000,
+    86_400_000,
+  ),
+  shareRateLimitCleanupIntervalMs: optionalRangedInt(
+    "SHARE_RATE_LIMIT_CLEANUP_INTERVAL_MS",
+    900_000,
+    1_000,
+    86_400_000,
+  ),
+  shareRateLimitCleanupRetryIntervalMs: optionalRangedInt(
+    "SHARE_RATE_LIMIT_CLEANUP_RETRY_INTERVAL_MS",
+    60_000,
+    1_000,
+    86_400_000,
+  ),
+  sharePinProofTtlSeconds: optionalRangedInt(
+    "SHARE_PIN_PROOF_TTL_SECONDS",
+    900,
+    60,
+    3_600,
+  ),
 };
