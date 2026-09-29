@@ -7,6 +7,7 @@ const Uuid = z.string().uuid();
 const ManagedShareSchema = z.object({
   share_id: Uuid,
   report_id: Uuid,
+  report_title: z.string().nullable(),
   expires_at: z.string(),
   revoked_at: z.string().nullable(),
   download_policy: z.enum(["none", "report", "documents"]),
@@ -22,12 +23,14 @@ const AccessEventSchema = z.object({
   result: z.string(),
   resource_kind: z.string(),
   client_class: z.string(),
+  retention_expires_at: z.string(),
 });
 
 const ReplacementSchema = z.object({
   operation_id: Uuid,
   successor_share_id: Uuid.nullable(),
   operation_status: z.enum(["reserved", "committed"]),
+  replayed: z.boolean(),
 });
 
 export type ManagedShare = z.infer<typeof ManagedShareSchema>;
@@ -42,7 +45,7 @@ export async function listOwnerReportShares(
     "list_report_shares_for_owner",
     { p_profile_id: profileId, p_report_id: reportId ?? null },
   );
-  if (error || !Array.isArray(data)) throw new ShareRepositoryError();
+  if (error) throw new ShareRepositoryError(error.message);
   const parsed = z.array(ManagedShareSchema).safeParse(data);
   if (!parsed.success) throw new ShareRepositoryError();
   return parsed.data;
@@ -56,7 +59,7 @@ export async function listOwnerShareAccessEvents(
     "list_report_share_access_events_for_owner",
     { p_profile_id: profileId, p_share_id: shareId },
   );
-  if (error || !Array.isArray(data)) throw new ShareRepositoryError();
+  if (error) throw new ShareRepositoryError(error.message);
   const parsed = z.array(AccessEventSchema).safeParse(data);
   if (!parsed.success) throw new ShareRepositoryError();
   return parsed.data;
@@ -70,7 +73,7 @@ export async function revokeOwnerReportShare(
     p_profile_id: profileId,
     p_share_id: shareId,
   });
-  if (error) throw new ShareRepositoryError();
+  if (error) throw new ShareRepositoryError(error.message);
 }
 
 export async function replaceOwnerReportShare(
@@ -92,7 +95,7 @@ export async function replaceOwnerReportShare(
       p_token_key_version: input.tokenKeyVersion,
     },
   );
-  if (error) throw new ShareRepositoryError();
+  if (error) throw new ShareRepositoryError(error.message);
   const candidate = Array.isArray(data) ? data[0] : data;
   const parsed = ReplacementSchema.safeParse(candidate);
   if (!parsed.success) throw new ShareRepositoryError();
