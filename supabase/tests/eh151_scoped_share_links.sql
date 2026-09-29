@@ -172,6 +172,18 @@ select is(
   1,
   'digest lookup returns the scoped share'
 );
+select is(
+  (select report_title
+   from public.list_report_shares_for_owner(
+     '00000000-0000-0000-0000-000000151001'::uuid,
+     null
+   )
+   where share_id = (
+     select id from public.report_share_links where token_digest = repeat('a', 64)
+   )),
+  'EH-151 synthetic report',
+  'owner share seam returns the safe report title'
+);
 
 select throws_ok(
   $$
@@ -219,6 +231,24 @@ select ok(
    )) >= (select last_accessed_at from public.report_share_links where token_digest = repeat('a', 64)),
   'last-access transition is monotonic'
 );
+select public.write_report_share_access_event(
+  (select id from public.report_share_links where token_digest = repeat('a', 64)),
+  clock_timestamp(),
+  'denied',
+  'report',
+  'browser',
+  1
+);
+select is(
+  (select count(*)::int
+   from public.list_report_share_access_events_for_owner(
+     '00000000-0000-0000-0000-000000151001'::uuid,
+     (select id from public.report_share_links where token_digest = repeat('a', 64))
+   )
+   where result = 'denied'),
+  1,
+  'owner access seam returns retained events'
+);
 
 select public.write_report_share_access_event(
   (select id from public.report_share_links where token_digest = repeat('a', 64)),
@@ -246,6 +276,39 @@ select is(
    from public.consume_report_share_rate_limit(repeat('c', 64), 60, 1, clock_timestamp())),
   false,
   'second rate-limit attempt is denied atomically'
+);
+select is(
+  (select operation_status
+   from public.replace_report_share(
+     '00000000-0000-0000-0000-000000151001'::uuid,
+     (select id from public.report_share_links where token_digest = repeat('a', 64)),
+     'eh152-replay-key',
+     repeat('d', 64),
+     '2026-1'
+   )),
+  'committed',
+  'replacement commits through the owner RPC'
+);
+select is(
+  (select replayed
+   from public.replace_report_share(
+     '00000000-0000-0000-0000-000000151001'::uuid,
+     (select id from public.report_share_links where token_digest = repeat('a', 64)),
+     'eh152-replay-key',
+     repeat('e', 64),
+     '2026-1'
+   )),
+  true,
+  'replacement replay returns the committed operation'
+);
+select is(
+  (select count(*)::int
+   from public.report_share_links
+   where predecessor_share_id = (
+     select id from public.report_share_links where token_digest = repeat('a', 64)
+   )),
+  1,
+  'replacement replay does not create a second successor'
 );
 
 select * from finish();

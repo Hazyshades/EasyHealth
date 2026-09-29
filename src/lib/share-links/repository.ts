@@ -58,8 +58,8 @@ export type ShareAccessResult =
 export type ShareClientClass = "browser" | "automation" | "other" | "unknown";
 
 export class ShareRepositoryError extends Error {
-  constructor() {
-    super("Share persistence unavailable");
+  constructor(message = "Share persistence unavailable") {
+    super(message);
     this.name = "ShareRepositoryError";
   }
 }
