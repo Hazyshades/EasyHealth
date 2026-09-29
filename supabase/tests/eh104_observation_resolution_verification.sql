@@ -1,6 +1,6 @@
 begin;
 
-select plan(42);
+select plan(43);
 
 -- ── schema / grants ──────────────────────────────────────────────────────────
 
@@ -133,6 +133,11 @@ select ok(
     'EXECUTE'
   ),
   'authenticated cannot execute the populated-data preflight'
+);
+
+select ok(
+  to_regclass('public.measurement_resolution_shadow_events') is null,
+  'retired shadow telemetry relation is absent from the current schema'
 );
 
 -- ── seed ─────────────────────────────────────────────────────────────────────
