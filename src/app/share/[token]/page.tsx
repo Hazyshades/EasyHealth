@@ -145,8 +145,8 @@ export default function PublicSharePage() {
   if (needsPin) {
     return (
       <main className="min-h-screen bg-[var(--eh-canvas)] px-4 py-12 text-[var(--eh-text)]">
-        <section className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h1 className="mt-0 text-2xl font-semibold tracking-tight">
+        <section className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-6">
+          <h1 className="mt-0 text-balance text-2xl font-semibold tracking-tight">
             Enter the access PIN
           </h1>
           <p className="mt-2 text-sm leading-6 text-[var(--eh-text-secondary)]">
@@ -197,8 +197,8 @@ export default function PublicSharePage() {
   if (error || !payload) {
     return (
       <main className="min-h-screen bg-[var(--eh-canvas)] px-4 py-12 text-[var(--eh-text)]">
-        <section className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h1 className="mt-0 text-2xl font-semibold tracking-tight">
+        <section className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-6">
+          <h1 className="mt-0 text-balance text-2xl font-semibold tracking-tight">
             This share is unavailable
           </h1>
           <p className="mt-2 text-sm leading-6 text-[var(--eh-text-secondary)]">
@@ -218,8 +218,8 @@ export default function PublicSharePage() {
           payload.export_actions,
         )}
       >
-        <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <h1 className="mt-0 text-3xl font-semibold tracking-tight">
+        <header className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">
+          <h1 className="mt-0 text-balance text-3xl font-semibold tracking-tight">
             {report.title}
           </h1>
           <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -233,7 +233,7 @@ export default function PublicSharePage() {
                 Out-of-range only
               </Badge>
             )}
-            <span className="text-sm text-[var(--eh-text-muted)]">
+            <span className="text-sm text-[var(--eh-text-secondary)]">
               {formatDate(report.created_at)}
             </span>
           </div>
@@ -243,8 +243,8 @@ export default function PublicSharePage() {
         </header>
         <ReportBody content={report.content} />
         {payload.documents.length > 0 && (
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-            <h2 className="text-xl font-semibold tracking-tight">
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">
+            <h2 className="text-balance text-xl font-semibold tracking-tight">
               Shared documents
             </h2>
             <p className="mt-2 text-sm leading-6 text-[var(--eh-text-secondary)]">
