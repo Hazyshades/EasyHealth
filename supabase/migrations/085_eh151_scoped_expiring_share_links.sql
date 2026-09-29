@@ -484,6 +484,15 @@ begin
     raise exception using message = 'share_replacement_invalid';
   end if;
 
+  select * into v_predecessor
+  from public.report_share_links
+  where id = p_predecessor_share_id
+    and profile_id = p_profile_id
+  for update;
+  if v_predecessor.id is null then
+    raise exception using message = 'share_replacement_conflict';
+  end if;
+
   select * into v_operation
   from public.share_replacement_operations
   where profile_id = p_profile_id
@@ -497,13 +506,7 @@ begin
     return;
   end if;
 
-  select * into v_predecessor
-  from public.report_share_links
-  where id = p_predecessor_share_id
-    and profile_id = p_profile_id
-  for update;
-  if v_predecessor.id is null
-    or v_predecessor.revoked_at is not null
+  if v_predecessor.revoked_at is not null
     or v_predecessor.expires_at <= clock_timestamp() then
     raise exception using message = 'share_replacement_conflict';
   end if;

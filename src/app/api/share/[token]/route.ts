@@ -24,7 +24,8 @@ function containsPinMaterial(request: NextRequest): boolean {
   return (
     request.nextUrl.searchParams.has("pin") ||
     request.headers.has("x-share-pin") ||
-    request.headers.has("x-eh-share-pin")
+    request.headers.has("x-eh-share-pin") ||
+    /(?:^|;\s*)pin=/i.test(request.headers.get("cookie") ?? "")
   );
 }
 

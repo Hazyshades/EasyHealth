@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createSharePinProof } from "@/lib/share-links/repository";
 import {
@@ -15,6 +15,7 @@ import {
 import { shareTokenDigestKey } from "@/lib/share-links/rate-limit";
 import {
   consumeFailureRateLimit,
+  type PublicBoundaryContext,
   verifyPublicBoundary,
 } from "@/lib/share-links/public-boundary";
 import {
@@ -41,20 +42,81 @@ function containsPinOutsideBody(request: NextRequest): boolean {
   return /(?:^|;\s*)pin=/i.test(request.headers.get("cookie") ?? "");
 }
 
+type PinFailureResult = "denied" | "expired" | "revoked" | "pin_invalid";
+
+async function handlePinFailure(input: Readonly<{
+  lookup: Awaited<ReturnType<typeof loadShareByToken>>;
+  boundary: PublicBoundaryContext;
+  result: PinFailureResult;
+}>): Promise<NextResponse | null> {
+  try {
+    await recordShareOutcome(
+      input.lookup.share,
+      "pin",
+      input.result,
+      input.boundary.clientClass,
+    );
+  } catch {
+    return publicShareError(new ShareServiceError());
+  }
+
+  let tokenKey: string;
+  try {
+    tokenKey = shareTokenDigestKey(input.lookup.token.tokenDigest);
+  } catch (rateError) {
+    return publicShareError(rateError);
+  }
+  const limited = await consumeFailureRateLimit({
+    tokenKey,
+    boundary: input.boundary,
+  });
+  if (!limited) return null;
+
+  try {
+    await recordShareOutcome(
+      input.lookup.share,
+      "pin",
+      "rate_limited",
+      input.boundary.clientClass,
+    );
+  } catch {
+    return publicShareError(new ShareServiceError());
+  }
+  return limited;
+}
+
 export async function POST(request: NextRequest, context: RouteContext) {
   const boundary = verifyPublicBoundary(request);
   if (boundary instanceof Response) return boundary;
+
+  const { token } = await context.params;
   if (containsPinOutsideBody(request)) {
-    const limited = await consumeFailureRateLimit({
-      tokenKey: null,
-      boundary,
-    });
+    let lookup: Awaited<ReturnType<typeof loadShareByToken>>;
+    try {
+      lookup = await loadShareByToken(token);
+    } catch {
+      const limited = await consumeFailureRateLimit({
+        tokenKey: null,
+        boundary,
+      });
+      if (limited) return limited;
+      return invalidPinRequest();
+    }
+    const now = new Date();
+    const result: PinFailureResult =
+      lookup.share.revoked_at !== null
+        ? "revoked"
+        : new Date(lookup.share.expires_at) <= now
+          ? "expired"
+          : lookup.share.pin_hash === null || lookup.share.pin_salt === null
+            ? "denied"
+            : "pin_invalid";
+    const limited = await handlePinFailure({ lookup, boundary, result });
     if (limited) return limited;
     return invalidPinRequest();
   }
 
-  const { token } = await context.params;
-  let lookup;
+  let lookup: Awaited<ReturnType<typeof loadShareByToken>>;
   try {
     lookup = await loadShareByToken(token);
   } catch (error) {
@@ -67,36 +129,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   if (lookup.share.pin_hash === null || lookup.share.pin_salt === null) {
-    try {
-      await recordShareOutcome(
-        lookup.share,
-        "pin",
-        "denied",
-        boundary.clientClass,
-      );
-    } catch {
-      return publicShareError(new ShareServiceError());
-    }
-    let tokenKey: string;
-    try {
-      tokenKey = shareTokenDigestKey(lookup.token.tokenDigest);
-    } catch (rateError) {
-      return publicShareError(rateError);
-    }
-    const limited = await consumeFailureRateLimit({ tokenKey, boundary });
-    if (limited) {
-      try {
-        await recordShareOutcome(
-          lookup.share,
-          "pin",
-          "rate_limited",
-          boundary.clientClass,
-        );
-      } catch {
-        return publicShareError(new ShareServiceError());
-      }
-      return limited;
-    }
+    const limited = await handlePinFailure({
+      lookup,
+      boundary,
+      result: "denied",
+    });
+    if (limited) return limited;
     return publicShareJson({ error: "Share unavailable" }, 404);
   }
 
@@ -105,49 +143,47 @@ export async function POST(request: NextRequest, context: RouteContext) {
     lookup.share.revoked_at !== null ||
     new Date(lookup.share.expires_at) <= now
   ) {
-    try {
-      await recordShareOutcome(
-        lookup.share,
-        "pin",
-        lookup.share.revoked_at !== null ? "revoked" : "expired",
-        boundary.clientClass,
-      );
-    } catch {
-      return publicShareError(new ShareServiceError());
-    }
-    let tokenKey: string;
-    try {
-      tokenKey = shareTokenDigestKey(lookup.token.tokenDigest);
-    } catch (rateError) {
-      return publicShareError(rateError);
-    }
-    const limited = await consumeFailureRateLimit({ tokenKey, boundary });
-    if (limited) {
-      try {
-        await recordShareOutcome(
-          lookup.share,
-          "pin",
-          "rate_limited",
-          boundary.clientClass,
-        );
-      } catch {
-        return publicShareError(new ShareServiceError());
-      }
-      return limited;
-    }
+    const limited = await handlePinFailure({
+      lookup,
+      boundary,
+      result: lookup.share.revoked_at !== null ? "revoked" : "expired",
+    });
+    if (limited) return limited;
     return publicShareJson({ error: "Share unavailable" }, 404);
   }
 
   const contentLength = Number(request.headers.get("content-length") ?? "0");
-  if (contentLength > 8_192) return invalidPinRequest();
+  if (contentLength > 8_192) {
+    const limited = await handlePinFailure({
+      lookup,
+      boundary,
+      result: "pin_invalid",
+    });
+    if (limited) return limited;
+    return invalidPinRequest();
+  }
   let body: unknown;
   try {
     body = await request.json();
   } catch {
+    const limited = await handlePinFailure({
+      lookup,
+      boundary,
+      result: "pin_invalid",
+    });
+    if (limited) return limited;
     return invalidPinRequest();
   }
   const parsed = PinBodySchema.safeParse(body);
-  if (!parsed.success) return invalidPinRequest();
+  if (!parsed.success) {
+    const limited = await handlePinFailure({
+      lookup,
+      boundary,
+      result: "pin_invalid",
+    });
+    if (limited) return limited;
+    return invalidPinRequest();
+  }
 
   let validPin = false;
   try {
@@ -160,36 +196,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return publicShareError(new ShareServiceError());
   }
   if (!validPin) {
-    try {
-      await recordShareOutcome(
-        lookup.share,
-        "pin",
-        "pin_invalid",
-        boundary.clientClass,
-      );
-    } catch {
-      return publicShareError(new ShareServiceError());
-    }
-    let tokenKey: string;
-    try {
-      tokenKey = shareTokenDigestKey(lookup.token.tokenDigest);
-    } catch (rateError) {
-      return publicShareError(rateError);
-    }
-    const limited = await consumeFailureRateLimit({ tokenKey, boundary });
-    if (limited) {
-      try {
-        await recordShareOutcome(
-          lookup.share,
-          "pin",
-          "rate_limited",
-          boundary.clientClass,
-        );
-      } catch {
-        return publicShareError(new ShareServiceError());
-      }
-      return limited;
-    }
+    const limited = await handlePinFailure({
+      lookup,
+      boundary,
+      result: "pin_invalid",
+    });
+    if (limited) return limited;
     return publicShareJson({ error: "PIN required" }, 401);
   }
 

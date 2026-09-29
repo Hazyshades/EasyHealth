@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { z } from "zod";
 import {
   getOwnedDocument,
   getOriginalPath,
@@ -30,13 +29,13 @@ type RouteContext = {
   params: Promise<{ token: string; documentId: string }>;
 };
 
-const DocumentId = z.string().uuid();
 
 function containsPinMaterial(request: NextRequest): boolean {
   return (
     request.nextUrl.searchParams.has("pin") ||
     request.headers.has("x-share-pin") ||
-    request.headers.has("x-eh-share-pin")
+    request.headers.has("x-eh-share-pin") ||
+    /(?:^|;\s*)pin=/i.test(request.headers.get("cookie") ?? "")
   );
 }
 
@@ -62,9 +61,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   const { token, documentId } = await context.params;
-  if (!DocumentId.safeParse(documentId).success) {
-    return publicShareJson({ error: "Share unavailable" }, 404);
-  }
 
   let lookup: Awaited<ReturnType<typeof loadShareByToken>>;
   try {
