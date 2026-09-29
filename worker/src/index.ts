@@ -8,6 +8,7 @@ import {
   processOneDeletionOperation,
   pruneExpiredDeletionReceipts,
 } from "./deletion-cleanup.js";
+import { cleanupShareLinkState } from "./share-link-cleanup.js";
 import { sweepExpiredStorageIntents } from "./storage-orphan-sweeper.js";
 
 type JobRow = {
@@ -329,6 +330,8 @@ async function tick() {
       error instanceof Error ? error.message : error,
     );
   }
+
+  await cleanupShareLinkState();
 
   const job = await claimJob();
   if (job) await processJob(job);
