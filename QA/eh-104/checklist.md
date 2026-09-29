@@ -143,7 +143,7 @@ the empty-list stability interval.
       runs read-only on the fully migrated local disposable target, prints no
       PHI, and returned `READY_FOR_SCHEMA_PREFLIGHT` with zero rows.
 - [x] **Database contract:** the migrated local database contract was exercised
-      directly; the durable-deletion TAP passed `57/57` assertions, covering
+      directly; the durable-deletion TAP passed `60/60` assertions, covering
       tombstone idempotency, generation fencing, report/synthesis invalidation,
       grants, and writer rejection. The project wrapper's aligned-`psql` parser
       returned code 1 after emitting the complete TAP output; see the SQL cleanup
@@ -208,8 +208,8 @@ marked passed because of this SQL-only migration.
 - [x] EH-104 pgTAP: both project commands were exercised. Their Docker fallback
       emitted complete TAP output but returned code 1 because
       `run-supabase-db-tests.mjs` does not parse aligned `psql` output. Running
-      the same files through the local container TCP endpoint passed `43/43`
-      resolver assertions and `57/57` durable-deletion assertions.
+      the same files through the local container TCP endpoint passed `47/47`
+      resolver assertions and `60/60` durable-deletion assertions.
 - [x] Target drift: the initial linked-history request was blocked while the
       project was inactive. After restoration, remote history confirmed
       `079`–`084` were pending; the ordered push applied all six migrations,
@@ -309,8 +309,7 @@ and the populated retained-data/storage/observability preflight are evidenced.
 - [x] Targeted Prettier check and
       `openspec validate make-document-deletion-durable --strict`.
 - [x] EH-104 DB regressions after `supabase db reset`: resolver verification
-      passed `43/43` assertions and durable deletion passed `57/57` assertions
-      through the local container TCP endpoint. The wrapper parser limitation is
+      passed `47/47` assertions and durable deletion passed `60/60` assertions
       recorded in the SQL definition cleanup evidence.
 - [x] Focused DB regressions: `pnpm test:eh104-db` (42), `pnpm test:eh105-db`
       (16), `pnpm test:eh106-db` (38), `pnpm test:pr2-db` (45), plus
