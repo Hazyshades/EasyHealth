@@ -141,7 +141,7 @@ record when those interfaces are available.
 - [x] `pnpm --dir worker exec tsc --noEmit` passed after `pnpm --dir worker install`; `@mistralai/mistralai` `2.6.3` is installed and the previous OCR import/implicit-any errors are gone.
 - [x] `supabase db lint --local --fail-on error` passes after the EH-104 cleanup merge; no error-level findings remain. Warning-level baseline findings remain in unrelated pre-existing functions; EH-151 cleanup-loop warnings were removed.
 - [x] `pnpm build` passed with the supplied `.env`: the EH-151 routes compiled and all 58 static pages generated.
-- [x] Browser smoke with the supplied environment loaded `/`, then `/share/not-a-real-token`; the public page rendered the generic unavailable message after direct-origin access was rejected by the fail-closed boundary.
+- [x] Browser smoke with the supplied environment loaded `/`; a direct `/share/not-a-real-token` request was rejected at the middleware boundary with HTTP `503` and the generic `Share service unavailable` response.
 
 ## Out of scope or not manually testable yet
 

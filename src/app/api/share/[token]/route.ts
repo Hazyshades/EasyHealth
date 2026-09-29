@@ -2,8 +2,11 @@ import { NextRequest } from "next/server";
 import {
   authorizeShareRead,
   loadShareByToken,
+  SharePinRequiredError,
   ShareServiceError,
+  ShareUnavailableError,
 } from "@/lib/share-links/authorization";
+import { shareTokenDigestKey } from "@/lib/share-links/rate-limit";
 import { getPublicShareExportActions } from "@/lib/share-links/public-export-actions";
 import {
   consumeFailureRateLimit,
@@ -71,6 +74,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
       ),
     });
   } catch (error) {
+    if (
+      error instanceof SharePinRequiredError ||
+      error instanceof ShareUnavailableError
+    ) {
+      let tokenKey: string;
+      try {
+        tokenKey = shareTokenDigestKey(lookup.token.tokenDigest);
+      } catch (rateError) {
+        return publicShareError(rateError);
+      }
+      const limited = await consumeFailureRateLimit({ tokenKey, boundary });
+      if (limited) return limited;
+    }
     return publicShareError(error);
   }
 }

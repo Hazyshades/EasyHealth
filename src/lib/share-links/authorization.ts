@@ -81,7 +81,7 @@ export async function recordShareOutcome(
       clientClass,
     });
   } catch {
-    return;
+    throw new ShareServiceError();
   }
 }
 

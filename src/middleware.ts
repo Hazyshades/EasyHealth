@@ -2,9 +2,19 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { shouldRefreshAuthCookies } from "@/lib/auth/session-cookie";
 import { applyPublicShareResponsePolicy } from "@/lib/share-links/public-response-policy";
+import { requireTrustedIngress } from "@/lib/share-links/trusted-ingress";
 
 export async function middleware(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/share/")) {
+    const ingress = requireTrustedIngress(request);
+    if (!ingress.ok) {
+      const response = NextResponse.json(
+        { error: "Share service unavailable" },
+        { status: 503 },
+      );
+      applyPublicShareResponsePolicy(response);
+      return response;
+    }
     const response = NextResponse.next({ request });
     applyPublicShareResponsePolicy(response);
     return response;
@@ -39,6 +49,8 @@ export async function middleware(request: NextRequest) {
   await supabase.auth.getUser();
   return response;
 }
+
+export const runtime = "nodejs";
 
 export const config = {
   matcher: [

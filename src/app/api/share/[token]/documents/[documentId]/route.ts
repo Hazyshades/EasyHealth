@@ -8,6 +8,7 @@ import {
 import {
   authorizeShareRead,
   loadShareByToken,
+  SharePinRequiredError,
   ShareServiceError,
   ShareUnavailableError,
 } from "@/lib/share-links/authorization";
@@ -15,6 +16,7 @@ import {
   consumeFailureRateLimit,
   verifyPublicBoundary,
 } from "@/lib/share-links/public-boundary";
+import { shareTokenDigestKey } from "@/lib/share-links/rate-limit";
 import {
   publicShareError,
   publicShareJson,
@@ -58,8 +60,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return publicShareJson({ error: "Share unavailable" }, 404);
   }
 
+  let lookup: Awaited<ReturnType<typeof loadShareByToken>>;
   try {
-    await loadShareByToken(token);
+    lookup = await loadShareByToken(token);
   } catch (error) {
     if (error instanceof ShareServiceError) return publicShareError(error);
     const limited = await consumeFailureRateLimit({
@@ -103,11 +106,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return response;
   } catch (error) {
     if (
-      error instanceof ShareUnavailableError ||
-      error instanceof ShareServiceError
+      error instanceof SharePinRequiredError ||
+      error instanceof ShareUnavailableError
     ) {
-      return publicShareError(error);
+      let tokenKey: string;
+      try {
+        tokenKey = shareTokenDigestKey(lookup.token.tokenDigest);
+      } catch (rateError) {
+        return publicShareError(rateError);
+      }
+      const limited = await consumeFailureRateLimit({ tokenKey, boundary });
+      if (limited) return limited;
     }
-    return publicShareError(new ShareServiceError());
+    return publicShareError(error);
   }
 }
