@@ -122,6 +122,18 @@ export const workerEnv = {
     1,
     90,
   ),
+  shareAccessEventCleanupIntervalMs: optionalRangedInt(
+    "SHARE_ACCESS_EVENT_CLEANUP_INTERVAL_MS",
+    3_600_000,
+    1_000,
+    86_400_000,
+  ),
+  shareAccessEventCleanupRetryIntervalMs: optionalRangedInt(
+    "SHARE_ACCESS_EVENT_CLEANUP_RETRY_INTERVAL_MS",
+    60_000,
+    1_000,
+    86_400_000,
+  ),
   shareRateLimitCleanupIntervalMs: optionalRangedInt(
     "SHARE_RATE_LIMIT_CLEANUP_INTERVAL_MS",
     900_000,

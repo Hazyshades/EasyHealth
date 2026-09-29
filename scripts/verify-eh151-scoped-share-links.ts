@@ -14,6 +14,7 @@ import {
 } from "../src/lib/share-links/trusted-ingress-transport";
 import {
   InvalidShareTokenError,
+  ShareTokenConfigurationError,
   digestShareToken,
   generateShareToken,
   parseShareToken,
@@ -22,6 +23,7 @@ import { consumeShareFailureRateLimits } from "../src/lib/share-links/rate-limit
 import {
   configureShareTestEnvironment,
   ingressRuntime,
+  SHARE_TEST_TOKEN_KEYS,
   signedIngressRequest,
 } from "./fixtures/eh151-scoped-share-links";
 
@@ -77,6 +79,17 @@ async function main(): Promise<void> {
 
   const oldToken = `v2025-1.${parsed.random}`;
   assert.equal(digestShareToken(oldToken).tokenKeyVersion, "2025-1");
+
+  process.env.SHARE_TOKEN_KEY_RING = JSON.stringify({
+    "2026-1": "test-share-token-key-2026-1-strong",
+    "2025-1": "test-share-token-key-2025-1-strong",
+    "2024-1": "stale-share-token-key-2024-1-strong",
+  });
+  assert.throws(
+    () => digestShareToken(generated.token),
+    ShareTokenConfigurationError,
+  );
+  process.env.SHARE_TOKEN_KEY_RING = SHARE_TEST_TOKEN_KEYS;
   assert.equal(parseShareToken("v2026-1.short"), null);
   assert.throws(
     () => digestShareToken("unkeyed-token"),

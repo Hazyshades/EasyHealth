@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { ReportBody, type ReportContent } from "@/components/report-body";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type { PublicShareExportAction } from "@/lib/share-links/public-export-actions";
 
 type PublicReport = Readonly<{
   title: string;
@@ -21,12 +22,15 @@ type PublicDocument = Readonly<{
   filename: string;
 }>;
 
+type PublicShareExportActions = readonly PublicShareExportAction[];
+
 type PublicSharePayload = Readonly<{
   status: "structured";
   report: PublicReport;
   download_policy: "none" | "report" | "documents";
   documents: PublicDocument[];
   allowed_export_formats: string[];
+  export_actions: PublicShareExportActions;
 }>;
 
 type ShareErrorPayload = Readonly<{ error?: string }>;
@@ -130,7 +134,7 @@ export default function PublicSharePage() {
     return (
       <main className="min-h-screen bg-[var(--eh-canvas)] px-4 py-12 text-[var(--eh-text)]">
         <div className="mx-auto max-w-2xl">
-          <p className="text-sm text-[var(--eh-text-muted)]">
+          <p className="text-sm text-[var(--eh-text-secondary)]">
             Loading shared report
           </p>
         </div>
@@ -142,13 +146,10 @@ export default function PublicSharePage() {
     return (
       <main className="min-h-screen bg-[var(--eh-canvas)] px-4 py-12 text-[var(--eh-text)]">
         <section className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-700">
-            Shared health report
-          </p>
-          <h1 className="mt-3 text-2xl font-semibold tracking-tight">
+          <h1 className="mt-0 text-2xl font-semibold tracking-tight">
             Enter the access PIN
           </h1>
-          <p className="mt-2 text-sm leading-6 text-[var(--eh-text-muted)]">
+          <p className="mt-2 text-sm leading-6 text-[var(--eh-text-secondary)]">
             This report requires the PIN provided by the person who shared it.
           </p>
           <form className="mt-6 space-y-4" onSubmit={submitPin}>
@@ -181,7 +182,7 @@ export default function PublicSharePage() {
               </p>
             )}
             <Button
-              className="w-full"
+              className="h-11 w-full"
               type="submit"
               disabled={submittingPin || pin.length < 4}
             >
@@ -197,13 +198,10 @@ export default function PublicSharePage() {
     return (
       <main className="min-h-screen bg-[var(--eh-canvas)] px-4 py-12 text-[var(--eh-text)]">
         <section className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-700">
-            Shared health report
-          </p>
-          <h1 className="mt-3 text-2xl font-semibold tracking-tight">
+          <h1 className="mt-0 text-2xl font-semibold tracking-tight">
             This share is unavailable
           </h1>
-          <p className="mt-2 text-sm leading-6 text-[var(--eh-text-muted)]">
+          <p className="mt-2 text-sm leading-6 text-[var(--eh-text-secondary)]">
             {error ?? "The report could not be loaded."}
           </p>
         </section>
@@ -214,12 +212,14 @@ export default function PublicSharePage() {
   const { report } = payload;
   return (
     <main className="min-h-screen bg-[var(--eh-canvas)] px-4 py-10 text-[var(--eh-text)] sm:px-6">
-      <div className="mx-auto max-w-3xl space-y-7">
+      <div
+        className="mx-auto max-w-3xl space-y-7"
+        data-public-share-export-actions={JSON.stringify(
+          payload.export_actions,
+        )}
+      >
         <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-700">
-            Shared health report
-          </p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+          <h1 className="mt-0 text-3xl font-semibold tracking-tight">
             {report.title}
           </h1>
           <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -237,7 +237,7 @@ export default function PublicSharePage() {
               {formatDate(report.created_at)}
             </span>
           </div>
-          <p className="mt-5 max-w-2xl text-sm leading-6 text-[var(--eh-text-muted)]">
+          <p className="mt-5 max-w-2xl text-sm leading-6 text-[var(--eh-text-secondary)]">
             {report.summary_preview}
           </p>
         </header>
@@ -247,7 +247,7 @@ export default function PublicSharePage() {
             <h2 className="text-xl font-semibold tracking-tight">
               Shared documents
             </h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--eh-text-muted)]">
+            <p className="mt-2 text-sm leading-6 text-[var(--eh-text-secondary)]">
               Original documents selected for this share.
             </p>
             <ul className="mt-5 space-y-3">
@@ -260,7 +260,7 @@ export default function PublicSharePage() {
                     {document.filename}
                   </span>
                   <a
-                    className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2"
+                    className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2"
                     href={`/api/share/${encodeURIComponent(token)}/documents/${encodeURIComponent(document.id)}`}
                     download
                   >

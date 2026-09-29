@@ -51,7 +51,9 @@ function keyRing(): ShareTokenKeyRing {
   }
 
   const entries = Object.entries(parsed);
-  if (entries.length === 0) throw new ShareTokenConfigurationError();
+  if (entries.length === 0 || entries.length > 2) {
+    throw new ShareTokenConfigurationError();
+  }
   const keys = new Map<string, string>();
   for (const [version, secret] of entries) {
     if (

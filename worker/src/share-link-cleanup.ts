@@ -12,27 +12,22 @@ const AccessCleanupSchema = CleanupSchema.extend({ skipped: z.boolean() });
 
 type CleanupResult = z.infer<typeof CleanupSchema>;
 type AccessCleanupResult = z.infer<typeof AccessCleanupSchema>;
-
-export type ShareLinkCleanupSummary = Readonly<{
-  accessEvents: AccessCleanupResult;
+type RateCleanupSummary = Readonly<{
   rateLimitBuckets: CleanupResult;
   pinProofs: CleanupResult;
 }>;
 
-const MAX_FAILURE_RETRIES = 3;
-let nextCleanupAt = 0;
-let consecutiveFailures = 0;
+export type ShareLinkCleanupSummary = Readonly<{
+  accessEvents: AccessCleanupResult | null;
+  rateLimitBuckets: CleanupResult | null;
+  pinProofs: CleanupResult | null;
+}>;
 
-function nextDelay(summary: ShareLinkCleanupSummary): number {
-  const backlog =
-    summary.accessEvents.skipped ||
-    summary.accessEvents.exhausted ||
-    summary.rateLimitBuckets.exhausted ||
-    summary.pinProofs.exhausted;
-  return backlog
-    ? workerEnv.shareRateLimitCleanupRetryIntervalMs
-    : workerEnv.shareRateLimitCleanupIntervalMs;
-}
+const MAX_FAILURE_RETRIES = 3;
+let nextAccessEventCleanupAt = 0;
+let nextRateLimitCleanupAt = 0;
+let accessEventFailures = 0;
+let rateLimitFailures = 0;
 
 function parseCleanupResult(data: unknown): CleanupResult {
   const parsed = CleanupSchema.safeParse(Array.isArray(data) ? data[0] : data);
@@ -48,22 +43,50 @@ function parseAccessCleanupResult(data: unknown): AccessCleanupResult {
   return parsed.data;
 }
 
-export async function cleanupShareLinkState(
-  now = new Date(),
-): Promise<ShareLinkCleanupSummary | null> {
-  const nowMs = now.getTime();
-  if (nowMs < nextCleanupAt) return null;
-
+async function cleanupAccessEvents(
+  now: Date,
+): Promise<AccessCleanupResult | null> {
   try {
-    const accessEvents = await supabase.rpc(
-      "cleanup_report_share_access_events",
-      {
-        p_now: now.toISOString(),
-        p_max_batches: 100,
-      },
-    );
-    if (accessEvents.error) throw new Error("access_event_cleanup_failed");
+    const result = await supabase.rpc("cleanup_report_share_access_events", {
+      p_now: now.toISOString(),
+      p_max_batches: 100,
+    });
+    if (result.error) throw new Error("access_event_cleanup_failed");
 
+    const summary = parseAccessCleanupResult(result.data);
+    accessEventFailures = 0;
+    const backlog = summary.skipped || summary.exhausted;
+    if (backlog) {
+      console.warn("share_access_event_cleanup_backlog", {
+        remaining_expired_events: summary.remaining_expired_count,
+      });
+    }
+    nextAccessEventCleanupAt =
+      now.getTime() +
+      (backlog
+        ? workerEnv.shareAccessEventCleanupRetryIntervalMs
+        : workerEnv.shareAccessEventCleanupIntervalMs);
+    return summary;
+  } catch (error) {
+    accessEventFailures += 1;
+    nextAccessEventCleanupAt =
+      now.getTime() + workerEnv.shareAccessEventCleanupRetryIntervalMs;
+    const signal =
+      accessEventFailures >= MAX_FAILURE_RETRIES
+        ? "share_access_event_cleanup_failed"
+        : "share_access_event_cleanup_retry";
+    console.error(signal, {
+      attempts: accessEventFailures,
+      error: error instanceof Error ? error.name : "unknown",
+    });
+    return null;
+  }
+}
+
+async function cleanupRateLimitedState(
+  now: Date,
+): Promise<RateCleanupSummary | null> {
+  try {
     const rateLimitBuckets = await supabase.rpc(
       "cleanup_report_share_rate_limit_buckets",
       {
@@ -80,40 +103,53 @@ export async function cleanupShareLinkState(
     if (pinProofs.error) throw new Error("pin_proof_cleanup_failed");
 
     const summary = {
-      accessEvents: parseAccessCleanupResult(accessEvents.data),
       rateLimitBuckets: parseCleanupResult(rateLimitBuckets.data),
       pinProofs: parseCleanupResult(pinProofs.data),
-    } satisfies ShareLinkCleanupSummary;
-    consecutiveFailures = 0;
-    const accessBacklog =
-      summary.accessEvents.skipped || summary.accessEvents.exhausted;
-    const rateLimitBacklog =
+    } satisfies RateCleanupSummary;
+    rateLimitFailures = 0;
+    const backlog =
       summary.rateLimitBuckets.exhausted || summary.pinProofs.exhausted;
-    if (accessBacklog) {
-      console.warn("share_access_event_cleanup_backlog", {
-        remaining_expired_events: summary.accessEvents.remaining_expired_count,
-      });
-    }
-    if (rateLimitBacklog) {
+    if (backlog) {
       console.warn("share_rate_limit_cleanup_backlog", {
         remaining_expired_buckets:
           summary.rateLimitBuckets.remaining_expired_count,
         remaining_expired_proofs: summary.pinProofs.remaining_expired_count,
       });
     }
-    nextCleanupAt = nowMs + nextDelay(summary);
+    nextRateLimitCleanupAt =
+      now.getTime() +
+      (backlog
+        ? workerEnv.shareRateLimitCleanupRetryIntervalMs
+        : workerEnv.shareRateLimitCleanupIntervalMs);
     return summary;
   } catch (error) {
-    consecutiveFailures += 1;
-    nextCleanupAt = nowMs + workerEnv.shareRateLimitCleanupRetryIntervalMs;
+    rateLimitFailures += 1;
+    nextRateLimitCleanupAt =
+      now.getTime() + workerEnv.shareRateLimitCleanupRetryIntervalMs;
     const signal =
-      consecutiveFailures >= MAX_FAILURE_RETRIES
+      rateLimitFailures >= MAX_FAILURE_RETRIES
         ? "share_rate_limit_cleanup_failed"
         : "share_rate_limit_cleanup_retry";
     console.error(signal, {
-      attempts: consecutiveFailures,
+      attempts: rateLimitFailures,
       error: error instanceof Error ? error.name : "unknown",
     });
     return null;
   }
+}
+
+export async function cleanupShareLinkState(
+  now = new Date(),
+): Promise<ShareLinkCleanupSummary | null> {
+  const nowMs = now.getTime();
+  const accessEvents =
+    nowMs >= nextAccessEventCleanupAt ? await cleanupAccessEvents(now) : null;
+  const rateCleanup =
+    nowMs >= nextRateLimitCleanupAt ? await cleanupRateLimitedState(now) : null;
+  if (accessEvents === null && rateCleanup === null) return null;
+  return {
+    accessEvents,
+    rateLimitBuckets: rateCleanup?.rateLimitBuckets ?? null,
+    pinProofs: rateCleanup?.pinProofs ?? null,
+  };
 }
