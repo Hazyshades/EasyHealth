@@ -237,7 +237,7 @@ export default function PublicSharePage() {
               {formatDate(report.created_at)}
             </span>
           </div>
-          <p className="mt-5 max-w-2xl text-sm leading-6 text-[var(--eh-text-secondary)]">
+          <p className="mt-5 max-w-2xl text-pretty text-sm leading-6 text-[var(--eh-text-secondary)]">
             {report.summary_preview}
           </p>
         </header>
