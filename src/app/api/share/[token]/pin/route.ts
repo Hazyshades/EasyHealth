@@ -44,7 +44,14 @@ function containsPinOutsideBody(request: NextRequest): boolean {
 export async function POST(request: NextRequest, context: RouteContext) {
   const boundary = verifyPublicBoundary(request);
   if (boundary instanceof Response) return boundary;
-  if (containsPinOutsideBody(request)) return invalidPinRequest();
+  if (containsPinOutsideBody(request)) {
+    const limited = await consumeFailureRateLimit({
+      tokenKey: null,
+      boundary,
+    });
+    if (limited) return limited;
+    return invalidPinRequest();
+  }
 
   const { token } = await context.params;
   let lookup;
@@ -60,6 +67,36 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   if (lookup.share.pin_hash === null || lookup.share.pin_salt === null) {
+    try {
+      await recordShareOutcome(
+        lookup.share,
+        "pin",
+        "denied",
+        boundary.clientClass,
+      );
+    } catch {
+      return publicShareError(new ShareServiceError());
+    }
+    let tokenKey: string;
+    try {
+      tokenKey = shareTokenDigestKey(lookup.token.tokenDigest);
+    } catch (rateError) {
+      return publicShareError(rateError);
+    }
+    const limited = await consumeFailureRateLimit({ tokenKey, boundary });
+    if (limited) {
+      try {
+        await recordShareOutcome(
+          lookup.share,
+          "pin",
+          "rate_limited",
+          boundary.clientClass,
+        );
+      } catch {
+        return publicShareError(new ShareServiceError());
+      }
+      return limited;
+    }
     return publicShareJson({ error: "Share unavailable" }, 404);
   }
 

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import {
   authorizeShareRead,
   loadShareByToken,
+  recordShareOutcome,
   SharePinRequiredError,
   ShareServiceError,
   ShareUnavailableError,
@@ -31,6 +32,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const boundary = verifyPublicBoundary(request);
   if (boundary instanceof Response) return boundary;
   if (containsPinMaterial(request)) {
+    const limited = await consumeFailureRateLimit({
+      tokenKey: null,
+      boundary,
+    });
+    if (limited) return limited;
     return publicShareJson({ error: "Share unavailable" }, 404);
   }
 
@@ -85,7 +91,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
         return publicShareError(rateError);
       }
       const limited = await consumeFailureRateLimit({ tokenKey, boundary });
-      if (limited) return limited;
+      if (limited) {
+        try {
+          await recordShareOutcome(
+            lookup.share,
+            "report",
+            "rate_limited",
+            boundary.clientClass,
+          );
+        } catch {
+          return publicShareError(new ShareServiceError());
+        }
+        return limited;
+      }
     }
     return publicShareError(error);
   }
