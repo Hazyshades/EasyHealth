@@ -583,6 +583,20 @@ export function resolvePersistedBiomarkerDynamicsExtension(
     return { ok: false, reason: "Missing frozen dynamics report payload" };
   }
   const typedReport = report as BiomarkerDynamicsReport;
+  const generationScopeIds = typedReport.generationMetadata?.scopeDocumentIds;
+  if (
+    !Array.isArray(generationScopeIds) ||
+    generationScopeIds.length !== scopeIds.length ||
+    new Set(generationScopeIds).size !== scopeIds.length ||
+    generationScopeIds.some(
+      (id) => typeof id !== "string" || !scopeIds.includes(id),
+    )
+  ) {
+    return {
+      ok: false,
+      reason: "Persisted dynamics generation scope does not match report scope",
+    };
+  }
   const isPointWithinScope = (
     point: BiomarkerDynamicsPoint | null | undefined,
   ): boolean => {

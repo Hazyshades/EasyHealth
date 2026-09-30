@@ -127,6 +127,14 @@ function emptyStateLabel(value: string | undefined): string {
   }
   return "No source-backed entries were available for this section.";
 }
+function toleranceLabel(
+  label: string,
+  tolerance: { absolute: number; relative: number } | null,
+): string {
+  return tolerance
+    ? `; ${label} absolute ${tolerance.absolute}, relative ${tolerance.relative}`
+    : "";
+}
 
 function sourceLabel(source: ReportSource): string {
   const snapshot = source.snapshot;
@@ -282,6 +290,11 @@ function ReportPdfDocument({
                     {series.label}: {series.direction.value};{" "}
                     {series.statistics.pointCount} point
                     {series.statistics.pointCount === 1 ? "" : "s"}
+                    {toleranceLabel(
+                      "direction tolerance",
+                      series.direction.tolerance,
+                    )}
+                    {toleranceLabel("series tolerance", series.tolerance)}
                   </Text>
                   {series.points.map((point) => (
                     <Text key={point.id} style={styles.muted}>

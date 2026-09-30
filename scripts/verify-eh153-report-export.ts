@@ -535,6 +535,37 @@ async function main(): Promise<void> {
       }),
     /Report export is unavailable/u,
   );
+  const metadataTamperedExtension = frozenDynamics();
+  metadataTamperedExtension.report.generationMetadata.scopeDocumentIds = [
+    DOC_A,
+    DOC_OUTSIDE,
+  ];
+  const metadataTamperedBrief = {
+    ...structuredClone(baseBrief),
+    extensions: { biomarker_dynamics: metadataTamperedExtension },
+  };
+  await assert.rejects(
+    () =>
+      getExportableReport(owner, "json", {
+        reportId: REPORT_ID,
+        readReport: async ({ reportId }) => ({
+          status: "structured",
+          can_share: true,
+          can_export: true,
+          report: {
+            id: reportId,
+            title: "Metadata tampered",
+            report_type: "general_practice",
+            detail_level: "standard",
+            abnormal_only: false,
+            content: metadataTamperedBrief,
+            summary_preview: "Metadata tampered",
+            created_at: GENERATED_AT,
+          },
+        }),
+      }),
+    /Report export is unavailable/u,
+  );
 
   for (const mutate of [
     (brief: DoctorVisitBrief) => {
