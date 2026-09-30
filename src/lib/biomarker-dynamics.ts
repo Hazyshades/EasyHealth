@@ -240,7 +240,9 @@ export function validatePeriod(
 }
 
 function utcCalendarDate(observedAt: string): string {
-  return observedAt.includes("T") ? observedAt.split("T")[0]! : observedAt.slice(0, 10);
+  return observedAt.includes("T")
+    ? observedAt.split("T")[0]!
+    : observedAt.slice(0, 10);
 }
 
 function isWithinPeriod(
@@ -254,7 +256,9 @@ function isWithinPeriod(
   return dateStr >= period.start && dateStr <= period.end;
 }
 
-function numericValue(value: number | string | null | undefined): number | null {
+function numericValue(
+  value: number | string | null | undefined,
+): number | null {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   if (typeof value !== "string" || value.trim() === "") return null;
   const parsed = Number(value);
@@ -284,7 +288,9 @@ function pointSource(
   };
 }
 
-function sortDynamicsPoints(points: BiomarkerDynamicsPoint[]): BiomarkerDynamicsPoint[] {
+function sortDynamicsPoints(
+  points: BiomarkerDynamicsPoint[],
+): BiomarkerDynamicsPoint[] {
   return [...points].sort((a, b) => {
     const byDate = a.observedAt.localeCompare(b.observedAt);
     return byDate !== 0 ? byDate : compareCanonicalObservationId(a.id, b.id);
@@ -525,7 +531,10 @@ export function resolvePersistedBiomarkerDynamicsExtension(
   }
   const ext = value as Record<string, unknown>;
   if (ext.schemaVersion !== BIOMARKER_DYNAMICS_SCHEMA_VERSION) {
-    return { ok: false, reason: "Unsupported or tampered dynamics schema version" };
+    return {
+      ok: false,
+      reason: "Unsupported or tampered dynamics schema version",
+    };
   }
   if (ext.directionPolicyVersion !== DIRECTION_POLICY_VERSION) {
     return {
@@ -542,11 +551,20 @@ export function resolvePersistedBiomarkerDynamicsExtension(
     (period as BiomarkerDynamicsPeriod).start >
       (period as BiomarkerDynamicsPeriod).end
   ) {
-    return { ok: false, reason: "Tampered or invalid biomarker_dynamics_period" };
+    return {
+      ok: false,
+      reason: "Tampered or invalid biomarker_dynamics_period",
+    };
   }
   const scopeIds = ext.report_scope_document_ids;
-  if (!Array.isArray(scopeIds) || scopeIds.some((id) => typeof id !== "string")) {
-    return { ok: false, reason: "Tampered or missing report_scope_document_ids" };
+  if (
+    !Array.isArray(scopeIds) ||
+    scopeIds.some((id) => typeof id !== "string")
+  ) {
+    return {
+      ok: false,
+      reason: "Tampered or missing report_scope_document_ids",
+    };
   }
   if (expectedScopeDocumentIds) {
     const expected = new Set(expectedScopeDocumentIds);
@@ -565,14 +583,40 @@ export function resolvePersistedBiomarkerDynamicsExtension(
     return { ok: false, reason: "Missing frozen dynamics report payload" };
   }
   const typedReport = report as BiomarkerDynamicsReport;
+  const isPointWithinScope = (
+    point: BiomarkerDynamicsPoint | null | undefined,
+  ): boolean => {
+    if (
+      !point ||
+      typeof point !== "object" ||
+      typeof point.documentId !== "string" ||
+      !scopeIds.includes(point.documentId)
+    ) {
+      return false;
+    }
+    if (point.source === null) return true;
+    return (
+      typeof point.source === "object" &&
+      typeof point.source.documentId === "string" &&
+      point.source.documentId === point.documentId &&
+      scopeIds.includes(point.source.documentId)
+    );
+  };
   for (const series of typedReport.series ?? []) {
     for (const point of series.points ?? []) {
-      if (!scopeIds.includes(point.documentId)) {
+      if (!isPointWithinScope(point)) {
         return {
           ok: false,
           reason: "Frozen dynamics point is outside persisted report scope",
         };
       }
+    }
+    const latest = series.statistics?.latest;
+    if (latest && !isPointWithinScope(latest)) {
+      return {
+        ok: false,
+        reason: "Frozen dynamics point is outside persisted report scope",
+      };
     }
   }
   if (typeof ext.generatedAt !== "string" || !ext.generatedAt) {
@@ -605,7 +649,8 @@ export function seriesIdentityKey(input: {
   const displayUnitKey =
     normalizeComparisonUnit(input.displayUnit) || "__unit_not_recorded__";
   const nativeUnitKey = input.splitByNativeUnit
-    ? normalizeComparisonUnit(input.nativeUnit) || "__native_unit_not_recorded__"
+    ? normalizeComparisonUnit(input.nativeUnit) ||
+      "__native_unit_not_recorded__"
     : "__shared__";
   return [
     input.measurementDefinitionKey,

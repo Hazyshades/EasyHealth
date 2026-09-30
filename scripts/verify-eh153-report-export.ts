@@ -8,8 +8,9 @@ import {
 import {
   createReportExportResponse,
   getExportableReport,
-  renderPdfProjection,
   renderReportExport,
+  renderPdfProjection,
+  serializeCsvProjection,
   serializeJsonProjection,
   type ReportReadResolver,
 } from "../src/lib/report-export";
@@ -358,6 +359,45 @@ async function main(): Promise<void> {
   assert.match(csv, /native_value/u);
   assert.match(csv, /conversion_indicator/u);
   assert.doesNotMatch(csv, /SOURCE_UNAVAILABLE/u);
+  const emptyStateBrief = structuredClone(baseBrief);
+  emptyStateBrief.sections[2] = {
+    ...emptyStateBrief.sections[2]!,
+    items: [],
+    empty_state: "insufficient_evidence",
+  };
+  const emptyStateCsv = new TextDecoder().decode(
+    serializeCsvProjection(
+      buildExportProjection({
+        ...ownerExport,
+        brief: emptyStateBrief,
+        dynamics: null,
+      }),
+    ),
+  );
+  assert.match(
+    emptyStateCsv,
+    /^section,,\d+,changes,3,insufficient_evidence,/mu,
+  );
+
+  const emptySeriesDynamics = structuredClone(frozenDynamics());
+  emptySeriesDynamics.report.series[0]!.points = [];
+  emptySeriesDynamics.report.series[0]!.statistics = {
+    ...emptySeriesDynamics.report.series[0]!.statistics,
+    pointCount: 0,
+    min: null,
+    max: null,
+    latest: null,
+  };
+  const emptySeriesCsv = new TextDecoder().decode(
+    serializeCsvProjection(
+      buildExportProjection({
+        ...ownerExport,
+        dynamics: emptySeriesDynamics,
+      }),
+    ),
+  );
+  assert.match(emptySeriesCsv, /dynamics_series/u);
+  assert.match(emptySeriesCsv, /series-glucose/u);
 
   const sharedCapability = {
     reportId: REPORT_ID,
@@ -461,6 +501,37 @@ async function main(): Promise<void> {
       getExportableReport(owner, "json", {
         reportId: REPORT_ID,
         readReport: tamperedResolver,
+      }),
+    /Report export is unavailable/u,
+  );
+  const sourceTamperedExtension = frozenDynamics();
+  sourceTamperedExtension.report.series[0]!.points[0]!.source!.documentId =
+    DOC_OUTSIDE;
+  sourceTamperedExtension.report.series[0]!.statistics.latest!.source!.documentId =
+    DOC_OUTSIDE;
+  const sourceTamperedBrief = {
+    ...structuredClone(baseBrief),
+    extensions: { biomarker_dynamics: sourceTamperedExtension },
+  };
+  await assert.rejects(
+    () =>
+      getExportableReport(owner, "json", {
+        reportId: REPORT_ID,
+        readReport: async ({ reportId }) => ({
+          status: "structured",
+          can_share: true,
+          can_export: true,
+          report: {
+            id: reportId,
+            title: "Source tampered",
+            report_type: "general_practice",
+            detail_level: "standard",
+            abnormal_only: false,
+            content: sourceTamperedBrief,
+            summary_preview: "Source tampered",
+            created_at: GENERATED_AT,
+          },
+        }),
       }),
     /Report export is unavailable/u,
   );

@@ -8,6 +8,8 @@ const CSV_HEADERS = [
   "export_version",
   "row_order",
   "section",
+  "section_order",
+  "empty_state",
   "claim_id",
   "claim_kind",
   "claim_status",
@@ -82,7 +84,13 @@ export function serializeCsvProjection(
   });
 
   const claimById = new Map(report.claims.map((claim) => [claim.id, claim]));
-  for (const section of report.sections) {
+  for (const [sectionIndex, section] of report.sections.entries()) {
+    add({
+      record_type: "section",
+      section: section.id,
+      section_order: sectionIndex + 1,
+      empty_state: section.empty_state,
+    });
     for (const item of section.items) {
       if (item.type !== "claim_ref") continue;
       const claim = claimById.get(item.claim_id);
@@ -118,6 +126,21 @@ export function serializeCsvProjection(
   if (projection.dynamics) {
     const dynamics = projection.dynamics;
     for (const series of dynamics.series) {
+      add({
+        record_type: "dynamics_series",
+        section: "latest_measurements",
+        native_unit: series.statistics.nativeUnit,
+        display_unit: series.statistics.displayUnit,
+        series_id: series.id,
+        measurement_definition_key: series.measurementDefinitionKey,
+        series_label: series.label,
+        direction: series.direction.value,
+        direction_tolerance: series.tolerance ?? series.direction.tolerance,
+        period_start: dynamics.period?.start,
+        period_end: dynamics.period?.end,
+        dynamics_schema_version: dynamics.schemaVersion,
+        dynamics_policy_version: dynamics.directionPolicyVersion,
+      });
       for (const point of series.points) {
         const conversion = point.conversionMetadata;
         add({
