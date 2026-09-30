@@ -22,6 +22,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Run EH-151 route fixtures
         run: pnpm test:eh151
+      - name: Run EH-152 management fixtures
+        run: pnpm test:eh152
 
   database:
     runs-on: ubuntu-latest

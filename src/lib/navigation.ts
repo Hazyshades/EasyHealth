@@ -8,68 +8,84 @@ export type AppNavItem = {
   exact?: boolean;
 };
 
-export const PAGE_TITLES: Record<string, { title: string; subtitle?: string }> = {
-  "/app": {
-    title: "Dashboard",
-    subtitle: "Your personal health record at a glance",
-  },
-  "/app/profile": {
-    title: "Health Profile",
-    subtitle: "Current state assessments and factual insights from your records",
-  },
-  "/app/timeline": {
-    title: "Health Timeline",
-    subtitle: "Your medical events in chronological order",
-  },
-  "/app/biomarkers": {
-    title: "Biomarkers",
-    subtitle: "Values extracted from your lab documents",
-  },
-  "/app/knowledge": {
-    title: "Knowledge",
-    subtitle:
-      "Plain-language guides that help you read your health record without changing it",
-  },
-  "/app/knowledge/panels/cbc": {
-    title: "Complete blood count",
-    subtitle:
-      "A plain-language guide to the group of red-cell, white-cell, and platelet measurements often reported together",
-  },
-  "/app/documents": {
-    title: "Documents",
-    subtitle: "Upload and browse your medical records",
-  },
-  "/app/upload": {
-    title: "Upload",
-    subtitle: "Add a new document to your health record",
-  },
-  "/app/reports": {
-    title: "Health reports",
-    subtitle: "Customizable educational reports for clinicians and specialists",
-  },
-  "/app/reports/create": {
-    title: "Create report",
-    subtitle: "Generate a new health report from your records",
-  },
-  "/app/account": {
-    title: "Account",
-    subtitle: "Wallet and sign-in details for your EasyHealth account",
-  },
-  "/app/settings": {
-    title: "Settings",
-    subtitle: "Manage your EasyHealth preferences",
-  },
-  "/app/settings/ai": {
-    title: "AI Settings",
-    subtitle: "Choose which model EasyHealth uses for extraction and reports",
-  },
-};
+export const PAGE_TITLES: Record<string, { title: string; subtitle?: string }> =
+  {
+    "/app": {
+      title: "Dashboard",
+      subtitle: "Your personal health record at a glance",
+    },
+    "/app/profile": {
+      title: "Health Profile",
+      subtitle:
+        "Current state assessments and factual insights from your records",
+    },
+    "/app/timeline": {
+      title: "Health Timeline",
+      subtitle: "Your medical events in chronological order",
+    },
+    "/app/biomarkers": {
+      title: "Biomarkers",
+      subtitle: "Values extracted from your lab documents",
+    },
+    "/app/knowledge": {
+      title: "Knowledge",
+      subtitle:
+        "Plain-language guides that help you read your health record without changing it",
+    },
+    "/app/knowledge/panels/cbc": {
+      title: "Complete blood count",
+      subtitle:
+        "A plain-language guide to the group of red-cell, white-cell, and platelet measurements often reported together",
+    },
+    "/app/documents": {
+      title: "Documents",
+      subtitle: "Upload and browse your medical records",
+    },
+    "/app/upload": {
+      title: "Upload",
+      subtitle: "Add a new document to your health record",
+    },
+    "/app/reports": {
+      title: "Health reports",
+      subtitle:
+        "Customizable educational reports for clinicians and specialists",
+    },
+    "/app/reports/create": {
+      title: "Create report",
+      subtitle: "Generate a new health report from your records",
+    },
+    "/app/account": {
+      title: "Account",
+      subtitle: "Wallet and sign-in details for your EasyHealth account",
+    },
+    "/app/settings": {
+      title: "Settings",
+      subtitle: "Manage your EasyHealth preferences",
+    },
+    "/app/settings/ai": {
+      title: "AI Settings",
+      subtitle: "Choose which model EasyHealth uses for extraction and reports",
+    },
+    "/app/settings/shared-reports": {
+      title: "Shared reports",
+      subtitle: "Review and revoke access to your shared health reports",
+    },
+  };
 
-export function resolvePageMeta(pathname: string): { title: string; subtitle?: string } {
+export function resolvePageMeta(pathname: string): {
+  title: string;
+  subtitle?: string;
+} {
   if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname]!;
 
-  if (pathname.startsWith("/app/reports/") && pathname !== "/app/reports/create") {
-    return { title: "Report detail", subtitle: "View your generated health report" };
+  if (
+    pathname.startsWith("/app/reports/") &&
+    pathname !== "/app/reports/create"
+  ) {
+    return {
+      title: "Report detail",
+      subtitle: "View your generated health report",
+    };
   }
 
   if (pathname.startsWith("/app/documents/")) {
