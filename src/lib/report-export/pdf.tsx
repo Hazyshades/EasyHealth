@@ -155,6 +155,54 @@ function toleranceLabel(
     ? `; ${label} absolute ${tolerance.absolute}, relative ${tolerance.relative}`
     : "";
 }
+type ExportDynamicsPoint = NonNullable<
+  ExportProjection["dynamics"]
+>["series"][number]["points"][number];
+
+function dynamicsPointLabel(point: ExportDynamicsPoint): string {
+  const scalar = (value: number | string | boolean | null): string =>
+    value === null || value === "" ? "not recorded" : String(value);
+  const measurement = (value: number | null, unit: string | null): string =>
+    `${scalar(value)}${unit ? ` ${unit}` : ""}`;
+  const range = (low: number | null, high: number | null): string =>
+    `${scalar(low)}–${scalar(high)}`;
+  const conversion = point.conversionMetadata
+    ? [
+        `conversion ${point.conversionMetadata.converted ? "converted" : "native"}`,
+        `original ${measurement(
+          point.conversionMetadata.originalValue,
+          point.conversionMetadata.originalUnit,
+        )}`,
+        `eligible ${scalar(point.conversionMetadata.conversionEligible)}`,
+      ].join(", ")
+    : "conversion not recorded";
+  const source = point.source
+    ? [
+        `source ${point.source.filename}`,
+        `source document ${point.source.documentId}`,
+        point.source.laboratory
+          ? `laboratory ${point.source.laboratory}`
+          : "laboratory not recorded",
+      ].join(", ")
+    : "source provenance not recorded";
+  return [
+    `observed ${point.observedAt}`,
+    `native ${measurement(point.nativeValue, point.nativeUnit)}`,
+    `native range ${range(
+      point.nativeReferenceLow,
+      point.nativeReferenceHigh,
+    )}`,
+    `display ${measurement(point.displayValue, point.displayUnit)}`,
+    `display range ${range(
+      point.displayReferenceLow,
+      point.displayReferenceHigh,
+    )}`,
+    conversion,
+    `source ${point.id}`,
+    `document ${point.documentId}`,
+    source,
+  ].join(" · ");
+}
 
 function snapshotValue(value: string | number | null): string {
   return value === null || value === "" ? "not recorded" : String(value);
@@ -365,13 +413,7 @@ function ReportPdfDocument({
                   </Text>
                   {series.points.map((point) => (
                     <Text key={point.id} style={styles.muted}>
-                      {point.observedAt} ·{" "}
-                      {point.displayValue ?? "value unavailable"}
-                      {point.displayUnit ? ` ${point.displayUnit}` : ""} ·
-                      source {point.id} · document {point.documentId}
-                      {point.source
-                        ? ` · ${point.source.filename}${point.source.laboratory ? ` · ${point.source.laboratory}` : ""}`
-                        : ""}
+                      {dynamicsPointLabel(point)}
                     </Text>
                   ))}
                 </View>
