@@ -136,16 +136,55 @@ function toleranceLabel(
     : "";
 }
 
+function snapshotValue(value: string | number | null): string {
+  return value === null || value === "" ? "not recorded" : String(value);
+}
+
 function sourceLabel(source: ReportSource): string {
   const snapshot = source.snapshot;
-  if (snapshot.kind === "observation") {
-    const value =
-      snapshot.value_text?.trim() ||
-      (snapshot.value === null ? "" : String(snapshot.value));
-    const unit = snapshot.unit.trim();
-    return `${snapshot.label}: ${value ? `${value}${unit ? ` ${unit}` : ""}` : "value unavailable"}`;
+  const header = `${snapshot.label} [${snapshot.kind}]`;
+  const observed = `observed ${snapshotValue(snapshot.observed_at)}`;
+  switch (snapshot.kind) {
+    case "observation":
+      return [
+        `${header}: ${snapshot.value_text ?? snapshotValue(snapshot.value)}`,
+        `native ${snapshotValue(snapshot.value)}`,
+        `unit ${snapshotValue(snapshot.unit)}`,
+        `reference ${snapshotValue(snapshot.ref_low)}–${snapshotValue(snapshot.ref_high)}`,
+        observed,
+      ].join(" · ");
+    case "finding":
+      return [
+        `${header}: finding ${snapshot.finding_text}`,
+        `impression ${snapshotValue(snapshot.impression)}`,
+        observed,
+      ].join(" · ");
+    case "clinical_note":
+      return [
+        `${header}: provider ${snapshotValue(snapshot.provider_name)}`,
+        `summary ${snapshotValue(snapshot.summary)}`,
+        observed,
+      ].join(" · ");
+    case "prescription":
+      return [
+        `${header}: prescriber ${snapshotValue(snapshot.prescriber_name)}`,
+        `summary ${snapshotValue(snapshot.summary)}`,
+        observed,
+      ].join(" · ");
+    case "referral":
+      return [
+        `${header}: referring provider ${snapshotValue(snapshot.referring_provider)}`,
+        `specialty ${snapshotValue(snapshot.referred_to_specialty)}`,
+        `summary ${snapshotValue(snapshot.summary)}`,
+        observed,
+      ].join(" · ");
+    case "document_summary":
+      return [
+        `${header}: type ${snapshot.document_type}`,
+        `summary ${snapshot.summary}`,
+        observed,
+      ].join(" · ");
   }
-  return `${snapshot.label}: ${snapshot.kind}`;
 }
 
 function citationText(

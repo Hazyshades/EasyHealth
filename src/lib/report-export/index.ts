@@ -347,23 +347,39 @@ export async function renderReportExport(
   };
 }
 
+export type ReportExportResponseContext =
+  | Readonly<{ kind: "owner" }>
+  | Readonly<{
+      kind: "share";
+      applyPublicShareResponsePolicy: PublicShareResponsePolicy;
+    }>;
+
+function encodeFilenameForHeader(filename: string): string {
+  return encodeURIComponent(filename).replace(
+    /[!'()*]/gu,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+}
+
 export function createReportExportResponse(
   file: ReportExportFile,
-  applyPublicShareResponsePolicy?: PublicShareResponsePolicy,
+  responseContext: ReportExportResponseContext,
 ): Response {
   const asciiFilename = file.filename.replace(/[^\x20-\x7e]/gu, "_");
   const response = new Response(Buffer.from(file.bytes), {
     status: 200,
     headers: {
       "Content-Type": file.contentType,
-      "Content-Disposition": `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodeURIComponent(file.filename)}`,
+      "Content-Disposition": `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodeFilenameForHeader(file.filename)}`,
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
     },
   });
-  return applyPublicShareResponsePolicy
-    ? applyPublicShareResponsePolicy(response)
-    : response;
+  if (responseContext.kind === "owner") return response;
+  if (typeof responseContext.applyPublicShareResponsePolicy !== "function") {
+    throw new ReportExportError("UNAUTHORIZED", "Export is unavailable");
+  }
+  return responseContext.applyPublicShareResponsePolicy(response);
 }
 
 export { serializeCsvProjection } from "./csv";

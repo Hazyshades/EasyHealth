@@ -115,62 +115,61 @@ export function serializeCsvProjection(
           .join(";"),
       });
     }
-  }
-
-  if (projection.dynamics) {
-    const dynamics = projection.dynamics;
-    for (const series of dynamics.series) {
-      add({
-        record_type: "dynamics_series",
-        section: "latest_measurements",
-        native_unit: series.statistics.nativeUnit,
-        display_unit: series.statistics.displayUnit,
-        series_id: series.id,
-        measurement_definition_key: series.measurementDefinitionKey,
-        series_label: series.label,
-        direction: series.direction.value,
-        direction_tolerance: series.tolerance ?? series.direction.tolerance,
-        period_start: dynamics.period?.start,
-        period_end: dynamics.period?.end,
-        dynamics_schema_version: dynamics.schemaVersion,
-        dynamics_policy_version: dynamics.directionPolicyVersion,
-      });
-      for (const point of series.points) {
-        const conversion = point.conversionMetadata;
+    if (section.id === "latest_measurements" && projection.dynamics) {
+      const dynamics = projection.dynamics;
+      for (const series of dynamics.series) {
         add({
-          record_type: "measurement",
+          record_type: "dynamics_series",
           section: "latest_measurements",
-          source_id: point.id,
-          source_kind: "observation",
-          document_id: point.documentId,
-          observed_at: point.observedAt,
-          native_value: point.nativeValue,
-          native_unit: point.nativeUnit,
-          native_reference_low: point.nativeReferenceLow,
-          native_reference_high: point.nativeReferenceHigh,
-          display_value: point.displayValue,
-          display_unit: point.displayUnit,
-          display_reference_low: point.displayReferenceLow,
-          display_reference_high: point.displayReferenceHigh,
-          conversion_indicator:
-            conversion === null
-              ? "not_available"
-              : conversion.converted
-                ? "converted"
-                : "native",
-          conversion_original_value: conversion?.originalValue,
-          conversion_original_unit: conversion?.originalUnit,
-          conversion_eligible: conversion?.conversionEligible,
+          native_unit: series.statistics.nativeUnit,
+          display_unit: series.statistics.displayUnit,
           series_id: series.id,
           measurement_definition_key: series.measurementDefinitionKey,
           series_label: series.label,
           direction: series.direction.value,
-          direction_tolerance: series.direction.tolerance,
+          direction_tolerance: series.tolerance ?? series.direction.tolerance,
           period_start: dynamics.period?.start,
           period_end: dynamics.period?.end,
           dynamics_schema_version: dynamics.schemaVersion,
           dynamics_policy_version: dynamics.directionPolicyVersion,
         });
+        for (const point of series.points) {
+          const conversion = point.conversionMetadata;
+          add({
+            record_type: "measurement",
+            section: "latest_measurements",
+            source_id: point.id,
+            source_kind: "observation",
+            document_id: point.documentId,
+            observed_at: point.observedAt,
+            native_value: point.nativeValue,
+            native_unit: point.nativeUnit,
+            native_reference_low: point.nativeReferenceLow,
+            native_reference_high: point.nativeReferenceHigh,
+            display_value: point.displayValue,
+            display_unit: point.displayUnit,
+            display_reference_low: point.displayReferenceLow,
+            display_reference_high: point.displayReferenceHigh,
+            conversion_indicator:
+              conversion === null
+                ? "not_available"
+                : conversion.converted
+                  ? "converted"
+                  : "native",
+            conversion_original_value: conversion?.originalValue,
+            conversion_original_unit: conversion?.originalUnit,
+            conversion_eligible: conversion?.conversionEligible,
+            series_id: series.id,
+            measurement_definition_key: series.measurementDefinitionKey,
+            series_label: series.label,
+            direction: series.direction.value,
+            direction_tolerance: series.direction.tolerance,
+            period_start: dynamics.period?.start,
+            period_end: dynamics.period?.end,
+            dynamics_schema_version: dynamics.schemaVersion,
+            dynamics_policy_version: dynamics.directionPolicyVersion,
+          });
+        }
       }
     }
   }

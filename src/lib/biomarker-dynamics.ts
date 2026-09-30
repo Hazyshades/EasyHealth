@@ -537,8 +537,8 @@ const persistedDynamicsLimitationSchema = z
 
 const persistedDynamicsToleranceSchema = z
   .object({
-    absolute: z.number().finite(),
-    relative: z.number().finite(),
+    absolute: z.number().finite().nonnegative(),
+    relative: z.number().finite().nonnegative(),
   })
   .strict();
 

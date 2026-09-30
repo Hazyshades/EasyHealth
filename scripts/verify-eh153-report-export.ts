@@ -3,6 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   DYNAMICS_DISCLAIMER,
+  resolvePersistedBiomarkerDynamicsExtension,
   type FrozenBiomarkerDynamicsExtension,
 } from "../src/lib/biomarker-dynamics";
 import {
@@ -381,6 +382,9 @@ async function main(): Promise<void> {
   assert.match(csv, /conversion_indicator/u);
   assert.doesNotMatch(csv, /SOURCE_UNAVAILABLE/u);
   assert.ok(csv.indexOf("\nmeasurement,") < csv.indexOf("\nsource,"));
+  assert.ok(
+    csv.indexOf("\nmeasurement,") < csv.indexOf(",changes,,,claim-change,"),
+  );
   const formulaBrief = structuredClone(baseBrief);
   const formulaQuestion = formulaBrief.claims.find(
     (claim) => claim.kind === "clinician_question",
@@ -663,6 +667,18 @@ async function main(): Promise<void> {
       }),
     /Report export is unavailable/u,
   );
+  const negativeToleranceExtension = frozenDynamics();
+  negativeToleranceExtension.report.series[0]!.direction.tolerance = {
+    absolute: -1,
+    relative: 0.1,
+  };
+  assert.equal(
+    resolvePersistedBiomarkerDynamicsExtension(negativeToleranceExtension, [
+      DOC_A,
+      DOC_B,
+    ]).ok,
+    false,
+  );
 
   for (const mutate of [
     (brief: DoctorVisitBrief) => {
@@ -740,9 +756,22 @@ async function main(): Promise<void> {
   assert.equal(new TextDecoder().decode(pdfFile.bytes.slice(0, 5)), "%PDF-");
   assert.ok(pdfFile.bytes.byteLength > 1_000);
 
-  const policyResponse = createReportExportResponse(pdfFile, (response) => {
-    response.headers.set("X-Test-Share-Policy", "applied");
-    return response;
+  const ownerResponse = createReportExportResponse(pdfFile, { kind: "owner" });
+  assert.equal(ownerResponse.status, 200);
+  const apostropheResponse = createReportExportResponse(
+    { ...pdfFile, filename: "Résumé d'été.pdf" },
+    { kind: "owner" },
+  );
+  assert.match(
+    apostropheResponse.headers.get("Content-Disposition") ?? "",
+    /d%27%C3%A9t%C3%A9\.pdf/u,
+  );
+  const policyResponse = createReportExportResponse(pdfFile, {
+    kind: "share",
+    applyPublicShareResponsePolicy: (response) => {
+      response.headers.set("X-Test-Share-Policy", "applied");
+      return response;
+    },
   });
   assert.equal(policyResponse.headers.get("X-Test-Share-Policy"), "applied");
   assert.equal(
