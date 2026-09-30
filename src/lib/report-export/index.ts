@@ -183,11 +183,23 @@ function readDynamics(brief: DoctorVisitBrief): ExportableReport["dynamics"] {
   ) {
     return null;
   }
-  const resolved = resolvePersistedBiomarkerDynamicsExtension(
-    brief.extensions.biomarker_dynamics,
-    brief.source_document_ids,
-  );
-  if (!resolved.ok) {
+  let resolved: ReturnType<typeof resolvePersistedBiomarkerDynamicsExtension>;
+  try {
+    resolved = resolvePersistedBiomarkerDynamicsExtension(
+      brief.extensions.biomarker_dynamics,
+      brief.source_document_ids,
+    );
+  } catch {
+    throw new ReportExportError(
+      "DYNAMICS_INVALID",
+      "Report export is unavailable",
+    );
+  }
+  if (
+    !resolved.ok ||
+    resolved.extension.report.generationMetadata.scopeKind !==
+      "report_immutable"
+  ) {
     throw new ReportExportError(
       "DYNAMICS_INVALID",
       "Report export is unavailable",
@@ -306,12 +318,17 @@ export async function serializeReportExport(
 }
 
 function safeFilename(title: string, format: ReportExportFormat): string {
-  const base = title
+  const normalizedBase = title
     .normalize("NFKC")
     .replace(/[<>:"/\\|?*\u0000-\u001f]/gu, " ")
     .replace(/\s+/gu, " ")
-    .trim()
+    .trim();
+  const base = Array.from(normalizedBase, (character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return codePoint >= 0xd800 && codePoint <= 0xdfff ? "\uFFFD" : character;
+  })
     .slice(0, 80)
+    .join("")
     .trim();
   return `${base || "health-report"}.${format}`;
 }

@@ -58,7 +58,13 @@ function escapeCsvCell(value: unknown): string {
   if (value === null || value === undefined) return "";
   const text =
     typeof value === "object" ? stableStringify(value) : String(value);
-  return /[",\r\n]/u.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+  const safeText =
+    typeof value === "string" && /^[\t \r]*[=+\-@]/u.test(text)
+      ? `'${text}`
+      : text;
+  return /[",\r\n]/u.test(safeText)
+    ? `"${safeText.replaceAll('"', '""')}"`
+    : safeText;
 }
 
 export function serializeCsvProjection(
@@ -109,18 +115,6 @@ export function serializeCsvProjection(
           .join(";"),
       });
     }
-  }
-
-  for (const source of report.sourceLedger) {
-    add({
-      record_type: "source",
-      source_id: source.source_id,
-      source_kind: source.kind,
-      document_id: source.document_id,
-      source_label: source.snapshot.label,
-      source_snapshot: source.snapshot,
-      observed_at: source.snapshot.observed_at,
-    });
   }
 
   if (projection.dynamics) {
@@ -179,6 +173,17 @@ export function serializeCsvProjection(
         });
       }
     }
+  }
+  for (const source of report.sourceLedger) {
+    add({
+      record_type: "source",
+      source_id: source.source_id,
+      source_kind: source.kind,
+      document_id: source.document_id,
+      source_label: source.snapshot.label,
+      source_snapshot: source.snapshot,
+      observed_at: source.snapshot.observed_at,
+    });
   }
 
   const lines = [CSV_HEADERS.join(",")];

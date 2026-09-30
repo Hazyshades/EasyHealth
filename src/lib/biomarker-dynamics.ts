@@ -8,6 +8,7 @@
  * Pure: never resolves authorization or queries storage.
  */
 
+import { z } from "zod";
 import {
   compareCanonicalObservationId,
   computeDirection,
@@ -517,6 +518,127 @@ export function buildFrozenBiomarkerDynamicsExtension(
 export type PersistedDynamicsResolution =
   | { ok: true; extension: FrozenBiomarkerDynamicsExtension }
   | { ok: false; reason: string };
+const persistedDynamicsLimitationSchema = z
+  .object({
+    type: z.enum([
+      "undated",
+      "non_numeric",
+      "ineligible",
+      "unsupported_unit",
+      "comparison_unavailable",
+      "scope_excluded",
+      "tolerance_unavailable",
+    ]),
+    message: z.string(),
+    detail: z.string().optional(),
+    observationId: z.string().optional(),
+  })
+  .strict();
+
+const persistedDynamicsToleranceSchema = z
+  .object({
+    absolute: z.number().finite(),
+    relative: z.number().finite(),
+  })
+  .strict();
+
+const persistedDynamicsPointSchema = z
+  .object({
+    id: z.string(),
+    observedAt: z.string(),
+    documentId: z.string(),
+    nativeValue: z.number().finite().nullable(),
+    nativeUnit: z.string().nullable(),
+    displayValue: z.number().finite().nullable(),
+    displayUnit: z.string().nullable(),
+    nativeReferenceLow: z.number().finite().nullable(),
+    nativeReferenceHigh: z.number().finite().nullable(),
+    displayReferenceLow: z.number().finite().nullable(),
+    displayReferenceHigh: z.number().finite().nullable(),
+    conversionMetadata: z
+      .object({
+        converted: z.boolean(),
+        originalValue: z.number().finite().nullable(),
+        originalUnit: z.string().nullable(),
+        conversionEligible: z.boolean(),
+      })
+      .strict()
+      .nullable(),
+    source: z
+      .object({
+        documentId: z.string(),
+        href: z.string(),
+        filename: z.string(),
+        laboratory: z.string().nullable(),
+      })
+      .strict()
+      .nullable(),
+  })
+  .strict();
+
+const persistedDynamicsSeriesSchema = z
+  .object({
+    id: z.string(),
+    measurementDefinitionKey: z.string(),
+    label: z.string(),
+    specimen: z.string().nullable(),
+    modifier: z.string().nullable(),
+    method: z.string().nullable(),
+    scale: z.string().nullable(),
+    unit: z.string().nullable(),
+    direction: z
+      .object({
+        value: z.enum(["increasing", "decreasing", "stable", "not_available"]),
+        tolerance: persistedDynamicsToleranceSchema.nullable().optional(),
+        limitation: persistedDynamicsLimitationSchema.nullable(),
+      })
+      .strict(),
+    statistics: z
+      .object({
+        pointCount: z.number().int().nonnegative(),
+        min: z.number().finite().nullable(),
+        max: z.number().finite().nullable(),
+        latest: persistedDynamicsPointSchema.nullable(),
+        nativeUnit: z.string().nullable(),
+        displayUnit: z.string().nullable(),
+      })
+      .strict(),
+    points: z.array(persistedDynamicsPointSchema),
+    limitations: z.array(persistedDynamicsLimitationSchema),
+    tolerance: persistedDynamicsToleranceSchema.nullable().optional(),
+  })
+  .strict();
+
+const persistedDynamicsReportSchema = z
+  .object({
+    schemaVersion: z.string(),
+    directionPolicyVersion: z.string(),
+    period: z
+      .object({
+        start: z.string(),
+        end: z.string(),
+      })
+      .strict(),
+    series: z.array(persistedDynamicsSeriesSchema),
+    incompatibilities: z.array(
+      z
+        .object({
+          groupingReason: z.string(),
+          affectedSeriesLabels: z.array(z.string()),
+        })
+        .strict(),
+    ),
+    limitations: z.array(persistedDynamicsLimitationSchema),
+    disclaimer: z.string(),
+    generationMetadata: z
+      .object({
+        scopeKind: z.enum(["profile_current", "report_immutable"]),
+        scopeDocumentIds: z.array(z.string()),
+        generatedAt: z.string(),
+      })
+      .strict(),
+  })
+  .strict();
 
 /**
  * Fail-closed reader for a persisted EH-149 extension.
@@ -556,7 +678,7 @@ export function resolvePersistedBiomarkerDynamicsExtension(
       reason: "Tampered or invalid biomarker_dynamics_period",
     };
   }
-  const scopeIds = ext.report_scope_document_ids;
+  const scopeIds = ext.report_scope_document_ids as string[];
   if (
     !Array.isArray(scopeIds) ||
     scopeIds.some((id) => typeof id !== "string")
@@ -578,46 +700,50 @@ export function resolvePersistedBiomarkerDynamicsExtension(
       };
     }
   }
-  const report = ext.report;
-  if (!report || typeof report !== "object") {
+  if (!ext.report || typeof ext.report !== "object") {
     return { ok: false, reason: "Missing frozen dynamics report payload" };
   }
-  const typedReport = report as BiomarkerDynamicsReport;
-  const generationScopeIds = typedReport.generationMetadata?.scopeDocumentIds;
+  const parsedReport = persistedDynamicsReportSchema.safeParse(ext.report);
+  if (!parsedReport.success) {
+    return { ok: false, reason: "Malformed frozen dynamics report payload" };
+  }
+  const typedReport = parsedReport.data as unknown as BiomarkerDynamicsReport;
+  const persistedPeriod = period as BiomarkerDynamicsPeriod;
+  const reportPeriod = typedReport.period;
   if (
-    !Array.isArray(generationScopeIds) ||
+    typedReport.schemaVersion !== BIOMARKER_DYNAMICS_SCHEMA_VERSION ||
+    typedReport.directionPolicyVersion !== DIRECTION_POLICY_VERSION ||
+    !reportPeriod ||
+    reportPeriod.start !== persistedPeriod.start ||
+    reportPeriod.end !== persistedPeriod.end
+  ) {
+    return {
+      ok: false,
+      reason: "Frozen dynamics report metadata does not match extension",
+    };
+  }
+  const generationScopeIds = typedReport.generationMetadata.scopeDocumentIds;
+  const persistedScopeIds = new Set(scopeIds);
+  if (
     generationScopeIds.length !== scopeIds.length ||
-    new Set(generationScopeIds).size !== scopeIds.length ||
-    generationScopeIds.some(
-      (id) => typeof id !== "string" || !scopeIds.includes(id),
-    )
+    new Set(generationScopeIds).size !== generationScopeIds.length ||
+    generationScopeIds.some((id) => !persistedScopeIds.has(id))
   ) {
     return {
       ok: false,
       reason: "Persisted dynamics generation scope does not match report scope",
     };
   }
-  const isPointWithinScope = (
-    point: BiomarkerDynamicsPoint | null | undefined,
-  ): boolean => {
-    if (
-      !point ||
-      typeof point !== "object" ||
-      typeof point.documentId !== "string" ||
-      !scopeIds.includes(point.documentId)
-    ) {
-      return false;
-    }
+  const isPointWithinScope = (point: BiomarkerDynamicsPoint): boolean => {
+    if (!scopeIds.includes(point.documentId)) return false;
     if (point.source === null) return true;
     return (
-      typeof point.source === "object" &&
-      typeof point.source.documentId === "string" &&
       point.source.documentId === point.documentId &&
       scopeIds.includes(point.source.documentId)
     );
   };
-  for (const series of typedReport.series ?? []) {
-    for (const point of series.points ?? []) {
+  for (const series of typedReport.series) {
+    for (const point of series.points) {
       if (!isPointWithinScope(point)) {
         return {
           ok: false,
@@ -625,8 +751,10 @@ export function resolvePersistedBiomarkerDynamicsExtension(
         };
       }
     }
-    const latest = series.statistics?.latest;
-    if (latest && !isPointWithinScope(latest)) {
+    if (
+      series.statistics.latest &&
+      !isPointWithinScope(series.statistics.latest)
+    ) {
       return {
         ok: false,
         reason: "Frozen dynamics point is outside persisted report scope",
@@ -642,8 +770,8 @@ export function resolvePersistedBiomarkerDynamicsExtension(
     extension: {
       schemaVersion: String(ext.schemaVersion),
       directionPolicyVersion: String(ext.directionPolicyVersion),
-      biomarker_dynamics_period: period as BiomarkerDynamicsPeriod,
-      report_scope_document_ids: scopeIds as string[],
+      biomarker_dynamics_period: persistedPeriod,
+      report_scope_document_ids: scopeIds,
       generatedAt: String(ext.generatedAt),
       report: typedReport,
     },

@@ -337,6 +337,27 @@ async function main(): Promise<void> {
   const ownerInput = { reportId: REPORT_ID, readReport: readResolver };
 
   const ownerExport = await getExportableReport(owner, "json", ownerInput);
+  const astral = "\u{1f642}";
+  const boundaryTitle = `${"a".repeat(79)}${astral}tail`;
+  const boundaryFile = await renderReportExport(owner, "json", {
+    reportId: REPORT_ID,
+    readReport: async ({ reportId }) => ({
+      status: "structured",
+      can_share: true,
+      can_export: true,
+      report: {
+        id: reportId,
+        title: boundaryTitle,
+        report_type: "general_practice",
+        detail_level: "standard",
+        abnormal_only: false,
+        content: baseBrief,
+        summary_preview: baseBrief.overview,
+        created_at: GENERATED_AT,
+      },
+    }),
+  });
+  assert.equal(boundaryFile.filename, `${"a".repeat(79)}${astral}.json`);
   const jsonBytes = serializeJsonProjection(buildExportProjection(ownerExport));
   const json = new TextDecoder().decode(jsonBytes);
   assert.match(json, /"source_ledger"/u);
@@ -359,6 +380,23 @@ async function main(): Promise<void> {
   assert.match(csv, /native_value/u);
   assert.match(csv, /conversion_indicator/u);
   assert.doesNotMatch(csv, /SOURCE_UNAVAILABLE/u);
+  assert.ok(csv.indexOf("\nmeasurement,") < csv.indexOf("\nsource,"));
+  const formulaBrief = structuredClone(baseBrief);
+  const formulaQuestion = formulaBrief.claims.find(
+    (claim) => claim.kind === "clinician_question",
+  );
+  if (!formulaQuestion) throw new Error("Missing formula test question");
+  formulaQuestion.question_text = "=SUM(1,2)";
+  const formulaCsv = new TextDecoder().decode(
+    serializeCsvProjection(
+      buildExportProjection({
+        ...ownerExport,
+        brief: formulaBrief,
+        dynamics: null,
+      }),
+    ),
+  );
+  assert.match(formulaCsv, /"'=SUM\(1,2\)"/u);
   const emptyStateBrief = structuredClone(baseBrief);
   emptyStateBrief.sections[2] = {
     ...emptyStateBrief.sections[2]!,
@@ -560,6 +598,65 @@ async function main(): Promise<void> {
             abnormal_only: false,
             content: metadataTamperedBrief,
             summary_preview: "Metadata tampered",
+            created_at: GENERATED_AT,
+          },
+        }),
+      }),
+    /Report export is unavailable/u,
+  );
+  const malformedExtension = frozenDynamics();
+  Object.assign(malformedExtension.report, { series: {} });
+  const malformedDynamicsBrief = {
+    ...structuredClone(baseBrief),
+    extensions: { biomarker_dynamics: malformedExtension },
+  };
+  await assert.rejects(
+    () =>
+      getExportableReport(owner, "json", {
+        reportId: REPORT_ID,
+        readReport: async ({ reportId }) => ({
+          status: "structured",
+          can_share: true,
+          can_export: true,
+          report: {
+            id: reportId,
+            title: "Malformed dynamics",
+            report_type: "general_practice",
+            detail_level: "standard",
+            abnormal_only: false,
+            content: malformedDynamicsBrief,
+            summary_preview: "Malformed dynamics",
+            created_at: GENERATED_AT,
+          },
+        }),
+      }),
+    (error: unknown) =>
+      error instanceof Error &&
+      "code" in error &&
+      error.code === "DYNAMICS_INVALID",
+  );
+  const profileScopeExtension = frozenDynamics();
+  profileScopeExtension.report.generationMetadata.scopeKind = "profile_current";
+  const profileScopeBrief = {
+    ...structuredClone(baseBrief),
+    extensions: { biomarker_dynamics: profileScopeExtension },
+  };
+  await assert.rejects(
+    () =>
+      getExportableReport(owner, "json", {
+        reportId: REPORT_ID,
+        readReport: async ({ reportId }) => ({
+          status: "structured",
+          can_share: true,
+          can_export: true,
+          report: {
+            id: reportId,
+            title: "Profile dynamics",
+            report_type: "general_practice",
+            detail_level: "standard",
+            abnormal_only: false,
+            content: profileScopeBrief,
+            summary_preview: "Profile dynamics",
             created_at: GENERATED_AT,
           },
         }),

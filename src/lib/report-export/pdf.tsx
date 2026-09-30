@@ -302,6 +302,9 @@ function ReportPdfDocument({
                       {point.displayValue ?? "value unavailable"}
                       {point.displayUnit ? ` ${point.displayUnit}` : ""} ·
                       source {point.id}
+                      {point.source
+                        ? ` · ${point.source.filename}${point.source.laboratory ? ` · ${point.source.laboratory}` : ""}`
+                        : ""}
                     </Text>
                   ))}
                 </View>
