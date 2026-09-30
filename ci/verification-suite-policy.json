@@ -460,6 +460,15 @@
       "reason": "EH-151 public-share token, PIN, ingress, response-policy, and failure-boundary contracts are release verification."
     },
     {
+      "script": "test:eh152",
+      "verificationFiles": ["scripts/verify-eh152-share-management.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "auth-shell",
+      "reason": "EH-152 owner share-management projection, token-boundary, and idempotency contracts are release verification."
+    },
+    {
       "script": "test:eh151-db",
       "verificationFiles": ["supabase/tests/eh151_scoped_share_links.sql"],
       "job": "database",

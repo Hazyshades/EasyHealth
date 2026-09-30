@@ -88,7 +88,7 @@ export default function SettingsPage() {
           </p>
           <p className="mt-1 text-sm text-[var(--eh-text-secondary)]">
             Choose how biomarker values are displayed. Stored lab results are
-            never rewritten — only the on-screen presentation changes (US
+            never rewritten; only the on-screen presentation changes (US
             conventional vs SI).
           </p>
         </div>
@@ -145,6 +145,21 @@ export default function SettingsPage() {
           className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90"
         >
           <Link href="/app/settings/ai">Open AI Settings</Link>
+        </Button>
+      </SurfaceCard>
+
+      <SurfaceCard className="space-y-4 p-5">
+        <div>
+          <p className="text-sm font-semibold text-[var(--eh-text-primary)]">
+            Shared reports
+          </p>
+          <p className="mt-1 text-sm text-[var(--eh-text-secondary)]">
+            Review active, expired, and revoked report links, including
+            privacy-minimized access history.
+          </p>
+        </div>
+        <Button asChild variant="outline">
+          <Link href="/app/settings/shared-reports">Manage shared reports</Link>
         </Button>
       </SurfaceCard>
     </div>
