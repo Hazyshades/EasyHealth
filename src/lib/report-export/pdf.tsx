@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import fs from "node:fs/promises";
 import path from "node:path";
 import React from "react";
@@ -34,6 +35,25 @@ const FONT_PATH = path.join(
   "DejaVuSans.ttf",
 );
 const MAX_PDF_INPUT_BYTES = 1_000_000;
+
+const PDF_FONT_SUBSET_SUFFIX = Buffer.from("+DejaVuSans", "ascii");
+const PDF_FONT_SUBSET_TAG = "EH153A";
+
+function normalizePdfFontSubsetTags(bytes: Uint8Array): Uint8Array {
+  const normalized = Buffer.from(bytes);
+  let offset = 0;
+  while (true) {
+    const suffixIndex = normalized.indexOf(PDF_FONT_SUBSET_SUFFIX, offset);
+    if (suffixIndex < 6) break;
+    const tagStart = suffixIndex - 6;
+    const tag = normalized.subarray(tagStart, suffixIndex);
+    if (tag.every((byte) => byte >= 65 && byte <= 90)) {
+      normalized.write(PDF_FONT_SUBSET_TAG, tagStart, 6, "ascii");
+    }
+    offset = suffixIndex + PDF_FONT_SUBSET_SUFFIX.length;
+  }
+  return new Uint8Array(normalized);
+}
 
 let fontRegistration: Promise<void> | null = null;
 
@@ -142,7 +162,7 @@ function snapshotValue(value: string | number | null): string {
 
 function sourceLabel(source: ReportSource): string {
   const snapshot = source.snapshot;
-  const header = `${snapshot.label} [${snapshot.kind}]`;
+  const header = `${source.source_id} · ${snapshot.label} [${snapshot.kind}]`;
   const observed = `observed ${snapshotValue(snapshot.observed_at)}`;
   switch (snapshot.kind) {
     case "observation":
@@ -278,8 +298,16 @@ function ReportPdfDocument({
     report.sourceLedger.map((source) => [source.source_id, source]),
   );
 
+  const creationDate = new Date(report.generatedAt);
+  if (Number.isNaN(creationDate.getTime())) {
+    throw new Error("PDF_GENERATED_AT_INVALID");
+  }
   return (
-    <Document title={report.title} author="EasyHealth">
+    <Document
+      title={report.title}
+      author="EasyHealth"
+      creationDate={creationDate}
+    >
       <Page size="A4" style={styles.page} wrap>
         <Text style={styles.title}>{report.title}</Text>
         <Text style={styles.metadata}>
@@ -340,7 +368,7 @@ function ReportPdfDocument({
                       {point.observedAt} ·{" "}
                       {point.displayValue ?? "value unavailable"}
                       {point.displayUnit ? ` ${point.displayUnit}` : ""} ·
-                      source {point.id}
+                      source {point.id} · document {point.documentId}
                       {point.source
                         ? ` · ${point.source.filename}${point.source.laboratory ? ` · ${point.source.laboratory}` : ""}`
                         : ""}
@@ -380,7 +408,7 @@ export async function renderPdfProjection(
     const buffer = await renderer.renderToBuffer(
       <ReportPdfDocument projection={projection} renderer={renderer} />,
     );
-    const bytes = new Uint8Array(buffer);
+    const bytes = normalizePdfFontSubsetTags(buffer);
     if (
       bytes.byteLength < 5 ||
       String.fromCharCode(...bytes.slice(0, 5)) !== "%PDF-"

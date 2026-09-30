@@ -755,6 +755,10 @@ async function main(): Promise<void> {
   assert.equal(pdfFile.contentType, "application/pdf");
   assert.equal(new TextDecoder().decode(pdfFile.bytes.slice(0, 5)), "%PDF-");
   assert.ok(pdfFile.bytes.byteLength > 1_000);
+  const deterministicProjection = buildExportProjection(ownerExport);
+  const firstPdf = await renderPdfProjection(deterministicProjection);
+  const secondPdf = await renderPdfProjection(deterministicProjection);
+  assert.deepEqual(secondPdf, firstPdf);
 
   const ownerResponse = createReportExportResponse(pdfFile, { kind: "owner" });
   assert.equal(ownerResponse.status, 200);
