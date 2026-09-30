@@ -76,14 +76,23 @@ export async function revokeOwnerReportShare(
   if (error) throw new ShareRepositoryError(error.message);
 }
 
-export async function replaceOwnerReportShare(
-  input: Readonly<{
-    profileId: string;
-    predecessorShareId: string;
-    idempotencyKey: string;
-    tokenDigest: string;
-    tokenKeyVersion: string;
-  }>,
+type ReplacementInput = Readonly<{
+  profileId: string;
+  predecessorShareId: string;
+  idempotencyKey: string;
+  tokenDigest: string | null;
+  tokenKeyVersion: string | null;
+}>;
+
+function parseReplacementResult(data: unknown): ShareReplacementResult {
+  const candidate = Array.isArray(data) ? data[0] : data;
+  const parsed = ReplacementSchema.safeParse(candidate);
+  if (!parsed.success) throw new ShareRepositoryError();
+  return parsed.data;
+}
+
+async function callReplaceOwnerReportShare(
+  input: ReplacementInput,
 ): Promise<ShareReplacementResult> {
   const { data, error } = await createAdminClient().rpc(
     "replace_report_share",
@@ -96,8 +105,31 @@ export async function replaceOwnerReportShare(
     },
   );
   if (error) throw new ShareRepositoryError(error.message);
-  const candidate = Array.isArray(data) ? data[0] : data;
-  const parsed = ReplacementSchema.safeParse(candidate);
-  if (!parsed.success) throw new ShareRepositoryError();
-  return parsed.data;
+  return parseReplacementResult(data);
+}
+
+export async function probeOwnerReportShareReplacement(
+  input: Readonly<{
+    profileId: string;
+    predecessorShareId: string;
+    idempotencyKey: string;
+  }>,
+): Promise<ShareReplacementResult> {
+  return callReplaceOwnerReportShare({
+    ...input,
+    tokenDigest: null,
+    tokenKeyVersion: null,
+  });
+}
+
+export async function replaceOwnerReportShare(
+  input: Readonly<{
+    profileId: string;
+    predecessorShareId: string;
+    idempotencyKey: string;
+    tokenDigest: string;
+    tokenKeyVersion: string;
+  }>,
+): Promise<ShareReplacementResult> {
+  return callReplaceOwnerReportShare(input);
 }

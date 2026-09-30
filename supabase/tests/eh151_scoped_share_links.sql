@@ -277,6 +277,19 @@ select is(
   false,
   'second rate-limit attempt is denied atomically'
 );
+select throws_ok(
+  $$
+    select * from public.replace_report_share(
+      '00000000-0000-0000-0000-000000151001'::uuid,
+      (select id from public.report_share_links where token_digest = repeat('a', 64)),
+      'eh152-preflight-key',
+      null,
+      null
+    )
+  $$,
+  'share_replacement_token_required',
+  'fresh replacement preflight requires token material'
+);
 select is(
   (select operation_status
    from public.replace_report_share(
@@ -295,11 +308,24 @@ select is(
      '00000000-0000-0000-0000-000000151001'::uuid,
      (select id from public.report_share_links where token_digest = repeat('a', 64)),
      'eh152-replay-key',
-     repeat('e', 64),
-     '2026-1'
+     null,
+     null
    )),
   true,
-  'replacement replay returns the committed operation'
+  'replacement replay returns the committed operation without token material'
+);
+select throws_ok(
+  $$
+    select * from public.replace_report_share(
+      '00000000-0000-0000-0000-000000151001'::uuid,
+      (select id from public.report_share_links where token_digest = repeat('a', 64)),
+      'eh152-replay-key',
+      'not-a-digest',
+      '2026-1'
+    )
+  $$,
+  'share_replacement_invalid',
+  'malformed replay token material remains invalid'
 );
 select is(
   (select count(*)::int
