@@ -476,6 +476,15 @@
       "localOnly": false,
       "owner": "auth-shell",
       "reason": "EH-151 share persistence, access-event, replacement, proof, and rate-limit contracts require pgTAP."
+    },
+    {
+      "script": "test:eh153",
+      "verificationFiles": ["scripts/verify-eh153-report-export.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "document-review",
+      "reason": "EH-153 report export projection, scope-safe authorization, deterministic serializers, and Unicode PDF rendering are release verification."
     }
   ],
   "localOnly": []

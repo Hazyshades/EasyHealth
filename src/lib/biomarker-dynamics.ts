@@ -8,6 +8,7 @@
  * Pure: never resolves authorization or queries storage.
  */
 
+import { z } from "zod";
 import {
   compareCanonicalObservationId,
   computeDirection,
@@ -240,7 +241,9 @@ export function validatePeriod(
 }
 
 function utcCalendarDate(observedAt: string): string {
-  return observedAt.includes("T") ? observedAt.split("T")[0]! : observedAt.slice(0, 10);
+  return observedAt.includes("T")
+    ? observedAt.split("T")[0]!
+    : observedAt.slice(0, 10);
 }
 
 function isWithinPeriod(
@@ -254,7 +257,9 @@ function isWithinPeriod(
   return dateStr >= period.start && dateStr <= period.end;
 }
 
-function numericValue(value: number | string | null | undefined): number | null {
+function numericValue(
+  value: number | string | null | undefined,
+): number | null {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   if (typeof value !== "string" || value.trim() === "") return null;
   const parsed = Number(value);
@@ -284,7 +289,9 @@ function pointSource(
   };
 }
 
-function sortDynamicsPoints(points: BiomarkerDynamicsPoint[]): BiomarkerDynamicsPoint[] {
+function sortDynamicsPoints(
+  points: BiomarkerDynamicsPoint[],
+): BiomarkerDynamicsPoint[] {
   return [...points].sort((a, b) => {
     const byDate = a.observedAt.localeCompare(b.observedAt);
     return byDate !== 0 ? byDate : compareCanonicalObservationId(a.id, b.id);
@@ -511,6 +518,127 @@ export function buildFrozenBiomarkerDynamicsExtension(
 export type PersistedDynamicsResolution =
   | { ok: true; extension: FrozenBiomarkerDynamicsExtension }
   | { ok: false; reason: string };
+const persistedDynamicsLimitationSchema = z
+  .object({
+    type: z.enum([
+      "undated",
+      "non_numeric",
+      "ineligible",
+      "unsupported_unit",
+      "comparison_unavailable",
+      "scope_excluded",
+      "tolerance_unavailable",
+    ]),
+    message: z.string(),
+    detail: z.string().optional(),
+    observationId: z.string().optional(),
+  })
+  .strict();
+
+const persistedDynamicsToleranceSchema = z
+  .object({
+    absolute: z.number().finite().nonnegative(),
+    relative: z.number().finite().nonnegative(),
+  })
+  .strict();
+
+const persistedDynamicsPointSchema = z
+  .object({
+    id: z.string(),
+    observedAt: z.string(),
+    documentId: z.string(),
+    nativeValue: z.number().finite().nullable(),
+    nativeUnit: z.string().nullable(),
+    displayValue: z.number().finite().nullable(),
+    displayUnit: z.string().nullable(),
+    nativeReferenceLow: z.number().finite().nullable(),
+    nativeReferenceHigh: z.number().finite().nullable(),
+    displayReferenceLow: z.number().finite().nullable(),
+    displayReferenceHigh: z.number().finite().nullable(),
+    conversionMetadata: z
+      .object({
+        converted: z.boolean(),
+        originalValue: z.number().finite().nullable(),
+        originalUnit: z.string().nullable(),
+        conversionEligible: z.boolean(),
+      })
+      .strict()
+      .nullable(),
+    source: z
+      .object({
+        documentId: z.string(),
+        href: z.string(),
+        filename: z.string(),
+        laboratory: z.string().nullable(),
+      })
+      .strict()
+      .nullable(),
+  })
+  .strict();
+
+const persistedDynamicsSeriesSchema = z
+  .object({
+    id: z.string(),
+    measurementDefinitionKey: z.string(),
+    label: z.string(),
+    specimen: z.string().nullable(),
+    modifier: z.string().nullable(),
+    method: z.string().nullable(),
+    scale: z.string().nullable(),
+    unit: z.string().nullable(),
+    direction: z
+      .object({
+        value: z.enum(["increasing", "decreasing", "stable", "not_available"]),
+        tolerance: persistedDynamicsToleranceSchema.nullable().optional(),
+        limitation: persistedDynamicsLimitationSchema.nullable(),
+      })
+      .strict(),
+    statistics: z
+      .object({
+        pointCount: z.number().int().nonnegative(),
+        min: z.number().finite().nullable(),
+        max: z.number().finite().nullable(),
+        latest: persistedDynamicsPointSchema.nullable(),
+        nativeUnit: z.string().nullable(),
+        displayUnit: z.string().nullable(),
+      })
+      .strict(),
+    points: z.array(persistedDynamicsPointSchema),
+    limitations: z.array(persistedDynamicsLimitationSchema),
+    tolerance: persistedDynamicsToleranceSchema.nullable().optional(),
+  })
+  .strict();
+
+const persistedDynamicsReportSchema = z
+  .object({
+    schemaVersion: z.string(),
+    directionPolicyVersion: z.string(),
+    period: z
+      .object({
+        start: z.string(),
+        end: z.string(),
+      })
+      .strict(),
+    series: z.array(persistedDynamicsSeriesSchema),
+    incompatibilities: z.array(
+      z
+        .object({
+          groupingReason: z.string(),
+          affectedSeriesLabels: z.array(z.string()),
+        })
+        .strict(),
+    ),
+    limitations: z.array(persistedDynamicsLimitationSchema),
+    disclaimer: z.string(),
+    generationMetadata: z
+      .object({
+        scopeKind: z.enum(["profile_current", "report_immutable"]),
+        scopeDocumentIds: z.array(z.string()),
+        generatedAt: z.string(),
+      })
+      .strict(),
+  })
+  .strict();
 
 /**
  * Fail-closed reader for a persisted EH-149 extension.
@@ -525,7 +653,10 @@ export function resolvePersistedBiomarkerDynamicsExtension(
   }
   const ext = value as Record<string, unknown>;
   if (ext.schemaVersion !== BIOMARKER_DYNAMICS_SCHEMA_VERSION) {
-    return { ok: false, reason: "Unsupported or tampered dynamics schema version" };
+    return {
+      ok: false,
+      reason: "Unsupported or tampered dynamics schema version",
+    };
   }
   if (ext.directionPolicyVersion !== DIRECTION_POLICY_VERSION) {
     return {
@@ -542,11 +673,20 @@ export function resolvePersistedBiomarkerDynamicsExtension(
     (period as BiomarkerDynamicsPeriod).start >
       (period as BiomarkerDynamicsPeriod).end
   ) {
-    return { ok: false, reason: "Tampered or invalid biomarker_dynamics_period" };
+    return {
+      ok: false,
+      reason: "Tampered or invalid biomarker_dynamics_period",
+    };
   }
-  const scopeIds = ext.report_scope_document_ids;
-  if (!Array.isArray(scopeIds) || scopeIds.some((id) => typeof id !== "string")) {
-    return { ok: false, reason: "Tampered or missing report_scope_document_ids" };
+  const scopeIds = ext.report_scope_document_ids as string[];
+  if (
+    !Array.isArray(scopeIds) ||
+    scopeIds.some((id) => typeof id !== "string")
+  ) {
+    return {
+      ok: false,
+      reason: "Tampered or missing report_scope_document_ids",
+    };
   }
   if (expectedScopeDocumentIds) {
     const expected = new Set(expectedScopeDocumentIds);
@@ -560,19 +700,65 @@ export function resolvePersistedBiomarkerDynamicsExtension(
       };
     }
   }
-  const report = ext.report;
-  if (!report || typeof report !== "object") {
+  if (!ext.report || typeof ext.report !== "object") {
     return { ok: false, reason: "Missing frozen dynamics report payload" };
   }
-  const typedReport = report as BiomarkerDynamicsReport;
-  for (const series of typedReport.series ?? []) {
-    for (const point of series.points ?? []) {
-      if (!scopeIds.includes(point.documentId)) {
+  const parsedReport = persistedDynamicsReportSchema.safeParse(ext.report);
+  if (!parsedReport.success) {
+    return { ok: false, reason: "Malformed frozen dynamics report payload" };
+  }
+  const typedReport = parsedReport.data as unknown as BiomarkerDynamicsReport;
+  const persistedPeriod = period as BiomarkerDynamicsPeriod;
+  const reportPeriod = typedReport.period;
+  if (
+    typedReport.schemaVersion !== BIOMARKER_DYNAMICS_SCHEMA_VERSION ||
+    typedReport.directionPolicyVersion !== DIRECTION_POLICY_VERSION ||
+    !reportPeriod ||
+    reportPeriod.start !== persistedPeriod.start ||
+    reportPeriod.end !== persistedPeriod.end
+  ) {
+    return {
+      ok: false,
+      reason: "Frozen dynamics report metadata does not match extension",
+    };
+  }
+  const generationScopeIds = typedReport.generationMetadata.scopeDocumentIds;
+  const persistedScopeIds = new Set(scopeIds);
+  if (
+    generationScopeIds.length !== scopeIds.length ||
+    new Set(generationScopeIds).size !== generationScopeIds.length ||
+    generationScopeIds.some((id) => !persistedScopeIds.has(id))
+  ) {
+    return {
+      ok: false,
+      reason: "Persisted dynamics generation scope does not match report scope",
+    };
+  }
+  const isPointWithinScope = (point: BiomarkerDynamicsPoint): boolean => {
+    if (!scopeIds.includes(point.documentId)) return false;
+    if (point.source === null) return true;
+    return (
+      point.source.documentId === point.documentId &&
+      scopeIds.includes(point.source.documentId)
+    );
+  };
+  for (const series of typedReport.series) {
+    for (const point of series.points) {
+      if (!isPointWithinScope(point)) {
         return {
           ok: false,
           reason: "Frozen dynamics point is outside persisted report scope",
         };
       }
+    }
+    if (
+      series.statistics.latest &&
+      !isPointWithinScope(series.statistics.latest)
+    ) {
+      return {
+        ok: false,
+        reason: "Frozen dynamics point is outside persisted report scope",
+      };
     }
   }
   if (typeof ext.generatedAt !== "string" || !ext.generatedAt) {
@@ -584,8 +770,8 @@ export function resolvePersistedBiomarkerDynamicsExtension(
     extension: {
       schemaVersion: String(ext.schemaVersion),
       directionPolicyVersion: String(ext.directionPolicyVersion),
-      biomarker_dynamics_period: period as BiomarkerDynamicsPeriod,
-      report_scope_document_ids: scopeIds as string[],
+      biomarker_dynamics_period: persistedPeriod,
+      report_scope_document_ids: scopeIds,
       generatedAt: String(ext.generatedAt),
       report: typedReport,
     },
@@ -605,7 +791,8 @@ export function seriesIdentityKey(input: {
   const displayUnitKey =
     normalizeComparisonUnit(input.displayUnit) || "__unit_not_recorded__";
   const nativeUnitKey = input.splitByNativeUnit
-    ? normalizeComparisonUnit(input.nativeUnit) || "__native_unit_not_recorded__"
+    ? normalizeComparisonUnit(input.nativeUnit) ||
+      "__native_unit_not_recorded__"
     : "__shared__";
   return [
     input.measurementDefinitionKey,
