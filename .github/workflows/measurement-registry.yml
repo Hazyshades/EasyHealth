@@ -249,6 +249,13 @@ jobs:
         run: pnpm test:eh147
       - name: Verify EH-148 report contract
         run: pnpm test:eh148-contract
+      - name: Verify EH-153 report export package
+        run: pnpm test:eh153
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+          OPENAI_API_KEY: ci-placeholder
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
 
       - name: Publish Registry 2.0 candidate-release evidence
         run: |

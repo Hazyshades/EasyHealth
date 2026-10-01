@@ -2,7 +2,7 @@
 
 **Roadmap status:** Implemented; product QA pending
 **Build / environment:** Windows 11, Node 22, pnpm 9.15.4; fixture verifier uses `SKIP_ENV_VALIDATION=1`
-**Test run date:** 2026-09-27
+**Test run date:** 2026-10-01
 **Tester:** Automated developer evidence; product tester handoff pending
 
 ## What this checklist covers
@@ -86,7 +86,7 @@ This checklist covers PDF, CSV, and JSON exports from the validated report contr
 - [x] Owner and EH-151 share adapter boundaries reject legacy/unvalidated content and enforce exact scope before serialization. `pnpm test:eh153` covers the EH-153 injected resolver seam; EH-151 live capability wiring remains a handoff.
 - [x] PDF renderer/font verification covers Unicode, long labels, canonical section order, and explicit invalid-output handling. `pnpm test:eh153` confirms a non-partial PDF header and Unicode fixture.
 - [x] CSV/JSON fixtures prove metadata, claims, complete mixed-source ledger rows, ranges, source IDs, timestamps, versions, limitations, and conversion metadata. `pnpm test:eh153` passed.
-- [x] Response construction applies the supplied public-share response policy callback before returning the response and sets private/no-store and no-sniff headers. The real EH-151 helper remains an integration handoff.
+- [x] Response construction requires an explicit owner/share context and applies the supplied public-share response policy callback before returning the response, and sets private/no-store and no-sniff headers. `pnpm test:eh153` asserts at compile time that EH-151's real `applyPublicShareResponsePolicy` is assignable to the export policy contract, so the helper seam cannot drift.
 - [x] Frozen-dynamics evidence proves serialization reads the persisted EH-149 extension returned by the EH-148 resolver seam and rejects an out-of-scope point; no client DTO or raw observation input is accepted by the package API.
 - [ ] Source-unavailable evidence for live archive/tombstone RPC outcomes remains pending EH-148 durable-deletion integration; fixture scope and generic unavailable paths are covered.
 - [x] Scope-isolation evidence rejects report-scope mismatch and out-of-scope dynamics points before serialization.
@@ -102,6 +102,12 @@ SKIP_ENV_VALIDATION=1 pnpm test:eh153
 ```
 
 Result: passed. `pnpm exec tsc --noEmit` also passed. The verifier covers deterministic JSON, ordered CSV, Unicode PDF bytes, response-policy application, owner/share format policy, legacy/tampered/malformed inputs, scope checks, safe public fields, and server-rendered export action markup. Visual product-page verification is blocked on EH-148/EH-151 integration.
+
+Additional automated evidence:
+
+- `SKIP_ENV_VALIDATION=1 pnpm test:eh153` — asserts byte-equal PDF output for the same projection (deterministic `creationDate` plus normalized font-subset tags).
+- `pnpm test:eh149`, `pnpm test:eh148-contract`, `pnpm test:eh150`, `pnpm test:eh151`, `pnpm test:eh152` — pass after the persisted-dynamics resolver hardening and the master rebase.
+- `pnpm check:ci-suite-coverage` and `pnpm check:ci-suite-coverage-contract` — pass with `test:eh153` registered in `ci/verification-suite-policy.json` and the `verify` job.
 
 ## Out of scope or not manually testable yet
 
