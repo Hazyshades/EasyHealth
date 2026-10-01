@@ -23,6 +23,13 @@ import {
   type ReportSource,
 } from "../src/lib/report-contract";
 import { MEDICAL_DISCLAIMER } from "../src/lib/schemas/biomarkers";
+import type { PublicShareResponsePolicy } from "../src/lib/report-export";
+import { applyPublicShareResponsePolicy } from "../src/lib/share-links/public-response-policy";
+
+// EH-153 design decision 3 requires the shared export path to run EH-151's real
+// response policy helper; this fails to compile if the two contracts drift.
+const eh151Policy: PublicShareResponsePolicy = applyPublicShareResponsePolicy;
+void eh151Policy;
 
 const UUID = (suffix: string) =>
   `00000000-0000-4000-8000-${suffix.padStart(12, "0")}`;
