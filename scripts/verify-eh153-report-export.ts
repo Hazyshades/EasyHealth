@@ -762,10 +762,29 @@ async function main(): Promise<void> {
   assert.equal(pdfFile.contentType, "application/pdf");
   assert.equal(new TextDecoder().decode(pdfFile.bytes.slice(0, 5)), "%PDF-");
   assert.ok(pdfFile.bytes.byteLength > 1_000);
+  // The PDF must carry the report's own generated_at, never the render wall
+  // clock; react-pdf/pdfkit emit document objects in a nondeterministic order,
+  // so container bytes are compared for the deterministic serializers instead.
   const deterministicProjection = buildExportProjection(ownerExport);
-  const firstPdf = await renderPdfProjection(deterministicProjection);
-  const secondPdf = await renderPdfProjection(deterministicProjection);
-  assert.deepEqual(secondPdf, firstPdf);
+  const deterministicPdf = await renderPdfProjection(deterministicProjection);
+  const deterministicPdfText = Buffer.from(deterministicPdf).toString("latin1");
+  const expectedPdfDate = `(D:${new Date(
+    deterministicProjection.report.generatedAt,
+  )
+    .toISOString()
+    .replace(/[-:T]/gu, "")
+    .replace(/\.\d{3}Z$/u, "Z")})`;
+  const pdfDates = [...deterministicPdfText.matchAll(/\(D:[^)]+\)/gu)].map(
+    (match) => match[0],
+  );
+  assert.deepEqual(pdfDates, [expectedPdfDate]);
+  assert.match(deterministicPdfText, /\/FontName \/EH153A\+DejaVuSans/u);
+  const firstJson = serializeJsonProjection(deterministicProjection);
+  const secondJson = serializeJsonProjection(deterministicProjection);
+  assert.deepEqual(secondJson, firstJson);
+  const firstCsv = serializeCsvProjection(deterministicProjection);
+  const secondCsv = serializeCsvProjection(deterministicProjection);
+  assert.deepEqual(secondCsv, firstCsv);
 
   const ownerResponse = createReportExportResponse(pdfFile, { kind: "owner" });
   assert.equal(ownerResponse.status, 200);

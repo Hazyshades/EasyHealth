@@ -105,7 +105,7 @@ Result: passed. `pnpm exec tsc --noEmit` also passed. The verifier covers determ
 
 Additional automated evidence:
 
-- `SKIP_ENV_VALIDATION=1 pnpm test:eh153` — asserts byte-equal PDF output for the same projection (deterministic `creationDate` plus normalized font-subset tags).
+- `SKIP_ENV_VALIDATION=1 pnpm test:eh153` — asserts the PDF embeds the report's own `generated_at` as its only date value (never the render wall clock), that the embedded font subset tag is normalized, and that repeated JSON and CSV serializations are byte-identical. Byte-identical PDF container output is not asserted: `@react-pdf/renderer`/`pdfkit` emit document objects in a nondeterministic order, so container bytes vary while rendered content and metadata do not.
 - `pnpm test:eh149`, `pnpm test:eh148-contract`, `pnpm test:eh150`, `pnpm test:eh151`, `pnpm test:eh152` — pass after the persisted-dynamics resolver hardening and the master rebase.
 - `pnpm check:ci-suite-coverage` and `pnpm check:ci-suite-coverage-contract` — pass with `test:eh153` registered in `ci/verification-suite-policy.json` and the `verify` job.
 
