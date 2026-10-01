@@ -42,12 +42,12 @@ const PDF_FONT_SUBSET_TAG = "EH153A";
 function normalizePdfFontSubsetTags(bytes: Uint8Array): Uint8Array {
   const normalized = Buffer.from(bytes);
   let offset = 0;
-  while (true) {
+  while (offset <= normalized.length) {
     const suffixIndex = normalized.indexOf(PDF_FONT_SUBSET_SUFFIX, offset);
-    if (suffixIndex < 6) break;
+    if (suffixIndex < 0) break;
     const tagStart = suffixIndex - 6;
-    const tag = normalized.subarray(tagStart, suffixIndex);
-    if (tag.every((byte) => byte >= 65 && byte <= 90)) {
+    const tag = normalized.subarray(Math.max(0, tagStart), suffixIndex);
+    if (tagStart >= 6 && tag.every((byte) => byte >= 65 && byte <= 90)) {
       normalized.write(PDF_FONT_SUBSET_TAG, tagStart, 6, "ascii");
     }
     offset = suffixIndex + PDF_FONT_SUBSET_SUFFIX.length;
