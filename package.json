@@ -154,6 +154,7 @@
     "test:health-profile-drawer-status": "tsx scripts/verify-health-profile-drawer-status.ts",
     "test:eh248": "tsx scripts/verify-eh248-resolver-evidence-identity.ts",
     "test:eh148-contract": "tsx scripts/verify-eh148-report-contract.ts",
+    "test:eh148-db": "node scripts/run-supabase-db-tests.mjs supabase/tests/eh148_validated_report_writer.sql",
     "test:eh152": "tsx scripts/verify-eh152-share-management.ts",
     "test:eh153": "tsx scripts/verify-eh153-report-export.ts",
     "test:eh153-owner-export": "tsx scripts/verify-eh153-owner-export-integration.ts",

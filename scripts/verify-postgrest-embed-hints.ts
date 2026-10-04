@@ -19,13 +19,8 @@ const CONSUMERS = [
   "src/lib/documents/structured-context.ts",
   "src/lib/health-profile-snapshot.ts",
 ];
-const DEFERRED_CONSUMERS = [
-  {
-    file: "src/app/api/reports/route.ts",
-    marker: "reportGenerationIntegrationPending",
-  },
-];
-const ALIAS_MIGRATION = "supabase/migrations/035_postgrest_normalization_revision_fk_alias.sql";
+const ALIAS_MIGRATION =
+  "supabase/migrations/035_postgrest_normalization_revision_fk_alias.sql";
 
 function walk(dir: string): string[] {
   const out: string[] = [];
@@ -66,22 +61,14 @@ for (const root of RUNTIME_ROOTS) {
 assert.deepEqual(
   offenders,
   [],
-  `active runtime code must not use the removed PostgREST hint ${OLD_HINT}: ${offenders.join(", ")}`
+  `active runtime code must not use the removed PostgREST hint ${OLD_HINT}: ${offenders.join(", ")}`,
 );
 
 for (const consumer of CONSUMERS) {
   const text = readFileSync(consumer, "utf8");
   assert.ok(
     text.includes(`!${NEW_HINT}(`),
-    `${consumer} must embed observation_normalization_revisions via ${NEW_HINT}`
-  );
-}
-
-for (const deferred of DEFERRED_CONSUMERS) {
-  const text = readFileSync(deferred.file, "utf8");
-  assert.ok(
-    text.includes(deferred.marker),
-    `${deferred.file} must keep an explicit integration gate until the report route cutover`
+    `${consumer} must embed observation_normalization_revisions via ${NEW_HINT}`,
   );
 }
 
@@ -89,23 +76,23 @@ const migration = readFileSync(ALIAS_MIGRATION, "utf8");
 assert.match(
   migration,
   /add constraint observations_normalization_revision_fk/,
-  "alias migration must add the old-name compatibility constraint"
+  "alias migration must add the old-name compatibility constraint",
 );
 assert.match(migration, /match full/, "alias must preserve MATCH FULL");
 assert.match(
   migration,
   /deferrable initially deferred/,
-  "alias must preserve deferrability"
+  "alias must preserve deferrability",
 );
 assert.match(
   migration,
   /notify pgrst, 'reload schema'/,
-  "alias migration must request a PostgREST schema-cache reload"
+  "alias migration must request a PostgREST schema-cache reload",
 );
 assert.doesNotMatch(
   migration,
   /drop constraint if exists observations_normalization_revision_fk/,
-  "this change must not ship an executable alias-drop"
+  "this change must not ship an executable alias-drop",
 );
 
 console.log("verify-postgrest-embed-hints: passed");

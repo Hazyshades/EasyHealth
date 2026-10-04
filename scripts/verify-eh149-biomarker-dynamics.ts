@@ -335,9 +335,7 @@ const scoped = buildBiomarkerDynamicsReport(
 );
 assert.equal(scoped.series[0]?.statistics.pointCount, 1);
 assert.equal(scoped.series[0]?.points[0]?.documentId, scopedDoc);
-assert.ok(
-  scoped.limitations.some((item) => item.type === "scope_excluded"),
-);
+assert.ok(scoped.limitations.some((item) => item.type === "scope_excluded"));
 
 // ── Provenance retained on points ───────────────────────────────────────
 const point = periodReport.series[0]?.points[0];
@@ -543,7 +541,10 @@ assert.equal(
 );
 
 // ── Static integration contracts ────────────────────────────────────────
-const apiRoute = readFileSync("src/app/api/biomarkers/dynamics/route.ts", "utf8");
+const apiRoute = readFileSync(
+  "src/app/api/biomarkers/dynamics/route.ts",
+  "utf8",
+);
 assert.match(apiRoute, /getAuthorizedBiomarkerDynamics/);
 assert.match(apiRoute, /profile_current/);
 assert.doesNotMatch(apiRoute, /observations:\s*body/);
@@ -560,6 +561,7 @@ assert.match(page, /Source ledger/);
 assert.match(page, /Incompatible series kept separate/);
 
 const reportsRoute = readFileSync("src/app/api/reports/route.ts", "utf8");
+const reportGeneration = readFileSync("src/lib/report-generation.ts", "utf8");
 const routeSource = ts.createSourceFile(
   "reports-route.ts",
   reportsRoute,
@@ -624,15 +626,11 @@ const isAwaitedCall = (
     callee.expression.getText(routeSource) === objectName
   );
 };
-const bindingContainsName = (
-  name: ts.BindingName,
-  target: string,
-): boolean => {
+const bindingContainsName = (name: ts.BindingName, target: string): boolean => {
   if (ts.isIdentifier(name)) return name.text === target;
   return name.elements.some(
     (element) =>
-      ts.isBindingElement(element) &&
-      bindingContainsName(element.name, target),
+      ts.isBindingElement(element) && bindingContainsName(element.name, target),
   );
 };
 
@@ -665,14 +663,17 @@ const isJsonParseTry = (statement: ts.Statement): boolean => {
     tryStatements.length !== 1 ||
     !ts.isExpressionStatement(parseStatement) ||
     !ts.isBinaryExpression(parseStatement.expression) ||
-    parseStatement.expression.operatorToken.kind !== ts.SyntaxKind.EqualsToken ||
+    parseStatement.expression.operatorToken.kind !==
+      ts.SyntaxKind.EqualsToken ||
     parseStatement.expression.left.getText(routeSource) !== "body" ||
     !isAwaitedCall(parseStatement.expression.right, "req", "json")
   ) {
     return false;
   }
   const catchStatements = statement.catchClause.block.statements;
-  return catchStatements.length === 1 && responseStatus(catchStatements[0]!) === 400;
+  return (
+    catchStatements.length === 1 && responseStatus(catchStatements[0]!) === 400
+  );
 };
 const isReportSchemaParse = (statement: ts.Statement): boolean => {
   if (!ts.isVariableStatement(statement)) return false;
@@ -757,10 +758,7 @@ const reportGenerationIsDeferred =
   isInvalidParsedGuard(postStatements[5]!) &&
   finalGate &&
   !reportGenerationPost.parameters.some((parameter) =>
-    bindingContainsName(
-      parameter.name,
-      "reportGenerationIntegrationPending",
-    ),
+    bindingContainsName(parameter.name, "reportGenerationIntegrationPending"),
   );
 if (reportGenerationIsDeferred) {
   const reportGenerationPendingHelper = namedFunction(
@@ -783,9 +781,9 @@ if (reportGenerationIsDeferred) {
     "the deferred helper must return HTTP 503",
   );
 } else {
-  assert.match(reportsRoute, /getFrozenBiomarkerDynamicsForReport/);
-  assert.match(reportsRoute, /biomarker_dynamics_period/);
-  assert.match(reportsRoute, /biomarker_dynamics/);
+  assert.match(reportGeneration, /getFrozenBiomarkerDynamicsForReport/);
+  assert.match(reportGeneration, /biomarker_dynamics_period/);
+  assert.match(reportGeneration, /biomarker_dynamics/);
 }
 
 const server = readFileSync("src/lib/biomarker-dynamics-server.ts", "utf8");

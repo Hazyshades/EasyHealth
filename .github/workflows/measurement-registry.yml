@@ -368,6 +368,8 @@ jobs:
       # RPC. Acceptance was dead for months because nothing crossed this seam.
       - name: Run the writer-to-RPC seam contract
         run: pnpm test:writer-seam
+      - name: Run EH-148 validated report writer database contract
+        run: pnpm test:eh148-db
       - name: Stop local Supabase services
         if: always()
         run: supabase stop --no-backup

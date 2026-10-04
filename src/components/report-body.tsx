@@ -4,6 +4,10 @@ import {
   type ReportSectionId,
   type ReportSource,
 } from "@/lib/report-contract";
+import {
+  resolvePersistedBiomarkerDynamicsExtension,
+  type BiomarkerDynamicsPoint,
+} from "@/lib/biomarker-dynamics";
 
 export type LegacyReportContent = {
   overview?: unknown;
@@ -23,6 +27,108 @@ const SECTION_TITLES: Record<ReportSectionId, string> = {
   limitations: "Limitations",
   source_ledger: "Source ledger",
 };
+
+const DYNAMICS_DIRECTION_LABELS = {
+  increasing: "Increasing",
+  decreasing: "Decreasing",
+  stable: "Stable",
+  not_available: "Direction unavailable",
+} as const;
+
+function dynamicsPointLabel(point: BiomarkerDynamicsPoint): string {
+  const value = point.nativeValue ?? point.displayValue;
+  const unit = point.nativeUnit ?? point.displayUnit;
+  if (value === null) return "Value unavailable";
+  const range =
+    point.nativeReferenceLow !== null && point.nativeReferenceHigh !== null
+      ? ` (reference ${point.nativeReferenceLow}–${point.nativeReferenceHigh})`
+      : "";
+  return `${value}${unit ? ` ${unit}` : ""}${range}`;
+}
+
+function ReportDynamics({
+  extension,
+  reportScopeDocumentIds,
+}: {
+  extension: unknown;
+  reportScopeDocumentIds: readonly string[];
+}) {
+  const resolved = resolvePersistedBiomarkerDynamicsExtension(
+    extension,
+    reportScopeDocumentIds,
+  );
+  if (!resolved.ok) return null;
+  const { report, biomarker_dynamics_period: period } = resolved.extension;
+  // The frozen payload comes from the database: fail closed rather than throw
+  // when a stored extension does not carry the arrays this view renders.
+  if (
+    !Array.isArray(report.series) ||
+    !Array.isArray(report.limitations) ||
+    !Array.isArray(report.incompatibilities)
+  ) {
+    return null;
+  }
+
+  return (
+    <section>
+      <h2 className="font-semibold">How your results changed</h2>
+      <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
+        Period {period.start} to {period.end} · {report.series.length} series in
+        the selected documents
+      </p>
+      {report.series.length === 0 ? (
+        <p className="mt-2 text-sm text-[var(--eh-text-muted)]">
+          No comparable series were available for this period.
+        </p>
+      ) : (
+        <ul className="mt-2 space-y-3 text-sm">
+          {report.series.map((series) => (
+            <li key={series.id}>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium">{series.label}</span>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">
+                  {DYNAMICS_DIRECTION_LABELS[series.direction.value]}
+                </span>
+                <span className="text-xs text-[var(--eh-text-muted)]">
+                  {series.statistics.pointCount} result
+                  {series.statistics.pointCount === 1 ? "" : "s"}
+                </span>
+              </div>
+              {series.points.length > 0 && (
+                <ul className="mt-1 space-y-1 text-xs text-[var(--eh-text-muted)]">
+                  {series.points.map((point) => (
+                    <li key={point.id}>
+                      {point.observedAt} · {dynamicsPointLabel(point)}
+                      {point.source ? ` · ${point.source.filename}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {series.limitations.map((limitation, index) => (
+                <p
+                  key={`${series.id}-limitation-${index}`}
+                  className="mt-1 text-xs text-amber-900"
+                >
+                  {limitation.message}
+                </p>
+              ))}
+            </li>
+          ))}
+        </ul>
+      )}
+      {report.limitations.length > 0 && (
+        <ul className="mt-2 space-y-1 text-xs text-amber-900">
+          {report.limitations.map((limitation, index) => (
+            <li key={`report-limitation-${index}`}>{limitation.message}</li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-2 text-xs text-[var(--eh-text-muted)]">
+        {report.disclaimer}
+      </p>
+    </section>
+  );
+}
 
 function isStructuredBrief(
   content: ReportContent,
@@ -155,6 +261,12 @@ function StructuredReportBody({ brief }: { brief: DoctorVisitBrief }) {
           )}
         </section>
       ))}
+      {brief.extensions?.biomarker_dynamics !== undefined && (
+        <ReportDynamics
+          extension={brief.extensions.biomarker_dynamics}
+          reportScopeDocumentIds={brief.source_document_ids}
+        />
+      )}
       {brief.validation.status === "limited" && (
         <p className="border-t pt-4 text-xs text-amber-900">
           Some items are limited or omitted because source evidence or
