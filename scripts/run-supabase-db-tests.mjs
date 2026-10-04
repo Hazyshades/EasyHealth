@@ -15,10 +15,16 @@ const CONNECT_FAILURE =
   /LegacyDbConnectError|LegacyDockerRunError|LegacyTestDbMutuallyExclusiveFlagsError|failed to connect to postgres|mkdir \/run\/desktop\/mnt\/host/i;
 const CLI_TAP_PASS = /Result:\s+PASS|All tests successful/i;
 const CLI_TAP_FAIL = /Result:\s+FAIL|Failed tests/i;
+// pgTAP through psql renders ` ok 1 - description` inside table cells, so the
+// TAP markers are indented rather than at the start of the line.
+const TAP_OK = /^\s*ok\s+\d+\b/gm;
+const TAP_NOT_OK = /^\s*not ok\b/gm;
 
 const files = process.argv.slice(2).filter((arg) => arg !== "--");
 if (files.length === 0) {
-  process.stderr.write("usage: node scripts/run-supabase-db-tests.mjs <sql-file...>\n");
+  process.stderr.write(
+    "usage: node scripts/run-supabase-db-tests.mjs <sql-file...>\n",
+  );
   process.exit(2);
 }
 
@@ -30,7 +36,8 @@ const dockerBin = process.platform === "win32" ? "docker.exe" : "docker";
 function explicitDbUrl() {
   if (process.env.SUPABASE_DB_URL) return process.env.SUPABASE_DB_URL;
   if (process.env.SUPABASE_TEST_DB_URL) return process.env.SUPABASE_TEST_DB_URL;
-  if (process.env.DATABASE_URL?.startsWith("postgres")) return process.env.DATABASE_URL;
+  if (process.env.DATABASE_URL?.startsWith("postgres"))
+    return process.env.DATABASE_URL;
   return null;
 }
 
@@ -74,19 +81,18 @@ function cliSucceeded(result) {
 
 function dockerTapSucceeded(result) {
   const text = combinedText(result);
-  if ((result.status ?? 1) !== 0) return false;
-  if (CLI_TAP_FAIL.test(text) || /^not ok\b/m.test(text)) return false;
+  if (CLI_TAP_FAIL.test(text) || TAP_NOT_OK.test(text)) return false;
   if (CLI_TAP_PASS.test(text)) return true;
-  const plan = text.match(/^1\.\.(\d+)\s*$/m);
+  const plan = text.match(/1\.\.(\d+)/);
   if (!plan) return false;
   const expected = Number(plan[1]);
-  const oks = [...text.matchAll(/^ok\b/gm)].length;
+  const oks = [...text.matchAll(TAP_OK)].length;
   return expected > 0 && oks >= expected;
 }
 
 function looksLikeConnectFailure(result) {
   const text = combinedText(result);
-  if (CLI_TAP_FAIL.test(text) || /^not ok\b/m.test(text)) return false;
+  if (CLI_TAP_FAIL.test(text) || TAP_NOT_OK.test(text)) return false;
   if (CONNECT_FAILURE.test(text)) return true;
   if (result.error?.code === "ENOENT") return true;
   if ((result.status ?? 1) !== 0 && !CLI_TAP_PASS.test(text)) return true;
@@ -123,11 +129,24 @@ function runDockerFallback() {
     const sql = readFileSync(file);
     const dockerResult = run(
       dockerBin,
-      ["exec", "-i", container, "psql", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
+      [
+        "exec",
+        "-i",
+        container,
+        "psql",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-U",
+        "postgres",
+        "-d",
+        "postgres",
+      ],
       { input: sql, shell: false },
     );
     if (dockerResult.error?.code === "ENOENT") {
-      process.stderr.write("docker not found; cannot fall back to in-container psql\n");
+      process.stderr.write(
+        "docker not found; cannot fall back to in-container psql\n",
+      );
       process.exit(1);
     }
     printCaptured(dockerResult);
@@ -135,7 +154,11 @@ function runDockerFallback() {
       process.stderr.write(
         `run-supabase-db-tests: docker pgTAP did not report a passing TAP plan for ${file}\n`,
       );
-      process.exit(dockerResult.status && dockerResult.status !== 0 ? dockerResult.status : 1);
+      process.exit(
+        dockerResult.status && dockerResult.status !== 0
+          ? dockerResult.status
+          : 1,
+      );
     }
   }
   process.exit(0);
@@ -143,7 +166,9 @@ function runDockerFallback() {
 
 const forcedUrl = explicitDbUrl();
 if (forcedUrl) {
-  process.stderr.write(`run-supabase-db-tests: using --db-url ${redactUrl(forcedUrl)}\n`);
+  process.stderr.write(
+    `run-supabase-db-tests: using --db-url ${redactUrl(forcedUrl)}\n`,
+  );
   const result = attemptCli(["--db-url", forcedUrl]);
   if (!looksLikeConnectFailure(result)) failCliWithoutFallback(result);
   runDockerFallback();

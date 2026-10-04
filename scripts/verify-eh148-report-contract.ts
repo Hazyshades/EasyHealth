@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   assertDoctorVisitBrief,
   assertDoctorVisitBriefCandidate,
@@ -7,6 +8,10 @@ import {
   isDateInInclusiveRange,
   type DoctorVisitBrief,
 } from "@/lib/report-contract";
+import {
+  assembleReportCandidate,
+  parseReportSelection,
+} from "@/lib/report-candidate";
 import {
   buildReportEvidenceProjection,
   materializeReportEvidenceMappings,
@@ -400,17 +405,29 @@ const imperativeQuestion = imperativeCandidate.claims.find(
 );
 assert(imperativeQuestion && imperativeQuestion.kind === "clinician_question");
 imperativeQuestion.question_text = "Start taking a new medicine immediately?";
-assert.throws(
-  () =>
-    prepareDoctorVisitBrief({
-      candidate: imperativeCandidate,
-      projection,
-      requested_scope: brief.requested_scope,
-      detail_level: brief.detail_level,
-      generated_at: brief.generated_at,
-    }),
-  /REPORT_CANDIDATE_IMPERATIVE_TEXT/,
+const imperativeResult = prepareDoctorVisitBrief({
+  candidate: imperativeCandidate,
+  projection,
+  requested_scope: brief.requested_scope,
+  detail_level: brief.detail_level,
+  generated_at: brief.generated_at,
+});
+assert.equal(
+  imperativeResult.brief.claims.some(
+    (claim) =>
+      claim.kind === "clinician_question" &&
+      claim.question_text.startsWith("Start taking"),
+  ),
+  false,
+  "a model-authored imperative question never reaches the published claims",
 );
+assert.ok(
+  imperativeResult.brief.limitations.some(
+    (limitation) => limitation.code === "UNSAFE_CONTENT",
+  ),
+  "a dropped imperative question is reported as a machine limitation",
+);
+assert.equal(imperativeResult.status, "limited");
 assert.throws(
   () =>
     prepareDoctorVisitBrief({
@@ -438,6 +455,182 @@ unknownClaim.citations = [
 assert.throws(
   () => assertDoctorVisitBrief(unknownCitation),
   /REPORT_(?:TEMPLATE_SOURCE_NOT_CITED|CITATION_INVALID)/,
+);
+
+const reportsRoute = readFileSync("src/app/api/reports/route.ts", "utf8");
+assert.match(reportsRoute, /createValidatedReport/);
+assert.doesNotMatch(
+  reportsRoute,
+  /reportGenerationIntegrationPending|HTTP 503/,
+);
+
+const reportGeneration = readFileSync("src/lib/report-generation.ts", "utf8");
+for (const marker of [
+  "getDocumentWriteGenerations",
+  "generateReportSelection",
+  "assembleReportCandidate",
+  "validateReportContent",
+  'supabase.rpc("create_validated_report"',
+  "p_actual_source_document_ids",
+  "p_source_write_generations",
+  "p_validation_version",
+  "p_validation_issue_codes",
+  "getFrozenBiomarkerDynamicsForReport",
+]) {
+  assert.match(
+    reportGeneration,
+    new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")),
+  );
+}
+const generationCaptureIndex = reportGeneration.lastIndexOf(
+  "getDocumentWriteGenerations",
+);
+const modelGenerationIndex = reportGeneration.lastIndexOf(
+  "generateReportSelection",
+);
+const validatorIndex = reportGeneration.lastIndexOf("validateReportContent");
+const persistenceIndex = reportGeneration.indexOf(
+  'supabase.rpc("create_validated_report"',
+);
+assert(
+  generationCaptureIndex < modelGenerationIndex &&
+    modelGenerationIndex < validatorIndex &&
+    validatorIndex < persistenceIndex,
+  "report integration must capture, generate, validate, then persist",
+);
+
+const reportMigration = readFileSync(
+  "supabase/migrations/083_eh148_report_contract.sql",
+  "utf8",
+);
+assert.match(
+  reportMigration,
+  /eh104_lock_validate_source_documents[\s\S]*p_source_write_generations/,
+);
+assert.match(
+  reportMigration,
+  /revoke all on function public\.create_validated_report/,
+);
+
+// ── The server owns the validator envelope ─────────────────────────────────
+
+const assembled = assembleReportCandidate({
+  selection: parseReportSelection({
+    claims: [
+      {
+        section: "latest_measurements",
+        kind: "numeric_observation",
+        source_id: observationRef.source_id,
+        include_range: true,
+      },
+      {
+        section: "changes",
+        kind: "source_fact",
+        source_id: noteRef.source_id,
+        include_date: true,
+      },
+    ],
+    questions: ["Which results should I discuss?"],
+  }),
+  projection,
+  detailLevel: "standard",
+  generatedAt: brief.generated_at,
+});
+assert.equal(
+  (assembled.sections as Array<{ id: string; items: unknown[] }>).length,
+  6,
+  "the server assembles all six canonical sections",
+);
+assert.equal(
+  (assembled.sections as Array<{ id: string; items: unknown[] }>).find(
+    (section) => section.id === "source_ledger",
+  )?.items.length,
+  projection.sources.length,
+  "every catalog source is referenced exactly once in the server ledger",
+);
+assert.equal(
+  JSON.stringify(assembled).includes("Synthetic"),
+  false,
+  "model selections never carry source prose into the candidate",
+);
+
+const hostile = assembleReportCandidate({
+  selection: parseReportSelection({
+    claims: [
+      {
+        section: "changes",
+        kind: "source_fact",
+        source_id: "src_ffffffffffffffffffffffffffffffff",
+        text: "You have diabetes, take insulin immediately",
+      },
+      {
+        section: "clinician_questions",
+        kind: "clinician_question",
+        source_id: observationRef.source_id,
+        question_text: "Start taking insulin today?",
+      },
+      {
+        section: "latest_measurements",
+        kind: "numeric_observation",
+        source_id: findingRef.source_id,
+      },
+    ],
+    questions: [
+      "Start taking a new medicine immediately?",
+      "What should I discuss?",
+    ],
+  }),
+  projection,
+  detailLevel: "standard",
+  generatedAt: brief.generated_at,
+});
+const hostileClaims = hostile.claims as Array<Record<string, unknown>>;
+assert.equal(
+  hostileClaims.some((claim) => "text" in claim),
+  false,
+  "a model cannot attach factual text to a claim",
+);
+assert.equal(
+  hostileClaims.some((claim) => claim.source_id !== undefined),
+  false,
+  "claim citations are built from the authorized catalog only",
+);
+const hostileSections = hostile.sections as Array<{
+  id: string;
+  items: Array<Record<string, unknown>>;
+}>;
+assert.equal(
+  hostileSections.find((section) => section.id === "changes")?.items.length,
+  0,
+  "a claim citing an unknown source is never referenced by a section",
+);
+assert.equal(
+  hostileClaims.filter(
+    (claim) =>
+      claim.kind === "numeric_observation" &&
+      (claim.citations as Array<{ document_id: string }>)[0]?.document_id ===
+        findingRef.document_id,
+  ).length,
+  0,
+  "a numeric observation is never built from a non-observation source",
+);
+const coverageOnly = assembleReportCandidate({
+  selection: parseReportSelection({}),
+  projection,
+  detailLevel: "standard",
+  generatedAt: brief.generated_at,
+});
+const factualClaimIds = (claims: Array<Record<string, unknown>>) =>
+  claims.filter((claim) => claim.factual === true).map((claim) => claim.id);
+assert.deepEqual(
+  factualClaimIds(hostileClaims),
+  factualClaimIds(coverageOnly.claims as Array<Record<string, unknown>>),
+  "a hostile selection contributes no factual claim beyond the catalog coverage",
+);
+assert.equal(
+  hostileClaims.filter((claim) => claim.kind === "clinician_question").length,
+  2,
+  "question-shaped model strings still reach the candidate for the safety stage",
 );
 
 console.log("verify-eh148-report-contract: all checks passed");

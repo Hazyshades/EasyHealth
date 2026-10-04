@@ -7,16 +7,10 @@ import {
   isReportType,
   type ReportRange,
 } from "@/lib/report-prompts";
-
-function reportGenerationIntegrationPending(): NextResponse {
-  return NextResponse.json(
-    {
-      error:
-        "Report generation is unavailable until EH-150 validation and structured persistence integration are complete",
-    },
-    { status: 503 },
-  );
-}
+import {
+  createValidatedReport,
+  ReportGenerationError,
+} from "@/lib/report-generation";
 
 function sanitizeSearchTerm(value: string): string {
   return value.replace(/[%_,]/g, "").trim();
@@ -121,5 +115,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  return reportGenerationIntegrationPending();
+  try {
+    const report = await createValidatedReport(profileId, parsed.data);
+    return NextResponse.json({ id: report.id }, { status: 201 });
+  } catch (error) {
+    if (error instanceof ReportGenerationError) {
+      return NextResponse.json(
+        { error: error.code },
+        { status: error.httpStatus },
+      );
+    }
+    return NextResponse.json(
+      { error: "Report generation unavailable" },
+      { status: 500 },
+    );
+  }
 }

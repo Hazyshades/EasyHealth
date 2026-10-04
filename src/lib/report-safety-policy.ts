@@ -225,6 +225,22 @@ function normalizeModelQuestion(question: string, seen: Set<string>): string {
   return normalized;
 }
 
+function modelQuestionFormError(question: string): string | null {
+  try {
+    const [normalized] = normalizeUserSelectedQuestions([question]);
+    assertQuestionForm(
+      normalized,
+      "REPORT_CANDIDATE_QUESTION_INVALID",
+      "REPORT_CANDIDATE_IMPERATIVE_TEXT",
+    );
+    return null;
+  } catch (error) {
+    return error instanceof Error
+      ? error.message
+      : "REPORT_CANDIDATE_QUESTION_INVALID";
+  }
+}
+
 function buildOverview(claims: ReportClaim[], sourceCount: number): string {
   const factualCount = claims.filter((claim) => claim.factual).length;
   const questionCount = claims.filter(
@@ -292,6 +308,20 @@ export function prepareDoctorVisitBrief(
     }
 
     if (candidateClaim.kind === "clinician_question") {
+      const questionFormError = modelQuestionFormError(
+        candidateClaim.question_text,
+      );
+      if (questionFormError) {
+        addIssue(
+          issueCodes,
+          questionFormError === "REPORT_CANDIDATE_IMPERATIVE_TEXT"
+            ? "UNSAFE_CONTENT"
+            : "TEMPLATE_INVALID",
+        );
+        const id = `limitation-${limitationNumber++}`;
+        limitations.set(id, safeLimitation(id, "UNSAFE_CONTENT"));
+        continue;
+      }
       const question = normalizeModelQuestion(
         candidateClaim.question_text,
         seenQuestions,

@@ -2,7 +2,7 @@
 
 **Roadmap status:** Implemented; manual execution pending
 **Build / environment:** `Local source verification completed; configured authenticated UI environment required for manual checks`
-**Test run date:** `________`
+**Test run date:** `2026-09-27`
 **Tester:** `________`
 
 ## What this checklist covers
@@ -84,26 +84,25 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 
 ### EH149-UI-05: Freeze dynamics in a report
 
-**Precondition:** The account has two or more synthetic eligible lab documents in the selected report scope.
+**Precondition:** The account has two or more synthetic eligible lab documents in the selected report scope and the **Create report** form exposes the reviewed dynamics-period controls. If the controls are unavailable, record `N/A`; do not substitute an API or browser-console check for this manual case.
 
 1. Go to **Health reports** and choose **Create report**.
-2. Enable the dynamics-period control when the EH-150 structured report seam is available.
-3. Enter canonical `From` and `To` dates that contain the synthetic observations.
-4. Create the report and open the generated report.
+2. Enter canonical `From` and `To` dates that contain the synthetic observations.
+3. Create the report and open the generated report.
 
-**Expected result:** Pending EH-150 structured persistence integration. Once available, the report must show the selected period, numeric direction, native value and range, and source-document links. Reversing the dates must show validation and must not create a report.
+**Expected result:** The generated report shows the selected period, numeric direction, native value and range, and source-document links. Reversing the dates shows validation and does not create a report.
 
-**Result:** `BLOCKED`
-**Notes / evidence link:** The current master report-generation endpoint intentionally returns 503 until the EH-150 validation and structured persistence integration is complete. No manual result is claimed.
+**Result:** `PARTIAL`
+**Notes / evidence link:** Executed 2026-10-02 with period 2026-09-01 → 2026-09-30. The generated report renders the "How your results changed" block with the selected period and the numeric-movement disclaimer, and a reversed period shows "The start date must not be after the end date." with **Create report** disabled. The series list is empty because the local smoke observations are not registry-resolved, so numeric direction and per-point values could not be observed; `pnpm test:eh149` covers those shapes.
 
 ## Developer evidence required
 
 - [x] Focused read-model verification: `pnpm test:eh149` with `SKIP_ENV_VALIDATION=1` covers canonical `YYYY-MM-DD` UTC-calendar-date boundaries including a late end-date timestamp, invalid/reversed/non-canonical periods, one-point and no-policy cases, equal-timestamp canonical observation-ID ordering, tolerance-based direction, non-numeric limitations, and exclusion reasons.
 - [x] Identity fixtures in `scripts/verify-eh149-biomarker-dynamics.ts` prove measurement definition, specimen, modifier, method, scale, and non-convertible unit differences remain separate with their warning reason.
 - [x] Scope guard verification proves an observation outside the authorized document set is rejected before projection. Full authenticated API boundary execution remains pending configured Supabase services.
-- [ ] Report-binding evidence is blocked by the current EH-150 structured persistence seam. The branch-local HMAC binding implementation is not part of the reconciled master runtime.
+- [x] Report-binding evidence: `src/lib/report-generation.ts` calls the EH-149 frozen extension adapter with the exact materialized report document scope before persistence. The branch-local HMAC binding implementation remains out of scope for this reconciled runtime.
 - [x] Scope-constrained synthetic evidence covers both `profile_current` and `report_immutable` projection scopes and rejects the second owned document from the selected report scope. Share/export isolation remains owned by EH-151/EH-153.
-- [ ] Server-adapter source and fixtures verify report creation passes an exact immutable scope. The current report-generation endpoint remains blocked by the EH-150 structured persistence seam; the profile-current dynamics API remains covered by `pnpm test:eh149`.
+- [x] Server-adapter evidence: report creation passes the exact immutable scope to `getFrozenBiomarkerDynamicsForReport`; `pnpm test:eh149` and `pnpm exec tsc --noEmit --pretty false` pass. Full authenticated API boundary execution remains pending configured Supabase services.
 - [x] `pnpm typecheck` and `pnpm build` pass with placeholder environment values. `pnpm test:eh129` passes after the client migration.
 
 ## Out of scope or not manually testable yet

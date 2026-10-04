@@ -47,6 +47,10 @@ const files: Record<string, string> = {
     resolve(process.cwd(), "src/app/api/reports/route.ts"),
     "utf8",
   ),
+  "report-generation-service": readFileSync(
+    resolve(process.cwd(), "src/lib/report-generation.ts"),
+    "utf8",
+  ),
   "report-delete-route": readFileSync(
     resolve(process.cwd(), "src/app/api/reports/[id]/route.ts"),
     "utf8",
@@ -522,10 +526,13 @@ const evidenceChecks: ReadonlyArray<{
   },
   {
     key: "reports-route",
-    pattern:
-      /(?:getDocumentWriteGenerations[\s\S]*create_validated_report|reportGenerationIntegrationPending)/,
-    label:
-      "report writes use source-generation validation RPC or an explicit EH-148 integration gate",
+    pattern: /createValidatedReportForProfile/,
+    label: "report route delegates to the validated generation service",
+  },
+  {
+    key: "report-generation-service",
+    pattern: /getDocumentWriteGenerations[\s\S]*create_validated_report/,
+    label: "report generation uses source-generation validation RPC",
   },
   {
     key: "report-delete-route",
