@@ -42,6 +42,12 @@ export function parseReportSelection(raw: unknown): ReportSelection {
   };
 }
 
+export class UnknownSelectedSourceError extends Error {
+  constructor(readonly sourceId: string) {
+    super("REPORT_SELECTION_UNKNOWN_SOURCE");
+    this.name = "UnknownSelectedSourceError";
+  }
+}
 /**
  * Coverage the brief owes the reader regardless of what the model chose: the
  * latest measurement of every marker, every observation of a marker that has
@@ -142,8 +148,19 @@ export function assembleReportCandidate(options: {
   };
 
   const seenClaims = new Set<string>();
+  const modelClaims = options.selection.claims;
+  for (const claim of modelClaims) {
+    if (!sourceById.has(claim.source_id)) {
+      // The selection asked for evidence that does not exist in the
+      // server-authorized catalog. There is no well-formed claim to hand to
+      // EH-150, so the whole candidate fails closed: nothing is rendered and
+      // nothing is persisted.
+      throw new UnknownSelectedSourceError(claim.source_id);
+    }
+  }
+
   const selectedClaims = [
-    ...options.selection.claims,
+    ...modelClaims,
     ...coverageClaims(options.projection.sources),
   ];
   for (const claim of selectedClaims) {

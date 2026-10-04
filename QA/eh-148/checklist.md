@@ -129,6 +129,8 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 - The generation seam is server-owned: the model returns only a selection, `src/lib/report-candidate.ts` builds the validator envelope, and `pnpm test:eh148-db` sends that exact payload through the real RPC.
 - Fixture limitation: the local smoke observations are not registry-resolved (`incomplete_resolution`), so `Latest measurements` and `Changes over time` stayed empty in the UI run. The numeric path is covered by the contract verifier and by the pgTAP fixture, which includes `numeric_observation` claims; producing registry-resolved local fixtures needs the Registry writer fixtures owned outside EH-148.
 - `pnpm preflight:document-deletion` still reports the repository's live-target and worker-dependency blockers and is not treated as a pass.
+- The report create form now carries the EH-149 dynamics-period control, and the detail page renders the frozen extension. `QA/eh-149/**` is EH-149-owned, so this change leaves that checklist untouched; its owner should refresh `EH149-UI-05` separately.
+- A selection that cites a source outside the catalog now fails closed with HTTP 422 `report_validation_failed`: no report, no evidence mapping, and the unknown identifier is never rendered.
 
 ## Out of scope or not manually testable yet
 

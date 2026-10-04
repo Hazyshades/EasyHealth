@@ -46,10 +46,28 @@ function dynamicsPointLabel(point: BiomarkerDynamicsPoint): string {
   return `${value}${unit ? ` ${unit}` : ""}${range}`;
 }
 
-function ReportDynamics({ extension }: { extension: unknown }) {
-  const resolved = resolvePersistedBiomarkerDynamicsExtension(extension);
+function ReportDynamics({
+  extension,
+  reportScopeDocumentIds,
+}: {
+  extension: unknown;
+  reportScopeDocumentIds: readonly string[];
+}) {
+  const resolved = resolvePersistedBiomarkerDynamicsExtension(
+    extension,
+    reportScopeDocumentIds,
+  );
   if (!resolved.ok) return null;
   const { report, biomarker_dynamics_period: period } = resolved.extension;
+  // The frozen payload comes from the database: fail closed rather than throw
+  // when a stored extension does not carry the arrays this view renders.
+  if (
+    !Array.isArray(report.series) ||
+    !Array.isArray(report.limitations) ||
+    !Array.isArray(report.incompatibilities)
+  ) {
+    return null;
+  }
 
   return (
     <section>
@@ -244,7 +262,10 @@ function StructuredReportBody({ brief }: { brief: DoctorVisitBrief }) {
         </section>
       ))}
       {brief.extensions?.biomarker_dynamics !== undefined && (
-        <ReportDynamics extension={brief.extensions.biomarker_dynamics} />
+        <ReportDynamics
+          extension={brief.extensions.biomarker_dynamics}
+          reportScopeDocumentIds={brief.source_document_ids}
+        />
       )}
       {brief.validation.status === "limited" && (
         <p className="border-t pt-4 text-xs text-amber-900">

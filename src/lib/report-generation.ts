@@ -14,6 +14,7 @@ import { generateReportSelection } from "@/lib/generate-doctor-summary";
 import {
   assembleReportCandidate,
   parseReportSelection,
+  UnknownSelectedSourceError,
 } from "@/lib/report-candidate";
 import {
   buildMultiSourceReportContext,
@@ -391,12 +392,20 @@ export async function createValidatedReport(
       supabase: createAdminClient(),
     },
   });
-  const candidate = assembleReportCandidate({
-    selection: parseReportSelection(rawSelection),
-    projection,
-    detailLevel: input.detail_level,
-    generatedAt,
-  });
+  let candidate: Record<string, unknown>;
+  try {
+    candidate = assembleReportCandidate({
+      selection: parseReportSelection(rawSelection),
+      projection,
+      detailLevel: input.detail_level,
+      generatedAt,
+    });
+  } catch (error) {
+    if (error instanceof UnknownSelectedSourceError) {
+      throw new ReportGenerationError(422, "report_validation_failed");
+    }
+    throw error;
+  }
   const validation = await validateReportContent(candidate, {
     profile_id: profileId,
     document_scope: actualSourceDocumentIds,

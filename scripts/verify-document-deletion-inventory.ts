@@ -526,7 +526,7 @@ const evidenceChecks: ReadonlyArray<{
   },
   {
     key: "reports-route",
-    pattern: /createValidatedReportForProfile/,
+    pattern: /createValidatedReport\(profileId, parsed\.data\)/,
     label: "report route delegates to the validated generation service",
   },
   {

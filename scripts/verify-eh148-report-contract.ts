@@ -554,21 +554,31 @@ assert.equal(
   "model selections never carry source prose into the candidate",
 );
 
+assert.throws(
+  () =>
+    assembleReportCandidate({
+      selection: parseReportSelection({
+        claims: [
+          {
+            section: "changes",
+            kind: "source_fact",
+            source_id: "src_ffffffffffffffffffffffffffffffff",
+            text: "You have diabetes, take insulin immediately",
+          },
+        ],
+        questions: ["What should I discuss?"],
+      }),
+      projection,
+      detailLevel: "standard",
+      generatedAt: brief.generated_at,
+    }),
+  /REPORT_SELECTION_UNKNOWN_SOURCE/,
+  "a selection citing a source outside the catalog fails closed instead of persisting",
+);
+
 const hostile = assembleReportCandidate({
   selection: parseReportSelection({
     claims: [
-      {
-        section: "changes",
-        kind: "source_fact",
-        source_id: "src_ffffffffffffffffffffffffffffffff",
-        text: "You have diabetes, take insulin immediately",
-      },
-      {
-        section: "clinician_questions",
-        kind: "clinician_question",
-        source_id: observationRef.source_id,
-        question_text: "Start taking insulin today?",
-      },
       {
         section: "latest_measurements",
         kind: "numeric_observation",
@@ -594,15 +604,6 @@ assert.equal(
   hostileClaims.some((claim) => claim.source_id !== undefined),
   false,
   "claim citations are built from the authorized catalog only",
-);
-const hostileSections = hostile.sections as Array<{
-  id: string;
-  items: Array<Record<string, unknown>>;
-}>;
-assert.equal(
-  hostileSections.find((section) => section.id === "changes")?.items.length,
-  0,
-  "a claim citing an unknown source is never referenced by a section",
 );
 assert.equal(
   hostileClaims.filter(
