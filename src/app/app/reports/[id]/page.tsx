@@ -1,11 +1,13 @@
 "use client";
-
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ReportBody, type ReportContent } from "@/components/report-body";
+import { ReportExportActions } from "@/components/report-export-actions";
+import { attachmentFilename } from "@/lib/report-export/download-filename";
+import type { ReportExportFormat } from "@/lib/report-export/types";
 import {
   DETAIL_LEVEL_LABELS,
   REPORT_TYPE_LABELS,
@@ -30,6 +32,12 @@ type ReportReadPayload = {
   report: ReportDetail;
 };
 
+const OWNER_EXPORT_FORMATS = [
+  "pdf",
+  "csv",
+  "json",
+] as const satisfies readonly ReportExportFormat[];
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
     month: "short",
@@ -42,6 +50,7 @@ export default function ReportDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const [report, setReport] = useState<ReportDetail | null>(null);
+  const [canExport, setCanExport] = useState(false);
   const [readStatus, setReadStatus] = useState<"legacy" | "structured" | null>(
     null,
   );
@@ -57,12 +66,38 @@ export default function ReportDetailPage() {
       .then((data) => {
         setReadStatus(data.status);
         setReport(data.report);
+        setCanExport(data.status === "structured" && data.can_export);
       })
       .catch((e) =>
         setError(e instanceof Error ? e.message : "Failed to load report"),
       )
       .finally(() => setLoading(false));
   }, [id]);
+
+  const handleExport = useCallback(
+    async (format: ReportExportFormat): Promise<void> => {
+      const response = await fetch(
+        `/api/reports/${id}/export?format=${encodeURIComponent(format)}`,
+      );
+      if (!response.ok) throw new Error("Export unavailable");
+      const filename = attachmentFilename(
+        response.headers.get("Content-Disposition"),
+        `report.${format}`,
+      );
+      const url = URL.createObjectURL(await response.blob());
+      try {
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.append(link);
+        link.click();
+        link.remove();
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    },
+    [id],
+  );
 
   if (loading) {
     return <p className="text-sm text-muted-foreground">Loading report…</p>;
@@ -119,6 +154,13 @@ export default function ReportDetailPage() {
           <Link href="/app/reports/create">Create another report</Link>
         </Button>
       </div>
+
+      {canExport ? (
+        <ReportExportActions
+          formats={OWNER_EXPORT_FORMATS}
+          onExport={handleExport}
+        />
+      ) : null}
 
       <ReportBody content={report.content} />
     </div>
