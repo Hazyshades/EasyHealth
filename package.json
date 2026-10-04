@@ -156,6 +156,7 @@
     "test:eh148-contract": "tsx scripts/verify-eh148-report-contract.ts",
     "test:eh152": "tsx scripts/verify-eh152-share-management.ts",
     "test:eh153": "tsx scripts/verify-eh153-report-export.ts",
+    "test:eh153-owner-export": "tsx scripts/verify-eh153-owner-export-integration.ts",
     "test:health-profile-assessment-read": "tsx scripts/verify-health-profile-assessment-read.ts",
     "test:health-profile-reported-results": "tsx scripts/verify-health-profile-reported-results.ts",
     "check:ci-suite-coverage": "tsx scripts/verify-ci-suite-coverage.ts",

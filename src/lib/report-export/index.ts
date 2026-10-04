@@ -59,7 +59,7 @@ const CONTENT_TYPES: Record<ReportExportFormat, string> = {
   json: "application/json; charset=utf-8",
 };
 
-function isExportFormat(value: string): value is ReportExportFormat {
+export function isExportFormat(value: string): value is ReportExportFormat {
   return (REPORT_EXPORT_FORMATS as readonly string[]).includes(value);
 }
 

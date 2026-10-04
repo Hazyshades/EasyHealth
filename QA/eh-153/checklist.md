@@ -1,8 +1,8 @@
 # EH-153: Report Export Package
 
-**Roadmap status:** Implemented; product QA pending
+**Roadmap status:** Implemented; owner surface wired, product QA pending
 **Build / environment:** Windows 11, Node 22, pnpm 9.15.4; fixture verifier uses `SKIP_ENV_VALIDATION=1`
-**Test run date:** 2026-10-01
+**Test run date:** 2026-10-04
 **Tester:** Automated developer evidence; product tester handoff pending
 
 ## What this checklist covers
@@ -43,7 +43,7 @@ This checklist covers PDF, CSV, and JSON exports from the validated report contr
 **Expected result:** PDF, CSV, and JSON match the visible report sections and limitations. PDF/JSON include the full contract; CSV includes deterministic metadata, claim, source, and measurement rows with generated-at time, contract/validator versions, citations, complete source references, disclaimer, and no unrelated document or storage path.
 
 **Result:** `BLOCKED`
-**Notes / evidence link:** The leaf `ReportExportActions` component is implemented, but EH-148 owns authenticated detail-page wiring and EH-151 owns the named public-share slot. Manual product execution remains pending those handoffs.
+**Notes / evidence link:** The owner surface now exists: `GET /api/reports/[id]/export` plus the gated `ReportExportActions` on the detail page. This check is executable and awaits a tester with a running app; only the public-share half stays with EH-151.
 
 ### EH153-UI-02: Verify Unicode PDF
 
@@ -55,7 +55,7 @@ This checklist covers PDF, CSV, and JSON exports from the validated report contr
 **Expected result:** Text is readable/selectable, page breaks do not remove citations or limitations, and no partial/corrupt PDF is returned.
 
 **Result:** `BLOCKED`
-**Notes / evidence link:** Unicode fixture and embedded `DejaVuSans.ttf` are covered by `pnpm test:eh153`; product-page selection/search verification remains pending EH-148 integration.
+**Notes / evidence link:** Unicode fixture and embedded `DejaVuSans.ttf` are covered by `pnpm test:eh153`; the owner download path is wired, so product-page selection/search verification is now executable.
 
 ### EH153-UI-03: Verify CSV provenance
 
@@ -68,7 +68,7 @@ This checklist covers PDF, CSV, and JSON exports from the validated report contr
 **Expected result:** Measurement rows preserve native/display values and units, range, date, source observation/document IDs, and conversion metadata. Metadata, claim, and source rows preserve limitations, claim status/text, citation IDs, source kind/document ID/snapshot/label, and deterministic order; narrative claims are not fabricated as measurements.
 
 **Result:** `BLOCKED`
-**Notes / evidence link:** CSV fixture coverage passed in `pnpm test:eh153`; product download execution remains pending EH-148 integration.
+**Notes / evidence link:** CSV fixture coverage passed in `pnpm test:eh153` and the owner download path is wired; product download execution is now executable.
 
 ### EH153-UI-04: Deny legacy or out-of-scope export
 
@@ -79,7 +79,7 @@ This checklist covers PDF, CSV, and JSON exports from the validated report contr
 **Expected result:** The action is hidden or fails generically. No partial file, unrelated source, or raw storage path is returned.
 
 **Result:** `BLOCKED`
-**Notes / evidence link:** Adapter fixtures reject legacy reports, denied formats, scope mismatch, and tampered dynamics. Product action wiring remains pending EH-148/EH-151.
+**Notes / evidence link:** Adapter fixtures reject legacy reports, denied formats, scope mismatch, and tampered dynamics. Legacy reports render no actions at all (`pnpm test:eh153-owner-export`). The shared-report half remains pending EH-151.
 
 ## Developer evidence required
 
@@ -108,8 +108,9 @@ Additional automated evidence:
 - `SKIP_ENV_VALIDATION=1 pnpm test:eh153` — asserts the PDF embeds the report's own `generated_at` as its only date value (never the render wall clock), that the embedded font subset tag is normalized, and that repeated JSON and CSV serializations are byte-identical. Byte-identical PDF container output is not asserted: `@react-pdf/renderer`/`pdfkit` emit document objects in a nondeterministic order, so container bytes vary while rendered content and metadata do not.
 - `pnpm test:eh149`, `pnpm test:eh148-contract`, `pnpm test:eh150`, `pnpm test:eh151`, `pnpm test:eh152` — pass after the persisted-dynamics resolver hardening and the master rebase.
 - `pnpm check:ci-suite-coverage` and `pnpm check:ci-suite-coverage-contract` — pass with `test:eh153` registered in `ci/verification-suite-policy.json` and the `verify` job.
+- `pnpm test:eh153-owner-export` — owner integration evidence: every export failure code maps to its public status with an opaque message, unknown throwables stay generic, download filenames lose path separators and control characters, authentication precedes format parsing, the route delegates to the owner adapter, and the actions render in exactly one `canExport`-gated branch.
 
 ## Out of scope or not manually testable yet
 
-- Product page wiring is intentionally owned by EH-148 and EH-151; this change supplies the leaf actions contract and server export boundary only.
+- Public-share page wiring is intentionally owned by EH-151; this change wires only the authenticated owner surface.
 - Live Supabase archive/tombstone and public-share helper verification requires the upstream integration surfaces and is not marked as tested here.
