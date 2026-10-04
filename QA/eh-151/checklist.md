@@ -1,108 +1,158 @@
-# EH-151: Scoped Expiring Share Links
+# EH-151: Scoped expiring report share links
 
-**Roadmap status:** Planned
-**Build / environment:** `________`
-**Test run date:** `________`
-**Tester:** `________`
+**Roadmap status:** In progress
+**Build / environment:** `EH-151 feature branch`
+**Test run date:** `Not executed in this workspace`
+**Tester:** `Not assigned`
 
 ## What this checklist covers
 
-This checklist covers creation and public use of expiring, revocable, explicitly scoped report links with optional PIN protection. It checks the public boundary, not the owner access-history UI owned by EH-152.
+This checklist covers the recipient-facing public report page, optional PIN
+proof flow, generic unavailable states, and raw-document download boundary for
+scoped, expiring report links. Owner share creation, revoke, replacement, and
+access-history controls are API or EH-152 surfaces, not a management screen
+implemented by EH-151.
 
 ## Before you start
 
-- [ ] Use a dedicated owner account and a separate recipient browser/profile.
-- [ ] Use only synthetic or de-identified documents.
-- [ ] Confirm the listed test data has finished processing, unless the check intentionally tests processing.
+- [ ] Use a dedicated test account and a second recipient browser profile.
+- [ ] Use only synthetic or de-identified documents and report content.
+- [ ] Confirm the synthetic report has completed processing and is a validated
+      EH-148 report before creating a share.
+- [ ] Use HTTPS for browser checks so the protected PIN cookie can be stored.
 
 ## Test data
 
-| ID | Test document or setup | Purpose |
-| --- | --- | --- |
-| `EH151-REPORT-01` | Validated synthetic report with two in-scope documents | Report-only share |
-| `EH151-DOC-01` | One document explicitly permitted for download | Narrow document scope |
-| `EH151-OTHER-01` | Same owner's document outside the report scope | Scope denial |
-| `EH151-PROFILE-B` | Report/document owned by a second synthetic profile | Profile isolation |
-| `EH151-ARCHIVE-01` | Validated shared report whose cited source row is archived/removed while its parent document remains active | Read-time source-unavailable limitation |
-| `EH151-VALIDATION-01` | Valid, limited, invalid, legacy, missing, and tampered EH-148 validation-envelope fixtures | Publication gate |
-| `EH151-RATE-01` | Repeated invalid-token and wrong-PIN requests with the shared limiter available and unavailable | Production rate-limit boundary |
-| `EH151-PIN-01` | Two active PIN-protected shares plus missing, wrong, expired, revoked, and cross-share proof-cookie variants | Non-URL proof lifecycle and route-wide proof binding |
-| `EH151-REPLACE-01` | Active share with repeated same-key replacement retry and competing different-key replacement request | Atomic replacement idempotency |
+| ID                     | Test document or setup                                                                                          | Purpose                                |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `EH151-VALID-REPORT`   | Synthetic validated report with one active source document and no patient identifiers                           | Normal report-sharing path             |
+| `EH151-PIN-REPORT`     | Synthetic validated report with a four-digit test PIN such as `2468`                                            | PIN proof establishment and retry path |
+| `EH151-LIMITED-REPORT` | Synthetic validated report with a safe `SOURCE_UNAVAILABLE` limitation while its parent document remains active | Limited report projection              |
+| `EH151-EXPIRED-REPORT` | Synthetic report share whose expiry is in the past                                                              | Expiry denial                          |
+| `EH151-REVOKED-REPORT` | Synthetic report share revoked by a developer or EH-152 management surface                                      | Revocation denial                      |
+| `EH151-DOCUMENT-SCOPE` | Synthetic share with one explicitly allowed active document and one unselected document                         | Raw-document scope boundary            |
 
 ## Interface checks
 
-### EH151-UI-01: Open a report-only share
+### EH151-UI-01: Open a valid shared report
 
-**Precondition:** Owner has a validated report from `EH151-REPORT-01` and creates a share with report-only policy and a short future expiry.
+**Precondition:** A developer has created a share for `EH151-VALID-REPORT` and
+provided the one-time link to the tester. The recipient browser is not signed
+in to the owner account.
 
-1. Copy the link into a separate recipient browser with no signed-in session.
-2. Open the link.
-3. Inspect the visible report and available actions.
+1. Open the share link in a private browser window.
+2. Confirm the page finishes loading without an owner-session login.
+3. Review the report title, summary, validation content, and source-backed
+   limitations shown on the page.
+4. Resize the window to a narrow mobile width and tab through the visible
+   controls.
 
-**Expected result:** Only the selected validated report is visible and no raw document download is offered when policy denies it. Cache, indexing, referrer, and analytics controls are evidenced in the developer section.
+**Expected result:** The validated report is readable without an owner
+session. The page remains usable at mobile width and the PIN or error controls,
+when present, are keyboard reachable. No profile identifier, storage URL, or
+unrelated report appears.
 
-**Result:** `N/A`
-**Notes / evidence link:** `Implementation not started; execute after EH-151 delivery.`
+**Result:** `Not executed`
+**Notes / evidence link:** `________`
 
-### EH151-UI-02: Verify optional PIN and generic failure
+### EH151-UI-02: Establish a PIN proof and retry safely
 
-**Precondition:** Owner has created an expiring share with an optional PIN.
+**Precondition:** A developer has created a PIN-protected share for
+`EH151-PIN-REPORT` with the synthetic PIN `2468`.
 
-1. Open the link without a PIN.
-2. Submit an incorrect PIN through the visible PIN form, then submit the correct PIN.
-3. Confirm the request body is JSON and inspect only cookie attributes, not the cookie value.
-4. Open the report, API resource, approved export, and permitted raw-document resource from the same recipient browser.
+1. Open the share link in a private browser window.
+2. Confirm the page asks for an access PIN without placing the PIN in the URL.
+3. Submit an intentionally wrong PIN.
+4. Confirm the page shows a generic retry state and does not show internal
+   rate-limit, token, or proof details.
+5. Submit `2468` in the same PIN form.
+6. Reload the report page and open the report again using the same browser.
 
-**Expected result:** Missing/incorrect PIN responses do not reveal whether the token, PIN, expiry, or revocation caused a failure. The correct PIN establishes only the protected `__Host-eh-share-pin` cookie (`Secure`, `HttpOnly`, `SameSite=Strict`, `Path=/`, no `Domain`) and opens only the scoped report after rate limits allow it; every route requires the same proof before returning bytes. The PIN and proof do not appear in URLs, response fields, or visible diagnostics.
+**Expected result:** The wrong PIN does not expose report content or a proof
+value. The correct PIN opens the report, and the short-lived proof allows the
+same browser to continue without displaying the PIN or proof in the page.
 
-**Result:** `N/A`
-**Notes / evidence link:** `Implementation not started; execute after EH-151 delivery.`
+**Result:** `Not executed`
+**Notes / evidence link:** `________`
 
-### EH151-UI-03: Deny an out-of-scope document
+### EH151-UI-03: Display a limited report safely
 
-**Precondition:** Share includes `EH151-DOC-01` but not `EH151-OTHER-01`.
+**Precondition:** A developer has created a share for `EH151-LIMITED-REPORT`
+where the cited source row is unavailable but the parent document remains
+active.
 
-1. Open the valid shared report.
-2. Attempt to request the excluded document through the visible UI or a direct resource URL.
+1. Open the share link in a private browser window.
+2. Review the report sections and limitations.
+3. Confirm no raw source file download is offered unless the share was created
+   with an explicit document scope.
 
-**Expected result:** The excluded document is denied with a generic error. No storage path, filename metadata, or signed URL for the excluded document appears.
+**Expected result:** The historical report remains visible with an explicit
+source-unavailable or limited-evidence message. Unsupported live source data
+is not added to the report.
 
-**Result:** `N/A`
-**Notes / evidence link:** `Implementation not started; execute after EH-151 delivery.`
+**Result:** `Not executed`
+**Notes / evidence link:** `________`
 
-### EH151-UI-04: Verify expiry and revoke failure
+### EH151-UI-04: Show the same unavailable state for expired and revoked links
 
-**Precondition:** Create one share that expires soon and one share that the owner revokes.
+**Precondition:** A developer has prepared `EH151-EXPIRED-REPORT` and
+`EH151-REVOKED-REPORT` links.
 
-1. Open each link before and after its expiry/revoke state.
-2. Compare the visible failure message and whether report content is shown.
+1. Open the expired link.
+2. Record the visible status and message without inspecting developer tools.
+3. Open the revoked link in a separate private window.
+4. Compare the visible status and message with the expired-link result.
 
-**Expected result:** Both links fail safely after the state change with the same generic visible outcome and no report content.
+**Expected result:** Both links show the same non-enumerating unavailable state.
+The page does not reveal whether expiry, revocation, malformed token, or
+missing share state caused the denial.
 
-**Result:** `N/A`
-**Notes / evidence link:** `Implementation not started; execute after EH-151 delivery.`
+**Result:** `Not executed`
+**Notes / evidence link:** `________`
+
+### EH151-UI-05: Recheck raw-document scope
+
+**Precondition:** A developer has created `EH151-DOCUMENT-SCOPE` with one
+explicitly allowed active document and one unselected document, and has
+provided the corresponding share link and test URLs through the approved
+surface.
+
+1. Open the report share and confirm that the `Shared documents` section lists
+   only the explicitly allowed filename.
+2. Activate that document's `Download document` control.
+3. Request the unselected document using the same share.
+4. After the share is revoked or the source document is tombstoned, request
+   the previously allowed document again.
+
+**Expected result:** The page lists only explicitly allowed active documents.
+The allowed document is returned only while the share, PIN proof, report, and
+document remain authorized. The unselected document and every request after
+revocation or tombstoning show a generic denial. The browser never receives a
+storage signed URL.
+
+**Result:** `Blocked: trusted ingress is not deployed in this workspace`
+**Notes / evidence link:** The recipient-facing document control is implemented,
+but direct-origin requests are rejected at the trusted-ingress boundary with
+HTTP `503`. A platform owner must provide the public HTTPS edge, private
+HTTPS/mTLS hop, and valid-edge/direct-origin probe evidence before this manual
+check can be executed.
 
 ## Developer evidence required
 
-- [ ] Token generation uses the platform CSPRNG, stores only keyed digests, and redacts token values from logs/telemetry. *(Evidence provider: EH-151 token owner.)*
-- [ ] PIN proof evidence proves `POST /api/share/[token]/pin` accepts body-only PIN material, stores only a keyed random proof digest bound to the exact share, sets the protected `__Host-eh-share-pin` cookie with the deployed TTL, and invokes one verifier before page/API/export/raw-document bytes. Missing, wrong, expired, revoked, cross-share, or malformed proofs return one generic outcome, clear invalid cookies, and produce no bytes; PIN/proof/cookie/request-body values are absent from logs, telemetry, access events, URLs, referrers, and response fields. Bounded expired-proof cleanup and `SHARE_PIN_PROOF_PEPPER`/`SHARE_PIN_PROOF_TTL_SECONDS` configuration evidence are included. *(Evidence provider: EH-151 PIN/proof owner; EH-154 gate owner.)*
-- [ ] Cross-profile, scope, expiry, revoke, archived/removed-source, tombstone, owner report deletion with active/replaced shares and access history, and raw-download tests fail closed; archived/removed cited-source report reads preserve the snapshot with `SOURCE_UNAVAILABLE` only through EH-148's resolver while tombstoned source documents invalidate the complete report before public bytes, and all live/raw access is denied. *(Evidence provider: EH-151 route owner; EH-148 read-resolver owner; durable-deletion owner; EH-154 gate owner.)*
-- [ ] Platform deployment evidence matches `deployment/trusted-ingress.yaml`: unauthenticated public HTTPS listener for browser recipients, separate private/mTLS ingress-to-application leg, private-only app origin, stripped/overwritten forwarding and `X-EH-Edge-*` headers, verified immediate peer metadata through `trusted-ingress-transport.ts`, and trusted-ingress enforcement before token/limiter/body/bytes on page, API, PIN, EH-153 export, and raw-document subroutes; direct-origin rejection and valid/spoofed/missing-peer harness results cover every handler. *(Evidence provider: EH-151 platform/deployment owner; EH-154 gate owner.)*
-- [ ] Replacement evidence proves the service-only RPC locks the predecessor, resolves same-key committed replay before requiring predecessor activity, validates a 1–128 printable-ASCII owner/share-scoped idempotency key, reserves it atomically, commits at most one successor, copies scope/policy, revokes the predecessor, returns no plaintext token on replay/conflict, and leaves the predecessor active after failure. *(Evidence provider: EH-151 replacement/RPC owner; EH-152 management owner; EH-154 gate owner.)*
-- [ ] EH-148 validation-envelope evidence proves shares are created and served only for `valid`/`limited` reports with recognized versions; invalid, legacy, missing, and tampered envelopes fail closed without public issue-code leakage. *(Evidence provider: EH-148 read-resolver owner; EH-151 route/share owner; EH-154 gate owner.)*
-- [ ] Public response evidence proves page/API, EH-153 exports, and raw-document proxy apply the shared policy before headers/body: no-store/private caching, noindex/nofollow, restrictive referrer policy, and no third-party analytics. *(Evidence provider: EH-151 policy-helper owner; EH-153 shared-export consumer; EH-154 gate owner.)*
-- [ ] EH-154 receives route/header/log evidence for the privacy gate. *(Evidence provider: EH-151 share owner; EH-154 gate owner.)*
-- [ ] Focused route evidence proves invalid, expired, and revoked requests use the same safe status/body contract; header and cache assertions are captured separately. *(Evidence provider: EH-151 route owner.)*
-- [ ] Event retention evidence records `public.cleanup_report_share_access_events`, `SHARE_ACCESS_EVENT_RETENTION_DAYS`, expiry calculation, `worker/src/index.ts` hourly/continuation scheduling, `pg_try_advisory_xact_lock` release/contention, repeated 500-row backlog drain, bounded retries, and deployment-log alerting at the deployed value. *(Evidence provider: EH-151 worker/RPC owner; EH-154 release-gate owner.)*
-- [ ] Malformed/unknown-token requests create no share-scoped event and aggregate rate-limit telemetry contains no token, PIN, or share identifier. *(Evidence provider: EH-151 event owner; EH-154 gate owner.)*
-- [ ] Raw-document proxy evidence proves trusted-ingress, PIN proof, revocation, expiry, archive state, and child-scope checks run on every request after a prior request, the shared response policy is applied before streaming, and no storage signed URL is issued. *(Evidence provider: EH-151 raw-download owner; EH-154 gate owner.)*
-- [ ] Public request capture proves no third-party analytics request contains the share URL or token. *(Evidence provider: EH-151 policy-helper owner; EH-154 gate owner.)*
-- [ ] Deleted-report fixture proves cascading share/document/operation/event cleanup and generic public failure with no active capability or orphaned child state. *(Evidence provider: EH-151 persistence owner; EH-154 gate owner.)*
-- [ ] PIN proof rows are cascaded on share/report deletion and invalidated by expiry/revoke/replacement; the worker drains expired rows under the 500-row/20-batch cap without logging proof material or emitting secret-bearing signals. *(Evidence provider: EH-151 persistence/worker owner; EH-154 gate owner.)*
-- [ ] Atomic-create evidence proves fixed-search-path `public.create_report_share` locks/rechecks owner/report/document scope, commits the share and all child rows atomically, denies direct table DML, rolls back on child insert/validation failure, and returns the plaintext link only after commit. *(Evidence provider: EH-151 persistence/share owner; EH-154 gate owner.)*
-- [ ] Last-access evidence proves only successful report/API/export/raw reads call monotonic service-only `public.touch_report_share_last_accessed`; PIN establishment and denied/expired/revoked/rate-limited outcomes do not update it, reverse-order concurrent writes preserve the greatest timestamp, and EH-152 reads without writing. *(Evidence provider: EH-151 route/repository owner; EH-152 management owner; EH-154 gate owner.)*
+- [x] `pnpm test:eh151` passed on 2026-09-28, covering token entropy, key rotation, PIN verifier, proof digest, requester-only unknown-token rate limiting, trusted-ingress attestation, direct-origin rejection, response policy, and export-action seam fixtures.
+- [x] `pnpm test:eh151-db` passed via the explicit local database URL on the fresh merged schema at temporary port `45432`; 37 pgTAP assertions covered migration objects, service-role DML revocation, validated report scope, atomic child-row creation, monotonic last access, event cleanup, and atomic rate-limit windows. The default `--local` wrapper path can exit 1 after a complete PASS when PostHog shutdown times out; this is logged as `pc_0dc48af12c38`.
+- [x] `pnpm exec tsc --noEmit --pretty false` passed on 2026-09-28 for the Next application.
+- [x] `pnpm --dir worker exec tsc --noEmit` passed after `pnpm --dir worker install`; `@mistralai/mistralai` `2.6.3` is installed and the previous OCR import/implicit-any errors are gone.
+- [x] `supabase db lint --local --fail-on error` passes after the EH-104 cleanup merge; no error-level findings remain. Warning-level baseline findings remain in unrelated pre-existing functions; EH-151 cleanup-loop warnings were removed.
+- [x] `pnpm build` passed with the supplied `.env`: the EH-151 routes compiled and all 58 static pages generated.
+- [x] Browser smoke with the supplied environment loaded `/`; a direct `/share/not-a-real-token` request was rejected at the middleware boundary with HTTP `503` and the generic `Share service unavailable` response.
 
 ## Out of scope or not manually testable yet
 
-- Owner link list, revoke controls, and access history UI are covered by EH-152.
-- The checklist is planned; no row is evidence of an executed test until the implementation exists.
+- EH-152 owner listing, revoke controls, and access-history UI are out of
+  scope. EH-151 exposes the repository seam only.
+- EH-153 PDF, CSV, and JSON exporters are out of scope. EH-151 exposes the
+  named export-actions seam and shared response-policy adapter only.
+- EH-154 threat-model and release-gate sign-off is out of scope. Its required
+  inputs are listed above and must not be treated as complete from local
+  TypeScript or fixture evidence alone.

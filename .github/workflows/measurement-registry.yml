@@ -239,12 +239,30 @@ jobs:
         run: pnpm test:eh144
       - name: Verify EH-145 score provenance
         run: pnpm test:eh145
+      - name: Verify score exclusion contract
+        run: pnpm test:score-exclusion-contract
+      - name: Verify score readiness contribution coverage
+        run: pnpm test:score-readiness-contribution-invariant
       - name: Verify EH-146 system states and body-map behavior
         run: pnpm test:eh146
       - name: Verify EH-147 assessment golden dataset
         run: pnpm test:eh147
       - name: Verify EH-148 report contract
         run: pnpm test:eh148-contract
+      - name: Verify EH-153 report export package
+        run: pnpm test:eh153
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+          OPENAI_API_KEY: ci-placeholder
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      - name: Verify EH-153 owner export integration
+        run: pnpm test:eh153-owner-export
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+          OPENAI_API_KEY: ci-placeholder
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
 
       - name: Publish Registry 2.0 candidate-release evidence
         run: |

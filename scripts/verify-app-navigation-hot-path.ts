@@ -157,7 +157,9 @@ function testDocumentsFailureState(): void {
 }
 
 function jwtWithExp(exp: number): string {
-  const header = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
+  const header = Buffer.from(
+    JSON.stringify({ alg: "none", typ: "JWT" }),
+  ).toString("base64url");
   const payload = Buffer.from(JSON.stringify({ exp })).toString("base64url");
   return `${header}.${payload}.sig`;
 }
@@ -219,7 +221,10 @@ function testNearExpiryAndExpiredRefresh(): void {
 }
 
 function testNoCookieAndMissingRefreshSkipTax(): void {
-  assert.deepEqual(shouldRefreshAuthCookies([]), { refresh: false, reason: "no-cookie" });
+  assert.deepEqual(shouldRefreshAuthCookies([]), {
+    refresh: false,
+    reason: "no-cookie",
+  });
   const nowMs = 1_700_000_000_000;
   assert.deepEqual(
     shouldRefreshAuthCookies(
@@ -277,9 +282,15 @@ function testSourceGuards(): void {
 
   const middleware = readRepo("src/middleware.ts");
   assert.match(middleware, /shouldRefreshAuthCookies/);
-  assert.match(middleware, /matcher:\s*\["\/app"/);
+  assert.match(middleware, /matcher:\s*\[\s*"\/app"/);
 
-  const documentsRoot = path.join(process.cwd(), "src", "app", "app", "documents");
+  const documentsRoot = path.join(
+    process.cwd(),
+    "src",
+    "app",
+    "app",
+    "documents",
+  );
   for (const file of walkFiles(documentsRoot)) {
     const rel = path.relative(process.cwd(), file).replaceAll("\\", "/");
     const source = readFileSync(file, "utf8");

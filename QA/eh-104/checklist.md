@@ -142,9 +142,12 @@ the empty-list stability interval.
 - [x] **Retained-data preflight:** `pnpm preflight:document-deletion-data`
       runs read-only on the fully migrated local disposable target, prints no
       PHI, and returned `READY_FOR_SCHEMA_PREFLIGHT` with zero rows.
-- [x] **Database contract:** `pnpm test:eh104-durable-deletion-db` passes after
-      `supabase db reset`, covering tombstone idempotency, generation fencing,
-      report/synthesis invalidation, grants, and writer rejection.
+- [x] **Database contract:** the migrated local database contract was exercised
+      directly; the durable-deletion TAP passed `60/60` assertions, covering
+      tombstone idempotency, generation fencing, report/synthesis invalidation,
+      grants, and writer rejection. The project wrapper's aligned-`psql` parser
+      returned code 1 after emitting the complete TAP output; see the SQL cleanup
+      evidence below.
 - [x] **Phase B preflight:** `pnpm preflight:eh104` returned `status: clean`
       with zero findings on the local disposable target. Persistent
       environments still abort without mutation on findings.
@@ -174,6 +177,48 @@ the empty-list stability interval.
 - [x] Root typecheck and focused EH-105/EH-106 regressions recorded; the
       related PR2, registry, lifecycle, assessment, medical-event, and
       duplicate-document DB suites also passed.
+
+### EH-104 SQL definition cleanup evidence
+
+This corrective change has no new product interface. The existing manual checks
+remain applicable to deletion and resolver behavior, but they must not be
+marked passed because of this SQL-only migration.
+
+**Developer evidence owner:** database/release owner.
+
+- [x] Static migration review: `084_eh104_sql_definition_cleanup.sql` keeps
+      the current RPC signatures, service-role grants, fixed search paths, and
+      application RPC callers unchanged. It removes the retired shadow-relation
+      branch and qualifies the colliding table columns.
+- [x] Registry synchronization: biomarker docs generation, drift check, and
+      documentation tests passed with canonical docs unchanged. Wiki pages were
+      rendered, staged, and published in Wiki commit `64150e2`; tracking issue
+      is `#272`.
+- [x] Disposable schema reset: `supabase db reset --local --yes` replayed the
+      complete migration chain through `084_eh104_sql_definition_cleanup.sql`
+      successfully. Windows denied the default `54322` binding, so verification
+      used temporary local ports `15421`–`15427`; the temporary config override
+      is removed after verification.
+- [x] Schema lint: `supabase db lint --local --fail-on error` completed without
+      EH-104 errors. The targeted JSON result for
+      `eh104_resolution_verification_preflight`,
+      `consume_storage_upload_ticket`, `complete_storage_write_intent`, and
+      `persist_profile_health_synthesis` was `[]`; unrelated pre-existing
+      warnings remain outside this change.
+- [x] EH-104 pgTAP: both project commands were exercised. Their Docker fallback
+      emitted complete TAP output but returned code 1 because
+      `run-supabase-db-tests.mjs` does not parse aligned `psql` output. Running
+      the same files through the local container TCP endpoint passed `47/47`
+      resolver assertions and `60/60` durable-deletion assertions.
+- [x] Target drift: the initial linked-history request was blocked while the
+      project was inactive. After restoration, remote history confirmed
+      `079`–`084` were pending; the ordered push applied all six migrations,
+      and a subsequent dry run reported the remote database up to date.
+
+**Not manually testable yet:** no new UI, browser, worker, or ingress behavior
+is introduced by this correction. Worker dependency installation, browser
+environment variables, trusted ingress, EH-151 share behavior, and EH-154
+release evidence remain separate gates.
 
 ## Durable-deletion inventory evidence (2026-09-19)
 
@@ -263,9 +308,9 @@ and the populated retained-data/storage/observability preflight are evidenced.
       `pnpm test:document-persistence-boundaries`.
 - [x] Targeted Prettier check and
       `openspec validate make-document-deletion-durable --strict`.
-- [x] `pnpm test:eh104-durable-deletion-db` after `supabase db reset`; 36
-      assertions passed, including tombstone idempotency, generation fencing,
-      report/synthesis invalidation, grants, and writer rejection.
+- [x] EH-104 DB regressions after `supabase db reset`: resolver verification
+      passed `47/47` assertions and durable deletion passed `60/60` assertions
+      recorded in the SQL definition cleanup evidence.
 - [x] Focused DB regressions: `pnpm test:eh104-db` (42), `pnpm test:eh105-db`
       (16), `pnpm test:eh106-db` (38), `pnpm test:pr2-db` (45), plus
       `pnpm test:eh116-db` (42), `pnpm test:eh120-db` (50),

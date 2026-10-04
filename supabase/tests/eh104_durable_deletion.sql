@@ -1,6 +1,6 @@
 -- EH-104: durable document deletion schema, tombstone, retention, and writer fences.
 begin;
-select plan(36);
+select plan(60);
 
 select has_table(
   'public',
@@ -36,6 +36,89 @@ select ok(
 select ok(
   to_regprocedure('public.persist_profile_health_synthesis(uuid,uuid[],jsonb,text,text,text,timestamptz)') is not null,
   'validated synthesis writer exists'
+);
+select ok(
+  to_regprocedure('public.consume_storage_upload_ticket(uuid,text)') is not null,
+  'upload ticket consume RPC exists'
+);
+select ok(
+  to_regprocedure('public.complete_storage_write_intent(uuid,text,boolean)') is not null,
+  'storage intent completion RPC exists'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.consume_storage_upload_ticket(uuid,text)'::regprocedure,
+    'EXECUTE'
+  ),
+  'service role can consume upload tickets'
+);
+select ok(
+  not has_function_privilege(
+    'anon',
+    'public.consume_storage_upload_ticket(uuid,text)'::regprocedure,
+    'EXECUTE'
+  ),
+  'anon cannot consume upload tickets'
+);
+
+select ok(
+  not has_function_privilege(
+    'authenticated',
+    'public.consume_storage_upload_ticket(uuid,text)'::regprocedure,
+    'EXECUTE'
+  ),
+  'authenticated cannot consume upload tickets'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.complete_storage_write_intent(uuid,text,boolean)'::regprocedure,
+    'EXECUTE'
+  ),
+  'service role can complete storage intents'
+);
+select ok(
+  not has_function_privilege(
+    'anon',
+    'public.complete_storage_write_intent(uuid,text,boolean)'::regprocedure,
+    'EXECUTE'
+  ),
+  'anon cannot complete storage intents'
+);
+
+select ok(
+  not has_function_privilege(
+    'authenticated',
+    'public.complete_storage_write_intent(uuid,text,boolean)'::regprocedure,
+    'EXECUTE'
+  ),
+  'authenticated cannot complete storage intents'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.persist_profile_health_synthesis(uuid,uuid[],jsonb,text,text,text,timestamptz)'::regprocedure,
+    'EXECUTE'
+  ),
+  'service role can persist Health Profile synthesis'
+);
+select ok(
+  not has_function_privilege(
+    'anon',
+    'public.persist_profile_health_synthesis(uuid,uuid[],jsonb,text,text,text,timestamptz)'::regprocedure,
+    'EXECUTE'
+  ),
+  'anon cannot persist Health Profile synthesis'
+);
+
+select ok(
+  not has_function_privilege(
+    'authenticated',
+    'public.persist_profile_health_synthesis(uuid,uuid[],jsonb,text,text,text,timestamptz)'::regprocedure,
+    'EXECUTE'
+  ),
+  'authenticated cannot persist Health Profile synthesis'
 );
 select ok(
   not exists (
@@ -183,6 +266,207 @@ values (
   array['00000000-0000-0000-0000-000000104002']::uuid[],
   repeat('1', 64),
   'synthetic'
+);
+
+select lives_ok(
+  $$
+    select * from public.persist_profile_health_synthesis(
+      '00000000-0000-0000-0000-000000104001'::uuid,
+      array['00000000-0000-0000-0000-000000104002']::uuid[],
+      jsonb_build_object('00000000-0000-0000-0000-000000104002', 0),
+      repeat('1', 64),
+      'synthetic-model',
+      'refreshed synthesis',
+      now()
+    )
+  $$,
+  'synthesis writer updates an existing input-hash row'
+);
+select is(
+  (
+    select synthesis_text
+    from public.profile_health_synthesis
+    where profile_id = '00000000-0000-0000-0000-000000104001'
+      and input_hash = repeat('1', 64)
+  ),
+  'refreshed synthesis',
+  'synthesis writer preserves the keyed row while refreshing its text'
+);
+select throws_ok(
+  $$
+    select * from public.persist_profile_health_synthesis(
+      '00000000-0000-0000-0000-000000104001'::uuid,
+      array['00000000-0000-0000-0000-000000104002']::uuid[],
+      jsonb_build_object('00000000-0000-0000-0000-000000104002', 1),
+      repeat('2', 64),
+      'synthetic-model',
+      'stale synthesis',
+      now()
+    )
+  $$,
+  'P0001',
+  'report_source_generation_conflict',
+  'synthesis writer rejects a stale source generation'
+);
+select is(
+  (
+    select count(*)::int
+    from public.profile_health_synthesis
+    where profile_id = '00000000-0000-0000-0000-000000104001'
+      and input_hash = repeat('2', 64)
+  ),
+  0,
+  'stale synthesis does not create a keyed row'
+);
+
+insert into public.documents (
+  id,
+  profile_id,
+  storage_path,
+  original_storage_path,
+  original_filename,
+  status,
+  processing_status,
+  lifecycle_state,
+  upload_state
+)
+values (
+  '00000000-0000-0000-0000-000000104007',
+  '00000000-0000-0000-0000-000000104001',
+  'eh104/upload/original.pdf',
+  'eh104/upload/original.pdf',
+  'upload.pdf',
+  'processing',
+  'upload_pending',
+  'active',
+  'pending'
+)
+on conflict do nothing;
+
+insert into public.document_storage_write_intents (
+  id,
+  document_id,
+  profile_id,
+  write_generation,
+  principal_kind,
+  operation_kind,
+  bucket,
+  object_path,
+  content_type,
+  deadline_at
+)
+values (
+  '00000000-0000-0000-0000-000000104008',
+  '00000000-0000-0000-0000-000000104007',
+  '00000000-0000-0000-0000-000000104001',
+  0,
+  'owner',
+  'owner_original',
+  'lab-documents',
+  'eh104/upload/original.pdf',
+  'application/pdf',
+  now() + interval '10 minutes'
+)
+on conflict do nothing;
+
+insert into public.document_storage_upload_tickets (
+  ticket_hash,
+  intent_id,
+  profile_id,
+  write_generation,
+  expires_at
+)
+values (
+  repeat('a', 64),
+  '00000000-0000-0000-0000-000000104008',
+  '00000000-0000-0000-0000-000000104001',
+  0,
+  now() + interval '60 seconds'
+)
+on conflict do nothing;
+
+select throws_ok(
+  $$
+    select * from public.consume_storage_upload_ticket(
+      '00000000-0000-0000-0000-000000104008'::uuid,
+      repeat('b', 64)
+    )
+  $$,
+  'P0001',
+  'storage_ticket_not_found',
+  'wrong upload ticket hash is rejected'
+);
+select is(
+  (
+    select state
+    from public.document_storage_write_intents
+    where id = '00000000-0000-0000-0000-000000104008'
+  ),
+  'pending',
+  'wrong upload ticket hash does not advance the intent'
+);
+select is(
+  (
+    select consumed_at
+    from public.document_storage_upload_tickets
+    where ticket_hash = repeat('a', 64)
+  ),
+  null::timestamptz,
+  'wrong upload ticket hash does not consume the valid ticket'
+);
+select lives_ok(
+  $$
+    select * from public.consume_storage_upload_ticket(
+      '00000000-0000-0000-0000-000000104008'::uuid,
+      repeat('a', 64)
+    )
+  $$,
+  'valid upload ticket is consumed'
+);
+select is(
+  (
+    select state
+    from public.document_storage_write_intents
+    where id = '00000000-0000-0000-0000-000000104008'
+  ),
+  'exchanged',
+  'valid upload ticket advances the intent to exchanged'
+);
+select ok(
+  (
+    select consumed_at is not null
+    from public.document_storage_upload_tickets
+    where ticket_hash = repeat('a', 64)
+  ),
+  'valid upload ticket records consumption'
+);
+select lives_ok(
+  $$
+    select public.complete_storage_write_intent(
+      '00000000-0000-0000-0000-000000104008'::uuid,
+      repeat('a', 64),
+      true
+    )
+  $$,
+  'valid upload ticket completes the storage intent'
+);
+select is(
+  (
+    select state
+    from public.document_storage_write_intents
+    where id = '00000000-0000-0000-0000-000000104008'
+  ),
+  'completed',
+  'completed upload intent reaches its terminal state'
+);
+select is(
+  (
+    select upload_state
+    from public.documents
+    where id = '00000000-0000-0000-0000-000000104007'
+  ),
+  'complete',
+  'completed owner upload marks the document complete'
 );
 
 insert into public.ai_invocations (
