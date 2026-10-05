@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { access } from "node:fs/promises";
 import path from "node:path";
+import { z } from "zod";
 
 const CHANGE_ROOT = path.resolve(
   "openspec/changes/eh-154-share-link-privacy-release-gate",
@@ -111,6 +112,57 @@ type Finding = {
   severity: FindingSeverity;
   message: string;
 };
+const GateRecordSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    gateStatus: z.enum(["blocked", "ready-with-risk", "ready"]),
+    reviewedBuild: z.string().nullable(),
+    reviewedDeployment: z.string().nullable(),
+    evidenceOwner: z.string().nullable(),
+    privacySignOff: z.boolean(),
+    requiredSecretReferences: z.array(z.string()),
+    findings: z.array(
+      z
+        .object({
+          id: z.string(),
+          severity: z.enum(["low", "medium", "high", "critical"]),
+          status: z.enum(["open", "resolved"]),
+          summary: z.string(),
+          owner: z.string(),
+        })
+        .strict(),
+    ),
+    scenarios: z.array(
+      z
+        .object({
+          id: z.string(),
+          status: z.enum(["pass", "fail", "blocked", "not-run"]),
+          evidence: z.string().optional(),
+        })
+        .strict(),
+    ),
+    commands: z.array(
+      z
+        .object({
+          command: z.string(),
+          status: z.enum(["pass", "fail", "blocked", "not-run"]),
+        })
+        .strict(),
+    ),
+    residualRisks: z.array(
+      z
+        .object({
+          id: z.string(),
+          severity: z.enum(["low", "medium"]),
+          owner: z.string(),
+          expiresOn: z.string(),
+          summary: z.string(),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+
 type LocalAdapterRun = {
   schemaVersion: number;
   scope: "local-production-adapters";
@@ -196,7 +248,16 @@ async function exists(relativePath: string): Promise<boolean> {
 
 async function readGateRecord(): Promise<GateRecord> {
   const raw = await readFile(GATE_RECORD_PATH, "utf8");
-  return JSON.parse(raw) as GateRecord;
+  const parsed = GateRecordSchema.safeParse(JSON.parse(raw));
+  if (!parsed.success) {
+    const paths = parsed.error.issues.map((issue) =>
+      issue.path.length > 0 ? issue.path.join(".") : "<root>",
+    );
+    throw new Error(
+      `CRITICAL: Invalid EH-154 release-gate.json schema at ${paths.join(", ")}`,
+    );
+  }
+  return parsed.data;
 }
 function validateReadyPrivacyEvidence(
   record: GateRecord,
@@ -354,6 +415,12 @@ function validateRecord(record: GateRecord): Finding[] {
       findings.push({
         severity: "high",
         message: `Scenario ${scenario.id} is ${scenario.status}, not pass.`,
+      });
+    }
+    if (!scenario.evidence?.trim()) {
+      findings.push({
+        severity: "high",
+        message: `Scenario ${scenario.id} has no evidence reference.`,
       });
     }
   }
