@@ -6,9 +6,12 @@
   "evidenceOwner": null,
   "privacySignOff": false,
   "requiredSecretReferences": [
-    "SHARE_RATE_LIMIT_PEPPER",
-    "SHARE_PIN_PROOF_PEPPER",
-    "SHARE_TRUSTED_PROXY_ATTESTATION_KEY"
+    { "name": "SHARE_RATE_LIMIT_PEPPER", "reference": "_pending_" },
+    { "name": "SHARE_PIN_PROOF_PEPPER", "reference": "_pending_" },
+    {
+      "name": "SHARE_TRUSTED_PROXY_ATTESTATION_KEY",
+      "reference": "_pending_"
+    }
   ],
   "findings": [
     {
@@ -41,32 +44,136 @@
     }
   ],
   "scenarios": [
-    { "id": "invalid-token", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "expired-token", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "revoked-token", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "pin-failed", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "cross-profile-report", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "out-of-scope-document", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "allowed-report", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "denied-raw-document", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "cache-index-referrer-policy", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "event-redaction", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "rate-limit-token-dimension", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "rate-limit-requester-dimension", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "rate-limit-store-unavailable", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "trusted-ingress-direct-origin", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "trusted-ingress-spoofed-headers", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "last-access-monotonic", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "key-current", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "key-previous", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "key-unknown", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "key-malformed", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "key-rotation-retirement", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "archive-source-snapshot", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "tombstone-source-report", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "replacement-revoke", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "raw-download-policy", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
-    { "id": "cleanup-retention", "status": "blocked", "evidence": "local-adapter-scenarios.json" }
+    {
+      "id": "invalid-token",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "expired-token",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "revoked-token",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "pin-failed",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "cross-profile-report",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "out-of-scope-document",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "allowed-report",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "denied-raw-document",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "cache-index-referrer-policy",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "event-redaction",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "rate-limit-token-dimension",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "rate-limit-requester-dimension",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "rate-limit-store-unavailable",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "trusted-ingress-direct-origin",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "trusted-ingress-spoofed-headers",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "last-access-monotonic",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "key-current",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "key-previous",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "key-unknown",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "key-malformed",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "key-rotation-retirement",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "archive-source-snapshot",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "tombstone-source-report",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "replacement-revoke",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "raw-download-policy",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "cleanup-retention",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    }
   ],
   "commands": [
     {

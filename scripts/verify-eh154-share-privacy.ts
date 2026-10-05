@@ -90,6 +90,11 @@ type GateRecord = {
   reviewedDeployment: string | null;
   evidenceOwner: string | null;
   privacySignOff: boolean;
+  requiredSecretReferences: Array<{
+    name: string;
+    reference?: string | null;
+    fingerprint?: string | null;
+  }>;
   findings: Array<{
     id: string;
     severity: FindingSeverity;
@@ -120,7 +125,15 @@ const GateRecordSchema = z
     reviewedDeployment: z.string().nullable(),
     evidenceOwner: z.string().nullable(),
     privacySignOff: z.boolean(),
-    requiredSecretReferences: z.array(z.string()),
+    requiredSecretReferences: z.array(
+      z
+        .object({
+          name: z.string(),
+          reference: z.string().nullable().optional(),
+          fingerprint: z.string().nullable().optional(),
+        })
+        .strict(),
+    ),
     findings: z.array(
       z
         .object({
@@ -303,8 +316,59 @@ function validateReadyPrivacyEvidence(
       });
     }
   }
+  const requiredSecretNames = [
+    "SHARE_RATE_LIMIT_PEPPER",
+    "SHARE_PIN_PROOF_PEPPER",
+    "SHARE_TRUSTED_PROXY_ATTESTATION_KEY",
+  ] as const;
+  const seenSecretNames = new Set<string>();
+  for (const entry of record.requiredSecretReferences) {
+    if (
+      !requiredSecretNames.includes(
+        entry.name as (typeof requiredSecretNames)[number],
+      )
+    ) {
+      findings.push({
+        severity: "high",
+        message: `Unknown secret reference entry: ${entry.name}`,
+      });
+      continue;
+    }
+    if (seenSecretNames.has(entry.name)) {
+      findings.push({
+        severity: "high",
+        message: `Duplicate secret reference entry: ${entry.name}`,
+      });
+    }
+    seenSecretNames.add(entry.name);
+    const reference = [entry.reference, entry.fingerprint].find(
+      (value) =>
+        Boolean(value?.trim()) && !/(?:_pending_|PENDING)/iu.test(value ?? ""),
+    );
+    if (!reference) {
+      findings.push({
+        severity: "high",
+        message: `Secret reference or fingerprint is missing: ${entry.name}`,
+      });
+    } else if (
+      !privacySignoffText.includes(entry.name) ||
+      !privacySignoffText.includes(reference)
+    ) {
+      findings.push({
+        severity: "high",
+        message: `Privacy sign-off omits the approved secret reference: ${entry.name}`,
+      });
+    }
+  }
+  for (const name of requiredSecretNames) {
+    if (!seenSecretNames.has(name)) {
+      findings.push({
+        severity: "high",
+        message: `Required secret reference is missing: ${name}`,
+      });
+    }
+  }
   for (const label of [
-    "Secret-manager references",
     "SHARE_ACCESS_EVENT_RETENTION_DAYS",
     "Sign-off decision",
   ]) {
@@ -430,13 +494,25 @@ function validateRecord(record: GateRecord): Finding[] {
   }
 
   for (const finding of record.findings) {
+    if (finding.status !== "open") continue;
     if (
-      finding.status === "open" &&
-      ["high", "critical"].includes(finding.severity)
+      ["high", "critical"].includes(finding.severity) ||
+      record.gateStatus === "ready"
     ) {
       findings.push({
-        severity: finding.severity,
+        severity: finding.severity === "critical" ? "critical" : "high",
         message: `${finding.id} remains open: ${finding.summary}`,
+      });
+      continue;
+    }
+    if (
+      record.gateStatus === "ready-with-risk" &&
+      ["low", "medium"].includes(finding.severity) &&
+      !record.residualRisks.some((risk) => risk.id === finding.id)
+    ) {
+      findings.push({
+        severity: "high",
+        message: `Open finding ${finding.id} is not represented by a residual risk.`,
       });
     }
   }
@@ -533,7 +609,9 @@ async function main(): Promise<void> {
     console.log(`${finding.severity.toUpperCase()}: ${finding.message}`);
   }
 
-  if (record.gateStatus === "blocked" || findings.length > 0) {
+  const releasable =
+    record.gateStatus === "ready" || record.gateStatus === "ready-with-risk";
+  if (!releasable || findings.length > 0) {
     throw new Error(
       `EH-154 release gate is not ready; ${findings.length} blocking or incomplete finding(s) recorded`,
     );
