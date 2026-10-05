@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "gateStatus": "blocked",
+  "reviewedBuild": null,
+  "reviewedDeployment": null,
+  "evidenceOwner": null,
+  "privacySignOff": false,
+  "requiredSecretReferences": [
+    "SHARE_RATE_LIMIT_PEPPER",
+    "SHARE_PIN_PROOF_PEPPER",
+    "SHARE_TRUSTED_PROXY_ATTESTATION_KEY"
+  ],
+  "findings": [
+    {
+      "id": "EH154-F-001",
+      "severity": "high",
+      "status": "open",
+      "summary": "EH-151 public boundary code is present, but route and database execution evidence for this gate is not attached.",
+      "owner": "EH-151/EH-154"
+    },
+    {
+      "id": "EH154-F-002",
+      "severity": "high",
+      "status": "open",
+      "summary": "EH-152 management and EH-153 owner export adapters are present; public-share export integration and runtime evidence remain incomplete.",
+      "owner": "EH-152/EH-153/EH-154"
+    },
+    {
+      "id": "EH154-F-003",
+      "severity": "high",
+      "status": "open",
+      "summary": "Trusted-ingress configuration is only an OpenSpec planning artifact, not a reviewed deployment.",
+      "owner": "Platform/EH-151"
+    },
+    {
+      "id": "EH154-F-004",
+      "severity": "high",
+      "status": "open",
+      "summary": "Retention-worker and durable-deletion handoff evidence is not attached.",
+      "owner": "EH-151/durable-deletion"
+    }
+  ],
+  "scenarios": [
+    { "id": "invalid-token", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "expired-token", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "revoked-token", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "pin-failed", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "cross-profile-report", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "out-of-scope-document", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "allowed-report", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "denied-raw-document", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "cache-index-referrer-policy", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "event-redaction", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "rate-limit-token-dimension", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "rate-limit-requester-dimension", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "rate-limit-store-unavailable", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "trusted-ingress-direct-origin", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "trusted-ingress-spoofed-headers", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "last-access-monotonic", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "key-current", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "key-previous", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "key-unknown", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "key-malformed", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "key-rotation-retirement", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "archive-source-snapshot", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "tombstone-source-report", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "replacement-revoke", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "raw-download-policy", "status": "blocked", "evidence": "local-adapter-scenarios.json" },
+    { "id": "cleanup-retention", "status": "blocked", "evidence": "local-adapter-scenarios.json" }
+  ],
+  "commands": [
+    {
+      "command": "openspec status --change eh-154-share-link-privacy-release-gate --json",
+      "status": "pass"
+    },
+    {
+      "command": "openspec instructions apply --change eh-154-share-link-privacy-release-gate --json",
+      "status": "pass"
+    },
+    {
+      "command": "pnpm test:eh154-adapters",
+      "status": "pass"
+    },
+    {
+      "command": "pnpm exec tsx scripts/verify-eh154-local-adapters.ts --write-evidence",
+      "status": "pass"
+    },
+    {
+      "command": "pnpm test:eh154",
+      "status": "blocked"
+    },
+    {
+      "command": "openspec validate eh-154-share-link-privacy-release-gate --type change --strict --no-interactive",
+      "status": "pass"
+    }
+  ],
+  "residualRisks": []
+}

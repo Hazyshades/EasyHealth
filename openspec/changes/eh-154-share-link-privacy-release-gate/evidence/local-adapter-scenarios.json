@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "scope": "local-production-adapters",
+  "command": "pnpm test:eh154-adapters",
+  "executedAt": "2026-10-04T11:01:20.000Z",
+  "scenarios": [
+    {
+      "id": "invalid-token",
+      "status": "pass",
+      "evidence": "parseShareToken rejects malformed token"
+    },
+    {
+      "id": "expired-token",
+      "status": "pass",
+      "evidence": "projectOwnerShares reports expired state"
+    },
+    {
+      "id": "revoked-token",
+      "status": "pass",
+      "evidence": "projectOwnerShares reports revoked state"
+    },
+    {
+      "id": "pin-failed",
+      "status": "pass",
+      "evidence": "verifySharePin rejects a wrong PIN"
+    },
+    {
+      "id": "cross-profile-report",
+      "status": "pass",
+      "evidence": "getExportableReport resolves only the owner profile"
+    },
+    {
+      "id": "out-of-scope-document",
+      "status": "pass",
+      "evidence": "getExportableReport rejects a mismatched report document scope"
+    },
+    {
+      "id": "allowed-report",
+      "status": "pass",
+      "evidence": "getExportableReport returns the scoped report"
+    },
+    {
+      "id": "denied-raw-document",
+      "status": "pass",
+      "evidence": "report-only capability rejects raw document IDs"
+    },
+    {
+      "id": "cache-index-referrer-policy",
+      "status": "pass",
+      "evidence": "public response policy applies cache, index, referrer, and vary headers"
+    },
+    {
+      "id": "event-redaction",
+      "status": "pass",
+      "evidence": "owner projection contains only coarse event fields"
+    },
+    {
+      "id": "rate-limit-token-dimension",
+      "status": "pass",
+      "evidence": "rate-limit adapter sends token and requester buckets"
+    },
+    {
+      "id": "rate-limit-requester-dimension",
+      "status": "pass",
+      "evidence": "rate-limit adapter uses a coarse requester bucket"
+    },
+    {
+      "id": "rate-limit-store-unavailable",
+      "status": "pass",
+      "evidence": "rate-limit adapter fails closed on RPC errors"
+    },
+    {
+      "id": "trusted-ingress-direct-origin",
+      "status": "pass",
+      "evidence": "missing trusted ingress peer fails closed"
+    },
+    {
+      "id": "trusted-ingress-spoofed-headers",
+      "status": "pass",
+      "evidence": "forwarded headers cannot replace attested peer metadata"
+    },
+    {
+      "id": "last-access-monotonic",
+      "status": "blocked",
+      "evidence": "Requires concurrent production touch RPC evidence against a provisioned database."
+    },
+    {
+      "id": "key-current",
+      "status": "pass",
+      "evidence": "current token selector digests successfully"
+    },
+    {
+      "id": "key-previous",
+      "status": "pass",
+      "evidence": "previous token selector remains readable during rotation"
+    },
+    {
+      "id": "key-unknown",
+      "status": "pass",
+      "evidence": "unknown token selector is rejected"
+    },
+    {
+      "id": "key-malformed",
+      "status": "pass",
+      "evidence": "malformed token selector is rejected"
+    },
+    {
+      "id": "key-rotation-retirement",
+      "status": "blocked",
+      "evidence": "Requires key-manager retirement and bounded reissue/revoke evidence, not source inspection."
+    },
+    {
+      "id": "archive-source-snapshot",
+      "status": "blocked",
+      "evidence": "Requires persisted archived-source rows and report-read route evidence."
+    },
+    {
+      "id": "tombstone-source-report",
+      "status": "blocked",
+      "evidence": "Requires durable-deletion tombstone handoff and raw/report route evidence."
+    },
+    {
+      "id": "replacement-revoke",
+      "status": "blocked",
+      "evidence": "Requires owner replacement/revoke RPC execution and visibility evidence."
+    },
+    {
+      "id": "raw-download-policy",
+      "status": "pass",
+      "evidence": "documents policy carries only explicit raw document IDs"
+    },
+    {
+      "id": "cleanup-retention",
+      "status": "blocked",
+      "evidence": "Requires worker schedule, advisory-lock, backlog, retry, and alert evidence."
+    }
+  ],
+  "limitations": [
+    {
+      "id": "last-access-monotonic",
+      "reason": "Requires concurrent production touch RPC evidence against a provisioned database."
+    },
+    {
+      "id": "key-rotation-retirement",
+      "reason": "Requires key-manager retirement and bounded reissue/revoke evidence, not source inspection."
+    },
+    {
+      "id": "archive-source-snapshot",
+      "reason": "Requires persisted archived-source rows and report-read route evidence."
+    },
+    {
+      "id": "tombstone-source-report",
+      "reason": "Requires durable-deletion tombstone handoff and raw/report route evidence."
+    },
+    {
+      "id": "replacement-revoke",
+      "reason": "Requires owner replacement/revoke RPC execution and visibility evidence."
+    },
+    {
+      "id": "cleanup-retention",
+      "reason": "Requires worker schedule, advisory-lock, backlog, retry, and alert evidence."
+    }
+  ]
+}

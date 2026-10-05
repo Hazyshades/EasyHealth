@@ -496,5 +496,24 @@
       "reason": "The owner export route and report-detail integration are the reachable surface for EH-153 exports; failure mapping, download-filename safety, and export-action gating are release verification."
     }
   ],
-  "localOnly": []
+  "localOnly": [
+    {
+      "script": "test:eh154-adapters",
+      "verificationFiles": ["scripts/run-eh154-local-adapters.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": true,
+      "owner": "security",
+      "reason": "EH-154 adapter evidence uses deterministic synthetic inputs; route, database, deployment, and privacy-signoff evidence remains environment-bound."
+    },
+    {
+      "script": "test:eh154",
+      "verificationFiles": ["scripts/verify-eh154-share-privacy.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": true,
+      "owner": "security",
+      "reason": "EH-154 is a fail-closed release gate until reviewed public-share deployment, durable deletion, retention, and privacy-signoff evidence are attached."
+    }
+  ]
 }

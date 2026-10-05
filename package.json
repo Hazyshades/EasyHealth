@@ -147,6 +147,8 @@
     "test:eh150": "tsx scripts/verify-eh150-report-citation-validator.ts",
     "test:eh151": "tsx scripts/verify-eh151-scoped-share-links.ts",
     "test:eh151-db": "node scripts/run-supabase-db-tests.mjs supabase/tests/eh151_scoped_share_links.sql",
+    "test:eh154-adapters": "tsx scripts/run-eh154-local-adapters.ts",
+    "test:eh154": "tsx scripts/verify-eh154-share-privacy.ts",
     "test:eh140": "tsx scripts/verify-eh140-knowledge-base.ts",
     "check:eh140-kb": "tsx scripts/verify-eh140-knowledge-base.ts --require-surface",
     "test:public-panel-education": "tsx scripts/verify-public-panel-education.ts",
