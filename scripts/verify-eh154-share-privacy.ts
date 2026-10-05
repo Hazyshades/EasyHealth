@@ -19,7 +19,7 @@ const REQUIRED_EVIDENCE_FILES = [
   "release-gate.json",
 ] as const;
 const SECRET_REFERENCE_PATTERN =
-  /^(?:[a-z][a-z0-9+.-]*:\/\/[^\s]+|[A-Za-z0-9._/-]+(?:#|@)version[=:]?[A-Za-z0-9._-]+)$/iu;
+  /^(?:[a-z][a-z0-9+.-]*:\/\/[A-Za-z0-9._/-]+(?:[#@]version[=:]?[A-Za-z0-9._-]+)?|[A-Za-z0-9._/-]+[#@]version[=:]?[A-Za-z0-9._-]+)$/iu;
 const SECRET_FINGERPRINT_PATTERN = /^(?:sha256[:/-])?[A-Fa-f0-9]{64}$/u;
 const SECRET_PLACEHOLDER_PATTERN =
   /^(?:_pending_|pending|reference|fingerprint|version|redacted|ci-placeholder|<[^>]+>)$/iu;
@@ -358,28 +358,28 @@ function validateReadyPrivacyEvidence(
 
   const findings: Finding[] = [];
   const lines = privacySignoffText.split(/\r?\n/u);
-  const signoffHeadingIndex = lines.findIndex((line) =>
-    /^## Sign-off decision\s*$/u.test(line),
-  );
-  const nextHeadingIndex =
-    signoffHeadingIndex >= 0
-      ? lines.findIndex(
-          (line, index) => index > signoffHeadingIndex && /^##\s/u.test(line),
-        )
-      : -1;
-  const signoffLines =
-    signoffHeadingIndex >= 0
-      ? lines.slice(
-          signoffHeadingIndex,
-          nextHeadingIndex >= 0 ? nextHeadingIndex : lines.length,
-        )
-      : [];
+  const sectionLines = (heading: string): string[] => {
+    const headingIndex = lines.findIndex((line) => line.trim() === heading);
+    if (headingIndex < 0) return [];
+    const nextHeadingIndex = lines.findIndex(
+      (line, index) => index > headingIndex && /^##\s/u.test(line),
+    );
+    return lines.slice(
+      headingIndex,
+      nextHeadingIndex >= 0 ? nextHeadingIndex : lines.length,
+    );
+  };
+  const requiredPackageLines = sectionLines("## Required release package");
+  const signoffLines = sectionLines("## Sign-off decision");
   const readField = (label: string): string | null => {
     const marker = `**${label}:**`;
-    const line = lines.find((candidate) => candidate.includes(marker));
-    return line
-      ? line.slice(line.indexOf(marker) + marker.length).trim()
-      : null;
+    const matchingLines = lines.filter((candidate) =>
+      candidate.includes(marker),
+    );
+    if (matchingLines.length !== 1) return null;
+    return matchingLines[0]
+      .slice(matchingLines[0].indexOf(marker) + marker.length)
+      .trim();
   };
   const metadata: Array<[string, string | null]> = [
     ["Gate status", record.gateStatus],
@@ -450,14 +450,14 @@ function validateReadyPrivacyEvidence(
         message: `Secret reference or fingerprint is missing or malformed: ${entry.name}`,
       });
     } else {
-      const signoffRow = signoffLines.find((line) => {
+      const matchingRows = requiredPackageLines.filter((line) => {
         const cells = line.split("|").map((cell) => cell.trim());
-        return cells[1] === entry.name;
+        return cells[1]?.replace(/`/gu, "") === entry.name;
       });
-      const signoffReference = signoffRow
-        ?.split("|")[2]
-        ?.replace(/`/gu, "")
-        .trim();
+      const signoffReference =
+        matchingRows.length === 1
+          ? matchingRows[0].split("|")[2]?.replace(/`/gu, "").trim()
+          : null;
       if (signoffReference !== reference) {
         findings.push({
           severity: "high",
@@ -636,12 +636,11 @@ async function collectEvidenceFindings(record: GateRecord): Promise<Finding[]> {
 
   const evidenceText = await Promise.all(
     REQUIRED_EVIDENCE_FILES.map((file) =>
-      readFile(path.join(EVIDENCE_ROOT, file), "utf8"),
+      readFile(path.join(EVIDENCE_ROOT, file), "utf8").catch(() => ""),
     ),
   );
   const combinedEvidence = evidenceText.join("\n");
   const secretValuePatterns = [
-    /(?:SHARE_RATE_LIMIT_PEPPER|SHARE_PIN_PROOF_PEPPER|SHARE_TRUSTED_PROXY_ATTESTATION_KEY)\s*[:=]\s*(?!["'`]?<(?:reference|fingerprint|version)[^>]*>)(?!["'`]?\b(?:pending|reference|fingerprint|version)\b)["'`]?[A-Za-z0-9+/=_-]{24,}/iu,
     /["'`]?(?:authorization|bearer|token|pin|proof|cookie)["'`]?\s*[:=]\s*["'`]?(?!\b(?:pending|reference|fingerprint|version|redacted|none|null|omitted|never)\b)[A-Za-z0-9._+/=-]{4,}/iu,
   ];
   let jsonSecretFound = false;
@@ -680,9 +679,153 @@ async function collectEvidenceFindings(record: GateRecord): Promise<Finding[]> {
   return findings;
 }
 
+type ReviewedScenarioResults = {
+  hasSection: boolean;
+  statuses: ReadonlyMap<string, ScenarioStatus>;
+  duplicateIds: ReadonlySet<string>;
+};
+
+function markdownSectionLines(markdown: string, heading: string): string[] {
+  const lines = markdown.split(/\r?\n/u);
+  const headingIndex = lines.findIndex((line) => line.trim() === heading);
+  if (headingIndex < 0) return [];
+  const nextHeadingIndex = lines.findIndex(
+    (line, index) => index > headingIndex && /^##\s/u.test(line),
+  );
+  return lines.slice(
+    headingIndex,
+    nextHeadingIndex >= 0 ? nextHeadingIndex : lines.length,
+  );
+}
+
+function parseReviewedScenarioResults(
+  releaseRecordText: string,
+): ReviewedScenarioResults {
+  const sectionLines = markdownSectionLines(
+    releaseRecordText,
+    "## Machine-readable scenario evidence",
+  );
+  const statuses = new Map<string, ScenarioStatus>();
+  const duplicateIds = new Set<string>();
+  const rowPattern =
+    /^\|\s*`?([a-z0-9-]+)`?\s*\|\s*`?(PASS|FAIL|BLOCKED|NOT-RUN)`?\s*\|/iu;
+  for (const line of sectionLines) {
+    const match = rowPattern.exec(line);
+    if (!match) continue;
+    const scenarioId = match[1];
+    if (statuses.has(scenarioId)) duplicateIds.add(scenarioId);
+    statuses.set(scenarioId, match[2].toLowerCase() as ScenarioStatus);
+  }
+  return {
+    hasSection: sectionLines.length > 0,
+    statuses,
+    duplicateIds,
+  };
+}
+
+function validateReleaseRecord(
+  record: GateRecord,
+  releaseRecordText: string,
+  reviewedScenarioResults: ReviewedScenarioResults,
+): Finding[] {
+  if (record.gateStatus === "blocked") return [];
+
+  const findings: Finding[] = [];
+  const lines = releaseRecordText.split(/\r?\n/u);
+  const readUniqueField = (label: string): string | null => {
+    const marker = `**${label}:**`;
+    const matchingLines = lines.filter((line) => line.includes(marker));
+    if (matchingLines.length !== 1) return null;
+    return matchingLines[0]
+      .slice(matchingLines[0].indexOf(marker) + marker.length)
+      .replace(/`/gu, "")
+      .trim();
+  };
+  const metadata: Array<[string, string | null]> = [
+    ["Gate status", record.gateStatus],
+    ["Reviewed build / commit", record.reviewedBuild],
+    ["Reviewed deployment", record.reviewedDeployment],
+    ["Evidence owner", record.evidenceOwner],
+  ];
+  for (const [label, expected] of metadata) {
+    const actual = readUniqueField(label);
+    if (!expected || !actual || actual !== expected) {
+      findings.push({
+        severity: "high",
+        message: `Release record metadata is missing or does not match the gate: ${label}`,
+      });
+    }
+  }
+  if (!reviewedScenarioResults.hasSection) {
+    findings.push({
+      severity: "high",
+      message: "Release record is missing machine-readable scenario evidence.",
+    });
+  }
+  for (const scenarioId of REQUIRED_SCENARIOS) {
+    if (reviewedScenarioResults.duplicateIds.has(scenarioId)) {
+      findings.push({
+        severity: "high",
+        message: `Release record duplicates scenario evidence: ${scenarioId}`,
+      });
+    }
+    if (reviewedScenarioResults.statuses.get(scenarioId) !== "pass") {
+      findings.push({
+        severity: "high",
+        message: `Release record does not contain a passing result for scenario: ${scenarioId}`,
+      });
+    }
+  }
+  const commandSection = markdownSectionLines(
+    releaseRecordText,
+    "## Commands executed for this package",
+  );
+  if (commandSection.length === 0) {
+    findings.push({
+      severity: "high",
+      message: "Release record is missing the executed-command section.",
+    });
+  }
+  for (const command of record.commands) {
+    const commandLine = commandSection.find((line) =>
+      line.includes(`\`${command.command}\``),
+    );
+    const result = commandLine
+      ?.split("|")[2]
+      ?.replace(/`/gu, "")
+      .trim()
+      .toUpperCase();
+    if (result !== "PASS") {
+      findings.push({
+        severity: "high",
+        message: `Release record command is missing or not passed: ${command.command}`,
+      });
+    }
+  }
+  const blockingFindingRows = markdownSectionLines(
+    releaseRecordText,
+    "## Blocking findings",
+  ).filter((line) => /^\|\s*EH154-F-\d+\s*\|/u.test(line));
+  if (blockingFindingRows.some((line) => !/\bRESOLVED\b/iu.test(line))) {
+    findings.push({
+      severity: "high",
+      message: "Release record still lists unresolved blocking findings.",
+    });
+  }
+  if (/\b(?:PENDING|BLOCKED|PARTIAL)\b/iu.test(releaseRecordText)) {
+    findings.push({
+      severity: "high",
+      message:
+        "Release record still contains pending, blocked, or partial evidence.",
+    });
+  }
+  return findings;
+}
+
 function validateRecord(
   record: GateRecord,
   localAdapterRun: LocalAdapterRun | null,
+  reviewedScenarioResults: ReviewedScenarioResults,
 ): Finding[] {
   const findings: Finding[] = [];
   const recordedScenarioIds = new Set(
@@ -736,15 +879,18 @@ function validateRecord(
         });
       }
       if (record.gateStatus !== "blocked" && scenario.status === "pass") {
+        const isLocalAdapterEvidence =
+          evidenceFile === "local-adapter-scenarios.json";
+        const isReviewedReleaseEvidence = evidenceFile === "release-record.md";
         if (
-          evidenceFile !== "local-adapter-scenarios.json" ||
-          evidenceAnchor !== scenario.id
+          evidenceAnchor !== scenario.id ||
+          (!isLocalAdapterEvidence && !isReviewedReleaseEvidence)
         ) {
           findings.push({
             severity: "high",
-            message: `Scenario ${scenario.id} requires an anchored adapter result for a releasable gate.`,
+            message: `Scenario ${scenario.id} requires an anchored local adapter or reviewed release result.`,
           });
-        } else {
+        } else if (isLocalAdapterEvidence) {
           const adapterScenario = localAdapterRun?.scenarios.find(
             (result) => result.id === scenario.id,
           );
@@ -752,6 +898,22 @@ function validateRecord(
             findings.push({
               severity: "high",
               message: `Scenario ${scenario.id} is not backed by a passing local adapter result.`,
+            });
+          }
+        } else {
+          if (reviewedScenarioResults.statuses.get(scenario.id) !== "pass") {
+            findings.push({
+              severity: "high",
+              message: `Scenario ${scenario.id} is not backed by a passing reviewed release result.`,
+            });
+          }
+          const adapterScenario = localAdapterRun?.scenarios.find(
+            (result) => result.id === scenario.id,
+          );
+          if (adapterScenario?.status === "fail") {
+            findings.push({
+              severity: "high",
+              message: `Scenario ${scenario.id} has a failing supplemental local adapter result.`,
             });
           }
         }
@@ -896,10 +1058,25 @@ function validateRecord(
 async function main(): Promise<void> {
   const record = await readGateRecord();
   const localAdapterEvidence = await collectLocalAdapterEvidence();
+  const releaseRecordText = await readFile(
+    path.join(EVIDENCE_ROOT, "release-record.md"),
+    "utf8",
+  ).catch(() => "");
+  const reviewedScenarioResults =
+    parseReviewedScenarioResults(releaseRecordText);
   const findings = [
     ...(await collectEvidenceFindings(record)),
     ...localAdapterEvidence.findings,
-    ...validateRecord(record, localAdapterEvidence.run),
+    ...validateReleaseRecord(
+      record,
+      releaseRecordText,
+      reviewedScenarioResults,
+    ),
+    ...validateRecord(
+      record,
+      localAdapterEvidence.run,
+      reviewedScenarioResults,
+    ),
   ];
 
   console.log(`verify-eh154-share-privacy: ${record.gateStatus}`);

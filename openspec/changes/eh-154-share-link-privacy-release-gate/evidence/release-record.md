@@ -31,7 +31,7 @@ No low or medium residual-risk decision can override these findings.
 | `pnpm test:eh153`                                                                                  | `PASS`    | EH-153 report-export projection, capability, serialization, and policy fixtures passed.                   |
 | `pnpm test:eh153-owner-export`                                                                     | `PASS`    | EH-153 owner route and report-detail export integration fixtures passed.                                  |
 | `pnpm test:eh151-db`                                                                               | `BLOCKED` | Local Supabase and Docker fallback were unavailable; the command timed out before pgTAP execution.        |
-| `pnpm test:eh154-adapters`                                                                         | `PASS`    | 20 deterministic production-adapter assertions passed; 6 deployment/database assertions remained blocked. |
+| `pnpm test:eh154-adapters`                                                                         | `PASS`    | 20 deterministic production-adapter assertions passed; 17 environment-bound scenarios remained blocked. |
 | `pnpm test:eh154-adapters -- --write-evidence`                                                     | `PASS`    | Wrote `evidence/local-adapter-scenarios.json` without secret values.                                      |
 | `pnpm test:eh154`                                                                                  | `BLOCKED` | Fail-closed gate reported route, database, deployment, retention, and privacy-signoff evidence gaps.      |
 | `openspec validate eh-154-share-link-privacy-release-gate --type change --strict --no-interactive` | `PASS`    | Change artifacts validate under the installed CLI.                                                        |
@@ -67,6 +67,53 @@ The local adapter run is partial evidence only. `evidence/local-adapter-scenario
 | Archive/remove source snapshot limitation                                                       | `BLOCKED` | EH-148 / EH-151 / EH-153           |
 | Tombstoned source report denial before bytes                                                    | `BLOCKED` | Durable deletion / EH-151 / EH-153 |
 | Access-event retention cleanup, lock contention/release, backlog drain, retry, and alert        | `BLOCKED` | EH-151 / EH-154                    |
+
+## Machine-readable scenario evidence
+
+For machine-checkable gate references, `release-gate.json` may point to
+`release-record.md#<scenario-id>`. Each row below is the reviewed production
+result for that scenario; a releasable record requires every result to be
+`PASS`, with the reviewed evidence reference in the final column.
+
+| Scenario ID                       | Result    | Evidence  |
+| --------------------------------- | --------- | --------- |
+| `invalid-token`                   | `BLOCKED` | `pending` |
+| `expired-token`                   | `BLOCKED` | `pending` |
+| `revoked-token`                   | `BLOCKED` | `pending` |
+| `pin-failed`                      | `BLOCKED` | `pending` |
+| `pin-success`                     | `BLOCKED` | `pending` |
+| `pin-proof-missing`               | `BLOCKED` | `pending` |
+| `pin-proof-wrong`                 | `BLOCKED` | `pending` |
+| `pin-proof-expired`               | `BLOCKED` | `pending` |
+| `pin-proof-revoked`               | `BLOCKED` | `pending` |
+| `pin-proof-cross-share`           | `BLOCKED` | `pending` |
+| `cross-profile-report`            | `BLOCKED` | `pending` |
+| `out-of-scope-document`           | `BLOCKED` | `pending` |
+| `unapproved-export-format`        | `BLOCKED` | `pending` |
+| `allowed-report`                  | `BLOCKED` | `pending` |
+| `denied-raw-document`             | `BLOCKED` | `pending` |
+| `cache-index-referrer-policy`     | `BLOCKED` | `pending` |
+| `event-redaction`                 | `BLOCKED` | `pending` |
+| `rate-limit-token-dimension`      | `BLOCKED` | `pending` |
+| `rate-limit-requester-dimension`  | `BLOCKED` | `pending` |
+| `rate-limit-store-unavailable`    | `BLOCKED` | `pending` |
+| `trusted-ingress-direct-origin`   | `BLOCKED` | `pending` |
+| `trusted-ingress-valid`           | `BLOCKED` | `pending` |
+| `trusted-ingress-missing`         | `BLOCKED` | `pending` |
+| `trusted-ingress-malformed`       | `BLOCKED` | `pending` |
+| `trusted-ingress-expired`         | `BLOCKED` | `pending` |
+| `trusted-ingress-spoofed-headers` | `BLOCKED` | `pending` |
+| `last-access-monotonic`           | `BLOCKED` | `pending` |
+| `key-current`                     | `BLOCKED` | `pending` |
+| `key-previous`                    | `BLOCKED` | `pending` |
+| `key-unknown`                     | `BLOCKED` | `pending` |
+| `key-malformed`                   | `BLOCKED` | `pending` |
+| `key-rotation-retirement`         | `BLOCKED` | `pending` |
+| `archive-source-snapshot`         | `BLOCKED` | `pending` |
+| `tombstone-source-report`         | `BLOCKED` | `pending` |
+| `replacement-revoke`              | `BLOCKED` | `pending` |
+| `raw-download-policy`             | `BLOCKED` | `pending` |
+| `cleanup-retention`               | `BLOCKED` | `pending` |
 
 ## Gate decision
 
