@@ -47,6 +47,10 @@ const PRODUCTION_SURFACES = [
       "src/app/api/reports/[id]/export/route.ts",
     ],
   },
+  {
+    id: "EH-154 public-share export boundary",
+    paths: ["src/app/api/share/[token]/export/route.ts"],
+  },
 ] as const;
 
 const REQUIRED_SCENARIOS = [
@@ -168,7 +172,7 @@ const GateRecordSchema = z
           id: z.string(),
           severity: z.enum(["low", "medium"]),
           owner: z.string(),
-          expiresOn: z.string(),
+          expiresOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
           summary: z.string(),
         })
         .strict(),
@@ -176,16 +180,33 @@ const GateRecordSchema = z
   })
   .strict();
 
-type LocalAdapterRun = {
-  schemaVersion: number;
-  scope: "local-production-adapters";
-  command: string;
-  scenarios: Array<{
-    id: string;
-    status: "pass" | "fail" | "blocked";
-    evidence: string;
-  }>;
-};
+const LocalAdapterRunSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    scope: z.literal("local-production-adapters"),
+    command: z.literal("pnpm test:eh154-adapters"),
+    executedAt: z.string().datetime({ offset: true }),
+    scenarios: z.array(
+      z
+        .object({
+          id: z.string().min(1),
+          status: z.enum(["pass", "fail", "blocked"]),
+          evidence: z.string().min(1),
+        })
+        .strict(),
+    ),
+    limitations: z.array(
+      z
+        .object({
+          id: z.string().min(1),
+          reason: z.string().min(1),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+
+type LocalAdapterRun = z.infer<typeof LocalAdapterRunSchema>;
 
 function validateLocalAdapterRun(run: LocalAdapterRun): Finding[] {
   const findings: Finding[] = [];
@@ -204,7 +225,15 @@ function validateLocalAdapterRun(run: LocalAdapterRun): Finding[] {
       });
     }
   }
+  const seenScenarioIds = new Set<string>();
   for (const scenario of run.scenarios) {
+    if (seenScenarioIds.has(scenario.id)) {
+      findings.push({
+        severity: "high",
+        message: `Local adapter evidence duplicates scenario: ${scenario.id}`,
+      });
+    }
+    seenScenarioIds.add(scenario.id);
     if (
       !REQUIRED_SCENARIOS.includes(
         scenario.id as (typeof REQUIRED_SCENARIOS)[number],
@@ -237,7 +266,19 @@ async function collectLocalAdapterFindings(): Promise<Finding[]> {
       path.join(EVIDENCE_ROOT, "local-adapter-scenarios.json"),
       "utf8",
     );
-    return validateLocalAdapterRun(JSON.parse(raw) as LocalAdapterRun);
+    const parsed = LocalAdapterRunSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) {
+      const paths = parsed.error.issues.map((issue) =>
+        issue.path.length > 0 ? issue.path.join(".") : "<root>",
+      );
+      return [
+        {
+          severity: "critical",
+          message: `Local adapter evidence has an invalid schema at ${paths.join(", ")}`,
+        },
+      ];
+    }
+    return validateLocalAdapterRun(parsed.data);
   } catch (error) {
     return [
       {
@@ -368,16 +409,51 @@ function validateReadyPrivacyEvidence(
       });
     }
   }
-  for (const label of [
+  for (const marker of [
+    "## Required release package",
+    "Final share scope matrix",
+    "Access-event field list and retention decision",
+    "Token storage proof",
+    "PIN/proof storage proof",
+    "Secret-manager references",
+    "SHARE_TRUSTED_PROXY_CIDRS",
+    "SHARE_TRUSTED_PROXY_ATTESTATION_MAX_AGE_SECONDS",
+    "SHARE_RATE_LIMIT_WINDOW_SECONDS",
+    "SHARE_RATE_LIMIT_TOKEN_FAILURES",
+    "SHARE_RATE_LIMIT_REQUESTER_FAILURES",
+    "SHARE_RATE_LIMIT_CLEANUP_INTERVAL_MS",
+    "SHARE_RATE_LIMIT_CLEANUP_RETRY_INTERVAL_MS",
+    "SHARE_PIN_PROOF_TTL_SECONDS",
     "SHARE_ACCESS_EVENT_RETENTION_DAYS",
-    "Sign-off decision",
+    "Trusted-ingress artifact",
+    "Shared Postgres rate-limit storage",
+    "Access-event, rate-limit-bucket, and expired-proof cleanup schedules",
+    "Durable document tombstone/report invalidation/final-purge handoff",
+    "Focused route, header, event, rate-limit, key-rotation, and raw-download evidence",
+    "Incident runbook is reviewed",
+    "## Deployment prerequisites",
+    "## Sign-off decision",
   ]) {
-    if (!privacySignoffText.includes(label)) {
+    if (!privacySignoffText.includes(marker)) {
       findings.push({
         severity: "high",
-        message: `Privacy sign-off record is missing required evidence label: ${label}`,
+        message: `Privacy sign-off record is missing required evidence section: ${marker}`,
       });
     }
+  }
+  const privacyOwnerRow = lines.find((line) =>
+    /^\|\s*Privacy owner\s*\|/u.test(line),
+  );
+  const privacyDecision = privacyOwnerRow
+    ?.split("|")[2]
+    ?.replace(/`/gu, "")
+    .trim()
+    .toUpperCase();
+  if (privacyDecision !== "APPROVED") {
+    findings.push({
+      severity: "high",
+      message: "Privacy owner decision must be explicitly APPROVED.",
+    });
   }
   if (/- \[ \]/u.test(privacySignoffText)) {
     findings.push({
@@ -394,6 +470,28 @@ function validateReadyPrivacyEvidence(
     });
   }
   return findings;
+}
+
+function containsSensitiveJsonValue(value: unknown, key = ""): boolean {
+  const sensitiveKeyPattern =
+    /(?:authorization|bearer|token|pin|proof|cookie|SHARE_RATE_LIMIT_PEPPER|SHARE_PIN_PROOF_PEPPER|SHARE_TRUSTED_PROXY_ATTESTATION_KEY)/iu;
+  const placeholderPattern =
+    /^(?:_pending_|pending|reference|fingerprint|version|redacted|ci-placeholder|<[^>]+>)$/iu;
+
+  if (typeof value === "string") {
+    return (
+      sensitiveKeyPattern.test(key) && !placeholderPattern.test(value.trim())
+    );
+  }
+  if (Array.isArray(value)) {
+    return value.some((item) => containsSensitiveJsonValue(item, key));
+  }
+  if (value !== null && typeof value === "object") {
+    return Object.entries(value).some(([childKey, childValue]) =>
+      containsSensitiveJsonValue(childValue, childKey),
+    );
+  }
+  return false;
 }
 
 async function collectEvidenceFindings(record: GateRecord): Promise<Finding[]> {
@@ -438,9 +536,26 @@ async function collectEvidenceFindings(record: GateRecord): Promise<Finding[]> {
   const combinedEvidence = evidenceText.join("\n");
   const secretValuePatterns = [
     /(?:SHARE_RATE_LIMIT_PEPPER|SHARE_PIN_PROOF_PEPPER|SHARE_TRUSTED_PROXY_ATTESTATION_KEY)\s*[:=]\s*(?!["'`]?<(?:reference|fingerprint|version)[^>]*>)(?!["'`]?\b(?:pending|reference|fingerprint|version)\b)["'`]?[A-Za-z0-9+/=_-]{24,}/iu,
-    /(?:bearer|token|pin|proof)\s*[:=]\s*[A-Za-z0-9._-]{24,}/iu,
+    /["'`]?(?:authorization|bearer|token|pin|proof|cookie)["'`]?\s*[:=]\s*["'`]?(?:bearer\s+)?(?!["'`]?(?:pending|reference|fingerprint|version|redacted)\b)[A-Za-z0-9._+/=-]{24,}/iu,
   ];
-  if (secretValuePatterns.some((pattern) => pattern.test(combinedEvidence))) {
+  let jsonSecretFound = false;
+  for (const [index, file] of REQUIRED_EVIDENCE_FILES.entries()) {
+    if (!file.endsWith(".json")) continue;
+    try {
+      if (containsSensitiveJsonValue(JSON.parse(evidenceText[index]), file)) {
+        jsonSecretFound = true;
+      }
+    } catch {
+      findings.push({
+        severity: "critical",
+        message: `Evidence JSON cannot be parsed: ${file}`,
+      });
+    }
+  }
+  if (
+    jsonSecretFound ||
+    secretValuePatterns.some((pattern) => pattern.test(combinedEvidence))
+  ) {
     findings.push({
       severity: "critical",
       message: "Evidence files contain a possible secret or bearer value.",
@@ -485,11 +600,26 @@ function validateRecord(record: GateRecord): Finding[] {
         message: `Scenario ${scenario.id} is ${scenario.status}, not pass.`,
       });
     }
-    if (!scenario.evidence?.trim()) {
+    const evidenceReference = scenario.evidence?.trim();
+    if (!evidenceReference) {
       findings.push({
         severity: "high",
         message: `Scenario ${scenario.id} has no evidence reference.`,
       });
+    } else {
+      const evidenceFile = evidenceReference
+        .split("#", 1)[0]
+        .replace(/^evidence\//u, "");
+      if (
+        !REQUIRED_EVIDENCE_FILES.includes(
+          evidenceFile as (typeof REQUIRED_EVIDENCE_FILES)[number],
+        )
+      ) {
+        findings.push({
+          severity: "high",
+          message: `Scenario ${scenario.id} references unavailable evidence: ${evidenceReference}`,
+        });
+      }
     }
   }
 
@@ -574,10 +704,14 @@ function validateRecord(record: GateRecord): Finding[] {
     });
   }
   for (const risk of record.residualRisks) {
-    if (!risk.owner || !risk.expiresOn) {
+    const expiryMs = Date.parse(`${risk.expiresOn}T23:59:59.999Z`);
+    const expiryInvalid =
+      !Number.isFinite(expiryMs) ||
+      (record.gateStatus === "ready-with-risk" && expiryMs <= Date.now());
+    if (!risk.owner.trim() || expiryInvalid) {
       findings.push({
         severity: "high",
-        message: `Residual risk ${risk.id} lacks an owner or expiry.`,
+        message: `Residual risk ${risk.id} lacks a valid future expiry or owner.`,
       });
     }
   }
