@@ -47,6 +47,12 @@ This record is intentionally incomplete until the reviewed build, deployed trust
 | Focused route, header, event, rate-limit, key-rotation, and raw-download evidence | `_pending_`                          |
 | Incident runbook is reviewed                                                      | `_pending_`                          |
 
+For a ready gate, artifact values use the verifier-resolved form
+`evidence://<immutable-artifact-id>#<artifact-anchor>@sha256:<64-hex-digest>`.
+The evidence manifest binds each artifact to the reviewed build and immutable
+deployment digest; settings may be concrete values within the documented
+domain or the same resolved evidence reference.
+
 - [ ] Deployed non-secret settings recorded:
   - `SHARE_TRUSTED_PROXY_CIDRS`
   - `SHARE_TRUSTED_PROXY_ATTESTATION_MAX_AGE_SECONDS`

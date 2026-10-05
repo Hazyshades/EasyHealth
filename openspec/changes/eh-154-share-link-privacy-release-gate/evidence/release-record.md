@@ -73,9 +73,12 @@ The local adapter run is partial evidence only. `evidence/local-adapter-scenario
 For machine-checkable gate references, `release-gate.json` may point to
 `release-record.md#<scenario-id>`. Each row below is the reviewed production
 result for that scenario; a releasable record requires every result to be
-`PASS`, with a concrete evidence reference in the final column. Evidence
-references use a URI-like locator such as `route-harness://run-123#scenario`;
-`pending`, `not-run`, `n/a`, and prose are not valid evidence references.
+`PASS`, with a concrete evidence reference in the final column. Reviewed
+evidence references MUST use the verifier-resolved form
+`evidence://<immutable-artifact-id>#<scenario-id>@sha256:<64-hex-digest>`.
+The matching `evidence-manifest.json` entry MUST bind the artifact to the
+reviewed build and immutable deployment digest. `pending`, `not-run`, `n/a`,
+prose, and unresolvable references are not valid evidence references.
 
 | Scenario ID                       | Result    | Evidence  |
 | --------------------------------- | --------- | --------- |

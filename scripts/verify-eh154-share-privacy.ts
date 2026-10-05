@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { access } from "node:fs/promises";
 import path from "node:path";
@@ -21,6 +22,10 @@ const CHANGE_ROOT = path.resolve(
   "openspec/changes/eh-154-share-link-privacy-release-gate",
 );
 const EVIDENCE_ROOT = path.join(CHANGE_ROOT, "evidence");
+const EVIDENCE_MANIFEST_PATH = path.join(
+  EVIDENCE_ROOT,
+  "evidence-manifest.json",
+);
 const GATE_RECORD_PATH = path.join(EVIDENCE_ROOT, "release-gate.json");
 
 const REQUIRED_EVIDENCE_FILES = [
@@ -30,6 +35,7 @@ const REQUIRED_EVIDENCE_FILES = [
   "incident-runbook.md",
   "release-record.md",
   "local-adapter-scenarios.json",
+  "evidence-manifest.json",
   "release-gate.json",
 ] as const;
 const SECRET_REFERENCE_PATTERN =
@@ -38,9 +44,9 @@ const SECRET_FINGERPRINT_PATTERN = /^(?:sha256[:/-])?[A-Fa-f0-9]{64}$/u;
 const SECRET_PLACEHOLDER_PATTERN =
   /^(?:_pending_|pending|reference|fingerprint|version|redacted|none|null|omitted|never|ci-placeholder|<[^>]+>)$/iu;
 const REVIEWED_EVIDENCE_REFERENCE_PATTERN =
-  /^(?:[a-z][a-z0-9+.-]*:\/\/[A-Za-z0-9._/-]+(?:#[A-Za-z0-9._-]+)?|[a-z][a-z0-9+.-]*:[A-Za-z0-9._/-]+(?:#[A-Za-z0-9._-]+)?)$/iu;
+  /^evidence:\/\/([A-Za-z0-9._/-]+)#([A-Za-z0-9._-]+)@sha256:([A-Fa-f0-9]{64})$/u;
 const DEPLOYMENT_REFERENCE_PATTERN =
-  /^(?:(?:deployment|config|artifact):\/\/[A-Za-z0-9._/-]+#(?!latest$|current$|head$|pending$)[A-Za-z0-9._-]+|(?:sha256[:/-])?[A-Fa-f0-9]{64})$/iu;
+  /^(?:(?:deployment|config|artifact):\/\/[A-Za-z0-9._/-]+#sha256:[A-Fa-f0-9]{64}|sha256:[A-Fa-f0-9]{64})$/iu;
 const TRUSTED_CIDRS_PATTERN =
   /^(?:(?:(?:25[0-5]|2[0-4]\d|1\d\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[01]?\d\d?)\/(?:\d|[12]\d|3[0-2]))(?:\s*,\s*(?:(?:(?:25[0-5]|2[0-4]\d|1\d\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[01]?\d\d?)\/(?:\d|[12]\d|3[0-2])))*$/u;
 const PRIVACY_SETTING_RANGES: Record<string, readonly [number, number]> = {
@@ -232,6 +238,56 @@ const GateRecordSchema = z
   })
   .strict();
 
+const EvidenceArtifactSchema = z
+  .object({
+    id: z.string().regex(/^[A-Za-z0-9._/-]+$/u),
+    path: z
+      .string()
+      .min(1)
+      .refine(
+        (value) =>
+          !path.isAbsolute(value) &&
+          !value.split(/[\\/]/u).some((segment) => segment === ".."),
+        "Evidence artifact paths must remain under the evidence directory.",
+      ),
+    sha256: z.string().regex(/^[A-Fa-f0-9]{64}$/u),
+    reviewedBuild: z.string().regex(/^[0-9a-f]{7,64}$/iu),
+    reviewedDeployment: z
+      .string()
+      .refine(
+        (value) => DEPLOYMENT_REFERENCE_PATTERN.test(value),
+        "Evidence artifacts require an immutable deployment reference.",
+      ),
+    anchors: z
+      .array(z.string().regex(/^[A-Za-z0-9._/-]+$/u))
+      .min(1)
+      .refine(
+        (anchors) => new Set(anchors).size === anchors.length,
+        "Evidence artifact anchors must be unique.",
+      ),
+  })
+  .strict();
+
+const EvidenceManifestSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    reviewedBuild: z
+      .string()
+      .regex(/^[0-9a-f]{7,64}$/iu)
+      .nullable(),
+    reviewedDeployment: z
+      .string()
+      .refine(
+        (value) => DEPLOYMENT_REFERENCE_PATTERN.test(value),
+        "Evidence manifests require an immutable deployment reference.",
+      )
+      .nullable(),
+    artifacts: z.array(EvidenceArtifactSchema),
+  })
+  .strict();
+
+type EvidenceManifest = z.infer<typeof EvidenceManifestSchema>;
+
 const LocalAdapterRunSchema = z
   .object({
     schemaVersion: z.literal(1),
@@ -381,10 +437,88 @@ async function readGateRecord(): Promise<GateRecord> {
   }
   return parsed.data;
 }
-function validateReadyPrivacyEvidence(
+async function readEvidenceManifest(): Promise<EvidenceManifest | null> {
+  try {
+    const raw = await readFile(EVIDENCE_MANIFEST_PATH, "utf8");
+    const parsed = EvidenceManifestSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+type ParsedEvidenceReference = {
+  artifactId: string;
+  anchor: string;
+  sha256: string;
+};
+
+function parseReviewedEvidenceReference(
+  reference: string,
+): ParsedEvidenceReference | null {
+  const match = REVIEWED_EVIDENCE_REFERENCE_PATTERN.exec(reference.trim());
+  if (!match) return null;
+  return {
+    artifactId: match[1],
+    anchor: match[2],
+    sha256: match[3].toLowerCase(),
+  };
+}
+
+function resolveEvidenceArtifactPath(artifactPath: string): string | null {
+  const resolvedPath = path.resolve(EVIDENCE_ROOT, artifactPath);
+  const evidenceRootPrefix = `${EVIDENCE_ROOT}${path.sep}`;
+  return resolvedPath.startsWith(evidenceRootPrefix) ? resolvedPath : null;
+}
+
+async function verifyReviewedEvidenceReference(
+  reference: string,
+  manifest: EvidenceManifest | null,
+  record: Pick<GateRecord, "reviewedBuild" | "reviewedDeployment">,
+): Promise<boolean> {
+  const parsedReference = parseReviewedEvidenceReference(reference);
+  if (
+    !parsedReference ||
+    !manifest ||
+    !record.reviewedBuild ||
+    !record.reviewedDeployment ||
+    manifest.reviewedBuild !== record.reviewedBuild ||
+    manifest.reviewedDeployment !== record.reviewedDeployment
+  ) {
+    return false;
+  }
+  const artifact = manifest.artifacts.find(
+    (candidate) => candidate.id === parsedReference.artifactId,
+  );
+  if (
+    !artifact ||
+    !artifact.anchors.includes(parsedReference.anchor) ||
+    artifact.reviewedBuild !== record.reviewedBuild ||
+    artifact.reviewedDeployment !== record.reviewedDeployment ||
+    artifact.sha256.toLowerCase() !== parsedReference.sha256
+  ) {
+    return false;
+  }
+  const resolvedPath = resolveEvidenceArtifactPath(artifact.path);
+  if (!resolvedPath) return false;
+  try {
+    const digest = createHash("sha256")
+      .update(await readFile(resolvedPath))
+      .digest("hex");
+    return (
+      digest === parsedReference.sha256 &&
+      digest === artifact.sha256.toLowerCase()
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function validateReadyPrivacyEvidence(
   record: GateRecord,
   privacySignoffText: string,
-): Finding[] {
+  evidenceManifest: EvidenceManifest | null,
+): Promise<Finding[]> {
   if (record.gateStatus === "blocked") return [];
 
   const findings: Finding[] = [];
@@ -570,14 +704,14 @@ function validateReadyPrivacyEvidence(
   };
   for (const label of requiredPrivacyArtifacts) {
     const value = readRequiredPackageValue(label);
-    if (
-      !value ||
-      SECRET_PLACEHOLDER_PATTERN.test(value) ||
-      !REVIEWED_EVIDENCE_REFERENCE_PATTERN.test(value)
-    ) {
+    const validReference =
+      !!value &&
+      !SECRET_PLACEHOLDER_PATTERN.test(value) &&
+      (await verifyReviewedEvidenceReference(value, evidenceManifest, record));
+    if (!validReference) {
       findings.push({
         severity: "high",
-        message: `Privacy sign-off evidence is missing or not a concrete reference: ${label}`,
+        message: `Privacy sign-off evidence is missing or unresolvable: ${label}`,
       });
     }
   }
@@ -592,13 +726,14 @@ function validateReadyPrivacyEvidence(
     const validValue =
       !!value &&
       !SECRET_PLACEHOLDER_PATTERN.test(value) &&
-      (REVIEWED_EVIDENCE_REFERENCE_PATTERN.test(value) ||
-        (label === "SHARE_TRUSTED_PROXY_CIDRS"
+      (REVIEWED_EVIDENCE_REFERENCE_PATTERN.test(value)
+        ? await verifyReviewedEvidenceReference(value, evidenceManifest, record)
+        : label === "SHARE_TRUSTED_PROXY_CIDRS"
           ? TRUSTED_CIDRS_PATTERN.test(value)
           : !!range &&
             Number.isInteger(numericValue) &&
             numericValue >= range[0] &&
-            numericValue <= range[1]));
+            numericValue <= range[1]);
     if (!validValue) {
       findings.push({
         severity: "high",
@@ -708,15 +843,35 @@ function containsUnapprovedNamedSecret(text: string): boolean {
   return false;
 }
 
-async function collectEvidenceFindings(record: GateRecord): Promise<Finding[]> {
+async function collectEvidenceFindings(
+  record: GateRecord,
+  evidenceManifest: EvidenceManifest | null,
+): Promise<Finding[]> {
   const findings: Finding[] = [];
-
   for (const file of REQUIRED_EVIDENCE_FILES) {
     if (!(await exists(path.join(EVIDENCE_ROOT, file)))) {
       findings.push({
         severity: "high",
         message: `Missing required evidence file: ${file}`,
       });
+    }
+  }
+  if (!evidenceManifest) {
+    findings.push({
+      severity: "critical",
+      message: "Evidence manifest is missing or has an invalid schema.",
+    });
+  } else {
+    for (const artifact of evidenceManifest.artifacts) {
+      if (
+        !resolveEvidenceArtifactPath(artifact.path) ||
+        !(await exists(path.join(EVIDENCE_ROOT, artifact.path)))
+      ) {
+        findings.push({
+          severity: "high",
+          message: `Evidence artifact is missing or escapes the evidence directory: ${artifact.id}`,
+        });
+      }
     }
   }
 
@@ -742,8 +897,13 @@ async function collectEvidenceFindings(record: GateRecord): Promise<Finding[]> {
     }
   }
 
+  const artifactFiles =
+    evidenceManifest?.artifacts.map((artifact) => artifact.path) ?? [];
+  const filesToScan = [
+    ...new Set([...REQUIRED_EVIDENCE_FILES, ...artifactFiles]),
+  ];
   const evidenceText = await Promise.all(
-    REQUIRED_EVIDENCE_FILES.map((file) =>
+    filesToScan.map((file) =>
       readFile(path.join(EVIDENCE_ROOT, file), "utf8").catch(() => ""),
     ),
   );
@@ -754,7 +914,7 @@ async function collectEvidenceFindings(record: GateRecord): Promise<Finding[]> {
     /\b(?:proof|cookie)\s+(?:(?:is|was)\s+)?(?:`[^`\r\n]+`|<[^>\r\n]+>)|\b(?:bearer|authorization)\s+(?:(?:is|was)\s+)?(?!(?:header|fields?|path|policy|request|response|context|metadata|token|secret|secrets|link|data|body|value|scope|route|failure|issuance)\b)(?:`[^`\r\n]+`|<[^>\r\n]+>|[A-Za-z0-9][A-Za-z0-9._+/=-]{7,})/iu,
   ];
   let jsonSecretFound = false;
-  for (const [index, file] of REQUIRED_EVIDENCE_FILES.entries()) {
+  for (const [index, file] of filesToScan.entries()) {
     if (!file.endsWith(".json")) continue;
     try {
       if (containsSensitiveJsonValue(JSON.parse(evidenceText[index]), file)) {
@@ -783,8 +943,14 @@ async function collectEvidenceFindings(record: GateRecord): Promise<Finding[]> {
     });
   }
   const privacySignoffText =
-    evidenceText[REQUIRED_EVIDENCE_FILES.indexOf("privacy-signoff.md")] ?? "";
-  findings.push(...validateReadyPrivacyEvidence(record, privacySignoffText));
+    evidenceText[filesToScan.indexOf("privacy-signoff.md")] ?? "";
+  findings.push(
+    ...(await validateReadyPrivacyEvidence(
+      record,
+      privacySignoffText,
+      evidenceManifest,
+    )),
+  );
 
   return findings;
 }
@@ -841,11 +1007,12 @@ function parseReviewedScenarioResults(
   };
 }
 
-function validateReleaseRecord(
+async function validateReleaseRecord(
   record: GateRecord,
   releaseRecordText: string,
   reviewedScenarioResults: ReviewedScenarioResults,
-): Finding[] {
+  evidenceManifest: EvidenceManifest | null,
+): Promise<Finding[]> {
   if (record.gateStatus === "blocked") return [];
 
   const findings: Finding[] = [];
@@ -893,15 +1060,19 @@ function validateReleaseRecord(
         severity: "high",
         message: `Release record does not contain a passing result for scenario: ${scenarioId}`,
       });
-    } else if (
-      !reviewedResult.evidence ||
-      SECRET_PLACEHOLDER_PATTERN.test(reviewedResult.evidence) ||
-      !REVIEWED_EVIDENCE_REFERENCE_PATTERN.test(reviewedResult.evidence)
-    ) {
-      findings.push({
-        severity: "high",
-        message: `Release record has no reviewed evidence reference for scenario: ${scenarioId}`,
-      });
+    } else {
+      const evidence = reviewedResult.evidence.trim();
+      const evidenceVerified = await verifyReviewedEvidenceReference(
+        evidence,
+        evidenceManifest,
+        record,
+      );
+      if (!evidenceVerified) {
+        findings.push({
+          severity: "high",
+          message: `Release record has no resolvable reviewed evidence reference for scenario: ${scenarioId}`,
+        });
+      }
     }
   }
   const commandSection = markdownSectionLines(
@@ -952,11 +1123,16 @@ function validateReleaseRecord(
       (row) => row.id === finding.id,
     );
     const closure = matchingRows[0]?.closureEvidence ?? "";
+    const closureVerified = await verifyReviewedEvidenceReference(
+      closure,
+      evidenceManifest,
+      record,
+    );
     if (
       matchingRows.length !== 1 ||
       finding.status !== "resolved" ||
       matchingRows[0]?.status !== "RESOLVED" ||
-      !REVIEWED_EVIDENCE_REFERENCE_PATTERN.test(closure) ||
+      !closureVerified ||
       SECRET_PLACEHOLDER_PATTERN.test(closure)
     ) {
       findings.push({
@@ -1058,11 +1234,12 @@ async function validateReviewedBuild(
   return findings;
 }
 
-function validateRecord(
+async function validateRecord(
   record: GateRecord,
   localAdapterRun: LocalAdapterRun | null,
   reviewedScenarioResults: ReviewedScenarioResults,
-): Finding[] {
+  evidenceManifest: EvidenceManifest | null,
+): Promise<Finding[]> {
   const findings: Finding[] = [];
   const recordedScenarioIds = new Set(
     record.scenarios.map((scenario) => scenario.id),
@@ -1115,40 +1292,33 @@ function validateRecord(
         });
       }
       if (record.gateStatus !== "blocked" && scenario.status === "pass") {
-        const isLocalAdapterEvidence =
-          evidenceFile === "local-adapter-scenarios.json";
-        const isReviewedReleaseEvidence = evidenceFile === "release-record.md";
-        if (
-          evidenceAnchor !== scenario.id ||
-          (!isLocalAdapterEvidence && !isReviewedReleaseEvidence)
-        ) {
+        const isReviewedReleaseEvidence =
+          evidenceFile === "release-record.md" &&
+          evidenceAnchor === scenario.id;
+        if (!isReviewedReleaseEvidence) {
           findings.push({
             severity: "high",
-            message: `Scenario ${scenario.id} requires an anchored local adapter or reviewed release result.`,
+            message: `Scenario ${scenario.id} requires an anchored reviewed release result; local adapter evidence is supplemental only.`,
           });
-        } else if (isLocalAdapterEvidence) {
-          const adapterScenario = localAdapterRun?.scenarios.find(
-            (result) => result.id === scenario.id,
-          );
-          if (!adapterScenario || adapterScenario.status !== "pass") {
-            findings.push({
-              severity: "high",
-              message: `Scenario ${scenario.id} is not backed by a passing local adapter result.`,
-            });
-          }
         } else {
           const reviewedResult = reviewedScenarioResults.statuses.get(
             scenario.id,
           );
+          const reviewedEvidenceValid = reviewedResult?.evidence
+            ? await verifyReviewedEvidenceReference(
+                reviewedResult.evidence,
+                evidenceManifest,
+                record,
+              )
+            : false;
           if (
             reviewedResult?.status !== "pass" ||
-            !reviewedResult.evidence ||
-            SECRET_PLACEHOLDER_PATTERN.test(reviewedResult.evidence) ||
-            !REVIEWED_EVIDENCE_REFERENCE_PATTERN.test(reviewedResult.evidence)
+            !reviewedEvidenceValid ||
+            !reviewedResult.evidence
           ) {
             findings.push({
               severity: "high",
-              message: `Scenario ${scenario.id} is not backed by a passing reviewed release result.`,
+              message: `Scenario ${scenario.id} is not backed by a passing, resolvable reviewed release result.`,
             });
           }
           const adapterScenario = localAdapterRun?.scenarios.find(
@@ -1305,6 +1475,7 @@ function validateRecord(
 
 async function main(): Promise<void> {
   const record = await readGateRecord();
+  const evidenceManifest = await readEvidenceManifest();
   const localAdapterEvidence = await collectLocalAdapterEvidence();
   const releaseRecordText = await readFile(
     path.join(EVIDENCE_ROOT, "release-record.md"),
@@ -1313,19 +1484,21 @@ async function main(): Promise<void> {
   const reviewedScenarioResults =
     parseReviewedScenarioResults(releaseRecordText);
   const findings = [
-    ...(await collectEvidenceFindings(record)),
+    ...(await collectEvidenceFindings(record, evidenceManifest)),
     ...localAdapterEvidence.findings,
     ...(await validateReviewedBuild(record, localAdapterEvidence.run)),
-    ...validateReleaseRecord(
+    ...(await validateReleaseRecord(
       record,
       releaseRecordText,
       reviewedScenarioResults,
-    ),
-    ...validateRecord(
+      evidenceManifest,
+    )),
+    ...(await validateRecord(
       record,
       localAdapterEvidence.run,
       reviewedScenarioResults,
-    ),
+      evidenceManifest,
+    )),
   ];
 
   console.log(`verify-eh154-share-privacy: ${record.gateStatus}`);
