@@ -287,12 +287,16 @@ function validateReadyPrivacyEvidence(
   ];
   for (const [label, expected] of metadata) {
     const value = readField(label);
-    if (!value || /(?:_pending_|`?PENDING`?)/iu.test(value)) {
+    const normalizedValue = value?.replace(/^`|`$/gu, "").trim();
+    if (
+      !normalizedValue ||
+      /(?:_pending_|`?PENDING`?)/iu.test(normalizedValue)
+    ) {
       findings.push({
         severity: "high",
         message: `Privacy sign-off metadata is missing or pending: ${label}`,
       });
-    } else if (expected && !value.includes(expected)) {
+    } else if (expected && normalizedValue !== expected) {
       findings.push({
         severity: "high",
         message: `Privacy sign-off metadata does not match the gate record: ${label}`,
