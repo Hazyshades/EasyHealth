@@ -1,7 +1,21 @@
 import { readFile } from "node:fs/promises";
 import { access } from "node:fs/promises";
 import path from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { z } from "zod";
+
+const execFileAsync = promisify(execFile);
+
+async function getCurrentCommit(): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync("git", ["rev-parse", "HEAD"]);
+    const commit = stdout.toString().trim();
+    return /^[0-9a-f]{7,64}$/iu.test(commit) ? commit : null;
+  } catch {
+    return null;
+  }
+}
 
 const CHANGE_ROOT = path.resolve(
   "openspec/changes/eh-154-share-link-privacy-release-gate",
@@ -23,9 +37,12 @@ const SECRET_REFERENCE_PATTERN =
 const SECRET_FINGERPRINT_PATTERN = /^(?:sha256[:/-])?[A-Fa-f0-9]{64}$/u;
 const SECRET_PLACEHOLDER_PATTERN =
   /^(?:_pending_|pending|reference|fingerprint|version|redacted|none|null|omitted|never|ci-placeholder|<[^>]+>)$/iu;
-const SHARE_TOKEN_PATTERN = /\bv[A-Za-z0-9._~-]{1,32}\.[A-Za-z0-9_-]{43,}\b/u;
+const REVIEWED_EVIDENCE_REFERENCE_PATTERN =
+  /^(?:[a-z][a-z0-9+.-]*:\/\/[A-Za-z0-9._/-]+(?:#[A-Za-z0-9._-]+)?|[a-z][a-z0-9+.-]*:[A-Za-z0-9._/-]+(?:#[A-Za-z0-9._-]+)?)$/iu;
+const SHARE_TOKEN_PATTERN =
+  /(?:^|[^A-Za-z0-9._~-])v[A-Za-z0-9._~-]{1,32}\.[A-Za-z0-9_-]{43,}(?![A-Za-z0-9_-])/u;
 const PUBLIC_SHARE_URL_PATTERN =
-  /https?:\/\/[^\s/]+\/(?:api\/)?share\/v[A-Za-z0-9._~-]{1,32}\.[A-Za-z0-9_-]{43,}(?:[/?#\s]|$)/iu;
+  /https?:\/\/[^\s/]+\/(?:api\/)?share\/v[A-Za-z0-9._~-]{1,32}\.[A-Za-z0-9_-]{43,}(?![A-Za-z0-9_-])/iu;
 const NAMED_SECRET_ASSIGNMENT_PATTERN =
   /["'`]?(?:SHARE_RATE_LIMIT_PEPPER|SHARE_PIN_PROOF_PEPPER|SHARE_TRUSTED_PROXY_ATTESTATION_KEY)["'`]?\s*[:=]\s*["'`]?([^\s"'|,;]+)/giu;
 
@@ -506,6 +523,37 @@ function validateReadyPrivacyEvidence(
       });
     }
   }
+  const requiredPrivacyRows = [
+    "Final share scope matrix",
+    "Access-event field list and retention decision",
+    "Token storage proof",
+    "PIN/proof storage proof",
+    "SHARE_TRUSTED_PROXY_CIDRS",
+    "SHARE_TRUSTED_PROXY_ATTESTATION_MAX_AGE_SECONDS",
+    "SHARE_RATE_LIMIT_WINDOW_SECONDS",
+    "SHARE_RATE_LIMIT_TOKEN_FAILURES",
+    "SHARE_RATE_LIMIT_REQUESTER_FAILURES",
+    "SHARE_RATE_LIMIT_CLEANUP_INTERVAL_MS",
+    "SHARE_RATE_LIMIT_CLEANUP_RETRY_INTERVAL_MS",
+    "SHARE_PIN_PROOF_TTL_SECONDS",
+    "SHARE_ACCESS_EVENT_RETENTION_DAYS",
+  ];
+  for (const label of requiredPrivacyRows) {
+    const matchingRows = requiredPackageLines.filter((line) => {
+      const cells = line.split("|").map((cell) => cell.trim());
+      return cells[1]?.replace(/`/gu, "") === label;
+    });
+    const value =
+      matchingRows.length === 1
+        ? matchingRows[0].split("|")[2]?.replace(/`/gu, "").trim()
+        : null;
+    if (!value || SECRET_PLACEHOLDER_PATTERN.test(value)) {
+      findings.push({
+        severity: "high",
+        message: `Privacy sign-off evidence is missing or placeholder: ${label}`,
+      });
+    }
+  }
   const privacyOwnerRows = signoffLines.filter((line) =>
     /^\|\s*Privacy owner\s*\|/u.test(line),
   );
@@ -642,8 +690,8 @@ async function collectEvidenceFindings(record: GateRecord): Promise<Finding[]> {
   const combinedEvidence = evidenceText.join("\n");
   const secretValuePatterns = [
     /["'`]?(?:authorization|bearer|token|pin|proof|cookie)["'`]?\s*[:=]\s*["'`]?(?!\b(?:pending|reference|fingerprint|version|redacted|none|null|omitted|never)\b)[A-Za-z0-9._+/=-]{4,}/iu,
-    /\bPIN\s+(?:[`'"]\s*)?\d{4,}(?:\s*[`'"])?/iu,
-    /\b(?:proof|bearer|authorization|cookie)\s+(?:`[^`\r\n]+`|<[^>\r\n]+>)/iu,
+    /\bPIN\s+(?:(?:is|was)\s+)?(?:[`'"]\s*)?\d{4,}(?:\s*[`'"])?/iu,
+    /\b(?:proof|cookie)\s+(?:(?:is|was)\s+)?(?:`[^`\r\n]+`|<[^>\r\n]+>)|\b(?:bearer|authorization)\s+(?:(?:is|was)\s+)?(?!(?:header|fields?|path|policy|request|response|context|metadata|token|secret|secrets|link|data|body|value|scope|route|failure|issuance)\b)(?:`[^`\r\n]+`|<[^>\r\n]+>|[A-Za-z0-9][A-Za-z0-9._+/=-]{7,})/iu,
   ];
   let jsonSecretFound = false;
   for (const [index, file] of REQUIRED_EVIDENCE_FILES.entries()) {
@@ -787,7 +835,8 @@ function validateReleaseRecord(
       });
     } else if (
       !reviewedResult.evidence ||
-      SECRET_PLACEHOLDER_PATTERN.test(reviewedResult.evidence)
+      SECRET_PLACEHOLDER_PATTERN.test(reviewedResult.evidence) ||
+      !REVIEWED_EVIDENCE_REFERENCE_PATTERN.test(reviewedResult.evidence)
     ) {
       findings.push({
         severity: "high",
@@ -806,18 +855,21 @@ function validateReleaseRecord(
     });
   }
   for (const command of record.commands) {
-    const commandLine = commandSection.find((line) =>
+    const matchingCommandRows = commandSection.filter((line) =>
       line.includes(`\`${command.command}\``),
     );
-    const result = commandLine
-      ?.split("|")[2]
-      ?.replace(/`/gu, "")
-      .trim()
-      .toUpperCase();
-    if (result !== "PASS") {
+    const result =
+      matchingCommandRows.length === 1
+        ? matchingCommandRows[0]
+            .split("|")[2]
+            ?.replace(/`/gu, "")
+            .trim()
+            .toUpperCase()
+        : null;
+    if (matchingCommandRows.length !== 1 || result !== "PASS") {
       findings.push({
         severity: "high",
-        message: `Release record command is missing or not passed: ${command.command}`,
+        message: `Release record command is missing, duplicated, or not passed: ${command.command}`,
       });
     }
   }
@@ -825,17 +877,120 @@ function validateReleaseRecord(
     releaseRecordText,
     "## Blocking findings",
   ).filter((line) => /^\|\s*EH154-F-\d+\s*\|/u.test(line));
-  if (blockingFindingRows.some((line) => !/\bRESOLVED\b/iu.test(line))) {
-    findings.push({
-      severity: "high",
-      message: "Release record still lists unresolved blocking findings.",
-    });
+  const blockingFindings = blockingFindingRows.map((line) => {
+    const cells = line.split("|").map((cell) => cell.replace(/`/gu, "").trim());
+    return {
+      id: cells[1] ?? "",
+      status: cells[3]?.toUpperCase() ?? "",
+      closureEvidence: cells[5] ?? "",
+    };
+  });
+  for (const finding of record.findings.filter((item) =>
+    ["high", "critical"].includes(item.severity),
+  )) {
+    const matchingRows = blockingFindings.filter(
+      (row) => row.id === finding.id,
+    );
+    const closure = matchingRows[0]?.closureEvidence ?? "";
+    if (
+      matchingRows.length !== 1 ||
+      finding.status !== "resolved" ||
+      matchingRows[0]?.status !== "RESOLVED" ||
+      !REVIEWED_EVIDENCE_REFERENCE_PATTERN.test(closure) ||
+      SECRET_PLACEHOLDER_PATTERN.test(closure)
+    ) {
+      findings.push({
+        severity: "high",
+        message: `Release record lacks one resolved closure-evidence row for finding: ${finding.id}`,
+      });
+    }
+  }
+  for (const row of blockingFindings) {
+    if (!record.findings.some((finding) => finding.id === row.id)) {
+      findings.push({
+        severity: "high",
+        message: `Release record contains an unknown blocking finding: ${row.id}`,
+      });
+    }
   }
   if (/\b(?:PENDING|BLOCKED|PARTIAL)\b/iu.test(releaseRecordText)) {
     findings.push({
       severity: "high",
       message:
         "Release record still contains pending, blocked, or partial evidence.",
+    });
+  }
+  return findings;
+}
+
+async function isCommitObject(commit: string | null): Promise<boolean> {
+  if (!commit || !/^[0-9a-f]{7,64}$/iu.test(commit)) return false;
+  try {
+    await execFileAsync("git", ["cat-file", "-e", `${commit}^{commit}`]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function reviewedSourceMatchesCurrent(
+  reviewedBuild: string,
+  currentCommit: string,
+): Promise<boolean> {
+  const reviewedPaths = [
+    ...PRODUCTION_SURFACES.flatMap((surface) => surface.paths),
+    "openspec/changes/eh-151-scoped-expiring-share-links/deployment/trusted-ingress.yaml",
+  ];
+  try {
+    await execFileAsync("git", [
+      "diff",
+      "--quiet",
+      reviewedBuild,
+      currentCommit,
+      "--",
+      ...reviewedPaths,
+    ]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function validateReviewedBuild(
+  record: GateRecord,
+  localAdapterRun: LocalAdapterRun | null,
+): Promise<Finding[]> {
+  if (record.gateStatus === "blocked" || !localAdapterRun) return [];
+
+  const findings: Finding[] = [];
+  if (
+    !record.reviewedBuild ||
+    !localAdapterRun.reviewedBuild ||
+    record.reviewedBuild !== localAdapterRun.reviewedBuild
+  ) {
+    findings.push({
+      severity: "high",
+      message:
+        "Local adapter evidence must match one immutable reviewed build commit.",
+    });
+    return findings;
+  }
+  if (!(await isCommitObject(record.reviewedBuild))) {
+    findings.push({
+      severity: "high",
+      message: "The reviewed build is not a resolvable commit object.",
+    });
+    return findings;
+  }
+  const currentCommit = await getCurrentCommit();
+  if (
+    !currentCommit ||
+    !(await reviewedSourceMatchesCurrent(record.reviewedBuild, currentCommit))
+  ) {
+    findings.push({
+      severity: "high",
+      message:
+        "Reviewed production source differs from the immutable build used for adapter evidence.",
     });
   }
   return findings;
@@ -926,7 +1081,8 @@ function validateRecord(
           if (
             reviewedResult?.status !== "pass" ||
             !reviewedResult.evidence ||
-            SECRET_PLACEHOLDER_PATTERN.test(reviewedResult.evidence)
+            SECRET_PLACEHOLDER_PATTERN.test(reviewedResult.evidence) ||
+            !REVIEWED_EVIDENCE_REFERENCE_PATTERN.test(reviewedResult.evidence)
           ) {
             findings.push({
               severity: "high",
@@ -1093,6 +1249,7 @@ async function main(): Promise<void> {
   const findings = [
     ...(await collectEvidenceFindings(record)),
     ...localAdapterEvidence.findings,
+    ...(await validateReviewedBuild(record, localAdapterEvidence.run)),
     ...validateReleaseRecord(
       record,
       releaseRecordText,

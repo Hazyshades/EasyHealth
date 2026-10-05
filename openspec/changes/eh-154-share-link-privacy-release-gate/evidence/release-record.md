@@ -11,30 +11,30 @@ This is the release record for a specific reviewed build. It must be replaced or
 
 ## Blocking findings
 
-| ID          | Severity | Finding                                                                                                                                 | Owning change             | Required closure evidence                                                                    |
-| ----------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------- |
-| EH154-F-001 | High     | EH-151 public boundary code is present, but route and database execution evidence for this gate is not attached.                        | EH-151 / EH-154           | Route harness against the production adapters for every public subroute.                     |
-| EH154-F-002 | High     | EH-152 management and EH-153 owner export adapters are present; public-share export integration and runtime evidence remain incomplete. | EH-152 / EH-153 / EH-154  | Revoke, replacement, export, and raw-download evidence against the same capability verifier. |
-| EH154-F-003 | High     | The trusted-ingress YAML exists only under the EH-151 OpenSpec change and is not a reviewed/deployed production configuration.          | Platform / EH-151         | Reviewed deployment reference, private-origin probe, and spoofed-header harness.             |
-| EH154-F-004 | High     | Durable-deletion handoff and retention-worker deployment evidence are not attached to this release record.                              | Durable deletion / EH-151 | Tombstone denial, cleanup schedule, lock/backlog, retry, and alert evidence.                 |
+| ID          | Severity | Status | Finding                                                                                                                                 | Closure evidence |
+| ----------- | -------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| EH154-F-001 | High     | `OPEN` | EH-151 public boundary code is present, but route and database execution evidence for this gate is not attached.                        | `pending`        |
+| EH154-F-002 | High     | `OPEN` | EH-152 management and EH-153 owner export adapters are present; public-share export integration and runtime evidence remain incomplete. | `pending`        |
+| EH154-F-003 | High     | `OPEN` | The trusted-ingress YAML exists only under the EH-151 OpenSpec change and is not a reviewed/deployed production configuration.          | `pending`        |
+| EH154-F-004 | High     | `OPEN` | Durable-deletion handoff and retention-worker deployment evidence are not attached to this release record.                              | `pending`        |
 
 No low or medium residual-risk decision can override these findings.
 
 ## Commands executed for this package
 
-| Command                                                                                            | Result    | Evidence                                                                                                  |
-| -------------------------------------------------------------------------------------------------- | --------- | --------------------------------------------------------------------------------------------------------- |
-| `openspec status --change "eh-154-share-link-privacy-release-gate" --json`                         | `PASS`    | Schema `spec-driven`; 5/11 implementation tasks complete before this apply pass.                          |
-| `openspec instructions apply --change "eh-154-share-link-privacy-release-gate" --json`             | `PASS`    | Change is repo-local and ready to apply.                                                                  |
-| `pnpm test:eh151`                                                                                  | `PASS`    | EH-151 token, PIN, trusted-ingress, response-policy, and rate-limit adapter fixtures passed.              |
-| `pnpm test:eh152`                                                                                  | `PASS`    | EH-152 owner projection and safe management boundary fixtures passed.                                     |
-| `pnpm test:eh153`                                                                                  | `PASS`    | EH-153 report-export projection, capability, serialization, and policy fixtures passed.                   |
-| `pnpm test:eh153-owner-export`                                                                     | `PASS`    | EH-153 owner route and report-detail export integration fixtures passed.                                  |
-| `pnpm test:eh151-db`                                                                               | `BLOCKED` | Local Supabase and Docker fallback were unavailable; the command timed out before pgTAP execution.        |
+| Command                                                                                            | Result    | Evidence                                                                                                |
+| -------------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------- |
+| `openspec status --change "eh-154-share-link-privacy-release-gate" --json`                         | `PASS`    | Schema `spec-driven`; 5/11 implementation tasks complete before this apply pass.                        |
+| `openspec instructions apply --change "eh-154-share-link-privacy-release-gate" --json`             | `PASS`    | Change is repo-local and ready to apply.                                                                |
+| `pnpm test:eh151`                                                                                  | `PASS`    | EH-151 token, PIN, trusted-ingress, response-policy, and rate-limit adapter fixtures passed.            |
+| `pnpm test:eh152`                                                                                  | `PASS`    | EH-152 owner projection and safe management boundary fixtures passed.                                   |
+| `pnpm test:eh153`                                                                                  | `PASS`    | EH-153 report-export projection, capability, serialization, and policy fixtures passed.                 |
+| `pnpm test:eh153-owner-export`                                                                     | `PASS`    | EH-153 owner route and report-detail export integration fixtures passed.                                |
+| `pnpm test:eh151-db`                                                                               | `BLOCKED` | Local Supabase and Docker fallback were unavailable; the command timed out before pgTAP execution.      |
 | `pnpm test:eh154-adapters`                                                                         | `PASS`    | 20 deterministic production-adapter assertions passed; 17 environment-bound scenarios remained blocked. |
-| `pnpm test:eh154-adapters -- --write-evidence`                                                     | `PASS`    | Wrote `evidence/local-adapter-scenarios.json` without secret values.                                      |
-| `pnpm test:eh154`                                                                                  | `BLOCKED` | Fail-closed gate reported route, database, deployment, retention, and privacy-signoff evidence gaps.      |
-| `openspec validate eh-154-share-link-privacy-release-gate --type change --strict --no-interactive` | `PASS`    | Change artifacts validate under the installed CLI.                                                        |
+| `pnpm test:eh154-adapters -- --write-evidence`                                                     | `PASS`    | Wrote `evidence/local-adapter-scenarios.json` without secret values.                                    |
+| `pnpm test:eh154`                                                                                  | `BLOCKED` | Fail-closed gate reported route, database, deployment, retention, and privacy-signoff evidence gaps.    |
+| `openspec validate eh-154-share-link-privacy-release-gate --type change --strict --no-interactive` | `PASS`    | Change artifacts validate under the installed CLI.                                                      |
 
 ## Required scenario results
 
@@ -73,7 +73,9 @@ The local adapter run is partial evidence only. `evidence/local-adapter-scenario
 For machine-checkable gate references, `release-gate.json` may point to
 `release-record.md#<scenario-id>`. Each row below is the reviewed production
 result for that scenario; a releasable record requires every result to be
-`PASS`, with the reviewed evidence reference in the final column.
+`PASS`, with a concrete evidence reference in the final column. Evidence
+references use a URI-like locator such as `route-harness://run-123#scenario`;
+`pending`, `not-run`, `n/a`, and prose are not valid evidence references.
 
 | Scenario ID                       | Result    | Evidence  |
 | --------------------------------- | --------- | --------- |

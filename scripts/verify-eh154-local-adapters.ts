@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 
 import { MEDICAL_DISCLAIMER } from "../src/lib/schemas/biomarkers";
 import {
@@ -31,6 +33,17 @@ import {
   signedIngressRequest,
   SHARE_TEST_TOKEN_KEYS,
 } from "./fixtures/eh151-scoped-share-links";
+const execFileAsync = promisify(execFile);
+
+async function getCurrentCommit(): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync("git", ["rev-parse", "HEAD"]);
+    const commit = stdout.toString().trim();
+    return /^[0-9a-f]{7,64}$/iu.test(commit) ? commit : null;
+  } catch {
+    return null;
+  }
+}
 
 const EVIDENCE_PATH = path.resolve(
   "openspec/changes/eh-154-share-link-privacy-release-gate/evidence/local-adapter-scenarios.json",
@@ -271,6 +284,7 @@ function shareLinks() {
 
 async function main(): Promise<void> {
   configureShareTestEnvironment();
+  const reviewedBuild = await getCurrentCommit();
   const results = new Map<ScenarioId, ScenarioResult>();
   const failures: string[] = [];
   const resolver = reportReadResolver();
@@ -714,7 +728,7 @@ async function main(): Promise<void> {
     scope: "local-production-adapters",
     command: "pnpm test:eh154-adapters",
     executedAt: process.env.EH154_EXECUTED_AT ?? new Date().toISOString(),
-    reviewedBuild: process.env.EH154_REVIEWED_BUILD ?? null,
+    reviewedBuild,
     reviewedDeployment: process.env.EH154_REVIEWED_DEPLOYMENT ?? null,
     scenarios,
     limitations: scenarios
