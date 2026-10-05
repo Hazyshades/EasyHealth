@@ -205,12 +205,40 @@ function validateReadyPrivacyEvidence(
   if (record.gateStatus === "blocked") return [];
 
   const findings: Finding[] = [];
+  const lines = privacySignoffText.split(/\r?\n/u);
+  const readField = (label: string): string | null => {
+    const marker = `**${label}:**`;
+    const line = lines.find((candidate) => candidate.includes(marker));
+    return line
+      ? line.slice(line.indexOf(marker) + marker.length).trim()
+      : null;
+  };
+  const metadata: Array<[string, string | null]> = [
+    ["Gate status", record.gateStatus],
+    ["Reviewed build / commit", record.reviewedBuild],
+    [
+      "Reviewed deployment configuration reference or digest",
+      record.reviewedDeployment,
+    ],
+    ["Evidence package owner", record.evidenceOwner],
+    ["Privacy approver", null],
+    ["Decision date", null],
+  ];
+  for (const [label, expected] of metadata) {
+    const value = readField(label);
+    if (!value || /(?:_pending_|`?PENDING`?)/iu.test(value)) {
+      findings.push({
+        severity: "high",
+        message: `Privacy sign-off metadata is missing or pending: ${label}`,
+      });
+    } else if (expected && !value.includes(expected)) {
+      findings.push({
+        severity: "high",
+        message: `Privacy sign-off metadata does not match the gate record: ${label}`,
+      });
+    }
+  }
   for (const label of [
-    "Reviewed build / commit:",
-    "Reviewed deployment configuration reference or digest:",
-    "Evidence package owner:",
-    "Privacy approver:",
-    "Decision date:",
     "Secret-manager references",
     "SHARE_ACCESS_EVENT_RETENTION_DAYS",
     "Sign-off decision",
@@ -229,11 +257,7 @@ function validateReadyPrivacyEvidence(
         "Privacy sign-off record contains unchecked release requirements.",
     });
   }
-  if (
-    /(?:_pending_|`?PENDING`?|`?BLOCKED`?|`?PARTIAL`?)/iu.test(
-      privacySignoffText,
-    )
-  ) {
+  if (/\b(?:PENDING|BLOCKED|PARTIAL)\b/iu.test(privacySignoffText)) {
     findings.push({
       severity: "high",
       message:
