@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { access, lstat, readdir, realpath, readFile } from "node:fs/promises";
 import path from "node:path";
+import { isIP } from "node:net";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { z } from "zod";
@@ -1078,6 +1079,23 @@ async function validateReadyPrivacyEvidence(
   return findings;
 }
 
+const IP_LITERAL_PATTERN =
+  /(?<![A-Za-z0-9])(?:[0-9]{1,3}(?:\.[0-9]{1,3}){3}|[0-9A-Fa-f:]{2,})(?![A-Za-z0-9])/gu;
+
+const RAW_ADDRESS_KEY_PATTERN =
+  /(?:client[_-]?(?:ip|addr|address)|remote[_-]?(?:addr|address|ip)|requester[_-]?(?:addr|address|ip)|forwarded[_-]?(?:for|addr|address|ip)|x[_-]?forwarded[_-]?(?:for|host|addr|address|ip))/iu;
+
+function containsRawIpAddress(value: string): boolean {
+  for (const match of value.matchAll(IP_LITERAL_PATTERN)) {
+    const token = match[0];
+    const start = match.index ?? -1;
+    const suffix = start >= 0 ? value.slice(start + token.length) : "";
+    if (/^\/\d{1,3}(?:\b|$)/u.test(suffix)) continue;
+    if (isIP(token) !== 0) return true;
+  }
+  return false;
+}
+
 function containsSensitiveJsonValue(
   value: unknown,
   key = "",
@@ -1091,6 +1109,8 @@ function containsSensitiveJsonValue(
 
   if (typeof value === "string") {
     const normalized = value.trim();
+    if (RAW_ADDRESS_KEY_PATTERN.test(key)) return true;
+    if (containsRawIpAddress(normalized)) return true;
     if (
       SHARE_TOKEN_PATTERN.test(normalized) ||
       PUBLIC_SHARE_URL_PATTERN.test(normalized)
@@ -1242,6 +1262,7 @@ async function collectEvidenceFindings(
   const shareCredentialFound =
     SHARE_TOKEN_PATTERN.test(combinedEvidence) ||
     PUBLIC_SHARE_URL_PATTERN.test(combinedEvidence);
+  const rawIpFound = containsRawIpAddress(combinedEvidence);
   const namedSecretFound = containsUnapprovedNamedSecret(combinedEvidence);
   if (
     jsonSecretFound ||
@@ -1252,6 +1273,12 @@ async function collectEvidenceFindings(
     findings.push({
       severity: "critical",
       message: "Evidence files contain a possible secret or bearer value.",
+    });
+  }
+  if (rawIpFound) {
+    findings.push({
+      severity: "critical",
+      message: "Evidence files contain a raw client IP address.",
     });
   }
   const privacySignoffText =
