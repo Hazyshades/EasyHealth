@@ -232,11 +232,11 @@
   ],
   "commands": [
     {
-      "command": "openspec status --change eh-154-share-link-privacy-release-gate --json",
+      "command": "openspec status --change \"eh-154-share-link-privacy-release-gate\" --json",
       "status": "pass"
     },
     {
-      "command": "openspec instructions apply --change eh-154-share-link-privacy-release-gate --json",
+      "command": "openspec instructions apply --change \"eh-154-share-link-privacy-release-gate\" --json",
       "status": "pass"
     },
     {
@@ -244,7 +244,7 @@
       "status": "pass"
     },
     {
-      "command": "pnpm exec tsx scripts/verify-eh154-local-adapters.ts --write-evidence",
+      "command": "pnpm test:eh154-adapters -- --write-evidence",
       "status": "pass"
     },
     {

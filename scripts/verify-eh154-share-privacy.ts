@@ -19,10 +19,10 @@ const REQUIRED_EVIDENCE_FILES = [
   "release-gate.json",
 ] as const;
 const SECRET_REFERENCE_PATTERN =
-  /^(?:[a-z][a-z0-9+.-]*:\/\/[A-Za-z0-9._/-]+(?:[#@]version[=:]?[A-Za-z0-9._-]+)?|[A-Za-z0-9._/-]+[#@]version[=:]?[A-Za-z0-9._-]+)$/iu;
+  /^(?:(?:secret|vault|aws-secretsmanager|gcp-secretmanager|azure-keyvault|keyvault):\/\/[A-Za-z0-9._/-]+(?:[#@]version[=:]?[A-Za-z0-9._-]+)?)$/iu;
 const SECRET_FINGERPRINT_PATTERN = /^(?:sha256[:/-])?[A-Fa-f0-9]{64}$/u;
 const SECRET_PLACEHOLDER_PATTERN =
-  /^(?:_pending_|pending|reference|fingerprint|version|redacted|ci-placeholder|<[^>]+>)$/iu;
+  /^(?:_pending_|pending|reference|fingerprint|version|redacted|none|null|omitted|never|ci-placeholder|<[^>]+>)$/iu;
 const SHARE_TOKEN_PATTERN = /\bv[A-Za-z0-9._~-]{1,32}\.[A-Za-z0-9_-]{43,}\b/u;
 const PUBLIC_SHARE_URL_PATTERN =
   /https?:\/\/[^\s/]+\/(?:api\/)?share\/v[A-Za-z0-9._~-]{1,32}\.[A-Za-z0-9_-]{43,}(?:[/?#\s]|$)/iu;
@@ -642,6 +642,8 @@ async function collectEvidenceFindings(record: GateRecord): Promise<Finding[]> {
   const combinedEvidence = evidenceText.join("\n");
   const secretValuePatterns = [
     /["'`]?(?:authorization|bearer|token|pin|proof|cookie)["'`]?\s*[:=]\s*["'`]?(?!\b(?:pending|reference|fingerprint|version|redacted|none|null|omitted|never)\b)[A-Za-z0-9._+/=-]{4,}/iu,
+    /\bPIN\s+(?:[`'"]\s*)?\d{4,}(?:\s*[`'"])?/iu,
+    /\b(?:proof|bearer|authorization|cookie)\s+(?:`[^`\r\n]+`|<[^>\r\n]+>)/iu,
   ];
   let jsonSecretFound = false;
   for (const [index, file] of REQUIRED_EVIDENCE_FILES.entries()) {
@@ -679,9 +681,14 @@ async function collectEvidenceFindings(record: GateRecord): Promise<Finding[]> {
   return findings;
 }
 
+type ReviewedScenarioResult = {
+  status: ScenarioStatus;
+  evidence: string;
+};
+
 type ReviewedScenarioResults = {
   hasSection: boolean;
-  statuses: ReadonlyMap<string, ScenarioStatus>;
+  statuses: ReadonlyMap<string, ReviewedScenarioResult>;
   duplicateIds: ReadonlySet<string>;
 };
 
@@ -705,16 +712,19 @@ function parseReviewedScenarioResults(
     releaseRecordText,
     "## Machine-readable scenario evidence",
   );
-  const statuses = new Map<string, ScenarioStatus>();
+  const statuses = new Map<string, ReviewedScenarioResult>();
   const duplicateIds = new Set<string>();
   const rowPattern =
-    /^\|\s*`?([a-z0-9-]+)`?\s*\|\s*`?(PASS|FAIL|BLOCKED|NOT-RUN)`?\s*\|/iu;
+    /^\|\s*`?([a-z0-9-]+)`?\s*\|\s*`?(PASS|FAIL|BLOCKED|NOT-RUN)`?\s*\|\s*(.*?)\s*\|/iu;
   for (const line of sectionLines) {
     const match = rowPattern.exec(line);
     if (!match) continue;
     const scenarioId = match[1];
     if (statuses.has(scenarioId)) duplicateIds.add(scenarioId);
-    statuses.set(scenarioId, match[2].toLowerCase() as ScenarioStatus);
+    statuses.set(scenarioId, {
+      status: match[2].toLowerCase() as ScenarioStatus,
+      evidence: match[3].replace(/`/gu, "").trim(),
+    });
   }
   return {
     hasSection: sectionLines.length > 0,
@@ -769,10 +779,19 @@ function validateReleaseRecord(
         message: `Release record duplicates scenario evidence: ${scenarioId}`,
       });
     }
-    if (reviewedScenarioResults.statuses.get(scenarioId) !== "pass") {
+    const reviewedResult = reviewedScenarioResults.statuses.get(scenarioId);
+    if (reviewedResult?.status !== "pass") {
       findings.push({
         severity: "high",
         message: `Release record does not contain a passing result for scenario: ${scenarioId}`,
+      });
+    } else if (
+      !reviewedResult.evidence ||
+      SECRET_PLACEHOLDER_PATTERN.test(reviewedResult.evidence)
+    ) {
+      findings.push({
+        severity: "high",
+        message: `Release record has no reviewed evidence reference for scenario: ${scenarioId}`,
       });
     }
   }
@@ -901,7 +920,14 @@ function validateRecord(
             });
           }
         } else {
-          if (reviewedScenarioResults.statuses.get(scenario.id) !== "pass") {
+          const reviewedResult = reviewedScenarioResults.statuses.get(
+            scenario.id,
+          );
+          if (
+            reviewedResult?.status !== "pass" ||
+            !reviewedResult.evidence ||
+            SECRET_PLACEHOLDER_PATTERN.test(reviewedResult.evidence)
+          ) {
             findings.push({
               severity: "high",
               message: `Scenario ${scenario.id} is not backed by a passing reviewed release result.`,
