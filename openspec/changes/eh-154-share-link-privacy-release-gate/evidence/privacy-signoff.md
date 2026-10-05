@@ -25,21 +25,27 @@ This record is intentionally incomplete until the reviewed build, deployed trust
 | `SHARE_PIN_PROOF_PEPPER`              | `_pending_`                       |
 | `SHARE_TRUSTED_PROXY_ATTESTATION_KEY` | `_pending_`                       |
 
-| Required artifact / setting                       | Reviewed value or evidence reference |
-| ------------------------------------------------- | ------------------------------------ |
-| Final share scope matrix                          | `_pending_`                          |
-| Access-event field list and retention decision    | `_pending_`                          |
-| Token storage proof                               | `_pending_`                          |
-| PIN/proof storage proof                           | `_pending_`                          |
-| `SHARE_TRUSTED_PROXY_CIDRS`                       | `_pending_`                          |
-| `SHARE_TRUSTED_PROXY_ATTESTATION_MAX_AGE_SECONDS` | `_pending_`                          |
-| `SHARE_RATE_LIMIT_WINDOW_SECONDS`                 | `_pending_`                          |
-| `SHARE_RATE_LIMIT_TOKEN_FAILURES`                 | `_pending_`                          |
-| `SHARE_RATE_LIMIT_REQUESTER_FAILURES`             | `_pending_`                          |
-| `SHARE_RATE_LIMIT_CLEANUP_INTERVAL_MS`            | `_pending_`                          |
-| `SHARE_RATE_LIMIT_CLEANUP_RETRY_INTERVAL_MS`      | `_pending_`                          |
-| `SHARE_PIN_PROOF_TTL_SECONDS`                     | `_pending_`                          |
-| `SHARE_ACCESS_EVENT_RETENTION_DAYS`               | `_pending_`                          |
+| Required artifact / setting                                                       | Reviewed value or evidence reference |
+| --------------------------------------------------------------------------------- | ------------------------------------ |
+| Final share scope matrix                                                          | `_pending_`                          |
+| Access-event field list and retention decision                                    | `_pending_`                          |
+| Token storage proof                                                               | `_pending_`                          |
+| PIN/proof storage proof                                                           | `_pending_`                          |
+| `SHARE_TRUSTED_PROXY_CIDRS`                                                       | `_pending_`                          |
+| `SHARE_TRUSTED_PROXY_ATTESTATION_MAX_AGE_SECONDS`                                 | `_pending_`                          |
+| `SHARE_RATE_LIMIT_WINDOW_SECONDS`                                                 | `_pending_`                          |
+| `SHARE_RATE_LIMIT_TOKEN_FAILURES`                                                 | `_pending_`                          |
+| `SHARE_RATE_LIMIT_REQUESTER_FAILURES`                                             | `_pending_`                          |
+| `SHARE_RATE_LIMIT_CLEANUP_INTERVAL_MS`                                            | `_pending_`                          |
+| `SHARE_RATE_LIMIT_CLEANUP_RETRY_INTERVAL_MS`                                      | `_pending_`                          |
+| `SHARE_PIN_PROOF_TTL_SECONDS`                                                     | `_pending_`                          |
+| `SHARE_ACCESS_EVENT_RETENTION_DAYS`                                               | `_pending_`                          |
+| Trusted-ingress artifact                                                          | `_pending_`                          |
+| Shared Postgres rate-limit storage                                                | `_pending_`                          |
+| Access-event, rate-limit-bucket, and expired-proof cleanup schedules              | `_pending_`                          |
+| Durable document tombstone/report invalidation/final-purge handoff                | `_pending_`                          |
+| Focused route, header, event, rate-limit, key-rotation, and raw-download evidence | `_pending_`                          |
+| Incident runbook is reviewed                                                      | `_pending_`                          |
 
 - [ ] Deployed non-secret settings recorded:
   - `SHARE_TRUSTED_PROXY_CIDRS`

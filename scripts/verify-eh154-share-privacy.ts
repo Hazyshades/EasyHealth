@@ -39,12 +39,26 @@ const SECRET_PLACEHOLDER_PATTERN =
   /^(?:_pending_|pending|reference|fingerprint|version|redacted|none|null|omitted|never|ci-placeholder|<[^>]+>)$/iu;
 const REVIEWED_EVIDENCE_REFERENCE_PATTERN =
   /^(?:[a-z][a-z0-9+.-]*:\/\/[A-Za-z0-9._/-]+(?:#[A-Za-z0-9._-]+)?|[a-z][a-z0-9+.-]*:[A-Za-z0-9._/-]+(?:#[A-Za-z0-9._-]+)?)$/iu;
+const DEPLOYMENT_REFERENCE_PATTERN =
+  /^(?:(?:deployment|config|artifact):\/\/[A-Za-z0-9._/-]+#(?!latest$|current$|head$|pending$)[A-Za-z0-9._-]+|(?:sha256[:/-])?[A-Fa-f0-9]{64})$/iu;
+const TRUSTED_CIDRS_PATTERN =
+  /^(?:(?:(?:25[0-5]|2[0-4]\d|1\d\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[01]?\d\d?)\/(?:\d|[12]\d|3[0-2]))(?:\s*,\s*(?:(?:(?:25[0-5]|2[0-4]\d|1\d\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[01]?\d\d?)\/(?:\d|[12]\d|3[0-2])))*$/u;
+const PRIVACY_SETTING_RANGES: Record<string, readonly [number, number]> = {
+  SHARE_TRUSTED_PROXY_ATTESTATION_MAX_AGE_SECONDS: [5, 120],
+  SHARE_RATE_LIMIT_WINDOW_SECONDS: [10, 300],
+  SHARE_RATE_LIMIT_TOKEN_FAILURES: [1, 100],
+  SHARE_RATE_LIMIT_REQUESTER_FAILURES: [1, 300],
+  SHARE_RATE_LIMIT_CLEANUP_INTERVAL_MS: [1, 86_400_000],
+  SHARE_RATE_LIMIT_CLEANUP_RETRY_INTERVAL_MS: [1, 86_400_000],
+  SHARE_PIN_PROOF_TTL_SECONDS: [60, 3_600],
+  SHARE_ACCESS_EVENT_RETENTION_DAYS: [1, 90],
+};
+const NAMED_SECRET_ASSIGNMENT_PATTERN =
+  /(?:^|[|{,\n])\s*["'`]?(?:SHARE_RATE_LIMIT_PEPPER|SHARE_PIN_PROOF_PEPPER|SHARE_TRUSTED_PROXY_ATTESTATION_KEY)["'`]?\s*(?::|=|\bis\b|\bwas\b|\|)\s*["'`]?([^\s"'|,;`]+)["'`]?/giu;
 const SHARE_TOKEN_PATTERN =
   /(?:^|[^A-Za-z0-9._~-])v[A-Za-z0-9._~-]{1,32}\.[A-Za-z0-9_-]{43,}(?![A-Za-z0-9_-])/u;
 const PUBLIC_SHARE_URL_PATTERN =
   /https?:\/\/[^\s/]+\/(?:api\/)?share\/v[A-Za-z0-9._~-]{1,32}\.[A-Za-z0-9_-]{43,}(?![A-Za-z0-9_-])/iu;
-const NAMED_SECRET_ASSIGNMENT_PATTERN =
-  /["'`]?(?:SHARE_RATE_LIMIT_PEPPER|SHARE_PIN_PROOF_PEPPER|SHARE_TRUSTED_PROXY_ATTESTATION_KEY)["'`]?\s*[:=]\s*["'`]?([^\s"'|,;]+)/giu;
 
 const PRODUCTION_SURFACES = [
   {
@@ -398,6 +412,7 @@ function validateReadyPrivacyEvidence(
       .slice(matchingLines[0].indexOf(marker) + marker.length)
       .trim();
   };
+  let privacyApprover: string | null = null;
   const metadata: Array<[string, string | null]> = [
     ["Gate status", record.gateStatus],
     ["Reviewed build / commit", record.reviewedBuild],
@@ -412,6 +427,7 @@ function validateReadyPrivacyEvidence(
   for (const [label, expected] of metadata) {
     const value = readField(label);
     const normalizedValue = value?.replace(/^`|`$/gu, "").trim();
+    if (label === "Privacy approver") privacyApprover = normalizedValue ?? null;
     if (
       !normalizedValue ||
       /(?:_pending_|`?PENDING`?)/iu.test(normalizedValue)
@@ -419,6 +435,14 @@ function validateReadyPrivacyEvidence(
       findings.push({
         severity: "high",
         message: `Privacy sign-off metadata is missing or pending: ${label}`,
+      });
+    } else if (
+      label === "Reviewed deployment configuration reference or digest" &&
+      !DEPLOYMENT_REFERENCE_PATTERN.test(normalizedValue)
+    ) {
+      findings.push({
+        severity: "high",
+        message: "Privacy sign-off deployment reference is malformed.",
       });
     } else if (expected && normalizedValue !== expected) {
       findings.push({
@@ -523,53 +547,89 @@ function validateReadyPrivacyEvidence(
       });
     }
   }
-  const requiredPrivacyRows = [
+  const requiredPrivacyArtifacts = [
     "Final share scope matrix",
     "Access-event field list and retention decision",
     "Token storage proof",
     "PIN/proof storage proof",
-    "SHARE_TRUSTED_PROXY_CIDRS",
-    "SHARE_TRUSTED_PROXY_ATTESTATION_MAX_AGE_SECONDS",
-    "SHARE_RATE_LIMIT_WINDOW_SECONDS",
-    "SHARE_RATE_LIMIT_TOKEN_FAILURES",
-    "SHARE_RATE_LIMIT_REQUESTER_FAILURES",
-    "SHARE_RATE_LIMIT_CLEANUP_INTERVAL_MS",
-    "SHARE_RATE_LIMIT_CLEANUP_RETRY_INTERVAL_MS",
-    "SHARE_PIN_PROOF_TTL_SECONDS",
-    "SHARE_ACCESS_EVENT_RETENTION_DAYS",
+    "Trusted-ingress artifact",
+    "Shared Postgres rate-limit storage",
+    "Access-event, rate-limit-bucket, and expired-proof cleanup schedules",
+    "Durable document tombstone/report invalidation/final-purge handoff",
+    "Focused route, header, event, rate-limit, key-rotation, and raw-download evidence",
+    "Incident runbook is reviewed",
   ];
-  for (const label of requiredPrivacyRows) {
+  const readRequiredPackageValue = (label: string): string | null => {
     const matchingRows = requiredPackageLines.filter((line) => {
       const cells = line.split("|").map((cell) => cell.trim());
       return cells[1]?.replace(/`/gu, "") === label;
     });
-    const value =
-      matchingRows.length === 1
-        ? matchingRows[0].split("|")[2]?.replace(/`/gu, "").trim()
-        : null;
-    if (!value || SECRET_PLACEHOLDER_PATTERN.test(value)) {
+    return matchingRows.length === 1
+      ? (matchingRows[0].split("|")[2]?.replace(/`/gu, "").trim() ?? null)
+      : null;
+  };
+  for (const label of requiredPrivacyArtifacts) {
+    const value = readRequiredPackageValue(label);
+    if (
+      !value ||
+      SECRET_PLACEHOLDER_PATTERN.test(value) ||
+      !REVIEWED_EVIDENCE_REFERENCE_PATTERN.test(value)
+    ) {
       findings.push({
         severity: "high",
-        message: `Privacy sign-off evidence is missing or placeholder: ${label}`,
+        message: `Privacy sign-off evidence is missing or not a concrete reference: ${label}`,
+      });
+    }
+  }
+  const privacySettings = [
+    "SHARE_TRUSTED_PROXY_CIDRS",
+    ...Object.keys(PRIVACY_SETTING_RANGES),
+  ];
+  for (const label of privacySettings) {
+    const value = readRequiredPackageValue(label);
+    const range = PRIVACY_SETTING_RANGES[label];
+    const numericValue = value === null ? Number.NaN : Number(value);
+    const validValue =
+      !!value &&
+      !SECRET_PLACEHOLDER_PATTERN.test(value) &&
+      (REVIEWED_EVIDENCE_REFERENCE_PATTERN.test(value) ||
+        (label === "SHARE_TRUSTED_PROXY_CIDRS"
+          ? TRUSTED_CIDRS_PATTERN.test(value)
+          : !!range &&
+            Number.isInteger(numericValue) &&
+            numericValue >= range[0] &&
+            numericValue <= range[1]));
+    if (!validValue) {
+      findings.push({
+        severity: "high",
+        message: `Privacy sign-off setting is missing, invalid, or unbound: ${label}`,
       });
     }
   }
   const privacyOwnerRows = signoffLines.filter((line) =>
     /^\|\s*Privacy owner\s*\|/u.test(line),
   );
-  const privacyDecision =
+  const privacyOwnerCells =
     privacyOwnerRows.length === 1
-      ? privacyOwnerRows[0]
-          .split("|")[2]
-          ?.replace(/`/gu, "")
-          .trim()
-          .toUpperCase()
-      : null;
-  if (privacyDecision !== "APPROVED") {
+      ? privacyOwnerRows[0].split("|").map((cell) => cell.trim())
+      : [];
+  const privacyDecision = privacyOwnerCells[2]
+    ?.replace(/`/gu, "")
+    .trim()
+    .toUpperCase();
+  const privacyOwnerReference = privacyOwnerCells[3]?.replace(/`/gu, "").trim();
+  if (
+    privacyDecision !== "APPROVED" ||
+    !privacyOwnerReference ||
+    SECRET_PLACEHOLDER_PATTERN.test(privacyOwnerReference) ||
+    !privacyApprover ||
+    SECRET_PLACEHOLDER_PATTERN.test(privacyApprover) ||
+    privacyOwnerReference !== privacyApprover
+  ) {
     findings.push({
       severity: "high",
       message:
-        "Privacy owner decision must contain exactly one Sign-off decision row with APPROVED.",
+        "Privacy owner decision must be APPROVED and bind its reference exactly to the Privacy approver metadata.",
     });
   }
   if (/- \[ \]/u.test(privacySignoffText)) {
@@ -938,8 +998,10 @@ async function reviewedSourceMatchesCurrent(
   currentCommit: string,
 ): Promise<boolean> {
   const reviewedPaths = [
-    ...PRODUCTION_SURFACES.flatMap((surface) => surface.paths),
-    "openspec/changes/eh-151-scoped-expiring-share-links/deployment/trusted-ingress.yaml",
+    ".",
+    ":(exclude)openspec/changes/eh-154-share-link-privacy-release-gate/**",
+    ":(exclude)QA/eh-154/**",
+    ":(exclude).papercuts.jsonl",
   ];
   try {
     await execFileAsync("git", [
@@ -990,7 +1052,7 @@ async function validateReviewedBuild(
     findings.push({
       severity: "high",
       message:
-        "Reviewed production source differs from the immutable build used for adapter evidence.",
+        "Reviewed build differs from the complete immutable build used for adapter evidence.",
     });
   }
   return findings;
@@ -1133,10 +1195,14 @@ function validateRecord(
       message: "No reviewed build or commit is recorded.",
     });
   }
-  if (!record.reviewedDeployment) {
+  if (
+    !record.reviewedDeployment ||
+    !DEPLOYMENT_REFERENCE_PATTERN.test(record.reviewedDeployment.trim())
+  ) {
     findings.push({
       severity: "high",
-      message: "No reviewed deployment configuration is recorded.",
+      message:
+        "No valid immutable reviewed deployment configuration reference is recorded.",
     });
   }
   if (!record.evidenceOwner) {
