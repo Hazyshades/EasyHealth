@@ -263,6 +263,16 @@ jobs:
           OPENAI_API_KEY: ci-placeholder
           NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      - name: Verify EH-154 local production adapters
+        run: pnpm test:eh154-adapters
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+          OPENAI_API_KEY: ci-placeholder
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      - name: Verify EH-154 release gate on demand
+        if: github.event_name == 'workflow_dispatch'
+        run: pnpm test:eh154
 
       - name: Publish Registry 2.0 candidate-release evidence
         run: |

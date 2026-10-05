@@ -15,6 +15,7 @@ const REQUIRED_EVIDENCE_FILES = [
   "incident-runbook.md",
   "release-record.md",
   "local-adapter-scenarios.json",
+  "release-gate.json",
 ] as const;
 
 const PRODUCTION_SURFACES = [
@@ -197,8 +198,52 @@ async function readGateRecord(): Promise<GateRecord> {
   const raw = await readFile(GATE_RECORD_PATH, "utf8");
   return JSON.parse(raw) as GateRecord;
 }
+function validateReadyPrivacyEvidence(
+  record: GateRecord,
+  privacySignoffText: string,
+): Finding[] {
+  if (record.gateStatus === "blocked") return [];
 
-async function collectEvidenceFindings(): Promise<Finding[]> {
+  const findings: Finding[] = [];
+  for (const label of [
+    "Reviewed build / commit:",
+    "Reviewed deployment configuration reference or digest:",
+    "Evidence package owner:",
+    "Privacy approver:",
+    "Decision date:",
+    "Secret-manager references",
+    "SHARE_ACCESS_EVENT_RETENTION_DAYS",
+    "Sign-off decision",
+  ]) {
+    if (!privacySignoffText.includes(label)) {
+      findings.push({
+        severity: "high",
+        message: `Privacy sign-off record is missing required evidence label: ${label}`,
+      });
+    }
+  }
+  if (/- \[ \]/u.test(privacySignoffText)) {
+    findings.push({
+      severity: "high",
+      message:
+        "Privacy sign-off record contains unchecked release requirements.",
+    });
+  }
+  if (
+    /(?:_pending_|`?PENDING`?|`?BLOCKED`?|`?PARTIAL`?)/iu.test(
+      privacySignoffText,
+    )
+  ) {
+    findings.push({
+      severity: "high",
+      message:
+        "Privacy sign-off record still contains pending or blocked evidence.",
+    });
+  }
+  return findings;
+}
+
+async function collectEvidenceFindings(record: GateRecord): Promise<Finding[]> {
   const findings: Finding[] = [];
 
   for (const file of REQUIRED_EVIDENCE_FILES) {
@@ -239,7 +284,7 @@ async function collectEvidenceFindings(): Promise<Finding[]> {
   );
   const combinedEvidence = evidenceText.join("\n");
   const secretValuePatterns = [
-    /SHARE_(?:RATE_LIMIT|PIN_PROOF|TRUSTED_PROXY_ATTESTATION)_KEY\s*[:=]\s*[^_\s`][^\s`]*/u,
+    /(?:SHARE_RATE_LIMIT_PEPPER|SHARE_PIN_PROOF_PEPPER|SHARE_TRUSTED_PROXY_ATTESTATION_KEY)\s*[:=]\s*(?!["'`]?<(?:reference|fingerprint|version)[^>]*>)(?!["'`]?\b(?:pending|reference|fingerprint|version)\b)["'`]?[A-Za-z0-9+/=_-]{24,}/iu,
     /(?:bearer|token|pin|proof)\s*[:=]\s*[A-Za-z0-9._-]{24,}/iu,
   ];
   if (secretValuePatterns.some((pattern) => pattern.test(combinedEvidence))) {
@@ -248,6 +293,9 @@ async function collectEvidenceFindings(): Promise<Finding[]> {
       message: "Evidence files contain a possible secret or bearer value.",
     });
   }
+  const privacySignoffText =
+    evidenceText[REQUIRED_EVIDENCE_FILES.indexOf("privacy-signoff.md")] ?? "";
+  findings.push(...validateReadyPrivacyEvidence(record, privacySignoffText));
 
   return findings;
 }
@@ -322,6 +370,22 @@ function validateRecord(record: GateRecord): Finding[] {
       message: "Privacy sign-off is not recorded.",
     });
   }
+  if (record.gateStatus !== "blocked") {
+    if (!Array.isArray(record.commands) || record.commands.length === 0) {
+      findings.push({
+        severity: "high",
+        message: "Ready gate requires executed command evidence.",
+      });
+    }
+    for (const command of record.commands ?? []) {
+      if (!command.command || command.status !== "pass") {
+        findings.push({
+          severity: "high",
+          message: `Gate command is missing or not passed: ${command.command || "<unnamed>"}`,
+        });
+      }
+    }
+  }
 
   if (record.gateStatus === "ready" && record.residualRisks.length > 0) {
     findings.push({
@@ -364,7 +428,7 @@ function validateRecord(record: GateRecord): Finding[] {
 async function main(): Promise<void> {
   const record = await readGateRecord();
   const findings = [
-    ...(await collectEvidenceFindings()),
+    ...(await collectEvidenceFindings(record)),
     ...(await collectLocalAdapterFindings()),
     ...validateRecord(record),
   ];
