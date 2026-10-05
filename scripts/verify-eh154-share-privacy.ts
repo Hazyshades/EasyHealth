@@ -23,6 +23,11 @@ const SECRET_REFERENCE_PATTERN =
 const SECRET_FINGERPRINT_PATTERN = /^(?:sha256[:/-])?[A-Fa-f0-9]{64}$/u;
 const SECRET_PLACEHOLDER_PATTERN =
   /^(?:_pending_|pending|reference|fingerprint|version|redacted|ci-placeholder|<[^>]+>)$/iu;
+const SHARE_TOKEN_PATTERN = /\bv[A-Za-z0-9._~-]{1,32}\.[A-Za-z0-9_-]{43,}\b/u;
+const PUBLIC_SHARE_URL_PATTERN =
+  /https?:\/\/[^\s/]+\/(?:api\/)?share\/v[A-Za-z0-9._~-]{1,32}\.[A-Za-z0-9_-]{43,}(?:[/?#\s]|$)/iu;
+const NAMED_SECRET_ASSIGNMENT_PATTERN =
+  /["'`]?(?:SHARE_RATE_LIMIT_PEPPER|SHARE_PIN_PROOF_PEPPER|SHARE_TRUSTED_PROXY_ATTESTATION_KEY)["'`]?\s*[:=]\s*["'`]?([^\s"'|,;]+)/giu;
 
 const PRODUCTION_SURFACES = [
   {
@@ -202,6 +207,8 @@ const LocalAdapterRunSchema = z
     scope: z.literal("local-production-adapters"),
     command: z.literal("pnpm test:eh154-adapters"),
     executedAt: z.string().datetime({ offset: true }),
+    reviewedBuild: z.string().nullable(),
+    reviewedDeployment: z.string().nullable(),
     scenarios: z.array(
       z
         .object({
@@ -276,7 +283,12 @@ function validateLocalAdapterRun(run: LocalAdapterRun): Finding[] {
   return findings;
 }
 
-async function collectLocalAdapterFindings(): Promise<Finding[]> {
+type LocalAdapterEvidence = {
+  run: LocalAdapterRun | null;
+  findings: Finding[];
+};
+
+async function collectLocalAdapterEvidence(): Promise<LocalAdapterEvidence> {
   try {
     const raw = await readFile(
       path.join(EVIDENCE_ROOT, "local-adapter-scenarios.json"),
@@ -287,23 +299,32 @@ async function collectLocalAdapterFindings(): Promise<Finding[]> {
       const paths = parsed.error.issues.map((issue) =>
         issue.path.length > 0 ? issue.path.join(".") : "<root>",
       );
-      return [
-        {
-          severity: "critical",
-          message: `Local adapter evidence has an invalid schema at ${paths.join(", ")}`,
-        },
-      ];
+      return {
+        run: null,
+        findings: [
+          {
+            severity: "critical",
+            message: `Local adapter evidence has an invalid schema at ${paths.join(", ")}`,
+          },
+        ],
+      };
     }
-    return validateLocalAdapterRun(parsed.data);
+    return {
+      run: parsed.data,
+      findings: validateLocalAdapterRun(parsed.data),
+    };
   } catch (error) {
-    return [
-      {
-        severity: "high",
-        message: `Local adapter evidence is unreadable: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      },
-    ];
+    return {
+      run: null,
+      findings: [
+        {
+          severity: "high",
+          message: `Local adapter evidence is unreadable: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        },
+      ],
+    };
   }
 }
 
@@ -337,6 +358,22 @@ function validateReadyPrivacyEvidence(
 
   const findings: Finding[] = [];
   const lines = privacySignoffText.split(/\r?\n/u);
+  const signoffHeadingIndex = lines.findIndex((line) =>
+    /^## Sign-off decision\s*$/u.test(line),
+  );
+  const nextHeadingIndex =
+    signoffHeadingIndex >= 0
+      ? lines.findIndex(
+          (line, index) => index > signoffHeadingIndex && /^##\s/u.test(line),
+        )
+      : -1;
+  const signoffLines =
+    signoffHeadingIndex >= 0
+      ? lines.slice(
+          signoffHeadingIndex,
+          nextHeadingIndex >= 0 ? nextHeadingIndex : lines.length,
+        )
+      : [];
   const readField = (label: string): string | null => {
     const marker = `**${label}:**`;
     const line = lines.find((candidate) => candidate.includes(marker));
@@ -413,7 +450,7 @@ function validateReadyPrivacyEvidence(
         message: `Secret reference or fingerprint is missing or malformed: ${entry.name}`,
       });
     } else {
-      const signoffRow = lines.find((line) => {
+      const signoffRow = signoffLines.find((line) => {
         const cells = line.split("|").map((cell) => cell.trim());
         return cells[1] === entry.name;
       });
@@ -469,18 +506,22 @@ function validateReadyPrivacyEvidence(
       });
     }
   }
-  const privacyOwnerRow = lines.find((line) =>
+  const privacyOwnerRows = signoffLines.filter((line) =>
     /^\|\s*Privacy owner\s*\|/u.test(line),
   );
-  const privacyDecision = privacyOwnerRow
-    ?.split("|")[2]
-    ?.replace(/`/gu, "")
-    .trim()
-    .toUpperCase();
+  const privacyDecision =
+    privacyOwnerRows.length === 1
+      ? privacyOwnerRows[0]
+          .split("|")[2]
+          ?.replace(/`/gu, "")
+          .trim()
+          .toUpperCase()
+      : null;
   if (privacyDecision !== "APPROVED") {
     findings.push({
       severity: "high",
-      message: "Privacy owner decision must be explicitly APPROVED.",
+      message:
+        "Privacy owner decision must contain exactly one Sign-off decision row with APPROVED.",
     });
   }
   if (/- \[ \]/u.test(privacySignoffText)) {
@@ -513,6 +554,12 @@ function containsSensitiveJsonValue(
 
   if (typeof value === "string") {
     const normalized = value.trim();
+    if (
+      SHARE_TOKEN_PATTERN.test(normalized) ||
+      PUBLIC_SHARE_URL_PATTERN.test(normalized)
+    ) {
+      return true;
+    }
     const isReferenceField = /^(?:reference|fingerprint)$/iu.test(key);
     const isApprovedReference =
       SECRET_REFERENCE_PATTERN.test(normalized) ||
@@ -535,6 +582,20 @@ function containsSensitiveJsonValue(
     return Object.entries(value).some(([childKey, childValue]) =>
       containsSensitiveJsonValue(childValue, childKey, namedContext),
     );
+  }
+  return false;
+}
+function containsUnapprovedNamedSecret(text: string): boolean {
+  for (const match of text.matchAll(NAMED_SECRET_ASSIGNMENT_PATTERN)) {
+    const value = match[1];
+    if (
+      value &&
+      !SECRET_PLACEHOLDER_PATTERN.test(value) &&
+      !SECRET_REFERENCE_PATTERN.test(value) &&
+      !SECRET_FINGERPRINT_PATTERN.test(value)
+    ) {
+      return true;
+    }
   }
   return false;
 }
@@ -597,8 +658,14 @@ async function collectEvidenceFindings(record: GateRecord): Promise<Finding[]> {
       });
     }
   }
+  const shareCredentialFound =
+    SHARE_TOKEN_PATTERN.test(combinedEvidence) ||
+    PUBLIC_SHARE_URL_PATTERN.test(combinedEvidence);
+  const namedSecretFound = containsUnapprovedNamedSecret(combinedEvidence);
   if (
     jsonSecretFound ||
+    shareCredentialFound ||
+    namedSecretFound ||
     secretValuePatterns.some((pattern) => pattern.test(combinedEvidence))
   ) {
     findings.push({
@@ -613,7 +680,10 @@ async function collectEvidenceFindings(record: GateRecord): Promise<Finding[]> {
   return findings;
 }
 
-function validateRecord(record: GateRecord): Finding[] {
+function validateRecord(
+  record: GateRecord,
+  localAdapterRun: LocalAdapterRun | null,
+): Finding[] {
   const findings: Finding[] = [];
   const recordedScenarioIds = new Set(
     record.scenarios.map((scenario) => scenario.id),
@@ -652,9 +722,9 @@ function validateRecord(record: GateRecord): Finding[] {
         message: `Scenario ${scenario.id} has no evidence reference.`,
       });
     } else {
-      const evidenceFile = evidenceReference
-        .split("#", 1)[0]
-        .replace(/^evidence\//u, "");
+      const [evidenceFile, evidenceAnchor] = evidenceReference
+        .split("#", 2)
+        .map((part) => part.replace(/^evidence\//u, ""));
       if (
         !REQUIRED_EVIDENCE_FILES.includes(
           evidenceFile as (typeof REQUIRED_EVIDENCE_FILES)[number],
@@ -664,6 +734,27 @@ function validateRecord(record: GateRecord): Finding[] {
           severity: "high",
           message: `Scenario ${scenario.id} references unavailable evidence: ${evidenceReference}`,
         });
+      }
+      if (record.gateStatus !== "blocked" && scenario.status === "pass") {
+        if (
+          evidenceFile !== "local-adapter-scenarios.json" ||
+          evidenceAnchor !== scenario.id
+        ) {
+          findings.push({
+            severity: "high",
+            message: `Scenario ${scenario.id} requires an anchored adapter result for a releasable gate.`,
+          });
+        } else {
+          const adapterScenario = localAdapterRun?.scenarios.find(
+            (result) => result.id === scenario.id,
+          );
+          if (!adapterScenario || adapterScenario.status !== "pass") {
+            findings.push({
+              severity: "high",
+              message: `Scenario ${scenario.id} is not backed by a passing local adapter result.`,
+            });
+          }
+        }
       }
     }
   }
@@ -731,6 +822,26 @@ function validateRecord(record: GateRecord): Finding[] {
         });
       }
     }
+    if (!localAdapterRun) {
+      findings.push({
+        severity: "high",
+        message: "Releasable gate has no parsed local adapter evidence.",
+      });
+    } else {
+      if (localAdapterRun.reviewedBuild !== record.reviewedBuild) {
+        findings.push({
+          severity: "high",
+          message: "Local adapter evidence does not match the reviewed build.",
+        });
+      }
+      if (localAdapterRun.reviewedDeployment !== record.reviewedDeployment) {
+        findings.push({
+          severity: "high",
+          message:
+            "Local adapter evidence does not match the reviewed deployment.",
+        });
+      }
+    }
   }
 
   if (record.gateStatus === "ready" && record.residualRisks.length > 0) {
@@ -784,10 +895,11 @@ function validateRecord(record: GateRecord): Finding[] {
 
 async function main(): Promise<void> {
   const record = await readGateRecord();
+  const localAdapterEvidence = await collectLocalAdapterEvidence();
   const findings = [
     ...(await collectEvidenceFindings(record)),
-    ...(await collectLocalAdapterFindings()),
-    ...validateRecord(record),
+    ...localAdapterEvidence.findings,
+    ...validateRecord(record, localAdapterEvidence.run),
   ];
 
   console.log(`verify-eh154-share-privacy: ${record.gateStatus}`);

@@ -3,6 +3,8 @@
   "scope": "local-production-adapters",
   "command": "pnpm test:eh154-adapters",
   "executedAt": "2026-10-05T21:45:00.000Z",
+  "reviewedBuild": null,
+  "reviewedDeployment": null,
   "scenarios": [
     {
       "id": "invalid-token",

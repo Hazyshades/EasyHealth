@@ -96,6 +96,8 @@ type ScenarioRun = {
   scope: "local-production-adapters";
   command: "pnpm test:eh154-adapters";
   executedAt: string;
+  reviewedBuild: string | null;
+  reviewedDeployment: string | null;
   scenarios: ScenarioResult[];
   limitations: Array<{ id: ScenarioId; reason: string }>;
 };
@@ -712,6 +714,8 @@ async function main(): Promise<void> {
     scope: "local-production-adapters",
     command: "pnpm test:eh154-adapters",
     executedAt: process.env.EH154_EXECUTED_AT ?? new Date().toISOString(),
+    reviewedBuild: process.env.EH154_REVIEWED_BUILD ?? null,
+    reviewedDeployment: process.env.EH154_REVIEWED_DEPLOYMENT ?? null,
     scenarios,
     limitations: scenarios
       .filter(
