@@ -436,13 +436,120 @@ type LocalAdapterEvidence = {
   findings: Finding[];
 };
 
+const JSON_NUMBER_PATTERN =
+  /^(?:true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)/u;
+
+function skipJsonWhitespace(text: string, start: number): number {
+  let index = start;
+  while (index < text.length) {
+    const code = text.charCodeAt(index);
+    if (code !== 9 && code !== 10 && code !== 13 && code !== 32) break;
+    index += 1;
+  }
+  return index;
+}
+
+function scanJsonString(text: string, start: number): number {
+  if (text[start] !== '"') {
+    throw new Error("JSON object keys and string values must be quoted.");
+  }
+  let index = start + 1;
+  while (index < text.length) {
+    const code = text.charCodeAt(index);
+    if (code === 34) return index + 1;
+    if (code === 92) {
+      index += 1;
+      if (index >= text.length) throw new Error("JSON escape is incomplete.");
+      if (text[index] === "u") {
+        const hex = text.slice(index + 1, index + 5);
+        if (!/^[0-9a-f]{4}$/iu.test(hex)) {
+          throw new Error("JSON unicode escape is invalid.");
+        }
+        index += 5;
+      } else {
+        index += 1;
+      }
+      continue;
+    }
+    if (code < 32)
+      throw new Error("JSON strings cannot contain control characters.");
+    index += 1;
+  }
+  throw new Error("JSON string is unterminated.");
+}
+
+function scanJsonValue(text: string, start: number): number {
+  const index = skipJsonWhitespace(text, start);
+  const token = text[index];
+  if (token === "{") {
+    let cursor = skipJsonWhitespace(text, index + 1);
+    const keys = new Set<string>();
+    if (text[cursor] === "}") return cursor + 1;
+    while (cursor < text.length) {
+      const keyStart = cursor;
+      const keyEnd = scanJsonString(text, keyStart);
+      const key = JSON.parse(text.slice(keyStart, keyEnd)) as string;
+      if (keys.has(key)) {
+        throw new Error(`Duplicate JSON object key: ${key}`);
+      }
+      keys.add(key);
+      cursor = skipJsonWhitespace(text, keyEnd);
+      if (text[cursor] !== ":") {
+        throw new Error("JSON object member is missing a colon.");
+      }
+      cursor = scanJsonValue(text, cursor + 1);
+      cursor = skipJsonWhitespace(text, cursor);
+      if (text[cursor] === "}") return cursor + 1;
+      if (text[cursor] !== ",") {
+        throw new Error("JSON object member is missing a comma.");
+      }
+      cursor = skipJsonWhitespace(text, cursor + 1);
+      if (text[cursor] === "}") {
+        throw new Error("JSON object cannot contain a trailing comma.");
+      }
+    }
+    throw new Error("JSON object is unterminated.");
+  }
+  if (token === "[") {
+    let cursor = skipJsonWhitespace(text, index + 1);
+    if (text[cursor] === "]") return cursor + 1;
+    while (cursor < text.length) {
+      cursor = scanJsonValue(text, cursor);
+      cursor = skipJsonWhitespace(text, cursor);
+      if (text[cursor] === "]") return cursor + 1;
+      if (text[cursor] !== ",") {
+        throw new Error("JSON array member is missing a comma.");
+      }
+      cursor = skipJsonWhitespace(text, cursor + 1);
+      if (text[cursor] === "]") {
+        throw new Error("JSON array cannot contain a trailing comma.");
+      }
+    }
+    throw new Error("JSON array is unterminated.");
+  }
+  if (token === '"') return scanJsonString(text, index);
+  const primitive = JSON_NUMBER_PATTERN.exec(text.slice(index));
+  if (!primitive) throw new Error("JSON value is invalid.");
+  return index + primitive[0].length;
+}
+
+function parseJsonWithUniqueKeys(raw: string): unknown {
+  const end = scanJsonValue(raw, 0);
+  if (skipJsonWhitespace(raw, end) !== raw.length) {
+    throw new Error("JSON contains trailing content.");
+  }
+  return JSON.parse(raw);
+}
+
 async function collectLocalAdapterEvidence(): Promise<LocalAdapterEvidence> {
   try {
     const raw = await readFile(
       path.join(EVIDENCE_ROOT, "local-adapter-scenarios.json"),
       "utf8",
     );
-    const parsed = LocalAdapterRunSchema.safeParse(JSON.parse(raw));
+    const parsed = LocalAdapterRunSchema.safeParse(
+      parseJsonWithUniqueKeys(raw),
+    );
     if (!parsed.success) {
       const paths = parsed.error.issues.map((issue) =>
         issue.path.length > 0 ? issue.path.join(".") : "<root>",
@@ -504,7 +611,7 @@ async function readGateRecord(): Promise<GateRecord> {
     );
   }
   const raw = await readFile(GATE_RECORD_PATH, "utf8");
-  const parsed = GateRecordSchema.safeParse(JSON.parse(raw));
+  const parsed = GateRecordSchema.safeParse(parseJsonWithUniqueKeys(raw));
   if (!parsed.success) {
     const paths = parsed.error.issues.map((issue) =>
       issue.path.length > 0 ? issue.path.join(".") : "<root>",
@@ -518,7 +625,9 @@ async function readGateRecord(): Promise<GateRecord> {
 async function readEvidenceManifest(): Promise<EvidenceManifest | null> {
   try {
     const raw = await readFile(EVIDENCE_MANIFEST_PATH, "utf8");
-    const parsed = EvidenceManifestSchema.safeParse(JSON.parse(raw));
+    const parsed = EvidenceManifestSchema.safeParse(
+      parseJsonWithUniqueKeys(raw),
+    );
     return parsed.success ? parsed.data : null;
   } catch {
     return null;
@@ -663,7 +772,7 @@ async function verifyReviewedEvidenceReference(
   if (!resolvedPath) return false;
   try {
     const contentBytes = await readFile(resolvedPath);
-    const parsedJson = JSON.parse(contentBytes.toString("utf8"));
+    const parsedJson = parseJsonWithUniqueKeys(contentBytes.toString("utf8"));
     const canonicalBytes = Buffer.from(canonicalJson(parsedJson), "utf8");
     if (!contentBytes.equals(canonicalBytes)) return false;
     const digest = createHash("sha256").update(canonicalBytes).digest("hex");
@@ -1115,7 +1224,12 @@ async function collectEvidenceFindings(
   for (const [index, file] of filesToScan.entries()) {
     if (!file.endsWith(".json")) continue;
     try {
-      if (containsSensitiveJsonValue(JSON.parse(evidenceText[index]), file)) {
+      if (
+        containsSensitiveJsonValue(
+          parseJsonWithUniqueKeys(evidenceText[index]),
+          file,
+        )
+      ) {
         jsonSecretFound = true;
       }
     } catch {
