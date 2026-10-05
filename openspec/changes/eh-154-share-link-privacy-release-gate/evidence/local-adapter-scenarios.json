@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "scope": "local-production-adapters",
   "command": "pnpm test:eh154-adapters",
-  "executedAt": "2026-10-04T11:01:20.000Z",
+  "executedAt": "2026-10-05T21:45:00.000Z",
   "scenarios": [
     {
       "id": "invalid-token",
@@ -25,6 +25,36 @@
       "evidence": "verifySharePin rejects a wrong PIN"
     },
     {
+      "id": "pin-success",
+      "status": "blocked",
+      "evidence": "Requires protected-cookie issuance evidence from the reviewed PIN route."
+    },
+    {
+      "id": "pin-proof-missing",
+      "status": "blocked",
+      "evidence": "Requires reviewed-route evidence that a missing proof is denied before bytes."
+    },
+    {
+      "id": "pin-proof-wrong",
+      "status": "blocked",
+      "evidence": "Requires reviewed-route evidence that a wrong proof is denied before bytes."
+    },
+    {
+      "id": "pin-proof-expired",
+      "status": "blocked",
+      "evidence": "Requires reviewed-route evidence that an expired proof is denied before bytes."
+    },
+    {
+      "id": "pin-proof-revoked",
+      "status": "blocked",
+      "evidence": "Requires reviewed-route evidence that a revoked proof is denied before bytes."
+    },
+    {
+      "id": "pin-proof-cross-share",
+      "status": "blocked",
+      "evidence": "Requires reviewed-route evidence that a proof cannot cross share boundaries."
+    },
+    {
       "id": "cross-profile-report",
       "status": "pass",
       "evidence": "getExportableReport resolves only the owner profile"
@@ -33,6 +63,11 @@
       "id": "out-of-scope-document",
       "status": "pass",
       "evidence": "getExportableReport rejects a mismatched report document scope"
+    },
+    {
+      "id": "unapproved-export-format",
+      "status": "blocked",
+      "evidence": "Requires public-share export route evidence for a format omitted from the capability."
     },
     {
       "id": "allowed-report",
@@ -73,6 +108,26 @@
       "id": "trusted-ingress-direct-origin",
       "status": "pass",
       "evidence": "missing trusted ingress peer fails closed"
+    },
+    {
+      "id": "trusted-ingress-valid",
+      "status": "blocked",
+      "evidence": "Requires reviewed deployment evidence for valid attested ingress metadata."
+    },
+    {
+      "id": "trusted-ingress-missing",
+      "status": "blocked",
+      "evidence": "Requires reviewed deployment evidence for missing ingress metadata."
+    },
+    {
+      "id": "trusted-ingress-malformed",
+      "status": "blocked",
+      "evidence": "Requires reviewed deployment evidence for malformed ingress metadata."
+    },
+    {
+      "id": "trusted-ingress-expired",
+      "status": "blocked",
+      "evidence": "Requires reviewed deployment evidence for expired ingress metadata."
     },
     {
       "id": "trusted-ingress-spoofed-headers",
@@ -136,6 +191,50 @@
     }
   ],
   "limitations": [
+    {
+      "id": "pin-success",
+      "reason": "Requires protected-cookie issuance evidence from the reviewed PIN route."
+    },
+    {
+      "id": "pin-proof-missing",
+      "reason": "Requires reviewed-route evidence that a missing proof is denied before bytes."
+    },
+    {
+      "id": "pin-proof-wrong",
+      "reason": "Requires reviewed-route evidence that a wrong proof is denied before bytes."
+    },
+    {
+      "id": "pin-proof-expired",
+      "reason": "Requires reviewed-route evidence that an expired proof is denied before bytes."
+    },
+    {
+      "id": "pin-proof-revoked",
+      "reason": "Requires reviewed-route evidence that a revoked proof is denied before bytes."
+    },
+    {
+      "id": "pin-proof-cross-share",
+      "reason": "Requires reviewed-route evidence that a proof cannot cross share boundaries."
+    },
+    {
+      "id": "unapproved-export-format",
+      "reason": "Requires public-share export route evidence for a format omitted from the capability."
+    },
+    {
+      "id": "trusted-ingress-valid",
+      "reason": "Requires reviewed deployment evidence for valid attested ingress metadata."
+    },
+    {
+      "id": "trusted-ingress-missing",
+      "reason": "Requires reviewed deployment evidence for missing ingress metadata."
+    },
+    {
+      "id": "trusted-ingress-malformed",
+      "reason": "Requires reviewed deployment evidence for malformed ingress metadata."
+    },
+    {
+      "id": "trusted-ingress-expired",
+      "reason": "Requires reviewed deployment evidence for expired ingress metadata."
+    },
     {
       "id": "last-access-monotonic",
       "reason": "Requires concurrent production touch RPC evidence against a provisioned database."

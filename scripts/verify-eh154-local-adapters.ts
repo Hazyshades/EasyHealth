@@ -48,8 +48,15 @@ const REQUIRED_SCENARIOS = [
   "expired-token",
   "revoked-token",
   "pin-failed",
+  "pin-success",
+  "pin-proof-missing",
+  "pin-proof-wrong",
+  "pin-proof-expired",
+  "pin-proof-revoked",
+  "pin-proof-cross-share",
   "cross-profile-report",
   "out-of-scope-document",
+  "unapproved-export-format",
   "allowed-report",
   "denied-raw-document",
   "cache-index-referrer-policy",
@@ -58,6 +65,10 @@ const REQUIRED_SCENARIOS = [
   "rate-limit-requester-dimension",
   "rate-limit-store-unavailable",
   "trusted-ingress-direct-origin",
+  "trusted-ingress-valid",
+  "trusted-ingress-missing",
+  "trusted-ingress-malformed",
+  "trusted-ingress-expired",
   "trusted-ingress-spoofed-headers",
   "last-access-monotonic",
   "key-current",
@@ -616,6 +627,50 @@ async function main(): Promise<void> {
   );
 
   const blocked = new Map<ScenarioId, string>([
+    [
+      "pin-success",
+      "Requires protected-cookie issuance evidence from the reviewed PIN route.",
+    ],
+    [
+      "pin-proof-missing",
+      "Requires reviewed-route evidence that a missing proof is denied before bytes.",
+    ],
+    [
+      "pin-proof-wrong",
+      "Requires reviewed-route evidence that a wrong proof is denied before bytes.",
+    ],
+    [
+      "pin-proof-expired",
+      "Requires reviewed-route evidence that an expired proof is denied before bytes.",
+    ],
+    [
+      "pin-proof-revoked",
+      "Requires reviewed-route evidence that a revoked proof is denied before bytes.",
+    ],
+    [
+      "pin-proof-cross-share",
+      "Requires reviewed-route evidence that a proof cannot cross share boundaries.",
+    ],
+    [
+      "unapproved-export-format",
+      "Requires public-share export route evidence for a format omitted from the capability.",
+    ],
+    [
+      "trusted-ingress-valid",
+      "Requires reviewed deployment evidence for valid attested ingress metadata.",
+    ],
+    [
+      "trusted-ingress-missing",
+      "Requires reviewed deployment evidence for missing ingress metadata.",
+    ],
+    [
+      "trusted-ingress-malformed",
+      "Requires reviewed deployment evidence for malformed ingress metadata.",
+    ],
+    [
+      "trusted-ingress-expired",
+      "Requires reviewed deployment evidence for expired ingress metadata.",
+    ],
     [
       "last-access-monotonic",
       "Requires concurrent production touch RPC evidence against a provisioned database.",

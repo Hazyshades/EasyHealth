@@ -65,12 +65,47 @@
       "evidence": "local-adapter-scenarios.json"
     },
     {
+      "id": "pin-success",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "pin-proof-missing",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "pin-proof-wrong",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "pin-proof-expired",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "pin-proof-revoked",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "pin-proof-cross-share",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
       "id": "cross-profile-report",
       "status": "blocked",
       "evidence": "local-adapter-scenarios.json"
     },
     {
       "id": "out-of-scope-document",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "unapproved-export-format",
       "status": "blocked",
       "evidence": "local-adapter-scenarios.json"
     },
@@ -111,6 +146,26 @@
     },
     {
       "id": "trusted-ingress-direct-origin",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "trusted-ingress-valid",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "trusted-ingress-missing",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "trusted-ingress-malformed",
+      "status": "blocked",
+      "evidence": "local-adapter-scenarios.json"
+    },
+    {
+      "id": "trusted-ingress-expired",
       "status": "blocked",
       "evidence": "local-adapter-scenarios.json"
     },

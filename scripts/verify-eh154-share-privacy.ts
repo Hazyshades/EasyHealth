@@ -18,6 +18,11 @@ const REQUIRED_EVIDENCE_FILES = [
   "local-adapter-scenarios.json",
   "release-gate.json",
 ] as const;
+const SECRET_REFERENCE_PATTERN =
+  /^(?:[a-z][a-z0-9+.-]*:\/\/[^\s]+|[A-Za-z0-9._/-]+(?:#|@)version[=:]?[A-Za-z0-9._-]+)$/iu;
+const SECRET_FINGERPRINT_PATTERN = /^(?:sha256[:/-])?[A-Fa-f0-9]{64}$/u;
+const SECRET_PLACEHOLDER_PATTERN =
+  /^(?:_pending_|pending|reference|fingerprint|version|redacted|ci-placeholder|<[^>]+>)$/iu;
 
 const PRODUCTION_SURFACES = [
   {
@@ -58,8 +63,15 @@ const REQUIRED_SCENARIOS = [
   "expired-token",
   "revoked-token",
   "pin-failed",
+  "pin-success",
+  "pin-proof-missing",
+  "pin-proof-wrong",
+  "pin-proof-expired",
+  "pin-proof-revoked",
+  "pin-proof-cross-share",
   "cross-profile-report",
   "out-of-scope-document",
+  "unapproved-export-format",
   "allowed-report",
   "denied-raw-document",
   "cache-index-referrer-policy",
@@ -68,6 +80,10 @@ const REQUIRED_SCENARIOS = [
   "rate-limit-requester-dimension",
   "rate-limit-store-unavailable",
   "trusted-ingress-direct-origin",
+  "trusted-ingress-valid",
+  "trusted-ingress-missing",
+  "trusted-ingress-malformed",
+  "trusted-ingress-expired",
   "trusted-ingress-spoofed-headers",
   "last-access-monotonic",
   "key-current",
@@ -382,23 +398,35 @@ function validateReadyPrivacyEvidence(
       });
     }
     seenSecretNames.add(entry.name);
-    const reference = [entry.reference, entry.fingerprint].find(
-      (value) =>
-        Boolean(value?.trim()) && !/(?:_pending_|PENDING)/iu.test(value ?? ""),
-    );
+    const reference = [entry.reference, entry.fingerprint].find((value) => {
+      const normalized = value?.trim() ?? "";
+      return (
+        normalized.length > 0 &&
+        !SECRET_PLACEHOLDER_PATTERN.test(normalized) &&
+        (SECRET_REFERENCE_PATTERN.test(normalized) ||
+          SECRET_FINGERPRINT_PATTERN.test(normalized))
+      );
+    });
     if (!reference) {
       findings.push({
         severity: "high",
-        message: `Secret reference or fingerprint is missing: ${entry.name}`,
+        message: `Secret reference or fingerprint is missing or malformed: ${entry.name}`,
       });
-    } else if (
-      !privacySignoffText.includes(entry.name) ||
-      !privacySignoffText.includes(reference)
-    ) {
-      findings.push({
-        severity: "high",
-        message: `Privacy sign-off omits the approved secret reference: ${entry.name}`,
+    } else {
+      const signoffRow = lines.find((line) => {
+        const cells = line.split("|").map((cell) => cell.trim());
+        return cells[1] === entry.name;
       });
+      const signoffReference = signoffRow
+        ?.split("|")[2]
+        ?.replace(/`/gu, "")
+        .trim();
+      if (signoffReference !== reference) {
+        findings.push({
+          severity: "high",
+          message: `Privacy sign-off reference does not match the gate record: ${entry.name}`,
+        });
+      }
     }
   }
   for (const name of requiredSecretNames) {
@@ -472,23 +500,40 @@ function validateReadyPrivacyEvidence(
   return findings;
 }
 
-function containsSensitiveJsonValue(value: unknown, key = ""): boolean {
+function containsSensitiveJsonValue(
+  value: unknown,
+  key = "",
+  contextKey = "",
+): boolean {
   const sensitiveKeyPattern =
     /(?:authorization|bearer|token|pin|proof|cookie|SHARE_RATE_LIMIT_PEPPER|SHARE_PIN_PROOF_PEPPER|SHARE_TRUSTED_PROXY_ATTESTATION_KEY)/iu;
-  const placeholderPattern =
-    /^(?:_pending_|pending|reference|fingerprint|version|redacted|ci-placeholder|<[^>]+>)$/iu;
+  const sensitiveContext =
+    key !== "name" &&
+    (sensitiveKeyPattern.test(key) || sensitiveKeyPattern.test(contextKey));
 
   if (typeof value === "string") {
+    const normalized = value.trim();
+    const isReferenceField = /^(?:reference|fingerprint)$/iu.test(key);
+    const isApprovedReference =
+      SECRET_REFERENCE_PATTERN.test(normalized) ||
+      SECRET_FINGERPRINT_PATTERN.test(normalized);
     return (
-      sensitiveKeyPattern.test(key) && !placeholderPattern.test(value.trim())
+      sensitiveContext &&
+      !SECRET_PLACEHOLDER_PATTERN.test(normalized) &&
+      !(isReferenceField && isApprovedReference)
     );
   }
   if (Array.isArray(value)) {
-    return value.some((item) => containsSensitiveJsonValue(item, key));
+    return value.some((item) =>
+      containsSensitiveJsonValue(item, key, contextKey),
+    );
   }
   if (value !== null && typeof value === "object") {
+    const valueWithName = value as { name?: unknown };
+    const namedContext =
+      typeof valueWithName.name === "string" ? valueWithName.name : contextKey;
     return Object.entries(value).some(([childKey, childValue]) =>
-      containsSensitiveJsonValue(childValue, childKey),
+      containsSensitiveJsonValue(childValue, childKey, namedContext),
     );
   }
   return false;
@@ -536,7 +581,7 @@ async function collectEvidenceFindings(record: GateRecord): Promise<Finding[]> {
   const combinedEvidence = evidenceText.join("\n");
   const secretValuePatterns = [
     /(?:SHARE_RATE_LIMIT_PEPPER|SHARE_PIN_PROOF_PEPPER|SHARE_TRUSTED_PROXY_ATTESTATION_KEY)\s*[:=]\s*(?!["'`]?<(?:reference|fingerprint|version)[^>]*>)(?!["'`]?\b(?:pending|reference|fingerprint|version)\b)["'`]?[A-Za-z0-9+/=_-]{24,}/iu,
-    /["'`]?(?:authorization|bearer|token|pin|proof|cookie)["'`]?\s*[:=]\s*["'`]?(?:bearer\s+)?(?!["'`]?(?:pending|reference|fingerprint|version|redacted)\b)[A-Za-z0-9._+/=-]{24,}/iu,
+    /["'`]?(?:authorization|bearer|token|pin|proof|cookie)["'`]?\s*[:=]\s*["'`]?(?!\b(?:pending|reference|fingerprint|version|redacted|none|null|omitted|never)\b)[A-Za-z0-9._+/=-]{4,}/iu,
   ];
   let jsonSecretFound = false;
   for (const [index, file] of REQUIRED_EVIDENCE_FILES.entries()) {
@@ -704,8 +749,15 @@ function validateRecord(record: GateRecord): Finding[] {
     });
   }
   for (const risk of record.residualRisks) {
-    const expiryMs = Date.parse(`${risk.expiresOn}T23:59:59.999Z`);
+    const [year, month, day] = risk.expiresOn.split("-").map(Number);
+    const expiryDate = new Date(Date.UTC(year, month - 1, day));
+    const calendarDateIsValid =
+      expiryDate.getUTCFullYear() === year &&
+      expiryDate.getUTCMonth() === month - 1 &&
+      expiryDate.getUTCDate() === day;
+    const expiryMs = expiryDate.getTime();
     const expiryInvalid =
+      !calendarDateIsValid ||
       !Number.isFinite(expiryMs) ||
       (record.gateStatus === "ready-with-risk" && expiryMs <= Date.now());
     if (!risk.owner.trim() || expiryInvalid) {

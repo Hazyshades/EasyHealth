@@ -18,6 +18,13 @@ This record is intentionally incomplete until the reviewed build, deployed trust
 - [ ] Token storage proof shows keyed digests only and no plaintext response persistence.
 - [ ] PIN/proof storage proof shows salted verifier material and keyed share-bound proof digests only.
 - [ ] Secret-manager references or approved fingerprints recorded for `SHARE_RATE_LIMIT_PEPPER`, `SHARE_PIN_PROOF_PEPPER`, and `SHARE_TRUSTED_PROXY_ATTESTATION_KEY`. Values are never recorded.
+
+| Secret name                           | Reference or approved fingerprint |
+| ------------------------------------- | --------------------------------- |
+| `SHARE_RATE_LIMIT_PEPPER`             | `_pending_`                       |
+| `SHARE_PIN_PROOF_PEPPER`              | `_pending_`                       |
+| `SHARE_TRUSTED_PROXY_ATTESTATION_KEY` | `_pending_`                       |
+
 - [ ] Deployed non-secret settings recorded:
   - `SHARE_TRUSTED_PROXY_CIDRS`
   - `SHARE_TRUSTED_PROXY_ATTESTATION_MAX_AGE_SECONDS`
@@ -37,15 +44,15 @@ This record is intentionally incomplete until the reviewed build, deployed trust
 
 ## Deployment prerequisites
 
-| Prerequisite                                           | Current state                                  | Evidence required before ready                                               |
-| ------------------------------------------------------ | ---------------------------------------------- | ---------------------------------------------------------------------------- |
-| EH-151 public verifier and all subroutes               | `PARTIAL`                          | Production adapter paths exist; route harness and reviewed deployment artifact    |
-| EH-152 owner management and revoke/replacement surface | `PARTIAL`                          | Owner projection/API paths exist; owner RPC execution and revoke visibility       |
-| EH-153 export adapters                                 | `PARTIAL`                          | Owner export path and local capability checks exist; public-share runtime evidence |
-| Durable deletion handoff                               | `BLOCKED` until committed handoff is available | Tombstone and owner-report-delete evidence                                   |
-| Shared rate-limit store                                | `PENDING`                          | Production RPC health and outage behavior                                    |
-| Secret manager key references                          | `PENDING`                          | Reference/version or approved fingerprint, never value                       |
-| Retention worker and alerts                            | `PENDING`                          | Deployed schedule, cleanup batches, lock and backlog evidence                |
+| Prerequisite                                           | Current state                                  | Evidence required before ready                                                     |
+| ------------------------------------------------------ | ---------------------------------------------- | ---------------------------------------------------------------------------------- |
+| EH-151 public verifier and all subroutes               | `PARTIAL`                                      | Production adapter paths exist; route harness and reviewed deployment artifact     |
+| EH-152 owner management and revoke/replacement surface | `PARTIAL`                                      | Owner projection/API paths exist; owner RPC execution and revoke visibility        |
+| EH-153 export adapters                                 | `PARTIAL`                                      | Owner export path and local capability checks exist; public-share runtime evidence |
+| Durable deletion handoff                               | `BLOCKED` until committed handoff is available | Tombstone and owner-report-delete evidence                                         |
+| Shared rate-limit store                                | `PENDING`                                      | Production RPC health and outage behavior                                          |
+| Secret manager key references                          | `PENDING`                                      | Reference/version or approved fingerprint, never value                             |
+| Retention worker and alerts                            | `PENDING`                                      | Deployed schedule, cleanup batches, lock and backlog evidence                      |
 
 ## Sign-off decision
 
