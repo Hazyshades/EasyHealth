@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { access, readdir, realpath, readFile } from "node:fs/promises";
+import { access, lstat, readdir, realpath, readFile } from "node:fs/promises";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -469,7 +469,24 @@ async function exists(relativePath: string): Promise<boolean> {
   }
 }
 
+async function evidenceRootsAreTrusted(): Promise<boolean> {
+  try {
+    const [changeRootStats, evidenceRootStats] = await Promise.all([
+      lstat(CHANGE_ROOT),
+      lstat(EVIDENCE_ROOT),
+    ]);
+    return changeRootStats.isDirectory() && evidenceRootStats.isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 async function readGateRecord(): Promise<GateRecord> {
+  if (!(await evidenceRootsAreTrusted())) {
+    throw new Error(
+      "CRITICAL: EH-154 change/evidence roots must be regular directories, not symlinks.",
+    );
+  }
   const raw = await readFile(GATE_RECORD_PATH, "utf8");
   const parsed = GateRecordSchema.safeParse(JSON.parse(raw));
   if (!parsed.success) {
@@ -511,6 +528,7 @@ function parseReviewedEvidenceReference(
 }
 
 type EvidenceAnchorExpectation = {
+  id?: string;
   kind: "scenario" | "finding" | "artifact";
   status: "pass" | "resolved" | "reviewed";
 };
@@ -518,6 +536,7 @@ type EvidenceAnchorExpectation = {
 async function resolveEvidenceArtifactPath(
   artifactPath: string,
 ): Promise<string | null> {
+  if (!(await evidenceRootsAreTrusted())) return null;
   try {
     const evidenceRootRealPath = await realpath(EVIDENCE_ROOT);
     const candidateRealPath = await realpath(
@@ -620,6 +639,7 @@ async function verifyReviewedEvidenceReference(
     if (matchingAnchors.length !== 1) return false;
     const [anchor] = matchingAnchors;
     return (
+      (!expectation.id || anchor.id === expectation.id) &&
       anchor.kind === expectation.kind &&
       anchor.status === expectation.status &&
       anchor.reviewedBuild === record.reviewedBuild &&
@@ -1204,7 +1224,7 @@ async function validateReleaseRecord(
         evidence,
         evidenceManifest,
         record,
-        { kind: "scenario", status: "pass" },
+        { id: scenarioId, kind: "scenario", status: "pass" },
       );
       if (!evidenceVerified) {
         findings.push({
@@ -1266,7 +1286,7 @@ async function validateReleaseRecord(
       closure,
       evidenceManifest,
       record,
-      { kind: "finding", status: "resolved" },
+      { id: finding.id, kind: "finding", status: "resolved" },
     );
     if (
       matchingRows.length !== 1 ||
@@ -1449,7 +1469,7 @@ async function validateRecord(
                 reviewedResult.evidence,
                 evidenceManifest,
                 record,
-                { kind: "scenario", status: "pass" },
+                { id: scenario.id, kind: "scenario", status: "pass" },
               )
             : false;
           if (
