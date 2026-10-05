@@ -150,6 +150,22 @@ type FindingSeverity = "low" | "medium" | "high" | "critical";
 type FindingStatus = "open" | "resolved";
 type ScenarioStatus = "pass" | "fail" | "blocked" | "not-run";
 
+const REQUIRED_PRIVACY_ARTIFACT_ANCHORS = {
+  "Final share scope matrix": "final-share-scope-matrix",
+  "Access-event field list and retention decision":
+    "access-event-field-list-retention-decision",
+  "Token storage proof": "token-storage-proof",
+  "PIN/proof storage proof": "pin-proof-storage-proof",
+  "Trusted-ingress artifact": "trusted-ingress-artifact",
+  "Shared Postgres rate-limit storage": "shared-postgres-rate-limit-storage",
+  "Access-event, rate-limit-bucket, and expired-proof cleanup schedules":
+    "access-event-rate-limit-expired-proof-cleanup-schedules",
+  "Durable document tombstone/report invalidation/final-purge handoff":
+    "durable-document-tombstone-report-invalidation-final-purge-handoff",
+  "Focused route, header, event, rate-limit, key-rotation, and raw-download evidence":
+    "focused-route-header-event-rate-limit-key-rotation-raw-download-evidence",
+  "Incident runbook is reviewed": "incident-runbook-reviewed",
+} as const;
 type GateRecord = {
   schemaVersion: number;
   gateStatus: GateStatus;
@@ -583,6 +599,37 @@ async function enumerateEvidenceTree(
   return tree;
 }
 
+function canonicalJsonValue(value: unknown): string {
+  if (value === null) return "null";
+  if (typeof value === "string" || typeof value === "boolean") {
+    return JSON.stringify(value);
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      throw new Error("Evidence JSON cannot contain a non-finite number.");
+    }
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalJsonValue).join(",")}]`;
+  }
+  if (typeof value === "object") {
+    const objectValue = value as Record<string, unknown>;
+    return `{${Object.keys(objectValue)
+      .sort()
+      .map(
+        (key) =>
+          `${JSON.stringify(key)}:${canonicalJsonValue(objectValue[key])}`,
+      )
+      .join(",")}}`;
+  }
+  throw new Error("Evidence JSON contains an unsupported value.");
+}
+
+function canonicalJson(value: unknown): string {
+  return `${canonicalJsonValue(value)}\n`;
+}
+
 async function verifyReviewedEvidenceReference(
   reference: string,
   manifest: EvidenceManifest | null,
@@ -616,16 +663,17 @@ async function verifyReviewedEvidenceReference(
   if (!resolvedPath) return false;
   try {
     const contentBytes = await readFile(resolvedPath);
-    const digest = createHash("sha256").update(contentBytes).digest("hex");
+    const parsedJson = JSON.parse(contentBytes.toString("utf8"));
+    const canonicalBytes = Buffer.from(canonicalJson(parsedJson), "utf8");
+    if (!contentBytes.equals(canonicalBytes)) return false;
+    const digest = createHash("sha256").update(canonicalBytes).digest("hex");
     if (
       digest !== parsedReference.sha256 ||
       digest !== artifact.sha256.toLowerCase()
     ) {
       return false;
     }
-    const parsedContent = EvidenceArtifactContentSchema.safeParse(
-      JSON.parse(contentBytes.toString("utf8")),
-    );
+    const parsedContent = EvidenceArtifactContentSchema.safeParse(parsedJson);
     if (!parsedContent.success) return false;
     if (
       parsedContent.data.reviewedBuild !== record.reviewedBuild ||
@@ -817,18 +865,9 @@ async function validateReadyPrivacyEvidence(
       });
     }
   }
-  const requiredPrivacyArtifacts = [
-    "Final share scope matrix",
-    "Access-event field list and retention decision",
-    "Token storage proof",
-    "PIN/proof storage proof",
-    "Trusted-ingress artifact",
-    "Shared Postgres rate-limit storage",
-    "Access-event, rate-limit-bucket, and expired-proof cleanup schedules",
-    "Durable document tombstone/report invalidation/final-purge handoff",
-    "Focused route, header, event, rate-limit, key-rotation, and raw-download evidence",
-    "Incident runbook is reviewed",
-  ];
+  const requiredPrivacyArtifacts = Object.keys(
+    REQUIRED_PRIVACY_ARTIFACT_ANCHORS,
+  ) as Array<keyof typeof REQUIRED_PRIVACY_ARTIFACT_ANCHORS>;
   const readRequiredPackageValue = (label: string): string | null => {
     const matchingRows = requiredPackageLines.filter((line) => {
       const cells = line.split("|").map((cell) => cell.trim());
@@ -844,6 +883,7 @@ async function validateReadyPrivacyEvidence(
       !!value &&
       !SECRET_PLACEHOLDER_PATTERN.test(value) &&
       (await verifyReviewedEvidenceReference(value, evidenceManifest, record, {
+        id: REQUIRED_PRIVACY_ARTIFACT_ANCHORS[label],
         kind: "artifact",
         status: "reviewed",
       }));
@@ -1275,9 +1315,11 @@ async function validateReleaseRecord(
       closureEvidence: cells[5] ?? "",
     };
   });
-  for (const finding of record.findings.filter((item) =>
-    ["high", "critical"].includes(item.severity),
-  )) {
+  for (const finding of record.findings) {
+    const requiresClosure =
+      finding.status === "resolved" ||
+      ["high", "critical"].includes(finding.severity);
+    if (!requiresClosure) continue;
     const matchingRows = blockingFindings.filter(
       (row) => row.id === finding.id,
     );
@@ -1329,6 +1371,19 @@ async function isCommitObject(commit: string | null): Promise<boolean> {
   }
 }
 
+async function isWorkingTreeClean(): Promise<boolean> {
+  try {
+    const { stdout } = await execFileAsync("git", [
+      "status",
+      "--porcelain=v1",
+      "--untracked-files=all",
+    ]);
+    return stdout.toString().trim() === "";
+  } catch {
+    return false;
+  }
+}
+
 async function reviewedSourceMatchesCurrent(
   reviewedBuild: string,
   currentCommit: string,
@@ -1361,6 +1416,14 @@ async function validateReviewedBuild(
   if (record.gateStatus === "blocked" || !localAdapterRun) return [];
 
   const findings: Finding[] = [];
+  if (!(await isWorkingTreeClean())) {
+    findings.push({
+      severity: "high",
+      message:
+        "Releasable EH-154 evidence requires a clean worktree matching the reviewed build.",
+    });
+    return findings;
+  }
   if (
     !record.reviewedBuild ||
     !localAdapterRun.reviewedBuild ||

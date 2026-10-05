@@ -77,8 +77,10 @@ result for that scenario; a releasable record requires every result to be
 evidence references MUST use the verifier-resolved form
 `evidence://<immutable-artifact-id>#<scenario-id>@sha256:<64-hex-digest>`.
 The matching `evidence-manifest.json` entry MUST bind the artifact to the
-reviewed build and immutable deployment digest. `pending`, `not-run`, `n/a`,
-prose, and unresolvable references are not valid evidence references.
+reviewed build and immutable deployment digest. Artifact bytes must be canonical
+JSON (sorted object keys, preserved array order, one trailing newline); the
+manifest digest is the SHA-256 of those exact UTF-8 bytes. `pending`, `not-run`,
+`n/a`, prose, and unresolvable references are not valid evidence references.
 
 | Scenario ID                       | Result    | Evidence  |
 | --------------------------------- | --------- | --------- |

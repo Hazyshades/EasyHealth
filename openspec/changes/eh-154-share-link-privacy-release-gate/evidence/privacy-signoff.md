@@ -49,6 +49,18 @@ This record is intentionally incomplete until the reviewed build, deployed trust
 
 For a ready gate, artifact values use the verifier-resolved form
 `evidence://<immutable-artifact-id>#<artifact-anchor>@sha256:<64-hex-digest>`.
+
+The required privacy artifact anchors are stable and label-specific:
+`Final share scope matrix` → `final-share-scope-matrix`, `Access-event field
+list and retention decision` → `access-event-field-list-retention-decision`,
+`Token storage proof` → `token-storage-proof`, `PIN/proof storage proof` →
+`pin-proof-storage-proof`, `Trusted-ingress artifact` →
+`trusted-ingress-artifact`, `Shared Postgres rate-limit storage` →
+`shared-postgres-rate-limit-storage`, cleanup schedules →
+`access-event-rate-limit-expired-proof-cleanup-schedules`, durable deletion →
+`durable-document-tombstone-report-invalidation-final-purge-handoff`, focused
+evidence → `focused-route-header-event-rate-limit-key-rotation-raw-download-evidence`,
+and the incident runbook → `incident-runbook-reviewed`.
 The evidence manifest binds each artifact to the reviewed build and immutable
 deployment digest; settings may be concrete values within the documented
 domain or the same resolved evidence reference.
