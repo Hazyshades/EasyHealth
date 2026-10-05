@@ -44,6 +44,18 @@ async function getCurrentCommit(): Promise<string | null> {
     return null;
   }
 }
+async function isWorkingTreeClean(): Promise<boolean> {
+  try {
+    const { stdout } = await execFileAsync("git", [
+      "status",
+      "--porcelain=v1",
+      "--untracked-files=all",
+    ]);
+    return stdout.toString().trim() === "";
+  } catch {
+    return false;
+  }
+}
 
 const EVIDENCE_PATH = path.resolve(
   "openspec/changes/eh-154-share-link-privacy-release-gate/evidence/local-adapter-scenarios.json",
@@ -284,7 +296,14 @@ function shareLinks() {
 
 async function main(): Promise<void> {
   configureShareTestEnvironment();
-  const reviewedBuild = await getCurrentCommit();
+  const worktreeClean = await isWorkingTreeClean();
+  const reviewedBuild = worktreeClean ? await getCurrentCommit() : null;
+  const writeEvidence = process.argv.includes("--write-evidence");
+  if (writeEvidence && !worktreeClean) {
+    throw new Error(
+      "Cannot write adapter evidence from a dirty worktree; commit or discard all changes first.",
+    );
+  }
   const results = new Map<ScenarioId, ScenarioResult>();
   const failures: string[] = [];
   const resolver = reportReadResolver();
@@ -740,7 +759,7 @@ async function main(): Promise<void> {
   };
 
   console.log(JSON.stringify(run, null, 2));
-  if (process.argv.includes("--write-evidence")) {
+  if (writeEvidence) {
     await mkdir(path.dirname(EVIDENCE_PATH), { recursive: true });
     await writeFile(EVIDENCE_PATH, `${JSON.stringify(run, null, 2)}\n`, "utf8");
     console.log(`wrote ${path.relative(process.cwd(), EVIDENCE_PATH)}`);

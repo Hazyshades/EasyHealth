@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import { access } from "node:fs/promises";
+import { access, readdir, realpath, readFile } from "node:fs/promises";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -42,11 +41,17 @@ const SECRET_REFERENCE_PATTERN =
   /^(?:(?:secret|vault|aws-secretsmanager|gcp-secretmanager|azure-keyvault|keyvault):\/\/[A-Za-z0-9._/-]+(?:[#@]version[=:]?[A-Za-z0-9._-]+)?)$/iu;
 const SECRET_FINGERPRINT_PATTERN = /^(?:sha256[:/-])?[A-Fa-f0-9]{64}$/u;
 const SECRET_PLACEHOLDER_PATTERN =
-  /^(?:_pending_|pending|reference|fingerprint|version|redacted|none|null|omitted|never|ci-placeholder|<[^>]+>)$/iu;
+  /^(?:_pending_|pending|reference|fingerprint|version|redacted|none|null|unknown|tbd|unassigned|n\/a|omitted|never|ci-placeholder|<[^>]+>)$/iu;
 const REVIEWED_EVIDENCE_REFERENCE_PATTERN =
   /^evidence:\/\/([A-Za-z0-9._/-]+)#([A-Za-z0-9._-]+)@sha256:([A-Fa-f0-9]{64})$/u;
 const DEPLOYMENT_REFERENCE_PATTERN =
   /^(?:(?:deployment|config|artifact):\/\/[A-Za-z0-9._/-]+#sha256:[A-Fa-f0-9]{64}|sha256:[A-Fa-f0-9]{64})$/iu;
+function hasConcreteReference(
+  value: string | null | undefined,
+): value is string {
+  const normalized = value?.trim() ?? "";
+  return normalized.length > 0 && !SECRET_PLACEHOLDER_PATTERN.test(normalized);
+}
 const TRUSTED_CIDRS_PATTERN =
   /^(?:(?:(?:25[0-5]|2[0-4]\d|1\d\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[01]?\d\d?)\/(?:\d|[12]\d|3[0-2]))(?:\s*,\s*(?:(?:(?:25[0-5]|2[0-4]\d|1\d\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[01]?\d\d?)\/(?:\d|[12]\d|3[0-2])))*$/u;
 const PRIVACY_SETTING_RANGES: Record<string, readonly [number, number]> = {
@@ -238,6 +243,22 @@ const GateRecordSchema = z
   })
   .strict();
 
+const EvidenceAnchorSchema = z
+  .object({
+    id: z.string().regex(/^[A-Za-z0-9._/-]+$/u),
+    kind: z.enum(["scenario", "finding", "artifact"]),
+    status: z.enum(["pass", "resolved", "reviewed"]),
+    reviewedBuild: z.string().regex(/^[0-9a-f]{7,64}$/iu),
+    reviewedDeployment: z
+      .string()
+      .refine(
+        (value) => DEPLOYMENT_REFERENCE_PATTERN.test(value),
+        "Evidence anchors require an immutable deployment reference.",
+      ),
+    payload: z.unknown().optional(),
+  })
+  .strict();
+
 const EvidenceArtifactSchema = z
   .object({
     id: z.string().regex(/^[A-Za-z0-9._/-]+$/u),
@@ -249,6 +270,10 @@ const EvidenceArtifactSchema = z
           !path.isAbsolute(value) &&
           !value.split(/[\\/]/u).some((segment) => segment === ".."),
         "Evidence artifact paths must remain under the evidence directory.",
+      )
+      .refine(
+        (value) => value.toLowerCase().endsWith(".json"),
+        "Evidence artifacts must use the canonical JSON format.",
       ),
     sha256: z.string().regex(/^[A-Fa-f0-9]{64}$/u),
     reviewedBuild: z.string().regex(/^[0-9a-f]{7,64}$/iu),
@@ -287,6 +312,26 @@ const EvidenceManifestSchema = z
   .strict();
 
 type EvidenceManifest = z.infer<typeof EvidenceManifestSchema>;
+const EvidenceArtifactContentSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    reviewedBuild: z.string().regex(/^[0-9a-f]{7,64}$/iu),
+    reviewedDeployment: z
+      .string()
+      .refine(
+        (value) => DEPLOYMENT_REFERENCE_PATTERN.test(value),
+        "Evidence artifacts require an immutable deployment reference.",
+      ),
+    anchors: z
+      .array(EvidenceAnchorSchema)
+      .min(1)
+      .refine(
+        (anchors) =>
+          new Set(anchors.map((anchor) => anchor.id)).size === anchors.length,
+        "Evidence artifact anchors must be unique.",
+      ),
+  })
+  .strict();
 
 const LocalAdapterRunSchema = z
   .object({
@@ -465,16 +510,65 @@ function parseReviewedEvidenceReference(
   };
 }
 
-function resolveEvidenceArtifactPath(artifactPath: string): string | null {
-  const resolvedPath = path.resolve(EVIDENCE_ROOT, artifactPath);
-  const evidenceRootPrefix = `${EVIDENCE_ROOT}${path.sep}`;
-  return resolvedPath.startsWith(evidenceRootPrefix) ? resolvedPath : null;
+type EvidenceAnchorExpectation = {
+  kind: "scenario" | "finding" | "artifact";
+  status: "pass" | "resolved" | "reviewed";
+};
+
+async function resolveEvidenceArtifactPath(
+  artifactPath: string,
+): Promise<string | null> {
+  try {
+    const evidenceRootRealPath = await realpath(EVIDENCE_ROOT);
+    const candidateRealPath = await realpath(
+      path.resolve(EVIDENCE_ROOT, artifactPath),
+    );
+    const relativePath = path.relative(evidenceRootRealPath, candidateRealPath);
+    if (
+      !relativePath ||
+      relativePath === ".." ||
+      relativePath.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relativePath)
+    ) {
+      return null;
+    }
+    return candidateRealPath;
+  } catch {
+    return null;
+  }
+}
+type EvidenceTree = {
+  files: string[];
+  symlinks: string[];
+};
+
+async function enumerateEvidenceTree(
+  relativeDirectory = "",
+): Promise<EvidenceTree> {
+  const entries = await readdir(path.join(EVIDENCE_ROOT, relativeDirectory), {
+    withFileTypes: true,
+  });
+  const tree: EvidenceTree = { files: [], symlinks: [] };
+  for (const entry of entries) {
+    const relativePath = path.join(relativeDirectory, entry.name);
+    if (entry.isSymbolicLink()) {
+      tree.symlinks.push(relativePath);
+    } else if (entry.isDirectory()) {
+      const nested = await enumerateEvidenceTree(relativePath);
+      tree.files.push(...nested.files);
+      tree.symlinks.push(...nested.symlinks);
+    } else if (entry.isFile()) {
+      tree.files.push(relativePath);
+    }
+  }
+  return tree;
 }
 
 async function verifyReviewedEvidenceReference(
   reference: string,
   manifest: EvidenceManifest | null,
   record: Pick<GateRecord, "reviewedBuild" | "reviewedDeployment">,
+  expectation: EvidenceAnchorExpectation,
 ): Promise<boolean> {
   const parsedReference = parseReviewedEvidenceReference(reference);
   if (
@@ -499,15 +593,37 @@ async function verifyReviewedEvidenceReference(
   ) {
     return false;
   }
-  const resolvedPath = resolveEvidenceArtifactPath(artifact.path);
+  const resolvedPath = await resolveEvidenceArtifactPath(artifact.path);
   if (!resolvedPath) return false;
   try {
-    const digest = createHash("sha256")
-      .update(await readFile(resolvedPath))
-      .digest("hex");
+    const contentBytes = await readFile(resolvedPath);
+    const digest = createHash("sha256").update(contentBytes).digest("hex");
+    if (
+      digest !== parsedReference.sha256 ||
+      digest !== artifact.sha256.toLowerCase()
+    ) {
+      return false;
+    }
+    const parsedContent = EvidenceArtifactContentSchema.safeParse(
+      JSON.parse(contentBytes.toString("utf8")),
+    );
+    if (!parsedContent.success) return false;
+    if (
+      parsedContent.data.reviewedBuild !== record.reviewedBuild ||
+      parsedContent.data.reviewedDeployment !== record.reviewedDeployment
+    ) {
+      return false;
+    }
+    const matchingAnchors = parsedContent.data.anchors.filter(
+      (anchor) => anchor.id === parsedReference.anchor,
+    );
+    if (matchingAnchors.length !== 1) return false;
+    const [anchor] = matchingAnchors;
     return (
-      digest === parsedReference.sha256 &&
-      digest === artifact.sha256.toLowerCase()
+      anchor.kind === expectation.kind &&
+      anchor.status === expectation.status &&
+      anchor.reviewedBuild === record.reviewedBuild &&
+      anchor.reviewedDeployment === record.reviewedDeployment
     );
   } catch {
     return false;
@@ -707,7 +823,10 @@ async function validateReadyPrivacyEvidence(
     const validReference =
       !!value &&
       !SECRET_PLACEHOLDER_PATTERN.test(value) &&
-      (await verifyReviewedEvidenceReference(value, evidenceManifest, record));
+      (await verifyReviewedEvidenceReference(value, evidenceManifest, record, {
+        kind: "artifact",
+        status: "reviewed",
+      }));
     if (!validReference) {
       findings.push({
         severity: "high",
@@ -727,7 +846,15 @@ async function validateReadyPrivacyEvidence(
       !!value &&
       !SECRET_PLACEHOLDER_PATTERN.test(value) &&
       (REVIEWED_EVIDENCE_REFERENCE_PATTERN.test(value)
-        ? await verifyReviewedEvidenceReference(value, evidenceManifest, record)
+        ? await verifyReviewedEvidenceReference(
+            value,
+            evidenceManifest,
+            record,
+            {
+              kind: "artifact",
+              status: "reviewed",
+            },
+          )
         : label === "SHARE_TRUSTED_PROXY_CIDRS"
           ? TRUSTED_CIDRS_PATTERN.test(value)
           : !!range &&
@@ -755,10 +882,8 @@ async function validateReadyPrivacyEvidence(
   const privacyOwnerReference = privacyOwnerCells[3]?.replace(/`/gu, "").trim();
   if (
     privacyDecision !== "APPROVED" ||
-    !privacyOwnerReference ||
-    SECRET_PLACEHOLDER_PATTERN.test(privacyOwnerReference) ||
-    !privacyApprover ||
-    SECRET_PLACEHOLDER_PATTERN.test(privacyApprover) ||
+    !hasConcreteReference(privacyOwnerReference) ||
+    !hasConcreteReference(privacyApprover) ||
     privacyOwnerReference !== privacyApprover
   ) {
     findings.push({
@@ -863,16 +988,31 @@ async function collectEvidenceFindings(
     });
   } else {
     for (const artifact of evidenceManifest.artifacts) {
-      if (
-        !resolveEvidenceArtifactPath(artifact.path) ||
-        !(await exists(path.join(EVIDENCE_ROOT, artifact.path)))
-      ) {
+      const resolvedArtifactPath = await resolveEvidenceArtifactPath(
+        artifact.path,
+      );
+      if (!resolvedArtifactPath || !(await exists(resolvedArtifactPath))) {
         findings.push({
           severity: "high",
           message: `Evidence artifact is missing or escapes the evidence directory: ${artifact.id}`,
         });
       }
     }
+  }
+  let evidenceTree: EvidenceTree = { files: [], symlinks: [] };
+  try {
+    evidenceTree = await enumerateEvidenceTree();
+  } catch {
+    findings.push({
+      severity: "critical",
+      message: "Evidence directory cannot be enumerated.",
+    });
+  }
+  for (const symlink of evidenceTree.symlinks) {
+    findings.push({
+      severity: "high",
+      message: `Evidence directory contains an unsupported symlink: ${symlink}`,
+    });
   }
 
   const ingressArtifact =
@@ -897,10 +1037,8 @@ async function collectEvidenceFindings(
     }
   }
 
-  const artifactFiles =
-    evidenceManifest?.artifacts.map((artifact) => artifact.path) ?? [];
   const filesToScan = [
-    ...new Set([...REQUIRED_EVIDENCE_FILES, ...artifactFiles]),
+    ...new Set([...REQUIRED_EVIDENCE_FILES, ...evidenceTree.files]),
   ];
   const evidenceText = await Promise.all(
     filesToScan.map((file) =>
@@ -1066,6 +1204,7 @@ async function validateReleaseRecord(
         evidence,
         evidenceManifest,
         record,
+        { kind: "scenario", status: "pass" },
       );
       if (!evidenceVerified) {
         findings.push({
@@ -1127,6 +1266,7 @@ async function validateReleaseRecord(
       closure,
       evidenceManifest,
       record,
+      { kind: "finding", status: "resolved" },
     );
     if (
       matchingRows.length !== 1 ||
@@ -1309,6 +1449,7 @@ async function validateRecord(
                 reviewedResult.evidence,
                 evidenceManifest,
                 record,
+                { kind: "scenario", status: "pass" },
               )
             : false;
           if (
@@ -1375,7 +1516,7 @@ async function validateRecord(
         "No valid immutable reviewed deployment configuration reference is recorded.",
     });
   }
-  if (!record.evidenceOwner) {
+  if (!hasConcreteReference(record.evidenceOwner)) {
     findings.push({
       severity: "high",
       message: "No evidence owner is recorded.",
@@ -1451,7 +1592,7 @@ async function validateRecord(
       !calendarDateIsValid ||
       !Number.isFinite(expiryMs) ||
       (record.gateStatus === "ready-with-risk" && expiryMs <= Date.now());
-    if (!risk.owner.trim() || expiryInvalid) {
+    if (!hasConcreteReference(risk.owner) || expiryInvalid) {
       findings.push({
         severity: "high",
         message: `Residual risk ${risk.id} lacks a valid future expiry or owner.`,
