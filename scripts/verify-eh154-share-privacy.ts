@@ -1110,7 +1110,7 @@ const IP_LITERAL_PATTERN =
 const RAW_ADDRESS_KEY_PATTERN =
   /^(?:client[\s_.-]?(?:ip|addr|address)|remote[\s_.-]?(?:addr|address|ip)|requester[\s_.-]?(?:addr|address|ip)|forwarded[\s_.-]?(?:for|addr|address|ip)|x[\s_.-]?forwarded[\s_.-]?(?:for|host|addr|address|ip)|ip(?:v[46])?[\s_.-]?(?:addr|address)?)$/iu;
 const RAW_ADDRESS_FIELD_PATTERN =
-  /(?:^|[|{}\s"'`])(?:client[\s_.-]?(?:ip|addr|address)|remote[\s_.-]?(?:addr|address|ip)|requester[\s_.-]?(?:addr|address|ip)|forwarded[\s_.-]?(?:for|addr|address|ip)|x[\s_.-]?forwarded[\s_.-]?(?:for|host|addr|address|ip)|ip(?:v[46])?[\s_.-]?(?:addr|address)?)\s*(?::|=|\||$)/imu;
+  /(?:^|[|{}\s"'`])(?:client[\s_.-]?(?:ip|addr|address)|remote[\s_.-]?(?:addr|address|ip)|requester[\s_.-]?(?:addr|address|ip)|forwarded[\s_.-]?(?:for|addr|address|ip)|x[\s_.-]?forwarded[\s_.-]?(?:for|host|addr|address|ip)|ip(?:v[46])?[\s_.-]?(?:addr|address)?)\s*(?::|=|\|)/imu;
 
 function containsRawIpAddress(value: string): boolean {
   for (const match of value.matchAll(IP_LITERAL_PATTERN)) {
