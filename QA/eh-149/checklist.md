@@ -110,4 +110,12 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 
 - Clinical interpretation rules and Registry definition changes are out of scope. The direction policy is numeric movement only and is not a clinical cutoff.
 - PDF/CSV rendering is covered by EH-153; sharing/privacy controls are covered by EH-151 and EH-154.
-- Manual UI rows remain `N/A` until an authenticated environment with synthetic fixtures is available. The unauthenticated route was exercised and redirected to sign-in; the dynamics surface itself was not claimed as manually passed.
+- Historical `N/A` entries above predate the local authenticated fixture. The current run below covers the available profile-current dynamics UI; incompatible-series, conversion, qualitative, and report-frozen scenarios remain unexecuted.
+
+## Sprint 7 integration run: 2026-10-06
+
+- **Environment:** Local Supabase, local Next.js at `http://localhost:3000`, authenticated synthetic owner account, and three same-definition Glucose observations from `Synthetic QA Lab`.
+- **UI period and statistics:** `PASS` for the available compatible series. Setting `2026-09-01` through `2026-10-01` reduced the series from 3 to 2 points, showing dates `2026-09-10` and `2026-10-01`; **Clear range** restored all 3 points. The UI showed min `97.308 mg/dL`, max `109.922 mg/dL`, latest `109.922 mg/dL`, and `Direction: Not available` with the approved-threshold limitation.
+- **UI provenance:** `PASS` for the available source path. Each point showed its laboratory-native value and range, synthetic lab, date, and **Open source** control. The **Attention** filter isolated the latest high-in-display-unit point; **All** restored the three rows.
+- **Backend:** `PASS`. Authenticated `/api/biomarkers` returned 3 registry-ready, trend-eligible observations. `/api/biomarkers/dynamics` returned HTTP 200 with 3 points, and the ranged request returned 2 points. `pnpm test:eh149` passed.
+- **Not executed:** incompatible specimen/unit separation, qualitative-only direction, conversion-specific provenance, tie ordering, and frozen report dynamics binding. No pass is claimed for those cases.

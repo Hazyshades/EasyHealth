@@ -127,12 +127,19 @@ This checklist covers the source-grounded Doctor Visit Brief: typed sections, ex
 - `pnpm test:eh148-contract` passed after updating the fixture to use a valid-shaped unknown source ID.
 - `pnpm exec supabase db lint --local` reports 0 errors and 21 pre-existing warnings, none in EH-148 functions; migration 083 applies cleanly to the local stack.
 - The generation seam is server-owned: the model returns only a selection, `src/lib/report-candidate.ts` builds the validator envelope, and `pnpm test:eh148-db` sends that exact payload through the real RPC.
-- Fixture limitation: the local smoke observations are not registry-resolved (`incomplete_resolution`), so `Latest measurements` and `Changes over time` stayed empty in the UI run. The numeric path is covered by the contract verifier and by the pgTAP fixture, which includes `numeric_observation` claims; producing registry-resolved local fixtures needs the Registry writer fixtures owned outside EH-148.
+- Historical fixture limitation: the earlier local smoke used unresolved observations, so `Latest measurements` and `Changes over time` were empty. The 2026-10-06 Sprint 7 run seeded a valid synthetic resolver trace and exercised the resolved numeric path under EH-149.
 - `pnpm preflight:document-deletion` still reports the repository's live-target and worker-dependency blockers and is not treated as a pass.
-- The report create form now carries the EH-149 dynamics-period control, and the detail page renders the frozen extension. `QA/eh-149/**` is EH-149-owned, so this change leaves that checklist untouched; its owner should refresh `EH149-UI-05` separately.
+- The report create form carries the EH-149 dynamics-period control, and the 2026-10-06 resolved biomarker UI/API evidence is recorded in `QA/eh-149/checklist.md`; frozen report dynamics binding remains separate.
 - A selection that cites a source outside the catalog now fails closed with HTTP 422 `report_validation_failed`: no report, no evidence mapping, and the unknown identifier is never rendered.
 
 ## Out of scope or not manually testable yet
 
 - Citation semantics, token verification, access logs, and export format fidelity are covered by EH-150, EH-151/EH-152, and EH-153.
 - Legacy-row presentation (`EH148-UI-04`) still needs a legacy fixture row; the resolver contract itself is covered by `pnpm test:eh148-contract`.
+## Sprint 7 integration run: 2026-10-06
+
+- **Environment:** Local Supabase, local Next.js at `http://localhost:3000`, authenticated synthetic owner account, and synthetic `EH147-UI-CORRECT-OCR.pdf`.
+- **UI result:** `PASS`. The seeded validated Doctor Visit Brief opened in **Reports**, rendered the canonical sections, source ledger, source-backed measurement claim, selected clinician question, limitations state, and medical disclaimer. No diagnosis or treatment instruction appeared.
+- **Backend result:** `PASS`. `/api/reports/{id}` returned the structured report with `can_share` and `can_export`; `pnpm test:eh148-contract` and `pnpm test:eh148-db` passed. The local EH-104 durable-deletion database contract also passed.
+- **Export boundary:** CSV and JSON owner exports passed. PDF remains **BLOCKED** by `PDF_RENDER_FAILED` because `@react-pdf/renderer` is not resolvable in the local runtime; see EH-153.
+- **Processing limitation:** Upload queued correctly, but the worker could not reach `https://api.openai.com/v1/responses`; the QA report therefore used a locally seeded validated fixture, not AI-generated output.
