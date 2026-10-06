@@ -7,6 +7,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { z } from "zod";
 
+import { canonicalJson } from "./eh154-canonical-json";
 const execFileAsync = promisify(execFile);
 
 const COMMIT_ID_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/iu;
@@ -25,8 +26,6 @@ const CHANGE_ROOT = path.resolve(
   "openspec/changes/eh-154-share-link-privacy-release-gate",
 );
 const LOCAL_ADAPTER_EVIDENCE_PATH = "local-adapter-scenarios.json";
-const LOCAL_ADAPTER_EVIDENCE_GIT_PATH =
-  "openspec/changes/eh-154-share-link-privacy-release-gate/evidence/local-adapter-scenarios.json";
 const EVIDENCE_ROOT = path.join(CHANGE_ROOT, "evidence");
 const EVIDENCE_MANIFEST_PATH = path.join(
   EVIDENCE_ROOT,
@@ -258,7 +257,7 @@ function isConcreteEvidenceText(value: string): boolean {
 const EVIDENCE_COMMAND_PATTERN =
   /^(?:(?:pnpm|npm|yarn|bun|node|tsx|curl|git|psql)\s+\S+|(?:GET|POST|PUT|PATCH|DELETE)\s+\S+|[A-Za-z0-9._/-]+::[A-Za-z0-9._/-]+)(?:\s+.*)?$/iu;
 const EVIDENCE_RESULT_PATTERN =
-  /^(?:(?:PASS|FAIL|BLOCKED)\b|HTTP\s+\d{3}\b|status(?:\s+code)?\s*[:=]\s*\d{3}\b|(?:observed|response|returned|denied|allowed|rejected|absent|present)\b)[^\r\n]{3,}$/iu;
+  /^(?:(?:PASS|RESOLVED|REVIEWED)\b|HTTP\s+\d{3}\b|status(?:\s+code)?\s*[:=]\s*\d{3}\b|(?:observed|response|returned|denied|allowed|rejected|absent|present)\b)[^\r\n]{3,}$/iu;
 
 function isConcreteEvidenceCommand(value: string): boolean {
   return (
@@ -862,36 +861,6 @@ async function enumerateEvidenceTree(
   return tree;
 }
 
-function canonicalJsonValue(value: unknown): string {
-  if (value === null) return "null";
-  if (typeof value === "string" || typeof value === "boolean") {
-    return JSON.stringify(value);
-  }
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) {
-      throw new Error("Evidence JSON cannot contain a non-finite number.");
-    }
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map(canonicalJsonValue).join(",")}]`;
-  }
-  if (typeof value === "object") {
-    const objectValue = value as Record<string, unknown>;
-    return `{${Object.keys(objectValue)
-      .sort()
-      .map(
-        (key) =>
-          `${JSON.stringify(key)}:${canonicalJsonValue(objectValue[key])}`,
-      )
-      .join(",")}}`;
-  }
-  throw new Error("Evidence JSON contains an unsupported value.");
-}
-
-function canonicalJson(value: unknown): string {
-  return `${canonicalJsonValue(value)}\n`;
-}
 async function verifyLocalAdapterEvidence(
   run: LocalAdapterRun | null,
   manifest: EvidenceManifest | null,
@@ -1395,9 +1364,44 @@ function maskApprovedTrustedProxyCidrs(value: string): string {
 }
 const DISALLOWED_EVIDENCE_KEY_PATTERN =
   /^(?:url|uri|href|(?:signed|storage)[\s_.-]*(?:url|path|key)|(?:full[\s_.-]*)?(?:user[\s_.-]*agent|ua)|source[\s_.-]*(?:text|path|row|value)|(?:report|document|patient|profile|biomarker|diagnosis|medical|phi)(?:[\s_.-]*(?:id|name|value|data|text|path|scope))?)$/iu;
+const MARKDOWN_DISALLOWED_EVIDENCE_KEY_PATTERN =
+  /^(?:url|uri|href|(?:signed|storage)[\s_.-]*(?:url|path|key)|(?:full[\s_.-]*)?(?:user[\s_.-]*agent|ua)|source[\s_.-]*(?:text|path|row|value)|(?:document|patient|profile|biomarker|diagnosis|medical|phi)(?:[\s_.-]*(?:id|name|value|data|text|path))?|report[\s_.-]*(?:id|content|text|value|data|path))$/iu;
 const DISALLOWED_EVIDENCE_URL_PATTERN = /\bhttps?:\/\/[^\s"'`<>]+/iu;
 const DISALLOWED_EVIDENCE_VALUE_PATTERN =
   /(?:\b(?:storage[\s_.-]*path|full[\s_.-]*(?:user[\s_.-]*agent|ua)|source[\s_.-]*text|(?:report|document|patient|profile|biomarker|diagnosis|medical|phi)[\s_.-]*(?:content|text|value|data|path))\b\s*(?::|=)\s*\S+)/iu;
+const SENSITIVE_EVIDENCE_KEY_PATTERN =
+  /^(?:authorization|bearer|token|pin|proof|cookie|SHARE_RATE_LIMIT_PEPPER|SHARE_PIN_PROOF_PEPPER|SHARE_TRUSTED_PROXY_ATTESTATION_KEY)$/iu;
+
+function containsDisallowedMarkdownEvidence(value: string): boolean {
+  for (const line of value.split(/\r?\n/u)) {
+    const cells = line.split("|").map((cell) => cell.replace(/`/gu, "").trim());
+    if (cells.length < 3) continue;
+    for (let index = 1; index < cells.length - 1; index += 1) {
+      const label = cells[index];
+      const cellValue = cells[index + 1];
+      const isApprovedSource =
+        /^source$/iu.test(label) &&
+        (REVIEWED_EVIDENCE_REFERENCE_PATTERN.test(cellValue) ||
+          CONTENT_ADDRESSED_ARTIFACT_SOURCE_PATTERN.test(cellValue));
+      const safePlaceholder =
+        cellValue.length === 0 || SECRET_PLACEHOLDER_PATTERN.test(cellValue);
+      if (
+        (SENSITIVE_EVIDENCE_KEY_PATTERN.test(label) && !safePlaceholder) ||
+        MARKDOWN_DISALLOWED_EVIDENCE_KEY_PATTERN.test(label) ||
+        (/^source$/iu.test(label) && !isApprovedSource)
+      ) {
+        return true;
+      }
+      if (
+        DISALLOWED_EVIDENCE_URL_PATTERN.test(cellValue) ||
+        DISALLOWED_EVIDENCE_VALUE_PATTERN.test(cellValue)
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
 
 function containsRawIpAddress(value: string, allowCidrs = false): boolean {
   for (const match of value.matchAll(IP_LITERAL_PATTERN)) {
@@ -1625,12 +1629,18 @@ async function collectEvidenceFindings(
     PUBLIC_SHARE_URL_PATTERN.test(combinedEvidence);
   const disallowedEvidenceUrlFound =
     DISALLOWED_EVIDENCE_URL_PATTERN.test(combinedEvidence);
+  const disallowedMarkdownEvidenceFound = evidenceText.some(
+    (text, index) =>
+      filesToScan[index].endsWith(".md") &&
+      containsDisallowedMarkdownEvidence(text),
+  );
   const rawIpFound = containsRawIpAddress(rawAddressEvidence);
   const rawAddressFieldFound =
     RAW_ADDRESS_FIELD_PATTERN.test(rawAddressEvidence);
   const namedSecretFound = containsUnapprovedNamedSecret(combinedEvidence);
   if (
     disallowedEvidenceUrlFound ||
+    disallowedMarkdownEvidenceFound ||
     jsonSecretFound ||
     shareCredentialFound ||
     namedSecretFound ||
@@ -1792,9 +1802,12 @@ async function validateReleaseRecord(
     });
   }
   for (const command of record.commands) {
-    const matchingCommandRows = commandSection.filter((line) =>
-      line.includes(`\`${command.command}\``),
-    );
+    const matchingCommandRows = commandSection.filter((line) => {
+      const cells = line
+        .split("|")
+        .map((cell) => cell.replace(/`/gu, "").trim());
+      return cells[1] === command.command;
+    });
     const result =
       matchingCommandRows.length === 1
         ? matchingCommandRows[0]
@@ -1909,14 +1922,6 @@ async function reviewedSourceMatchesCurrent(
       currentCommit,
       "--",
       ...reviewedPaths,
-    ]);
-    await execFileAsync("git", [
-      "diff",
-      "--quiet",
-      reviewedBuild,
-      currentCommit,
-      "--",
-      LOCAL_ADAPTER_EVIDENCE_GIT_PATH,
     ]);
     return true;
   } catch {

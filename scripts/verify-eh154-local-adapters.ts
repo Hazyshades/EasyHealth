@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { canonicalJson } from "./eh154-canonical-json";
 
 import { MEDICAL_DISCLAIMER } from "../src/lib/schemas/biomarkers";
 import type {
@@ -774,7 +775,7 @@ async function main(): Promise<void> {
   console.log(JSON.stringify(run, null, 2));
   if (writeEvidence) {
     await mkdir(path.dirname(EVIDENCE_PATH), { recursive: true });
-    await writeFile(EVIDENCE_PATH, `${JSON.stringify(run, null, 2)}\n`, "utf8");
+    await writeFile(EVIDENCE_PATH, canonicalJson(run), "utf8");
     console.log(`wrote ${path.relative(process.cwd(), EVIDENCE_PATH)}`);
   }
 
