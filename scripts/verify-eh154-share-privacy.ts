@@ -865,9 +865,15 @@ async function verifyReviewedEvidenceReference(
   reference: string,
   manifest: EvidenceManifest | null,
   record: Pick<GateRecord, "reviewedBuild" | "reviewedDeployment">,
-  expectation: EvidenceAnchorExpectation,
+  expectation: EvidenceAnchorExpectation | null,
+  visitedReferences = new Set<string>(),
+  verifyAnchorPayloadSource = true,
 ): Promise<boolean> {
-  const parsedReference = parseReviewedEvidenceReference(reference);
+  const normalizedReference = reference.trim();
+  if (visitedReferences.has(normalizedReference)) return false;
+  const nextVisitedReferences = new Set(visitedReferences);
+  nextVisitedReferences.add(normalizedReference);
+  const parsedReference = parseReviewedEvidenceReference(normalizedReference);
   if (
     !parsedReference ||
     !manifest ||
@@ -918,12 +924,26 @@ async function verifyReviewedEvidenceReference(
     if (matchingAnchors.length !== 1) return false;
     const [anchor] = matchingAnchors;
     if (containsSensitiveJsonValue(anchor.payload)) return false;
+    if (
+      verifyAnchorPayloadSource &&
+      !(await verifyReviewedEvidenceReference(
+        anchor.payload.source,
+        manifest,
+        record,
+        null,
+        nextVisitedReferences,
+        false,
+      ))
+    ) {
+      return false;
+    }
     return (
-      (!expectation.id || anchor.id === expectation.id) &&
-      anchor.kind === expectation.kind &&
-      anchor.status === expectation.status &&
-      anchor.reviewedBuild === record.reviewedBuild &&
-      anchor.reviewedDeployment === record.reviewedDeployment
+      !expectation ||
+      ((!expectation.id || anchor.id === expectation.id) &&
+        anchor.kind === expectation.kind &&
+        anchor.status === expectation.status &&
+        anchor.reviewedBuild === record.reviewedBuild &&
+        anchor.reviewedDeployment === record.reviewedDeployment)
     );
   } catch {
     return false;
