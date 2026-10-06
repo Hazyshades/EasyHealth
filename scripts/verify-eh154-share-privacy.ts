@@ -912,6 +912,7 @@ async function verifyManifestArtifactSource(
   source: string,
   manifest: EvidenceManifest | null,
   record: Pick<GateRecord, "reviewedBuild" | "reviewedDeployment">,
+  visitedArtifactIds: ReadonlySet<string>,
 ): Promise<boolean> {
   const match = CONTENT_ADDRESSED_ARTIFACT_SOURCE_PATTERN.exec(source.trim());
   if (
@@ -924,6 +925,7 @@ async function verifyManifestArtifactSource(
   ) {
     return false;
   }
+  if (visitedArtifactIds.has(match?.[1] ?? "")) return false;
   const artifact = manifest.artifacts.find(
     (candidate) => candidate.id === match[1],
   );
@@ -966,10 +968,16 @@ async function verifyAnchorPayloadSource(
   manifest: EvidenceManifest | null,
   record: Pick<GateRecord, "reviewedBuild" | "reviewedDeployment">,
   visitedReferences: Set<string>,
+  visitedArtifactIds: Set<string>,
 ): Promise<boolean> {
   const normalizedSource = source.trim();
   if (CONTENT_ADDRESSED_ARTIFACT_SOURCE_PATTERN.test(normalizedSource)) {
-    return verifyManifestArtifactSource(normalizedSource, manifest, record);
+    return verifyManifestArtifactSource(
+      normalizedSource,
+      manifest,
+      record,
+      visitedArtifactIds,
+    );
   }
   if (!REVIEWED_EVIDENCE_REFERENCE_PATTERN.test(normalizedSource)) {
     return false;
@@ -980,6 +988,7 @@ async function verifyAnchorPayloadSource(
     record,
     null,
     visitedReferences,
+    visitedArtifactIds,
   );
 }
 
@@ -989,6 +998,7 @@ async function verifyReviewedEvidenceReference(
   record: Pick<GateRecord, "reviewedBuild" | "reviewedDeployment">,
   expectation: EvidenceAnchorExpectation | null,
   visitedReferences = new Set<string>(),
+  visitedArtifactIds = new Set<string>(),
 ): Promise<boolean> {
   const normalizedReference = reference.trim();
   if (visitedReferences.has(normalizedReference)) return false;
@@ -1005,6 +1015,9 @@ async function verifyReviewedEvidenceReference(
   ) {
     return false;
   }
+  if (visitedArtifactIds.has(parsedReference.artifactId)) return false;
+  const nextVisitedArtifactIds = new Set(visitedArtifactIds);
+  nextVisitedArtifactIds.add(parsedReference.artifactId);
   const artifact = manifest.artifacts.find(
     (candidate) => candidate.id === parsedReference.artifactId,
   );
@@ -1052,6 +1065,7 @@ async function verifyReviewedEvidenceReference(
         manifest,
         record,
         nextVisitedReferences,
+        nextVisitedArtifactIds,
       ))
     ) {
       return false;
