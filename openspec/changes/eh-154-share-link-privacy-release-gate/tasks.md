@@ -4,9 +4,9 @@ Domain: **reports / auth-shell**
 
 ## 1. Reports — threat model and release policy
 
-- [ ] 1.1 Record assets, actors, trust boundaries, abuse cases, controls, evidence owners, and residual risks for the token, PIN, public route, management UI, and export boundary.
-- [ ] 1.2 Freeze the minimum token, PIN, scope, expiry/revoke, cache/index, rate-limit, logging, raw-download, and retention controls required for release.
-- [ ] 1.3 Define the privacy sign-off record and deployment prerequisites, including shared rate-limit storage and secret/key management.
+- [x] 1.1 Record assets, actors, trust boundaries, abuse cases, controls, evidence owners, and residual risks for the token, PIN, public route, management UI, and export boundary.
+- [x] 1.2 Freeze the minimum token, PIN, scope, expiry/revoke, cache/index, rate-limit, logging, raw-download, and retention controls required for release.
+- [x] 1.3 Define the privacy sign-off record and deployment prerequisites, including shared rate-limit storage and secret/key management.
 
 ## 2. Auth-shell — public boundary verification
 
@@ -17,7 +17,7 @@ Domain: **reports / auth-shell**
 
 ## 3. Release evidence and incident response
 
-- [ ] 3.1 Assign severity to findings and make unresolved high/critical findings block the gate.
-- [ ] 3.2 Write the token-leakage, unauthorized-access, rate-limit-abuse, emergency-revoke, and privacy-escalation runbook without recording bearer tokens.
+- [x] 3.1 Assign severity to findings and make unresolved high/critical findings block the gate.
+- [x] 3.2 Write the token-leakage, unauthorized-access, rate-limit-abuse, emergency-revoke, and privacy-escalation runbook without recording bearer tokens.
 - [ ] 3.3 Record executed commands, scenario results, deployed `SHARE_ACCESS_EVENT_RETENTION_DAYS`, cleanup RPC/worker schedule, advisory-lock contention/release, repeated-batch backlog drain/alert evidence, retention decision, and privacy sign-off.
 - [ ] 3.4 Run the EH-154 QA checklist and mark the gate ready only when evidence is complete for the reviewed build.
