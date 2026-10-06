@@ -48,6 +48,8 @@ const SECRET_PLACEHOLDER_PATTERN =
   /^(?:_pending_|pending|reference|fingerprint|version|redacted|none|null|unknown|tbd|unassigned|n\/a|omitted|never|ci-placeholder|<[^>]+>)$/iu;
 const REVIEWED_EVIDENCE_REFERENCE_PATTERN =
   /^evidence:\/\/([A-Za-z0-9._/-]+)#([A-Za-z0-9._-]+)@sha256:([A-Fa-f0-9]{64})$/u;
+const CONTENT_ADDRESSED_ARTIFACT_SOURCE_PATTERN =
+  /^artifact:\/\/([A-Za-z0-9._/-]+)#sha256:([A-Fa-f0-9]{64})$/iu;
 const DEPLOYMENT_REFERENCE_PATTERN =
   /^(?:(?:deployment|config|artifact):\/\/[A-Za-z0-9._/-]+#sha256:[A-Fa-f0-9]{64}|sha256:[A-Fa-f0-9]{64})$/iu;
 function hasConcreteReference(
@@ -287,9 +289,11 @@ const EvidenceAnchorPayloadSchema = z
       .strict(),
     source: z
       .string()
-      .regex(
-        REVIEWED_EVIDENCE_REFERENCE_PATTERN,
-        "Evidence anchor payload requires a content-addressed source reference.",
+      .refine(
+        (value) =>
+          REVIEWED_EVIDENCE_REFERENCE_PATTERN.test(value) ||
+          CONTENT_ADDRESSED_ARTIFACT_SOURCE_PATTERN.test(value),
+        "Evidence anchor payload requires a resolvable content-addressed source reference.",
       ),
   })
   .strict();
@@ -863,13 +867,86 @@ function canonicalJson(value: unknown): string {
   return `${canonicalJsonValue(value)}\n`;
 }
 
+async function verifyManifestArtifactSource(
+  source: string,
+  manifest: EvidenceManifest | null,
+  record: Pick<GateRecord, "reviewedBuild" | "reviewedDeployment">,
+): Promise<boolean> {
+  const match = CONTENT_ADDRESSED_ARTIFACT_SOURCE_PATTERN.exec(source.trim());
+  if (
+    !match ||
+    !manifest ||
+    !record.reviewedBuild ||
+    !record.reviewedDeployment ||
+    manifest.reviewedBuild !== record.reviewedBuild ||
+    manifest.reviewedDeployment !== record.reviewedDeployment
+  ) {
+    return false;
+  }
+  const artifact = manifest.artifacts.find(
+    (candidate) => candidate.id === match[1],
+  );
+  if (
+    !artifact ||
+    artifact.reviewedBuild !== record.reviewedBuild ||
+    artifact.reviewedDeployment !== record.reviewedDeployment ||
+    artifact.sha256.toLowerCase() !== match[2].toLowerCase()
+  ) {
+    return false;
+  }
+  const resolvedPath = await resolveEvidenceArtifactPath(artifact.path);
+  if (!resolvedPath) return false;
+  try {
+    const contentBytes = await readFile(resolvedPath);
+    const parsedJson = parseJsonWithUniqueKeys(contentBytes.toString("utf8"));
+    const canonicalBytes = Buffer.from(canonicalJson(parsedJson), "utf8");
+    if (!contentBytes.equals(canonicalBytes)) return false;
+    const digest = createHash("sha256").update(canonicalBytes).digest("hex");
+    if (
+      digest !== match[2].toLowerCase() ||
+      digest !== artifact.sha256.toLowerCase()
+    ) {
+      return false;
+    }
+    const parsedContent = EvidenceArtifactContentSchema.safeParse(parsedJson);
+    return (
+      parsedContent.success &&
+      parsedContent.data.reviewedBuild === record.reviewedBuild &&
+      parsedContent.data.reviewedDeployment === record.reviewedDeployment
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function verifyAnchorPayloadSource(
+  source: string,
+  manifest: EvidenceManifest | null,
+  record: Pick<GateRecord, "reviewedBuild" | "reviewedDeployment">,
+  visitedReferences: Set<string>,
+): Promise<boolean> {
+  const normalizedSource = source.trim();
+  if (CONTENT_ADDRESSED_ARTIFACT_SOURCE_PATTERN.test(normalizedSource)) {
+    return verifyManifestArtifactSource(normalizedSource, manifest, record);
+  }
+  if (!REVIEWED_EVIDENCE_REFERENCE_PATTERN.test(normalizedSource)) {
+    return false;
+  }
+  return verifyReviewedEvidenceReference(
+    normalizedSource,
+    manifest,
+    record,
+    null,
+    visitedReferences,
+  );
+}
+
 async function verifyReviewedEvidenceReference(
   reference: string,
   manifest: EvidenceManifest | null,
   record: Pick<GateRecord, "reviewedBuild" | "reviewedDeployment">,
   expectation: EvidenceAnchorExpectation | null,
   visitedReferences = new Set<string>(),
-  verifyAnchorPayloadSource = true,
 ): Promise<boolean> {
   const normalizedReference = reference.trim();
   if (visitedReferences.has(normalizedReference)) return false;
@@ -927,14 +1004,11 @@ async function verifyReviewedEvidenceReference(
     const [anchor] = matchingAnchors;
     if (containsSensitiveJsonValue(anchor.payload)) return false;
     if (
-      verifyAnchorPayloadSource &&
-      !(await verifyReviewedEvidenceReference(
+      !(await verifyAnchorPayloadSource(
         anchor.payload.source,
         manifest,
         record,
-        null,
         nextVisitedReferences,
-        false,
       ))
     ) {
       return false;
@@ -1286,7 +1360,8 @@ function containsSensitiveJsonValue(
   const isApprovedEvidenceSource =
     isEvidenceSourceKey &&
     typeof value === "string" &&
-    REVIEWED_EVIDENCE_REFERENCE_PATTERN.test(value.trim());
+    (REVIEWED_EVIDENCE_REFERENCE_PATTERN.test(value.trim()) ||
+      CONTENT_ADDRESSED_ARTIFACT_SOURCE_PATTERN.test(value.trim()));
   if (
     (DISALLOWED_EVIDENCE_KEY_PATTERN.test(key) || isEvidenceSourceKey) &&
     !isApprovedEvidenceSource

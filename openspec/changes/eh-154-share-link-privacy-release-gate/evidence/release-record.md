@@ -84,10 +84,11 @@ manifest digest is the SHA-256 of those exact UTF-8 bytes. `pending`, `not-run`,
 Each canonical evidence anchor must also carry a structured payload:
 `evidence.command` identifies the executed check, `evidence.result` records
 the observed result, and `source` is a content-addressed
-`evidence://...@sha256:...` reference that the verifier resolves through the
-manifest to canonical, build/deployment-bound artifact bytes. Status/build/
-deployment metadata alone, arbitrary prose, or placeholder values are not
-reviewed execution evidence.
+`evidence://...@sha256:...` hop or terminal
+`artifact://...#sha256:...` reference. The verifier resolves every source hop
+through the manifest to canonical, build/deployment-bound artifact bytes and
+rejects cycles. Status/build/deployment metadata alone, arbitrary prose, or
+placeholder values are not reviewed execution evidence.
 
 | Scenario ID                       | Result    | Evidence  |
 | --------------------------------- | --------- | --------- |
