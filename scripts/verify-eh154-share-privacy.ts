@@ -269,20 +269,22 @@ function isConcreteEvidenceResult(value: string): boolean {
 
 const EvidenceAnchorPayloadSchema = z
   .object({
-    evidence: z.object({
-      command: z
-        .string()
-        .refine(
-          isConcreteEvidenceCommand,
-          "Evidence anchor payload requires an executable command identifier.",
-        ),
-      result: z
-        .string()
-        .refine(
-          isConcreteEvidenceResult,
-          "Evidence anchor payload requires an observed result with status context.",
-        ),
-    }),
+    evidence: z
+      .object({
+        command: z
+          .string()
+          .refine(
+            isConcreteEvidenceCommand,
+            "Evidence anchor payload requires an executable command identifier.",
+          ),
+        result: z
+          .string()
+          .refine(
+            isConcreteEvidenceResult,
+            "Evidence anchor payload requires an observed result with status context.",
+          ),
+      })
+      .strict(),
     source: z
       .string()
       .regex(
@@ -1243,6 +1245,11 @@ function maskApprovedTrustedProxyCidrs(value: string): string {
     },
   );
 }
+const DISALLOWED_EVIDENCE_KEY_PATTERN =
+  /^(?:url|uri|href|(?:signed|storage)[\s_.-]*(?:url|path|key)|(?:full[\s_.-]*)?(?:user[\s_.-]*agent|ua)|source[\s_.-]*(?:text|path|row|value)|(?:report|document|patient|profile|biomarker|diagnosis|medical|phi)(?:[\s_.-]*(?:id|name|value|data|text|path|scope))?)$/iu;
+const DISALLOWED_EVIDENCE_URL_PATTERN = /\bhttps?:\/\/[^\s"'`<>]+/iu;
+const DISALLOWED_EVIDENCE_VALUE_PATTERN =
+  /(?:\b(?:storage[\s_.-]*path|full[\s_.-]*(?:user[\s_.-]*agent|ua)|source[\s_.-]*text|(?:report|document|patient|profile|biomarker|diagnosis|medical|phi)[\s_.-]*(?:content|text|value|data|path))\b\s*(?::|=)\s*\S+)/iu;
 
 function containsRawIpAddress(value: string, allowCidrs = false): boolean {
   for (const match of value.matchAll(IP_LITERAL_PATTERN)) {
@@ -1275,9 +1282,26 @@ function containsSensitiveJsonValue(
     key !== "name" &&
     (sensitiveKeyPattern.test(key) || sensitiveKeyPattern.test(contextKey));
 
+  const isEvidenceSourceKey = /^source$/u.test(key);
+  const isApprovedEvidenceSource =
+    isEvidenceSourceKey &&
+    typeof value === "string" &&
+    REVIEWED_EVIDENCE_REFERENCE_PATTERN.test(value.trim());
+  if (
+    (DISALLOWED_EVIDENCE_KEY_PATTERN.test(key) || isEvidenceSourceKey) &&
+    !isApprovedEvidenceSource
+  ) {
+    return true;
+  }
   if (RAW_ADDRESS_KEY_PATTERN.test(key)) return true;
   if (typeof value === "string") {
     const normalized = value.trim();
+    if (
+      DISALLOWED_EVIDENCE_URL_PATTERN.test(normalized) ||
+      DISALLOWED_EVIDENCE_VALUE_PATTERN.test(normalized)
+    ) {
+      return true;
+    }
     if (
       containsRawIpAddress(normalized, /^SHARE_TRUSTED_PROXY_CIDRS$/u.test(key))
     ) {
@@ -1450,11 +1474,14 @@ async function collectEvidenceFindings(
   const shareCredentialFound =
     SHARE_TOKEN_PATTERN.test(combinedEvidence) ||
     PUBLIC_SHARE_URL_PATTERN.test(combinedEvidence);
+  const disallowedEvidenceUrlFound =
+    DISALLOWED_EVIDENCE_URL_PATTERN.test(combinedEvidence);
   const rawIpFound = containsRawIpAddress(rawAddressEvidence);
   const rawAddressFieldFound =
     RAW_ADDRESS_FIELD_PATTERN.test(rawAddressEvidence);
   const namedSecretFound = containsUnapprovedNamedSecret(combinedEvidence);
   if (
+    disallowedEvidenceUrlFound ||
     jsonSecretFound ||
     shareCredentialFound ||
     namedSecretFound ||
