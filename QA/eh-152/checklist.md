@@ -39,9 +39,8 @@ This checklist covers the authenticated owner's share-management surface: status
 3. Inspect one access-history entry.
 
 **Expected result:** The page distinguishes statuses and shows only approved metadata. No other profile, token, PIN, raw IP, full user agent, storage path, or report content is displayed.
-
-**Result:** `PASS`
-**Notes / evidence link:** Executed 2026-10-06 with the synthetic owner account. **Settings → Shared reports** showed separate Active and Revoked groups, two revoked predecessors, one active share, coarse metadata, and no token, PIN, raw IP, full user agent, or report content.
+**Result:** `BLOCKED`
+**Notes / evidence link:** The owner run showed Active and Revoked groups with coarse metadata and no sensitive fields. Expired-status rendering and the `EH152-OTHER-01` cross-profile exclusion were not separately observed, so the complete status matrix remains blocked.
 
 ### EH152-UI-02: Revoke an active share
 
@@ -52,9 +51,8 @@ This checklist covers the authenticated owner's share-management surface: status
 3. Refresh the management page and the recipient link.
 
 **Expected result:** The owner page shows revoked status after server confirmation. The recipient link fails on its next request; the UI does not show a stale active state.
-
-**Result:** `PASS` for owner state; recipient assertion **BLOCKED** by trusted ingress.
-**Notes / evidence link:** Revoke returned HTTP 200 and the refreshed owner page removed the share from Active and displayed it under Revoked. A public recipient request cannot run past the local direct-origin `503` boundary.
+**Result:** `BLOCKED`
+**Notes / evidence link:** The owner revoke returned HTTP 200 and the refreshed owner page showed Revoked state. The recipient request could not run past the local direct-origin `503` boundary, so public-verifier invalidation remains blocked.
 
 ### EH152-UI-03: Copy a creation or replacement link
 
@@ -65,9 +63,8 @@ This checklist covers the authenticated owner's share-management surface: status
 3. Repeat with clipboard permission denied or unavailable.
 
 **Expected result:** Success or a manual fallback is clear. Existing list rows never reveal a stored token, and no token appears in the visible UI or error message.
-
-**Result:** `PASS` for the available clipboard path; denial fallback not executed.
-**Notes / evidence link:** After UI creation, **Copy link** produced `Share link copied. It has been cleared from this page.` The plaintext link input was cleared and the management rows did not reveal a stored token.
+**Result:** `BLOCKED`
+**Notes / evidence link:** The normal clipboard path passed and cleared the plaintext link from the page. Clipboard-denied or unavailable fallback behavior was not executed, so this manual check remains blocked.
 
 ### EH152-UI-04: Create and use a replacement link
 
@@ -78,9 +75,8 @@ This checklist covers the authenticated owner's share-management surface: status
 3. Copy the link, then refresh the management page.
 
 **Expected result:** The predecessor becomes revoked after server confirmation, one replacement link is shown for copying, and refreshing the page does not reveal the plaintext link again.
-
-**Result:** `PASS` for replacement state and idempotency; direct button click not separately repeated.
-**Notes / evidence link:** The replacement API returned HTTP 200 with a successor; replaying the same idempotency key returned `already_completed` with the same successor. The refreshed UI showed the successor Active and predecessor Revoked.
+**Result:** `BLOCKED`
+**Notes / evidence link:** The replacement API and idempotency replay passed, but the direct UI replacement control, one-time link presentation, copy flow, and refresh-hiding behavior were not separately executed.
 
 ## Developer evidence required
 

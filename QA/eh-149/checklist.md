@@ -40,8 +40,8 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 
 **Expected result:** Points on both boundaries are included. Points outside the period do not affect statistics or direction. The selected period is visible.
 
-**Result:** `N/A`
-**Notes / evidence link:** Manual UI execution is pending an authenticated environment with synthetic fixtures.
+**Result:** `BLOCKED`
+**Notes / evidence link:** The Sprint 7 run covered compatible-series range filtering and included the end-date observation, but the complete first-and-last boundary fixture assertion was not separately evidenced.
 
 ### EH149-UI-02: Review deterministic statistics
 
@@ -53,8 +53,8 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 
 **Expected result:** Statistics match the selected points. Direction uses only numeric movement wording (`increasing`, `decreasing`, `stable`, or unavailable) and never claims improvement, deterioration, treatment response, or diagnosis.
 
-**Result:** `N/A`
-**Notes / evidence link:** Manual UI execution is pending an authenticated environment with synthetic fixtures.
+**Result:** `PASS`
+**Notes / evidence link:** The Sprint 7 run matched the compatible-series minimum, maximum, latest value, point count, and numeric direction limitation. The disclaimer did not claim improvement, deterioration, treatment response, or diagnosis.
 
 ### EH149-UI-03: Keep incompatible evidence separate
 
@@ -66,8 +66,8 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 
 **Expected result:** Incompatible observations are not merged. The warning states why they are separate, and each series has independent statistics and provenance.
 
-**Result:** `N/A`
-**Notes / evidence link:** Manual UI execution is pending an authenticated environment with synthetic fixtures.
+**Result:** `BLOCKED`
+**Notes / evidence link:** Incompatible specimen/unit separation and the separate-series warning were not executed in the authenticated UI run.
 
 ### EH149-UI-04: Inspect native value, range, and source
 
@@ -79,8 +79,8 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 
 **Expected result:** Native evidence and range remain visible beside any converted value. The one-point and qualitative cases show direction unavailable rather than fabricated numeric movement.
 
-**Result:** `N/A`
-**Notes / evidence link:** Manual UI execution is pending an authenticated environment with synthetic fixtures.
+**Result:** `BLOCKED`
+**Notes / evidence link:** The run captured native value, range, date, and source for the available compatible series, but the conversion-specific and one-point/qualitative fixture paths were not executed.
 
 ### EH149-UI-05: Freeze dynamics in a report
 
@@ -110,7 +110,7 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 
 - Clinical interpretation rules and Registry definition changes are out of scope. The direction policy is numeric movement only and is not a clinical cutoff.
 - PDF/CSV rendering is covered by EH-153; sharing/privacy controls are covered by EH-151 and EH-154.
-- Historical `N/A` entries above predate the local authenticated fixture. The current run below covers the available profile-current dynamics UI; incompatible-series, conversion, qualitative, and report-frozen scenarios remain unexecuted.
+- The Sprint 7 run provides partial authenticated evidence for compatible-series statistics and provenance. Exact boundary inclusion, incompatible-series separation, conversion and qualitative cases, and report-frozen dynamics remain blocked or unexecuted.
 
 ## Sprint 7 integration run: 2026-10-06
 
