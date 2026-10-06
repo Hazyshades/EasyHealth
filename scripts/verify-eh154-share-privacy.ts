@@ -24,6 +24,9 @@ async function getCurrentCommit(): Promise<string | null> {
 const CHANGE_ROOT = path.resolve(
   "openspec/changes/eh-154-share-link-privacy-release-gate",
 );
+const LOCAL_ADAPTER_EVIDENCE_PATH = "local-adapter-scenarios.json";
+const LOCAL_ADAPTER_EVIDENCE_GIT_PATH =
+  "openspec/changes/eh-154-share-link-privacy-release-gate/evidence/local-adapter-scenarios.json";
 const EVIDENCE_ROOT = path.join(CHANGE_ROOT, "evidence");
 const EVIDENCE_MANIFEST_PATH = path.join(
   EVIDENCE_ROOT,
@@ -37,7 +40,7 @@ const REQUIRED_EVIDENCE_FILES = [
   "privacy-signoff.md",
   "incident-runbook.md",
   "release-record.md",
-  "local-adapter-scenarios.json",
+  LOCAL_ADAPTER_EVIDENCE_PATH,
   "evidence-manifest.json",
   "release-gate.json",
 ] as const;
@@ -395,9 +398,9 @@ const EvidenceAnchorSchema = z
     payload: EvidenceAnchorPayloadSchema,
   })
   .strict();
-
 const EvidenceArtifactSchema = z
   .object({
+    kind: z.enum(["reviewed-evidence", "local-adapter"]),
     id: z.string().regex(/^[A-Za-z0-9._/-]+$/u),
     path: z
       .string()
@@ -422,13 +425,36 @@ const EvidenceArtifactSchema = z
       ),
     anchors: z
       .array(z.string().regex(/^[A-Za-z0-9._/-]+$/u))
-      .min(1)
       .refine(
         (anchors) => new Set(anchors).size === anchors.length,
         "Evidence artifact anchors must be unique.",
       ),
   })
-  .strict();
+  .strict()
+  .superRefine((artifact, context) => {
+    if (
+      artifact.kind === "reviewed-evidence" &&
+      artifact.anchors.length === 0
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["anchors"],
+        message: "Reviewed evidence artifacts require at least one anchor.",
+      });
+    }
+    if (
+      artifact.kind === "local-adapter" &&
+      (artifact.path !== LOCAL_ADAPTER_EVIDENCE_PATH ||
+        artifact.anchors.length !== 0)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["path"],
+        message:
+          "The local adapter artifact must be the unanchored adapter scenario file.",
+      });
+    }
+  });
 
 const EvidenceManifestSchema = z
   .object({
@@ -672,7 +698,7 @@ function parseJsonWithUniqueKeys(raw: string): unknown {
 async function collectLocalAdapterEvidence(): Promise<LocalAdapterEvidence> {
   try {
     const raw = await readFile(
-      path.join(EVIDENCE_ROOT, "local-adapter-scenarios.json"),
+      path.join(EVIDENCE_ROOT, LOCAL_ADAPTER_EVIDENCE_PATH),
       "utf8",
     );
     const parsed = LocalAdapterRunSchema.safeParse(
@@ -866,6 +892,52 @@ function canonicalJsonValue(value: unknown): string {
 function canonicalJson(value: unknown): string {
   return `${canonicalJsonValue(value)}\n`;
 }
+async function verifyLocalAdapterEvidence(
+  run: LocalAdapterRun | null,
+  manifest: EvidenceManifest | null,
+  record: Pick<GateRecord, "reviewedBuild" | "reviewedDeployment">,
+): Promise<boolean> {
+  if (
+    !run ||
+    !manifest ||
+    !record.reviewedBuild ||
+    !record.reviewedDeployment ||
+    run.reviewedBuild !== record.reviewedBuild ||
+    run.reviewedDeployment !== record.reviewedDeployment ||
+    manifest.reviewedBuild !== record.reviewedBuild ||
+    manifest.reviewedDeployment !== record.reviewedDeployment
+  ) {
+    return false;
+  }
+  const artifact = manifest.artifacts.find(
+    (candidate) =>
+      candidate.kind === "local-adapter" &&
+      candidate.path === LOCAL_ADAPTER_EVIDENCE_PATH,
+  );
+  if (
+    !artifact ||
+    artifact.reviewedBuild !== record.reviewedBuild ||
+    artifact.reviewedDeployment !== record.reviewedDeployment
+  ) {
+    return false;
+  }
+  const resolvedPath = await resolveEvidenceArtifactPath(artifact.path);
+  if (!resolvedPath) return false;
+  try {
+    const contentBytes = await readFile(resolvedPath);
+    const parsedJson = parseJsonWithUniqueKeys(contentBytes.toString("utf8"));
+    const canonicalBytes = Buffer.from(canonicalJson(parsedJson), "utf8");
+    if (!contentBytes.equals(canonicalBytes)) return false;
+    const digest = createHash("sha256").update(canonicalBytes).digest("hex");
+    if (digest !== artifact.sha256.toLowerCase()) return false;
+    const parsedRun = LocalAdapterRunSchema.safeParse(parsedJson);
+    return (
+      parsedRun.success && canonicalJson(parsedRun.data) === canonicalJson(run)
+    );
+  } catch {
+    return false;
+  }
+}
 
 async function verifyManifestArtifactSource(
   source: string,
@@ -888,6 +960,7 @@ async function verifyManifestArtifactSource(
   );
   if (
     !artifact ||
+    artifact.kind !== "reviewed-evidence" ||
     artifact.reviewedBuild !== record.reviewedBuild ||
     artifact.reviewedDeployment !== record.reviewedDeployment ||
     artifact.sha256.toLowerCase() !== match[2].toLowerCase()
@@ -968,6 +1041,7 @@ async function verifyReviewedEvidenceReference(
   );
   if (
     !artifact ||
+    artifact.kind !== "reviewed-evidence" ||
     !artifact.anchors.includes(parsedReference.anchor) ||
     artifact.reviewedBuild !== record.reviewedBuild ||
     artifact.reviewedDeployment !== record.reviewedDeployment ||
@@ -1836,6 +1910,14 @@ async function reviewedSourceMatchesCurrent(
       "--",
       ...reviewedPaths,
     ]);
+    await execFileAsync("git", [
+      "diff",
+      "--quiet",
+      reviewedBuild,
+      currentCommit,
+      "--",
+      LOCAL_ADAPTER_EVIDENCE_GIT_PATH,
+    ]);
     return true;
   } catch {
     return false;
@@ -1845,6 +1927,7 @@ async function reviewedSourceMatchesCurrent(
 async function validateReviewedBuild(
   record: GateRecord,
   localAdapterRun: LocalAdapterRun | null,
+  evidenceManifest: EvidenceManifest | null,
 ): Promise<Finding[]> {
   if (record.gateStatus === "blocked" || !localAdapterRun) return [];
 
@@ -1866,6 +1949,20 @@ async function validateReviewedBuild(
       severity: "high",
       message:
         "Local adapter evidence must match one immutable reviewed build commit.",
+    });
+    return findings;
+  }
+  if (
+    !(await verifyLocalAdapterEvidence(
+      localAdapterRun,
+      evidenceManifest,
+      record,
+    ))
+  ) {
+    findings.push({
+      severity: "high",
+      message:
+        "Local adapter evidence must be a canonical manifest-bound artifact for the reviewed build.",
     });
     return findings;
   }
@@ -2143,7 +2240,11 @@ async function main(): Promise<void> {
   const findings = [
     ...(await collectEvidenceFindings(record, evidenceManifest)),
     ...localAdapterEvidence.findings,
-    ...(await validateReviewedBuild(record, localAdapterEvidence.run)),
+    ...(await validateReviewedBuild(
+      record,
+      localAdapterEvidence.run,
+      evidenceManifest,
+    )),
     ...(await validateReleaseRecord(
       record,
       releaseRecordText,
