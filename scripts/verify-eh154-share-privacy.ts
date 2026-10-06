@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { access, lstat, readdir, realpath, readFile } from "node:fs/promises";
 import path from "node:path";
 import { isIP } from "node:net";
+import { parseCanonicalAddress } from "../src/lib/share-links/trusted-ingress-transport";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { z } from "zod";
@@ -53,8 +54,30 @@ function hasConcreteReference(
   const normalized = value?.trim() ?? "";
   return normalized.length > 0 && !SECRET_PLACEHOLDER_PATTERN.test(normalized);
 }
-const TRUSTED_CIDRS_PATTERN =
-  /^(?:(?:(?:25[0-5]|2[0-4]\d|1\d\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[01]?\d\d?)\/(?:\d|[12]\d|3[0-2]))(?:\s*,\s*(?:(?:(?:25[0-5]|2[0-4]\d|1\d\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[01]?\d\d?)\/(?:\d|[12]\d|3[0-2])))*$/u;
+
+function isTrustedCidr(value: string): boolean {
+  const [address, prefix] = value.trim().split("/");
+  if (
+    !address ||
+    !prefix ||
+    !/^(?:0|[1-9]\d*)$/u.test(prefix) ||
+    !parseCanonicalAddress(address)
+  ) {
+    return false;
+  }
+  const prefixLength = Number(prefix);
+  const family = isIP(address);
+  return (
+    Number.isInteger(prefixLength) &&
+    ((family === 4 && prefixLength <= 32) ||
+      (family === 6 && prefixLength <= 128))
+  );
+}
+
+function isTrustedCidrs(value: string): boolean {
+  const cidrs = value.split(",").map((entry) => entry.trim());
+  return cidrs.length > 0 && cidrs.every(isTrustedCidr);
+}
 const PRIVACY_SETTING_RANGES: Record<string, readonly [number, number]> = {
   SHARE_TRUSTED_PROXY_ATTESTATION_MAX_AGE_SECONDS: [5, 120],
   SHARE_RATE_LIMIT_WINDOW_SECONDS: [10, 300],
@@ -1026,7 +1049,7 @@ async function validateReadyPrivacyEvidence(
             },
           )
         : label === "SHARE_TRUSTED_PROXY_CIDRS"
-          ? TRUSTED_CIDRS_PATTERN.test(value)
+          ? isTrustedCidrs(value)
           : !!range &&
             Number.isInteger(numericValue) &&
             numericValue >= range[0] &&
@@ -1083,15 +1106,24 @@ const IP_LITERAL_PATTERN =
   /(?<![A-Za-z0-9])(?:[0-9]{1,3}(?:\.[0-9]{1,3}){3}|[0-9A-Fa-f:]{2,})(?![A-Za-z0-9])/gu;
 
 const RAW_ADDRESS_KEY_PATTERN =
-  /(?:client[_-]?(?:ip|addr|address)|remote[_-]?(?:addr|address|ip)|requester[_-]?(?:addr|address|ip)|forwarded[_-]?(?:for|addr|address|ip)|x[_-]?forwarded[_-]?(?:for|host|addr|address|ip))/iu;
+  /(?:client[\s_-]?(?:ip|addr|address)|remote[\s_-]?(?:addr|address|ip)|requester[\s_-]?(?:addr|address|ip)|forwarded[\s_-]?(?:for|addr|address|ip)|x[\s_-]?forwarded[\s_-]?(?:for|host|addr|address|ip))/iu;
 
 function containsRawIpAddress(value: string): boolean {
   for (const match of value.matchAll(IP_LITERAL_PATTERN)) {
     const token = match[0];
     const start = match.index ?? -1;
     const suffix = start >= 0 ? value.slice(start + token.length) : "";
-    if (/^\/\d{1,3}(?:\b|$)/u.test(suffix)) continue;
-    if (isIP(token) !== 0) return true;
+    const family = isIP(token);
+    if (family === 0) continue;
+    const cidrPrefix = /^\/(\d{1,3})(?:\b|$)/u.exec(suffix)?.[1];
+    if (cidrPrefix !== undefined) {
+      const prefix = Number(cidrPrefix);
+      const maxPrefix = family === 4 ? 32 : 128;
+      if (Number.isInteger(prefix) && prefix >= 0 && prefix <= maxPrefix) {
+        continue;
+      }
+    }
+    return true;
   }
   return false;
 }
@@ -1107,9 +1139,9 @@ function containsSensitiveJsonValue(
     key !== "name" &&
     (sensitiveKeyPattern.test(key) || sensitiveKeyPattern.test(contextKey));
 
+  if (RAW_ADDRESS_KEY_PATTERN.test(key)) return true;
   if (typeof value === "string") {
     const normalized = value.trim();
-    if (RAW_ADDRESS_KEY_PATTERN.test(key)) return true;
     if (containsRawIpAddress(normalized)) return true;
     if (
       SHARE_TOKEN_PATTERN.test(normalized) ||
@@ -1157,16 +1189,25 @@ function containsUnapprovedNamedSecret(text: string): boolean {
   return false;
 }
 
+async function isRegularEvidenceFile(relativePath: string): Promise<boolean> {
+  try {
+    const stats = await lstat(path.join(EVIDENCE_ROOT, relativePath));
+    return stats.isFile();
+  } catch {
+    return false;
+  }
+}
+
 async function collectEvidenceFindings(
   record: GateRecord,
   evidenceManifest: EvidenceManifest | null,
 ): Promise<Finding[]> {
   const findings: Finding[] = [];
   for (const file of REQUIRED_EVIDENCE_FILES) {
-    if (!(await exists(path.join(EVIDENCE_ROOT, file)))) {
+    if (!(await isRegularEvidenceFile(file))) {
       findings.push({
         severity: "high",
-        message: `Missing required evidence file: ${file}`,
+        message: `Required evidence path is missing, unreadable, or not a regular file: ${file}`,
       });
     }
   }
@@ -1263,6 +1304,7 @@ async function collectEvidenceFindings(
     SHARE_TOKEN_PATTERN.test(combinedEvidence) ||
     PUBLIC_SHARE_URL_PATTERN.test(combinedEvidence);
   const rawIpFound = containsRawIpAddress(combinedEvidence);
+  const rawAddressFieldFound = RAW_ADDRESS_KEY_PATTERN.test(combinedEvidence);
   const namedSecretFound = containsUnapprovedNamedSecret(combinedEvidence);
   if (
     jsonSecretFound ||
@@ -1275,10 +1317,10 @@ async function collectEvidenceFindings(
       message: "Evidence files contain a possible secret or bearer value.",
     });
   }
-  if (rawIpFound) {
+  if (rawIpFound || rawAddressFieldFound) {
     findings.push({
       severity: "critical",
-      message: "Evidence files contain a raw client IP address.",
+      message: "Evidence files contain a raw client address or address field.",
     });
   }
   const privacySignoffText =
