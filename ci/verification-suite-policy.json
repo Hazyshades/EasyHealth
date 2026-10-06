@@ -452,12 +452,15 @@
     },
     {
       "script": "test:eh151",
-      "verificationFiles": ["scripts/verify-eh151-scoped-share-links.ts"],
+      "verificationFiles": [
+        "scripts/verify-eh151-scoped-share-links.ts",
+        "scripts/verify-eh151-public-export-route.ts"
+      ],
       "job": "verify",
       "environment": "node-only",
       "localOnly": false,
       "owner": "auth-shell",
-      "reason": "EH-151 public-share token, PIN, ingress, response-policy, and failure-boundary contracts are release verification."
+      "reason": "EH-151 public-share token, PIN, ingress, response-policy, failure-boundary, and public-export route contracts are release verification."
     },
     {
       "script": "test:eh152",

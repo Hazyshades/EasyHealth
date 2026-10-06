@@ -1,9 +1,9 @@
 # EH-151: Scoped expiring report share links
 
 **Roadmap status:** In progress
-**Build / environment:** `EH-151 feature branch`
-**Test run date:** `Not executed in this workspace`
-**Tester:** `Not assigned`
+**Build / environment:** `fix/sprint-7-runtime-blockers`, Next via `scripts/next-server.mjs`, local sidecar at `http://localhost:8443`
+**Test run date:** 2026-10-06
+**Tester:** Local automated and browser smoke
 
 ## What this checklist covers
 
@@ -130,12 +130,8 @@ document remain authorized. The unselected document and every request after
 revocation or tombstoning show a generic denial. The browser never receives a
 storage signed URL.
 
-**Result:** `Blocked: trusted ingress is not deployed in this workspace`
-**Notes / evidence link:** The recipient-facing document control is implemented,
-but direct-origin requests are rejected at the trusted-ingress boundary with
-HTTP `503`. A platform owner must provide the public HTTPS edge, private
-HTTPS/mTLS hop, and valid-edge/direct-origin probe evidence before this manual
-check can be executed.
+**Result:** `Blocked: reviewed HTTPS trusted ingress is unavailable`
+**Notes / evidence link:** The local Docker sidecar and peer-aware Next runtime are implemented and the sidecar transport smoke reaches the private Next origin. The local compose path is HTTP-only and does not provide the reviewed HTTPS/mTLS deployment required for protected PIN-cookie and raw-document acceptance. Direct-origin requests remain fail-closed with HTTP `503`.
 
 ## Developer evidence required
 
@@ -151,8 +147,19 @@ check can be executed.
 
 - EH-152 owner listing, revoke controls, and access-history UI are out of
   scope. EH-151 exposes the repository seam only.
-- EH-153 PDF, CSV, and JSON exporters are out of scope. EH-151 exposes the
-  named export-actions seam and shared response-policy adapter only.
+- EH-153 serializer fixtures remain out of scope for this checklist. The public
+  share export route and export-actions UI are now wired and are covered by
+  `QA/eh-153/checklist.md`; valid recipient download remains blocked on reviewed
+  ingress evidence.
 - EH-154 threat-model and release-gate sign-off is out of scope. Its required
   inputs are listed above and must not be treated as complete from local
   TypeScript or fixture evidence alone.
+
+## Sprint 7 local integration run: 2026-10-06
+
+- **Environment:** Local Supabase, peer-aware Next at `http://localhost:3000`, and the local Docker sidecar at `http://localhost:8443`; synthetic validated report and owner share tokens.
+- **Direct-origin boundary:** `PASS`. Requests to a valid local share token, an invalid token, and requests with spoofed `x-forwarded-*` headers returned HTTP `503` with `{"error":"Share service unavailable"}`, `Cache-Control: no-store, private`, and `X-Robots-Tag: noindex, nofollow`. The custom Node server exposes the actual socket peer to the trusted-ingress adapter, and localhost is not in the trusted sidecar CIDR.
+- **Sidecar transport:** `PASS`. The sidecar strips client-supplied edge headers, signs a fresh attestation, forwards only `/share/*` and `/api/share/*`, and reaches the private Next origin. Invalid-token smoke responses remain generic and non-cacheable.
+- **Automated/database evidence:** `pnpm test:eh151` passed. After applying local migrations `086_eh152_management_seam.sql` and `087_eh151_replacement_preflight.sql`, `pnpm test:eh151-db` passed with 44 assertions.
+- **Worker processing:** `PASS` for the retried EH147 synthetic full-pipeline job with the repository environment; the worker recorded `completed`, and the document reached `needs_review` with `gpt-4o-mini` extraction. Reviewed worker scheduling and retention evidence remain pending.
+- **Still blocked:** PIN success/proof-cookie continuation, valid public report rendering, public export downloads, scoped document download, and expired/revoked recipient UI require a reviewed HTTPS/mTLS deployment and persisted production-adapter fixtures. These remain unmarked as passes.

@@ -55,6 +55,7 @@ export type ShareResource =
 export type AuthorizedShareRead = Readonly<{
   lookup: ShareLookup;
   reportRead: Extract<ReportReadResult, { status: "structured" }>;
+  complete: () => Promise<void>;
 }>;
 
 function isActive(share: ShareRow, now: Date): boolean {
@@ -80,6 +81,25 @@ export async function recordShareOutcome(
       resourceKind: resource,
       clientClass,
     });
+  } catch {
+    throw new ShareServiceError();
+  }
+}
+
+async function completeAuthorizedShareRead(
+  lookup: ShareLookup,
+  resource: ShareResource,
+  clientClass: ShareClientClass,
+  now: Date,
+): Promise<void> {
+  try {
+    await touchReportShareLastAccessed(lookup.share.share_id, now);
+    await recordShareOutcome(
+      lookup.share,
+      resource.kind,
+      "allowed",
+      clientClass,
+    );
   } catch {
     throw new ShareServiceError();
   }
@@ -156,6 +176,7 @@ export async function authorizeShareRead(
     clientClass: ShareClientClass;
     now?: Date;
     beforeAllowedBytes?: (lookup: ShareLookup) => Promise<boolean>;
+    deferSuccessfulAccess?: boolean;
   }>,
 ): Promise<AuthorizedShareRead> {
   const now = input.now ?? new Date();
@@ -281,18 +302,18 @@ export async function authorizeShareRead(
     }
   }
 
-  try {
-    await touchReportShareLastAccessed(lookup.share.share_id, now);
-    await recordShareOutcome(
-      lookup.share,
-      resourceKind,
-      "allowed",
+  let completion: Promise<void> | null = null;
+  const complete = (): Promise<void> => {
+    completion ??= completeAuthorizedShareRead(
+      lookup,
+      input.resource,
       input.clientClass,
+      now,
     );
-  } catch {
-    throw new ShareServiceError();
-  }
-  return { lookup, reportRead };
+    return completion;
+  };
+  if (!input.deferSuccessfulAccess) await complete();
+  return { lookup, reportRead, complete };
 }
 export function sharePinCookieValue(
   cookieHeader: string | null,

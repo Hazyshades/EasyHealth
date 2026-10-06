@@ -3,8 +3,11 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { ReportBody, type ReportContent } from "@/components/report-body";
+import { ReportExportActions } from "@/components/report-export-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { attachmentFilename } from "@/lib/report-export/download-filename";
+import type { ReportExportFormat } from "@/lib/report-export/types";
 import type { PublicShareExportAction } from "@/lib/share-links/public-export-actions";
 
 type PublicReport = Readonly<{
@@ -130,6 +133,35 @@ export default function PublicSharePage() {
     }
   }
 
+  const handleExport = useCallback(
+    async (format: ReportExportFormat): Promise<void> => {
+      const response = await fetch(
+        `/api/share/${encodeURIComponent(token)}/export?format=${encodeURIComponent(format)}`,
+        {
+          credentials: "same-origin",
+          cache: "no-store",
+        },
+      );
+      if (!response.ok) throw new Error("Export unavailable");
+      const filename = attachmentFilename(
+        response.headers.get("Content-Disposition"),
+        `report.${format}`,
+      );
+      const url = URL.createObjectURL(await response.blob());
+      try {
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.append(link);
+        link.click();
+        link.remove();
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    },
+    [token],
+  );
+
   if (loading) {
     return (
       <main className="min-h-screen bg-[var(--eh-canvas)] px-4 py-12 text-[var(--eh-text)]">
@@ -241,6 +273,15 @@ export default function PublicSharePage() {
             {report.summary_preview}
           </p>
         </header>
+
+        {payload.export_actions.length > 0 ? (
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">
+            <ReportExportActions
+              formats={payload.export_actions.map((action) => action.format)}
+              onExport={handleExport}
+            />
+          </section>
+        ) : null}
         <ReportBody content={report.content} />
         {payload.documents.length > 0 && (
           <section className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">

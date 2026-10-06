@@ -2,8 +2,8 @@
 
 **Roadmap status:** Implemented; owner surface wired, product QA pending
 **Build / environment:** Windows 11, Node 22, pnpm 9.15.4; fixture verifier uses `SKIP_ENV_VALIDATION=1`
-**Test run date:** 2026-10-04
-**Tester:** Automated developer evidence; product tester handoff pending
+**Test run date:** 2026-10-06
+**Tester:** Local authenticated UI/API integration run
 
 ## What this checklist covers
 
@@ -42,8 +42,8 @@ This checklist covers PDF, CSV, and JSON exports from the validated report contr
 
 **Expected result:** PDF, CSV, and JSON match the visible report sections and limitations. PDF/JSON include the full contract; CSV includes deterministic metadata, claim, source, and measurement rows with generated-at time, contract/validator versions, citations, complete source references, disclaimer, and no unrelated document or storage path.
 
-**Result:** `BLOCKED`
-**Notes / evidence link:** The owner surface now exists: `GET /api/reports/[id]/export` plus the gated `ReportExportActions` on the detail page. This check is executable and awaits a tester with a running app; only the public-share half stays with EH-151.
+**Result:** `BLOCKED` for the complete live format set; CSV and JSON `PASS`, PDF live download not rerun after dependency restoration.
+**Notes / evidence link:** The previous authenticated run recorded CSV and JSON downloads with `private, no-store` and the expected contracts. `pnpm install --frozen-lockfile` restored the declared `@react-pdf/renderer` package, and the current fixture verifier now proves PDF rendering. The authenticated UI PDF path still needs a fresh browser download.
 
 ### EH153-UI-02: Verify Unicode PDF
 
@@ -55,7 +55,7 @@ This checklist covers PDF, CSV, and JSON exports from the validated report contr
 **Expected result:** Text is readable/selectable, page breaks do not remove citations or limitations, and no partial/corrupt PDF is returned.
 
 **Result:** `BLOCKED`
-**Notes / evidence link:** Unicode fixture and embedded `DejaVuSans.ttf` are covered by `pnpm test:eh153`; the owner download path is wired, so product-page selection/search verification is now executable.
+**Notes / evidence link:** The server-side PDF fixture now passes Unicode/font assertions after dependency restoration. A fresh authenticated browser download and visual inspection remain pending.
 
 ### EH153-UI-03: Verify CSV provenance
 
@@ -67,8 +67,8 @@ This checklist covers PDF, CSV, and JSON exports from the validated report contr
 
 **Expected result:** Measurement rows preserve native/display values and units, range, date, source observation/document IDs, and conversion metadata. Metadata, claim, and source rows preserve limitations, claim status/text, citation IDs, source kind/document ID/snapshot/label, and deterministic order; narrative claims are not fabricated as measurements.
 
-**Result:** `BLOCKED`
-**Notes / evidence link:** CSV fixture coverage passed in `pnpm test:eh153` and the owner download path is wired; product download execution is now executable.
+**Result:** `PARTIAL`
+**Notes / evidence link:** The authenticated CSV endpoint and UI action returned a CSV with deterministic metadata headers and `private, no-store`. The seeded report did not contain a frozen dynamics extension, so converted-point provenance was not claimed.
 
 ### EH153-UI-04: Deny legacy or out-of-scope export
 
@@ -78,15 +78,37 @@ This checklist covers PDF, CSV, and JSON exports from the validated report contr
 
 **Expected result:** The action is hidden or fails generically. No partial file, unrelated source, or raw storage path is returned.
 
-**Result:** `BLOCKED`
-**Notes / evidence link:** Adapter fixtures reject legacy reports, denied formats, scope mismatch, and tampered dynamics. Legacy reports render no actions at all (`pnpm test:eh153-owner-export`). The shared-report half remains pending EH-151.
+**Result:** `PARTIAL`
+**Notes / evidence link:** Unsupported `format=xml` returned HTTP 400 `FORMAT_NOT_ALLOWED` with no file. The public-share export route now exists and enforces the share capability, but a valid recipient flow remains blocked on reviewed ingress and production-adapter fixtures.
+
+### EH153-UI-05: Download an approved public-share export
+
+**Precondition:** A reviewer has deployed the trusted HTTPS/mTLS ingress and
+created a synthetic report-only share that allows JSON and PDF.
+
+1. Open the share link in a separate recipient browser.
+2. Complete the PIN form if the share requires a PIN.
+3. Activate **Export JSON** and inspect the downloaded file.
+4. Activate **Export PDF** and inspect the downloaded file.
+5. Request a format omitted from the share policy.
+
+**Expected result:** The share page shows only the permitted export actions.
+JSON and PDF downloads contain the visible validated report scope and carry
+no-store, noindex, and restrictive referrer headers. The omitted format is
+denied without a file or internal validation details.
+
+**Result:** `Blocked: reviewed trusted ingress and live share fixtures unavailable`
+**Notes / evidence link:** The route is implemented at
+`src/app/api/share/[token]/export/route.ts` and the page renders the shared
+`ReportExportActions` component. Direct-origin requests remain fail-closed, so
+this recipient-facing check is not marked as tested.
 
 ## Developer evidence required
 
-- [x] Owner and EH-151 share adapter boundaries reject legacy/unvalidated content and enforce exact scope before serialization. `pnpm test:eh153` covers the EH-153 injected resolver seam; EH-151 live capability wiring remains a handoff.
-- [x] PDF renderer/font verification covers Unicode, long labels, canonical section order, and explicit invalid-output handling. `pnpm test:eh153` confirms a non-partial PDF header and Unicode fixture.
-- [x] CSV/JSON fixtures prove metadata, claims, complete mixed-source ledger rows, ranges, source IDs, timestamps, versions, limitations, and conversion metadata. `pnpm test:eh153` passed.
-- [x] Response construction requires an explicit owner/share context and applies the supplied public-share response policy callback before returning the response, and sets private/no-store and no-sniff headers. `pnpm test:eh153` asserts at compile time that EH-151's real `applyPublicShareResponsePolicy` is assignable to the export policy contract, so the helper seam cannot drift.
+- [x] Owner and EH-151 share adapter boundaries reject legacy/unvalidated content and enforce exact scope before serialization. `pnpm test:eh153-owner-export` passed; EH-151 live capability wiring remains a handoff.
+- [x] PDF renderer/font verification: `pnpm install --frozen-lockfile` restored the declared `@react-pdf/renderer` dependency, and `pnpm test:eh153` passed the Unicode, embedded-font, PDF-date, and bounded-size assertions. A fresh authenticated browser download remains pending.
+- [x] CSV/JSON fixture and owner-route checks passed through `pnpm test:eh153-owner-export`; the prior live CSV/JSON responses returned the expected content types, versions, and no-store policy.
+- [x] Response construction requires an explicit owner/share context and applies no-store/private policy. `pnpm test:eh153-owner-export` passed the owner-route/error-policy checks, and `pnpm test:eh153` passed shared response-policy assertions.
 - [x] Frozen-dynamics evidence proves serialization reads the persisted EH-149 extension returned by the EH-148 resolver seam and rejects an out-of-scope point; no client DTO or raw observation input is accepted by the package API.
 - [ ] Source-unavailable evidence for live archive/tombstone RPC outcomes remains pending EH-148 durable-deletion integration; fixture scope and generic unavailable paths are covered.
 - [x] Scope-isolation evidence rejects report-scope mismatch and out-of-scope dynamics points before serialization.
@@ -101,16 +123,26 @@ Command:
 SKIP_ENV_VALIDATION=1 pnpm test:eh153
 ```
 
-Result: passed. `pnpm exec tsc --noEmit` also passed. The verifier covers deterministic JSON, ordered CSV, Unicode PDF bytes, response-policy application, owner/share format policy, legacy/tampered/malformed inputs, scope checks, safe public fields, and server-rendered export action markup. Visual product-page verification is blocked on EH-148/EH-151 integration.
+Current result: `pnpm test:eh153` passed after `pnpm install --frozen-lockfile` with local placeholder environment values. `pnpm test:eh153-owner-export` also passed. The authenticated UI/API run independently passed JSON and CSV; the fresh live PDF browser download remains pending.
 
 Additional automated evidence:
 
-- `SKIP_ENV_VALIDATION=1 pnpm test:eh153` — asserts the PDF embeds the report's own `generated_at` as its only date value (never the render wall clock), that the embedded font subset tag is normalized, and that repeated JSON and CSV serializations are byte-identical. Byte-identical PDF container output is not asserted: `@react-pdf/renderer`/`pdfkit` emit document objects in a nondeterministic order, so container bytes vary while rendered content and metadata do not.
+- `pnpm install --frozen-lockfile` resolved `@react-pdf/renderer` 4.3.0 from the committed lockfile.
+- `pnpm test:eh153` passed the renderer/font, Unicode, canonical-section, deterministic serializer, policy, and oversized-report assertions.
 - `pnpm test:eh149`, `pnpm test:eh148-contract`, `pnpm test:eh150`, `pnpm test:eh151`, `pnpm test:eh152` — pass after the persisted-dynamics resolver hardening and the master rebase.
 - `pnpm check:ci-suite-coverage` and `pnpm check:ci-suite-coverage-contract` — pass with `test:eh153` registered in `ci/verification-suite-policy.json` and the `verify` job.
 - `pnpm test:eh153-owner-export` — owner integration evidence: every export failure code maps to its public status with an opaque message, unknown throwables stay generic, download filenames lose path separators and control characters, authentication precedes format parsing, the route delegates to the owner adapter, and the actions render in exactly one `canExport`-gated branch.
 
 ## Out of scope or not manually testable yet
 
-- Public-share page wiring is intentionally owned by EH-151; this change wires only the authenticated owner surface.
+- Public-share page wiring and the public export route are now implemented by
+  EH-151; this checklist consumes the EH-153 serializer and response-policy
+  contracts.
 - Live Supabase archive/tombstone and public-share helper verification requires the upstream integration surfaces and is not marked as tested here.
+
+## Sprint 7 local integration run: 2026-10-06
+
+- **Authenticated report detail:** The prior local run passed report rendering and export controls. A fresh browser PDF download is still pending after the dependency restore.
+- **JSON/CSV:** The prior owner routes returned HTTP 200, attachment content types, expected version fields, and `private, no-store`; JSON started with `eh148.v1` and `eh153.json.v1`, and CSV started with `record_type,export_version`.
+- **PDF fixture:** `PASS`. `pnpm test:eh153` produced a valid PDF with the embedded DejaVu font and Unicode assertions. Live browser inspection remains unmarked.
+- **Public-share integration:** `PASS` for typecheck and route compilation. Recipient-facing download remains blocked on reviewed ingress and persisted production-adapter fixtures.
