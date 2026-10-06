@@ -91,7 +91,7 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 3. Enter canonical `From` and `To` dates that contain the synthetic observations.
 4. Create the report and open the generated report.
 
-**Expected result:** The report shows the selected period, numeric direction, native value and range, and source-document links. Reversing the dates shows validation and does not create a report.
+**Expected result:** The report shows the selected period, numeric direction, native value and range, and each point's source document and date. Reversing the dates shows validation and does not create a report.
 
 **Result:** `BLOCKED`
 **Notes / evidence link:** The Sprint 7 run did not execute this report-frozen UI scenario. The current report endpoint validates and persists the selected dynamics extension, so a dedicated authenticated fixture run is still required.
