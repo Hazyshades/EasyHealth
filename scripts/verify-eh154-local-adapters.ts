@@ -5,12 +5,15 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 import { MEDICAL_DISCLAIMER } from "../src/lib/schemas/biomarkers";
-import {
-  createReportExportResponse,
-  getExportableReport,
-  ReportExportError,
-  type ReportReadResolver,
+import type {
+  createReportExportResponse as CreateReportExportResponse,
+  getExportableReport as GetExportableReport,
+  ReportExportError as ReportExportErrorType,
+  ReportReadResolver,
 } from "../src/lib/report-export";
+let createReportExportResponse: typeof CreateReportExportResponse;
+let getExportableReport: typeof GetExportableReport;
+let ReportExportError: typeof ReportExportErrorType;
 import type { DoctorVisitBrief } from "../src/lib/report-contract";
 import { projectOwnerShares } from "../src/lib/share-management/projection";
 import {
@@ -293,9 +296,19 @@ function shareLinks() {
     },
   ];
 }
+function configureAdapterEnvironment(): void {
+  process.env.NEXT_PUBLIC_SUPABASE_URL ??= "https://placeholder.supabase.co";
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??= "ci-placeholder";
+  process.env.SUPABASE_SERVICE_ROLE_KEY ??= "ci-placeholder";
+  process.env.OPENAI_API_KEY ??= "ci-placeholder";
+  configureShareTestEnvironment();
+}
 
 async function main(): Promise<void> {
-  configureShareTestEnvironment();
+  configureAdapterEnvironment();
+  // report-export validates application environment during module loading.
+  ({ createReportExportResponse, getExportableReport, ReportExportError } =
+    await import("../src/lib/report-export"));
   const worktreeClean = await isWorkingTreeClean();
   const reviewedBuild = worktreeClean ? await getCurrentCommit() : null;
   const writeEvidence = process.argv.includes("--write-evidence");

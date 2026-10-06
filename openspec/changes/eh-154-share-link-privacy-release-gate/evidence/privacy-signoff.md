@@ -19,6 +19,11 @@ This record is intentionally incomplete until the reviewed build, deployed trust
 - [ ] PIN/proof storage proof shows salted verifier material and keyed share-bound proof digests only.
 - [ ] Secret-manager references or approved fingerprints recorded for `SHARE_RATE_LIMIT_PEPPER`, `SHARE_PIN_PROOF_PEPPER`, and `SHARE_TRUSTED_PROXY_ATTESTATION_KEY`. Values are never recorded.
 
+Secret-manager URI references must include an explicit version selector such as
+`secret://production/share-rate-limit#version=2026-10-01`; an approved
+SHA-256 fingerprint is the only alternative. Mutable unversioned URIs are not
+valid release evidence.
+
 | Secret name                           | Reference or approved fingerprint |
 | ------------------------------------- | --------------------------------- |
 | `SHARE_RATE_LIMIT_PEPPER`             | `_pending_`                       |

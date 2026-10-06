@@ -40,7 +40,7 @@ const REQUIRED_EVIDENCE_FILES = [
   "release-gate.json",
 ] as const;
 const SECRET_REFERENCE_PATTERN =
-  /^(?:(?:secret|vault|aws-secretsmanager|gcp-secretmanager|azure-keyvault|keyvault):\/\/[A-Za-z0-9._/-]+(?:[#@]version[=:]?[A-Za-z0-9._-]+)?)$/iu;
+  /^(?:(?:secret|vault|aws-secretsmanager|gcp-secretmanager|azure-keyvault|keyvault):\/\/[A-Za-z0-9._/-]+[#@]version[=:]?[A-Za-z0-9._-]+)$/iu;
 const SECRET_FINGERPRINT_PATTERN = /^(?:sha256[:/-])?[A-Fa-f0-9]{64}$/u;
 const SECRET_PLACEHOLDER_PATTERN =
   /^(?:_pending_|pending|reference|fingerprint|version|redacted|none|null|unknown|tbd|unassigned|n\/a|omitted|never|ci-placeholder|<[^>]+>)$/iu;
@@ -226,6 +226,36 @@ type Finding = {
   severity: FindingSeverity;
   message: string;
 };
+
+function hasUniqueValues(values: readonly string[]): boolean {
+  return new Set(values).size === values.length;
+}
+
+function isConcreteEvidenceText(value: string): boolean {
+  const normalized = value.trim();
+  return (
+    normalized.length >= 3 &&
+    !SECRET_PLACEHOLDER_PATTERN.test(normalized) &&
+    !/^(?:pass|passed|resolved|reviewed|ok|true|false)$/iu.test(normalized)
+  );
+}
+
+const EvidenceAnchorPayloadSchema = z
+  .object({
+    evidence: z
+      .string()
+      .refine(
+        isConcreteEvidenceText,
+        "Evidence anchor payload requires concrete evidence text.",
+      ),
+    source: z
+      .string()
+      .refine(
+        isConcreteEvidenceText,
+        "Evidence anchor payload requires a concrete source.",
+      ),
+  })
+  .catchall(z.unknown());
 const GateRecordSchema = z
   .object({
     schemaVersion: z.literal(1),
@@ -283,7 +313,31 @@ const GateRecordSchema = z
         .strict(),
     ),
   })
-  .strict();
+  .strict()
+  .refine(
+    (record) =>
+      hasUniqueValues(record.requiredSecretReferences.map((item) => item.name)),
+    {
+      path: ["requiredSecretReferences"],
+      message: "Secret names must be unique.",
+    },
+  )
+  .refine((record) => hasUniqueValues(record.findings.map((item) => item.id)), {
+    path: ["findings"],
+    message: "Finding IDs must be unique.",
+  })
+  .refine(
+    (record) => hasUniqueValues(record.scenarios.map((item) => item.id)),
+    { path: ["scenarios"], message: "Scenario IDs must be unique." },
+  )
+  .refine(
+    (record) => hasUniqueValues(record.commands.map((item) => item.command)),
+    { path: ["commands"], message: "Commands must be unique." },
+  )
+  .refine(
+    (record) => hasUniqueValues(record.residualRisks.map((item) => item.id)),
+    { path: ["residualRisks"], message: "Residual-risk IDs must be unique." },
+  );
 
 const EvidenceAnchorSchema = z
   .object({
@@ -297,7 +351,7 @@ const EvidenceAnchorSchema = z
         (value) => DEPLOYMENT_REFERENCE_PATTERN.test(value),
         "Evidence anchors require an immutable deployment reference.",
       ),
-    payload: z.unknown().optional(),
+    payload: EvidenceAnchorPayloadSchema,
   })
   .strict();
 
@@ -351,7 +405,17 @@ const EvidenceManifestSchema = z
       .nullable(),
     artifacts: z.array(EvidenceArtifactSchema),
   })
-  .strict();
+  .strict()
+  .refine(
+    (manifest) =>
+      hasUniqueValues(manifest.artifacts.map((artifact) => artifact.id)),
+    { path: ["artifacts"], message: "Evidence artifact IDs must be unique." },
+  )
+  .refine(
+    (manifest) =>
+      hasUniqueValues(manifest.artifacts.map((artifact) => artifact.path)),
+    { path: ["artifacts"], message: "Evidence artifact paths must be unique." },
+  );
 
 type EvidenceManifest = z.infer<typeof EvidenceManifestSchema>;
 const EvidenceArtifactContentSchema = z
@@ -821,6 +885,7 @@ async function verifyReviewedEvidenceReference(
     );
     if (matchingAnchors.length !== 1) return false;
     const [anchor] = matchingAnchors;
+    if (containsSensitiveJsonValue(anchor.payload)) return false;
     return (
       (!expectation.id || anchor.id === expectation.id) &&
       anchor.kind === expectation.kind &&
