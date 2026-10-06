@@ -18,21 +18,21 @@
       "id": "EH154-F-001",
       "severity": "high",
       "status": "open",
-      "summary": "EH-151 public boundary code is present, but route and database execution evidence for this gate is not attached.",
+      "summary": "EH-151 public boundary and public export route are implemented, but reviewed route and database execution evidence for this gate is not attached.",
       "owner": "EH-151/EH-154"
     },
     {
       "id": "EH154-F-002",
       "severity": "high",
       "status": "open",
-      "summary": "EH-152 management and EH-153 owner export adapters are present; public-share export integration and runtime evidence remain incomplete.",
+      "summary": "EH-152 management and EH-153 owner export adapters are present; public-share export integration is wired, but live recipient and runtime evidence remain incomplete.",
       "owner": "EH-152/EH-153/EH-154"
     },
     {
       "id": "EH154-F-003",
       "severity": "high",
       "status": "open",
-      "summary": "Trusted-ingress configuration is only an OpenSpec planning artifact, not a reviewed deployment.",
+      "summary": "Trusted-ingress runtime and local sidecar smoke infrastructure are implemented, but no reviewed production HTTPS/mTLS deployment is recorded.",
       "owner": "Platform/EH-151"
     },
     {

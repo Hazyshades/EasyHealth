@@ -5,36 +5,49 @@
 **Reviewed deployment:** `PENDING`
 **Evidence owner:** `PENDING`
 **Privacy owner:** `PENDING`
-**Last updated:** `PENDING`
+**Last updated:** `2026-10-06`
 
-This is the release record for a specific reviewed build. It must be replaced or completed with executed evidence before the milestone can be called ready. The current record is intentionally blocked because this checkout now contains the EH-151/EH-152/EH-153 code paths and a local adapter harness, but not the reviewed route, database, deployment, retention, or privacy-signoff evidence.
+This release record remains intentionally blocked. The branch now contains the EH-151 public export route and UI integration, a peer-aware Node runtime, and a local Docker sidecar. Reviewed HTTPS/mTLS deployment, production route/database execution, retention-worker, durable-deletion, and privacy-sign-off evidence are still unavailable.
 
 ## Blocking findings
 
-| ID          | Severity | Status | Finding                                                                                                                                 | Closure evidence |
-| ----------- | -------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| EH154-F-001 | High     | `OPEN` | EH-151 public boundary code is present, but route and database execution evidence for this gate is not attached.                        | `pending`        |
-| EH154-F-002 | High     | `OPEN` | EH-152 management and EH-153 owner export adapters are present; public-share export integration and runtime evidence remain incomplete. | `pending`        |
-| EH154-F-003 | High     | `OPEN` | The trusted-ingress YAML exists only under the EH-151 OpenSpec change and is not a reviewed/deployed production configuration.          | `pending`        |
-| EH154-F-004 | High     | `OPEN` | Durable-deletion handoff and retention-worker deployment evidence are not attached to this release record.                              | `pending`        |
+| ID          | Severity | Status | Finding                                                                                                                                                      | Closure evidence |
+| ----------- | -------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- |
+| EH154-F-001 | High     | `OPEN` | EH-151 public boundary and public export route are implemented, but reviewed route and database execution evidence is not attached.                          | `pending`        |
+| EH154-F-002 | High     | `OPEN` | EH-152 management and EH-153 owner adapters are present; public-share integration has been wired, but live recipient and runtime evidence remain incomplete. | `pending`        |
+| EH154-F-003 | High     | `OPEN` | Local trusted-ingress runtime, sidecar, and compose configuration exist, but no reviewed/deployed production HTTPS/mTLS configuration is recorded.           | `pending`        |
+| EH154-F-004 | High     | `OPEN` | Durable-deletion handoff and retention-worker deployment evidence are not attached to this release record.                                                   | `pending`        |
 
 No low or medium residual-risk decision can override these findings.
 
 ## Commands executed for this package
 
-| Command                                                                                            | Result    | Evidence                                                                                                |
-| -------------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------- |
-| `openspec status --change "eh-154-share-link-privacy-release-gate" --json`                         | `PASS`    | Schema `spec-driven`; 5/11 implementation tasks complete before this apply pass.                        |
-| `openspec instructions apply --change "eh-154-share-link-privacy-release-gate" --json`             | `PASS`    | Change is repo-local and ready to apply.                                                                |
-| `pnpm test:eh151`                                                                                  | `PASS`    | EH-151 token, PIN, trusted-ingress, response-policy, and rate-limit adapter fixtures passed.            |
-| `pnpm test:eh152`                                                                                  | `PASS`    | EH-152 owner projection and safe management boundary fixtures passed.                                   |
-| `pnpm test:eh153`                                                                                  | `PASS`    | EH-153 report-export projection, capability, serialization, and policy fixtures passed.                 |
-| `pnpm test:eh153-owner-export`                                                                     | `PASS`    | EH-153 owner route and report-detail export integration fixtures passed.                                |
-| `pnpm test:eh151-db`                                                                               | `BLOCKED` | Local Supabase and Docker fallback were unavailable; the command timed out before pgTAP execution.      |
-| `pnpm test:eh154-adapters`                                                                         | `PASS`    | 20 deterministic production-adapter assertions passed; 17 environment-bound scenarios remained blocked. |
-| `pnpm test:eh154-adapters -- --write-evidence`                                                     | `PASS`    | Wrote `evidence/local-adapter-scenarios.json` without secret values.                                    |
-| `pnpm test:eh154`                                                                                  | `BLOCKED` | Fail-closed gate reported route, database, deployment, retention, and privacy-signoff evidence gaps.    |
-| `openspec validate eh-154-share-link-privacy-release-gate --type change --strict --no-interactive` | `PASS`    | Change artifacts validate under the installed CLI.                                                      |
+| Command                                                                                            | Result    | Evidence                                                                                                                             |
+| -------------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm install --frozen-lockfile`                                                                   | `PASS`    | Restored the declared `@react-pdf/renderer` 4.3.0 dependency from the committed lockfile.                                            |
+| `pnpm exec tsc --noEmit`                                                                           | `PASS`    | Next application typecheck passed after the public export and peer-runtime changes.                                                  |
+| `pnpm --dir worker exec tsc --noEmit`                                                              | `PASS`    | Worker typecheck passed; the clean repository-env worker completed the retried EH147 synthetic full-pipeline job.                    |
+| `pnpm test:eh151`                                                                                  | `PASS`    | Token, PIN, trusted-ingress transport, response-policy, and rate-limit fixture checks passed.                                        |
+| `pnpm test:eh153`                                                                                  | `PASS`    | PDF, CSV, JSON, Unicode, embedded-font, scope, size, and shared-policy fixture checks passed.                                        |
+| `pnpm test:eh153-owner-export`                                                                     | `PASS`    | Owner route and report-detail export integration fixtures passed.                                                                    |
+| `pnpm test:eh154-adapters`                                                                         | `PASS`    | 20 deterministic adapter assertions passed; 17 environment-bound scenarios remained blocked.                                         |
+| `pnpm test:eh154`                                                                                  | `BLOCKED` | Fail-closed gate reported 45 blocking or incomplete findings.                                                                        |
+| `curl [redacted-openai-api]/v1/models`                                                             | `PASS`    | Host HTTPS egress reached the provider and returned HTTP 401 without credentials.                                                    |
+| `node fetch [redacted-openai-api]/v1/models`                                                       | `PASS`    | Node fetch reached the provider and returned HTTP 401 without credentials.                                                           |
+| `synthetic worker full-pipeline requeue`                                                           | `PASS`    | The retried EH147 synthetic job reached `completed`; its document reached `needs_review` with `gpt-4o-mini` extraction.              |
+| `node --check scripts/next-server.mjs scripts/trusted-ingress-sidecar.mjs`                         | `PASS`    | Peer-aware Node server and local sidecar syntax passed.                                                                              |
+| `docker compose -f docker-compose.trusted-ingress.yml config`                                      | `PASS`    | Local sidecar compose configuration rendered with the required secret reference.                                                     |
+| `curl [redacted-local-origin]/share/synthetic-invalid`                                             | `PASS`    | Direct origin returned generic HTTP 503 with no-store/noindex headers.                                                               |
+| `curl [redacted-local-sidecar]/share/synthetic-invalid`                                            | `PASS`    | Local sidecar forwarded the share request to the private Next origin; the invalid-token response remained generic and non-cacheable. |
+| `openspec validate eh-154-share-link-privacy-release-gate --type change --strict --no-interactive` | `PASS`    | Change artifacts validate under the installed CLI.                                                                                   |
+
+## Current implementation handoff: 2026-10-06
+
+- `src/app/api/share/[token]/export/route.ts` now verifies trusted ingress, token state, PIN proof, format allow-list, share scope, and public response policy before returning export bytes.
+- `src/app/share/[token]/page.tsx` now renders the existing `ReportExportActions` component and downloads through the public route without handling token material beyond the URL already required by the page.
+- `scripts/next-server.mjs` installs the actual Node socket peer through `AsyncLocalStorage`; direct localhost requests remain outside the trusted sidecar CIDR.
+- `scripts/trusted-ingress-sidecar.mjs` strips client edge headers, signs canonical attestation headers, and forwards only public share paths. The compose file is local HTTP smoke infrastructure, not reviewed production HTTPS/mTLS evidence.
+- Clean worker restart with repository env files removed the earlier malformed-key runtime errors, and the retried EH147 synthetic full-pipeline job completed. Reviewed production worker scheduling and retention evidence remain pending.
 
 ## Required scenario results
 

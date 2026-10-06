@@ -1,0 +1,26 @@
+services:
+  trusted-ingress:
+    image: node:20-bookworm-slim
+    command: ["node", "/app/trusted-ingress-sidecar.mjs"]
+    environment:
+      TRUSTED_INGRESS_TARGET_URL: http://host.docker.internal:3000
+      TRUSTED_INGRESS_PORT: "8443"
+      TRUSTED_INGRESS_ALLOW_INSECURE_LOCAL: "1"
+      SHARE_TRUSTED_PROXY_ATTESTATION_KEY: ${SHARE_TRUSTED_PROXY_ATTESTATION_KEY:?set SHARE_TRUSTED_PROXY_ATTESTATION_KEY}
+      SHARE_TRUSTED_PROXY_ATTESTATION_MAX_AGE_SECONDS: ${SHARE_TRUSTED_PROXY_ATTESTATION_MAX_AGE_SECONDS:-30}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./scripts/trusted-ingress-sidecar.mjs:/app/trusted-ingress-sidecar.mjs:ro
+    networks:
+      trusted_ingress:
+        ipv4_address: 10.42.0.2
+
+networks:
+  trusted_ingress:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.42.0.0/24
