@@ -24,7 +24,7 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 | `EH149-SINGLE-01`    | One numeric observation and one qualitative result                                                                                                  | Not-available direction              |
 | `EH149-CONVERT-01`   | Convertible native/display unit fixture with stored range                                                                                           | Conversion provenance                |
 | `EH149-EXCLUSION-01` | Authorized observations containing undated, qualitative, ineligible, unsupported-unit, and method/scale variants                                    | Exclusion and reason ledger          |
-| `EH149-BIND-01`      | Report-generation fixture selecting `biomarker_dynamics_period`; execution is blocked until the current EH-150 structured persistence seam is wired | Server-owned report binding          |
+| `EH149-BIND-01`      | Report-generation fixture selecting `biomarker_dynamics_period`                                                                           | Server-owned report binding          |
 | `EH149-SCOPE-01`     | Two owned eligible documents with only one included in the report's materialized scope                                                              | Scope-constrained dynamics           |
 | `EH149-TIE-01`       | Two compatible numeric observations with the same observed timestamp and distinct immutable observation IDs                                         | Stable statistics/direction ordering |
 
@@ -87,23 +87,23 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 **Precondition:** The account has two or more synthetic eligible lab documents in the selected report scope.
 
 1. Go to **Health reports** and choose **Create report**.
-2. Enable the dynamics-period control when the EH-150 structured report seam is available.
+2. Enable the dynamics-period control.
 3. Enter canonical `From` and `To` dates that contain the synthetic observations.
 4. Create the report and open the generated report.
 
-**Expected result:** Pending EH-150 structured persistence integration. Once available, the report must show the selected period, numeric direction, native value and range, and source-document links. Reversing the dates must show validation and must not create a report.
+**Expected result:** The report shows the selected period, numeric direction, native value and range, and source-document links. Reversing the dates shows validation and does not create a report.
 
 **Result:** `BLOCKED`
-**Notes / evidence link:** The current master report-generation endpoint intentionally returns 503 until the EH-150 validation and structured persistence integration is complete. No manual result is claimed.
+**Notes / evidence link:** The Sprint 7 run did not execute this report-frozen UI scenario. The current report endpoint validates and persists the selected dynamics extension, so a dedicated authenticated fixture run is still required.
 
 ## Developer evidence required
 
 - [x] Focused read-model verification: `pnpm test:eh149` with `SKIP_ENV_VALIDATION=1` covers canonical `YYYY-MM-DD` UTC-calendar-date boundaries including a late end-date timestamp, invalid/reversed/non-canonical periods, one-point and no-policy cases, equal-timestamp canonical observation-ID ordering, tolerance-based direction, non-numeric limitations, and exclusion reasons.
 - [x] Identity fixtures in `scripts/verify-eh149-biomarker-dynamics.ts` prove measurement definition, specimen, modifier, method, scale, and non-convertible unit differences remain separate with their warning reason.
 - [x] Scope guard verification proves an observation outside the authorized document set is rejected before projection. Full authenticated API boundary execution remains pending configured Supabase services.
-- [ ] Report-binding evidence is blocked by the current EH-150 structured persistence seam. The branch-local HMAC binding implementation is not part of the reconciled master runtime.
+- [ ] Report-binding evidence remains pending a dedicated authenticated report fixture run. The current implementation persists the server-owned dynamics extension through the validated report-generation path.
 - [x] Scope-constrained synthetic evidence covers both `profile_current` and `report_immutable` projection scopes and rejects the second owned document from the selected report scope. Share/export isolation remains owned by EH-151/EH-153.
-- [ ] Server-adapter source and fixtures verify report creation passes an exact immutable scope. The current report-generation endpoint remains blocked by the EH-150 structured persistence seam; the profile-current dynamics API remains covered by `pnpm test:eh149`.
+- [ ] A dedicated authenticated server-adapter fixture remains pending for exact immutable report scope and persisted dynamics binding. The profile-current dynamics API remains covered by `pnpm test:eh149`.
 - [x] `pnpm typecheck` and `pnpm build` pass with placeholder environment values. `pnpm test:eh129` passes after the client migration.
 
 ## Out of scope or not manually testable yet
@@ -116,6 +116,6 @@ This checklist covers the report-ready dynamics view on the Biomarkers page: inc
 
 - **Environment:** Local Supabase, local Next.js at `http://localhost:3000`, authenticated synthetic owner account, and three same-definition Glucose observations from `Synthetic QA Lab`.
 - **UI period and statistics:** `PASS` for the available compatible series. Setting `2026-09-01` through `2026-10-01` reduced the series from 3 to 2 points, showing dates `2026-09-10` and `2026-10-01`; **Clear range** restored all 3 points. The UI showed min `97.308 mg/dL`, max `109.922 mg/dL`, latest `109.922 mg/dL`, and `Direction: Not available` with the approved-threshold limitation.
-- **UI provenance:** `PASS` for the available source path. Each point showed its laboratory-native value and range, synthetic lab, date, and **Open source** control. The **Attention** filter isolated the latest high-in-display-unit point; **All** restored the three rows.
+- **UI provenance:** `PASS` for the available source path. Each point showed its laboratory-native value and range, synthetic lab, date, and **Open source** control.
 - **Backend:** `PASS`. Authenticated `/api/biomarkers` returned 3 registry-ready, trend-eligible observations. `/api/biomarkers/dynamics` returned HTTP 200 with 3 points, and the ranged request returned 2 points. `pnpm test:eh149` passed.
 - **Not executed:** incompatible specimen/unit separation, qualitative-only direction, conversion-specific provenance, tie ordering, and frozen report dynamics binding. No pass is claimed for those cases.
