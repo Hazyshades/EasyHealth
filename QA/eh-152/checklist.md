@@ -9,9 +9,9 @@
 
 This checklist covers the authenticated owner's share-management surface: status grouping, minimized access history, copy feedback, and immediate revoke. Public token verification remains an EH-151 check.
 
-**Current limitation:** Manual checks remain `N/A` in this checkout. Browser/API execution requires an authenticated app with EH-151 deployed; the local Next.js runtime can serve the sign-in shell, but this session has no authenticated owner account or trusted EH-151 staging ingress.
+**Current local result:** The authenticated owner surface is executable against the local stack. Trusted public ingress remains unavailable, so recipient-side public assertions stay blocked.
 
-**Dependency recheck (2026-09-30):** `master` is now at `967f8fe`, including the merged EH-151 owner-management seam follow-ups (PR #275 and PR #276). EH-151 deployment and release-gate evidence remain pending, so authenticated manual checks remain blocked.
+**Dependency recheck (2026-10-06):** Local migrations `086_eh152_management_seam.sql` and `087_eh151_replacement_preflight.sql` were applied before the management API run. The local owner list, replacement, revoke, and projection paths responded successfully.
 
 ## Before you start
 
@@ -39,9 +39,8 @@ This checklist covers the authenticated owner's share-management surface: status
 3. Inspect one access-history entry.
 
 **Expected result:** The page distinguishes statuses and shows only approved metadata. No other profile, token, PIN, raw IP, full user agent, storage path, or report content is displayed.
-
-**Result:** `N/A`
-**Notes / evidence link:** `Not executed in this session; run against the authenticated app after EH-151 deployment.`
+**Result:** `BLOCKED`
+**Notes / evidence link:** The owner run showed Active and Revoked groups with coarse metadata and no sensitive fields. Expired-status rendering and the `EH152-OTHER-01` cross-profile exclusion were not separately observed, so the complete status matrix remains blocked.
 
 ### EH152-UI-02: Revoke an active share
 
@@ -52,9 +51,8 @@ This checklist covers the authenticated owner's share-management surface: status
 3. Refresh the management page and the recipient link.
 
 **Expected result:** The owner page shows revoked status after server confirmation. The recipient link fails on its next request; the UI does not show a stale active state.
-
-**Result:** `N/A`
-**Notes / evidence link:** `Not executed in this session; run against the authenticated app after EH-151 deployment.`
+**Result:** `BLOCKED`
+**Notes / evidence link:** The owner revoke returned HTTP 200 and the refreshed owner page showed Revoked state. The recipient request could not run past the local direct-origin `503` boundary, so public-verifier invalidation remains blocked.
 
 ### EH152-UI-03: Copy a creation or replacement link
 
@@ -65,9 +63,8 @@ This checklist covers the authenticated owner's share-management surface: status
 3. Repeat with clipboard permission denied or unavailable.
 
 **Expected result:** Success or a manual fallback is clear. Existing list rows never reveal a stored token, and no token appears in the visible UI or error message.
-
-**Result:** `N/A`
-**Notes / evidence link:** `Not executed in this session; run against the authenticated app after EH-151 deployment.`
+**Result:** `BLOCKED`
+**Notes / evidence link:** The normal clipboard path passed and cleared the plaintext link from the page. Clipboard-denied or unavailable fallback behavior was not executed, so this manual check remains blocked.
 
 ### EH152-UI-04: Create and use a replacement link
 
@@ -78,9 +75,8 @@ This checklist covers the authenticated owner's share-management surface: status
 3. Copy the link, then refresh the management page.
 
 **Expected result:** The predecessor becomes revoked after server confirmation, one replacement link is shown for copying, and refreshing the page does not reveal the plaintext link again.
-
-**Result:** `N/A`
-**Notes / evidence link:** `Not executed in this session; run against the authenticated app after EH-151 deployment.`
+**Result:** `BLOCKED`
+**Notes / evidence link:** The replacement API and idempotency replay passed, but the direct UI replacement control, one-time link presentation, copy flow, and refresh-hiding behavior were not separately executed.
 
 ## Developer evidence required
 
@@ -100,12 +96,18 @@ This checklist covers the authenticated owner's share-management surface: status
 - `pnpm test:eh152` passed the synthetic projection/token fixtures, including mixed statuses, cross-profile filtering, retained-event filtering, minimized output fields, monotonic timestamp preservation, token digest derivation, and idempotency-key boundaries.
 - `pnpm exec tsc --noEmit --pretty false` passed.
 - `openspec validate eh-152-share-access-management --type change --strict --json` passed.
-- `pnpm test:eh151-db` remains blocked: local Supabase/pgTAP could not connect, the fallback PostgreSQL URL was unavailable, and Docker has no `supabase_db_easyhealth` container.
-- `pnpm build` remains blocked by existing failures outside EH-152: Turbopack page-data collection reports missing modules for pre-existing API routes, while webpack rejects the pre-existing pure global selector in `src/components/onboarding/platform-tour.module.css`.
-- Browser smoke reached the unauthenticated sign-in redirect; authenticated UI interaction remains `N/A` until a configured EH-151 environment is available.
+- `pnpm test:eh151-db` passed after local migrations 086 and 087 were applied; the current run completed 44 pgTAP assertions.
+- The authenticated browser run opened **Settings → Shared reports**, created a PIN-protected share, copied the one-time plaintext link, replaced a share with idempotency replay, revoked the successor, and verified Active/Revoked projection. Public recipient checks remain blocked at trusted ingress.
 - Recheck: EH-154 remains `Planned`; its OpenSpec tasks and release checklist contain no completed evidence or privacy handoff for EH-152.
 
 ## Out of scope or not manually testable yet
 
 - Token generation, PIN verification, and public response policy are covered by EH-151.
 - This checklist is in progress; no row is evidence of an executed test until the result and evidence are recorded.
+
+## Sprint 7 local integration run: 2026-10-06
+
+- `pnpm test:eh152` passed.
+- Authenticated API smoke passed for owner listing, replacement idempotency, revoke, no-store response headers, and scoped synthetic report ownership.
+- The local management API initially failed against stale schema; applying migrations 086 and 087 fixed the missing management objects. This is recorded as environment setup, not a source-code change.
+- Access-event success/last-access monotonicity, cross-profile API probing, and recipient revocation after a valid public request remain blocked by the absent trusted ingress or require dedicated concurrent evidence.
