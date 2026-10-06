@@ -89,6 +89,7 @@ The Health Profile already scores eight named body systems when every required g
 - [x] Local Docker Supabase database contracts — `pnpm test:eh119-db` 39/39, `pnpm test:eh122-db` 19/19, `pnpm test:eh123-db` 21/21, `pnpm test:eh142-db` 8/8, and `pnpm test:eh144-db` 14/14 passed on 2026-08-27.
 - [x] CI registration — `pnpm check:ci-suite-coverage` reported `87 covered, 0 local-only, 0 orphaned, 0 partial, 0 invalid`; `pnpm check:ci-suite-coverage-contract` passed on 2026-08-27.
 - [x] Existing EH-119 correction and EH-147 golden checks remain available for the pending/`manually_corrected` admission boundary; live UI-03 used a retained OCR-like source-context seed and completed the same admission path.
+- [x] Retried the synthetic EH147 full-pipeline job with the repository environment on 2026-10-06; the job reached `completed`, and its document reached `needs_review` with `gpt-4o-mini` extraction.
 - [x] Registry documentation generate/check/test passed on 2026-08-27. Tracking issue [#185](https://github.com/Hazyshades/EasyHealth/issues/185) records Wiki status `PUBLISHED` at Wiki commit `6e610d83`; canonical documentation and generated mirror remain synchronized.
 
 ## Out of scope or not manually testable yet

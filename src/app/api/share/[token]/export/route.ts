@@ -25,7 +25,39 @@ import {
   publicShareJson,
 } from "@/lib/share-links/route-responses";
 
-type RouteContext = { params: Promise<{ token: string }> };
+export type PublicExportRouteContext = {
+  params: Promise<{ token: string }>;
+};
+
+export type PublicExportRouteDependencies = Readonly<{
+  authorizeShareRead: typeof authorizeShareRead;
+  loadShareByToken: typeof loadShareByToken;
+  consumeFailureRateLimit: typeof consumeFailureRateLimit;
+  consumeSelectedShareFailureRateLimit: typeof consumeSelectedShareFailureRateLimit;
+  recordAndConsumeSelectedShareFailure: typeof recordAndConsumeSelectedShareFailure;
+  verifyPublicBoundary: typeof verifyPublicBoundary;
+  createReportExportResponse: typeof createReportExportResponse;
+  isExportFormat: typeof isExportFormat;
+  renderReportExport: typeof renderReportExport;
+  applyPublicShareExportResponsePolicy: typeof applyPublicShareExportResponsePolicy;
+  publicShareError: typeof publicShareError;
+  publicShareJson: typeof publicShareJson;
+}>;
+
+const defaultPublicExportRouteDependencies: PublicExportRouteDependencies = {
+  authorizeShareRead,
+  loadShareByToken,
+  consumeFailureRateLimit,
+  consumeSelectedShareFailureRateLimit,
+  recordAndConsumeSelectedShareFailure,
+  verifyPublicBoundary,
+  createReportExportResponse,
+  isExportFormat,
+  renderReportExport,
+  applyPublicShareExportResponsePolicy,
+  publicShareError,
+  publicShareJson,
+};
 
 function containsPinMaterial(request: NextRequest): boolean {
   return (
@@ -36,53 +68,59 @@ function containsPinMaterial(request: NextRequest): boolean {
   );
 }
 
-export async function GET(request: NextRequest, context: RouteContext) {
-  const boundary = verifyPublicBoundary(request);
+export async function handlePublicShareExport(
+  request: NextRequest,
+  context: PublicExportRouteContext,
+  dependencies: PublicExportRouteDependencies = defaultPublicExportRouteDependencies,
+) {
+  const boundary = dependencies.verifyPublicBoundary(request);
   if (boundary instanceof Response) return boundary;
 
   const { token } = await context.params;
   let lookup: ShareLookup;
   try {
-    lookup = await loadShareByToken(token);
+    lookup = await dependencies.loadShareByToken(token);
   } catch (error) {
-    if (error instanceof ShareServiceError) return publicShareError(error);
-    const limited = await consumeFailureRateLimit({
+    if (error instanceof ShareServiceError)
+      return dependencies.publicShareError(error);
+    const limited = await dependencies.consumeFailureRateLimit({
       tokenKey: null,
       boundary,
     });
     if (limited) return limited;
-    return publicShareError(error);
+    return dependencies.publicShareError(error);
   }
 
   if (containsPinMaterial(request)) {
-    const limited = await recordAndConsumeSelectedShareFailure({
+    const limited = await dependencies.recordAndConsumeSelectedShareFailure({
       lookup,
       boundary,
       resourceKind: "export",
       result: "denied",
     });
     if (limited) return limited;
-    return publicShareJson({ error: "Share unavailable" }, 404);
+    return dependencies.publicShareJson({ error: "Share unavailable" }, 404);
   }
 
   const requested = request.nextUrl.searchParams.get("format");
-  if (!requested || !isExportFormat(requested)) {
-    const limited = await recordAndConsumeSelectedShareFailure({
+  if (!requested || !dependencies.isExportFormat(requested)) {
+    const limited = await dependencies.recordAndConsumeSelectedShareFailure({
       lookup,
       boundary,
       resourceKind: "export",
       result: "denied",
     });
     if (limited) return limited;
-    return publicShareError(new ShareUnavailableError());
+    return dependencies.publicShareError(new ShareUnavailableError());
   }
 
   try {
-    const result = await authorizeShareRead({
+    const result = await dependencies.authorizeShareRead({
       token,
       cookieHeader: request.headers.get("cookie"),
       resource: { kind: "export", format: requested },
       clientClass: boundary.clientClass,
+      deferSuccessfulAccess: true,
     });
     const capability: ReportShareExportCapability = {
       reportId: result.lookup.share.report_id,
@@ -94,30 +132,41 @@ export async function GET(request: NextRequest, context: RouteContext) {
           ? result.lookup.share.document_ids
           : [],
       downloadPolicy: result.lookup.share.download_policy,
-      allowedExportFormats:
-        result.lookup.share.allowed_export_formats.filter(isExportFormat),
+      allowedExportFormats: result.lookup.share.allowed_export_formats.filter(
+        dependencies.isExportFormat,
+      ),
     };
-    const file = await renderReportExport(
+    const file = await dependencies.renderReportExport(
       { kind: "share", capability },
       requested,
       { reportId: result.lookup.share.report_id },
     );
-    return createReportExportResponse(file, {
+    const response = dependencies.createReportExportResponse(file, {
       kind: "share",
-      applyPublicShareResponsePolicy: applyPublicShareExportResponsePolicy,
+      applyPublicShareResponsePolicy:
+        dependencies.applyPublicShareExportResponsePolicy,
     });
+    await result.complete();
+    return response;
   } catch (error) {
     if (
       error instanceof SharePinRequiredError ||
       error instanceof ShareUnavailableError
     ) {
-      const limited = await consumeSelectedShareFailureRateLimit({
+      const limited = await dependencies.consumeSelectedShareFailureRateLimit({
         lookup,
         boundary,
         resourceKind: "export",
       });
       if (limited) return limited;
     }
-    return publicShareError(error);
+    return dependencies.publicShareError(error);
   }
+}
+
+export async function GET(
+  request: NextRequest,
+  context: PublicExportRouteContext,
+) {
+  return handlePublicShareExport(request, context);
 }
