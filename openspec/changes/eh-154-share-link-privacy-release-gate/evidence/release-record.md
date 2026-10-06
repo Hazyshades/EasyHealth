@@ -81,9 +81,11 @@ reviewed build and immutable deployment digest. Artifact bytes must be canonical
 JSON (sorted object keys, preserved array order, one trailing newline); the
 manifest digest is the SHA-256 of those exact UTF-8 bytes. `pending`, `not-run`,
 `n/a`, prose, and unresolvable references are not valid evidence references.
-Each canonical evidence anchor must also carry a payload with concrete
-`evidence` and `source` fields; status/build/deployment metadata alone is not
-reviewed execution evidence.
+Each canonical evidence anchor must also carry a structured payload:
+`evidence.command` identifies the executed check, `evidence.result` records
+the observed result, and `source` is a content-addressed
+`evidence://...@sha256:...` reference. Status/build/deployment metadata alone,
+arbitrary prose, or placeholder values are not reviewed execution evidence.
 
 | Scenario ID                       | Result    | Evidence  |
 | --------------------------------- | --------- | --------- |

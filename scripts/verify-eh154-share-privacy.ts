@@ -9,11 +9,13 @@ import { z } from "zod";
 
 const execFileAsync = promisify(execFile);
 
+const COMMIT_ID_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/iu;
+
 async function getCurrentCommit(): Promise<string | null> {
   try {
     const { stdout } = await execFileAsync("git", ["rev-parse", "HEAD"]);
     const commit = stdout.toString().trim();
-    return /^[0-9a-f]{7,64}$/iu.test(commit) ? commit : null;
+    return COMMIT_ID_PATTERN.test(commit) ? commit : null;
   } catch {
     return null;
   }
@@ -40,7 +42,7 @@ const REQUIRED_EVIDENCE_FILES = [
   "release-gate.json",
 ] as const;
 const SECRET_REFERENCE_PATTERN =
-  /^(?:(?:secret|vault|aws-secretsmanager|gcp-secretmanager|azure-keyvault|keyvault):\/\/[A-Za-z0-9._/-]+[#@]version[=:]?[A-Za-z0-9._-]+)$/iu;
+  /^(?:(?:secret|vault|aws-secretsmanager|gcp-secretmanager|azure-keyvault|keyvault):\/\/[A-Za-z0-9._/-]+[#@]version[=:]?(?!(?:latest|current|active|default|previous|awscurrent|awsprevious)$)[A-Za-z0-9._-]+)$/iu;
 const SECRET_FINGERPRINT_PATTERN = /^(?:sha256[:/-])?[A-Fa-f0-9]{64}$/u;
 const SECRET_PLACEHOLDER_PATTERN =
   /^(?:_pending_|pending|reference|fingerprint|version|redacted|none|null|unknown|tbd|unassigned|n\/a|omitted|never|ci-placeholder|<[^>]+>)$/iu;
@@ -59,21 +61,30 @@ function isTrustedCidr(value: string): boolean {
   const parts = value.trim().split("/");
   if (parts.length !== 2) return false;
   const [address, prefix] = parts;
+  if (!address || !prefix || !/^(?:0|[1-9]\d*)$/u.test(prefix)) {
+    return false;
+  }
+  const parsedAddress = parseCanonicalAddress(address);
+  if (!parsedAddress) return false;
+  const prefixLength = Number(prefix);
+  const maxPrefix = parsedAddress.family === 4 ? 32 : 128;
   if (
-    !address ||
-    !prefix ||
-    !/^(?:0|[1-9]\d*)$/u.test(prefix) ||
-    !parseCanonicalAddress(address)
+    !Number.isInteger(prefixLength) ||
+    prefixLength < 0 ||
+    prefixLength > maxPrefix
   ) {
     return false;
   }
-  const prefixLength = Number(prefix);
-  const family = isIP(address);
-  return (
-    Number.isInteger(prefixLength) &&
-    ((family === 4 && prefixLength <= 32) ||
-      (family === 6 && prefixLength <= 128))
-  );
+  const fullBytes = Math.floor(prefixLength / 8);
+  const remainingBits = prefixLength % 8;
+  const hasHostBits = parsedAddress.bytes.some((byte, index) => {
+    if (index < fullBytes) return false;
+    if (index === fullBytes && remainingBits > 0) {
+      return (byte & (0xff >> remainingBits)) !== 0;
+    }
+    return byte !== 0;
+  });
+  return !hasHostBits;
 }
 
 function isTrustedCidrs(value: string): boolean {
@@ -239,28 +250,52 @@ function isConcreteEvidenceText(value: string): boolean {
     !/^(?:pass|passed|resolved|reviewed|ok|true|false)$/iu.test(normalized)
   );
 }
+const EVIDENCE_COMMAND_PATTERN =
+  /^(?:(?:pnpm|npm|yarn|bun|node|tsx|curl|git|psql)\s+\S+|(?:GET|POST|PUT|PATCH|DELETE)\s+\S+|[A-Za-z0-9._/-]+::[A-Za-z0-9._/-]+)(?:\s+.*)?$/iu;
+const EVIDENCE_RESULT_PATTERN =
+  /^(?:(?:PASS|FAIL|BLOCKED)\b|HTTP\s+\d{3}\b|status(?:\s+code)?\s*[:=]\s*\d{3}\b|(?:observed|response|returned|denied|allowed|rejected|absent|present)\b)[^\r\n]{3,}$/iu;
+
+function isConcreteEvidenceCommand(value: string): boolean {
+  return (
+    isConcreteEvidenceText(value) && EVIDENCE_COMMAND_PATTERN.test(value.trim())
+  );
+}
+
+function isConcreteEvidenceResult(value: string): boolean {
+  return (
+    isConcreteEvidenceText(value) && EVIDENCE_RESULT_PATTERN.test(value.trim())
+  );
+}
 
 const EvidenceAnchorPayloadSchema = z
   .object({
-    evidence: z
-      .string()
-      .refine(
-        isConcreteEvidenceText,
-        "Evidence anchor payload requires concrete evidence text.",
-      ),
+    evidence: z.object({
+      command: z
+        .string()
+        .refine(
+          isConcreteEvidenceCommand,
+          "Evidence anchor payload requires an executable command identifier.",
+        ),
+      result: z
+        .string()
+        .refine(
+          isConcreteEvidenceResult,
+          "Evidence anchor payload requires an observed result with status context.",
+        ),
+    }),
     source: z
       .string()
-      .refine(
-        isConcreteEvidenceText,
-        "Evidence anchor payload requires a concrete source.",
+      .regex(
+        REVIEWED_EVIDENCE_REFERENCE_PATTERN,
+        "Evidence anchor payload requires a content-addressed source reference.",
       ),
   })
-  .catchall(z.unknown());
+  .strict();
 const GateRecordSchema = z
   .object({
     schemaVersion: z.literal(1),
     gateStatus: z.enum(["blocked", "ready-with-risk", "ready"]),
-    reviewedBuild: z.string().nullable(),
+    reviewedBuild: z.string().regex(COMMIT_ID_PATTERN).nullable(),
     reviewedDeployment: z.string().nullable(),
     evidenceOwner: z.string().nullable(),
     privacySignOff: z.boolean(),
@@ -344,7 +379,7 @@ const EvidenceAnchorSchema = z
     id: z.string().regex(/^[A-Za-z0-9._/-]+$/u),
     kind: z.enum(["scenario", "finding", "artifact"]),
     status: z.enum(["pass", "resolved", "reviewed"]),
-    reviewedBuild: z.string().regex(/^[0-9a-f]{7,64}$/iu),
+    reviewedBuild: z.string().regex(COMMIT_ID_PATTERN),
     reviewedDeployment: z
       .string()
       .refine(
@@ -372,7 +407,7 @@ const EvidenceArtifactSchema = z
         "Evidence artifacts must use the canonical JSON format.",
       ),
     sha256: z.string().regex(/^[A-Fa-f0-9]{64}$/u),
-    reviewedBuild: z.string().regex(/^[0-9a-f]{7,64}$/iu),
+    reviewedBuild: z.string().regex(COMMIT_ID_PATTERN),
     reviewedDeployment: z
       .string()
       .refine(
@@ -392,10 +427,7 @@ const EvidenceArtifactSchema = z
 const EvidenceManifestSchema = z
   .object({
     schemaVersion: z.literal(1),
-    reviewedBuild: z
-      .string()
-      .regex(/^[0-9a-f]{7,64}$/iu)
-      .nullable(),
+    reviewedBuild: z.string().regex(COMMIT_ID_PATTERN).nullable(),
     reviewedDeployment: z
       .string()
       .refine(
@@ -421,7 +453,7 @@ type EvidenceManifest = z.infer<typeof EvidenceManifestSchema>;
 const EvidenceArtifactContentSchema = z
   .object({
     schemaVersion: z.literal(1),
-    reviewedBuild: z.string().regex(/^[0-9a-f]{7,64}$/iu),
+    reviewedBuild: z.string().regex(COMMIT_ID_PATTERN),
     reviewedDeployment: z
       .string()
       .refine(
@@ -445,7 +477,7 @@ const LocalAdapterRunSchema = z
     scope: z.literal("local-production-adapters"),
     command: z.literal("pnpm test:eh154-adapters"),
     executedAt: z.string().datetime({ offset: true }),
-    reviewedBuild: z.string().nullable(),
+    reviewedBuild: z.string().regex(COMMIT_ID_PATTERN).nullable(),
     reviewedDeployment: z.string().nullable(),
     scenarios: z.array(
       z
@@ -1177,7 +1209,22 @@ const RAW_ADDRESS_KEY_PATTERN =
 const RAW_ADDRESS_FIELD_PATTERN =
   /(?:^|[|{}\s"'`])(?:client[\s_.-]?(?:ip|addr|address)|remote[\s_.-]?(?:addr|address|ip)|requester[\s_.-]?(?:addr|address|ip)|forwarded[\s_.-]?(?:for|addr|address|ip)|x[\s_.-]?forwarded[\s_.-]?(?:for|host|addr|address|ip)|ip(?:v[46])?[\s_.-]?(?:addr|address)?)\s*(?::|=|\|)/imu;
 
-function containsRawIpAddress(value: string): boolean {
+const TRUSTED_CIDR_SETTING_ROW_PATTERN =
+  /(^\|\s*`?SHARE_TRUSTED_PROXY_CIDRS`?\s*\|\s*)([^|\r\n]+)(\s*\|)/imu;
+
+function maskApprovedTrustedProxyCidrs(value: string): string {
+  return value.replace(
+    TRUSTED_CIDR_SETTING_ROW_PATTERN,
+    (whole: string, prefix: string, cidrValue: string, suffix: string) => {
+      const candidate = cidrValue.trim().replace(/^`|`$/gu, "");
+      return isTrustedCidrs(candidate)
+        ? `${prefix}${" ".repeat(cidrValue.length)}${suffix}`
+        : whole;
+    },
+  );
+}
+
+function containsRawIpAddress(value: string, allowCidrs = false): boolean {
   for (const match of value.matchAll(IP_LITERAL_PATTERN)) {
     const token = match[0];
     const start = match.index ?? -1;
@@ -1185,12 +1232,12 @@ function containsRawIpAddress(value: string): boolean {
     const family = isIP(token);
     if (family === 0) continue;
     const cidrPrefix = /^\/(\d{1,3})(?=$|[\s,.;)\]}>"'`])/u.exec(suffix)?.[1];
-    if (cidrPrefix !== undefined) {
-      const prefix = Number(cidrPrefix);
-      const maxPrefix = family === 4 ? 32 : 128;
-      if (Number.isInteger(prefix) && prefix >= 0 && prefix <= maxPrefix) {
-        continue;
-      }
+    if (
+      allowCidrs &&
+      cidrPrefix !== undefined &&
+      isTrustedCidr(`${token}/${cidrPrefix}`)
+    ) {
+      continue;
     }
     return true;
   }
@@ -1211,7 +1258,11 @@ function containsSensitiveJsonValue(
   if (RAW_ADDRESS_KEY_PATTERN.test(key)) return true;
   if (typeof value === "string") {
     const normalized = value.trim();
-    if (containsRawIpAddress(normalized)) return true;
+    if (
+      containsRawIpAddress(normalized, /^SHARE_TRUSTED_PROXY_CIDRS$/u.test(key))
+    ) {
+      return true;
+    }
     if (
       SHARE_TOKEN_PATTERN.test(normalized) ||
       PUBLIC_SHARE_URL_PATTERN.test(normalized)
@@ -1345,6 +1396,13 @@ async function collectEvidenceFindings(
     ),
   );
   const combinedEvidence = evidenceText.join("\n");
+  const rawAddressEvidence = evidenceText
+    .map((text, index) =>
+      filesToScan[index] === "privacy-signoff.md"
+        ? maskApprovedTrustedProxyCidrs(text)
+        : text,
+    )
+    .join("\n");
   const secretValuePatterns = [
     /["'`]?(?:authorization|bearer|token|pin|proof|cookie)["'`]?\s*[:=]\s*["'`]?(?!\b(?:pending|reference|fingerprint|version|redacted|none|null|omitted|never)\b)[A-Za-z0-9._+/=-]{4,}/iu,
     /\bPIN\s+(?:(?:is|was)\s+)?(?:[`'"]\s*)?\d{4,}(?:\s*[`'"])?/iu,
@@ -1372,8 +1430,9 @@ async function collectEvidenceFindings(
   const shareCredentialFound =
     SHARE_TOKEN_PATTERN.test(combinedEvidence) ||
     PUBLIC_SHARE_URL_PATTERN.test(combinedEvidence);
-  const rawIpFound = containsRawIpAddress(combinedEvidence);
-  const rawAddressFieldFound = RAW_ADDRESS_FIELD_PATTERN.test(combinedEvidence);
+  const rawIpFound = containsRawIpAddress(rawAddressEvidence);
+  const rawAddressFieldFound =
+    RAW_ADDRESS_FIELD_PATTERN.test(rawAddressEvidence);
   const namedSecretFound = containsUnapprovedNamedSecret(combinedEvidence);
   if (
     jsonSecretFound ||
@@ -1614,7 +1673,7 @@ async function validateReleaseRecord(
 }
 
 async function isCommitObject(commit: string | null): Promise<boolean> {
-  if (!commit || !/^[0-9a-f]{7,64}$/iu.test(commit)) return false;
+  if (!commit || !COMMIT_ID_PATTERN.test(commit)) return false;
   try {
     await execFileAsync("git", ["cat-file", "-e", `${commit}^{commit}`]);
     return true;
