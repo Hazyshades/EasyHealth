@@ -56,7 +56,9 @@ function hasConcreteReference(
 }
 
 function isTrustedCidr(value: string): boolean {
-  const [address, prefix] = value.trim().split("/");
+  const parts = value.trim().split("/");
+  if (parts.length !== 2) return false;
+  const [address, prefix] = parts;
   if (
     !address ||
     !prefix ||
@@ -1106,7 +1108,9 @@ const IP_LITERAL_PATTERN =
   /(?<![A-Za-z0-9])(?:[0-9]{1,3}(?:\.[0-9]{1,3}){3}|[0-9A-Fa-f:]{2,})(?![A-Za-z0-9])/gu;
 
 const RAW_ADDRESS_KEY_PATTERN =
-  /(?:client[\s_-]?(?:ip|addr|address)|remote[\s_-]?(?:addr|address|ip)|requester[\s_-]?(?:addr|address|ip)|forwarded[\s_-]?(?:for|addr|address|ip)|x[\s_-]?forwarded[\s_-]?(?:for|host|addr|address|ip))/iu;
+  /^(?:client[\s_.-]?(?:ip|addr|address)|remote[\s_.-]?(?:addr|address|ip)|requester[\s_.-]?(?:addr|address|ip)|forwarded[\s_.-]?(?:for|addr|address|ip)|x[\s_.-]?forwarded[\s_.-]?(?:for|host|addr|address|ip)|ip(?:v[46])?[\s_.-]?(?:addr|address)?)$/iu;
+const RAW_ADDRESS_FIELD_PATTERN =
+  /(?:^|[|{}\s"'`])(?:client[\s_.-]?(?:ip|addr|address)|remote[\s_.-]?(?:addr|address|ip)|requester[\s_.-]?(?:addr|address|ip)|forwarded[\s_.-]?(?:for|addr|address|ip)|x[\s_.-]?forwarded[\s_.-]?(?:for|host|addr|address|ip)|ip(?:v[46])?[\s_.-]?(?:addr|address)?)\s*(?::|=|\||$)/imu;
 
 function containsRawIpAddress(value: string): boolean {
   for (const match of value.matchAll(IP_LITERAL_PATTERN)) {
@@ -1115,7 +1119,7 @@ function containsRawIpAddress(value: string): boolean {
     const suffix = start >= 0 ? value.slice(start + token.length) : "";
     const family = isIP(token);
     if (family === 0) continue;
-    const cidrPrefix = /^\/(\d{1,3})(?:\b|$)/u.exec(suffix)?.[1];
+    const cidrPrefix = /^\/(\d{1,3})(?=$|[\s,.;)\]}>"'`])/u.exec(suffix)?.[1];
     if (cidrPrefix !== undefined) {
       const prefix = Number(cidrPrefix);
       const maxPrefix = family === 4 ? 32 : 128;
@@ -1304,7 +1308,7 @@ async function collectEvidenceFindings(
     SHARE_TOKEN_PATTERN.test(combinedEvidence) ||
     PUBLIC_SHARE_URL_PATTERN.test(combinedEvidence);
   const rawIpFound = containsRawIpAddress(combinedEvidence);
-  const rawAddressFieldFound = RAW_ADDRESS_KEY_PATTERN.test(combinedEvidence);
+  const rawAddressFieldFound = RAW_ADDRESS_FIELD_PATTERN.test(combinedEvidence);
   const namedSecretFound = containsUnapprovedNamedSecret(combinedEvidence);
   if (
     jsonSecretFound ||
