@@ -1,0 +1,15 @@
+.git
+.github
+.next
+node_modules
+.env
+.env.*
+worker/ - Copy.env
+!.env.example
+worker/node_modules
+supabase/.temp
+.tmp
+.tmp-*
+.artifacts
+lab_data
+deployment/staging-certs

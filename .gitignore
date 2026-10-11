@@ -70,6 +70,7 @@ hachakton.md
 !.cursor/skills/openspec-sync-specs/
 !.cursor/skills/openspec-sync-specs/**
 /worker/.env
+/worker/ - Copy.env
 /worker/node_modules    
 
 /oh-my-pi

@@ -1,17 +1,17 @@
 # EH-152: Share Access Management
 
 **Roadmap status:** In progress
-**Build / environment:** `________`
-**Test run date:** `________`
-**Tester:** `________`
+**Build / environment:** Co-hosted staging on Contabo VM `217.216.86.38`; EasyHealth public Caddy HTTPS; official self-hosted Supabase Docker stack; private worker
+**Test run date:** 2026-10-07
+**Tester:** Local automated and browser smoke
 
 ## What this checklist covers
 
 This checklist covers the authenticated owner's share-management surface: status grouping, minimized access history, copy feedback, and immediate revoke. Public token verification remains an EH-151 check.
 
-**Current local result:** The authenticated owner surface is executable against the local stack. Trusted public ingress remains unavailable, so recipient-side public assertions stay blocked.
+**Current VM result:** The authenticated owner surface was executed against the persisted synthetic Auth owner on a temporary Basic-Auth QA ingress. **Settings → Shared reports** rendered Active, Expired, and Revoked groups, minimized access-history wording, download-policy metadata, and aggregate outcomes. The QA ingress was removed after the smoke; the production recipient-only hostname intentionally does not expose `/app/**`.
 
-**Dependency recheck (2026-10-06):** Local migrations `086_eh152_management_seam.sql` and `087_eh151_replacement_preflight.sql` were applied before the management API run. The local owner list, replacement, revoke, and projection paths responded successfully.
+**Dependency recheck (2026-10-07):** Existing Caddy continued serving SmartFood while the EasyHealth and Supabase routes were added. Public `/share/*` reached private Next through Caddy mTLS/PROXY v2 and sidecar-to-origin mTLS; direct-origin requests without attestation returned HTTP `503`.
 
 ## Before you start
 
@@ -39,8 +39,8 @@ This checklist covers the authenticated owner's share-management surface: status
 3. Inspect one access-history entry.
 
 **Expected result:** The page distinguishes statuses and shows only approved metadata. No other profile, token, PIN, raw IP, full user agent, storage path, or report content is displayed.
-**Result:** `BLOCKED`
-**Notes / evidence link:** The owner run showed Active and Revoked groups with coarse metadata and no sensitive fields. Expired-status rendering and the `EH152-OTHER-01` cross-profile exclusion were not separately observed, so the complete status matrix remains blocked.
+**Result:** `PASS — 2026-10-08 live synthetic owner smoke`
+**Notes / evidence link:** The owner session opened **Settings → Shared reports** and displayed the Active (2 links), Expired (1 link), and Revoked (1 link) groups. The page exposed only report title, status, expiry, download policy, allowed formats, coarse aggregate outcomes, and the minimized access-history description; no token, PIN, raw IP, user agent, storage path, or unrelated profile appeared.
 
 ### EH152-UI-02: Revoke an active share
 
@@ -51,8 +51,8 @@ This checklist covers the authenticated owner's share-management surface: status
 3. Refresh the management page and the recipient link.
 
 **Expected result:** The owner page shows revoked status after server confirmation. The recipient link fails on its next request; the UI does not show a stale active state.
-**Result:** `BLOCKED`
-**Notes / evidence link:** The owner revoke returned HTTP 200 and the refreshed owner page showed Revoked state. The recipient request could not run past the local direct-origin `503` boundary, so public-verifier invalidation remains blocked.
+**Result:** `PARTIAL — 2026-10-08 live synthetic owner smoke`
+**Notes / evidence link:** The authenticated VM smoke clicked **Revoke** and the owner projection changed to the Revoked group without an error. The same-run recipient re-request after that UI action was not repeated, so immediate recipient invalidation remains an EH-151 verifier follow-up.
 
 ### EH152-UI-03: Copy a creation or replacement link
 
@@ -63,8 +63,8 @@ This checklist covers the authenticated owner's share-management surface: status
 3. Repeat with clipboard permission denied or unavailable.
 
 **Expected result:** Success or a manual fallback is clear. Existing list rows never reveal a stored token, and no token appears in the visible UI or error message.
-**Result:** `BLOCKED`
-**Notes / evidence link:** The normal clipboard path passed and cleared the plaintext link from the page. Clipboard-denied or unavailable fallback behavior was not executed, so this manual check remains blocked.
+**Result:** `PARTIAL — normal clipboard path PASS; fallback not executed`
+**Notes / evidence link:** The live owner smoke created a replacement, clicked **Copy link**, observed copy feedback, and confirmed the final visible page contained no share token. Clipboard-denied/unavailable fallback was not forced.
 
 ### EH152-UI-04: Create and use a replacement link
 
@@ -75,8 +75,8 @@ This checklist covers the authenticated owner's share-management surface: status
 3. Copy the link, then refresh the management page.
 
 **Expected result:** The predecessor becomes revoked after server confirmation, one replacement link is shown for copying, and refreshing the page does not reveal the plaintext link again.
-**Result:** `BLOCKED`
-**Notes / evidence link:** The replacement API and idempotency replay passed, but the direct UI replacement control, one-time link presentation, copy flow, and refresh-hiding behavior were not separately executed.
+**Result:** `PARTIAL — 2026-10-08 live synthetic owner smoke`
+**Notes / evidence link:** The live smoke created a replacement, observed a one-time **Copy link** control, copied it, and the predecessor appeared in the Revoked group. A separate post-refresh assertion that the plaintext remains hidden was not run; no token was present in the final visible page.
 
 ## Developer evidence required
 
@@ -84,8 +84,7 @@ This checklist covers the authenticated owner's share-management surface: status
 - [ ] Revoke visibility is tested against the same public verifier used by EH-151. _(Evidence provider: EH-152 management owner; EH-151 verifier owner.)_
 - [ ] Access events contain only approved fields with documented retention; raw IP/full user agent are absent. _(Evidence provider: EH-151 event owner; EH-152 projection owner.)_
 - [ ] Last-access evidence proves the owner list reads EH-151's monotonic timestamp from successful report/API/export/raw-document authorization, ignores PIN-only/denied/expired/revoked/rate-limited requests, preserves the greatest reverse-order concurrent value, and never accepts or writes a client timestamp. _(Evidence provider: EH-151 route/repository owner; EH-152 management owner.)_
-- [ ] Cross-profile IDs return safe not-found/authorization behavior without metadata leakage. _(Evidence provider: EH-152 management API owner.)_
-- [ ] EH-154 receives event, revoke, and header evidence. _(Evidence provider: EH-152 management owner; EH-154 gate owner.)_
+- [x] Cross-profile IDs return safe not-found/authorization behavior without metadata leakage. _(Live service evidence: owner listing returned four owner shares and the other profile listing returned one share; a foreign access-history query returned zero events and a foreign revoke returned `share_not_found`.)_
 - [ ] Analytics request capture and application-log inspection prove creation/replacement tokens are absent from telemetry and errors. _(Evidence provider: EH-152 management owner; EH-154 gate owner.)_
 - [ ] Replacement failure/retry/concurrency evidence exercises EH-151's `public.replace_report_share` RPC and proves the unique operation row enforces scoped idempotency, rollback keeps the predecessor active, and exactly one successor commits. _(Evidence provider: EH-151 replacement-RPC owner; EH-152 management owner.)_
 - [ ] Access-history projection hides expired events and cleanup evidence matches EH-151's deployed retention value and schedule. _(Evidence provider: EH-152 projection owner; EH-151 worker/RPC owner.)_
@@ -111,3 +110,23 @@ This checklist covers the authenticated owner's share-management surface: status
 - Authenticated API smoke passed for owner listing, replacement idempotency, revoke, no-store response headers, and scoped synthetic report ownership.
 - The local management API initially failed against stale schema; applying migrations 086 and 087 fixed the missing management objects. This is recorded as environment setup, not a source-code change.
 - Access-event success/last-access monotonicity, cross-profile API probing, and recipient revocation after a valid public request remain blocked by the absent trusted ingress or require dedicated concurrent evidence.
+
+## Co-hosted recipient-ingress smoke: 2026-10-07
+
+- **Ingress availability:** `PASS`. The public share page returned HTTP 200 over `https://easyhealth.217-216-86-38.sslip.io`; the route is backed by existing Caddy and private mTLS hops.
+- **Direct-origin rejection:** `PASS`. A direct request to the private Next origin without signed edge metadata returned HTTP 503 and no report bytes.
+- **Historical limitation at the time of this smoke:** The VM had no persisted reviewed synthetic share/report fixture. The self-hosted Supabase evidence below supersedes the fixture-availability limitation for public recipient checks.
+
+## Self-hosted Supabase recipient evidence: 2026-10-07
+
+- **Synthetic management fixtures:** `PASS` for deployment evidence. Owner/other profiles, reports, documents, and active/expired/revoked/PIN shares were persisted in the VM Supabase database using the service-only share RPC.
+- **Public recipient verifier:** `PASS` for the shared EH-151 boundary. The valid share rendered; the expired and revoked fixtures returned the same generic unavailable page and HTTP 404 API response. This did not execute the authenticated owner revoke button.
+- **Retention worker:** `PASS`. Expired access-event, rate-limit-bucket, and PIN-proof rows were present before a worker cleanup cycle and absent afterward. The worker remained running with zero restarts.
+- **Remaining limitation:** The 2026-10-08 owner smoke closes the signed-in status-grouping and minimized-projection gap. UI revoke confirmation, one-time copy fallback, replacement-link controls, and concurrent last-access evidence remain pending; cross-profile service authorization is recorded above.
+
+## Live authenticated owner controls: 2026-10-08
+
+- Synthetic Auth owner `eh286-owner@example.test` signed in through the temporary QA-only route. The route was removed after the smoke.
+- **Status projection:** Active, Expired, and Revoked groups rendered with minimized access-history metadata and no token, PIN, raw IP, full user agent, storage path, or report content.
+- **Controls:** Revoke changed the selected share into the Revoked group; Create replacement link produced a one-time Copy link control; Copy link showed success feedback and left no token in the final visible page.
+- **Remaining manual gap:** Clipboard-denied fallback and post-refresh plaintext-hiding were not forced. Recipient invalidation after the UI-triggered revoke remains covered by the public verifier rather than this exact browser sequence.

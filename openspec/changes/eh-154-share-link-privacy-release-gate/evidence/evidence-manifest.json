@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
   "reviewedBuild": null,
-  "reviewedDeployment": null,
+  "reviewedDeployment": "deployment://contabo-217-216-86-38/easyhealth-2026-10-08#sha256:3749df35ab63f053622c7e1e133d2e0669835ff66c7eef0bc2e6a6e30c63a511",
   "artifacts": []
 }

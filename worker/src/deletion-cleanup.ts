@@ -125,12 +125,14 @@ async function knownStorageObjects(
   return [...paths];
 }
 
-async function listManifest(operation: DeletionOperation): Promise<string[]> {
+async function listManifest(
+  operation: DeletionOperation,
+  includeKnownDatabasePaths = true,
+): Promise<string[]> {
   const prefix = `${operation.profile_id}/${operation.document_id}`;
-  const [listed, known] = await Promise.all([
-    listStorageObjects(prefix),
-    knownStorageObjects(operation),
-  ]);
+  const listed = await listStorageObjects(prefix);
+  if (!includeKnownDatabasePaths) return listed.sort();
+  const known = await knownStorageObjects(operation);
   return [...new Set([...listed, ...known])].sort();
 }
 
@@ -263,7 +265,7 @@ async function processOperation(
     }
 
     if (expectedStatus === "verifying_storage") {
-      const manifest = await listManifest(operation);
+      const manifest = await listManifest(operation, false);
       await heartbeat(operation);
       if (manifest.length > 0) {
         await removeStorageObjects(manifest);
@@ -283,7 +285,7 @@ async function processOperation(
       );
       if (operation.stable_empty_count < 2 || remainingWait > 0) {
         if (remainingWait > 0) await sleep(remainingWait);
-        const secondManifest = await listManifest(operation);
+        const secondManifest = await listManifest(operation, false);
         await heartbeat(operation);
         if (secondManifest.length > 0) {
           await removeStorageObjects(secondManifest);
@@ -311,7 +313,7 @@ async function processOperation(
       await heartbeat(operation);
     }
 
-    const afterFirstRemoval = await listManifest(operation);
+    const afterFirstRemoval = await listManifest(operation, false);
     await heartbeat(operation);
     if (afterFirstRemoval.length > 0) {
       await removeStorageObjects(afterFirstRemoval);
@@ -324,7 +326,7 @@ async function processOperation(
 
     const firstEmptyAt = new Date().toISOString();
     await sleep(STABILITY_INTERVAL_MS);
-    const finalManifest = await listManifest(operation);
+    const finalManifest = await listManifest(operation, false);
     await heartbeat(operation);
     if (finalManifest.length > 0) {
       await removeStorageObjects(finalManifest);

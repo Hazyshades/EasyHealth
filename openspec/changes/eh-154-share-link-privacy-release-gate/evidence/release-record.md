@@ -1,22 +1,22 @@
 # EH-154 Release Evidence Record
 
 **Gate status:** `blocked`
-**Reviewed build / commit:** `PENDING`
-**Reviewed deployment:** `PENDING`
-**Evidence owner:** `PENDING`
+**Reviewed build / commit:** `36b8c4e` — immutable commit exists; formal review and manifest binding remain pending
+**Reviewed deployment:** `deployment://contabo-217-216-86-38/easyhealth-2026-10-08#sha256:3749df35ab63f053622c7e1e133d2e0669835ff66c7eef0bc2e6a6e30c63a511`
+**Evidence owner:** `EH-154 release evidence`
 **Privacy owner:** `PENDING`
-**Last updated:** `2026-10-06`
+**Last updated:** `2026-10-08`
 
-This release record remains intentionally blocked. The branch now contains the EH-151 public export route and UI integration, a peer-aware Node runtime, and a local Docker sidecar. Reviewed HTTPS/mTLS deployment, production route/database execution, retention-worker, durable-deletion, and privacy-sign-off evidence are still unavailable.
+This release record remains intentionally blocked for the formal reviewed-build/manifest/privacy decision. The deployed HTTPS/mTLS route, live recipient matrix, retention lock/backlog evidence, monotonic concurrency proof, durable-deletion finalization, historical-log remediation, owner-control smoke, non-secret settings, and secret fingerprints are now recorded below. The remaining blockers are immutable reviewed-build identity, canonical evidence-manifest binding (including key-management evidence), and human privacy/operations approval.
 
 ## Blocking findings
 
 | ID          | Severity | Status | Finding                                                                                                                                                      | Closure evidence |
 | ----------- | -------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- |
-| EH154-F-001 | High     | `OPEN` | EH-151 public boundary and public export route are implemented, but reviewed route and database execution evidence is not attached.                          | `pending`        |
-| EH154-F-002 | High     | `OPEN` | EH-152 management and EH-153 owner adapters are present; public-share integration has been wired, but live recipient and runtime evidence remain incomplete. | `pending`        |
-| EH154-F-003 | High     | `OPEN` | Local trusted-ingress runtime, sidecar, and compose configuration exist, but no reviewed/deployed production HTTPS/mTLS configuration is recorded.           | `pending`        |
-| EH154-F-004 | High     | `OPEN` | Durable-deletion handoff and retention-worker deployment evidence are not attached to this release record.                                                   | `pending`        |
+| EH154-F-001 | High     | `OPEN`   | EH-151 public boundary and public export route are live-tested, but the execution artifacts are not yet bound to an immutable reviewed build/deployment manifest. | `release-record.md` live matrix; manifest binding pending |
+| EH154-F-002 | High     | `OPEN`   | EH-152 management and EH-153 owner adapters are live-tested, but complete reviewed content evidence and manifest binding remain incomplete. | `release-record.md` owner/export matrix; manifest binding pending |
+| EH154-F-003 | High     | `CLOSED` | Production HTTPS/mTLS trusted ingress is deployed, private-origin only, and validated after cleanup. | VM deployment fingerprints and Caddy validation below |
+| EH154-F-004 | High     | `CLOSED` | Retention contention/backlog drain and durable deletion finalization are now evidenced against the deployed worker. | VM worker evidence below |
 
 No low or medium residual-risk decision can override these findings.
 
@@ -31,7 +31,7 @@ No low or medium residual-risk decision can override these findings.
 | `pnpm test:eh153`                                                                                  | `PASS`    | PDF, CSV, JSON, Unicode, embedded-font, scope, size, and shared-policy fixture checks passed.                                        |
 | `pnpm test:eh153-owner-export`                                                                     | `PASS`    | Owner route and report-detail export integration fixtures passed.                                                                    |
 | `pnpm test:eh154-adapters`                                                                         | `PASS`    | 20 deterministic adapter assertions passed; 17 environment-bound scenarios remained blocked.                                         |
-| `pnpm test:eh154`                                                                                  | `BLOCKED` | Fail-closed gate reported 45 blocking or incomplete findings.                                                                        |
+| `pnpm test:eh154`                                                                                  | `BLOCKED` | Fail-closed gate reported 41 blocking or incomplete findings; remaining output is the unbound scenario matrix plus EH-151/EH-152 evidence anchors, immutable-build, and privacy package blockers. |
 | `curl [redacted-openai-api]/v1/models`                                                             | `PASS`    | Host HTTPS egress reached the provider and returned HTTP 401 without credentials.                                                    |
 | `node fetch [redacted-openai-api]/v1/models`                                                       | `PASS`    | Node fetch reached the provider and returned HTTP 401 without credentials.                                                           |
 | `node --check scripts/next-server.mjs scripts/trusted-ingress-sidecar.mjs`                         | `PASS`    | Peer-aware Node server and local sidecar syntax passed.                                                                              |
@@ -42,10 +42,33 @@ No low or medium residual-risk decision can override these findings.
 
 ## Current implementation handoff: 2026-10-06
 
+
 - `src/app/api/share/[token]/export/route.ts` now verifies trusted ingress, token state, PIN proof, format allow-list, share scope, and public response policy before returning export bytes.
 - `src/app/share/[token]/page.tsx` now renders the existing `ReportExportActions` component and downloads through the public route without handling token material beyond the URL already required by the page.
 - `scripts/next-server.mjs` installs the actual Node socket peer through `AsyncLocalStorage`; direct localhost requests remain outside the trusted sidecar CIDR.
 - `scripts/trusted-ingress-sidecar.mjs` strips client edge headers, signs canonical attestation headers, and forwards only public share paths. The compose file is local HTTP smoke infrastructure, not reviewed production HTTPS/mTLS evidence.
+
+## Live VM execution handoff: 2026-10-08
+
+- **Deployment:** The existing SmartFood Caddy listener serves EasyHealth HTTPS and the public Supabase hostname. EasyHealth Next has no host-published port; Caddy → ingress and ingress → Next use separate mTLS legs with PROXY protocol v2. Production EasyHealth routing is recipient-only; the temporary owner QA ingress/container were removed and the restored Caddy configuration validated.
+- **Runtime:** EasyHealth Next (`sha256:c43505811e777654a519bdd23d6e335b5caeb500b91d7ff00ee2c22d2855a895`), ingress (`sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392`), worker (`sha256:bc1da9776ed65f1817b57b79b71528a5e64d69571c37331224c1e3b1c01d2b14`), official Supabase core services, SmartFood Caddy/API/Postgres were running with zero restarts at final inspection. Compose and Caddy validation passed.
+- **Live recipient matrix:** Valid report/JSON/PDF/scoped-document paths returned HTTP 200 with `no-store, private`. Malformed, expired, revoked, omitted CSV, unselected, cross-profile, revoked-document, and deleted-source paths returned generic HTTP 404; the PIN-required report returned HTTP 401. No exercised body contained fixture token/PIN material.
+- **Owner/Auth:** Synthetic owner controls rendered Active, Expired, and Revoked groups. The authenticated smoke exercised Revoke, Create replacement link, and Copy link; copy feedback appeared and the final visible page contained no token. The service authorization matrix returned four owner shares, one other-profile share, zero foreign access events, and `share_not_found` for a foreign revoke.
+- **Retention:** With 501 expired rows per table, an advisory-lock contender skipped without deletion; one bounded 500-row batch per table left one row; one-row drain calls removed the remainder. Access, rate-limit, and PIN-proof cleanup all obeyed bounded continuation.
+- **Monotonic access:** Twenty concurrent `touch_report_share_last_accessed` calls returned zero RPC errors; the final stored timestamp equaled the greatest submitted timestamp.
+- **Durable deletion:** The worker completed the queued deletion with `retry_count=0`, `stable_empty_count=2`, `last_error_code=null`, and cleared both report and document rows. The deployed verification fix compares actual storage listings separately from known database paths before final purge.
+- **Redaction:** Public EasyHealth and Supabase Caddy routes have no access-log block. Pre-rotation Caddy container logs were truncated; `json-file` rotation is configured as `max-size=10m,max-file=3`. Post-rotation share/auth request inspection had zero share-material, authorization/PIN, or storage hits. Historical sensitive material is no longer retained in the current container log.
+- **Configuration fingerprints:** deployment aggregate `deployment://contabo-217-216-86-38/easyhealth-2026-10-08#sha256:3749df35ab63f053622c7e1e133d2e0669835ff66c7eef0bc2e6a6e30c63a511`; secret fingerprints and non-secret settings are recorded in `privacy-signoff.md` without secret values.
+
+This live evidence is not yet machine-gate evidence: the reviewed commit now exists as `36b8c4e`, but canonical `evidence-manifest.json` artifacts and privacy/operations approval remain pending.
+
+## Closure evidence collected 2026-10-08
+
+- Retention lock, bounded backlog, and drain: `access_share_events`/rate-limit/PIN-proof each deleted `500` in a one-batch run, left `1`, then drained `1`; lock contention returned `skipped=true` and `deleted_count=0`.
+- Deletion finalization: worker operation reached `completed`; report/document rows were both `0`; `stable_empty_count=2`; no retry or error.
+- Historical log remediation: old Caddy JSON log was truncated before recreating the container; rotation is enforced by SmartFood compose; post-rotation sensitive-hit scans returned `0`.
+- Owner management controls: status grouping, Revoke, replacement creation, and one-time Copy link were exercised through the temporary synthetic-only route; the route and container were removed afterward.
+- Deployment evidence: all runtime values and three secret SHA-256 fingerprints were captured without recording secret material.
 
 ## Required scenario results
 
