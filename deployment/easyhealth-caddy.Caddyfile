@@ -1,0 +1,18 @@
+easyhealth.217-216-86-38.sslip.io {
+        encode zstd gzip
+
+        reverse_proxy https://easyhealth-ingress:8443 {
+                transport http {
+                        tls_client_auth /data/easyhealth/caddy-client.crt /data/easyhealth/caddy-client.key
+                        tls_trust_pool file /data/easyhealth/edge-ca.crt
+                        tls_server_name easyhealth-ingress
+                        proxy_protocol v2
+                }
+        }
+
+        header {
+                Strict-Transport-Security "max-age=31536000; includeSubDomains"
+                X-Content-Type-Options "nosniff"
+                -Server
+        }
+}

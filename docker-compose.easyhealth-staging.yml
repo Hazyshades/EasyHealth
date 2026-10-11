@@ -1,0 +1,85 @@
+services:
+  next:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    container_name: easyhealth-next
+    restart: unless-stopped
+    env_file:
+      - .env.staging
+    environment:
+      NODE_ENV: production
+      PORT: "3443"
+      NEXT_HOSTNAME: 0.0.0.0
+      NEXT_TLS_ENABLED: "1"
+      NEXT_TLS_KEY_FILE: /run/tls/next-server.key
+      NEXT_TLS_CERT_FILE: /run/tls/next-server.crt
+      NEXT_TLS_CA_FILE: /run/tls/origin-ca.crt
+      SHARE_TRUSTED_PROXY_CIDRS: 172.30.0.0/24
+      URL: https://easyhealth.217-216-86-38.sslip.io
+    volumes:
+      - ./deployment/staging-certs/next:/run/tls:ro
+    networks:
+      private:
+        ipv4_address: 172.30.0.3
+
+  ingress:
+    image: node:22-bookworm-slim
+    container_name: easyhealth-ingress
+    restart: unless-stopped
+    command: ["node", "/app/trusted-ingress-sidecar.mjs"]
+    env_file:
+      - .env.ingress
+    environment:
+      TRUSTED_INGRESS_TARGET_URL: https://easyhealth-next:3443
+      TRUSTED_INGRESS_TARGET_SERVER_NAME: easyhealth-next
+      TRUSTED_INGRESS_TARGET_CA_FILE: /run/tls/origin-ca.crt
+      TRUSTED_INGRESS_TARGET_CERT_FILE: /run/tls/ingress-client.crt
+      TRUSTED_INGRESS_TARGET_KEY_FILE: /run/tls/ingress-client.key
+      TRUSTED_INGRESS_PORT: "8443"
+      TRUSTED_INGRESS_TLS: "1"
+      TRUSTED_INGRESS_PROXY_PROTOCOL: v2
+      TRUSTED_INGRESS_REQUIRE_CLIENT_CERT: "1"
+      TRUSTED_INGRESS_TLS_KEY_FILE: /run/tls/ingress-server.key
+      TRUSTED_INGRESS_TLS_CERT_FILE: /run/tls/ingress-server.crt
+      TRUSTED_INGRESS_TLS_CA_FILE: /run/tls/edge-ca.crt
+    volumes:
+      - ./scripts/trusted-ingress-sidecar.mjs:/app/trusted-ingress-sidecar.mjs:ro
+      - ./deployment/staging-certs/ingress:/run/tls:ro
+    networks:
+      private:
+        ipv4_address: 172.30.0.2
+      edge:
+        aliases:
+          - easyhealth-ingress
+  worker:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    container_name: easyhealth-worker
+    restart: unless-stopped
+    env_file:
+      - .env.staging
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_SUPABASE_URL: http://easyhealth-supabase:8000
+      APP_URL: https://easyhealth.217-216-86-38.sslip.io
+      DOCUMENT_UPLOAD_BROKER_URL: https://easyhealth.217-216-86-38.sslip.io
+      WORKER_INSTANCE_ID: easyhealth-vm-worker
+      NEBIUS_API_KEY: ""
+    networks:
+      - edge
+
+
+networks:
+  private:
+    name: easyhealth_private
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+  edge:
+    name: smartfood_smartfood
+    external: true

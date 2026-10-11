@@ -9,14 +9,28 @@ spec:
       protocol: https
       client_mtls: not_required
       audience: unauthenticated_share_recipient
+      implementation: existing_caddy_public_listener
+    private_edge_to_ingress:
+      protocol: https
+      server_mtls: required
+      client_certificate: trusted_ingress_ca
+      proxy_protocol: v2
+      source_address: verified_public_listener_peer
     private_ingress_to_application:
       protocol: https
       server_mtls: required
       client_certificate: trusted_ingress_ca
+      upstream: private_next_origin
   application_origin:
     network: private
     direct_public_access: forbidden
     upstream: easyhealth-next
+  public_request_paths:
+    share: /share/{token}
+    api: /api/share/{token}/**
+    next_static: /_next/static/**
+    static_assets: unauthenticated_and_immutable
+
   request_headers:
     strip_before_forward:
       - Forwarded
@@ -37,7 +51,7 @@ spec:
     encoding: utf8
     max_age_seconds_env: SHARE_TRUSTED_PROXY_ATTESTATION_MAX_AGE_SECONDS
   peer_metadata:
-    source: immediate_connection_peer
+    source: immediate_connection_peer_plus_verified_proxy_protocol_v2_source
     allowed_cidrs_env: SHARE_TRUSTED_PROXY_CIDRS
     application_context: requestContext.edgeVerifiedClientAddress
   application_adapter:
@@ -49,4 +63,6 @@ spec:
     header_values_are_not_peer_metadata: true
   release_gate:
     require_private_origin_probe: true
+    require_private_mtls_on_both_hops: true
+    require_proxy_protocol_source_validation: true
     require_valid_and_spoofed_header_harness: true
