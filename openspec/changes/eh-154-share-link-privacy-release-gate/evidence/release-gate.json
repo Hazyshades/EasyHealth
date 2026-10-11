@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "gateStatus": "blocked",
   "reviewedBuild": null,
-  "reviewedDeployment": null,
-  "evidenceOwner": null,
+  "reviewedDeployment": "deployment://contabo-217-216-86-38/easyhealth-2026-10-08#sha256:8fa5d3e3d8b3007c6711280af9e57e91bcf1b348188d6c8f4038e202da5c9ddd",
+  "evidenceOwner": "EH-154 release evidence",
   "privacySignOff": false,
   "requiredSecretReferences": [
     { "name": "SHARE_RATE_LIMIT_PEPPER", "reference": "_pending_" },
@@ -31,15 +31,15 @@
     {
       "id": "EH154-F-003",
       "severity": "high",
-      "status": "open",
-      "summary": "Trusted-ingress runtime and local sidecar smoke infrastructure are implemented, but no reviewed production HTTPS/mTLS deployment is recorded.",
+      "status": "resolved",
+      "summary": "Production HTTPS/mTLS trusted ingress is deployed, private-origin only, and validated after temporary QA-route cleanup; immutable manifest binding remains pending.",
       "owner": "Platform/EH-151"
     },
     {
       "id": "EH154-F-004",
       "severity": "high",
-      "status": "open",
-      "summary": "Retention-worker and durable-deletion handoff evidence is not attached.",
+      "status": "resolved",
+      "summary": "Retention contention/backlog drain and durable-deletion finalization are evidenced against the deployed worker; immutable manifest binding remains pending.",
       "owner": "EH-151/durable-deletion"
     }
   ],

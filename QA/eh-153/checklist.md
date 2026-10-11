@@ -97,11 +97,8 @@ JSON and PDF downloads contain the visible validated report scope and carry
 no-store, noindex, and restrictive referrer headers. The omitted format is
 denied without a file or internal validation details.
 
-**Result:** `Blocked: reviewed trusted ingress and live share fixtures unavailable`
-**Notes / evidence link:** The route is implemented at
-`src/app/api/share/[token]/export/route.ts` and the page renders the shared
-`ReportExportActions` component. Direct-origin requests remain fail-closed, so
-this recipient-facing check is not marked as tested.
+**Result:** `PASS for deployed transport/policy; content review partial — 2026-10-08 live synthetic recipient matrix`
+**Notes / evidence link:** The deployed documents-policy share exposed only **Export JSON** and **Export PDF**. JSON returned HTTP 200/application JSON and PDF returned HTTP 200/application PDF; both carried `Cache-Control: no-store, private`. Omitted CSV returned HTTP 404 with the generic unavailable body. The matrix also denied unselected, cross-profile, revoked, and deleted-source document requests with the same generic 404 policy. Full downloaded-file content inspection, Unicode assertions, and a separate report-only policy fixture remain pending.
 
 ## Developer evidence required
 
@@ -145,4 +142,18 @@ Additional automated evidence:
 - **Authenticated report detail:** The prior local run passed report rendering and export controls. A fresh browser PDF download is still pending after the dependency restore.
 - **JSON/CSV:** The prior owner routes returned HTTP 200, attachment content types, expected version fields, and `private, no-store`; JSON started with `eh148.v1` and `eh153.json.v1`, and CSV started with `record_type,export_version`.
 - **PDF fixture:** `PASS`. `pnpm test:eh153` produced a valid PDF with the embedded DejaVu font and Unicode assertions. Live browser inspection remains unmarked.
-- **Public-share integration:** `PASS` for typecheck and route compilation. Recipient-facing download remains blocked on reviewed ingress and persisted production-adapter fixtures.
+- **Historical limitation at the time of this smoke:** Recipient-facing downloads were blocked before the co-hosted Supabase fixtures existed. The live synthetic recipient result is recorded in EH153-UI-05 above.
+
+## Co-hosted Supabase export smoke: 2026-10-07
+
+- **Public route:** `PASS` for the synthetic documents-policy share. Browser rendering showed only the allowed JSON and PDF actions.
+- **Export responses:** `PASS` for transport and policy. JSON and PDF returned HTTP 200 with `no-store, private`; CSV returned HTTP 404 with the generic share-unavailable body.
+- **Remaining limitation:** Full downloaded-file content review, Unicode PDF inspection, report-only policy coverage, and source archive/tombstone cases remain pending.
+
+## Live recipient export matrix: 2026-10-08
+
+- Valid structured report API: HTTP 200, `application/json`, `no-store, private`.
+- JSON export: HTTP 200, `application/json; charset=utf-8`, `no-store, private`.
+- PDF export: HTTP 200, `application/pdf`, `no-store, private`.
+- CSV omitted from the share policy: HTTP 404, generic JSON, `no-store, private`.
+- No exercised response body contained any fixture share token or PIN material.

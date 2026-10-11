@@ -1,8 +1,8 @@
 # EH-151: Scoped expiring report share links
 
 **Roadmap status:** In progress
-**Build / environment:** `fix/sprint-7-runtime-blockers`, Next via `scripts/next-server.mjs`, local sidecar at `http://localhost:8443`
-**Test run date:** 2026-10-06
+**Build / environment:** `7d907e3`, co-hosted staging on Contabo VM `217.216.86.38`, public Caddy HTTPS at `https://easyhealth.217-216-86-38.sslip.io`, private Next origin
+**Test run date:** 2026-10-07
 **Tester:** Local automated and browser smoke
 
 ## What this checklist covers
@@ -51,9 +51,9 @@ in to the owner account.
 session. The page remains usable at mobile width and the PIN or error controls,
 when present, are keyboard reachable. No profile identifier, storage URL, or
 unrelated report appears.
+**Result:** `PASS — 2026-10-07 co-hosted VM smoke`
+**Notes / evidence link:** Headless browser opened the synthetic HTTPS share without an owner session. The rendered page showed the report title, overview, source-backed document summary, and the single explicitly shared document. The Caddy → mTLS/PROXY v2 ingress → mTLS Next route also served the required `/_next/static/**` assets.
 
-**Result:** `Not executed`
-**Notes / evidence link:** `________`
 
 ### EH151-UI-02: Establish a PIN proof and retry safely
 
@@ -71,9 +71,9 @@ unrelated report appears.
 **Expected result:** The wrong PIN does not expose report content or a proof
 value. The correct PIN opens the report, and the short-lived proof allows the
 same browser to continue without displaying the PIN or proof in the page.
+**Result:** `PASS — 2026-10-07 co-hosted VM smoke`
+**Notes / evidence link:** Clean browser state showed the PIN form. Wrong PIN `1111` produced the generic “The PIN did not work. Try again.” state; correct PIN `2468` opened the report and the proof cookie allowed the report to render without exposing PIN material.
 
-**Result:** `Not executed`
-**Notes / evidence link:** `________`
 
 ### EH151-UI-03: Display a limited report safely
 
@@ -107,8 +107,9 @@ is not added to the report.
 The page does not reveal whether expiry, revocation, malformed token, or
 missing share state caused the denial.
 
-**Result:** `Not executed`
-**Notes / evidence link:** `________`
+**Result:** `PASS — 2026-10-07 co-hosted VM smoke`
+**Notes / evidence link:** Expired and revoked synthetic links both rendered the identical “This share is unavailable” state. API responses were HTTP 404 with `Cache-Control: no-store, private`; malformed-token behavior matched.
+
 
 ### EH151-UI-05: Recheck raw-document scope
 
@@ -130,8 +131,8 @@ document remain authorized. The unselected document and every request after
 revocation or tombstoning show a generic denial. The browser never receives a
 storage signed URL.
 
-**Result:** `Blocked: reviewed HTTPS trusted ingress is unavailable`
-**Notes / evidence link:** The local Docker sidecar and peer-aware Next runtime are implemented and the sidecar transport smoke reaches the private Next origin. The local compose path is HTTP-only and does not provide the reviewed HTTPS/mTLS deployment required for protected PIN-cookie and raw-document acceptance. Direct-origin requests remain fail-closed with HTTP `503`.
+**Result:** `PASS for deployed synthetic scope — 2026-10-08 live matrix`
+**Notes / evidence link:** The valid documents-policy share listed only `EH-286 synthetic document.pdf`; its document endpoint returned HTTP 200 `application/pdf`. The unselected owner document, the other profile's owner document, the revoked share's document, and the deleted-source document all returned the same generic HTTP 404 JSON response with `Cache-Control: no-store, private`. The other profile's report became unavailable immediately after its source-deletion request. This covers allow, unselected, cross-profile, revocation, and tombstone denial paths for the deployed fixture.
 
 ## Developer evidence required
 
@@ -162,4 +163,31 @@ storage signed URL.
 - **Sidecar transport:** `PASS`. The sidecar strips client-supplied edge headers, signs a fresh attestation, forwards only `/share/*` and `/api/share/*`, and reaches the private Next origin. Invalid-token smoke responses remain generic and non-cacheable.
 - **Automated/database evidence:** `pnpm test:eh151` passed. After applying local migrations `086_eh152_management_seam.sql` and `087_eh151_replacement_preflight.sql`, `pnpm test:eh151-db` passed with 44 assertions.
 - **Worker processing:** `PASS` for the retried EH147 synthetic full-pipeline job with the repository environment; the worker recorded `completed`, and the document reached `needs_review` with `gpt-4o-mini` extraction. Reviewed worker scheduling and retention evidence remain pending.
-- **Still blocked:** PIN success/proof-cookie continuation, valid public report rendering, public export downloads, scoped document download, and expired/revoked recipient UI require a reviewed HTTPS/mTLS deployment and persisted production-adapter fixtures. These remain unmarked as passes.
+- **Still blocked:** PIN success/proof-cookie continuation, valid public report rendering, public export downloads, scoped document download, and expired/revoked recipient UI require persisted production-adapter fixtures and reviewed database/retention evidence. The co-hosted HTTPS/mTLS deployment is now present, but these recipient checks remain unmarked as passes.
+
+## Co-hosted trusted-ingress deployment smoke: 2026-10-07
+
+- **Public route:** `PASS`. `https://easyhealth.217-216-86-38.sslip.io/share/not-a-real-token` returned HTTP 200 over a Let's Encrypt certificate and rendered the public share page.
+- **Private transport:** `PASS`. Existing Caddy owns ports 80/443 and connects to `easyhealth-ingress:8443` with client mTLS and PROXY protocol v2. The sidecar connects to `easyhealth-next:3443` with a separate client-mTLS certificate. The application origin has no host-published port.
+- **Fail-closed boundary:** `PASS`. A direct request to the private origin without signed `X-EH-Edge-*` metadata returned HTTP 503 with the generic `Share service unavailable` response.
+- **Co-hosting regression:** `PASS`. `smartfood-api` and `smartfood-postgres` remained healthy, and the SmartFood public `/v1/cities` endpoint returned its normal synthetic catalogue response after Caddy recreation.
+- **Historical limitation at the time of this smoke:** The invalid-token API request returned the generic HTTP 503 service-unavailable response before the VM Supabase fixture was provisioned. The self-hosted Supabase recipient smoke below supersedes the fixture-availability limitation.
+
+## Self-hosted Supabase recipient smoke: 2026-10-07
+
+- **Supabase placement:** `PASS`. Official self-hosted Supabase Docker services run under `/opt/easyhealth/supabase-upstream/docker` on the existing VM. API gateway, database, and pooler have no host-published ports; the public Supabase hostname is Caddy-only on the existing SmartFood listener.
+- **Valid report:** `PASS`. Synthetic EH-286 share API returned HTTP 200 structured content; the browser rendered the report; JSON and PDF exports returned HTTP 200; the explicitly scoped document returned HTTP 200 `application/pdf`.
+- **PIN boundary:** `PASS`. Clean browser state showed the PIN form, rejected `1111` with a generic retry message, then accepted `2468` and rendered the report with a proof cookie.
+- **Unavailable-state parity:** `PASS`. Expired and revoked links rendered the same generic unavailable state as the malformed-token path; responses were HTTP 404 and non-cacheable.
+- **Worker cleanup:** `PASS`. A synthetic expired access event, rate-limit bucket, and PIN proof were present before a worker restart cleanup cycle and all three were absent afterward. `easyhealth-worker` remained running with zero restarts after the provider guard was applied.
+- **Remaining limitation:** The earlier smoke did not execute the unselected-document denial or post-tombstone/revocation download checks; the 2026-10-08 live VM matrix below supersedes that limitation for the deployed synthetic fixture. Unicode/content inspection and a separate report-only policy fixture remain outside this run.
+
+## Live VM scope and denial matrix: 2026-10-08
+
+- **Environment:** Synthetic Auth owner/recipient accounts on the Contabo VM; production recipient-only ingress at `https://easyhealth.217-216-86-38.sslip.io`; official self-hosted Supabase stack; temporary owner QA ingress removed after the authenticated smoke.
+- **Owner authorization:** Owner management UI loaded **Settings → Shared reports** and displayed Active, Expired, and Revoked groups plus minimized access-history metadata. The service seam returned four owner shares, one other-profile share, zero foreign access events, and `share_not_found` for a foreign revoke attempt.
+- **Public matrix:** Valid report, JSON, PDF, and explicitly scoped document returned HTTP 200. Malformed, expired, revoked, omitted CSV, unselected document, cross-profile document, revoked document, and deleted-source report/document returned generic HTTP 404 with `no-store, private`. The PIN-protected report returned HTTP 401 without exposing token/PIN material.
+- **Scope result:** The earlier UI-05 partial result is superseded for the deployed synthetic fixture. Unicode/content inspection and a separate report-only fixture remain outside this run.
+- **Retention/deletion handoff:** A 501-row expired fixture run proved advisory-lock skip, bounded 500-row continuation, and one-row drain for access events, rate-limit buckets, and PIN proofs. The deployed deletion worker completed the other-profile operation with `stable_empty_count=2`, `retry_count=0`, no error, and zero remaining report/document rows. The worker now verifies actual storage listings separately from known database paths before final purge.
+- **Last-access concurrency:** Twenty reverse-order concurrent owner-share timestamp RPC calls returned zero errors and preserved the greatest submitted timestamp.
+- **Deployment/redaction:** Next, ingress, and worker images plus non-secret settings and secret fingerprints are recorded in the EH-154 privacy handoff without secret values. Caddy historical logs were rotated/truncated and the post-rotation share request window had zero sensitive-material hits.
