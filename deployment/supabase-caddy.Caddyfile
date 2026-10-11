@@ -9,8 +9,4 @@ supabase.217-216-86-38.sslip.io {
                 -Server
         }
 
-        log {
-                output stdout
-                format console
-        }
 }

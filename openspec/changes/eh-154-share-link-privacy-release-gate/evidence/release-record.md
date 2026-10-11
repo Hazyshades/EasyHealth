@@ -1,8 +1,8 @@
 # EH-154 Release Evidence Record
 
 **Gate status:** `blocked`
-**Reviewed build / commit:** `PENDING` — durable-deletion verification fix is not committed/reviewed
-**Reviewed deployment:** `deployment://contabo-217-216-86-38/easyhealth-2026-10-08#sha256:8fa5d3e3d8b3007c6711280af9e57e91bcf1b348188d6c8f4038e202da5c9ddd`
+**Reviewed build / commit:** `36b8c4e` — immutable commit exists; formal review and manifest binding remain pending
+**Reviewed deployment:** `deployment://contabo-217-216-86-38/easyhealth-2026-10-08#sha256:3749df35ab63f053622c7e1e133d2e0669835ff66c7eef0bc2e6a6e30c63a511`
 **Evidence owner:** `EH-154 release evidence`
 **Privacy owner:** `PENDING`
 **Last updated:** `2026-10-08`
@@ -57,10 +57,10 @@ No low or medium residual-risk decision can override these findings.
 - **Retention:** With 501 expired rows per table, an advisory-lock contender skipped without deletion; one bounded 500-row batch per table left one row; one-row drain calls removed the remainder. Access, rate-limit, and PIN-proof cleanup all obeyed bounded continuation.
 - **Monotonic access:** Twenty concurrent `touch_report_share_last_accessed` calls returned zero RPC errors; the final stored timestamp equaled the greatest submitted timestamp.
 - **Durable deletion:** The worker completed the queued deletion with `retry_count=0`, `stable_empty_count=2`, `last_error_code=null`, and cleared both report and document rows. The deployed verification fix compares actual storage listings separately from known database paths before final purge.
-- **Redaction:** Pre-rotation Caddy container logs were truncated; `json-file` rotation is configured as `max-size=10m,max-file=3`. A post-rotation valid-share request window had zero share-material, authorization/PIN, or storage hits. Historical sensitive material is no longer retained in the current container log.
-- **Configuration fingerprints:** deployment aggregate `deployment://contabo-217-216-86-38/easyhealth-2026-10-08#sha256:8fa5d3e3d8b3007c6711280af9e57e91bcf1b348188d6c8f4038e202da5c9ddd`; secret fingerprints and non-secret settings are recorded in `privacy-signoff.md` without secret values.
+- **Redaction:** Public EasyHealth and Supabase Caddy routes have no access-log block. Pre-rotation Caddy container logs were truncated; `json-file` rotation is configured as `max-size=10m,max-file=3`. Post-rotation share/auth request inspection had zero share-material, authorization/PIN, or storage hits. Historical sensitive material is no longer retained in the current container log.
+- **Configuration fingerprints:** deployment aggregate `deployment://contabo-217-216-86-38/easyhealth-2026-10-08#sha256:3749df35ab63f053622c7e1e133d2e0669835ff66c7eef0bc2e6a6e30c63a511`; secret fingerprints and non-secret settings are recorded in `privacy-signoff.md` without secret values.
 
-This live evidence is not yet machine-gate evidence: the reviewed commit is still pending because the durable-deletion fix is uncommitted, the canonical `evidence-manifest.json` is still empty, and privacy/operations approval remains pending.
+This live evidence is not yet machine-gate evidence: the reviewed commit now exists as `36b8c4e`, but canonical `evidence-manifest.json` artifacts and privacy/operations approval remain pending.
 
 ## Closure evidence collected 2026-10-08
 

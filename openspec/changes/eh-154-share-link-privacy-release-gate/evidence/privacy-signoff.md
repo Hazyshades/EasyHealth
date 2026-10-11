@@ -1,8 +1,8 @@
 # EH-154 Privacy Sign-Off Record
 
 **Gate status:** `blocked`
-**Reviewed build / commit:** _pending — current deployment includes the uncommitted durable-deletion verification fix; immutable reviewed commit still requires review/commit_
-**Reviewed deployment configuration reference or digest:** `deployment://contabo-217-216-86-38/easyhealth-2026-10-08#sha256:8fa5d3e3d8b3007c6711280af9e57e91bcf1b348188d6c8f4038e202da5c9ddd`
+**Reviewed build / commit:** `36b8c4e` — immutable commit exists; review and manifest binding remain pending
+**Reviewed deployment configuration reference or digest:** `deployment://contabo-217-216-86-38/easyhealth-2026-10-08#sha256:3749df35ab63f053622c7e1e133d2e0669835ff66c7eef0bc2e6a6e30c63a511`
 **Evidence package owner:** _pending_
 **Privacy approver:** _pending_
 **Decision date:** _pending_
@@ -12,7 +12,7 @@ This record remains blocked only where human approval or immutable reviewed-buil
 ## Technical handoff for privacy review — 2026-10-08
 
 - **Non-secret runtime settings:** the trusted-proxy CIDR is recorded in the reviewed settings table below; attestation max age is `30` seconds; rate-limit window is `60` seconds; token-failure threshold is `10`; requester-failure threshold is `30`; rate-limit cleanup is `900000` ms with `60000` ms retry; PIN proof TTL is `900` seconds; access-event retention is `30` days.
-- **Deployment file fingerprints:** EasyHealth compose `sha256:1460b214bb86e6f5052143489397f0f34423ea3261fe5cd3b7f4a5145008f92e`; trusted-ingress sidecar `sha256:d375255f9b72b929a4b457527342a19ea9011f4827f9c320f562264b6fe812f9`; deletion worker `sha256:f16f7c2e6231c27eea75c287c61be53561038d7b22fea8f41d1ef2a6b2b445b8`; SmartFood compose `sha256:119d9e4824edac4fd93f80098cc6fdbae0c2f0d6b2671de5b0c4ad5166d96a00`; Caddyfile `sha256:38130ac6ecbf0aa1a6c3444b2a7dbb6de051f4ac6c66edb76e2e24facd858ef9`.
+- **Deployment file fingerprints:** EasyHealth compose `sha256:1460b214bb86e6f5052143489397f0f34423ea3261fe5cd3b7f4a5145008f92e`; trusted-ingress sidecar `sha256:d375255f9b72b929a4b457527342a19ea9011f4827f9c320f562264b6fe812f9`; deletion worker `sha256:f16f7c2e6231c27eea75c287c61be53561038d7b22fea8f41d1ef2a6b2b445b8`; SmartFood compose `sha256:119d9e4824edac4fd93f80098cc6fdbae0c2f0d6b2671de5b0c4ad5166d96a00`; Caddyfile `sha256:fea8bb0381783f195ebe367b40a1ebed00bf781e585121ac1aee940ced31d625`.
 - **Runtime settings:** the trusted-proxy CIDR is recorded in the reviewed settings table; attestation max age is `30` seconds; rate-limit window is `60` seconds; token-failure threshold is `10`; requester-failure threshold is `30`; rate-limit cleanup is `900000` ms with `60000` ms retry; PIN proof TTL is `900` seconds; access-event retention is `30` days.
 - **Secret fingerprints, values withheld:** `SHARE_RATE_LIMIT_PEPPER=sha256:9ed4a6426961dde85cc668dfe7e9264c341957783325604c85c791d073a6f3c9`; `SHARE_PIN_PROOF_PEPPER=sha256:8c2e2706aac642008d4144d7473cfcf33a5b2095a233d3f5e6252b849a2930c5`; `SHARE_TRUSTED_PROXY_ATTESTATION_KEY=sha256:1115e32a7b7dbac9fdc8dcec09f78988e9d8c4fed35af3a99c85269a141ac70c`. Privacy/operations approval of these fingerprints remains pending.
 - **Retention evidence:** advisory-lock contention skipped cleanup without deleting rows; each 500-row bounded batch left one expired row; one-row drain calls removed the remainder. The worker remained running with zero restarts and no cleanup error.
@@ -58,7 +58,7 @@ valid release evidence.
 | `SHARE_RATE_LIMIT_CLEANUP_RETRY_INTERVAL_MS`                                      | `60000`                               |
 | `SHARE_PIN_PROOF_TTL_SECONDS`                                                     | `900`                                 |
 | `SHARE_ACCESS_EVENT_RETENTION_DAYS`                                               | `30`                                  |
-| Trusted-ingress artifact                                                          | `deployment://contabo-217-216-86-38/easyhealth-2026-10-08#sha256:8fa5d3e3d8b3007c6711280af9e57e91bcf1b348188d6c8f4038e202da5c9ddd` |
+| Trusted-ingress artifact                                                          | `deployment://contabo-217-216-86-38/easyhealth-2026-10-08#sha256:3749df35ab63f053622c7e1e133d2e0669835ff66c7eef0bc2e6a6e30c63a511` |
 | Shared Postgres rate-limit storage                                                | `live VM service-RPC smoke; approval pending` |
 | Access-event, rate-limit-bucket, and expired-proof cleanup schedules              | `live VM bounded-batch/lock/drain evidence; approval pending` |
 | Durable document tombstone/report invalidation/final-purge handoff                | `live VM worker completion; immutable commit pending` |
