@@ -4,6 +4,7 @@
 node_modules
 .env
 .env.*
+worker/.env
 worker/ - Copy.env
 !.env.example
 worker/node_modules
@@ -13,3 +14,20 @@ supabase/.temp
 .artifacts
 lab_data
 deployment/staging-certs
+
+# Keep local documentation, fixtures, and development tooling out of runtime images.
+docs
+QA
+QA-Db_tests
+roadmap
+registry
+openspec
+oh-my-pi
+biomarkers
+supabase
+deployment
+docker-compose*.yml
+.tmp-*
+.wiki-export
+.papercuts.jsonl
+*.tsbuildinfo

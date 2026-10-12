@@ -390,7 +390,7 @@ export async function resolveReportRead(options: {
 
     return {
       status: "structured",
-      can_share: true,
+      can_share: false,
       can_export: true,
       report: {
         id: row.id,

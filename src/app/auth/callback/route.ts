@@ -3,12 +3,13 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { resolveAuthCallbackPath } from "@/lib/auth/callback-redirect";
 import { ensureProfile } from "@/lib/auth/profile";
 import { getProfileOnboardingState } from "@/lib/auth/onboarding";
+import { env } from "@/lib/env";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const next = url.searchParams.get("next");
-  const origin = url.origin;
+  const origin = new URL(env.URL).origin;
 
   if (code) {
     const supabase = await createServerSupabaseClient();
