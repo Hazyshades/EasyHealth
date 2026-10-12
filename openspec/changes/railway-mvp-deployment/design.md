@@ -75,6 +75,40 @@ The Railway MVP does not configure share key-ring, trusted-proxy, attestation, o
 8. Deploy web, then worker, and execute the synthetic upload-to-timeline smoke flow.
 9. Roll back by redeploying the previous image or previous commit; do not roll back database migrations automatically. Supabase migrations are forward-only unless a separately reviewed rollback exists.
 
+## Verification Evidence
+
+### Repeatable synthetic hosted smoke
+
+Preconditions:
+
+- A disposable Supabase Auth user and profile.
+- A one-page synthetic PDF containing fictional laboratory data only, such as Hemoglobin `13.5 g/dL`.
+- The deployed web origin and the single Railway document worker are online.
+
+Runbook:
+
+1. Authenticate the disposable user at the deployed web origin.
+2. Upload the synthetic PDF through the authenticated Documents surface.
+3. Confirm the upload returns a document id and the document enters `processing`.
+4. Wait for the worker to claim the `full_pipeline` job; confirm the document reaches `needs_review`, a page count is written, and extracted rows are present.
+5. Open the document review surface, accept the synthetic extracted value, and confirm the document leaves `needs_review`.
+6. Open Timeline and confirm the accepted observation is visible.
+7. Stop the worker from Railway, upload another synthetic document, and confirm the document surface eventually reports the worker offline.
+8. Restart the worker, wait for the queued job to drain, and confirm processing returns to `needs_review` or `ready`.
+9. Delete the disposable document, storage objects, profile, and Auth user; verify no synthetic artifacts remain.
+
+Observed evidence for this deployment:
+
+- Web deployment `b7485f32-c942-400b-8caa-0eff179c1720` and worker deployment `50a8c510-126c-4c05-9762-f44b9088ef67` reached `SUCCESS`.
+- `pnpm typecheck`, `pnpm typecheck:worker`, and `openspec validate --changes railway-mvp-deployment` passed; OpenSpec reported 91 passed and 0 failed.
+- The hosted synthetic upload returned HTTP 200 and a document id. The worker completed the job in one attempt; the document reached `needs_review`, `page_count=1`, and produced a synthetic Hemoglobin value of `13.5 g/dL`. The heartbeat was current and `workerOffline=false`.
+- Cleanup completed: the synthetic document, Auth user/profile, and storage objects were removed.
+
+Remaining evidence:
+
+- The current Supabase email delivery configuration returns `unexpected_failure` while sending the magic link. A working custom SMTP configuration or an equivalent disposable authenticated-session harness is required to repeat the browser authentication step.
+- Acceptance-to-Timeline visibility and the deliberate worker-stop/offline/restart scenario are not recorded in this deployment handoff. Do not claim the full end-to-end smoke requirement green until those observations are captured.
+
 ## Open Questions
 
 - Which Railway account, region, and custom domain will be used?

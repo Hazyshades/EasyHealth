@@ -1,3 +1,17 @@
+# Proposal: railway-mvp-deployment
+
+Domain: **auth-shell / documents / reports**
+
+Affected capability specs:
+- `supabase-auth`
+- `document-worker-reliability`
+- `document-upload-async`
+- `documents-api`
+- `reports-api`
+- `reports-ui`
+- `account-settings`
+- `app-shell`
+
 ## Why
 
 EasyHealth already has a Dockerized Next.js web service and a long-running document worker, but the worker image does not use a deterministic dependency-install contract for the repository's separate worker lockfile. A Railway MVP needs a repeatable web/worker deployment path that preserves the current Supabase-backed upload pipeline without introducing physician-patient sharing or public report capabilities.
