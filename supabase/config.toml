@@ -21,10 +21,10 @@ enable_confirmations = true
 max_frequency = "1m0s"
 otp_length = 8
 
-[mfa]
+[auth.mfa]
 max_enrolled_factors = 10
 
-[mfa.totp]
+[auth.mfa.totp]
 enroll_enabled = true
 verify_enabled = true
 
