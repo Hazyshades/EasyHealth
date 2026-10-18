@@ -148,6 +148,8 @@ jobs:
           OPENAI_API_KEY: ci-placeholder
           NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      - name: Verify Easy and Pro review modes
+        run: pnpm test:review-modes
       - name: Verify observation review workspace
         run: pnpm test:eh117
         env:
@@ -338,6 +340,8 @@ jobs:
         run: pnpm test:eh120-db
       - name: Run EH-121 observation change history database contract
         run: pnpm test:eh121-db
+      - name: Run review-mode database contract
+        run: pnpm test:review-modes-db
       - name: Run EH-123 assessment recalculation database contract
         run: pnpm test:eh123-db
       - name: Run EH-144 freshness policy database contract

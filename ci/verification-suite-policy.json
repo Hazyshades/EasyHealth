@@ -342,6 +342,24 @@
       "reason": "Assessment freshness policy version stamping and completion RPC behavior require pgTAP."
     },
     {
+      "script": "test:review-modes-db",
+      "verificationFiles": ["supabase/tests/document_review_modes.sql"],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "document-review",
+      "reason": "Review-mode persistence, atomic locks, grants, and mode-aware RPC contracts require pgTAP."
+    },
+    {
+      "script": "test:review-modes",
+      "verificationFiles": ["scripts/verify-review-modes.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "document-review",
+      "reason": "Easy and Pro review-mode policy and route contracts are release verification."
+    },
+    {
       "script": "test:document-review",
       "verificationFiles": ["scripts/verify-document-review-runner.ts"],
       "job": "verify",
