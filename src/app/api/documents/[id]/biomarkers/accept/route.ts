@@ -5,6 +5,11 @@ import {
   resolveDisplayProcessingStatus,
 } from "@/lib/documents/access";
 import { shouldCompleteDocumentReview } from "@/lib/documents/biomarker-review-state";
+import {
+  assertReviewModeActionAllowed,
+  effectiveReviewMode,
+  ReviewModePolicyError,
+} from "@/lib/documents/review-mode-policy";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   acceptExtractedBiomarkers,
@@ -37,10 +42,20 @@ export async function POST(req: NextRequest, context: RouteContext) {
   const observedAt = doc!.observed_at;
 
   try {
+    assertReviewModeActionAllowed(doc!, "accept");
+    const reviewMode = effectiveReviewMode(doc!);
+    if (!reviewMode) {
+      throw new ReviewModePolicyError(
+        "Review modes apply only to laboratory Documents.",
+        409,
+        "review_mode_not_applicable",
+      );
+    }
     const result = await acceptExtractedBiomarkers({
       profileId,
       documentId: id,
       observedAt,
+      reviewMode,
       ids,
     });
     const currentProcessingStatus = resolveDisplayProcessingStatus(doc!);
@@ -93,6 +108,12 @@ export async function POST(req: NextRequest, context: RouteContext) {
       },
     );
   } catch (error) {
+    if (error instanceof ReviewModePolicyError) {
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: error.status },
+      );
+    }
     if (error instanceof BiomarkerAcceptanceError) {
       return NextResponse.json(
         { error: error.message },

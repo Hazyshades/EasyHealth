@@ -41,6 +41,7 @@ export type ObservationChangeEventKind =
   | "reprocess_applied";
 
 export type ObservationChangeEventOrigin = "capture" | "backfill";
+export type ReviewModeAtWrite = "easy" | "pro";
 
 export type ObservationChangeActorType = "user" | "system";
 
@@ -52,6 +53,8 @@ export type ObservationChangeEventRow = Readonly<{
   observation_id: string | null;
   extracted_biomarker_id: string | null;
   source_revision_id: string | null;
+  source_review_mode_at_write?: ReviewModeAtWrite | null;
+
   source_prior_revision_id: string | null;
   source_reprocess_row_id: string | null;
   actor_type: string;
@@ -98,7 +101,6 @@ export type ObservationChangeReprocessFacts = Readonly<{
   activateRevision: boolean;
 }>;
 
-
 export type ObservationChangeField =
   | "measurement"
   | "analyte"
@@ -131,6 +133,8 @@ export type ObservationChangeEntry = Readonly<{
   observationId: string | null;
   extractedBiomarkerId: string | null;
   revisionId: string | null;
+  reviewModeAtWrite: ReviewModeAtWrite | null;
+
   priorRevisionId: string | null;
   headline: string;
   variant: ReviewChipVariant;
@@ -320,11 +324,7 @@ function buildFieldDiffs(
       priorVerification ? verificationStatusLabel(priorVerification) : null,
       nextVerification ? verificationStatusLabel(nextVerification) : null,
     ),
-    diff(
-      "record_status",
-      row.prior_record_status,
-      row.next_record_status,
-    ),
+    diff("record_status", row.prior_record_status, row.next_record_status),
     diff(
       "confidence",
       priorBand ? CONFIDENCE_LABELS[priorBand] : null,
@@ -398,14 +398,17 @@ export function buildObservationChangeEntry(
     observationId: row.observation_id,
     extractedBiomarkerId: row.extracted_biomarker_id,
     revisionId: row.source_revision_id,
+    reviewModeAtWrite: row.source_review_mode_at_write ?? null,
     priorRevisionId: row.source_prior_revision_id,
     headline: EVENT_HEADLINES[kind],
     variant: entryVariant(kind, row),
     actorType,
     actorId,
     actorLabel,
-    priorInputIdentityFormatVersion: row.prior_input_identity_format_version ?? null,
-    nextInputIdentityFormatVersion: row.next_input_identity_format_version ?? null,
+    priorInputIdentityFormatVersion:
+      row.prior_input_identity_format_version ?? null,
+    nextInputIdentityFormatVersion:
+      row.next_input_identity_format_version ?? null,
     reprocessFacts: asReprocessFacts(row.reprocess_change_facts),
     reason: reason ? reason : null,
     reasonCode: isLifecycleReasonCode(row.reason_code) ? row.reason_code : null,

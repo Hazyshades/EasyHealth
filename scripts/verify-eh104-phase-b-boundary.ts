@@ -83,8 +83,8 @@ assert.match(
 );
 assert.match(
   writer,
-  /\.rpc\(\s*["']write_observation_normalization_revision_v2["']/,
-  "writer must use only the v2 atomic RPC",
+  /\.rpc\(\s*["'](?:write_observation_normalization_revision_v2|write_observation_normalization_revision_with_review_mode)["']/,
+  "writer must use the atomic normalization RPC",
 );
 assert.doesNotMatch(
   writer,

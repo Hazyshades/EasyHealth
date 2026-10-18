@@ -29,6 +29,10 @@ import {
   type ExtractedBiomarkerWriterRow,
 } from "@/lib/documents/observation-normalization-writer";
 import { getDuplicateCandidatesForDocument } from "@/lib/documents/duplicate-candidates";
+import {
+  effectiveReviewMode,
+  reviewModeActionAvailability,
+} from "@/lib/documents/review-mode-policy";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -259,6 +263,25 @@ export async function GET(req: NextRequest, context: RouteContext) {
     profileId,
     id,
   );
+  const reviewMode = effectiveReviewMode(doc!);
+  const reviewModeActions = {
+    canSelectMode: reviewMode != null && doc!.review_mode_locked_at == null,
+    canEscalateToPro:
+      reviewMode === "easy" && doc!.review_mode_locked_at != null,
+    accept: reviewModeActionAvailability(doc!, "accept").available,
+    reject: reviewModeActionAvailability(doc!, "reject").available,
+    correct: reviewModeActionAvailability(doc!, "correct").available,
+    editValue: reviewModeActionAvailability(doc!, "edit_value").available,
+    undo: reviewModeActionAvailability(doc!, "undo").available,
+    manualMapping: reviewModeActionAvailability(doc!, "manual_mapping").available,
+    batchVerify: reviewModeActionAvailability(doc!, "batch_verify").available,
+    batchReverse: reviewModeActionAvailability(doc!, "batch_reverse").available,
+    confirmObservations: reviewModeActionAvailability(
+      doc!,
+      "confirm_observations",
+    ).available,
+    reprocess: reviewModeActionAvailability(doc!, "reprocess").available,
+  };
   const file =
     fileSigned != null
       ? {
@@ -285,6 +308,9 @@ export async function GET(req: NextRequest, context: RouteContext) {
       id: doc!.id,
       original_filename: doc!.original_filename,
       document_type: documentType,
+      review_mode: reviewMode,
+      review_mode_locked_at: doc!.review_mode_locked_at,
+      review_mode_actions: reviewModeActions,
       lab_name: doc!.lab_name,
       observed_at: doc!.observed_at,
       created_at: doc!.created_at,

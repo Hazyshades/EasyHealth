@@ -18,6 +18,8 @@ export type DashboardPreferences = {
 
 export type LabUnitSystem = "us" | "si";
 
+export type ReviewMode = "easy" | "pro";
+
 export type ProfileRow = {
   id: string;
   display_name: string | null;
@@ -36,10 +38,11 @@ export type ProfileRow = {
   onboarding_tour_version: string;
   dashboard_preferences: DashboardPreferences;
   lab_unit_system: LabUnitSystem;
+  review_mode_default: ReviewMode;
 };
 
 const PROFILE_SELECT =
-  "id, display_name, first_name, last_name, email, ai_provider, created_at, terms_accepted_at, terms_version, health_data_consent_at, ai_consent_at, consent_preferences, onboarding_dismissed_at, onboarding_completed_at, onboarding_tour_version, dashboard_preferences, lab_unit_system";
+  "id, display_name, first_name, last_name, email, ai_provider, created_at, terms_accepted_at, terms_version, health_data_consent_at, ai_consent_at, consent_preferences, onboarding_dismissed_at, onboarding_completed_at, onboarding_tour_version, dashboard_preferences, lab_unit_system, review_mode_default";
 
 function mapProfileRow(data: Record<string, unknown>): ProfileRow {
   const unit = data.lab_unit_system;
@@ -62,6 +65,7 @@ function mapProfileRow(data: Record<string, unknown>): ProfileRow {
       (data.onboarding_tour_version as string | null) ?? CURRENT_PLATFORM_TOUR_VERSION,
     dashboard_preferences: (data.dashboard_preferences as DashboardPreferences) ?? {},
     lab_unit_system: unit === "us" || unit === "si" ? unit : "si",
+    review_mode_default: data.review_mode_default === "easy" ? "easy" : "pro",
   };
 }
 
@@ -263,6 +267,21 @@ export async function updateProfileLabUnitSystem(
   const { data, error } = await supabase
     .from("profiles")
     .update({ lab_unit_system: labUnitSystem })
+    .eq("id", profileId)
+    .select(PROFILE_SELECT)
+    .single();
+  if (error) throw error;
+  return mapProfileRow(data as Record<string, unknown>);
+}
+
+export async function updateProfileReviewModeDefault(
+  profileId: string,
+  reviewModeDefault: ReviewMode,
+) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ review_mode_default: reviewModeDefault })
     .eq("id", profileId)
     .select(PROFILE_SELECT)
     .single();

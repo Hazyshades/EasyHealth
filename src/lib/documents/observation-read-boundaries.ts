@@ -82,11 +82,12 @@ export type RegistryV2NormalizationRevisionReadBoundary = {
   resolver_decision_trace?: unknown | null;
   resolver_trace_schema_version?: string | null;
   measurement_override?: MeasurementOverride | null;
+  review_mode_at_write?: "easy" | "pro" | null;
   created_at?: string | null;
 };
 
 export const REGISTRY_V2_NORMALIZATION_REVISION_SELECT =
-  "id, extracted_biomarker_id, observation_id, resolver_result, verification_status, measurement_definition_key, analyte_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, is_active, input_evidence_hash, input_identity_format_version, resolver_evidence, resolver_decision_trace, resolver_trace_schema_version, measurement_override, created_at";
+  "id, extracted_biomarker_id, observation_id, resolver_result, verification_status, measurement_definition_key, analyte_key, mapping_confidence, mapping_confidence_band, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, is_active, input_evidence_hash, input_identity_format_version, resolver_evidence, resolver_decision_trace, resolver_trace_schema_version, measurement_override, review_mode_at_write, created_at";
 
 export type RegistryV2LaboratoryBindingSource =
   LaboratoryObservationReadBoundary;
