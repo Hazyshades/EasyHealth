@@ -34,7 +34,13 @@ const consentsSchema = z.object({
 const patchSchema = z
   .object({
     ai_provider: z
-      .enum(["openai", "deepseek", "owl_alpha", "nebius_fast", "nebius_quality"])
+      .enum([
+        "openai",
+        "deepseek",
+        "owl_alpha",
+        "nebius_fast",
+        "nebius_quality",
+      ])
       .optional(),
     display_name: z.string().trim().min(1).max(120).optional(),
     first_name: z.string().trim().min(1).max(60).optional(),
@@ -141,10 +147,16 @@ export async function PATCH(request: Request) {
     parsed.data.lab_unit_system ||
     parsed.data.review_mode_default;
   if (!hasUpdate) {
-    return NextResponse.json({ error: "No supported fields to update" }, { status: 400 });
+    return NextResponse.json(
+      { error: "No supported fields to update" },
+      { status: 400 },
+    );
   }
 
-  if (parsed.data.ai_provider && !isProviderConfigured(parsed.data.ai_provider)) {
+  if (
+    parsed.data.ai_provider &&
+    !isProviderConfigured(parsed.data.ai_provider)
+  ) {
     return NextResponse.json(
       { error: providerUnavailableMessage(parsed.data.ai_provider) },
       { status: 503 },
@@ -161,7 +173,10 @@ export async function PATCH(request: Request) {
         parsed.data.last_name ?? profile.last_name,
       );
     } else if (parsed.data.display_name) {
-      profile = await updateProfileDisplayName(profileId, parsed.data.display_name);
+      profile = await updateProfileDisplayName(
+        profileId,
+        parsed.data.display_name,
+      );
     }
 
     if (parsed.data.consents) {
@@ -174,9 +189,17 @@ export async function PATCH(request: Request) {
         parsed.data.onboarding_action as OnboardingAction,
       );
     }
-
+    if (parsed.data.ai_provider) {
+      profile = await updateProfileAiProvider(
+        profileId,
+        parsed.data.ai_provider,
+      );
+    }
     if (parsed.data.lab_unit_system) {
-      profile = await updateProfileLabUnitSystem(profileId, parsed.data.lab_unit_system);
+      profile = await updateProfileLabUnitSystem(
+        profileId,
+        parsed.data.lab_unit_system,
+      );
     }
 
     if (parsed.data.review_mode_default) {
@@ -188,7 +211,8 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json(profileResponse(profile));
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Profile update failed";
+    const message =
+      error instanceof Error ? error.message : "Profile update failed";
     const status = message.includes("consents") ? 400 : 500;
     return NextResponse.json({ error: message }, { status });
   }

@@ -40,12 +40,26 @@ export function ObservationChangeHistoryPanel({
       </summary>
       <ol className="mt-2 space-y-2">
         {entries.map((entry) => (
-          <li key={entry.id} className="text-xs text-[var(--eh-text-secondary)]">
+          <li
+            key={entry.id}
+            className="text-xs text-[var(--eh-text-secondary)]"
+          >
             <div className="flex flex-wrap items-center gap-1.5">
               <StatusChip variant={entry.variant}>{entry.headline}</StatusChip>
               <span className="text-[var(--eh-text-muted)]">
                 {entry.actorLabel} · {formatChangeTime(entry.occurredAt)}
               </span>
+              {entry.reviewModeAtWrite ? (
+                <span
+                  className="text-[var(--eh-text-muted)]"
+                  aria-label={`Recorded in ${entry.reviewModeAtWrite === "easy" ? "Easy" : "Pro"} mode`}
+                >
+                  ·{" "}
+                  {entry.reviewModeAtWrite === "easy"
+                    ? "Easy mode"
+                    : "Pro mode"}
+                </span>
+              ) : null}
               {entry.reconstructed ? (
                 <span
                   className="text-[var(--eh-text-muted)]"
@@ -63,7 +77,8 @@ export function ObservationChangeHistoryPanel({
                     <span className="text-[var(--eh-text-muted)]">
                       {field.from ?? "not set"}
                     </span>{" "}
-                    → <span className="font-medium">{field.to ?? "not set"}</span>
+                    →{" "}
+                    <span className="font-medium">{field.to ?? "not set"}</span>
                   </li>
                 ))}
               </ul>
