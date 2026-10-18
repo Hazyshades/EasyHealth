@@ -12,6 +12,8 @@ export type DocumentRow = {
   original_filename: string;
   status: string;
   document_type: string;
+  review_mode: "easy" | "pro" | null;
+  review_mode_locked_at: string | null;
   lab_name: string | null;
   observed_at: string | null;
   created_at: string;
@@ -39,7 +41,7 @@ export type DocumentRow = {
 };
 
 const DOCUMENT_SELECT =
-  "id, profile_id, storage_path, original_storage_path, original_filename, status, document_type, lab_name, observed_at, created_at, error_message, mime_type, file_size_bytes, thumbnail_storage_path, page_count, processing_status, processing_error, processing_version, extraction_model, processed_at, file_kind, document_summary, modality, detected_document_type, type_mismatch_warning, type_mismatch_reason, content_sha256, archived_at, archive_reason, lifecycle_state, upload_state";
+  "id, profile_id, storage_path, original_storage_path, original_filename, status, document_type, review_mode, review_mode_locked_at, lab_name, observed_at, created_at, error_message, mime_type, file_size_bytes, thumbnail_storage_path, page_count, processing_status, processing_error, processing_version, extraction_model, processed_at, file_kind, document_summary, modality, detected_document_type, type_mismatch_warning, type_mismatch_reason, content_sha256, archived_at, archive_reason, lifecycle_state, upload_state";
 
 export function isLegacyDocument(doc: DocumentRow): boolean {
   return doc.processing_version == null;

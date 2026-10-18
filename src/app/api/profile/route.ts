@@ -9,6 +9,7 @@ import {
   updateProfileDisplayName,
   updateProfileLabUnitSystem,
   updateProfileName,
+  updateProfileReviewModeDefault,
   type OnboardingAction,
   type ProfileRow,
 } from "@/lib/auth/profile";
@@ -43,6 +44,7 @@ const patchSchema = z
       .enum(["dismiss_tour", "complete_tour", "dismiss_banner"])
       .optional(),
     lab_unit_system: z.enum(["us", "si"]).optional(),
+    review_mode_default: z.enum(["easy", "pro"]).optional(),
     api_key: z.unknown().optional(),
     base_url: z.unknown().optional(),
   })
@@ -68,6 +70,7 @@ function profileResponse(profile: ProfileRow) {
     dashboard_preferences: profile.dashboard_preferences,
     onboarding: profileOnboardingStateFromRow(profile),
     lab_unit_system: profile.lab_unit_system ?? "si",
+    review_mode_default: profile.review_mode_default ?? "pro",
     ...providerAvailability(),
   };
 }
@@ -135,8 +138,8 @@ export async function PATCH(request: Request) {
     parsed.data.last_name !== undefined ||
     parsed.data.consents ||
     parsed.data.onboarding_action ||
-    parsed.data.lab_unit_system;
-
+    parsed.data.lab_unit_system ||
+    parsed.data.review_mode_default;
   if (!hasUpdate) {
     return NextResponse.json({ error: "No supported fields to update" }, { status: 400 });
   }
@@ -172,12 +175,15 @@ export async function PATCH(request: Request) {
       );
     }
 
-    if (parsed.data.ai_provider) {
-      profile = await updateProfileAiProvider(profileId, parsed.data.ai_provider);
-    }
-
     if (parsed.data.lab_unit_system) {
       profile = await updateProfileLabUnitSystem(profileId, parsed.data.lab_unit_system);
+    }
+
+    if (parsed.data.review_mode_default) {
+      profile = await updateProfileReviewModeDefault(
+        profileId,
+        parsed.data.review_mode_default,
+      );
     }
 
     return NextResponse.json(profileResponse(profile));

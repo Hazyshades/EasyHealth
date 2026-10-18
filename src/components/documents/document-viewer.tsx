@@ -87,6 +87,22 @@ type DocumentMeta = {
   id: string;
   original_filename: string;
   document_type: string;
+  review_mode: "easy" | "pro" | null;
+  review_mode_locked_at: string | null;
+  review_mode_actions: {
+    canSelectMode: boolean;
+    canEscalateToPro: boolean;
+    accept: boolean;
+    reject: boolean;
+    correct: boolean;
+    editValue: boolean;
+    undo: boolean;
+    manualMapping: boolean;
+    batchVerify: boolean;
+    batchReverse: boolean;
+    confirmObservations: boolean;
+    reprocess: boolean;
+  };
   lab_name: string | null;
   observed_at: string | null;
   created_at: string;
@@ -327,6 +343,12 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     Number.isFinite(initialPage) && initialPage > 0 ? initialPage : 1;
 
   const [doc, setDoc] = useState<DocumentMeta | null>(null);
+  const [reviewMode, setReviewMode] = useState<"easy" | "pro" | null>(null);
+  const [reviewModeLockedAt, setReviewModeLockedAt] = useState<string | null>(
+    null,
+  );
+  const [reviewModeSaving, setReviewModeSaving] = useState(false);
+  const [reviewModeError, setReviewModeError] = useState<string | null>(null);
   const [pages, setPages] = useState<PageMeta[]>([]);
   const [currentPage, setCurrentPage] = useState(startPage);
   const [pageUrl, setPageUrl] = useState<string | null>(null);
@@ -409,6 +431,9 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     (data: BootstrapPayload, opts?: { applyPage?: boolean }) => {
       const meta = data.document;
       setDoc(meta);
+      setReviewMode(meta.review_mode);
+      setReviewModeLockedAt(meta.review_mode_locked_at);
+      setReviewModeError(null);
       setWorkerOffline(Boolean(data.workerOffline));
       if (meta.processing_status !== "processing") {
         processingStartedAt.current = null;
@@ -470,6 +495,63 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     },
     [documentId, applyBootstrap, loadAuthoritativeObservations],
   );
+  async function handleReviewModeChange(nextMode: "easy" | "pro") {
+    if (!doc || !reviewMode || nextMode === reviewMode || reviewModeSaving) {
+      return;
+    }
+    const previousMode = reviewMode;
+    const isEscalation =
+      previousMode === "easy" &&
+      nextMode === "pro" &&
+      reviewModeLockedAt != null;
+    if (
+      isEscalation &&
+      !window.confirm(
+        "Enter Pro mode? Existing review rows and history stay unchanged. Pro controls will be available for this Document.",
+      )
+    ) {
+      return;
+    }
+
+    setReviewModeSaving(true);
+    setReviewModeError(null);
+    setReviewMode(nextMode);
+    try {
+      const res = await fetch(`/api/documents/${documentId}/review-mode`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: nextMode,
+          confirm: isEscalation,
+        }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        reviewMode?: "easy" | "pro";
+        reviewModeLockedAt?: string | null;
+      };
+      if (!res.ok) {
+        throw new Error(payload.error ?? "The review mode could not be changed.");
+      }
+      setReviewMode(payload.reviewMode ?? nextMode);
+      setReviewModeLockedAt(payload.reviewModeLockedAt ?? reviewModeLockedAt);
+      await loadBootstrap(currentPage, { soft: true });
+    } catch (caught) {
+      setReviewMode(previousMode);
+      setReviewModeError(
+        caught instanceof Error
+          ? caught.message
+          : "The review mode could not be changed.",
+      );
+      try {
+        await loadBootstrap(currentPage, { soft: true });
+      } catch {
+        // Keep the optimistic state rollback when the conflict refresh fails.
+      }
+    } finally {
+      setReviewModeSaving(false);
+    }
+  }
 
   const loadPageUrl = useCallback(
     async (pageNumber: number) => {
@@ -515,6 +597,9 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     setLoading(true);
     setError(null);
     setDoc(null);
+    setReviewMode(null);
+    setReviewModeLockedAt(null);
+    setReviewModeError(null);
     processingStartedAt.current = null;
     setWorkerOffline(false);
     setProcessingStuck(false);
@@ -1209,6 +1294,14 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
 
   const pageCount = doc.page_count ?? pages.length ?? 0;
   const documentType = normalizeDocumentType(doc.document_type) ?? "lab_result";
+  const isEasyReview =
+    documentType === "lab_result" && reviewMode === "easy";
+  const canSelectReviewMode =
+    documentType === "lab_result" && reviewModeLockedAt == null;
+  const canEscalateToPro =
+    documentType === "lab_result" &&
+    reviewMode === "easy" &&
+    reviewModeLockedAt != null;
   const biomarkerReviewAction = resolveBiomarkerReviewAction({
     mode: biomarkerPanelMode,
     documentStatus: doc.processing_status,
@@ -1357,6 +1450,78 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
           {actionFeedback}
         </p>
       )}
+      {documentType === "lab_result" && reviewMode ? (
+        <section
+          aria-labelledby="document-review-mode-title"
+          className="rounded-[14px] border border-slate-200 bg-white p-4"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p
+                id="document-review-mode-title"
+                className="text-sm font-semibold text-[var(--eh-text-primary)]"
+              >
+                Review mode: {reviewMode === "easy" ? "Easy" : "Pro"}
+              </p>
+              <p className="mt-1 max-w-[65ch] text-sm text-[var(--eh-text-secondary)]">
+                {isEasyReview
+                  ? "Read the extracted evidence, provenance, and confidence before explicitly accepting or rejecting each result."
+                  : "Pro controls include mapping corrections, value corrections, and batch verification."}
+              </p>
+            </div>
+            <div className="flex min-w-0 flex-wrap gap-2 sm:justify-end">
+              {canSelectReviewMode ? (
+                <>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={reviewMode === "easy" ? "default" : "outline"}
+                    aria-pressed={reviewMode === "easy"}
+                    disabled={reviewModeSaving || reviewMode === "easy"}
+                    onClick={() => void handleReviewModeChange("easy")}
+                  >
+                    Easy
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={reviewMode === "pro" ? "default" : "outline"}
+                    aria-pressed={reviewMode === "pro"}
+                    disabled={reviewModeSaving || reviewMode === "pro"}
+                    onClick={() => void handleReviewModeChange("pro")}
+                  >
+                    Pro
+                  </Button>
+                </>
+              ) : canEscalateToPro ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={reviewModeSaving}
+                  onClick={() => void handleReviewModeChange("pro")}
+                >
+                  {reviewModeSaving ? "Entering Pro…" : "Enter Pro mode"}
+                </Button>
+              ) : (
+                <span className="text-xs text-[var(--eh-text-muted)]">
+                  Locked after first review
+                </span>
+              )}
+            </div>
+          </div>
+          {reviewModeSaving ? (
+            <p className="mt-2 text-xs text-[var(--eh-text-secondary)]" role="status">
+              Saving review mode…
+            </p>
+          ) : null}
+          {reviewModeError ? (
+            <p className="mt-2 text-sm text-red-600" role="alert">
+              {reviewModeError}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
       {duplicateCandidates.length > 0 ? (
         <DuplicateCandidateCard
           candidates={duplicateCandidates}
@@ -1554,7 +1719,9 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                         <ObservationReviewRow key={row.id}
                         row={row}
                         selected={row.id === selectedRowId} onActivate={handleActivateRow} onPreviewStart={handlePreviewStart} onPreviewEnd={handlePreviewEnd} correction={
-                          row.reviewable && correctionBaseById.get(row.id) ? (
+                          !isEasyReview &&
+                          row.reviewable &&
+                          correctionBaseById.get(row.id) ? (
                             <ObservationCorrectionForm
                               base={correctionBaseById.get(row.id)!}
                               activeOverride={
@@ -1648,6 +1815,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                             : undefined
                         }
                         batchVerification={
+                          !isEasyReview &&
                           batchVerification &&
                           row.sourceKind === "extracted" &&
                           row.sourceIsCurrent
@@ -1675,7 +1843,8 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                             : undefined
                         }
                         technicalDetails={
-                          <ReviewTechnicalDetails
+                          !isEasyReview ? (
+                            <ReviewTechnicalDetails
                             details={row.resolutionDetails}
                             decisionTrace={normalization?.decisionTrace}
                             previewCandidateEvidence={
@@ -1770,7 +1939,8 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                                     </Button>
                                   ))
                               : null}
-                          </ReviewTechnicalDetails>
+                            </ReviewTechnicalDetails>
+                          ) : undefined
                         }
                         history={
                           <ObservationChangeHistoryPanel
@@ -1800,9 +1970,11 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                       <ObservationReviewRow key={row.id}
                       row={row}
                       selected={row.id === selectedRowId} onActivate={handleActivateRow} onPreviewStart={handlePreviewStart} onPreviewEnd={handlePreviewEnd} technicalDetails={
-                        <ReviewTechnicalDetails
-                          details={row.resolutionDetails}
-                        />
+                        !isEasyReview ? (
+                          <ReviewTechnicalDetails
+                            details={row.resolutionDetails}
+                          />
+                        ) : undefined
                       }
                       history={
                         <ObservationChangeHistoryPanel
@@ -1827,7 +1999,9 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                 </div>
               )}
 
-              {biomarkerPanelMode === "extracted-review" && batchVerification ? (
+              {!isEasyReview &&
+              biomarkerPanelMode === "extracted-review" &&
+              batchVerification ? (
                 <section className="mt-4 rounded-xl border border-slate-200 p-3">
                   <p className="text-sm font-medium text-[var(--eh-text-primary)]">
                     {batchVerification.eligible_ids.length} eligible exact match
@@ -1962,7 +2136,8 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
                   </p>
                 </>
               )}
-              {biomarkerReviewAction === "confirm-observations" && (
+              {!isEasyReview &&
+              biomarkerReviewAction === "confirm-observations" && (
                 <Button
                   className="mt-4 w-full rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90"
                   disabled={confirmingObservations || observations.length === 0}

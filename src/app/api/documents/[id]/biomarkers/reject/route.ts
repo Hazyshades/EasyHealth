@@ -11,6 +11,10 @@ import {
   isRejectionReasonCode,
   type RejectionReasonCode,
 } from "@/lib/documents/observation-verification-workflow";
+import {
+  assertReviewModeActionAllowed,
+  ReviewModePolicyError,
+} from "@/lib/documents/review-mode-policy";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -39,7 +43,7 @@ export async function POST(req: Request, context: RouteContext) {
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: documentId } = await context.params;
-  const { error: ownerError } = await assertDocumentOwner(profileId, documentId);
+  const { doc, error: ownerError } = await assertDocumentOwner(profileId, documentId);
   if (ownerError) return ownerError;
 
   const body = (await req.json().catch(() => null)) as RejectBody | null;
@@ -120,6 +124,7 @@ export async function POST(req: Request, context: RouteContext) {
   }
 
   try {
+    assertReviewModeActionAllowed(doc!, "reject");
     const requestHash = buildLifecycleRequestHash({
       profileId,
       extractedBiomarkerId,
@@ -137,14 +142,27 @@ export async function POST(req: Request, context: RouteContext) {
     });
     return NextResponse.json({ transition, confirmation });
   } catch (error) {
+    if (error instanceof ReviewModePolicyError) {
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: error.status },
+      );
+    }
     if (error instanceof ObservationLifecycleError) {
       return NextResponse.json(
-        { error: error.message, code: error.code ?? "lifecycle_transition_failed", confirmation },
+        {
+          error: error.message,
+          code: error.code ?? "lifecycle_transition_failed",
+          confirmation,
+        },
         { status: error.status },
       );
     }
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Lifecycle transition failed" },
+      {
+        error:
+          error instanceof Error ? error.message : "Lifecycle transition failed",
+      },
       { status: 500 },
     );
   }

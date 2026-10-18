@@ -6,6 +6,10 @@ import {
   executeBatchVerification,
   type BatchVerificationSnapshot,
 } from "@/lib/documents/batch-verification-service";
+import {
+  assertReviewModeActionAllowed,
+  ReviewModePolicyError,
+} from "@/lib/documents/review-mode-policy";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -47,6 +51,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
   }
 
   try {
+    assertReviewModeActionAllowed(doc!, "batch_verify");
     return noStoreJson(
       await executeBatchVerification({
         profileId,
@@ -54,11 +59,15 @@ export async function POST(req: NextRequest, context: RouteContext) {
         observedAt: doc!.observed_at,
         operationId,
         snapshots,
+        reviewMode: doc!.review_mode === "easy" ? "easy" : "pro",
       }),
     );
   } catch (caught) {
-    if (caught instanceof BatchVerificationError) {
-      return NextResponse.json({ error: caught.message }, { status: caught.status });
+    if (caught instanceof ReviewModePolicyError) {
+      return NextResponse.json(
+        { error: caught.message, code: caught.code },
+        { status: caught.status },
+      );
     }
     throw caught;
   }

@@ -5,6 +5,10 @@ import {
   BatchVerificationError,
   reverseBatchVerification,
 } from "@/lib/documents/batch-verification-service";
+import {
+  assertReviewModeActionAllowed,
+  ReviewModePolicyError,
+} from "@/lib/documents/review-mode-policy";
 
 type RouteContext = { params: Promise<{ id: string }> };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -14,7 +18,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: documentId } = await context.params;
-  const { error } = await assertDocumentOwner(profileId, documentId);
+  const { doc, error } = await assertDocumentOwner(profileId, documentId);
   if (error) return error;
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   const operationId = typeof body?.operationId === "string" ? body.operationId : null;
@@ -24,10 +28,23 @@ export async function POST(req: NextRequest, context: RouteContext) {
   }
 
   try {
+    assertReviewModeActionAllowed(doc!, "batch_reverse");
     return noStoreJson(
-      await reverseBatchVerification({ profileId, documentId, operationId, reason }),
+      await reverseBatchVerification({
+        profileId,
+        documentId,
+        operationId,
+        reason,
+        reviewMode: doc!.review_mode === "easy" ? "easy" : "pro",
+      }),
     );
   } catch (caught) {
+    if (caught instanceof ReviewModePolicyError) {
+      return NextResponse.json(
+        { error: caught.message, code: caught.code },
+        { status: caught.status },
+      );
+    }
     if (caught instanceof BatchVerificationError) {
       return NextResponse.json({ error: caught.message }, { status: caught.status });
     }
