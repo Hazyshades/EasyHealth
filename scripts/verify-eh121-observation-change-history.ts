@@ -32,6 +32,8 @@ function event(
     observation_id: "observation-1",
     extracted_biomarker_id: "extracted-1",
     source_revision_id: "revision-2",
+    source_review_mode_at_write: "pro",
+
     source_prior_revision_id: "revision-1",
     source_reprocess_row_id: null,
     actor_type: "user",
@@ -155,6 +157,11 @@ assert.equal(
   HASH_B,
   "the resulting evidence hash is referenced too",
 );
+assert.equal(
+  corrected.reviewModeAtWrite,
+  "pro",
+  "the correction history entry exposes the mode used for its revision",
+);
 
 // ── First acceptance has null prior values ───────────────────────────────────
 
@@ -163,6 +170,7 @@ const accepted = buildObservationChangeEntry(
     id: "event-accept",
     event_kind: "observation_accepted",
     source_prior_revision_id: null,
+    source_review_mode_at_write: "easy",
     correction_reason: null,
     prior_measurement_definition_key: null,
     prior_analyte_key: null,
@@ -174,7 +182,11 @@ const accepted = buildObservationChangeEntry(
   { viewerProfileId: VIEWER },
 );
 assert.ok(accepted, "an acceptance row projects to an entry");
-assert.equal(accepted.headline, "Result accepted", "acceptance is named plainly");
+assert.equal(
+  accepted.headline,
+  "Result accepted",
+  "acceptance is named plainly",
+);
 assert.deepEqual(
   accepted.fields.map((field) => [field.field, field.from]),
   [
@@ -187,10 +199,19 @@ assert.deepEqual(
   "a first acceptance reports every axis with a null prior value",
 );
 assert.equal(accepted.reason, null, "an absent reason stays absent");
+assert.equal(
+  accepted.reviewModeAtWrite,
+  "easy",
+  "the acceptance history entry exposes Easy mode",
+);
 
 // ── Actor attribution ────────────────────────────────────────────────────────
 
-assert.equal(corrected.actorLabel, "You", "the viewer's own change reads as You");
+assert.equal(
+  corrected.actorLabel,
+  "You",
+  "the viewer's own change reads as You",
+);
 assert.equal(
   buildObservationChangeEntry(event({ actor_id: OTHER }), {
     viewerProfileId: VIEWER,
@@ -202,9 +223,17 @@ const automatic = buildObservationChangeEntry(
   event({ actor_type: "system", actor_id: null }),
   { viewerProfileId: VIEWER },
 );
-assert.equal(automatic?.actorType, "system", "a system change has no user actor");
+assert.equal(
+  automatic?.actorType,
+  "system",
+  "a system change has no user actor",
+);
 assert.equal(automatic?.actorId, null, "a system change carries no profile id");
-assert.equal(automatic?.actorLabel, "Automatic", "a system change reads as Automatic");
+assert.equal(
+  automatic?.actorLabel,
+  "Automatic",
+  "a system change reads as Automatic",
+);
 assert.equal(
   buildObservationChangeEntry(event({ actor_type: "user", actor_id: null }))
     ?.actorType,
@@ -214,7 +243,9 @@ assert.equal(
 
 // ── Reconstructed rows are distinguishable ───────────────────────────────────
 
-const reconstructed = buildObservationChangeEntry(event({ origin: "backfill" }));
+const reconstructed = buildObservationChangeEntry(
+  event({ origin: "backfill" }),
+);
 assert.equal(reconstructed?.origin, "backfill", "the backfill origin survives");
 assert.equal(
   reconstructed?.reconstructed,
@@ -347,7 +378,11 @@ for (const trigger of [
   /create trigger eh121_capture_extraction_supersession\s+after update of is_current on public\.document_extracted_biomarkers/,
   /create trigger eh121_capture_reprocess_apply\s+after update on public\.registry_reprocess_batch_rows/,
 ]) {
-  assert.match(migration, trigger, "each append-only source has a capture trigger");
+  assert.match(
+    migration,
+    trigger,
+    "each append-only source has a capture trigger",
+  );
 }
 assert.match(
   migration,
@@ -374,7 +409,11 @@ assert.match(
   /origin = 'backfill'|'backfill',/,
   "the backfill marks the rows it reconstructs",
 );
-assert.match(migration, /notify pgrst, 'reload schema';/, "PostgREST reloads its schema");
+assert.match(
+  migration,
+  /notify pgrst, 'reload schema';/,
+  "PostgREST reloads its schema",
+);
 
 // ── Endpoint and UI seams ────────────────────────────────────────────────────
 
@@ -382,7 +421,11 @@ const route = readFileSync(
   "src/app/api/documents/[id]/observation-history/route.ts",
   "utf8",
 );
-assert.match(route, /getSessionProfileId\(\)/, "the endpoint requires a session");
+assert.match(
+  route,
+  /getSessionProfileId\(\)/,
+  "the endpoint requires a session",
+);
 assert.match(
   route,
   /assertDocumentOwner\(profileId, id\)/,
@@ -399,7 +442,10 @@ assert.match(
   "actor attribution is resolved against the caller",
 );
 
-const reader = readFileSync("src/lib/documents/observation-change-events.ts", "utf8");
+const reader = readFileSync(
+  "src/lib/documents/observation-change-events.ts",
+  "utf8",
+);
 assert.match(
   reader,
   /\.eq\("profile_id", query\.profileId\)/,
@@ -411,7 +457,10 @@ assert.doesNotMatch(
   "the reader selects no column that could carry document text",
 );
 
-const viewer = readFileSync("src/components/documents/document-viewer.tsx", "utf8");
+const viewer = readFileSync(
+  "src/components/documents/document-viewer.tsx",
+  "utf8",
+);
 assert.equal(
   (viewer.match(/<ObservationChangeHistoryPanel/g) ?? []).length,
   2,
@@ -427,7 +476,11 @@ const row = readFileSync(
   "src/components/documents/review/observation-review-row.tsx",
   "utf8",
 );
-assert.match(row, /history\?: ReactNode;/, "the review row exposes a history slot");
+assert.match(
+  row,
+  /history\?: ReactNode;/,
+  "the review row exposes a history slot",
+);
 
 const panel = readFileSync(
   "src/components/documents/review/observation-change-history-panel.tsx",

@@ -13,6 +13,11 @@ import {
   writeExtractedBiomarkerNormalization,
 } from "@/lib/documents/observation-normalization-writer";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  assertReviewModeActionAllowed,
+  effectiveReviewMode,
+  ReviewModePolicyError,
+} from "@/lib/documents/review-mode-policy";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -35,6 +40,27 @@ export async function POST(req: NextRequest, context: RouteContext) {
   const { id } = await context.params;
   const { doc, error } = await assertDocumentOwner(profileId, id);
   if (error) return error;
+  try {
+    assertReviewModeActionAllowed(doc!, "confirm_observations");
+  } catch (policyError) {
+    if (policyError instanceof ReviewModePolicyError) {
+      return NextResponse.json(
+        { error: policyError.message, code: policyError.code },
+        { status: policyError.status },
+      );
+    }
+    throw policyError;
+  }
+  const reviewMode = effectiveReviewMode(doc!);
+  if (!reviewMode) {
+    return NextResponse.json(
+      {
+        error: "Review modes apply only to laboratory Documents.",
+        code: "review_mode_not_applicable",
+      },
+      { status: 409 },
+    );
+  }
 
   const body = (await req.json().catch(() => ({}))) as {
     observationIds?: unknown;
@@ -162,6 +188,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
         expectedActiveRevision: activeRevision,
         correctionReason: "Observation confirmation",
         supersedesRevisionId: activeRevision.id,
+        reviewMode,
       });
       confirmedObservationIds.push(observation.id);
     } catch (writerError) {

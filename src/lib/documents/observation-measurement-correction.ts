@@ -280,6 +280,10 @@ const CORRECTION_HTTP_STATUSES: Readonly<Record<string, number>> = {
   observation_source_page_missing: 422,
   invalid_resolver_decision_trace: 422,
   resolver_decision_trace_resolution_mismatch: 422,
+  invalid_review_mode: 422,
+  review_mode_document_not_found: 409,
+  review_mode_conflict: 409,
+  review_mode_revision_not_found: 409,
 };
 
 /**

@@ -15,6 +15,7 @@ import {
 import type { PreparedEvidence } from "./measurement-evidence-admission";
 import type { MeasurementOverride } from "./observation-measurement-correction";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { ReviewMode } from "./review-mode-policy";
 import {
   compatibleManualDefinitions,
   decideAutomaticPromotion,
@@ -55,6 +56,11 @@ export type NormalizationRevision = {
    * marks a row as user-corrected; verification status stays EH-120's.
    */
   measurement_override: MeasurementOverride | null;
+  /**
+   * Review mode carried by an owner-driven normalization write. System and
+   * historical revisions leave this field null.
+   */
+  review_mode_at_write?: "easy" | "pro" | null;
 };
 
 /**
@@ -86,7 +92,7 @@ export async function getActiveNormalizationRevision(
   const { data, error } = await supabase
     .from("observation_normalization_revisions")
     .select(
-      "id, extracted_biomarker_id, observation_id, input_evidence_hash, measurement_definition_key, analyte_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, verification_decided_at, verification_actor_type, verification_actor_id, is_active, mapping_change_classification, resolver_evidence, input_identity_format_version, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, measurement_override"
+      "id, extracted_biomarker_id, observation_id, input_evidence_hash, measurement_definition_key, analyte_key, resolver_result, mapping_confidence, mapping_confidence_band, verification_status, verification_decided_at, verification_actor_type, verification_actor_id, is_active, mapping_change_classification, resolver_evidence, input_identity_format_version, catalog_manifest_version, catalog_manifest_digest, resolver_version, normalization_version, measurement_override, review_mode_at_write"
     )
     .eq("extracted_biomarker_id", extractedBiomarkerId)
     .eq("is_active", true)
@@ -120,6 +126,7 @@ export async function restoreHistoricalNormalizationRevision(options: {
   actorId: string;
   correctionReason: string;
   observationPayload: Record<string, unknown>;
+  reviewMode: ReviewMode;
 }): Promise<HistoricalNormalizationRestoreResult> {
   if (!options.correctionReason.trim()) {
     throw new Error("A reason is required to restore a historical revision");
@@ -132,11 +139,12 @@ export async function restoreHistoricalNormalizationRevision(options: {
         targetRevisionId: options.targetRevisionId,
         expectedActiveRevisionId: options.expectedActiveRevisionId,
         correctionReason: options.correctionReason,
+        reviewMode: options.reviewMode,
       }),
     )
     .digest("hex");
   const { data, error } = await createAdminClient().rpc(
-    "restore_observation_normalization_revision_v1",
+    "restore_observation_normalization_revision_with_review_mode",
     {
       p_extracted_biomarker_id: options.extractedBiomarkerId,
       p_target_revision_id: options.targetRevisionId,
@@ -145,6 +153,7 @@ export async function restoreHistoricalNormalizationRevision(options: {
       p_correction_reason: options.correctionReason,
       p_request_hash: requestHash,
       p_observation_payload: options.observationPayload,
+      p_review_mode: options.reviewMode,
     },
   );
   if (error) {
@@ -162,10 +171,17 @@ export async function restoreHistoricalNormalizationRevision(options: {
         "observation_not_found",
         "observation_source_owner_mismatch",
         "revision_observation_binding_conflict",
+        "review_mode_document_not_found",
+        "review_mode_conflict",
+        "review_mode_revision_not_found",
       ].find((candidate) => message.includes(candidate)) ?? "historical_restore_failed";
     throw new HistoricalNormalizationRestoreError(
       message,
-      code === "historical_restore_request_conflict" || code === "stale_revision_conflict"
+      code === "historical_restore_request_conflict" ||
+      code === "stale_revision_conflict" ||
+      code === "review_mode_document_not_found" ||
+      code === "review_mode_conflict" ||
+      code === "review_mode_revision_not_found"
         ? 409
         : code === "observation_not_found"
           ? 404
@@ -211,6 +227,7 @@ type BatchVerificationRestoreRpc = (params: {
   p_actor_id: string;
   p_correction_reason: string;
   p_request_hash: string;
+  p_review_mode: ReviewMode;
 }) => Promise<{ data: unknown; error: unknown }>;
 
 export async function restoreBatchVerificationRevision(
@@ -218,10 +235,11 @@ export async function restoreBatchVerificationRevision(
     batchRevisionId: string;
     actorId: string;
     correctionReason: string;
+    reviewMode?: ReviewMode;
   },
   rpc: BatchVerificationRestoreRpc = async (params) =>
     createAdminClient().rpc(
-      "eh122_reverse_observation_normalization_verification",
+      "eh122_reverse_normalization_with_review_mode",
       params,
     ),
 ): Promise<BatchVerificationRestoreResult> {
@@ -234,6 +252,7 @@ export async function restoreBatchVerificationRevision(
         actorId: options.actorId,
         batchRevisionId: options.batchRevisionId,
         correctionReason: options.correctionReason,
+        reviewMode: options.reviewMode ?? "pro",
       }),
     )
     .digest("hex");
@@ -242,6 +261,7 @@ export async function restoreBatchVerificationRevision(
     p_actor_id: options.actorId,
     p_correction_reason: options.correctionReason,
     p_request_hash: requestHash,
+    p_review_mode: options.reviewMode ?? "pro",
   });
   if (error) throw error;
   const row = (Array.isArray(data) ? data[0] : data) as Record<

@@ -30,6 +30,11 @@ import {
   type NormalizationRevisionSummary,
 } from "@/lib/documents/normalization-review";
 import { REGISTRY_V2_NORMALIZATION_REVISION_SELECT } from "@/lib/documents/observation-read-boundaries";
+import {
+  assertReviewModeActionAllowed,
+  effectiveReviewMode,
+  ReviewModePolicyError,
+} from "@/lib/documents/review-mode-policy";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -177,6 +182,21 @@ export async function PATCH(req: Request, context: RouteContext) {
   const row = data as ExtractedBiomarkerRow;
 
   try {
+    const reviewAction =
+      body.action === "edit-value"
+        ? "edit_value"
+        : body.action === "undo"
+          ? "undo"
+          : "correct";
+    assertReviewModeActionAllowed(doc!, reviewAction);
+    const reviewMode = effectiveReviewMode(doc!);
+    if (!reviewMode) {
+      throw new ReviewModePolicyError(
+        "Review modes apply only to laboratory Documents.",
+        409,
+        "review_mode_not_applicable",
+      );
+    }
     const activeRevision = await getActiveNormalizationRevision(row.id);
     if (
       body.expectedActiveRevisionId !== undefined &&
@@ -301,6 +321,7 @@ export async function PATCH(req: Request, context: RouteContext) {
           : "additive",
         correctionReason: body.correctionReason,
         supersedesRevisionId: activeRevision?.id ?? null,
+        reviewMode,
       });
       return NextResponse.json({
         revision: writerResult,
@@ -355,6 +376,7 @@ export async function PATCH(req: Request, context: RouteContext) {
           observedAt: observationDateFromExtractedRow(row, doc!.observed_at),
           measurementOverride: targetOverride,
         }),
+        reviewMode,
       });
       const targetDefinitionKey =
         typeof targetRevision.measurement_definition_key === "string"
@@ -414,6 +436,7 @@ export async function PATCH(req: Request, context: RouteContext) {
       expectedActiveRevision: activeRevision,
       measurementOverride: activeRevision?.measurement_override,
       correctionReason: body.correctionReason,
+      reviewMode,
       supersedesRevisionId: activeRevision?.id ?? null,
     });
     return NextResponse.json({
@@ -425,6 +448,12 @@ export async function PATCH(req: Request, context: RouteContext) {
     });
   } catch (error) {
     const message = failureMessage(error);
+    if (error instanceof ReviewModePolicyError) {
+      return NextResponse.json(
+        { error: message, code: error.code },
+        { status: error.status },
+      );
+    }
     if (error instanceof ObservationNormalizationWriterError) {
       return NextResponse.json(
         { error: message, code: error.code },

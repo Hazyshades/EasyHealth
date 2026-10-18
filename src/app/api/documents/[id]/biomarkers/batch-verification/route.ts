@@ -6,10 +6,15 @@ import {
   executeBatchVerification,
   type BatchVerificationSnapshot,
 } from "@/lib/documents/batch-verification-service";
+import {
+  assertReviewModeActionAllowed,
+  ReviewModePolicyError,
+} from "@/lib/documents/review-mode-policy";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function parseSnapshots(value: unknown): BatchVerificationSnapshot[] | null {
   if (!Array.isArray(value)) return null;
@@ -20,12 +25,15 @@ function parseSnapshots(value: unknown): BatchVerificationSnapshot[] | null {
     if (
       typeof row.extractedBiomarkerId !== "string" ||
       (row.sourceSnapshot !== null && typeof row.sourceSnapshot !== "string") ||
-      (row.activeRevisionId !== null && typeof row.activeRevisionId !== "string")
-    ) return null;
+      (row.activeRevisionId !== null &&
+        typeof row.activeRevisionId !== "string")
+    )
+      return null;
     snapshots.push({
       extractedBiomarkerId: row.extractedBiomarkerId,
       sourceSnapshot: (row.sourceSnapshot as string | null | undefined) ?? null,
-      activeRevisionId: (row.activeRevisionId as string | null | undefined) ?? null,
+      activeRevisionId:
+        (row.activeRevisionId as string | null | undefined) ?? null,
     });
   }
   return snapshots;
@@ -33,20 +41,29 @@ function parseSnapshots(value: unknown): BatchVerificationSnapshot[] | null {
 
 export async function POST(req: NextRequest, context: RouteContext) {
   const profileId = await getSessionProfileId();
-  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!profileId)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: documentId } = await context.params;
   const { doc, error } = await assertDocumentOwner(profileId, documentId);
   if (error) return error;
 
-  const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
-  const operationId = typeof body?.operationId === "string" ? body.operationId : null;
+  const body = (await req.json().catch(() => null)) as Record<
+    string,
+    unknown
+  > | null;
+  const operationId =
+    typeof body?.operationId === "string" ? body.operationId : null;
   const snapshots = parseSnapshots(body?.snapshots);
   if (!operationId || !UUID.test(operationId) || !snapshots) {
-    return NextResponse.json({ error: "Invalid batch verification request" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid batch verification request" },
+      { status: 400 },
+    );
   }
 
   try {
+    assertReviewModeActionAllowed(doc!, "batch_verify");
     return noStoreJson(
       await executeBatchVerification({
         profileId,
@@ -54,11 +71,21 @@ export async function POST(req: NextRequest, context: RouteContext) {
         observedAt: doc!.observed_at,
         operationId,
         snapshots,
+        reviewMode: doc!.review_mode === "easy" ? "easy" : "pro",
       }),
     );
   } catch (caught) {
+    if (caught instanceof ReviewModePolicyError) {
+      return NextResponse.json(
+        { error: caught.message, code: caught.code },
+        { status: caught.status },
+      );
+    }
     if (caught instanceof BatchVerificationError) {
-      return NextResponse.json({ error: caught.message }, { status: caught.status });
+      return NextResponse.json(
+        { error: caught.message },
+        { status: caught.status },
+      );
     }
     throw caught;
   }

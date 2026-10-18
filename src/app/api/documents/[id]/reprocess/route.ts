@@ -4,6 +4,10 @@ import { assertDocumentOwner } from "@/lib/documents/access";
 import { enqueueFullPipelineJob } from "@/lib/documents/jobs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getDocumentReprocessTypeOverride } from "@/lib/documents/reprocess-policy";
+import {
+  assertReviewModeActionAllowed,
+  ReviewModePolicyError,
+} from "@/lib/documents/review-mode-policy";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -16,6 +20,19 @@ export async function POST(req: Request, context: RouteContext) {
   const { id } = await context.params;
   const { doc, error } = await assertDocumentOwner(profileId, id);
   if (error) return error;
+  if (doc!.document_type === "lab_result") {
+    try {
+      assertReviewModeActionAllowed(doc!, "reprocess");
+    } catch (policyError) {
+      if (policyError instanceof ReviewModePolicyError) {
+        return NextResponse.json(
+          { error: policyError.message, code: policyError.code },
+          { status: policyError.status },
+        );
+      }
+      throw policyError;
+    }
+  }
 
   let requestBody: unknown = null;
   try {

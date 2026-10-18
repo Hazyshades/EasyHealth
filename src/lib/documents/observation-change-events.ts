@@ -9,7 +9,10 @@
  */
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { ObservationChangeEventRow } from "./observation-change-history";
+import type {
+  ObservationChangeEventRow,
+  ReviewModeAtWrite,
+} from "./observation-change-history";
 
 export const OBSERVATION_CHANGE_EVENT_SELECT =
   "id, event_kind, origin, observation_id, extracted_biomarker_id, " +
@@ -42,6 +45,9 @@ export type ObservationChangeEventQuery = Readonly<{
 export type ObservationChangeEventQueryResult =
   | { ok: true; rows: readonly ObservationChangeEventRow[] }
   | { ok: false; error: string };
+function asReviewModeAtWrite(value: unknown): ReviewModeAtWrite | null {
+  return value === "easy" || value === "pro" ? value : null;
+}
 
 export async function readObservationChangeEvents(
   query: ObservationChangeEventQuery,
@@ -65,5 +71,44 @@ export async function readObservationChangeEvents(
 
   const { data, error } = await request;
   if (error) return { ok: false, error: error.message };
-  return { ok: true, rows: (data ?? []) as unknown as ObservationChangeEventRow[] };
+
+  const rows = (data ?? []) as unknown as ObservationChangeEventRow[];
+  const revisionIds = [
+    ...new Set(
+      rows
+        .map((row) => row.source_revision_id)
+        .filter((revisionId): revisionId is string => Boolean(revisionId)),
+    ),
+  ];
+  if (revisionIds.length === 0) return { ok: true, rows };
+
+  const { data: revisionData, error: revisionError } = await supabase
+    .from("observation_normalization_revisions")
+    .select("id, review_mode_at_write")
+    .in("id", revisionIds);
+  if (revisionError) return { ok: false, error: revisionError.message };
+
+  const reviewModesByRevisionId = new Map(
+    (
+      (revisionData ?? []) as Array<{
+        id: string;
+        review_mode_at_write: unknown;
+      }>
+    ).map((revision) => [
+      revision.id,
+      asReviewModeAtWrite(revision.review_mode_at_write),
+    ]),
+  );
+
+  return {
+    ok: true,
+    rows: rows.map((row) => ({
+      ...row,
+      source_review_mode_at_write: asReviewModeAtWrite(
+        row.source_revision_id
+          ? reviewModesByRevisionId.get(row.source_revision_id)
+          : null,
+      ),
+    })),
+  };
 }

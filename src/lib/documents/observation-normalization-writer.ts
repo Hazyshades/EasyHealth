@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { ReviewMode } from "@/lib/auth/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   buildPersistedResolverDecisionTrace,
@@ -162,6 +163,10 @@ const WRITER_RPC_CODES = [
   "invalid_resolver_decision_trace",
   "observation_source_page_missing",
   "resolver_decision_trace_resolution_mismatch",
+  "invalid_review_mode",
+  "review_mode_document_not_found",
+  "review_mode_conflict",
+  "review_mode_revision_not_found",
   "stale_revision_conflict",
   "observation_source_mismatch",
   "observation_source_owner_mismatch",
@@ -466,6 +471,7 @@ export function buildNormalizationWriterRequestHash(options: {
   correctionReason?: string | null;
   reversalOfRevisionId?: string | null;
   measurementOverride?: MeasurementOverride | null;
+  reviewMode?: ReviewMode | null;
 }): string {
   return createHash("sha256")
     .update(
@@ -483,6 +489,7 @@ export function buildNormalizationWriterRequestHash(options: {
         // still reuse the same revision. `parseMeasurementOverride` emits keys
         // in a fixed order, so this serialization is canonical.
         measurementOverride: options.measurementOverride ?? null,
+        reviewMode: options.reviewMode ?? null,
       })
     )
     .digest("hex");
@@ -510,6 +517,7 @@ export async function writeExtractedBiomarkerNormalization(options: {
    */
   preparedEvidence?: PreparedEvidence;
   measurementOverride?: MeasurementOverride | null;
+  reviewMode?: ReviewMode | null;
 }): Promise<ObservationNormalizationWriterResult> {
   const expectedActiveRevision =
     options.expectedActiveRevision === undefined
@@ -549,10 +557,11 @@ export async function writeExtractedBiomarkerNormalization(options: {
     correctionReason: options.correctionReason,
     reversalOfRevisionId: options.reversalOfRevisionId,
     measurementOverride,
+    reviewMode: options.reviewMode,
   });
   const supabase = createAdminClient();
   const { data, error } = await supabase.rpc(
-    "write_observation_normalization_revision_v2",
+    "write_observation_normalization_revision_with_review_mode",
     {
       p_extracted_biomarker_id: options.row.id,
       p_observation: buildObservationPayload({
@@ -575,7 +584,8 @@ export async function writeExtractedBiomarkerNormalization(options: {
       p_extraction_version: options.row.processing_version ?? null,
       p_reviewed_measurement_definition: reviewedMeasurementDefinition,
       p_measurement_override: measurementOverride,
-    }
+      p_review_mode: options.reviewMode ?? null,
+    },
   );
   if (error) {
     throw normalizeWriterRpcError(error) ?? error;

@@ -22,6 +22,7 @@ import {
   type BatchVerificationSnapshot,
   type PreparedBatchVerificationSnapshots,
 } from "./batch-verification-request";
+import type { ReviewMode } from "./review-mode-policy";
 export type { BatchVerificationSnapshot } from "./batch-verification-request";
 
 export type BatchVerificationRowOutcome = Readonly<{
@@ -86,6 +87,7 @@ export async function executeBatchVerification(options: {
   observedAt: string | null;
   operationId: string;
   snapshots: readonly BatchVerificationSnapshot[];
+  reviewMode: ReviewMode;
 }): Promise<BatchVerificationResult> {
   let prepared: PreparedBatchVerificationSnapshots;
   try {
@@ -104,7 +106,14 @@ export async function executeBatchVerification(options: {
       snapshot,
     ]),
   );
-  const hash = prepared.requestHash;
+  const hash = createHash("sha256")
+    .update(
+      JSON.stringify({
+        snapshotHash: prepared.requestHash,
+        reviewMode: options.reviewMode,
+      }),
+    )
+    .digest("hex");
   const supabase = createAdminClient();
   const existing = await supabase
     .from("batch_verification_operations")
@@ -222,6 +231,7 @@ export async function executeBatchVerification(options: {
         resolution,
         preparedEvidence,
         expectedActiveRevision: activeRevision,
+        reviewMode: options.reviewMode,
       });
       outcomes.push({
         extractedBiomarkerId: id,
@@ -284,6 +294,7 @@ export async function reverseBatchVerification(options: {
   documentId: string;
   operationId: string;
   reason: string;
+  reviewMode: ReviewMode;
 }): Promise<BatchVerificationResult> {
   if (!options.reason.trim()) {
     throw new BatchVerificationError(
@@ -379,6 +390,7 @@ export async function reverseBatchVerification(options: {
         batchRevisionId: row.resulting_revision_id,
         actorId: options.profileId,
         correctionReason: options.reason.trim(),
+        reviewMode: options.reviewMode,
       });
       outcomes.push({
         extractedBiomarkerId: row.extracted_biomarker_id,

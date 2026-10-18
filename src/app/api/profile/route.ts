@@ -9,6 +9,7 @@ import {
   updateProfileDisplayName,
   updateProfileLabUnitSystem,
   updateProfileName,
+  updateProfileReviewModeDefault,
   type OnboardingAction,
   type ProfileRow,
 } from "@/lib/auth/profile";
@@ -33,7 +34,13 @@ const consentsSchema = z.object({
 const patchSchema = z
   .object({
     ai_provider: z
-      .enum(["openai", "deepseek", "owl_alpha", "nebius_fast", "nebius_quality"])
+      .enum([
+        "openai",
+        "deepseek",
+        "owl_alpha",
+        "nebius_fast",
+        "nebius_quality",
+      ])
       .optional(),
     display_name: z.string().trim().min(1).max(120).optional(),
     first_name: z.string().trim().min(1).max(60).optional(),
@@ -43,6 +50,7 @@ const patchSchema = z
       .enum(["dismiss_tour", "complete_tour", "dismiss_banner"])
       .optional(),
     lab_unit_system: z.enum(["us", "si"]).optional(),
+    review_mode_default: z.enum(["easy", "pro"]).optional(),
     api_key: z.unknown().optional(),
     base_url: z.unknown().optional(),
   })
@@ -68,6 +76,7 @@ function profileResponse(profile: ProfileRow) {
     dashboard_preferences: profile.dashboard_preferences,
     onboarding: profileOnboardingStateFromRow(profile),
     lab_unit_system: profile.lab_unit_system ?? "si",
+    review_mode_default: profile.review_mode_default ?? "pro",
     ...providerAvailability(),
   };
 }
@@ -135,13 +144,19 @@ export async function PATCH(request: Request) {
     parsed.data.last_name !== undefined ||
     parsed.data.consents ||
     parsed.data.onboarding_action ||
-    parsed.data.lab_unit_system;
-
+    parsed.data.lab_unit_system ||
+    parsed.data.review_mode_default;
   if (!hasUpdate) {
-    return NextResponse.json({ error: "No supported fields to update" }, { status: 400 });
+    return NextResponse.json(
+      { error: "No supported fields to update" },
+      { status: 400 },
+    );
   }
 
-  if (parsed.data.ai_provider && !isProviderConfigured(parsed.data.ai_provider)) {
+  if (
+    parsed.data.ai_provider &&
+    !isProviderConfigured(parsed.data.ai_provider)
+  ) {
     return NextResponse.json(
       { error: providerUnavailableMessage(parsed.data.ai_provider) },
       { status: 503 },
@@ -158,7 +173,10 @@ export async function PATCH(request: Request) {
         parsed.data.last_name ?? profile.last_name,
       );
     } else if (parsed.data.display_name) {
-      profile = await updateProfileDisplayName(profileId, parsed.data.display_name);
+      profile = await updateProfileDisplayName(
+        profileId,
+        parsed.data.display_name,
+      );
     }
 
     if (parsed.data.consents) {
@@ -171,18 +189,30 @@ export async function PATCH(request: Request) {
         parsed.data.onboarding_action as OnboardingAction,
       );
     }
-
     if (parsed.data.ai_provider) {
-      profile = await updateProfileAiProvider(profileId, parsed.data.ai_provider);
+      profile = await updateProfileAiProvider(
+        profileId,
+        parsed.data.ai_provider,
+      );
+    }
+    if (parsed.data.lab_unit_system) {
+      profile = await updateProfileLabUnitSystem(
+        profileId,
+        parsed.data.lab_unit_system,
+      );
     }
 
-    if (parsed.data.lab_unit_system) {
-      profile = await updateProfileLabUnitSystem(profileId, parsed.data.lab_unit_system);
+    if (parsed.data.review_mode_default) {
+      profile = await updateProfileReviewModeDefault(
+        profileId,
+        parsed.data.review_mode_default,
+      );
     }
 
     return NextResponse.json(profileResponse(profile));
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Profile update failed";
+    const message =
+      error instanceof Error ? error.message : "Profile update failed";
     const status = message.includes("consents") ? 400 : 500;
     return NextResponse.json({ error: message }, { status });
   }

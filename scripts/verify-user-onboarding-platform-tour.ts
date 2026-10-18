@@ -27,6 +27,7 @@ const baseProfile: ProfileRow = {
   onboarding_tour_version: CURRENT_TOUR_VERSION,
   dashboard_preferences: {},
   lab_unit_system: "si",
+  review_mode_default: "pro",
 };
 
 function profile(overrides: Partial<ProfileRow> = {}): ProfileRow {

@@ -1,3 +1,4 @@
+import type { ReviewMode } from "@/lib/documents/review-mode-policy";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   type ExtractedBiomarkerWriterRow,
@@ -28,6 +29,7 @@ export async function acceptExtractedBiomarkers(options: {
   profileId: string;
   documentId: string;
   observedAt: string | null;
+  reviewMode: ReviewMode;
   ids: string[];
 }): Promise<{ acceptedIds: string[]; failures: BiomarkerAcceptanceFailure[] }> {
   const supabase = createAdminClient();
@@ -58,6 +60,7 @@ export async function acceptExtractedBiomarkers(options: {
         row,
         actorId: options.profileId,
         writeKind: "acceptance",
+        reviewMode: options.reviewMode,
       }),
   });
 }

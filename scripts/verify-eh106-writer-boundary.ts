@@ -17,8 +17,8 @@ const documentViewer = source("src/components/documents/document-viewer.tsx");
 
 assert.match(
   writer,
-  /\.rpc\(\s*["']write_observation_normalization_revision_v2["']/,
-  "the service writer must use the atomic v2 writer RPC"
+  /\.rpc\(\s*["'](?:write_observation_normalization_revision_v2|write_observation_normalization_revision_with_review_mode)["']/,
+  "the service writer must use the atomic normalization writer RPC",
 );
 assert.match(
   acceptance,
