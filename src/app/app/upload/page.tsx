@@ -25,27 +25,27 @@ const UPLOAD_COPY: Record<
 > = {
   lab_result: {
     title: "Upload lab results",
-    subtitle: "Blood tests, urinalysis, pathology, and other lab reports · $0.01 USDC per parse",
+    subtitle: "Blood tests, urinalysis, pathology, and other lab reports",
   },
   instrumental_report: {
     title: "Upload imaging study",
-    subtitle: "Ultrasound, X-ray, CT, MRI, ECG, EEG, and other instrumental reports · $0.01 USDC",
+    subtitle: "Ultrasound, X-ray, CT, MRI, ECG, EEG, and other instrumental reports",
   },
   consultation_note: {
     title: "Upload consultation",
-    subtitle: "Specialist visit notes, exam records, and clinical consultations · $0.01 USDC",
+    subtitle: "Specialist visit notes, exam records, and clinical consultations",
   },
   discharge_summary: {
     title: "Upload discharge summary",
-    subtitle: "Hospital discharge summaries with course of care and medications · $0.01 USDC",
+    subtitle: "Hospital discharge summaries with course of care and medications",
   },
   prescription: {
     title: "Upload prescription",
-    subtitle: "Medication prescriptions and prescription lists · $0.01 USDC",
+    subtitle: "Medication prescriptions and prescription lists",
   },
   referral: {
     title: "Upload referral",
-    subtitle: "Referral letters to specialists · $0.01 USDC",
+    subtitle: "Referral letters to specialists",
   },
 };
 
