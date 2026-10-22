@@ -351,6 +351,15 @@
       "reason": "Review-mode persistence, atomic locks, grants, and mode-aware RPC contracts require pgTAP."
     },
     {
+      "script": "test:upload-reservation-db",
+      "verificationFiles": ["supabase/tests/upload_reservation_document_types.sql"],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "document-upload",
+      "reason": "Owner upload reservation must accept every uploadable document type through its service-role RPC."
+    },
+    {
       "script": "test:review-modes",
       "verificationFiles": ["scripts/verify-review-modes.ts"],
       "job": "verify",

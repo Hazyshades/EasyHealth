@@ -342,6 +342,8 @@ jobs:
         run: pnpm test:eh121-db
       - name: Run review-mode database contract
         run: pnpm test:review-modes-db
+      - name: Run upload reservation document type contract
+        run: pnpm test:upload-reservation-db
       - name: Run EH-123 assessment recalculation database contract
         run: pnpm test:eh123-db
       - name: Run EH-144 freshness policy database contract
