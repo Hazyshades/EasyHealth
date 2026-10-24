@@ -1,6 +1,6 @@
 begin;
 
-select plan(32);
+select plan(34);
 
 select has_column(
   'public',
@@ -465,5 +465,93 @@ select is(
   'detached audit rows retain both exact detection and resolution history'
 );
 
+select lives_ok(
+  $test$
+    do $do$
+    begin
+      perform set_config('eh104.tombstone', 'on', true);
+      insert into public.documents (
+        id,
+        profile_id,
+        storage_path,
+        original_filename,
+        status,
+        document_type,
+        mime_type,
+        file_size_bytes,
+        file_kind,
+        processing_status,
+        lifecycle_state,
+        upload_state,
+        content_sha256
+      ) values (
+        '00000000-0000-0000-0000-000000130018',
+        '00000000-0000-0000-0000-000000130001',
+        'eh130/deleting-source.pdf',
+        'deleting-source.pdf',
+        'completed',
+        'lab_result',
+        'application/pdf',
+        42000,
+        'pdf',
+        'deleting',
+        'deleting',
+        'complete',
+        repeat('f', 64)
+      );
+    end
+    $do$;
+  $test$,
+  'synthetic deleting documents can be inserted for the regression'
+);
+select lives_ok(
+  $test$
+    do $do$
+    begin
+      perform set_config('eh104.tombstone', 'off', true);
+      insert into public.documents (
+        id,
+        profile_id,
+        storage_path,
+        original_filename,
+        status,
+        document_type,
+        mime_type,
+        file_size_bytes,
+        file_kind,
+        processing_status,
+        lifecycle_state,
+        upload_state,
+        content_sha256
+      ) values (
+        '00000000-0000-0000-0000-000000130019',
+        '00000000-0000-0000-0000-000000130001',
+        'eh130/replacement.pdf',
+        'replacement.pdf',
+        'completed',
+        'lab_result',
+        'application/pdf',
+        42000,
+        'pdf',
+        'complete',
+        'active',
+        'complete',
+        repeat('f', 64)
+      );
+    end
+    $do$;
+  $test$,
+  'new uploads ignore deleting documents during duplicate detection'
+);
+select is(
+  (
+    select count(*)::int
+    from public.document_duplicate_candidates
+    where left_document_id = '00000000-0000-0000-0000-000000130018'
+       or right_document_id = '00000000-0000-0000-0000-000000130018'
+  ),
+  0,
+  'deleting documents do not create duplicate candidates'
+);
 select * from finish();
 rollback;
