@@ -7,6 +7,11 @@ export const env = createEnv({
     EH120_AUTOMATIC_VERIFICATION_RELEASE_DIGEST: z.string().min(1).optional(),
     OPENAI_API_KEY: z.string().min(1),
     OPENAI_EMBEDDING_MODEL: z.string().min(1).default("text-embedding-3-small"),
+    ASSISTANT_RESERVED_COST_USD: z.coerce
+      .number()
+      .positive()
+      .max(100)
+      .default(0.1),
     DEEPSEEK_API_KEY: z.string().min(1).optional(),
     DEEPSEEK_BASE_URL: z.string().url().optional(),
     DEEPSEEK_MODEL: z.string().min(1).optional(),
@@ -14,7 +19,10 @@ export const env = createEnv({
     OWL_ALPHA_API_KEY: z.string().min(1).optional(),
     OWL_ALPHA_MODEL: z.string().min(1).optional(),
     NEBIUS_API_KEY: z.string().min(1).optional(),
-    NEBIUS_BASE_URL: z.string().url().default("https://api.tokenfactory.nebius.com/v1"),
+    NEBIUS_BASE_URL: z
+      .string()
+      .url()
+      .default("https://api.tokenfactory.nebius.com/v1"),
     NEBIUS_REGION: z.string().min(1).default("eu-north1"),
     NEBIUS_FAST_FLAVOR_SUFFIX: z.string().default("-fast"),
     ALLOW_CROSS_PROVIDER_FALLBACK: z
@@ -62,9 +70,18 @@ export const env = createEnv({
       .string()
       .min(1)
       .default("meta-llama/Llama-3.3-70B-Instruct"),
-    NEBIUS_QUALITY_REPORT_MODEL: z.string().min(1).default("deepseek-ai/DeepSeek-V3.2"),
-    NEBIUS_QUALITY_SYNTHESIS_MODEL: z.string().min(1).default("deepseek-ai/DeepSeek-V3.2"),
-    NEBIUS_QUALITY_ASSISTANT_MODEL: z.string().min(1).default("deepseek-ai/DeepSeek-V3.2"),
+    NEBIUS_QUALITY_REPORT_MODEL: z
+      .string()
+      .min(1)
+      .default("deepseek-ai/DeepSeek-V3.2"),
+    NEBIUS_QUALITY_SYNTHESIS_MODEL: z
+      .string()
+      .min(1)
+      .default("deepseek-ai/DeepSeek-V3.2"),
+    NEBIUS_QUALITY_ASSISTANT_MODEL: z
+      .string()
+      .min(1)
+      .default("deepseek-ai/DeepSeek-V3.2"),
     URL: z.string().url().default("http://localhost:3000"),
   },
   client: {
@@ -78,6 +95,7 @@ export const env = createEnv({
       process.env.EH120_AUTOMATIC_VERIFICATION_RELEASE_DIGEST,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     OPENAI_EMBEDDING_MODEL: process.env.OPENAI_EMBEDDING_MODEL,
+    ASSISTANT_RESERVED_COST_USD: process.env.ASSISTANT_RESERVED_COST_USD,
     DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
     DEEPSEEK_BASE_URL: process.env.DEEPSEEK_BASE_URL,
     DEEPSEEK_MODEL: process.env.DEEPSEEK_MODEL,
@@ -91,14 +109,17 @@ export const env = createEnv({
     ALLOW_CROSS_PROVIDER_FALLBACK: process.env.ALLOW_CROSS_PROVIDER_FALLBACK,
     NEBIUS_FAST_CLASSIFY_MODEL: process.env.NEBIUS_FAST_CLASSIFY_MODEL,
     NEBIUS_FAST_EXTRACT_TEXT_MODEL: process.env.NEBIUS_FAST_EXTRACT_TEXT_MODEL,
-    NEBIUS_FAST_EXTRACT_VISION_MODEL: process.env.NEBIUS_FAST_EXTRACT_VISION_MODEL,
+    NEBIUS_FAST_EXTRACT_VISION_MODEL:
+      process.env.NEBIUS_FAST_EXTRACT_VISION_MODEL,
     NEBIUS_FAST_SUMMARIZE_MODEL: process.env.NEBIUS_FAST_SUMMARIZE_MODEL,
     NEBIUS_FAST_REPORT_MODEL: process.env.NEBIUS_FAST_REPORT_MODEL,
     NEBIUS_FAST_SYNTHESIS_MODEL: process.env.NEBIUS_FAST_SYNTHESIS_MODEL,
     NEBIUS_FAST_ASSISTANT_MODEL: process.env.NEBIUS_FAST_ASSISTANT_MODEL,
     NEBIUS_QUALITY_CLASSIFY_MODEL: process.env.NEBIUS_QUALITY_CLASSIFY_MODEL,
-    NEBIUS_QUALITY_EXTRACT_TEXT_MODEL: process.env.NEBIUS_QUALITY_EXTRACT_TEXT_MODEL,
-    NEBIUS_QUALITY_EXTRACT_VISION_MODEL: process.env.NEBIUS_QUALITY_EXTRACT_VISION_MODEL,
+    NEBIUS_QUALITY_EXTRACT_TEXT_MODEL:
+      process.env.NEBIUS_QUALITY_EXTRACT_TEXT_MODEL,
+    NEBIUS_QUALITY_EXTRACT_VISION_MODEL:
+      process.env.NEBIUS_QUALITY_EXTRACT_VISION_MODEL,
     NEBIUS_QUALITY_SUMMARIZE_MODEL: process.env.NEBIUS_QUALITY_SUMMARIZE_MODEL,
     NEBIUS_QUALITY_REPORT_MODEL: process.env.NEBIUS_QUALITY_REPORT_MODEL,
     NEBIUS_QUALITY_SYNTHESIS_MODEL: process.env.NEBIUS_QUALITY_SYNTHESIS_MODEL,

@@ -1,6 +1,6 @@
 -- EH-159: quota, telemetry, controlled feedback, and PII-safe operation contracts.
 begin;
-select plan(30);
+select plan(31);
 
 select has_table('public', 'assistant_request_events', 'assistant request event table exists');
 select has_table('public', 'assistant_feedback', 'assistant feedback table exists');
@@ -123,7 +123,7 @@ select lives_ok(
     'gpt-4o-mini',
     10,
     20,
-    null,
+    0.1,
     120,
     0,
     0,
@@ -131,6 +131,12 @@ select lives_ok(
     null
   )$$,
   'completed assistant event accepts safe telemetry'
+);
+
+select is(
+  (select estimated_cost_usd from public.assistant_request_events where request_id = '00000000-0000-0000-0000-000000159101'),
+  0.1,
+  'assistant event retains estimated cost'
 );
 select lives_ok(
   $$select public.record_assistant_feedback(

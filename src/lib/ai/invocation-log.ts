@@ -18,6 +18,7 @@ export async function logAiInvocation(
     success: row.success,
     error_code: row.error_code,
     provider_switch: row.provider_switch,
+    estimated_cost_usd: row.estimated_cost_usd ?? null,
   });
 
   if (error) {
