@@ -39,10 +39,14 @@ export type ProfileRow = {
   dashboard_preferences: DashboardPreferences;
   lab_unit_system: LabUnitSystem;
   review_mode_default: ReviewMode;
+  closed_beta_enabled?: boolean;
+  closed_beta_enabled_at?: string | null;
+  closed_beta_revoked_at?: string | null;
+  beta_sample_data_seeded_at?: string | null;
 };
 
 const PROFILE_SELECT =
-  "id, display_name, first_name, last_name, email, ai_provider, created_at, terms_accepted_at, terms_version, health_data_consent_at, ai_consent_at, consent_preferences, onboarding_dismissed_at, onboarding_completed_at, onboarding_tour_version, dashboard_preferences, lab_unit_system, review_mode_default";
+  "id, display_name, first_name, last_name, email, ai_provider, created_at, terms_accepted_at, terms_version, health_data_consent_at, ai_consent_at, consent_preferences, onboarding_dismissed_at, onboarding_completed_at, onboarding_tour_version, dashboard_preferences, lab_unit_system, review_mode_default, closed_beta_enabled, closed_beta_enabled_at, closed_beta_revoked_at, beta_sample_data_seeded_at";
 
 function mapProfileRow(data: Record<string, unknown>): ProfileRow {
   const unit = data.lab_unit_system;
@@ -66,6 +70,10 @@ function mapProfileRow(data: Record<string, unknown>): ProfileRow {
     dashboard_preferences: (data.dashboard_preferences as DashboardPreferences) ?? {},
     lab_unit_system: unit === "us" || unit === "si" ? unit : "si",
     review_mode_default: data.review_mode_default === "easy" ? "easy" : "pro",
+    closed_beta_enabled: data.closed_beta_enabled === true,
+    closed_beta_enabled_at: (data.closed_beta_enabled_at as string | null) ?? null,
+    closed_beta_revoked_at: (data.closed_beta_revoked_at as string | null) ?? null,
+    beta_sample_data_seeded_at: (data.beta_sample_data_seeded_at as string | null) ?? null,
   };
 }
 

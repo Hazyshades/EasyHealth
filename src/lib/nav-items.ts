@@ -7,6 +7,7 @@ import {
   HandHeartIcon,
   LayoutDashboardIcon,
   LibraryIcon,
+  ScanHeartIcon,
   SparklesIcon,
 } from "@/components/icons";
 import type { AppNavItem } from "@/lib/navigation";
@@ -14,6 +15,7 @@ import type { AppNavItem } from "@/lib/navigation";
 export const APP_NAV_ITEMS: AppNavItem[] = [
   { href: "/app", label: "Dashboard", icon: LayoutDashboardIcon, exact: true },
   { href: "/app/profile", label: "Health Profile", icon: HandHeartIcon },
+  { href: "/app/assistant", label: "Ask about records", icon: ScanHeartIcon },
   { href: "/app/timeline", label: "Health Timeline", icon: ChartLineIcon },
   { href: "/app/biomarkers", label: "Biomarkers", icon: SparklesIcon },
   { href: "/app/knowledge", label: "Knowledge", icon: LibraryIcon },
