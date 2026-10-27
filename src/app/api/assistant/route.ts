@@ -20,7 +20,8 @@ const noStore = { "Cache-Control": "no-store" };
 
 function errorCodeFor(error: unknown): string {
   if (error instanceof AssistantServiceError) {
-    if (error.code === "provider_unavailable") return "assistant_provider_unavailable";
+    if (error.code === "provider_unavailable")
+      return "assistant_provider_unavailable";
     if (error.code === "invalid_request") return "assistant_invalid_response";
   }
   return "assistant_provider_unavailable";
@@ -29,7 +30,10 @@ function errorCodeFor(error: unknown): string {
 export async function GET() {
   const profileId = await getSessionProfileId();
   if (!profileId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: noStore });
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401, headers: noStore },
+    );
   }
   try {
     const profile = await getProfileById(profileId);
@@ -53,14 +57,20 @@ export async function GET() {
 export async function POST(request: Request) {
   const profileId = await getSessionProfileId();
   if (!profileId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: noStore });
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401, headers: noStore },
+    );
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON request" }, { status: 400, headers: noStore });
+    return NextResponse.json(
+      { error: "Invalid JSON request" },
+      { status: 400, headers: noStore },
+    );
   }
 
   try {
@@ -69,7 +79,10 @@ export async function POST(request: Request) {
     const access = assistantAccessFromProfile(profile);
     if (!access.allowed) {
       return NextResponse.json(
-        { error: "Assistant access is not enabled", code: access.limitationCode },
+        {
+          error: "Assistant access is not enabled",
+          code: access.limitationCode,
+        },
         { status: 403, headers: noStore },
       );
     }
@@ -100,6 +113,7 @@ export async function POST(request: Request) {
         profileId,
         requestId,
         request: requestData,
+        estimatedCostUsd: reservation.reservedCostUsd,
       });
       const summary = await summarizeAssistantInvocations(requestId);
       await completeAssistantRequest({
@@ -109,6 +123,8 @@ export async function POST(request: Request) {
         modelId: summary.modelId,
         inputTokens: summary.inputTokens,
         outputTokens: summary.outputTokens,
+        estimatedCostUsd:
+          summary.estimatedCostUsd ?? reservation.reservedCostUsd,
         latencyMs: Math.max(summary.latencyMs ?? 0, Date.now() - started),
         structuredSourceCount: response.coverage.structured_sources,
         semanticSourceCount: response.coverage.semantic_sources,
@@ -125,6 +141,8 @@ export async function POST(request: Request) {
           modelId: summary.modelId,
           inputTokens: summary.inputTokens,
           outputTokens: summary.outputTokens,
+          estimatedCostUsd:
+            summary.estimatedCostUsd ?? reservation.reservedCostUsd,
           latencyMs: Math.max(summary.latencyMs ?? 0, Date.now() - started),
           errorCode: errorCodeFor(error),
         });
@@ -151,7 +169,10 @@ export async function POST(request: Request) {
         { status, headers: noStore },
       );
     }
-    if (error instanceof Error && error.message.startsWith("assistant_quota_")) {
+    if (
+      error instanceof Error &&
+      error.message.startsWith("assistant_quota_")
+    ) {
       return NextResponse.json(
         { error: "Assistant quota is temporarily unavailable" },
         { status: 503, headers: noStore },

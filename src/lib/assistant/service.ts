@@ -29,7 +29,10 @@ import type { AiProviderId } from "@/lib/ai/types";
 export class AssistantServiceError extends Error {
   constructor(
     message: string,
-    readonly code: "invalid_request" | "provider_unavailable" | "assistant_failed",
+    readonly code:
+      | "invalid_request"
+      | "provider_unavailable"
+      | "assistant_failed",
   ) {
     super(message);
     this.name = "AssistantServiceError";
@@ -87,10 +90,14 @@ export async function answerAssistantRequest(input: {
   profileId: string;
   requestId: string;
   request: AssistantRequest;
+  estimatedCostUsd?: number | null;
 }): Promise<AssistantResponse> {
   const parsed = assistantRequestSchema.safeParse(input.request);
   if (!parsed.success) {
-    throw new AssistantServiceError("assistant_request_invalid", "invalid_request");
+    throw new AssistantServiceError(
+      "assistant_request_invalid",
+      "invalid_request",
+    );
   }
   const classification = classifyAssistantRequest(parsed.data);
   if (parsed.data.synthetic_example) {
@@ -114,6 +121,7 @@ export async function answerAssistantRequest(input: {
     }),
     retrieveSemanticAssistantSources({
       profileId: input.profileId,
+      requestId: input.requestId,
       question: parsed.data.question,
       filters: parsed.data.filters,
     }),
@@ -127,7 +135,8 @@ export async function answerAssistantRequest(input: {
 
   if (
     sources.length === 0 &&
-    (classification.mode === "personal_facts" || classification.mode === "grounded_summary")
+    (classification.mode === "personal_facts" ||
+      classification.mode === "grounded_summary")
   ) {
     const evidence = validateAssistantEvidence({
       profileId: input.profileId,
@@ -163,6 +172,7 @@ export async function answerAssistantRequest(input: {
         stage: "assistant",
         profileId: input.profileId,
         requestId: input.requestId,
+        estimatedCostUsd: input.estimatedCostUsd ?? null,
         documentId: null,
         messages: [
           {
@@ -171,14 +181,21 @@ export async function answerAssistantRequest(input: {
           },
           {
             role: "user",
-            content: userPrompt(parsed.data.question, buildAssistantSourceCatalog(sources)),
+            content: userPrompt(
+              parsed.data.question,
+              buildAssistantSourceCatalog(sources),
+            ),
           },
         ],
         supabase: createAdminClient(),
       },
-      parse: (rawText) => assistantModelResponseSchema.parse(JSON.parse(rawText)),
+      parse: (rawText) =>
+        assistantModelResponseSchema.parse(JSON.parse(rawText)),
     });
-    const safety = validateAssistantModelResponse(classification.mode, rawResponse);
+    const safety = validateAssistantModelResponse(
+      classification.mode,
+      rawResponse,
+    );
     const evidence = validateAssistantEvidence({
       profileId: input.profileId,
       mode: classification.mode,
@@ -213,7 +230,10 @@ export async function answerAssistantRequest(input: {
 export function parseAssistantRequest(value: unknown): AssistantRequest {
   const result = assistantRequestSchema.safeParse(value);
   if (!result.success) {
-    throw new AssistantServiceError("assistant_request_invalid", "invalid_request");
+    throw new AssistantServiceError(
+      "assistant_request_invalid",
+      "invalid_request",
+    );
   }
   return result.data;
 }
