@@ -115,7 +115,11 @@ export function classifyAssistantRequest(
     return { mode: "personal_facts", limitationCodes: [], refusalReason: null };
   }
   if (hasGroundedLanguage(question)) {
-    return { mode: "grounded_summary", limitationCodes: [], refusalReason: null };
+    return {
+      mode: "grounded_summary",
+      limitationCodes: [],
+      refusalReason: null,
+    };
   }
   return {
     mode: "general_education",
@@ -184,7 +188,12 @@ export function validateAssistantModelResponse(
     };
   }
 
-  const unsafeAnswer = matchesAny(parsed.data.answer, UNSAFE_ANSWER_PATTERNS);
+  const unsafeAnswer = matchesAny(
+    [parsed.data.answer, ...parsed.data.claims.map((claim) => claim.text)].join(
+      "\n",
+    ),
+    UNSAFE_ANSWER_PATTERNS,
+  );
   const personalClaimsWithoutSources = parsed.data.claims.some(
     (claim) => claim.kind === "personal" && claim.source_ids.length === 0,
   );
@@ -192,16 +201,18 @@ export function validateAssistantModelResponse(
     mode === "general_education" &&
     parsed.data.claims.some((claim) => claim.kind === "personal");
 
-  if (unsafeAnswer || personalClaimsWithoutSources || hasGeneralModePersonalClaim) {
+  if (
+    unsafeAnswer ||
+    personalClaimsWithoutSources ||
+    hasGeneralModePersonalClaim
+  ) {
     return {
       ok: false,
       answer: safeFallbackAnswer(
         unsafeAnswer ? "UNSAFE_REQUEST" : "UNSUPPORTED_CLAIM",
       ),
       claims: [],
-      limitationCodes: [
-        unsafeAnswer ? "UNSAFE_REQUEST" : "UNSUPPORTED_CLAIM",
-      ],
+      limitationCodes: [unsafeAnswer ? "UNSAFE_REQUEST" : "UNSUPPORTED_CLAIM"],
     };
   }
 
@@ -209,7 +220,7 @@ export function validateAssistantModelResponse(
     ok: true,
     answer: parsed.data.answer,
     claims: parsed.data.claims,
-    limitationCodes: mode === "general_education" ? ["GENERAL_INFORMATION"] : [],
+    limitationCodes:
+      mode === "general_education" ? ["GENERAL_INFORMATION"] : [],
   };
 }
-
