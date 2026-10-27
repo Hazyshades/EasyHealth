@@ -61,7 +61,7 @@ EH-156 adds the `vector` extension and a profile/document/page-owned `assistant_
 
 The database RPC accepts `profile_id`, a query embedding, match count, threshold, and optional document/date/type filters. It repeats the active-document/profile predicates inside SQL, so callers cannot turn the RPC into a cross-profile lookup. Every returned chunk carries `document_id`, page number, chunk ID, content hash, and a bounded excerpt. Semantic sources are labeled `document_text` rather than verified structured facts.
 
-A re-index request creates an `assistant_reindex_jobs` row. The worker claims and processes jobs, replacing only the current document's chunks after the source snapshot is read. A content hash makes re-indexing idempotent; failures retain the previous index and record a safe error code.
+A re-index request creates an `assistant_reindex_jobs` row. The worker claims and processes jobs, then publishes only the current document's chunks through a generation-fenced transaction after the source snapshot is read. A content hash and write generation make re-indexing idempotent; stale or failed publishes retain the previous index and record a safe error code.
 
 **Alternatives rejected:** in-memory cosine search (does not scale or survive process restarts); lexical `ILIKE` search (does not meet semantic retrieval acceptance); embedding the entire document as one vector (poor page citations and large prompt payloads); a provider-specific opaque hosted index (authorization and deletion evidence are harder to prove).
 
