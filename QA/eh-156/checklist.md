@@ -54,6 +54,7 @@ Page-aware narrative chunks, asynchronous re-indexing, profile-scoped vector sea
 - `pnpm test:eh156-db`
 - `pnpm typecheck:worker`
 - Confirm the vector extension, HNSW index, queue claim/completion/failure RPCs, profile RLS, and document cascade checks pass.
+- Confirm the atomic publish RPC fences document generation and preserves the prior index when a source becomes stale during embedding.
 - Record stale write-generation and deletion-worker evidence separately from the UI result.
 
 ## Limitations
