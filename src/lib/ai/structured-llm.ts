@@ -18,6 +18,7 @@ export type TraceGenerateOptions = {
   requestId?: string | null;
   documentId?: string | null;
   providerSwitch?: boolean;
+  estimatedCostUsd?: number | null;
   temperature?: number;
   structuredJson?: boolean;
   messages: ModelMessage[];
@@ -131,6 +132,7 @@ export async function traceGenerateText(
         success: true,
         error_code: null,
         provider_switch: providerSwitch,
+        estimated_cost_usd: options.estimatedCostUsd ?? null,
       };
       await logAiInvocation(options.supabase, row);
     }
@@ -151,6 +153,7 @@ export async function traceGenerateText(
         success: false,
         error_code: privacySafeAiErrorCode(error),
         provider_switch: providerSwitch,
+        estimated_cost_usd: options.estimatedCostUsd ?? null,
       };
       await logAiInvocation(options.supabase, row);
     }

@@ -51,6 +51,7 @@ Atomic request limits, token/latency/retrieval telemetry, cost reservations, pri
 - `pnpm test:eh159`
 - `pnpm test:eh159-db`
 - Confirm atomic quota lock, request event status transitions, request ID linkage, source counts, latency/token fields, bounded cost reservation, and AI error-code constraints.
+- Confirm the completed request event retains the reserved estimated cost when the provider invocation summary has no usable cost estimate.
 - Attach a privacy scan of retained logs and a concurrency run separately from UI evidence.
 
 ## Limitations
