@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { driver, type DriveStep, type Driver } from "driver.js";
 import { PLATFORM_TOUR_TARGETS } from "@/lib/onboarding/platform-tour";
-import "./platform-tour.module.css";
+import styles from "./platform-tour.module.css";
 
 type PlatformTourProps = {
   open: boolean;
@@ -93,7 +93,11 @@ function buildPlatformTourSteps(): DriveStep[] | null {
   return steps.filter((step): step is DriveStep => step !== null);
 }
 
-export function PlatformTour({ open, onDismiss, onComplete }: PlatformTourProps) {
+export function PlatformTour({
+  open,
+  onDismiss,
+  onComplete,
+}: PlatformTourProps) {
   const driverRef = useRef<Driver | null>(null);
   const terminalRef = useRef<TerminalAction | null>(null);
   const destroyRequestedRef = useRef(false);
@@ -118,9 +122,13 @@ export function PlatformTour({ open, onDismiss, onComplete }: PlatformTourProps)
       destroyRequestedRef.current = false;
 
       const persistTerminal = (action: TerminalAction) => {
-        const callback = action === "completed" ? onCompleteRef.current : onDismissRef.current;
+        const callback =
+          action === "completed" ? onCompleteRef.current : onDismissRef.current;
         void callback().catch((error) => {
-          console.error("[onboarding] platform tour persistence failed:", error);
+          console.error(
+            "[onboarding] platform tour persistence failed:",
+            error,
+          );
         });
       };
 
@@ -147,7 +155,7 @@ export function PlatformTour({ open, onDismiss, onComplete }: PlatformTourProps)
         allowKeyboardControl: true,
         skipMissingElement: true,
         waitForElement: 750,
-        popoverClass: "eh-platform-tour-popover",
+        popoverClass: `${styles.popover} eh-platform-tour-popover`,
         showButtons: ["previous", "next", "close"],
         showProgress: true,
         progressText: "{{current}} of {{total}}",
@@ -158,7 +166,8 @@ export function PlatformTour({ open, onDismiss, onComplete }: PlatformTourProps)
           if (popover.footerButtons.querySelector("[data-tour-skip]")) return;
           const skipButton = document.createElement("button");
           skipButton.type = "button";
-          skipButton.className = "driver-popover-footer-btn eh-platform-tour-skip-btn";
+          skipButton.className =
+            "driver-popover-footer-btn eh-platform-tour-skip-btn";
           skipButton.dataset.tourSkip = "true";
           skipButton.textContent = "Skip";
           skipButton.setAttribute("aria-label", "Skip tour");

@@ -8,6 +8,7 @@ const requiredFiles = [
   "supabase/migrations/090_eh159_assistant_operations.sql",
   "supabase/migrations/091_eh160_closed_beta_access.sql",
   "supabase/migrations/093_eh161_assistant_deletion_integration.sql",
+  "supabase/migrations/094_eh156_atomic_semantic_publish.sql",
   "supabase/tests/eh156_assistant_semantic_retrieval.sql",
   "supabase/tests/eh159_assistant_operations.sql",
   "supabase/tests/eh161_assistant_deletion.sql",
@@ -17,16 +18,30 @@ const requiredFiles = [
 ];
 
 for (const relativePath of requiredFiles) {
-  assert.equal(existsSync(join(root, relativePath)), true, `missing ${relativePath}`);
+  assert.equal(
+    existsSync(join(root, relativePath)),
+    true,
+    `missing ${relativePath}`,
+  );
 }
 
 const deletionMigration = readFileSync(
-  join(root, "supabase/migrations/093_eh161_assistant_deletion_integration.sql"),
+  join(
+    root,
+    "supabase/migrations/093_eh161_assistant_deletion_integration.sql",
+  ),
   "utf8",
 );
 assert.match(deletionMigration, /eh161_purge_assistant_document_artifacts/u);
 assert.match(deletionMigration, /assistant_document_chunks/u);
 assert.match(deletionMigration, /assistant_reindex_jobs/u);
+const semanticPublishMigration = readFileSync(
+  join(root, "supabase/migrations/094_eh156_atomic_semantic_publish.sql"),
+  "utf8",
+);
+assert.match(semanticPublishMigration, /publish_assistant_reindex_chunks/u);
+assert.match(semanticPublishMigration, /write_generation/u);
+assert.match(semanticPublishMigration, /assistant_reindex_source_stale/u);
 
 const releaseChecklist = readFileSync(
   join(root, "docs/06-ai/closed-beta-release-checklist.md"),
@@ -46,7 +61,8 @@ const pendingGates = [
 ];
 
 console.log("EH-161 local release-readiness contract passed");
-for (const gate of pendingGates) console.log(`PENDING production evidence: ${gate}`);
+for (const gate of pendingGates)
+  console.log(`PENDING production evidence: ${gate}`);
 if (productionGate) {
   throw new Error("EH-161 production gates remain PENDING");
 }

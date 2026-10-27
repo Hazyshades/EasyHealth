@@ -45,6 +45,7 @@ Durable deletion, backup and restore, rollback, incident readiness, monitoring, 
 - `pnpm test:eh161-db`
 - `pnpm typecheck`
 - Confirm the durable deletion trigger, document/profile cascades, queue cleanup, and known limitation record.
+- Confirm the EH-156 generation-fenced semantic publish migration and stale-index database fixture are included in release artifacts.
 - Run a production-like backup restore and rollback rehearsal separately; retain identifiers and timestamps in the release record.
 - Run focused safety, retrieval, citation, quota, onboarding, and deletion checks before any go/no-go decision.
 

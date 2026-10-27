@@ -10,6 +10,7 @@ This checklist separates local implementation evidence from production launch ev
 - [x] EH-157 safety fixtures pass with `pnpm test:eh157`.
 - [x] EH-155 structured retrieval fixtures pass with `pnpm test:eh155`.
 - [x] EH-156 chunking fixtures pass with `pnpm test:eh156` and database contract with `pnpm test:eh156-db`.
+- [x] EH-156 generation-fenced semantic publish preserves the previous index with `pnpm test:eh156-db`.
 - [x] EH-158 evidence fixtures pass with `pnpm test:eh158`.
 - [x] EH-159 feedback contract passes with `pnpm test:eh159` and database contract with `pnpm test:eh159-db`.
 - [x] EH-161 deletion contract passes with `pnpm test:eh161-db`.
@@ -20,20 +21,20 @@ This checklist separates local implementation evidence from production launch ev
 
 Record one dated entry for each gate before enabling `closed_beta_enabled` for a real participant.
 
-| Gate | Evidence required | Status | Owner/date |
-| --- | --- | --- | --- |
-| Safety | Diagnosis, medication, dose, urgency, unsupported-claim, and prompt-injection cases return safe limited responses | PENDING | |
-| Source isolation | Two-profile retrieval test proves structured and semantic sources never cross profile ownership | PENDING | |
-| Embedding provider | Production embedding key, model, dimension, timeout, retry, and spend alert are configured | PENDING | |
-| Quota policy | Daily request and monthly cost ceilings are configured in production and tested under concurrency | PENDING | |
-| Consent and invite | Current terms, health-data consent, AI consent, invite enablement, and revocation are verified | PENDING | |
-| Deletion | Durable document deletion removes chunks and jobs, and export/deletion evidence is retained | PENDING | |
-| Backup and restore | A production-like restore is executed; assistant tables, vectors, jobs, and policies are present after restore | PENDING | |
-| Rollback | Previous app build and migration rollback/recovery procedure are rehearsed | PENDING | |
-| Incident response | On-call owner, support channel, provider failure response, and unsafe-answer escalation are recorded | PENDING | |
-| Monitoring | Request outcome, latency, token, retrieval, quota, and provider failure alerts are visible without prompt or document text | PENDING | |
-| Beta sample | Synthetic example path is verified to write no profile, observation, document, or assessment rows | PENDING | |
-| Go/no-go | All required gates are green or explicitly waived by the release owner | PENDING | |
+| Gate               | Evidence required                                                                                                          | Status  | Owner/date |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------- | ------- | ---------- |
+| Safety             | Diagnosis, medication, dose, urgency, unsupported-claim, and prompt-injection cases return safe limited responses          | PENDING |            |
+| Source isolation   | Two-profile retrieval test proves structured and semantic sources never cross profile ownership                            | PENDING |            |
+| Embedding provider | Production embedding key, model, dimension, timeout, retry, and spend alert are configured                                 | PENDING |            |
+| Quota policy       | Daily request and monthly cost ceilings are configured in production and tested under concurrency                          | PENDING |            |
+| Consent and invite | Current terms, health-data consent, AI consent, invite enablement, and revocation are verified                             | PENDING |            |
+| Deletion           | Durable document deletion removes chunks and jobs, and export/deletion evidence is retained                                | PENDING |            |
+| Backup and restore | A production-like restore is executed; assistant tables, vectors, jobs, and policies are present after restore             | PENDING |            |
+| Rollback           | Previous app build and migration rollback/recovery procedure are rehearsed                                                 | PENDING |            |
+| Incident response  | On-call owner, support channel, provider failure response, and unsafe-answer escalation are recorded                       | PENDING |            |
+| Monitoring         | Request outcome, latency, token, retrieval, quota, and provider failure alerts are visible without prompt or document text | PENDING |            |
+| Beta sample        | Synthetic example path is verified to write no profile, observation, document, or assessment rows                          | PENDING |            |
+| Go/no-go           | All required gates are green or explicitly waived by the release owner                                                     | PENDING |            |
 
 ## Known limitations
 
