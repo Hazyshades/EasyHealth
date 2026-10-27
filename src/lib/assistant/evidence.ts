@@ -19,6 +19,20 @@ function uniqueCodes(
 ): AssistantLimitationCode[] {
   return [...new Set(codes)];
 }
+const PERSONAL_REFERENCE_PATTERN =
+  /\b(?:my|mine|your|you|patient's|user's)\b/iu;
+const HEALTH_RECORD_TERM_PATTERN =
+  /\b(?:record|result|lab|document|medication|prescription|observation|value|date|unit|profile|history)\b/iu;
+
+function claimIsPersonal(
+  claim: AssistantModelResponse["claims"][number],
+): boolean {
+  return (
+    claim.kind === "personal" ||
+    (PERSONAL_REFERENCE_PATTERN.test(claim.text) &&
+      HEALTH_RECORD_TERM_PATTERN.test(claim.text))
+  );
+}
 
 function citationForSource(source: AssistantSource): AssistantCitation {
   return {
@@ -61,10 +75,10 @@ export function validateAssistantEvidence(input: {
   sources: readonly AssistantSource[];
   initialLimitations?: readonly AssistantLimitationCode[];
 }): AssistantEvidenceValidation {
-  const sourceById = new Map(input.sources.map((source) => [source.source_id, source]));
-  const personalClaims = input.modelResponse.claims.filter(
-    (claim) => claim.kind === "personal",
+  const sourceById = new Map(
+    input.sources.map((source) => [source.source_id, source]),
   );
+  const personalClaims = input.modelResponse.claims.filter(claimIsPersonal);
   const citations: AssistantCitation[] = [];
   const citedIds = new Set<string>();
   let supportedClaims = 0;
@@ -74,7 +88,8 @@ export function validateAssistantEvidence(input: {
   ];
 
   for (const claim of input.modelResponse.claims) {
-    if (claim.kind === "personal" && input.mode === "general_education") {
+    const personalClaim = claimIsPersonal(claim);
+    if (personalClaim && input.mode === "general_education") {
       rejectedClaims += 1;
       limitations.push("UNSUPPORTED_CLAIM");
       continue;
@@ -88,15 +103,12 @@ export function validateAssistantEvidence(input: {
     const validSources = claimSources.filter(
       (source) => source.profile_id === input.profileId,
     );
-    if (
-      claim.kind === "personal" &&
-      (hasUnknownSource || validSources.length === 0)
-    ) {
+    if (personalClaim && (hasUnknownSource || validSources.length === 0)) {
       rejectedClaims += 1;
       limitations.push("UNSUPPORTED_CLAIM");
       continue;
     }
-    if (claim.kind === "personal") supportedClaims += 1;
+    if (personalClaim) supportedClaims += 1;
     for (const source of validSources) {
       if (citedIds.has(source.source_id)) continue;
       citedIds.add(source.source_id);
@@ -110,7 +122,10 @@ export function validateAssistantEvidence(input: {
   ) {
     limitations.push("NO_PERSONAL_EVIDENCE");
   }
-  if (rejectedClaims > 0 || (personalClaims.length === 0 && input.mode !== "general_education")) {
+  if (
+    rejectedClaims > 0 ||
+    (personalClaims.length === 0 && input.mode !== "general_education")
+  ) {
     return {
       answer: limitedAnswer(),
       citations,
