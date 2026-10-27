@@ -8,6 +8,8 @@ import { APP_NAV_ITEMS } from "@/lib/nav-items";
 import { isNavItemActive } from "@/lib/navigation";
 import { NavItem } from "@/components/ui/nav-item";
 
+const MOBILE_NAV_ITEMS = APP_NAV_ITEMS.filter((item) => item.href !== "/knowledge");
+
 function EasyHealthLogo() {
   const { iconRef, hoverProps } = useAnimatedIconHover();
 
@@ -60,7 +62,7 @@ export function MobileBottomNav() {
       aria-label="Mobile navigation"
       className="fixed inset-x-0 bottom-0 z-40 flex border-t border-[#E8EEF5] bg-white/95 px-1 py-2 backdrop-blur-md md:hidden"
     >
-      {APP_NAV_ITEMS.map((item) => (
+      {MOBILE_NAV_ITEMS.map((item) => (
         <NavItem
           key={item.href}
           item={item}
