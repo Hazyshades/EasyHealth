@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logAiInvocation } from "@/lib/ai/invocation-log";
+import { env } from "@/lib/env";
+
 import type {
   AssistantFilters,
   AssistantLimitationCode,
@@ -8,6 +11,7 @@ import type {
 import {
   embedAssistantDocuments,
   embedAssistantQuery,
+  type AssistantEmbeddingResult,
 } from "@/lib/assistant/embeddings";
 import {
   chunkAssistantDocumentPages,
@@ -95,7 +99,10 @@ async function readIndexSnapshot(
     .maybeSingle();
   if (documentError) throw new Error(documentError.message);
   if (!document) return null;
-  if (document.lifecycle_state !== "active" || document.upload_state !== "complete") {
+  if (
+    document.lifecycle_state !== "active" ||
+    document.upload_state !== "complete"
+  ) {
     return null;
   }
   const processed =
@@ -179,41 +186,43 @@ export async function indexAssistantDocument(
     throw new Error("assistant_reindex_source_stale");
   }
   const chunks = chunkAssistantDocumentPages(snapshot.pages);
-  const embeddings = await embedAssistantDocuments(chunks.map((chunk) => chunk.content));
+  const embeddings = await embedAssistantDocuments(
+    chunks.map((chunk) => chunk.content),
+  );
   if (embeddings.embeddings.length !== chunks.length) {
     throw new Error("assistant_embedding_count_mismatch");
   }
-
-  const supabase = createAdminClient();
-  const { error: deleteError } = await supabase
-    .from("assistant_document_chunks")
-    .delete()
-    .eq("profile_id", job.profile_id)
-    .eq("document_id", job.document_id);
-  if (deleteError) throw new Error(deleteError.message);
-
-  if (chunks.length > 0) {
-    const rows = chunks.map((chunk, index) => ({
-      profile_id: job.profile_id,
-      document_id: job.document_id,
-      document_page_id: chunk.document_page_id,
-      page_number: chunk.page_number,
-      chunk_index: chunk.chunk_index,
-      section_context: chunk.section_context,
-      content: chunk.content,
-      content_sha256: chunk.content_sha256,
-      embedding: vectorLiteral(embeddings.embeddings[index] ?? []),
-      embedding_provider: embeddings.provider,
-      embedding_model: embeddings.modelId,
-      source_write_generation: job.requested_write_generation,
-      is_current: true,
-    }));
-    const { error: insertError } = await supabase
-      .from("assistant_document_chunks")
-      .insert(rows);
-    if (insertError) throw new Error(insertError.message);
+  const rows = chunks.map((chunk, index) => ({
+    document_page_id: chunk.document_page_id,
+    page_number: chunk.page_number,
+    chunk_index: chunk.chunk_index,
+    section_context: chunk.section_context,
+    content: chunk.content,
+    content_sha256: chunk.content_sha256,
+    embedding: vectorLiteral(embeddings.embeddings[index] ?? []),
+  }));
+  const { data: publication, error: publicationError } =
+    await createAdminClient().rpc("publish_assistant_reindex_chunks", {
+      p_job_id: job.id,
+      p_profile_id: job.profile_id,
+      p_document_id: job.document_id,
+      p_requested_content_sha256: job.requested_content_sha256,
+      p_requested_write_generation: job.requested_write_generation,
+      p_chunks: rows,
+      p_embedding_provider: embeddings.provider,
+      p_embedding_model: embeddings.modelId,
+    });
+  if (publicationError) throw new Error(publicationError.message);
+  const publicationRow = (
+    Array.isArray(publication) ? publication[0] : publication
+  ) as { status?: string; chunk_count?: number } | null;
+  if (publicationRow?.status !== "published") {
+    throw new Error("assistant_reindex_source_stale");
   }
-  return { chunks: chunks.length, inputTokens: embeddings.inputTokens };
+  return {
+    chunks: Number(publicationRow.chunk_count ?? 0),
+    inputTokens: embeddings.inputTokens,
+  };
 }
 
 function mapSemanticSource(row: SemanticMatchRow): AssistantSource {
@@ -232,26 +241,90 @@ function mapSemanticSource(row: SemanticMatchRow): AssistantSource {
     profile_id: row.profile_id,
   };
 }
+async function recordAssistantEmbeddingInvocation(input: {
+  profileId: string;
+  requestId?: string | null;
+  modelId: string;
+  latencyMs: number;
+  inputTokens: number | null;
+  success: boolean;
+  errorCode: string | null;
+}): Promise<void> {
+  try {
+    await logAiInvocation(createAdminClient(), {
+      profile_id: input.profileId,
+      request_id: input.requestId ?? null,
+      document_id: null,
+      stage: "assistant_embedding",
+      provider: "openai",
+      model_id: input.modelId,
+      latency_ms: input.latencyMs,
+      input_tokens: input.inputTokens,
+      output_tokens: null,
+      success: input.success,
+      error_code: input.errorCode,
+      provider_switch: false,
+    });
+  } catch {
+    console.error("[assistant] embedding telemetry failed");
+  }
+}
 
 export async function retrieveSemanticAssistantSources(input: {
   profileId: string;
+  requestId?: string | null;
   question: string;
   filters?: AssistantFilters;
   matchCount?: number;
 }): Promise<SemanticRetrievalResult> {
+  const started = Date.now();
+  let embedding: AssistantEmbeddingResult;
   try {
-    const embedding = await embedAssistantQuery(input.question);
-    const supabase = createAdminClient();
-    const { data, error } = await supabase.rpc("match_assistant_document_chunks", {
-      p_profile_id: input.profileId,
-      p_query_embedding: vectorLiteral(embedding.embeddings[0] ?? []),
-      p_match_count: Math.min(Math.max(input.matchCount ?? 8, 1), 24),
-      p_min_similarity: 0.72,
-      p_document_ids: input.filters?.document_ids ?? null,
-      p_document_types: input.filters?.document_types ?? null,
-      p_start_date: input.filters?.start_date ?? null,
-      p_end_date: input.filters?.end_date ?? null,
+    embedding = await embedAssistantQuery(input.question);
+  } catch {
+    await recordAssistantEmbeddingInvocation({
+      profileId: input.profileId,
+      requestId: input.requestId,
+      modelId: env.OPENAI_EMBEDDING_MODEL,
+      latencyMs: Date.now() - started,
+      inputTokens: null,
+      success: false,
+      errorCode: "assistant_embedding_provider_unavailable",
     });
+    return {
+      sources: [],
+      limitationCodes: ["SEMANTIC_RETRIEVAL_UNAVAILABLE"],
+      inputTokens: 0,
+      provider: null,
+      modelId: null,
+    };
+  }
+
+  await recordAssistantEmbeddingInvocation({
+    profileId: input.profileId,
+    requestId: input.requestId,
+    modelId: embedding.modelId,
+    latencyMs: Date.now() - started,
+    inputTokens: embedding.inputTokens,
+    success: true,
+    errorCode: null,
+  });
+
+  try {
+    const supabase = createAdminClient();
+    const { data, error } = await supabase.rpc(
+      "match_assistant_document_chunks",
+      {
+        p_profile_id: input.profileId,
+        p_query_embedding: vectorLiteral(embedding.embeddings[0] ?? []),
+        p_match_count: Math.min(Math.max(input.matchCount ?? 8, 1), 24),
+        p_min_similarity: 0.72,
+        p_document_ids: input.filters?.document_ids ?? null,
+        p_document_types: input.filters?.document_types ?? null,
+        p_start_date: input.filters?.start_date ?? null,
+        p_end_date: input.filters?.end_date ?? null,
+      },
+    );
     if (error) throw new Error(error.message);
     return {
       sources: ((data ?? []) as SemanticMatchRow[]).map(mapSemanticSource),
@@ -264,9 +337,9 @@ export async function retrieveSemanticAssistantSources(input: {
     return {
       sources: [],
       limitationCodes: ["SEMANTIC_RETRIEVAL_UNAVAILABLE"],
-      inputTokens: 0,
-      provider: null,
-      modelId: null,
+      inputTokens: embedding.inputTokens,
+      provider: embedding.provider,
+      modelId: embedding.modelId,
     };
   }
 }
@@ -274,7 +347,10 @@ export async function retrieveSemanticAssistantSources(input: {
 export async function getAssistantReindexSnapshot(
   profileId: string,
   documentId: string,
-): Promise<Readonly<{ contentSha256: string; writeGeneration: number }> | null> {
+): Promise<Readonly<{
+  contentSha256: string;
+  writeGeneration: number;
+}> | null> {
   const snapshot = await readIndexSnapshot(profileId, documentId);
   if (!snapshot) return null;
   return {
