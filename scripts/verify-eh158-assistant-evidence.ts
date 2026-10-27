@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { validateAssistantEvidence } from "../src/lib/assistant/evidence";
-import type { AssistantModelResponse, AssistantSource } from "../src/lib/assistant/contract";
+import type {
+  AssistantModelResponse,
+  AssistantSource,
+} from "../src/lib/assistant/contract";
 
 const source: AssistantSource = {
   source_id: "asrc_00000000000000000000000000000001",
@@ -55,7 +58,10 @@ const unknownSource = validateAssistantEvidence({
   },
   sources: [source],
 });
-assert.match(unknownSource.answer, /does not support a complete personal answer/i);
+assert.match(
+  unknownSource.answer,
+  /does not support a complete personal answer/i,
+);
 assert.deepEqual(unknownSource.limitationCodes, ["UNSUPPORTED_CLAIM"]);
 assert.equal(unknownSource.coverage.rejected_claims, 1);
 
@@ -78,12 +84,38 @@ const crossProfileSource = validateAssistantEvidence({
 assert.deepEqual(crossProfileSource.limitationCodes, ["UNSUPPORTED_CLAIM"]);
 assert.equal(crossProfileSource.citations.length, 0);
 
+const mislabeledPersonal = validateAssistantEvidence({
+  profileId: "profile-1",
+  mode: "grounded_summary",
+  modelResponse: {
+    answer: "Your latest lab result was 5.4 mmol/L.",
+    claims: [
+      {
+        id: "mislabeled-1",
+        kind: "general",
+        text: "Your latest lab result was 5.4 mmol/L.",
+        source_ids: [],
+      },
+    ],
+  },
+  sources: [],
+});
+assert.deepEqual(mislabeledPersonal.limitationCodes, ["UNSUPPORTED_CLAIM"]);
+assert.equal(mislabeledPersonal.coverage.rejected_claims, 1);
+
 const education = validateAssistantEvidence({
   profileId: "profile-1",
   mode: "general_education",
   modelResponse: {
     answer: "HbA1c estimates average blood glucose over a longer period.",
-    claims: [{ id: "general-1", kind: "general", text: "HbA1c estimates average blood glucose over a longer period.", source_ids: [] }],
+    claims: [
+      {
+        id: "general-1",
+        kind: "general",
+        text: "HbA1c estimates average blood glucose over a longer period.",
+        source_ids: [],
+      },
+    ],
   },
   sources: [],
   initialLimitations: ["GENERAL_INFORMATION"],
