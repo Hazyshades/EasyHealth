@@ -19,6 +19,7 @@ const DEFAULT_MODEL_MAP: Record<NebiusTier, Record<AiPipelineStage, string>> = {
     summarize: "meta-llama/Llama-3.3-70B-Instruct",
     report: "meta-llama/Llama-3.3-70B-Instruct",
     synthesis: "meta-llama/Llama-3.3-70B-Instruct",
+    assistant: "meta-llama/Llama-3.3-70B-Instruct",
   },
   nebius_quality: {
     classify: "meta-llama/Llama-3.3-70B-Instruct",
@@ -27,6 +28,7 @@ const DEFAULT_MODEL_MAP: Record<NebiusTier, Record<AiPipelineStage, string>> = {
     summarize: "meta-llama/Llama-3.3-70B-Instruct",
     report: "deepseek-ai/DeepSeek-V4-Pro",
     synthesis: "deepseek-ai/DeepSeek-V4-Pro",
+    assistant: "deepseek-ai/DeepSeek-V4-Pro",
   },
 };
 
@@ -38,6 +40,7 @@ const STAGE_ENV_KEYS: Record<NebiusTier, Record<AiPipelineStage, string>> = {
     summarize: "NEBIUS_FAST_SUMMARIZE_MODEL",
     report: "NEBIUS_FAST_REPORT_MODEL",
     synthesis: "NEBIUS_FAST_SYNTHESIS_MODEL",
+    assistant: "NEBIUS_FAST_ASSISTANT_MODEL",
   },
   nebius_quality: {
     classify: "NEBIUS_QUALITY_CLASSIFY_MODEL",
@@ -46,6 +49,7 @@ const STAGE_ENV_KEYS: Record<NebiusTier, Record<AiPipelineStage, string>> = {
     summarize: "NEBIUS_QUALITY_SUMMARIZE_MODEL",
     report: "NEBIUS_QUALITY_REPORT_MODEL",
     synthesis: "NEBIUS_QUALITY_SYNTHESIS_MODEL",
+    assistant: "NEBIUS_QUALITY_ASSISTANT_MODEL",
   },
 };
 
