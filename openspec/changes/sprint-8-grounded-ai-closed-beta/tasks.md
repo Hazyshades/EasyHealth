@@ -60,4 +60,4 @@
 - [x] 8.2 Run typecheck, worker typecheck, build, and relevant database contracts
 - [x] 8.3 Exercise the assistant through the running app and record UI evidence
 - [x] 8.4 Review OpenSpec status and unresolved production gates
-- [ ] 8.5 Commit and push the isolated Sprint 8 branch
+- [x] 8.5 Commit and push the isolated Sprint 8 branch
