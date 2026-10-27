@@ -6,11 +6,12 @@ export const env = createEnv({
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
     EH120_AUTOMATIC_VERIFICATION_RELEASE_DIGEST: z.string().min(1).optional(),
     OPENAI_API_KEY: z.string().min(1),
+    OPENAI_EMBEDDING_MODEL: z.string().min(1).default("text-embedding-3-small"),
     DEEPSEEK_API_KEY: z.string().min(1).optional(),
     DEEPSEEK_BASE_URL: z.string().url().optional(),
     DEEPSEEK_MODEL: z.string().min(1).optional(),
-    OWL_ALPHA_API_KEY: z.string().min(1).optional(),
     OPENROUTER_BASE_URL: z.string().url().optional(),
+    OWL_ALPHA_API_KEY: z.string().min(1).optional(),
     OWL_ALPHA_MODEL: z.string().min(1).optional(),
     NEBIUS_API_KEY: z.string().min(1).optional(),
     NEBIUS_BASE_URL: z.string().url().default("https://api.tokenfactory.nebius.com/v1"),
@@ -41,6 +42,10 @@ export const env = createEnv({
       .string()
       .min(1)
       .default("meta-llama/Llama-3.3-70B-Instruct"),
+    NEBIUS_FAST_ASSISTANT_MODEL: z
+      .string()
+      .min(1)
+      .default("meta-llama/Llama-3.3-70B-Instruct"),
     NEBIUS_QUALITY_CLASSIFY_MODEL: z
       .string()
       .min(1)
@@ -59,6 +64,7 @@ export const env = createEnv({
       .default("meta-llama/Llama-3.3-70B-Instruct"),
     NEBIUS_QUALITY_REPORT_MODEL: z.string().min(1).default("deepseek-ai/DeepSeek-V3.2"),
     NEBIUS_QUALITY_SYNTHESIS_MODEL: z.string().min(1).default("deepseek-ai/DeepSeek-V3.2"),
+    NEBIUS_QUALITY_ASSISTANT_MODEL: z.string().min(1).default("deepseek-ai/DeepSeek-V3.2"),
     URL: z.string().url().default("http://localhost:3000"),
   },
   client: {
@@ -71,6 +77,7 @@ export const env = createEnv({
     EH120_AUTOMATIC_VERIFICATION_RELEASE_DIGEST:
       process.env.EH120_AUTOMATIC_VERIFICATION_RELEASE_DIGEST,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    OPENAI_EMBEDDING_MODEL: process.env.OPENAI_EMBEDDING_MODEL,
     DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
     DEEPSEEK_BASE_URL: process.env.DEEPSEEK_BASE_URL,
     DEEPSEEK_MODEL: process.env.DEEPSEEK_MODEL,
@@ -88,12 +95,14 @@ export const env = createEnv({
     NEBIUS_FAST_SUMMARIZE_MODEL: process.env.NEBIUS_FAST_SUMMARIZE_MODEL,
     NEBIUS_FAST_REPORT_MODEL: process.env.NEBIUS_FAST_REPORT_MODEL,
     NEBIUS_FAST_SYNTHESIS_MODEL: process.env.NEBIUS_FAST_SYNTHESIS_MODEL,
+    NEBIUS_FAST_ASSISTANT_MODEL: process.env.NEBIUS_FAST_ASSISTANT_MODEL,
     NEBIUS_QUALITY_CLASSIFY_MODEL: process.env.NEBIUS_QUALITY_CLASSIFY_MODEL,
     NEBIUS_QUALITY_EXTRACT_TEXT_MODEL: process.env.NEBIUS_QUALITY_EXTRACT_TEXT_MODEL,
     NEBIUS_QUALITY_EXTRACT_VISION_MODEL: process.env.NEBIUS_QUALITY_EXTRACT_VISION_MODEL,
     NEBIUS_QUALITY_SUMMARIZE_MODEL: process.env.NEBIUS_QUALITY_SUMMARIZE_MODEL,
     NEBIUS_QUALITY_REPORT_MODEL: process.env.NEBIUS_QUALITY_REPORT_MODEL,
     NEBIUS_QUALITY_SYNTHESIS_MODEL: process.env.NEBIUS_QUALITY_SYNTHESIS_MODEL,
+    NEBIUS_QUALITY_ASSISTANT_MODEL: process.env.NEBIUS_QUALITY_ASSISTANT_MODEL,
     URL:
       process.env.URL ??
       (process.env.VERCEL_URL

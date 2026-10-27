@@ -1,6 +1,7 @@
 import type { LanguageModel } from "../../src/lib/ai/resolve-model-core.js";
 import type { PipelineLlmContext } from "../../src/lib/ai/pipeline-trace.js";
 import { workerEnv } from "./env.js";
+import { queueAssistantReindexJob } from "./assistant-reindex.js";
 import { processMistralOcr } from "./ocr/mistral.js";
 import { selectOcrSource } from "./ocr/select.js";
 import { OcrProviderError, type OcrDocument } from "./ocr/types.js";
@@ -1286,6 +1287,14 @@ export async function runPipeline(
     },
   });
   if (completionOutcome === "failed") return "failed";
+  try {
+    await queueAssistantReindexJob(profileId, documentId);
+  } catch (error) {
+    console.error(
+      "Assistant semantic reindex enqueue failed:",
+      error instanceof Error ? error.message : error,
+    );
+  }
   if (
     isAutomaticVerificationReleaseApproved() &&
     sourceTextOrigin !== "mistral_ocr"
