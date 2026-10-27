@@ -48,6 +48,7 @@ Request classification, fixed safety policy, unsupported-claim handling, medicat
 
 - `pnpm test:eh157`
 - Check request and model-response safety fixtures for diagnosis, medication, dose, urgency, unsupported claims, and prompt injection.
+- The safety fixture also rejects prohibited medication language placed in a claim while the answer text appears benign.
 - Retained logs must contain outcome/error metadata only, not the question, answer, or source excerpt.
 
 ## Limitations

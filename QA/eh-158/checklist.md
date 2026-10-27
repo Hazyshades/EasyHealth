@@ -50,6 +50,7 @@ Server-owned source projection, claim-to-source validation, citation links, cove
 
 - `pnpm test:eh158`
 - Verify `assistant_requestSchema`, model response validation, source ownership, unknown source IDs, cross-profile sources, and safe status codes.
+- The evidence fixture treats a health-record claim written with personal language as personal even when the model labels it `general`, and rejects it without an authorized source.
 - Confirm API responses use `Cache-Control: no-store` and do not return raw provider errors.
 
 ## Limitations
