@@ -15,6 +15,7 @@ export type TraceGenerateOptions = {
   provider: AiProviderId;
   stage: AiPipelineStage | string;
   profileId: string;
+  requestId?: string | null;
   documentId?: string | null;
   providerSwitch?: boolean;
   temperature?: number;
@@ -119,6 +120,7 @@ export async function traceGenerateText(
     if (options.supabase) {
       const row: AiInvocationRow = {
         profile_id: options.profileId,
+        request_id: options.requestId ?? null,
         document_id: options.documentId ?? null,
         stage: options.stage,
         provider: options.provider,
@@ -138,6 +140,7 @@ export async function traceGenerateText(
     if (options.supabase) {
       const row: AiInvocationRow = {
         profile_id: options.profileId,
+        request_id: options.requestId ?? null,
         document_id: options.documentId ?? null,
         stage: options.stage,
         provider: options.provider,
