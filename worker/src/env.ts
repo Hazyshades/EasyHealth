@@ -81,6 +81,7 @@ export const workerEnv = {
   supabaseServiceKey: required("SUPABASE_SERVICE_ROLE_KEY"),
   openaiApiKey: required("OPENAI_API_KEY"),
   deepseekApiKey: optional("DEEPSEEK_API_KEY"),
+  openaiEmbeddingModel: optional("OPENAI_EMBEDDING_MODEL") ?? "text-embedding-3-small",
   deepseekBaseUrl: optional("DEEPSEEK_BASE_URL") ?? "https://api.deepseek.com",
   deepseekModel: optional("DEEPSEEK_MODEL") ?? "deepseek-chat",
   owlAlphaApiKey: optional("OWL_ALPHA_API_KEY"),

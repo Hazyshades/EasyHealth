@@ -7,6 +7,7 @@ export async function logAiInvocation(
 ): Promise<void> {
   const { error } = await supabase.from("ai_invocations").insert({
     profile_id: row.profile_id,
+    request_id: row.request_id ?? null,
     document_id: row.document_id,
     stage: row.stage,
     provider: row.provider,
@@ -17,6 +18,7 @@ export async function logAiInvocation(
     success: row.success,
     error_code: row.error_code,
     provider_switch: row.provider_switch,
+    estimated_cost_usd: row.estimated_cost_usd ?? null,
   });
 
   if (error) {
