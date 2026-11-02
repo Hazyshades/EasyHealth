@@ -66,10 +66,6 @@ export const PAGE_TITLES: Record<string, { title: string; subtitle?: string }> =
       title: "AI Settings",
       subtitle: "Choose which model EasyHealth uses for extraction and reports",
     },
-    "/app/settings/shared-reports": {
-      title: "Shared reports",
-      subtitle: "Review and revoke access to your shared health reports",
-    },
   };
 
 export function resolvePageMeta(pathname: string): {

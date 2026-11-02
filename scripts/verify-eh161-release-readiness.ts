@@ -4,11 +4,11 @@ import { join } from "node:path";
 
 const root = process.cwd();
 const requiredFiles = [
-  "supabase/migrations/089_eh156_assistant_semantic_retrieval.sql",
-  "supabase/migrations/090_eh159_assistant_operations.sql",
-  "supabase/migrations/091_eh160_closed_beta_access.sql",
-  "supabase/migrations/093_eh161_assistant_deletion_integration.sql",
-  "supabase/migrations/094_eh156_atomic_semantic_publish.sql",
+  "supabase/migrations/095_eh156_assistant_semantic_retrieval.sql",
+  "supabase/migrations/096_eh159_assistant_operations.sql",
+  "supabase/migrations/097_eh160_closed_beta_access.sql",
+  "supabase/migrations/099_eh161_assistant_deletion_integration.sql",
+  "supabase/migrations/100_eh156_atomic_semantic_publish.sql",
   "supabase/tests/eh156_assistant_semantic_retrieval.sql",
   "supabase/tests/eh159_assistant_operations.sql",
   "supabase/tests/eh161_assistant_deletion.sql",
@@ -28,7 +28,7 @@ for (const relativePath of requiredFiles) {
 const deletionMigration = readFileSync(
   join(
     root,
-    "supabase/migrations/093_eh161_assistant_deletion_integration.sql",
+    "supabase/migrations/099_eh161_assistant_deletion_integration.sql",
   ),
   "utf8",
 );
@@ -36,7 +36,7 @@ assert.match(deletionMigration, /eh161_purge_assistant_document_artifacts/u);
 assert.match(deletionMigration, /assistant_document_chunks/u);
 assert.match(deletionMigration, /assistant_reindex_jobs/u);
 const semanticPublishMigration = readFileSync(
-  join(root, "supabase/migrations/094_eh156_atomic_semantic_publish.sql"),
+  join(root, "supabase/migrations/100_eh156_atomic_semantic_publish.sql"),
   "utf8",
 );
 assert.match(semanticPublishMigration, /publish_assistant_reindex_chunks/u);

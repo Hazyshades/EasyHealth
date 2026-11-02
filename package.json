@@ -32,6 +32,7 @@
     "test:review-modes": "tsx scripts/verify-review-modes.ts",
     "smoke:review-modes": "tsx scripts/verify-review-modes.ts",
     "test:review-modes-db": "node scripts/run-supabase-db-tests.mjs supabase/tests/document_review_modes.sql",
+    "test:upload-reservation-db": "node scripts/run-supabase-db-tests.mjs supabase/tests/upload_reservation_document_types.sql",
     "test:document-worker": "tsx scripts/verify-document-worker-reliability.ts",
     "preflight:document-deletion": "tsx scripts/verify-document-deletion-inventory.ts",
     "preflight:document-deletion-data": "tsx scripts/preflight-durable-deletion-data.ts",

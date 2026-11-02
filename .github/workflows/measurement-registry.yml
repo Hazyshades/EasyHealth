@@ -275,6 +275,20 @@ jobs:
       - name: Verify EH-154 release gate on demand
         if: github.event_name == 'workflow_dispatch'
         run: pnpm test:eh154
+      - name: Verify EH-155 structured retrieval
+        run: pnpm test:eh155
+      - name: Verify EH-156 semantic retrieval
+        run: pnpm test:eh156
+      - name: Verify EH-157 assistant safety
+        run: pnpm test:eh157
+      - name: Verify EH-158 assistant evidence
+        run: pnpm test:eh158
+      - name: Verify EH-159 assistant operations
+        run: pnpm test:eh159
+      - name: Verify EH-160 closed-beta onboarding
+        run: pnpm test:eh160
+      - name: Verify EH-161 release readiness
+        run: pnpm test:eh161
 
       - name: Publish Registry 2.0 candidate-release evidence
         run: |
@@ -342,6 +356,8 @@ jobs:
         run: pnpm test:eh121-db
       - name: Run review-mode database contract
         run: pnpm test:review-modes-db
+      - name: Run upload reservation document type contract
+        run: pnpm test:upload-reservation-db
       - name: Run EH-123 assessment recalculation database contract
         run: pnpm test:eh123-db
       - name: Run EH-144 freshness policy database contract
@@ -384,6 +400,12 @@ jobs:
         run: pnpm test:writer-seam
       - name: Run EH-148 validated report writer database contract
         run: pnpm test:eh148-db
+      - name: Run EH-156 semantic retrieval database contract
+        run: pnpm test:eh156-db
+      - name: Run EH-159 assistant operations database contract
+        run: pnpm test:eh159-db
+      - name: Run EH-161 assistant deletion database contract
+        run: pnpm test:eh161-db
       - name: Stop local Supabase services
         if: always()
         run: supabase stop --no-backup
