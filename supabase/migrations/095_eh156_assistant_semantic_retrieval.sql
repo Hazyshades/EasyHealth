@@ -29,7 +29,7 @@ create index if not exists assistant_document_chunks_document_page_idx
   on public.assistant_document_chunks (document_id, page_number, chunk_index);
 create index if not exists assistant_document_chunks_embedding_hnsw_idx
   on public.assistant_document_chunks
-  using hnsw (embedding vector_cosine_ops)
+  using hnsw (embedding extensions.vector_cosine_ops)
   where is_current;
 
 create table if not exists public.assistant_reindex_jobs (
