@@ -13,10 +13,10 @@ export function resolveAuthCallbackPath(input: {
   needsProfileGate: boolean;
   needsConsentGate: boolean;
 }): string {
-  if (!input.hasCode) return "/?signin=error&reason=missing-code";
-  if (input.exchangeFailed) return "/?signin=error&reason=auth-exchange";
-  if (input.ensureFailed) return "/?signin=error&reason=profile-setup";
-  if (!input.userId) return "/?signin=error&reason=auth-user-missing";
+  if (!input.hasCode) return "/login?signin=error&reason=missing-code";
+  if (input.exchangeFailed) return "/login?signin=error&reason=auth-exchange";
+  if (input.ensureFailed) return "/login?signin=error&reason=profile-setup";
+  if (!input.userId) return "/login?signin=error&reason=auth-user-missing";
   if (input.next && input.next.startsWith("/") && !input.next.startsWith("//")) {
     return input.next;
   }
