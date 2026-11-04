@@ -6,9 +6,24 @@ if (!process.env.CI && !process.env.SKIP_ENV_VALIDATION) {
 }
 
 const nextConfig: NextConfig = {
-  // Pin the workspace root: an unrelated lockfile in a parent directory
-  // otherwise makes Turbopack resolve modules outside this project.
   turbopack: { root: path.resolve(__dirname) },
+  async rewrites() {
+    return {
+      beforeFiles: [
+        { source: "/", destination: "/landing/index.html" },
+        { source: "/landing", destination: "/landing/index.html" },
+        { source: "/landing/", destination: "/landing/index.html" },
+        {
+          source: "/landing/how-it-works",
+          destination: "/landing/how-it-works/index.html",
+        },
+        {
+          source: "/landing/how-it-works/",
+          destination: "/landing/how-it-works/index.html",
+        },
+      ],
+    };
+  },
 };
 
 export default nextConfig;

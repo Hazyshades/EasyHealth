@@ -4,7 +4,7 @@ export function resolveAppShellRedirect(input: {
   profileId: string | null;
   onboarding: ProfileOnboardingState | null;
 }): string | null {
-  if (!input.profileId) return "/?signin=required";
+  if (!input.profileId) return "/login?signin=required";
   if (!input.onboarding || input.onboarding.needsProfileGate) {
     return "/onboarding/profile";
   }

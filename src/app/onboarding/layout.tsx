@@ -7,13 +7,13 @@ export default async function OnboardingLayout({ children }: { children: React.R
     profileId = await getSessionProfileIdEnsured();
   } catch (error) {
     if (error instanceof ProfileSetupError) {
-      redirect("/?signin=error&reason=profile-setup");
+      redirect("/login?signin=error&reason=profile-setup");
     }
     throw error;
   }
 
   if (!profileId) {
-    redirect("/?signin=required");
+    redirect("/login?signin=required");
   }
 
   return (
