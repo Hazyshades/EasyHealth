@@ -1,1 +1,0 @@
-function r({cleanup:e,init:t,key:o}){if(typeof window>"u")return;const n=window;n[o]||(n[o]=!0,document.addEventListener("astro:page-load",t),e&&document.addEventListener("astro:before-swap",e)),t()}export{r};
