@@ -167,6 +167,83 @@ button {
   background: var(--ink);
   color: #fff;
 }
+.flute-container {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  opacity: 0.48;
+  pointer-events: none;
+}
+
+.flute-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.flute-media-controls {
+  position: absolute;
+  right: 28px;
+  bottom: 28px;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.flute-play-pause-button {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 50%;
+  background: rgba(20, 20, 20, 0.42);
+  color: #fff;
+  cursor: pointer;
+}
+
+.flute-play-pause-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.flute-play-pause-button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+html:not(.js) .flute-media-controls {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .flute-media-controls {
+    right: 16px;
+    bottom: 16px;
+  }
+}
+
+.flute-container + .hero-grid {
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flute-container {
+    display: none !important;
+  }
+}
+
+.hero::after {
+  z-index: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero::after {
+    background: linear-gradient(90deg, rgba(11, 9, 7, 0.72), rgba(11, 9, 7, 0.22) 63%, rgba(11, 9, 7, 0.1));
+  }
+}
+
 
 .hero::before {
   position: absolute;
@@ -661,6 +738,17 @@ html:not(.js) .monitor-motion-toggle {
   height: 150px;
   margin-top: 24px;
 }
+.workflow-animation > svg,
+.monitor-animation > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.workflow-animation.is-lottie-ready > :not(svg),
+.monitor-animation.is-lottie-ready > .monitor-chart-fallback {
+  display: none;
+}
+
 
 .workflow-visual {
   position: relative;
@@ -1848,7 +1936,6 @@ summary:focus-visible {
     transition: none !important;
   }
 
-  .hero-motion-toggle,
   .monitor-motion-toggle {
     display: none;
   }

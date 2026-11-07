@@ -36,6 +36,18 @@
 
   <main id="main-content">
     <section id="top" class="hero">
+      <div id="canvasContainer" class="flute-container" data-flutie-hero>
+        <canvas class="flute-canvas" aria-hidden="true"></canvas>
+        <div class="flute-status" aria-live="polite" aria-atomic="true" hidden></div>
+        <div class="flute-media-controls">
+          <button class="flute-play-pause-button" type="button" aria-pressed="false" aria-label="Pause hero motion">
+            <svg class="flute-play-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.35 2.55C4.35 2.01 4.94 1.66 5.43 1.96L13.08 6.35C13.57 6.64 13.57 7.36 13.08 7.65L5.43 12.04C4.94 12.34 4.35 11.99 4.35 11.45V2.55Z" fill="currentColor"></path></svg>
+            <svg class="flute-pause-icon" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="2.5" width="3" height="11" rx="0.8" fill="currentColor"></rect><rect x="9.5" y="2.5" width="3" height="11" rx="0.8" fill="currentColor"></rect></svg>
+          </button>
+        </div>
+        <script type="application/json" data-flutie-config>{"manifest":{"slides":[{"type":"image","id":"hero-image","alt":"Two people jogging in a park","images":{"desktop":"assets/reference-authorized/hero.jpg","mobile":"assets/reference-authorized/hero.jpg"}},{"type":"video","id":"2vid","alt":"Abstract glass helix in motion","sources":{"desktopVideo":"assets/reference-authorized/flutie/media/955f76d0861961aa794de0b571b2ddbbfe950df6.mp4","mobileVideo":"assets/reference-authorized/flutie/media/e50315754cdc2ad66e766bbd603e8f145fb6cdfb.mp4"},"poster":{"desktop":"assets/reference-authorized/flutie/media/c5459af686c7efde20dca936402eba9e1c881f3b-1920x1080.jpg","mobile":"assets/reference-authorized/flutie/media/aac382c5611a975d575aaa67a2878d79a86cf235-768x1344.jpg"}},{"type":"video","id":"1vid","alt":"Abstract glass helix in motion","sources":{"desktopVideo":"assets/reference-authorized/flutie/media/e1fcdd6dabc176033b085358d6f51201f43be7e7.mp4","mobileVideo":"assets/reference-authorized/flutie/media/ddea5a6c2aa70f3d08b41f166fb97d9a16ffd3a1.mp4"},"poster":{"desktop":"assets/reference-authorized/flutie/media/47286f817f7e244d09f52bd8868b0bb8004fb4b0-1920x1080.jpg","mobile":"assets/reference-authorized/flutie/media/efac552568f8b21f02dbf6c4a329cfa347760ccc-1080x1920.jpg"}},{"type":"video","id":"5vid","alt":"Abstract glass helix in motion","sources":{"desktopVideo":"assets/reference-authorized/flutie/media/2ae921d2ed2c993cbd5b8378f5df8f780fd1bab8.mp4","mobileVideo":"assets/reference-authorized/flutie/media/bc0bd2ca7f280488b1b5766f002cb227155c4047.mp4"},"poster":{"desktop":"assets/reference-authorized/flutie/media/7482f1e323e28245993fff66b0d2f2876d7943a5-1920x1080.jpg","mobile":"assets/reference-authorized/flutie/media/1da39e9505a963ff65779cbb060bdff56d1bfaf7-1080x1920.jpg"}}]},"randomize":false,"singlePlay":false,"noFluting":false}</script>
+      </div>
+
       <div class="shell hero-grid">
         <div class="hero-copy">
           <p class="kicker">Check your health record</p>
@@ -85,7 +97,6 @@
                 </svg>
               </article>
             </div>
-            <button id="hero-motion-toggle" class="hero-motion-toggle" type="button" aria-pressed="false" aria-label="Pause hero motion"><span aria-hidden="true">Ⅱ</span><b>Pause hero motion</b></button>
           </div>
         </div>
       </div>
@@ -103,7 +114,7 @@
             <span>01</span>
             <h3>Upload</h3>
             <p>Add supported medical documents when you want them organized in one place.</p>
-            <div class="workflow-animation workflow-upload" role="img" aria-label="Illustration of adding a document">
+            <div class="workflow-animation workflow-upload" data-lottie="assets/reference-authorized/lotties/schedule-new.json" role="img" aria-label="Illustration of adding a document">
               <span class="mini-upload-document" aria-hidden="true"></span>
               <span class="mini-upload-mark" aria-hidden="true">+</span>
             </div>
@@ -112,7 +123,7 @@
             <span>02</span>
             <h3>Review</h3>
             <p>See extracted details next to their source context so you can check what came from where.</p>
-            <div class="workflow-animation workflow-review" role="img" aria-label="Illustration of checking extracted details against a source">
+            <div class="workflow-animation workflow-review" data-lottie="assets/reference-authorized/lotties/results.json" role="img" aria-label="Illustration of checking extracted details against a source">
               <span class="mini-source" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
               <span class="mini-result" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
             </div>
@@ -121,7 +132,7 @@
             <span>03</span>
             <h3>Track</h3>
             <p>Return to biomarker history and documents over time as your record grows.</p>
-            <div class="workflow-animation workflow-track" role="img" aria-label="Illustration of following record history over time">
+            <div class="workflow-animation workflow-track" data-lottie="assets/reference-authorized/lotties/action-new.json" role="img" aria-label="Illustration of following record history over time">
               <span class="track-dot" aria-hidden="true"></span>
               <span class="track-dot" aria-hidden="true"></span>
               <span class="track-dot" aria-hidden="true"></span>
@@ -156,7 +167,7 @@
             </div></div>
           </div>
           <div class="monitor-focus">
-            <div class="monitor-animation" role="img" aria-label="Illustrative biomarker history with source-linked entries">
+            <div class="monitor-animation" data-lottie="assets/reference-authorized/monitor/tracked-over-a-lifetime.json" role="img" aria-label="Illustrative biomarker history with source-linked entries">
               <div class="monitor-chart-fallback">
                 <div class="monitor-chart-heading"><span>Example history</span><strong>Vitamin D</strong></div>
                 <svg class="monitor-chart-svg" viewBox="0 0 360 150" aria-hidden="true">
@@ -298,6 +309,8 @@
   </footer>
 
   <script src="site-config.js"></script>
+  <script src="assets/reference-authorized/lotties/lottie.min.js"></script>
+  <script type="module" src="assets/reference-authorized/flutie/FlutieHero.astro_astro_type_script_index_0_lang.BmV3fnua.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
