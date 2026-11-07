@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 
-function LandingPageContent() {
+function AuthEntryContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackError =
@@ -234,7 +234,7 @@ function LandingPageContent() {
   );
 }
 
-export default function LandingPage() {
+export default function AuthEntryPage() {
   return (
     <Suspense
       fallback={
@@ -243,7 +243,7 @@ export default function LandingPage() {
         </div>
       }
     >
-      <LandingPageContent />
+      <AuthEntryContent />
     </Suspense>
   );
 }

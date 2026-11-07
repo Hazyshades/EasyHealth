@@ -36,22 +36,32 @@
     });
   }
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const monitorToggle = document.querySelector("#monitor-motion-toggle");
-  const monitorMarquees = document.querySelector(".monitor-marquees");
-  if (monitorToggle && monitorMarquees) {
+  const bindMotionToggle = (toggle, surface, surfaceClass) => {
+    if (!toggle || !surface) return;
     let paused = reduceMotion;
-    const setMonitorState = (nextPaused) => {
+    const setState = (nextPaused) => {
       paused = nextPaused;
-      monitorMarquees.classList.toggle("is-paused", paused);
-      monitorToggle.setAttribute("aria-pressed", String(paused));
-      monitorToggle.setAttribute("aria-label", paused ? "Play motion" : "Pause motion");
-      monitorToggle.querySelector("span").textContent = paused ? "▶" : "Ⅱ";
-      monitorToggle.querySelector("b").textContent = paused ? "Play motion" : "Pause motion";
+      surface.classList.toggle(surfaceClass, paused);
+      toggle.setAttribute("aria-pressed", String(paused));
+      toggle.setAttribute("aria-label", paused ? "Play motion" : "Pause motion");
+      toggle.querySelector("span").textContent = paused ? "▶" : "Ⅱ";
+      toggle.querySelector("b").textContent = paused ? "Play motion" : "Pause motion";
     };
 
-    setMonitorState(paused);
-    monitorToggle.addEventListener("click", () => setMonitorState(!paused));
-  }
+    setState(paused);
+    toggle.addEventListener("click", () => setState(!paused));
+  };
+
+  bindMotionToggle(
+    document.querySelector("#hero-motion-toggle"),
+    document.querySelector(".hero-visual-frame"),
+    "is-paused",
+  );
+  bindMotionToggle(
+    document.querySelector("#monitor-motion-toggle"),
+    document.querySelector(".monitor-marquees"),
+    "is-paused",
+  );
 
 
   document.querySelector("#year").textContent = String(new Date().getFullYear());
