@@ -18,7 +18,7 @@
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to content</a>
-  <div class="top-strip">EasyHealth | source-linked personal health record</div>
+  <div class="top-strip">EasyHealth · source-linked personal health record</div>
   <header class="site-header">
     <div class="shell nav-row">
       <a class="wordmark" href="#top" aria-label="EasyHealth home"><span aria-hidden="true">E</span>easyhealth</a>
@@ -36,6 +36,7 @@
 
   <main id="main-content">
     <section id="top" class="hero">
+      <div id="canvasContainer" class="flute-container" data-flutie-hero><canvas class="flute-canvas" aria-hidden="true"></canvas><div class="flute-status" aria-live="polite" aria-atomic="true" hidden></div><div class="flute-media-controls"><button class="flute-play-pause-button" type="button" aria-label="Pause hero motion"><svg class="flute-play-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.35 2.55C4.35 2.01 4.94 1.66 5.43 1.96L13.08 6.35C13.57 6.64 13.57 7.36 13.08 7.65L5.43 12.04C4.94 12.34 4.35 11.99 4.35 11.45V2.55Z" fill="currentColor"></path></svg><svg class="flute-pause-icon" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="2.5" width="3" height="11" rx="0.8" fill="currentColor"></rect><rect x="9.5" y="2.5" width="3" height="11" rx="0.8" fill="currentColor"></rect></svg></button></div><script type="application/json" data-flutie-config>{"manifest":{"slides":[{"type":"video","id":"3vid","alt":"Abstract glass helix in motion","sources":{"desktopVideo":"assets/reference-authorized/flutie/media/9b79ff3bdc8a1b82a8379afae722d5aee73d9f00.mp4","mobileVideo":"assets/reference-authorized/flutie/media/07bac8809c0be5047169a3107e116b5ed2b789f1.mp4"},"poster":{"desktop":"assets/reference-authorized/flutie/media/d7a26e48392f651a125ccc4cdcb3c52e98d1ca75-1920x1080.jpg","mobile":"assets/reference-authorized/flutie/media/bdec82301d1ba67cc8d5ed7baedf12f6d0b3f633-1080x1920.jpg"}},{"type":"video","id":"2vid","alt":"Abstract glass helix in motion","sources":{"desktopVideo":"assets/reference-authorized/flutie/media/955f76d0861961aa794de0b571b2ddbbfe950df6.mp4","mobileVideo":"assets/reference-authorized/flutie/media/e50315754cdc2ad66e766bbd603e8f145fb6cdfb.mp4"},"poster":{"desktop":"assets/reference-authorized/flutie/media/c5459af686c7efde20dca936402eba9e1c881f3b-1920x1080.jpg","mobile":"assets/reference-authorized/flutie/media/aac382c5611a975d575aaa67a2878d79a86cf235-768x1344.jpg"}},{"type":"video","id":"1vid","alt":"Abstract glass helix in motion","sources":{"desktopVideo":"assets/reference-authorized/flutie/media/e1fcdd6dabc176033b085358d6f51201f43be7e7.mp4","mobileVideo":"assets/reference-authorized/flutie/media/ddea5a6c2aa70f3d08b41f166fb97d9a16ffd3a1.mp4"},"poster":{"desktop":"assets/reference-authorized/flutie/media/47286f817f7e244d09f52bd8868b0bb8004fb4b0-1920x1080.jpg","mobile":"assets/reference-authorized/flutie/media/efac552568f8b21f02dbf6c4a329cfa347760ccc-1080x1920.jpg"}},{"type":"video","id":"5vid","alt":"Abstract glass helix in motion","sources":{"desktopVideo":"assets/reference-authorized/flutie/media/2ae921d2ed2c993cbd5b8378f5df8f780fd1bab8.mp4","mobileVideo":"assets/reference-authorized/flutie/media/bc0bd2ca7f280488b1b5766f002cb227155c4047.mp4"},"poster":{"desktop":"assets/reference-authorized/flutie/media/7482f1e323e28245993fff66b0d2f2876d7943a5-1920x1080.jpg","mobile":"assets/reference-authorized/flutie/media/1da39e9505a963ff65779cbb060bdff56d1bfaf7-1080x1920.jpg"}}]},"randomize":false,"singlePlay":false,"noFluting":false}</script></div>
       <div class="shell hero-grid">
         <div class="hero-copy">
           <p class="kicker">Check your health record</p>
@@ -51,41 +52,49 @@
             <span>Supported documents</span>
           </div>
         </div>
-        <div class="hero-visual" role="group" aria-label="Illustration of a lab document connected to a structured personal health record.">
-          <div class="hero-visual-frame">
-            <div class="hero-visual-caption"><span class="visual-pulse" aria-hidden="true"></span>Example record flow</div>
-            <div class="record-bridge">
-              <article class="record-pane source-pane">
-                <div class="pane-heading">
-                  <span class="document-glyph" aria-hidden="true"></span>
-                  <span><small>Example source</small><strong>Lab results</strong></span>
-                </div>
-                <div class="source-paper" aria-hidden="true">
-                  <span class="source-paper-line short"></span>
-                  <span class="source-paper-line long"></span>
-                  <span class="source-paper-line medium"></span>
-                  <span class="source-highlight-line"></span>
-                  <span class="source-paper-line long"></span>
-                  <span class="source-paper-line short"></span>
-                  <div class="source-paper-foot"><span>Page 1</span><span>Reviewed</span></div>
-                </div>
-              </article>
-              <div class="connector" aria-hidden="true"><span class="connector-dot"></span><span>review</span><span class="connector-rule"></span><span class="connector-dot"></span></div>
-              <article class="record-pane structured-pane">
-                <div class="pane-heading">
-                  <span class="structured-glyph" aria-hidden="true"></span>
-                  <span><small>Structured record</small><strong>Current view</strong></span>
-                </div>
-                <div class="record-row"><span>Vitamin D</span><strong>25</strong><small>ng/mL</small></div>
-                <div class="record-row"><span>Glucose</span><strong>91</strong><small>mg/dL</small></div>
-                <svg class="record-sparkline" viewBox="0 0 180 74" aria-hidden="true">
-                  <path d="M6 58 C30 58, 34 43, 58 45 S94 50, 116 30 S149 29, 174 13"></path>
-                  <circle cx="6" cy="58" r="4"></circle>
-                  <circle cx="174" cy="13" r="4"></circle>
-                </svg>
-              </article>
+        <div class="hero-visual" role="img" aria-label="Illustrative EasyHealth record using fictional sample data">
+          <div class="hero-visual-backdrop"></div>
+          <article class="hero-card">
+            <div class="card-top">
+              <div>
+                <p>Example source</p>
+                <strong>Lab results</strong>
+              </div>
+              <span>May 2026</span>
             </div>
-            <button id="hero-motion-toggle" class="hero-motion-toggle" type="button" aria-pressed="false" aria-label="Pause hero motion"><span aria-hidden="true">Ⅱ</span><b>Pause hero motion</b></button>
+            <div class="card-main">
+              <div class="document-mini">
+                <span class="doc-mark">↗</span>
+                <div>
+                  <small>Reviewed source</small>
+                  <strong>Comprehensive metabolic panel</strong>
+                </div>
+              </div>
+              <div class="value-row">
+                <span>Vitamin D</span>
+                <strong>25 ng/mL</strong>
+              </div>
+              <div class="value-row muted">
+                <span>Glucose</span>
+                <strong>91 mg/dL</strong>
+              </div>
+              <div class="chart-wrap">
+                <svg viewBox="0 0 260 120" role="img" aria-label="Illustrative biomarker history showing a small increase over time">
+                  <path d="M16 88 C52 88, 60 64, 90 66 S150 72, 178 44 S226 30, 244 18" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                  <circle cx="16" cy="88" r="5"/>
+                  <circle cx="244" cy="18" r="5"/>
+                </svg>
+              </div>
+              <div class="history-rail">
+                <div><small>Earlier</small><strong>22</strong></div>
+                <div><small>Latest</small><strong>25</strong></div>
+              </div>
+            </div>
+          </article>
+          <div class="hero-side-card">
+            <p>Current record</p>
+            <strong>Source evidence stays visible</strong>
+            <span>Every extracted detail stays tied to the document it came from.</span>
           </div>
         </div>
       </div>
@@ -98,38 +107,13 @@
           <h2>A simple flow: upload, review, track.</h2>
           <p>EasyHealth is designed around the steps people already use when they keep a health record by hand.</p>
         </div>
+        <div class="workflow-controls">
+          <button id="workflow-motion-toggle" class="workflow-motion-toggle" type="button" aria-pressed="false" aria-label="Pause workflow motion"><span aria-hidden="true">Ⅱ</span><b>Pause animations</b></button>
+        </div>
         <div class="three-grid">
-          <article class="info-card">
-            <span>01</span>
-            <h3>Upload</h3>
-            <p>Add supported medical documents when you want them organized in one place.</p>
-            <div class="workflow-animation workflow-upload" role="img" aria-label="Illustration of adding a document">
-              <span class="mini-upload-document" aria-hidden="true"></span>
-              <span class="mini-upload-mark" aria-hidden="true">+</span>
-            </div>
-          </article>
-          <article class="info-card">
-            <span>02</span>
-            <h3>Review</h3>
-            <p>See extracted details next to their source context so you can check what came from where.</p>
-            <div class="workflow-animation workflow-review" role="img" aria-label="Illustration of checking extracted details against a source">
-              <span class="mini-source" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
-              <span class="mini-result" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
-            </div>
-          </article>
-          <article class="info-card">
-            <span>03</span>
-            <h3>Track</h3>
-            <p>Return to biomarker history and documents over time as your record grows.</p>
-            <div class="workflow-animation workflow-track" role="img" aria-label="Illustration of following record history over time">
-              <span class="track-dot" aria-hidden="true"></span>
-              <span class="track-dot" aria-hidden="true"></span>
-              <span class="track-dot" aria-hidden="true"></span>
-              <span class="track-label" aria-hidden="true">Earlier</span>
-              <span class="track-label" aria-hidden="true">Review</span>
-              <span class="track-label" aria-hidden="true">Latest</span>
-            </div>
-          </article>
+          <article class="info-card"><span>01</span><h3>Upload</h3><p>Add supported medical documents when you want them organized in one place.</p><div class="workflow-animation" data-lottie="assets/reference-authorized/lotties/schedule-new.json" role="img" aria-label="Animated scheduling illustration"><div class="lottie-fallback calendar-frame" aria-hidden="true"><b>7</b><i></i><i></i><i></i></div></div></article>
+          <article class="info-card"><span>02</span><h3>Review</h3><p>See extracted details next to their source context so you can check what came from where.</p><div class="workflow-animation" data-lottie="assets/reference-authorized/lotties/results.json" role="img" aria-label="Animated results illustration"><div class="lottie-fallback chart-frame" aria-hidden="true"><i></i><i></i><i></i></div></div></article>
+          <article class="info-card"><span>03</span><h3>Track</h3><p>Return to biomarker history and documents over time as your record grows.</p><div class="workflow-animation static-workflow-animation" role="img" aria-label="Illustrative history tracking diagram"><div class="lottie-fallback plan-frame" aria-hidden="true"><i></i><i></i><i></i></div></div></article>
         </div>
       </div>
     </section>
@@ -156,20 +140,10 @@
             </div></div>
           </div>
           <div class="monitor-focus">
-            <div class="monitor-animation" role="img" aria-label="Illustrative biomarker history with source-linked entries">
-              <div class="monitor-chart-fallback">
-                <div class="monitor-chart-heading"><span>Example history</span><strong>Vitamin D</strong></div>
-                <svg class="monitor-chart-svg" viewBox="0 0 360 150" aria-hidden="true">
-                  <line x1="0" y1="24" x2="360" y2="24"></line>
-                  <line x1="0" y1="75" x2="360" y2="75"></line>
-                  <line x1="0" y1="126" x2="360" y2="126"></line>
-                  <path d="M10 114 C45 114, 63 93, 98 98 S142 106, 171 73 S218 84, 247 58 S302 49, 350 29"></path>
-                  <circle cx="10" cy="114" r="5"></circle>
-                  <circle cx="350" cy="29" r="5"></circle>
-                </svg>
-                <div class="monitor-chart-foot"><span>Earlier</span><span>Latest</span></div>
-              </div>
+            <div class="monitor-animation" data-lottie="assets/reference-authorized/monitor/tracked-over-a-lifetime.json" role="img" aria-label="Illustrative chart showing values tracked over time">
+              <div class="monitor-chart-fallback" aria-hidden="true"><span>Below range</span><i></i><i></i><i></i><b></b></div>
             </div>
+            <p class="animation-disclosure">Illustrative example, not medical data.</p>
             <button id="monitor-motion-toggle" class="monitor-motion-toggle" type="button" aria-pressed="false" aria-label="Pause motion"><span aria-hidden="true">Ⅱ</span><b>Pause motion</b></button>
           </div>
         </div>
@@ -234,10 +208,10 @@
           <p>It keeps the long-form rhythm of the reference while staying inside the supported product story.</p>
         </div>
         <div class="story-row">
-          <article class="story-card"><div class="story-visual story-documents" aria-hidden="true"><span class="story-line"></span></div><p>Organize documents by type and source context.</p></article>
-          <article class="story-card"><div class="story-visual story-review" aria-hidden="true"><span class="story-line"></span></div><p>Review extracted values alongside the original document.</p></article>
-          <article class="story-card"><div class="story-visual story-history" aria-hidden="true"><span class="story-dot"></span><span class="story-dot"></span><span class="story-dot"></span></div><p>Follow your health record over time without losing the source.</p></article>
-          <article class="story-card"><div class="story-visual story-return" aria-hidden="true"><span class="story-line"></span></div><p>Return later and pick up the record where you left off.</p></article>
+          <article class="story-card"><div class="story-swatch swatch-a"></div><p>Organize documents by type and source context.</p></article>
+          <article class="story-card"><div class="story-swatch swatch-b"></div><p>Review extracted values alongside the original document.</p></article>
+          <article class="story-card"><div class="story-swatch swatch-c"></div><p>Follow your health record over time without losing the source.</p></article>
+          <article class="story-card"><div class="story-swatch swatch-d"></div><p>Return later and pick up the record where you left off.</p></article>
         </div>
       </div>
     </section>
@@ -287,7 +261,7 @@
   <footer class="footer">
     <div class="shell footer-grid">
       <div>
-        <a class="wordmark footer-mark" href="#top" aria-label="EasyHealth"><span aria-hidden="true">E</span>easyhealth</a>
+        <a class="wordmark footer-mark" href="#top"><span aria-hidden="true">E</span>easyhealth</a>
         <p>© <span id="year">2026</span> EasyHealth</p>
       </div>
       <nav aria-label="Footer">
@@ -298,6 +272,7 @@
   </footer>
 
   <script src="site-config.js"></script>
+  <script src="assets/reference-authorized/lotties/lottie.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
