@@ -843,19 +843,19 @@ html:not(.js) .monitor-motion-toggle {
   right: 25px;
 }
 .workflow-upload .mini-upload-document {
-  animation: upload-lift 3s ease-in-out infinite alternate;
+  animation: upload-lift 3s ease-in-out 1 alternate;
 }
 
 .workflow-upload .mini-upload-mark {
-  animation: upload-mark 2.4s ease-in-out infinite;
+  animation: upload-mark 2.4s ease-in-out 1;
 }
 
 .workflow-review .mini-result {
-  animation: review-slide 3.2s ease-in-out infinite alternate;
+  animation: review-slide 3.2s ease-in-out 1 alternate;
 }
 
 .workflow-track .track-dot:nth-child(2) {
-  animation: track-focus 2.8s ease-in-out infinite alternate;
+  animation: track-focus 2.8s ease-in-out 1 alternate;
 }
 
 .workflow-track .track-label {
