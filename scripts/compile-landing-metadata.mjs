@@ -21,21 +21,25 @@ if (!/^https?:$/.test(parsedOrigin.protocol)) {
   );
 }
 
-const landingRoot = resolve(
-  process.env.LANDING_ROOT ?? "public/landing",
-);
+const landingRoots = process.env.LANDING_ROOT
+  ? [resolve(process.env.LANDING_ROOT)]
+  : [resolve("public/landing"), resolve("landing-site")];
 const files = [
   "index.html",
   "how-it-works/index.html",
 ];
+let compiledPageCount = 0;
 
-for (const relativePath of files) {
-  const filePath = resolve(landingRoot, relativePath);
-  const source = await readFile(filePath, "utf8");
-  const compiled = source.replaceAll(defaultSiteOrigin, configuredSiteOrigin);
-  await writeFile(filePath, compiled);
+for (const landingRoot of landingRoots) {
+  for (const relativePath of files) {
+    const filePath = resolve(landingRoot, relativePath);
+    const source = await readFile(filePath, "utf8");
+    const compiled = source.replaceAll(defaultSiteOrigin, configuredSiteOrigin);
+    await writeFile(filePath, compiled);
+    compiledPageCount += 1;
+  }
 }
 
 console.log(
-  `Compiled landing metadata for ${configuredSiteOrigin} (${files.length} pages).`,
+  `Compiled landing metadata for ${configuredSiteOrigin} (${compiledPageCount} pages across ${landingRoots.length} mirrors).`,
 );

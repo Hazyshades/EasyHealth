@@ -1559,12 +1559,12 @@ summary:focus-visible {
     font-size: 1.25rem;
   }
 
-  .site-header nav {
+  .js .site-header nav {
     position: absolute;
     top: 76px;
     right: 0;
     left: 0;
-    display: flex;
+    display: none;
     flex-direction: column;
     align-items: stretch;
     gap: 4px;
@@ -1572,12 +1572,25 @@ summary:focus-visible {
     background: #292724;
   }
 
-  .js .site-header nav {
-    display: none;
-  }
-
   .js .site-header nav.is-open {
     display: flex;
+  }
+
+  html:not(.js) .site-header {
+    position: static;
+  }
+
+  html:not(.js) .nav-row {
+    flex-wrap: wrap;
+    padding-bottom: 16px;
+  }
+
+  html:not(.js) .site-header nav {
+    flex: 1 0 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 16px 0 0;
   }
 
   .js .menu-button {
@@ -1606,6 +1619,9 @@ summary:focus-visible {
   .hero {
     min-height: auto;
     padding: 150px 0 64px;
+  }
+  html:not(.js) .hero {
+    padding-top: 64px;
   }
 
   .hero::before {
@@ -1834,6 +1850,6 @@ summary:focus-visible {
 
   .hero-motion-toggle,
   .monitor-motion-toggle {
-    display: flex;
+    display: none;
   }
 }
