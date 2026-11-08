@@ -4,149 +4,120 @@
   <base href="/landing/">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="See how EasyHealth helps you add medical documents, review extracted information against its source, and return to an organized health record.">
+  <meta name="description" content="See how EasyHealth helps you add medical documents, review extracted information against its source, and build a connected health history.">
   <meta name="theme-color" content="#f5eee1">
   <link rel="canonical" href="https://easyhealth.app/landing/how-it-works/">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="EasyHealth">
   <meta property="og:title" content="How EasyHealth works">
-  <meta property="og:description" content="Add supported documents, check extracted details against their source, and keep the record together over time.">
+  <meta property="og:description" content="Upload a medical document, review the extracted details, and explore the information alongside your previous records.">
   <meta property="og:url" content="https://easyhealth.app/landing/how-it-works/">
   <title>How EasyHealth works</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to content</a>
-  <div class="top-strip">EasyHealth | source-linked personal health record</div>
-  <header class="site-header" style="position: static;">
+  <div class="top-strip">Your personal health record, connected.</div>
+  <header class="site-header subpage-header">
     <div class="shell nav-row">
-      <a class="wordmark" href="./" aria-label="EasyHealth"><span aria-hidden="true">E</span>easyhealth</a>
+      <a class="wordmark" href="./" aria-label="EasyHealth home">easyhealth</a>
       <button class="menu-button" type="button" aria-expanded="false" aria-controls="site-nav"><span class="sr-only">Open navigation</span><span aria-hidden="true"></span><span aria-hidden="true"></span></button>
       <nav id="site-nav" aria-label="Primary navigation">
-        <a href="./#records">What we keep</a>
-        <a href="./#evidence">Source evidence</a>
+        <a href="./how-it-works/">How it works</a>
+        <a href="./#health-history">Your health history</a>
+        <a href="./#supported-documents">Supported documents</a>
         <a href="./#faq">FAQ</a>
-        <a class="sign-in" data-app-link="signIn" href="/login">Log in</a>
-        <a class="button nav-cta" data-app-link="start" href="/login">Start your record</a>
+        <a class="button nav-cta" data-app-link="start" href="/login">Get started</a>
       </nav>
     </div>
   </header>
 
   <main id="main-content">
+    <section class="section subpage-hero">
+      <div class="shell narrow center">
+        <p class="section-label">How it works</p>
+        <h1>From individual reports to a connected health history.</h1>
+        <p class="section-lede">Upload a medical document, review the extracted details, and explore the information alongside your previous records.</p>
+        <a class="button primary" data-app-link="start" href="/login">Get started</a>
+      </div>
+    </section>
+
     <section class="section soft">
       <div class="shell">
-        <div class="section-head center narrow">
-          <p class="kicker terracotta">How it works</p>
-          <h1>Add the source. Check the details. Keep the record.</h1>
-          <p>EasyHealth helps you organize supported medical documents, review extracted information against the original source, and return to the history later.</p>
-        </div>
-        <div class="workflow-controls">
-          <button id="workflow-motion-toggle" class="workflow-motion-toggle" type="button" aria-pressed="false" aria-label="Pause workflow motion"><span aria-hidden="true">Ⅱ</span><b>Pause animations</b></button>
-        </div>
-
-        <div class="three-grid">
-          <article class="info-card">
-            <span>01</span>
-            <h2>Upload</h2>
-            <p>Add a supported medical document when you want it organized with the rest of your record.</p>
-            <div class="workflow-animation" data-lottie="assets/reference-authorized/lotties/schedule-new.json" role="img" aria-label="Animated scheduling illustration">
-              <div class="lottie-fallback calendar-frame" aria-hidden="true"><b>7</b><i></i><i></i><i></i></div>
-            </div>
+        <div class="workflow-grid detailed-steps">
+          <article class="step">
+            <span class="step-index">01</span>
+            <h2>Upload a document</h2>
+            <h3>Start with what you already have.</h3>
+            <p>Add a lab report, consultation note, discharge summary, prescription, referral, or written diagnostic test report.</p>
+            <p>You can begin with a single document and add more over time.</p>
           </article>
-          <article class="info-card">
-            <span>02</span>
-            <h2>Review</h2>
-            <p>Read extracted details next to their source context so you can check what came from where.</p>
-            <div class="workflow-animation" data-lottie="assets/reference-authorized/lotties/results.json" role="img" aria-label="Animated results illustration">
-              <div class="lottie-fallback chart-frame" aria-hidden="true"><i></i><i></i><i></i></div>
-            </div>
+          <article class="step">
+            <span class="step-index">02</span>
+            <h2>Review the extracted information</h2>
+            <h3>Check the details that matter.</h3>
+            <p>EasyHealth identifies the document type and extracts relevant information. For supported lab results, this includes biomarker names, values, units, and reference ranges where available.</p>
+            <p>Review the extracted details against the original document. Clear, readable files help, but automated extraction can still make mistakes.</p>
           </article>
-          <article class="info-card">
-            <span>03</span>
-            <h2>Track</h2>
-            <p>Return to biomarker history and documents over time as your record grows.</p>
-            <div class="workflow-animation" data-lottie="assets/reference-authorized/lotties/action-new.json" role="img" aria-label="Animated history tracking illustration">
-              <div class="lottie-fallback plan-frame" aria-hidden="true"><i></i><i></i><i></i></div>
-            </div>
+          <article class="step">
+            <span class="step-index">03</span>
+            <h2>Explore your record</h2>
+            <h3>Put individual results in context.</h3>
+            <p>Find your documents, revisit previous measurements, and explore supported results in your Health Profile.</p>
+            <p>As you add new reports, your record brings more of your history together.</p>
           </article>
         </div>
       </div>
     </section>
 
-    <section class="monitor-section" id="source-review">
-      <div class="shell monitor-layout">
-        <header class="monitor-header">
-          <h2>Keep the source close to the structured record.</h2>
-          <ul class="monitor-checklist">
-            <li>See the document behind each detail</li>
-            <li>Review before relying on a value</li>
-            <li>Return to the same context later</li>
-          </ul>
-        </header>
-        <div class="monitor-visual">
-          <div class="monitor-marquees" aria-label="Record details tracked over time">
-            <div class="monitor-marquee" data-direction="forward"><div class="monitor-track">
-              <span>Source context</span><span>Review status</span><span>Document history</span><span>Biomarker history</span><span>Latest result</span><span>Earlier result</span>
-              <span aria-hidden="true">Source context</span><span aria-hidden="true">Review status</span><span aria-hidden="true">Document history</span><span aria-hidden="true">Biomarker history</span><span aria-hidden="true">Latest result</span><span aria-hidden="true">Earlier result</span>
-            </div></div>
-            <div class="monitor-marquee reverse" data-direction="reverse"><div class="monitor-track">
-              <span>Lab results</span><span>Imaging reports</span><span>Consultation notes</span><span>Discharge summaries</span><span>Prescriptions</span><span>Referrals</span>
-              <span aria-hidden="true">Lab results</span><span aria-hidden="true">Imaging reports</span><span aria-hidden="true">Consultation notes</span><span aria-hidden="true">Discharge summaries</span><span aria-hidden="true">Prescriptions</span><span aria-hidden="true">Referrals</span>
-            </div></div>
-          </div>
-          <div class="monitor-focus">
-            <div class="monitor-animation" data-lottie="assets/reference-authorized/monitor/tracked-over-a-lifetime.json" role="img" aria-label="Illustrative chart showing values tracked over time">
-              <div class="monitor-chart-fallback" aria-hidden="true"><span>Below range</span><i></i><i></i><i></i><b></b></div>
-            </div>
-            <p class="animation-disclosure">Illustrative example, not medical data.</p>
-            <button id="monitor-motion-toggle" class="monitor-motion-toggle" type="button" aria-pressed="false" aria-label="Pause motion"><span aria-hidden="true">Ⅱ</span><b>Pause motion</b></button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section warm" id="supported-documents">
+    <section class="section parchment">
       <div class="shell">
-        <div class="section-head">
-          <p class="kicker terracotta">Supported documents</p>
-          <h2>Start with the records you already have.</h2>
-          <p>The landing describes the document types EasyHealth is built to organize. It does not promise diagnosis or treatment.</p>
+        <div class="section-head narrow center">
+          <p class="section-label">What you get</p>
+          <h2>A record that keeps the useful context close.</h2>
         </div>
-        <div class="document-grid">
-          <div>Lab results</div>
-          <div>Imaging or instrumental reports</div>
-          <div>Consultation notes</div>
-          <div>Discharge summaries</div>
-          <div>Prescriptions</div>
-          <div>Referrals</div>
+        <div class="benefits-grid">
+          <article><h3>An organized document collection</h3><p>Keep medical records from different appointments and providers in one place.</p></article>
+          <article><h3>A history of your lab results</h3><p>Explore supported biomarkers over time, with dates, units, and source documents.</p></article>
+          <article><h3>A personal Health Profile</h3><p>See supported lab results grouped by body system, based on the information available in your record.</p></article>
+          <article><h3>A way back to the original</h3><p>Check extracted information against the document it came from.</p></article>
         </div>
       </div>
     </section>
 
-    <section class="section parchment" id="faq">
-      <div class="shell two-col">
+    <section class="section soft">
+      <div class="shell two-col context-layout">
         <div>
-          <p class="kicker">Questions</p>
-          <h2>Plain answers before you begin.</h2>
-          <p>EasyHealth is for organizing and reviewing a personal record, not for diagnosis or treatment recommendations.</p>
+          <p class="section-label">Understanding your results</p>
+          <h2>The context stays with the numbers.</h2>
+        </div>
+        <div>
+          <p class="section-lede">A result means more when you know when it was measured, which units were used, and which reference range appeared on the report.</p>
+          <p class="section-lede">EasyHealth keeps those details connected to your history. Differences between laboratories and testing methods still matter when comparing results.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section parchment">
+      <div class="shell two-col faq-layout">
+        <div>
+          <p class="section-label">Questions before you start</p>
+          <h2>Know what the record can and cannot do.</h2>
         </div>
         <div class="faq-list">
-          <details><summary>What can I upload?</summary><p>Supported medical documents such as lab results, imaging or instrumental reports, consultation notes, discharge summaries, prescriptions, and referrals.</p></details>
-          <details><summary>What does source-linked review mean?</summary><p>Extracted details remain connected to the original document so you can check the surrounding context.</p></details>
-          <details><summary>Can EasyHealth diagnose a condition?</summary><p>No. EasyHealth organizes and presents your record. It does not provide diagnosis or treatment recommendations.</p></details>
-          <details><summary>How do I start?</summary><p>Open the record entry, sign in, and add a supported document when you are ready.</p></details>
+          <details><summary>Do I need my entire medical history?</summary><p>No. Start with one document and add others when you have them.</p></details>
+          <details><summary>Will every uploaded result appear in my Health Profile?</summary><p>No. Your documents and your Health Profile serve different purposes. The profile uses supported results that meet its data requirements; some information may remain available only in the document or its extracted details.</p></details>
+          <details><summary>Does uploading an imaging report mean EasyHealth interprets the scan?</summary><p>No. EasyHealth works with information in the written report. It does not interpret the underlying medical images.</p></details>
+          <details><summary>Can I use EasyHealth to decide on treatment?</summary><p>EasyHealth does not provide diagnosis or treatment recommendations. It helps you organize information that you can discuss with a healthcare professional.</p></details>
         </div>
       </div>
     </section>
 
-    <section class="section cta-section">
+    <section class="cta-section">
       <div class="shell cta-box">
-        <p class="kicker terracotta">Your record, together</p>
-        <h2>Give your health documents a calmer place to live.</h2>
-        <div class="action-row center-actions">
-          <a class="button primary" data-app-link="start" href="/login">Start your record</a>
-          <a class="button secondary" href="./">Back to home</a>
-        </div>
+        <p class="section-label">Start with your first document</p>
+        <h2>Bring your records together, one report at a time.</h2>
+        <a class="button primary" data-app-link="start" href="/login">Get started</a>
       </div>
     </section>
   </main>
@@ -154,7 +125,7 @@
   <footer class="footer">
     <div class="shell footer-grid">
       <div>
-        <a class="wordmark footer-mark" href="./" aria-label="EasyHealth"><span aria-hidden="true">E</span>easyhealth</a>
+        <a class="wordmark footer-mark" href="./" aria-label="EasyHealth home">easyhealth</a>
         <p>© <span id="year">2026</span> EasyHealth</p>
       </div>
       <nav aria-label="Footer">
@@ -165,7 +136,6 @@
   </footer>
 
   <script src="site-config.js"></script>
-  <script src="assets/reference-authorized/lotties/lottie.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
