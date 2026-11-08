@@ -21,7 +21,7 @@ The application SHALL serve `/landing/how-it-works/` as an EasyHealth-owned page
 #### Scenario: Visitor reads the workflow page
 
 - **WHEN** a visitor opens `/landing/how-it-works/`
-- **THEN** the page describes the EasyHealth document workflow, retains the authored EasyHealth visual composition and local motion affordances, and may use repository-local CSS/SVG illustrations instead of source raster, video, or Lottie assets. It contains no Function branding or unsupported testing, diagnosis, treatment, or disease-monitoring claim
+- **THEN** the page describes the EasyHealth document workflow, retains the authored EasyHealth visual composition and local motion affordances, and uses the supplied repository-local Flutie and Lottie assets with readable CSS/SVG fallbacks. It contains no Function branding or unsupported testing, diagnosis, treatment, or disease-monitoring claim
 
 #### Scenario: Visitor reads sample record content
 
@@ -82,7 +82,7 @@ The retained landing HTML, CSS, JavaScript, JSON, and referenced local assets SH
 
 ### Requirement: Landing preserves motion and accessibility behavior
 
-The landing SHALL preserve keyboard-operable navigation, visible focus indicators, skip navigation, responsive mobile layout without horizontal overflow, hero and monitor pause controls, and local `prefers-reduced-motion` behavior. Core workflow content SHALL remain readable when JavaScript is disabled. Optional motion SHALL use repository-local CSS/SVG behavior or other tracked local assets and SHALL never require an external media request.
+The landing SHALL preserve keyboard-operable navigation, visible focus indicators, skip navigation, responsive mobile layout without horizontal overflow, hero and monitor pause controls, and local `prefers-reduced-motion` behavior. Core workflow content SHALL remain readable when JavaScript is disabled. Optional motion SHALL use repository-local CSS/SVG fallbacks or other tracked local assets, including the supplied Flutie and Lottie compositions, and SHALL never require an external media request.
 
 #### Scenario: Visitor uses the mobile navigation by keyboard
 
