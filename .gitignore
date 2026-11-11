@@ -76,10 +76,13 @@ hachakton.md
 /oh-my-pi
 
 # agents
-# Keep local agent state untracked, but version the shared roadmap QA skill.
+# Keep local agent state untracked, but version shared OpenSpec and project skills.
 .agents/*
+!.agents/
 !.agents/skills/
-.agents/skills/*
+!.agents/skills/openspec-*/
+!.agents/skills/openspec-*/**
+!.agents/skills/.openspec-target
 !.agents/skills/roadmap-qa-checklists/
 !.agents/skills/roadmap-qa-checklists/**
 !.agents/skills/registry-documentation-sync/
