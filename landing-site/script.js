@@ -41,17 +41,14 @@
   const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   let reduceMotion = motionQuery.matches;
   const videosByGroup = new Map();
-  const videoGroupByElement = new WeakMap();
   document.querySelectorAll("[data-landing-video]").forEach((video) => {
     const group = video.dataset.videoGroup || "default";
     if (!videosByGroup.has(group)) videosByGroup.set(group, []);
     videosByGroup.get(group).push(video);
-    videoGroupByElement.set(video, group);
     video.addEventListener("error", () => video.closest(".video-hero, .video-frame, .monitor-video-frame")?.classList.add("is-video-error"));
   });
 
   const userPaused = new Map([...videosByGroup.keys()].map((group) => [group, false]));
-  const videoVisibility = new WeakMap();
   const syncButton = (button, paused, group) => {
     button.setAttribute("aria-pressed", String(paused));
     button.setAttribute("aria-label", `${paused ? "Play" : "Pause"} ${group} video`);
@@ -60,36 +57,20 @@
     if (icon) icon.textContent = paused ? "▶" : "Ⅱ";
     if (label) label.textContent = paused ? "Play video" : "Pause video";
   };
-  const setVideoState = (video, group, forcePaused = false) => {
-    const paused = forcePaused || reduceMotion || userPaused.get(group) || !videoVisibility.get(video);
-    if (paused) video.pause();
-    else video.play().catch(() => {});
-  };
-  const setGroupState = (group, forcePaused) => {
+  const setGroupState = (group, paused) => {
     const videos = videosByGroup.get(group) || [];
-    videos.forEach((video) => setVideoState(video, group, forcePaused));
-    document.querySelectorAll(`[data-video-toggle="${group}"]`).forEach((button) => syncButton(button, forcePaused, group));
-  };
-  const videoObserver = typeof IntersectionObserver === "function"
-    ? new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-          const video = entry.target;
-          const group = videoGroupByElement.get(video);
-          videoVisibility.set(video, entry.isIntersecting);
-          setVideoState(video, group);
-        });
-      }, { threshold: 0.2 })
-    : null;
-  const isInitiallyVisible = (video) => {
-    const bounds = video.getBoundingClientRect();
-    return bounds.bottom > 0 && bounds.top < window.innerHeight;
+    videos.forEach((video) => {
+      if (paused) video.pause();
+      else video.play().catch(() => {});
+    });
+    document.querySelectorAll(`[data-video-toggle="${group}"]`).forEach((button) => syncButton(button, paused, group));
   };
 
   videosByGroup.forEach((videos, group) => {
     videos.forEach((video) => {
-      videoVisibility.set(video, videoObserver ? isInitiallyVisible(video) : true);
-      videoObserver?.observe(video);
-      video.addEventListener("loadeddata", () => setVideoState(video, group));
+      video.addEventListener("loadeddata", () => {
+        if (!reduceMotion && !userPaused.get(group)) video.play().catch(() => {});
+      });
     });
     setGroupState(group, reduceMotion);
   });
