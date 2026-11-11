@@ -1,11 +1,5 @@
-EasyHealth landing media asset record
+EasyHealth landing animation asset record
 
-Authorization: User-requested replacement of the former landing animations with thematic open media.
-Current runtime media:
-- assets/open-source-video/lab-workers.webm: Wikimedia Commons “Stock lab footage.webm” (CDC hematology laboratory footage), Public Domain Mark 1.0. Source: https://commons.wikimedia.org/wiki/File:Stock_lab_footage.webm
-- assets/open-source-video/lab-closeup.webm: Wikimedia Commons “Video laboratorio.webm”, CC0 1.0. Source: https://commons.wikimedia.org/wiki/File:Video_laboratorio.webm
-- assets/open-source-video/biomedical-labs.mp4: NASA “Biomedical Labs” source video. Source: https://www.nasa.gov/video-detail/biomedical-labs/ ; NASA media guidance: https://www.nasa.gov/nasa-brand-center/images-and-media/
-Posters:
-- lab-workers.jpg and lab-closeup.jpg are Wikimedia Commons thumbnails for the corresponding source videos.
-Use: Local-only runtime assets for the public/landing and landing-site mirrors. EasyHealth does not use NASA branding or imply NASA endorsement. Review NASA guidance before any paid or promotional reuse.
-Legacy reference assets remain local for provenance but are no longer loaded by the landing pages.
+Authorization: User-directed transfer of the original landing design into EasyHealth.
+Retained: local Flutie hero media, workflow Lottie animations, and the monitor Lottie animation.
+Use: Local-only runtime assets for the public/landing and landing-site mirrors.
