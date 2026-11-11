@@ -8,6 +8,10 @@ import {
   temperatureForModel,
 } from "../src/lib/ai/model-capabilities";
 import { isWorkerOffline } from "../src/lib/documents/worker-health";
+import {
+  DOCUMENT_PROCESSING_POLL_TIMEOUT_MS,
+  processingPollRemainingMs,
+} from "../src/lib/documents/processing-recovery";
 
 async function main() {
 const staleJobs: ReclaimableJob[] = [
@@ -91,6 +95,21 @@ assert.equal(
   true,
 );
 assert.equal(isWorkerOffline(null, now, 20_000), true);
+const processingStartedAt = Date.parse("2026-07-17T10:00:00.000Z");
+assert.equal(
+  processingPollRemainingMs(
+    processingStartedAt,
+    processingStartedAt + 5 * 60_000 - 1,
+  ),
+  1,
+);
+assert.equal(
+  processingPollRemainingMs(
+    processingStartedAt,
+    processingStartedAt + DOCUMENT_PROCESSING_POLL_TIMEOUT_MS,
+  ),
+  0,
+);
 
 console.log("verify-document-worker-reliability: all checks passed");
 }

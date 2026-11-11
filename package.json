@@ -153,6 +153,7 @@
     "test:eh136": "tsx scripts/verify-eh136-knowledge-base-pages.ts",
     "test:eh132-db": "node scripts/run-supabase-db-tests.mjs QA-Db_tests/eh132_timeline_panel_release.sql",
     "generate:eh132-fixtures": "tsx scripts/generate-eh132-qa-fixtures.mts",
+    "generate:lab-demo-fixtures": "tsx scripts/generate-bilingual-lab-demo-fixtures.tsx",
     "test:eh132-fixtures": "tsx scripts/verify-eh132-qa-fixtures.ts",
     "test:eh130": "tsx scripts/verify-eh130-duplicate-documents.ts",
     "test:eh130-db": "node scripts/run-supabase-db-tests.mjs supabase/tests/eh130_duplicate_document_detection.sql",

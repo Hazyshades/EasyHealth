@@ -82,6 +82,7 @@ import {
   type RejectionReasonCode,
 } from "@/lib/documents/observation-verification-workflow";
 import { summarizeBatchVerificationSelection } from "@/lib/documents/batch-verification-workspace";
+import { processingPollRemainingMs } from "@/lib/documents/processing-recovery";
 
 type DocumentMeta = {
   id: string;
@@ -271,7 +272,6 @@ type WriterActionPayload = {
 };
 
 const PROCESSING_POLL_INTERVAL_MS = 8_000;
-const PROCESSING_POLL_TIMEOUT_MS = 150_000;
 const PAGE_PREVIEW_ERROR = "This page preview could not be loaded.";
 
 function statusVariant(
@@ -632,8 +632,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
 
     const startedAt = processingStartedAt.current ?? Date.now();
     processingStartedAt.current = startedAt;
-    const remainingMs =
-      PROCESSING_POLL_TIMEOUT_MS - (Date.now() - startedAt);
+    const remainingMs = processingPollRemainingMs(startedAt, Date.now());
 
     if (remainingMs <= 0) {
       setProcessingStuck(true);
