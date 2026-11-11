@@ -351,6 +351,17 @@
       "reason": "Review-mode persistence, atomic locks, grants, and mode-aware RPC contracts require pgTAP."
     },
     {
+      "script": "test:upload-reservation-db",
+      "verificationFiles": [
+        "supabase/tests/upload_reservation_document_types.sql"
+      ],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "document-upload",
+      "reason": "Owner upload reservation must accept every uploadable document type through its service-role RPC."
+    },
+    {
       "script": "test:review-modes",
       "verificationFiles": ["scripts/verify-review-modes.ts"],
       "job": "verify",
@@ -533,6 +544,98 @@
       "localOnly": false,
       "owner": "security",
       "reason": "EH-154 fail-closed release gate is available on workflow dispatch and must not be hidden as local-only."
+    },
+    {
+      "script": "test:eh155",
+      "verificationFiles": ["scripts/verify-eh155-structured-retrieval.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "assistant",
+      "reason": "EH-155 structured retrieval is a delivered assistant contract."
+    },
+    {
+      "script": "test:eh156",
+      "verificationFiles": ["scripts/verify-eh156-semantic-retrieval.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "assistant",
+      "reason": "EH-156 semantic retrieval and generation-fenced indexing are delivered assistant contracts."
+    },
+    {
+      "script": "test:eh156-db",
+      "verificationFiles": [
+        "supabase/tests/eh156_assistant_semantic_retrieval.sql"
+      ],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "assistant",
+      "reason": "EH-156 semantic retrieval permissions, indexing, and stale-publication contracts require pgTAP."
+    },
+    {
+      "script": "test:eh157",
+      "verificationFiles": ["scripts/verify-eh157-assistant-safety.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "assistant",
+      "reason": "EH-157 grounded-answer and medical-safety policy is release verification."
+    },
+    {
+      "script": "test:eh158",
+      "verificationFiles": ["scripts/verify-eh158-assistant-evidence.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "assistant",
+      "reason": "EH-158 claim-to-source evidence and citation coverage is release verification."
+    },
+    {
+      "script": "test:eh159",
+      "verificationFiles": ["scripts/verify-eh159-assistant-operations.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "assistant",
+      "reason": "EH-159 assistant quotas, cost, feedback, and privacy-safe telemetry are release verification."
+    },
+    {
+      "script": "test:eh159-db",
+      "verificationFiles": ["supabase/tests/eh159_assistant_operations.sql"],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "assistant",
+      "reason": "EH-159 reservation, quota, cost, and feedback persistence contracts require pgTAP."
+    },
+    {
+      "script": "test:eh160",
+      "verificationFiles": ["scripts/verify-eh160-closed-beta.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "assistant",
+      "reason": "EH-160 closed-beta access, consent, synthetic example, and feedback contracts are release verification."
+    },
+    {
+      "script": "test:eh161",
+      "verificationFiles": ["scripts/verify-eh161-release-readiness.ts"],
+      "job": "verify",
+      "environment": "node-only",
+      "localOnly": false,
+      "owner": "assistant",
+      "reason": "EH-161 release-readiness evidence and pending production gates are release verification."
+    },
+    {
+      "script": "test:eh161-db",
+      "verificationFiles": ["supabase/tests/eh161_assistant_deletion.sql"],
+      "job": "database",
+      "environment": "local-supabase-db",
+      "localOnly": false,
+      "owner": "assistant",
+      "reason": "EH-161 assistant artifact deletion integration requires pgTAP."
     }
   ],
   "localOnly": []

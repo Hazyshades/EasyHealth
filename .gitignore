@@ -98,6 +98,8 @@ supabase/.temp
 
 # local laboratory PDFs; already tracked fixtures remain tracked
 /lab_data/*.pdf
+!/lab_data/data_test_OLD.pdf
+!/lab_data/data_test_NEW.pdf
 
 # test_ruseluts
 test_ruseluts

@@ -11,16 +11,19 @@ export type AiPipelineStage =
   | "extract_vision"
   | "summarize"
   | "report"
-  | "synthesis";
-
+  | "synthesis"
+  | "assistant";
 export type NebiusTier = "nebius_fast" | "nebius_quality";
 
-export function isNebiusProvider(provider: AiProviderId): provider is NebiusTier {
+export function isNebiusProvider(
+  provider: AiProviderId,
+): provider is NebiusTier {
   return provider === "nebius_fast" || provider === "nebius_quality";
 }
 
 export type AiInvocationRow = {
   profile_id: string;
+  request_id?: string | null;
   document_id: string | null;
   stage: AiPipelineStage | string;
   provider: AiProviderId | string;
@@ -31,4 +34,5 @@ export type AiInvocationRow = {
   success: boolean;
   error_code: string | null;
   provider_switch: boolean;
+  estimated_cost_usd?: number | null;
 };

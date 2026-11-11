@@ -5,11 +5,14 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+RUN corepack enable && corepack install --global pnpm@9.15.4
 
 COPY package.json pnpm-lock.yaml ./
-COPY worker/package.json worker/
+RUN pnpm install --frozen-lockfile
 
-RUN corepack enable && pnpm install --filter easyhealth... --filter easyhealth-document-worker... || pnpm install
+COPY worker/package.json worker/pnpm-lock.yaml worker/
+RUN pnpm --dir worker install --frozen-lockfile
+RUN pnpm prune --prod
 
 COPY . .
 

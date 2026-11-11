@@ -10,6 +10,7 @@ import {
 } from "./deletion-cleanup.js";
 import { cleanupShareLinkState } from "./share-link-cleanup.js";
 import { sweepExpiredStorageIntents } from "./storage-orphan-sweeper.js";
+import { processOneAssistantReindexJob } from "./assistant-reindex.js";
 
 type JobRow = {
   id: string;
@@ -332,6 +333,14 @@ async function tick() {
   }
 
   await cleanupShareLinkState();
+  try {
+    await processOneAssistantReindexJob();
+  } catch (error) {
+    console.error(
+      "Assistant semantic reindex error:",
+      error instanceof Error ? error.message : error,
+    );
+  }
 
   const job = await claimJob();
   if (job) await processJob(job);

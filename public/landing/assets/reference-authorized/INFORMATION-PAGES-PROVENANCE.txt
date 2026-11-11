@@ -1,0 +1,5 @@
+EasyHealth landing transfer note
+
+Retained pages: the root landing and the EasyHealth-owned how-it-works page.
+Excluded: source-only information pages and unrelated source-site assets.
+Runtime references are local and mirrored in public/landing and landing-site.
