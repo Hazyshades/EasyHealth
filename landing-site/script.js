@@ -70,29 +70,42 @@
     videos.forEach((video) => setVideoState(video, group, forcePaused));
     document.querySelectorAll(`[data-video-toggle="${group}"]`).forEach((button) => syncButton(button, forcePaused, group));
   };
+  const videoVisibilityThreshold = 0.2;
   const videoObserver = typeof IntersectionObserver === "function"
     ? new IntersectionObserver((entries) => {
         entries.forEach((entry) => {
           const video = entry.target;
           const group = videoGroupByElement.get(video);
-          videoVisibility.set(video, entry.isIntersecting);
+          videoVisibility.set(video, entry.intersectionRatio >= videoVisibilityThreshold);
           setVideoState(video, group);
         });
-      }, { threshold: 0.2 })
+      }, { threshold: videoVisibilityThreshold })
     : null;
   const isInitiallyVisible = (video) => {
     const bounds = video.getBoundingClientRect();
     return bounds.bottom > 0 && bounds.top < window.innerHeight;
   };
+  const updateVisibility = () => {
+    videosByGroup.forEach((videos, group) => {
+      videos.forEach((video) => {
+        videoVisibility.set(video, isInitiallyVisible(video));
+        setVideoState(video, group);
+      });
+    });
+  };
 
   videosByGroup.forEach((videos, group) => {
     videos.forEach((video) => {
-      videoVisibility.set(video, videoObserver ? isInitiallyVisible(video) : true);
+      videoVisibility.set(video, isInitiallyVisible(video));
       videoObserver?.observe(video);
       video.addEventListener("loadeddata", () => setVideoState(video, group));
     });
     setGroupState(group, reduceMotion);
   });
+  if (!videoObserver) {
+    window.addEventListener("scroll", updateVisibility, { passive: true });
+    window.addEventListener("resize", updateVisibility);
+  }
 
   document.querySelectorAll("[data-video-toggle]").forEach((button) => {
     const group = button.dataset.videoToggle;
