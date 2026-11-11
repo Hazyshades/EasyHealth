@@ -37,134 +37,61 @@
       if (event.target.closest("a")) closeMenu();
     });
   }
+
   const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   let reduceMotion = motionQuery.matches;
-  const flutieRoot = document.querySelector("[data-flutie-hero]");
-  const loadFlutie = () => {
-    if (!flutieRoot || flutieRoot.dataset.flutieRequested === "true") return;
-    flutieRoot.dataset.flutieRequested = "true";
-    import("./assets/reference-authorized/flutie/FlutieHero.astro_astro_type_script_index_0_lang.BmV3fnua.js").catch((error) => {
-      flutieRoot.classList.add("is-static");
-      console.error("Failed to load hero motion", error);
-    });
+  const videosByGroup = new Map();
+  document.querySelectorAll("[data-landing-video]").forEach((video) => {
+    const group = video.dataset.videoGroup || "default";
+    if (!videosByGroup.has(group)) videosByGroup.set(group, []);
+    videosByGroup.get(group).push(video);
+    video.addEventListener("error", () => video.closest(".video-hero, .video-frame, .monitor-video-frame")?.classList.add("is-video-error"));
+  });
+
+  const userPaused = new Map([...videosByGroup.keys()].map((group) => [group, false]));
+  const syncButton = (button, paused, group) => {
+    button.setAttribute("aria-pressed", String(paused));
+    button.setAttribute("aria-label", `${paused ? "Play" : "Pause"} ${group} video`);
+    const icon = button.querySelector("span");
+    const label = button.querySelector("b");
+    if (icon) icon.textContent = paused ? "▶" : "Ⅱ";
+    if (label) label.textContent = paused ? "Play video" : "Pause video";
   };
-  if (flutieRoot) {
-    flutieRoot.classList.toggle("is-static", reduceMotion);
-    if (!reduceMotion) loadFlutie();
-    motionQuery.addEventListener("change", ({ matches }) => {
-      reduceMotion = matches;
-      flutieRoot.classList.toggle("is-static", matches);
-      if (!matches) loadFlutie();
+  const setGroupState = (group, paused) => {
+    const videos = videosByGroup.get(group) || [];
+    videos.forEach((video) => {
+      if (paused) video.pause();
+      else video.play().catch(() => {});
     });
-  }
-  const flutieControl = document.querySelector(".flute-play-pause-button");
-  if (flutieRoot && flutieControl) {
-    flutieRoot.addEventListener("flutiehero:playback-change", ({ detail }) => {
-      const isPlaying = detail.isPlaying;
-      flutieControl.setAttribute("aria-pressed", String(!isPlaying));
-      flutieControl.setAttribute("aria-label", isPlaying ? "Pause hero motion" : "Play hero motion");
+    document.querySelectorAll(`[data-video-toggle="${group}"]`).forEach((button) => syncButton(button, paused, group));
+  };
+
+  videosByGroup.forEach((videos, group) => {
+    videos.forEach((video) => {
+      video.addEventListener("loadeddata", () => {
+        if (!reduceMotion && !userPaused.get(group)) video.play().catch(() => {});
+      });
     });
-  }
-  if (window.lottie) {
-    const players = new Map();
-    const workflowPlayers = [];
-    const workflowVisibility = new WeakMap();
-    let workflowPaused = reduceMotion;
-    let workflowUserPaused = false;
-    const mountAnimation = (element) => {
-      if (players.has(element)) return players.get(element);
-      const player = window.lottie.loadAnimation({
-        container: element,
-        renderer: "svg",
-        loop: true,
-        autoplay: false,
-        path: element.dataset.lottie,
-        rendererSettings: { preserveAspectRatio: "xMidYMid meet" },
-      });
-      players.set(element, player);
-      player.addEventListener("DOMLoaded", () => {
-        element.classList.add("is-lottie-ready");
-        if (element.classList.contains("workflow-animation")) document.querySelector(".workflow-controls")?.classList.add("is-lottie-ready");
-        if (element.classList.contains("monitor-animation")) document.querySelector("#monitor-motion-toggle")?.classList.add("is-lottie-ready");
-        if (reduceMotion) player.goToAndStop(0, true);
-      });
-      return player;
-    };
-    const setWorkflowState = (nextPaused) => {
-      workflowPaused = nextPaused;
-      const workflowToggle = document.querySelector("#workflow-motion-toggle");
-      workflowToggle?.setAttribute("aria-pressed", String(workflowPaused));
-      workflowToggle?.setAttribute("aria-label", workflowPaused ? "Play workflow motion" : "Pause workflow motion");
-      const icon = workflowToggle?.querySelector("span");
-      const label = workflowToggle?.querySelector("b");
-      if (icon) icon.textContent = workflowPaused ? "▶" : "Ⅱ";
-      if (label) label.textContent = workflowPaused ? "Play animations" : "Pause animations";
-      workflowPlayers.forEach(({ element, player }) => (workflowPaused || !workflowVisibility.get(element) ? player.pause() : player.play()));
-    };
-    document.querySelectorAll(".workflow-animation[data-lottie]").forEach((element) => {
-      const player = mountAnimation(element);
-      workflowPlayers.push({ element, player });
-      workflowVisibility.set(element, false);
+    setGroupState(group, reduceMotion);
+  });
 
-      const observer = new IntersectionObserver(
-        ([entry]) => {
-          workflowVisibility.set(element, entry.isIntersecting);
-          if (entry.isIntersecting && !workflowPaused) player.play();
-          else player.pause();
-        },
-        { threshold: 0.35 },
-      );
-      observer.observe(element);
+  document.querySelectorAll("[data-video-toggle]").forEach((button) => {
+    const group = button.dataset.videoToggle;
+    if (!videosByGroup.has(group)) return;
+    button.addEventListener("click", () => {
+      if (reduceMotion) return;
+      userPaused.set(group, !userPaused.get(group));
+      setGroupState(group, userPaused.get(group));
     });
-    const workflowToggle = document.querySelector("#workflow-motion-toggle");
-    if (workflowToggle && workflowPlayers.length) {
-      setWorkflowState(reduceMotion || workflowUserPaused);
-      workflowToggle.addEventListener("click", () => {
-        if (!reduceMotion) workflowUserPaused = !workflowUserPaused;
-        setWorkflowState(reduceMotion || workflowUserPaused);
-      });
-      motionQuery.addEventListener("change", ({ matches }) => {
-        setWorkflowState(matches || workflowUserPaused);
-      });
-    }
-    const monitorAnimation = document.querySelector(".monitor-animation");
-    const monitorToggle = document.querySelector("#monitor-motion-toggle");
-    const monitorMarquees = document.querySelector(".monitor-marquees");
-    if (monitorAnimation && monitorToggle) {
-      const monitorPlayer = mountAnimation(monitorAnimation);
-      let paused = reduceMotion;
-      let monitorUserPaused = false;
-      let monitorVisible = false;
-      const setMonitorState = (nextPaused) => {
-        paused = nextPaused;
-        monitorMarquees?.classList.toggle("is-paused", paused);
-        monitorToggle.setAttribute("aria-pressed", String(paused));
-        monitorToggle.setAttribute("aria-label", paused ? "Play motion" : "Pause motion");
-        monitorToggle.querySelector("span").textContent = paused ? "▶" : "Ⅱ";
-        monitorToggle.querySelector("b").textContent = paused ? "Play motion" : "Pause motion";
-        if (paused || !monitorVisible) monitorPlayer.pause();
-        else monitorPlayer.play();
-      };
-      setMonitorState(reduceMotion || monitorUserPaused);
-      const observer = new IntersectionObserver(
-        ([entry]) => {
-          monitorVisible = entry.isIntersecting;
-          if (monitorVisible && !paused) monitorPlayer.play();
-          else monitorPlayer.pause();
-        },
-        { threshold: 0.25 },
-      );
-      observer.observe(monitorAnimation);
-      monitorToggle.addEventListener("click", () => {
-        if (!reduceMotion) monitorUserPaused = !monitorUserPaused;
-        setMonitorState(reduceMotion || monitorUserPaused);
-      });
-      motionQuery.addEventListener("change", ({ matches }) => {
-        setMonitorState(matches || monitorUserPaused);
-      });
-    }
-  }
+  });
 
+  const applyMotionPreference = ({ matches }) => {
+    reduceMotion = matches;
+    videosByGroup.forEach((_, group) => setGroupState(group, matches || userPaused.get(group)));
+  };
+  if (typeof motionQuery.addEventListener === "function") motionQuery.addEventListener("change", applyMotionPreference);
+  else motionQuery.addListener(applyMotionPreference);
 
-  document.querySelector("#year").textContent = String(new Date().getFullYear());
+  const year = document.querySelector("#year");
+  if (year) year.textContent = String(new Date().getFullYear());
 })();

@@ -41,32 +41,33 @@
           <p>EasyHealth helps you organize supported medical documents, review extracted information against the original source, and return to the history later.</p>
         </div>
         <div class="workflow-controls">
-          <button id="workflow-motion-toggle" class="workflow-motion-toggle" type="button" aria-pressed="false" aria-label="Pause workflow motion"><span aria-hidden="true">Ⅱ</span><b>Pause animations</b></button>
+          <button id="workflow-motion-toggle" class="workflow-motion-toggle" data-video-toggle="workflow" type="button" aria-pressed="false" aria-label="Pause workflow videos"><span aria-hidden="true">Ⅱ</span><b>Pause videos</b></button>
         </div>
+        <p class="video-disclosure">Open-source laboratory footage used as an illustrative visual. It is not medical data.</p>
 
         <div class="three-grid">
           <article class="info-card">
             <span>01</span>
             <h2>Upload</h2>
             <p>Add a supported medical document when you want it organized with the rest of your record.</p>
-            <div class="workflow-animation" data-lottie="assets/reference-authorized/lotties/schedule-new.json" role="img" aria-label="Animated scheduling illustration">
-              <div class="lottie-fallback calendar-frame" aria-hidden="true"><b>7</b><i></i><i></i><i></i></div>
+            <div class="workflow-animation video-frame" data-video-group="workflow" role="img" aria-label="Open-source close-up of laboratory work">
+              <video class="landing-video workflow-video" data-landing-video data-video-group="workflow" autoplay muted loop playsinline preload="metadata" poster="assets/open-source-video/lab-closeup.jpg" aria-hidden="true"><source src="assets/open-source-video/lab-closeup.webm" type="video/webm"></video>
             </div>
           </article>
           <article class="info-card">
             <span>02</span>
             <h2>Review</h2>
             <p>Read extracted details next to their source context so you can check what came from where.</p>
-            <div class="workflow-animation" data-lottie="assets/reference-authorized/lotties/results.json" role="img" aria-label="Animated results illustration">
-              <div class="lottie-fallback chart-frame" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="workflow-animation video-frame" data-video-group="workflow" role="img" aria-label="Open-source video of workers in a hematology laboratory">
+              <video class="landing-video workflow-video" data-landing-video data-video-group="workflow" autoplay muted loop playsinline preload="metadata" poster="assets/open-source-video/lab-workers.jpg" aria-hidden="true"><source src="assets/open-source-video/lab-workers.webm" type="video/webm"></video>
             </div>
           </article>
           <article class="info-card">
             <span>03</span>
             <h2>Track</h2>
             <p>Return to biomarker history and documents over time as your record grows.</p>
-            <div class="workflow-animation" data-lottie="assets/reference-authorized/lotties/action-new.json" role="img" aria-label="Animated history tracking illustration">
-              <div class="lottie-fallback plan-frame" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="workflow-animation video-frame" data-video-group="workflow" role="img" aria-label="Open-source video of biomedical laboratory research">
+              <video class="landing-video workflow-video" data-landing-video data-video-group="workflow" autoplay muted loop playsinline preload="metadata" aria-hidden="true"><source src="assets/open-source-video/biomedical-labs.mp4" type="video/mp4"></video>
             </div>
           </article>
         </div>
@@ -84,22 +85,14 @@
           </ul>
         </header>
         <div class="monitor-visual">
-          <div class="monitor-marquees" aria-label="Record details tracked over time">
-            <div class="monitor-marquee" data-direction="forward"><div class="monitor-track">
-              <span>Source context</span><span>Review status</span><span>Document history</span><span>Biomarker history</span><span>Latest result</span><span>Earlier result</span>
-              <span aria-hidden="true">Source context</span><span aria-hidden="true">Review status</span><span aria-hidden="true">Document history</span><span aria-hidden="true">Biomarker history</span><span aria-hidden="true">Latest result</span><span aria-hidden="true">Earlier result</span>
-            </div></div>
-            <div class="monitor-marquee reverse" data-direction="reverse"><div class="monitor-track">
-              <span>Lab results</span><span>Imaging reports</span><span>Consultation notes</span><span>Discharge summaries</span><span>Prescriptions</span><span>Referrals</span>
-              <span aria-hidden="true">Lab results</span><span aria-hidden="true">Imaging reports</span><span aria-hidden="true">Consultation notes</span><span aria-hidden="true">Discharge summaries</span><span aria-hidden="true">Prescriptions</span><span aria-hidden="true">Referrals</span>
-            </div></div>
-          </div>
-          <div class="monitor-focus">
-            <div class="monitor-animation" data-lottie="assets/reference-authorized/monitor/tracked-over-a-lifetime.json" role="img" aria-label="Illustrative chart showing values tracked over time">
-              <div class="monitor-chart-fallback" aria-hidden="true"><span>Below range</span><i></i><i></i><i></i><b></b></div>
+          <div class="monitor-focus video-focus">
+            <div class="monitor-video-frame" role="img" aria-label="Open-source video of biomedical laboratory research">
+              <video class="landing-video monitor-video" data-landing-video data-video-group="monitor" autoplay muted loop playsinline preload="metadata" aria-hidden="true">
+                <source src="assets/open-source-video/biomedical-labs.mp4" type="video/mp4">
+              </video>
             </div>
-            <p class="animation-disclosure">Illustrative example, not medical data.</p>
-            <button id="monitor-motion-toggle" class="monitor-motion-toggle" type="button" aria-pressed="false" aria-label="Pause motion"><span aria-hidden="true">Ⅱ</span><b>Pause motion</b></button>
+            <p class="animation-disclosure">Open-source laboratory footage. Illustrative only, not medical data.</p>
+            <button id="monitor-motion-toggle" class="monitor-motion-toggle" data-video-toggle="monitor" type="button" aria-pressed="false" aria-label="Pause monitor video"><span aria-hidden="true">Ⅱ</span><b>Pause video</b></button>
           </div>
         </div>
       </div>
@@ -165,7 +158,6 @@
   </footer>
 
   <script src="site-config.js"></script>
-  <script src="assets/reference-authorized/lotties/lottie.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
