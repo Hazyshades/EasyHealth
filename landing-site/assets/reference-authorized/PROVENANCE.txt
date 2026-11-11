@@ -1,5 +1,6 @@
-EasyHealth landing animation asset record
+EasyHealth landing asset record
 
 Authorization: User-directed transfer of the original landing design into EasyHealth.
-Retained: local Flutie hero media, workflow Lottie animations, and the monitor Lottie animation.
-Use: Local-only runtime assets for the public/landing and landing-site mirrors.
+Used by the current landing: the local hero image.
+Legacy files retained: the former Flutie and Lottie animation assets remain tracked for provenance but are not referenced by the current pages.
+Use: All landing media references remain repository-local.
