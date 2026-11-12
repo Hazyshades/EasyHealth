@@ -4,3 +4,8 @@
     min-height: 100svh;
   }
 }
+
+.flute-container {
+  transform: scaleX(-1);
+  transform-origin: center;
+}

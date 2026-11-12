@@ -5,9 +5,8 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { getAuthCallbackErrorMessage } from "@/lib/auth/callback-redirect";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
+import styles from "./auth-entry-page.module.css";
 
 function AuthEntryContent() {
   const router = useRouter();
@@ -64,185 +63,129 @@ function AuthEntryContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-teal-50 to-white">
+    <div className={styles.page}>
       {visibleAuthError ? (
-        <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-          <p className="font-medium">Sign-in error</p>
-          <p className="mt-2 whitespace-pre-wrap font-sans text-xs">
-            {visibleAuthError}
-          </p>
+        <div className={styles.errorBanner} role="alert">
+          <p className={styles.errorTitle}>Sign-in error</p>
+          <p className={styles.errorMessage}>{visibleAuthError}</p>
         </div>
       ) : null}
-      <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-6">
-        <span className="text-xl font-bold text-teal-800">EasyHealth</span>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/knowledge"
-            className="rounded-md px-3 py-2 text-sm font-medium text-teal-800 hover:bg-teal-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2"
-          >
-            Knowledge Base
-          </Link>
-          {profileReady ? (
-            <Button asChild>
-              <Link href="/app">Open dashboard</Link>
-            </Button>
-          ) : authUserId ? (
-            <Button onClick={() => void handleProfileRetry()} disabled={profileRetrying}>
-              {profileRetrying ? "Checking profile…" : "Retry profile"}
-            </Button>
-          ) : (
-            <Button
-              onClick={async () => {
-                try {
-                  await signInWithGoogle();
-                } catch (e) {
-                  console.error(e);
-                  alert(e instanceof Error ? e.message : "Sign-in failed");
-                }
-              }}
-              disabled={loading}
-            >
-              {loading ? "Loading…" : "Get started"}
-            </Button>
-          )}
-        </div>
+
+      <header className={styles.header}>
+        <Link href="/" className={styles.wordmark} aria-label="EasyHealth home">
+          <span className={styles.wordmarkMark} aria-hidden="true">
+            E
+          </span>
+          <span>easyhealth</span>
+        </Link>
+        <Link href="/" className={styles.headerLink}>
+          Back to home
+        </Link>
       </header>
 
-      <main className="mx-auto max-w-4xl px-4 pb-16 pt-8 text-center">
-        <p className="mb-3 text-sm font-medium uppercase tracking-wide text-teal-600">
-          Wellness · EU/US
-        </p>
-        <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
-          AI-powered personal health record
-        </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-600">
-          Upload lab results, extract biomarkers automatically, track changes
-          over time, and generate educational clinician-ready summaries — free
-          for your account.
-        </p>
-        <div className="mt-10 flex flex-wrap justify-center gap-4">
-          {profileReady ? (
-            <Button asChild size="lg">
-              <Link href="/app/upload?type=lab_result">Upload a lab</Link>
-            </Button>
-          ) : authUserId ? (
-            <Button size="lg" onClick={() => void handleProfileRetry()} disabled={profileRetrying}>
-              {profileRetrying ? "Checking profile…" : "Retry profile"}
-            </Button>
-          ) : (
-            <Button
-              size="lg"
-              onClick={async () => {
-                try {
-                  await signInWithGoogle();
-                } catch (e) {
-                  console.error(e);
-                  alert(e instanceof Error ? e.message : "Sign-in failed");
-                }
-              }}
-              disabled={loading}
-            >
-              Sign in with Google
-            </Button>
-          )}
-          <Button asChild size="lg" variant="outline">
-            <Link href="/app/profile">Health Profile</Link>
-          </Button>
-          <Button asChild size="lg" variant="outline">
-            <Link href="/app/biomarkers">Biomarkers</Link>
-          </Button>
-          <Button asChild size="lg" variant="outline">
-            <Link href="/app/reports">Health reports</Link>
-          </Button>
-        </div>
+      <main className={styles.main}>
+        <div className={styles.authLayout}>
+          <section className={styles.intro} aria-labelledby="login-heading">
+            <p className={styles.kicker}>Your personal health record</p>
+            <h1 id="login-heading" className={styles.title}>
+              Keep your health history together.
+            </h1>
+            <p className={styles.lede}>
+              Return to your source-linked record and continue where you left
+              off.
+            </p>
+          </section>
 
-        {!authUserId ? (
-          <form
-            onSubmit={handleMagicLink}
-            className="mx-auto mt-8 flex max-w-md flex-col gap-3 rounded-xl border bg-white p-6 text-left shadow-sm"
+          <section
+            className={styles.authCard}
+            aria-labelledby="sign-in-heading"
           >
-            <p className="text-sm font-medium text-slate-800">
-              Or continue with email
+            <p className={styles.cardKicker}>Welcome back</p>
+            <h2 id="sign-in-heading" className={styles.cardTitle}>
+              Sign in
+            </h2>
+            <p className={styles.cardCopy}>
+              Use Google or an email magic link to open your record.
             </p>
-            <p className="text-xs text-muted-foreground">
-              We will send a magic link — no password required.
-            </p>
-            <Input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              autoComplete="email"
-              className="rounded-xl"
-            />
-            {emailError ? (
-              <p className="text-sm text-red-600">{emailError}</p>
-            ) : null}
-            <Button
-              type="submit"
-              disabled={emailSending || loading}
-              className="rounded-xl"
-            >
-              {emailSending ? "Sending link…" : "Email me a magic link"}
-            </Button>
-          </form>
-        ) : null}
 
-        <section className="mt-20 grid gap-8 text-left sm:grid-cols-3">
-          {[
-            {
-              step: "1",
-              title: "Sign in",
-              text: "Google or email magic link. Your health data stays tied to your account.",
-            },
-            {
-              step: "2",
-              title: "Upload free",
-              text: "Drop a lab PDF or image. OCR extracts biomarkers automatically.",
-            },
-            {
-              step: "3",
-              title: "Insights on demand",
-              text: "View your health profile, biomarker trends, and educational reports anytime.",
-            },
-          ].map((item) => (
-            <div
-              key={item.step}
-              className="rounded-xl border bg-white p-6 shadow-sm"
-            >
-              <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-teal-100 text-sm font-bold text-teal-800">
-                {item.step}
+            {!authUserId ? (
+              <>
+                <button
+                  type="button"
+                  className={styles.googleButton}
+                  onClick={async () => {
+                    try {
+                      await signInWithGoogle();
+                    } catch (e) {
+                      console.error(e);
+                      alert(e instanceof Error ? e.message : "Sign-in failed");
+                    }
+                  }}
+                  disabled={loading}
+                >
+                  {loading ? "Loading…" : "Sign in with Google"}
+                </button>
+
+                <div className={styles.divider} aria-hidden="true">
+                  <span>or</span>
+                </div>
+
+                <form onSubmit={handleMagicLink} className={styles.form}>
+                  <label htmlFor="email" className={styles.label}>
+                    Email address
+                  </label>
+                  <Input
+                    id="email"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    className={styles.input}
+                  />
+                  {emailError ? (
+                    <p className={styles.emailError}>{emailError}</p>
+                  ) : null}
+                  <button
+                    type="submit"
+                    className={styles.emailButton}
+                    disabled={emailSending || loading}
+                  >
+                    {emailSending ? "Sending link…" : "Email me a magic link"}
+                  </button>
+                </form>
+              </>
+            ) : profileReady ? (
+              <div className={styles.accountState}>
+                <p>Your account is ready.</p>
+                <Link href="/app" className={styles.primaryLink}>
+                  Open dashboard
+                </Link>
               </div>
-              <h3 className="font-semibold">{item.title}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{item.text}</p>
-            </div>
-          ))}
-        </section>
+            ) : (
+              <div className={styles.accountState}>
+                <p>Your account needs one more check before you continue.</p>
+                <button
+                  type="button"
+                  className={styles.emailButton}
+                  onClick={() => void handleProfileRetry()}
+                  disabled={profileRetrying}
+                >
+                  {profileRetrying ? "Checking profile…" : "Retry profile"}
+                </button>
+              </div>
+            )}
+          </section>
+        </div>
       </main>
-
-      <footer className="border-t bg-white px-4 py-8 text-center text-xs text-muted-foreground">
-        <p className="font-medium">
-          {MEDICAL_DISCLAIMER} For educational purposes only.
-        </p>
-        <p className="mt-2">Health data encrypted.</p>
-        <p className="mt-2">
-          GDPR-aware: you control your data. EU/US wellness positioning.
-        </p>
-      </footer>
     </div>
   );
 }
 
 export default function AuthEntryPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
-          Loading…
-        </div>
-      }
-    >
+    <Suspense fallback={<div className={styles.loading}>Loading…</div>}>
       <AuthEntryContent />
     </Suspense>
   );
