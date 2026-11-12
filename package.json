@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/next-server.mjs --dev",
-    "build": "next build --turbopack",
+    "build": "next build",
     "start": "node scripts/next-server.mjs",
     "typecheck": "tsc --noEmit",
     "typecheck:worker": "pnpm --dir worker exec tsc --noEmit",
