@@ -12,5 +12,10 @@
       rgba(11, 9, 7, 0.22) 63%,
       rgba(11, 9, 7, 0.1)
     ),
-    url("video/posters/meditate-nature.png");
+    url("video/posters/meditate-nature-mirrored.svg");
+}
+
+.flute-canvas.is-mirrored-slide {
+  transform: scaleX(-1);
+  transform-origin: center;
 }
