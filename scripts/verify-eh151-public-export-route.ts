@@ -4,7 +4,7 @@ import type {
   handlePublicShareExport,
   PublicExportRouteDependencies,
   PublicExportRouteContext,
-} from "../src/app/api/share/[token]/export/route";
+} from "../src/lib/share-links/public-export-route";
 import type {
   AuthorizedShareRead,
   ShareLookup,
@@ -125,7 +125,7 @@ async function main(): Promise<void> {
   process.env.SKIP_ENV_VALIDATION = "1";
   // These route modules validate server environment variables at import time;
   // lazy loading keeps this fixture independent of developer secrets.
-  const route = await import("../src/app/api/share/[token]/export/route");
+  const route = await import("../src/lib/share-links/public-export-route");
   const authorization = await import("../src/lib/share-links/authorization");
   const reportExport = await import("../src/lib/report-export");
   const publicExportActions = await import(
