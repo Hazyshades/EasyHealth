@@ -5,7 +5,12 @@
   }
 }
 
-.flute-container {
-  transform: scaleX(-1);
-  transform-origin: center;
+.hero {
+  background-image: linear-gradient(
+      90deg,
+      rgba(11, 9, 7, 0.72),
+      rgba(11, 9, 7, 0.22) 63%,
+      rgba(11, 9, 7, 0.1)
+    ),
+    url("video/posters/meditate-nature.png");
 }
