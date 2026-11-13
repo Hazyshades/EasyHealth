@@ -30,8 +30,3 @@
     display: none;
   }
 }
-
-.flute-canvas.is-mirrored-slide {
-  transform: scaleX(-1);
-  transform-origin: center;
-}
