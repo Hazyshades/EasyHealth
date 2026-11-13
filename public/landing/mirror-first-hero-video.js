@@ -18,7 +18,14 @@
       .filter(Boolean)
       .map((source) => source.split("/").pop()),
   );
-  if (!mirroredNames.size) return;
+  const mirroredPosterNames = new Set(
+    (config.manifest?.slides || [])
+      .filter((slide) => slide.mirror === true || slide.mirror === "horizontal")
+      .flatMap((slide) => [slide.poster?.desktop, slide.poster?.mobile])
+      .filter(Boolean)
+      .map((source) => source.split("/").pop()),
+  );
+  if (!mirroredNames.size && !mirroredPosterNames.size) return;
 
   const states = new WeakMap();
   const textureMirrors = new WeakMap();
@@ -30,10 +37,12 @@
     }
     return state;
   };
-  const isMirroredVideo = (source) => {
-    if (typeof HTMLVideoElement === "undefined" || !(source instanceof HTMLVideoElement)) return false;
+  const isMirroredAsset = (source) => {
+    const isVideo = typeof HTMLVideoElement !== "undefined" && source instanceof HTMLVideoElement;
+    const isImage = typeof HTMLImageElement !== "undefined" && source instanceof HTMLImageElement;
+    if (!isVideo && !isImage) return false;
     const url = source.currentSrc || source.src || "";
-    return [...mirroredNames].some((name) => url.endsWith(name) || url.includes(name));
+    return [...mirroredNames, ...mirroredPosterNames].some((name) => url.endsWith(name) || url.includes(name));
   };
 
   const prototype = WebGLRenderingContext.prototype;
@@ -56,7 +65,7 @@
     const state = stateFor(this);
     const source = args.length === 6 ? args[5] : args[8];
     const texture = state.boundTextures.get(state.activeUnit);
-    if (texture && source) textureMirrors.set(texture, isMirroredVideo(source));
+    if (texture && source) textureMirrors.set(texture, isMirroredAsset(source));
     return texImage2D.apply(this, args);
   };
   prototype.drawArrays = function (...args) {
