@@ -1,5 +1,62 @@
 -- EH-170: retention workers use audited, service-role-only deletion transitions.
 
+create or replace function public.eh170_retention_list_audio_candidates(
+  p_before timestamptz
+)
+returns table (
+  recording_id uuid,
+  storage_path text
+)
+language sql
+security definer
+set search_path = public, pg_temp
+as $$
+  select recordings.id, recordings.storage_path
+  from public.recording_sessions as recordings
+  where recordings.source_audio_deleted_at is null
+    and recordings.storage_path is not null
+    and recordings.uploaded_at < p_before
+    and recordings.status not in ('cancelled', 'deleted')
+  order by recordings.uploaded_at
+  limit 25;
+$$;
+
+create or replace function public.eh170_retention_list_transcript_candidates(
+  p_before timestamptz
+)
+returns table (
+  transcript_id uuid
+)
+language sql
+security definer
+set search_path = public, pg_temp
+as $$
+  select transcripts.id
+  from public.transcript_drafts as transcripts
+  where transcripts.status in ('ready', 'failed')
+    and transcripts.updated_at < p_before
+  order by transcripts.updated_at
+  limit 25;
+$$;
+
+create or replace function public.eh170_retention_list_note_candidates(
+  p_before timestamptz
+)
+returns table (
+  revision_id uuid
+)
+language sql
+security definer
+set search_path = public, pg_temp
+as $$
+  select revisions.id
+  from public.consultation_note_revisions as revisions
+  where revisions.status in ('draft', 'reviewed', 'superseded')
+    and revisions.updated_at < p_before
+  order by revisions.updated_at
+  limit 25;
+$$;
+
 create or replace function public.eh170_retention_mark_audio_deleted(
   p_actor_profile_id uuid,
   p_recording_id uuid
@@ -145,6 +202,18 @@ begin
 end;
 $$;
 
+revoke all on function public.eh170_retention_list_audio_candidates(timestamptz)
+  from public, anon, authenticated;
+grant execute on function public.eh170_retention_list_audio_candidates(timestamptz)
+  to service_role;
+revoke all on function public.eh170_retention_list_transcript_candidates(timestamptz)
+  from public, anon, authenticated;
+grant execute on function public.eh170_retention_list_transcript_candidates(timestamptz)
+  to service_role;
+revoke all on function public.eh170_retention_list_note_candidates(timestamptz)
+  from public, anon, authenticated;
+grant execute on function public.eh170_retention_list_note_candidates(timestamptz)
+  to service_role;
 revoke all on function public.eh170_retention_mark_audio_deleted(uuid, uuid)
   from public, anon, authenticated;
 grant execute on function public.eh170_retention_mark_audio_deleted(uuid, uuid)

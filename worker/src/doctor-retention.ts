@@ -22,14 +22,10 @@ export async function processDoctorRetention(): Promise<number> {
   let deleted = 0;
 
   const audioBefore = cutoff(workerEnv.eh170RecordingRetentionDays);
-  const { data: recordings, error: recordingsError } = await supabase
-    .from("recording_sessions")
-    .select("id, storage_path")
-    .is("source_audio_deleted_at", null)
-    .not("storage_path", "is", null)
-    .lt("uploaded_at", audioBefore)
-    .not("status", "in", "(cancelled,deleted)")
-    .limit(25);
+  const { data: recordings, error: recordingsError } = await supabase.rpc(
+    "eh170_retention_list_audio_candidates",
+    { p_before: audioBefore },
+  );
   if (recordingsError)
     throw new Error(
       `Dictaphone audio retention query failed: ${recordingsError.message}`,
@@ -49,7 +45,7 @@ export async function processDoctorRetention(): Promise<number> {
     }
     const { error } = await supabase.rpc("eh170_retention_mark_audio_deleted", {
       p_actor_profile_id: actor,
-      p_recording_id: recording.id,
+      p_recording_id: recording.recording_id,
     });
     if (error) {
       console.error(
@@ -62,12 +58,10 @@ export async function processDoctorRetention(): Promise<number> {
   }
 
   const transcriptBefore = cutoff(workerEnv.eh170TranscriptRetentionDays);
-  const { data: transcripts, error: transcriptsError } = await supabase
-    .from("transcript_drafts")
-    .select("id")
-    .in("status", ["ready", "failed"])
-    .lt("updated_at", transcriptBefore)
-    .limit(25);
+  const { data: transcripts, error: transcriptsError } = await supabase.rpc(
+    "eh170_retention_list_transcript_candidates",
+    { p_before: transcriptBefore },
+  );
   if (transcriptsError)
     throw new Error(
       `Dictaphone transcript retention query failed: ${transcriptsError.message}`,
@@ -75,7 +69,7 @@ export async function processDoctorRetention(): Promise<number> {
   for (const transcript of transcripts ?? []) {
     const { error } = await supabase.rpc("eh170_retention_delete_transcript", {
       p_actor_profile_id: actor,
-      p_transcript_id: transcript.id,
+      p_transcript_id: transcript.transcript_id,
     });
     if (error) {
       console.error(
@@ -88,12 +82,10 @@ export async function processDoctorRetention(): Promise<number> {
   }
 
   const noteBefore = cutoff(workerEnv.eh170NoteRetentionDays);
-  const { data: revisions, error: revisionsError } = await supabase
-    .from("consultation_note_revisions")
-    .select("id")
-    .in("status", ["draft", "reviewed", "superseded"])
-    .lt("updated_at", noteBefore)
-    .limit(25);
+  const { data: revisions, error: revisionsError } = await supabase.rpc(
+    "eh170_retention_list_note_candidates",
+    { p_before: noteBefore },
+  );
   if (revisionsError)
     throw new Error(
       `Dictaphone note retention query failed: ${revisionsError.message}`,
@@ -103,7 +95,7 @@ export async function processDoctorRetention(): Promise<number> {
       "eh170_retention_delete_note_revision",
       {
         p_actor_profile_id: actor,
-        p_revision_id: revision.id,
+        p_revision_id: revision.revision_id,
       },
     );
     if (error) {

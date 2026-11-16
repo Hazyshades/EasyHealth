@@ -1675,6 +1675,7 @@ declare
   v_previous_id uuid;
   v_revision_number integer;
   v_content jsonb;
+  v_transcript_draft_id uuid;
 begin
   select * into v_consultation
   from public.consultations
@@ -1701,11 +1702,22 @@ begin
   if v_recording.id is null then
     raise exception using message = 'eh170_access_denied';
   end if;
-  if p_transcript_draft_id is null
+  if p_transcript_draft_id is null then
+    select transcripts.id
+    into v_transcript_draft_id
+    from public.transcript_drafts as transcripts
+    where transcripts.recording_session_id = p_recording_id
+      and transcripts.status = 'ready'
+    order by transcripts.updated_at desc
+    limit 1;
+  else
+    v_transcript_draft_id := p_transcript_draft_id;
+  end if;
+  if v_transcript_draft_id is null
     or not exists (
       select 1
       from public.transcript_drafts as transcripts
-      where transcripts.id = p_transcript_draft_id
+      where transcripts.id = v_transcript_draft_id
         and transcripts.recording_session_id = p_recording_id
         and transcripts.status = 'ready'
     ) then
@@ -1763,7 +1775,7 @@ begin
     p_consultation_id,
     v_consultation.patient_profile_id,
     p_recording_id,
-    p_transcript_draft_id,
+    v_transcript_draft_id,
     v_revision_number,
     case when p_reviewed then 'reviewed' else 'draft' end,
     v_content,

@@ -86,6 +86,38 @@ select ok(
 select ok(
   has_function_privilege(
     'service_role',
+    'public.eh170_retention_list_audio_candidates(timestamptz)',
+    'EXECUTE'
+  ),
+  'service role can enumerate audio retention candidates through the RPC boundary'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.eh170_retention_list_transcript_candidates(timestamptz)',
+    'EXECUTE'
+  ),
+  'service role can enumerate transcript retention candidates through the RPC boundary'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.eh170_retention_list_note_candidates(timestamptz)',
+    'EXECUTE'
+  ),
+  'service role can enumerate note retention candidates through the RPC boundary'
+);
+select ok(
+  not has_function_privilege(
+    'authenticated',
+    'public.eh170_retention_list_audio_candidates(timestamptz)',
+    'EXECUTE'
+  ),
+  'authenticated clients cannot enumerate retention candidates directly'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
     'public.eh170_list_clinician_memberships(uuid)',
     'EXECUTE'
   ),
@@ -606,7 +638,7 @@ select throws_ok(
       '00000000-0000-0000-0000-000000170002',
       '00000000-0000-0000-0000-000000170030',
       '00000000-0000-0000-0000-000000170050',
-      (select id from public.transcript_drafts where recording_session_id = '00000000-0000-0000-0000-000000170050'),
+      null,
       jsonb_build_object('summary', 'Missing source reference'),
       '[]'::jsonb,
       true
@@ -622,7 +654,7 @@ select lives_ok(
       '00000000-0000-0000-0000-000000170002',
       '00000000-0000-0000-0000-000000170030',
       '00000000-0000-0000-0000-000000170050',
-      (select id from public.transcript_drafts where recording_session_id = '00000000-0000-0000-0000-000000170050'),
+      null,
       jsonb_build_object('summary', 'Reviewed synthetic note'),
       jsonb_build_array(jsonb_build_object(
         'field', 'summary',
