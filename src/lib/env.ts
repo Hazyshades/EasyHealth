@@ -5,6 +5,29 @@ export const env = createEnv({
   server: {
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
     EH120_AUTOMATIC_VERIFICATION_RELEASE_DIGEST: z.string().min(1).optional(),
+    EH170_CLINIC_WORKSPACE_ENABLED: z
+      .enum(["true", "false", "1", "0"])
+      .default("false")
+      .transform((value) => value === "true" || value === "1"),
+    EH170_DICTAPHONE_ENABLED: z
+      .enum(["true", "false", "1", "0"])
+      .default("false")
+      .transform((value) => value === "true" || value === "1"),
+    EH170_ROLLOUT_PROFILE_IDS: z.string().default(""),
+    EH170_TRANSCRIPTION_DPA_APPROVED: z
+      .enum(["true", "false", "1", "0"])
+      .default("false")
+      .transform((value) => value === "true" || value === "1"),
+    EH170_TRANSCRIPTION_REGION_APPROVED: z
+      .enum(["true", "false", "1", "0"])
+      .default("false")
+      .transform((value) => value === "true" || value === "1"),
+    EH170_RECORDING_RETENTION_DAYS: z.coerce.number().int().nonnegative().default(0),
+    EH170_TRANSCRIPT_RETENTION_DAYS: z.coerce.number().int().nonnegative().default(0),
+    EH170_NOTE_RETENTION_DAYS: z.coerce.number().int().nonnegative().default(0),
+    EH170_RETENTION_DELETE_ACTOR: z.string().min(1).optional(),
+    EH170_TRANSCRIPTION_PROVIDER: z.enum(["openai"]).default("openai"),
+    EH170_TRANSCRIPTION_MODEL: z.string().min(1).default("gpt-4o-mini-transcribe"),
     OPENAI_API_KEY: z.string().min(1),
     OPENAI_EMBEDDING_MODEL: z.string().min(1).default("text-embedding-3-small"),
     ASSISTANT_RESERVED_COST_USD: z.coerce
@@ -93,6 +116,18 @@ export const env = createEnv({
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
     EH120_AUTOMATIC_VERIFICATION_RELEASE_DIGEST:
       process.env.EH120_AUTOMATIC_VERIFICATION_RELEASE_DIGEST,
+    EH170_CLINIC_WORKSPACE_ENABLED: process.env.EH170_CLINIC_WORKSPACE_ENABLED,
+    EH170_DICTAPHONE_ENABLED: process.env.EH170_DICTAPHONE_ENABLED,
+    EH170_ROLLOUT_PROFILE_IDS: process.env.EH170_ROLLOUT_PROFILE_IDS,
+    EH170_TRANSCRIPTION_DPA_APPROVED: process.env.EH170_TRANSCRIPTION_DPA_APPROVED,
+    EH170_TRANSCRIPTION_REGION_APPROVED:
+      process.env.EH170_TRANSCRIPTION_REGION_APPROVED,
+    EH170_RECORDING_RETENTION_DAYS: process.env.EH170_RECORDING_RETENTION_DAYS,
+    EH170_TRANSCRIPT_RETENTION_DAYS: process.env.EH170_TRANSCRIPT_RETENTION_DAYS,
+    EH170_NOTE_RETENTION_DAYS: process.env.EH170_NOTE_RETENTION_DAYS,
+    EH170_RETENTION_DELETE_ACTOR: process.env.EH170_RETENTION_DELETE_ACTOR,
+    EH170_TRANSCRIPTION_PROVIDER: process.env.EH170_TRANSCRIPTION_PROVIDER,
+    EH170_TRANSCRIPTION_MODEL: process.env.EH170_TRANSCRIPTION_MODEL,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     OPENAI_EMBEDDING_MODEL: process.env.OPENAI_EMBEDDING_MODEL,
     ASSISTANT_RESERVED_COST_USD: process.env.ASSISTANT_RESERVED_COST_USD,

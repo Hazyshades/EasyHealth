@@ -13,7 +13,7 @@ web
 People organizing their own health information, including non-technical users who may feel anxious while reviewing laboratory results. They want to understand what their documents say, keep track of extracted biomarkers, and generate educational summaries without becoming medical experts themselves.
 
 Primary audience: end users managing their own health records.
-Secondary audience (later): family members, caregivers, or clinicians reviewing a shared record.
+Secondary audience: clinicians working in an explicitly enabled, grant-scoped workspace; patient ownership, consent, and source provenance remain the boundary.
 
 ## Product Purpose
 

@@ -18,6 +18,8 @@ export type DoctorWorkspaceOperation =
   | "update"
   | "review"
   | "export"
+  | "approve"
+  | "revoke"
   | "delete";
 
 const ScopeSchema = z.enum(DOCTOR_WORKSPACE_SCOPES);
@@ -83,7 +85,11 @@ function classifyRpcError(message: string): DoctorWorkspaceError {
   ) {
     return new DoctorWorkspaceError("invalid_input");
   }
-  if (normalized.includes("grant_exists")) {
+  if (
+    normalized.includes("grant_exists") ||
+    normalized.includes("membership_exists") ||
+    normalized.includes("membership_state_invalid")
+  ) {
     return new DoctorWorkspaceError("conflict");
   }
   return new DoctorWorkspaceError("unavailable");

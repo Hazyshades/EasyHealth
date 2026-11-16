@@ -1,7 +1,14 @@
 import { ClinicIcon } from "@/components/icons";
 import { ClinicianPreviewPage } from "@/components/doctor-workspace/preview-page";
+import { ClinicWorkspace } from "@/components/doctor-workspace/clinic-workspace";
+import { getSessionProfileId } from "@/lib/auth/session";
+import { isDoctorWorkspaceEnabled } from "@/lib/doctor-workspace/policy";
+export default async function ClinicPage() {
+  const profileId = await getSessionProfileId();
+  if (profileId && isDoctorWorkspaceEnabled(profileId)) {
+    return <ClinicWorkspace />;
+  }
 
-export default function ClinicPage() {
   return (
     <ClinicianPreviewPage
       title="Clinic"

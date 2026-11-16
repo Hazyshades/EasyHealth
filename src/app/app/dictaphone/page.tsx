@@ -1,7 +1,14 @@
 import { MicrophoneIcon } from "@/components/icons";
 import { ClinicianPreviewPage } from "@/components/doctor-workspace/preview-page";
+import { DictaphoneWorkspace } from "@/components/doctor-workspace/dictaphone-workspace";
+import { getSessionProfileId } from "@/lib/auth/session";
+import { isDictaphoneEnabled } from "@/lib/doctor-workspace/policy";
+export default async function DictaphonePage() {
+  const profileId = await getSessionProfileId();
+  if (profileId && isDictaphoneEnabled(profileId)) {
+    return <DictaphoneWorkspace />;
+  }
 
-export default function DictaphonePage() {
   return (
     <ClinicianPreviewPage
       title="Dictaphone"
