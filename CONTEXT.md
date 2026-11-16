@@ -144,8 +144,6 @@ The rules applied after assessment admission to determine freshness eligibility,
 **Assessment candidate**:
 A normalized fact that has passed upstream assessment admission but has not yet passed identity selection in the Score/readiness policy. Several candidates may share one assessment identity; the selected candidate is not necessarily current, readable, or a numeric score contributor.
 
-
-
 **Reported result**:
 A factual laboratory result retained for display and explanation independently of assessment admission. A reported result may remain visible when its observation is excluded from assessment.
 _Avoid_: assessment input.
@@ -153,7 +151,6 @@ _Avoid_: assessment input.
 **Assessment exclusion reason**:
 The stable first blocking reason for rejecting an observation from assessment input, accompanied by evidence needed to explain the decision.
 _Avoid_: hidden rejection.
-
 
 **Body system**:
 One of the fixed catalog-driven systems: cardiovascular, metabolic, thyroid, liver, kidney, blood, nutrients, inflammation, general.
@@ -183,3 +180,38 @@ _Avoid_: auth flow.
 
 **Session-gated action**:
 A free core action (upload, review, reports) authorized by a valid Supabase session alone.
+
+### Clinician workspace & consultation
+
+**Clinic**:
+A workspace that owns clinician memberships and clinic-scoped consultations. A Clinic is not the owner of a patient's Profile and does not grant patient-data access by membership alone.
+
+**Clinician membership**:
+An active relationship between an auth user and a Clinic. Membership authorizes clinic operations but does not authorize reads of a patient's Profile, Health Profile, Observation, Document, or report.
+
+**Patient access grant**:
+A patient-approved, named-clinician permission connecting one Profile to one Clinic for explicit resource scopes, with issuer, state, timestamps, and optional expiry. Revoke and expiry stop subsequent access.
+
+**Resource scope**:
+The declared set of patient resources a grant permits, such as Health Profile, observations, reports, documents, or consultations. A scope never promotes an unresolved result or widens another resource scope.
+
+**Consultation**:
+A patient-scoped record associated with exactly one Profile, one Clinic, and one authoring clinician. It may reference permitted sources and a reviewed consultation note without changing source ownership or eligibility.
+
+**Recording consent**:
+The current permission state that allows a clinician to capture audio for one consultation. Missing, expired, or revoked consent prevents audio capture and derived processing.
+
+**Recording session**:
+The lifecycle record for consultation audio, from consent-checked capture through upload, transcription, cancellation, failure, or deletion. Audio is private storage content, not a Document.
+
+**Transcript draft**:
+A source-linked transcription produced from a Recording session. It is draft evidence and is never a reviewed consultation note by itself.
+
+**Consultation-note candidate**:
+A structured, source-grounded draft assembled from a Transcript draft. Missing information remains unavailable, and unsupported diagnosis, treatment, or urgency directives are excluded.
+
+**Reviewed consultation note**:
+The clinician-reviewed and explicitly saved revision that may become part of a Consultation. It retains author, reviewer, review time, source references, and revision history.
+
+**Access event**:
+Minimized audit metadata for grant transitions, consent transitions, and patient-data operations. It excludes bearer tokens, PINs, raw audio, transcript text, raw IP addresses, and full user-agent strings.

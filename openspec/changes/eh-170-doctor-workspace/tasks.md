@@ -2,7 +2,7 @@
 
 ## 1. Identity, access, and data foundations
 
-- [ ] 1.1 Freeze the clinic, clinician membership, patient Profile, consultation, grant, consent, and scope vocabulary in the domain documentation; verify the terms match `CONTEXT.md` and the two EH-170 capability specs.
+- [x] 1.1 Freeze the clinic, clinician membership, patient Profile, consultation, grant, consent, and scope vocabulary in the domain documentation; verify the terms match `CONTEXT.md` and the two EH-170 capability specs.
 - [ ] 1.2 Add additive migrations for clinics, named-clinician memberships, patient access grants, consultations, minimized access events, recording sessions, transcript drafts, and note revisions; verify foreign keys, unique boundaries, expiry fields, and rollback behavior with migration checks.
 - [ ] 1.3 Add deny-by-default row and private-storage policies for every new patient-linked entity; verify cross-profile, cross-clinic, inactive-membership, expired-grant, and revoked-grant access is rejected.
 - [ ] 1.4 Implement one shared grant decision for authenticated routes, storage operations, report reads, and background persistence; verify an authorization matrix covers read, create, update, review, export, and revoke operations.
