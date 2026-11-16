@@ -1461,6 +1461,71 @@ as $$
   end;
 $$;
 
+create or replace function public.eh170_note_source_references_valid(
+  p_content jsonb,
+  p_source_references jsonb,
+  p_recording_id uuid
+)
+returns boolean
+language sql
+immutable
+set search_path = pg_catalog
+as $$
+with refs as (
+  select value as reference
+  from jsonb_array_elements(
+    case
+      when jsonb_typeof(coalesce(p_source_references, '[]'::jsonb)) = 'array'
+        then coalesce(p_source_references, '[]'::jsonb)
+      else '[]'::jsonb
+    end
+  ) as elements(value)
+),
+fields as (
+  select key as field_name
+  from jsonb_object_keys(
+    case
+      when jsonb_typeof(coalesce(p_content, '{}'::jsonb)) = 'object'
+        then coalesce(p_content, '{}'::jsonb)
+      else '{}'::jsonb
+    end
+  ) as keys(key)
+  where key <> 'limitations'
+)
+select jsonb_typeof(coalesce(p_source_references, '[]'::jsonb)) = 'array'
+  and case
+    when jsonb_typeof(coalesce(p_source_references, '[]'::jsonb)) = 'array'
+      then jsonb_array_length(coalesce(p_source_references, '[]'::jsonb))
+    else 0
+  end > 0
+  and not exists (
+    select 1
+    from refs
+    where jsonb_typeof(reference) <> 'object'
+      or nullif(btrim(reference->>'field'), '') is null
+      or not (
+        (
+          reference->>'kind' = 'transcript'
+          and reference->>'recording_id' = p_recording_id::text
+        )
+        or (
+          reference->>'kind' = 'unavailable'
+          and nullif(btrim(reference->>'reason'), '') is not null
+        )
+      )
+  )
+  and not exists (
+    select 1
+    from fields
+    where not exists (
+      select 1
+      from refs
+      where jsonb_typeof(reference) = 'object'
+        and reference->>'field' = fields.field_name
+    )
+  );
+$$;
+
 create or replace function public.eh170_create_note_draft(
   p_actor_profile_id uuid,
   p_recording_id uuid,
@@ -1488,14 +1553,14 @@ declare
   v_revision_number integer;
   v_revision public.consultation_note_revisions%rowtype;
 begin
-select recordings.*
-into v_recording
-from public.recording_sessions as recordings
-where recordings.id = p_recording_id;
-select consultations.*
-into v_consultation
-from public.consultations
-where consultations.id = v_recording.consultation_id;
+  select recordings.*
+  into v_recording
+  from public.recording_sessions as recordings
+  where recordings.id = p_recording_id;
+  select consultations.*
+  into v_consultation
+  from public.consultations
+  where consultations.id = v_recording.consultation_id;
   if v_recording.id is null then
     raise exception using message = 'eh170_access_denied';
   end if;
@@ -1518,9 +1583,6 @@ where consultations.id = v_recording.consultation_id;
   if v_transcript.id is null then
     raise exception using message = 'eh170_transcript_unavailable';
   end if;
-  if jsonb_typeof(coalesce(p_source_references, '[]'::jsonb)) <> 'array' then
-    raise exception using message = 'eh170_note_source_references_invalid';
-  end if;
 
   v_content := public.eh170_sanitize_note_content(p_content);
   if p_content ?| array['diagnosis', 'treatment', 'urgency', 'urgency_instruction', 'medication_directive'] then
@@ -1530,6 +1592,13 @@ where consultations.id = v_recording.consultation_id;
       coalesce(v_content->'limitations', '[]'::jsonb) || to_jsonb(array['Unsupported clinical directives were omitted']::text[]),
       true
     );
+  end if;
+  if not public.eh170_note_source_references_valid(
+    v_content,
+    p_source_references,
+    v_recording.id
+  ) then
+    raise exception using message = 'eh170_note_source_references_invalid';
   end if;
 
   select coalesce(max(revisions.revision_number), 0) + 1
@@ -1632,16 +1701,15 @@ begin
   if v_recording.id is null then
     raise exception using message = 'eh170_access_denied';
   end if;
-  if p_transcript_draft_id is not null and not exists (
-    select 1 from public.transcript_drafts as transcripts
-    where transcripts.id = p_transcript_draft_id
-      and transcripts.recording_session_id = p_recording_id
-      and transcripts.status = 'ready'
-  ) then
+  if p_transcript_draft_id is null
+    or not exists (
+      select 1
+      from public.transcript_drafts as transcripts
+      where transcripts.id = p_transcript_draft_id
+        and transcripts.recording_session_id = p_recording_id
+        and transcripts.status = 'ready'
+    ) then
     raise exception using message = 'eh170_transcript_unavailable';
-  end if;
-  if jsonb_typeof(coalesce(p_source_references, '[]'::jsonb)) <> 'array' then
-    raise exception using message = 'eh170_note_source_references_invalid';
   end if;
 
   v_content := public.eh170_sanitize_note_content(p_content);
@@ -1652,6 +1720,13 @@ begin
       coalesce(v_content->'limitations', '[]'::jsonb) || to_jsonb(array['Unsupported clinical directives were omitted']::text[]),
       true
     );
+  end if;
+  if not public.eh170_note_source_references_valid(
+    v_content,
+    p_source_references,
+    p_recording_id
+  ) then
+    raise exception using message = 'eh170_note_source_references_invalid';
   end if;
 
   select revisions.id, revisions.revision_number
@@ -1714,6 +1789,7 @@ begin
     v_revision.reviewed_at;
 end;
 $$;
+
 
 create or replace function public.eh170_mark_recording_audio_deleted(
   p_actor_profile_id uuid,
@@ -1938,6 +2014,11 @@ grant execute on function public.eh170_retry_recording_transcription(uuid, uuid)
 revoke all on function public.eh170_sanitize_note_content(jsonb)
   from public, anon, authenticated, service_role;
 grant execute on function public.eh170_sanitize_note_content(jsonb)
+  to postgres;
+
+revoke all on function public.eh170_note_source_references_valid(jsonb, jsonb, uuid)
+  from public, anon, authenticated, service_role;
+grant execute on function public.eh170_note_source_references_valid(jsonb, jsonb, uuid)
   to postgres;
 revoke all on function public.eh170_create_note_draft(uuid, uuid, jsonb, jsonb)
   from public, anon, authenticated;

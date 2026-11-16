@@ -23,6 +23,15 @@ function optionalBool(name: string, defaultValue: boolean): boolean {
   throw new Error(`Invalid boolean env: ${name}`);
 }
 
+function optionalNonnegativeInt(name: string, defaultValue: number): number {
+  const raw = optional(name);
+  const parsed = raw === undefined ? defaultValue : Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`Invalid nonnegative integer env: ${name}`);
+  }
+  return parsed;
+}
+
 function optionalPositiveInt(name: string, defaultValue: number): number {
   const raw = optional(name);
   const parsed = raw === undefined ? defaultValue : Number(raw);
@@ -89,15 +98,15 @@ const eh170TranscriptionRegionApproved = optionalBool(
   "EH170_TRANSCRIPTION_REGION_APPROVED",
   false,
 );
-const eh170RecordingRetentionDays = optionalPositiveInt(
+const eh170RecordingRetentionDays = optionalNonnegativeInt(
   "EH170_RECORDING_RETENTION_DAYS",
   0,
 );
-const eh170TranscriptRetentionDays = optionalPositiveInt(
+const eh170TranscriptRetentionDays = optionalNonnegativeInt(
   "EH170_TRANSCRIPT_RETENTION_DAYS",
   0,
 );
-const eh170NoteRetentionDays = optionalPositiveInt(
+const eh170NoteRetentionDays = optionalNonnegativeInt(
   "EH170_NOTE_RETENTION_DAYS",
   0,
 );
@@ -109,15 +118,6 @@ const eh170TranscriptionPolicyApproved =
   eh170TranscriptRetentionDays > 0 &&
   eh170NoteRetentionDays > 0 &&
   Boolean(eh170RetentionDeleteActor);
-
-function eh170CohortAllows(profileId: string): boolean {
-  const configured = optional("EH170_ROLLOUT_PROFILE_IDS");
-  if (!configured) return process.env.NODE_ENV !== "production";
-  return configured
-    .split(",")
-    .map((value) => value.trim())
-    .includes(profileId);
-}
 
 function eh170TranscriptionLaunchAllowed(): boolean {
   return (
@@ -156,7 +156,6 @@ export const workerEnv = {
     optional("EH170_TRANSCRIPTION_PROVIDER") ?? "openai",
   eh170RetentionLaunchAllowed,
   eh170TranscriptionLaunchAllowed,
-  eh170CohortAllows,
   eh170RecordingRetentionDays,
   eh170TranscriptRetentionDays,
   eh170NoteRetentionDays,

@@ -10,7 +10,19 @@ import {
 } from "@/lib/doctor-workspace/runtime";
 
 const ContentSchema = z.record(z.string(), z.unknown());
-const SourceReferencesSchema = z.array(z.unknown());
+const SourceReferenceSchema = z.union([
+  z.object({
+    field: z.string().min(1),
+    kind: z.literal("transcript"),
+    recording_id: z.string().uuid(),
+  }),
+  z.object({
+    field: z.string().min(1),
+    kind: z.literal("unavailable"),
+    reason: z.string().min(1),
+  }),
+]);
+const SourceReferencesSchema = z.array(SourceReferenceSchema).min(1);
 const ActionSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("draft"),

@@ -569,7 +569,11 @@ select lives_ok(
         'diagnosis', 'must not be accepted',
         'urgency_instruction', 'must not be accepted'
       ),
-      jsonb_build_array(jsonb_build_object('kind', 'transcript', 'recording_id', '00000000-0000-0000-0000-000000170050'))
+      jsonb_build_array(jsonb_build_object(
+        'field', 'summary',
+        'kind', 'transcript',
+        'recording_id', '00000000-0000-0000-0000-000000170050'
+      ))
     )
   $$,
   'note draft creation preserves a transcript source boundary'
@@ -596,6 +600,22 @@ select is(
   'draft',
   'note candidate remains a draft until review'
 );
+select throws_ok(
+  $$
+    select * from public.eh170_save_note_revision(
+      '00000000-0000-0000-0000-000000170002',
+      '00000000-0000-0000-0000-000000170030',
+      '00000000-0000-0000-0000-000000170050',
+      (select id from public.transcript_drafts where recording_session_id = '00000000-0000-0000-0000-000000170050'),
+      jsonb_build_object('summary', 'Missing source reference'),
+      '[]'::jsonb,
+      true
+    )
+  $$,
+  null,
+  null,
+  'reviewed note requires a source reference for every persisted field'
+);
 select lives_ok(
   $$
     select * from public.eh170_save_note_revision(
@@ -604,7 +624,11 @@ select lives_ok(
       '00000000-0000-0000-0000-000000170050',
       (select id from public.transcript_drafts where recording_session_id = '00000000-0000-0000-0000-000000170050'),
       jsonb_build_object('summary', 'Reviewed synthetic note'),
-      jsonb_build_array(jsonb_build_object('kind', 'transcript', 'recording_id', '00000000-0000-0000-0000-000000170050')),
+      jsonb_build_array(jsonb_build_object(
+        'field', 'summary',
+        'kind', 'transcript',
+        'recording_id', '00000000-0000-0000-0000-000000170050'
+      )),
       true
     )
   $$,

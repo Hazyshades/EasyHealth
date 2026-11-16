@@ -282,7 +282,11 @@ export function DictaphoneWorkspace() {
           recordingId: selectedRecording.recording_id,
           content: { summary: noteText },
           sourceReferences: [
-            { kind: "transcript", recordingId: selectedRecording.recording_id },
+            {
+              field: "summary",
+              kind: "transcript",
+              recording_id: selectedRecording.recording_id,
+            },
           ],
           reviewed,
         }),
