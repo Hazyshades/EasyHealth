@@ -44,27 +44,44 @@ export function canTransitionRecording(
   return RECORDING_TRANSITIONS[from].includes(to);
 }
 
+const BLOCKED_NOTE_FIELDS = new Set([
+  "diagnosis",
+  "treatment",
+  "urgency",
+  "urgency_instruction",
+  "medication_directive",
+]);
+
 export function sanitizeDoctorNoteCandidate(
   content: Record<string, unknown>,
 ): Record<string, unknown> {
-  const blocked = new Set([
-    "diagnosis",
-    "treatment",
-    "urgency",
-    "urgency_instruction",
-    "medication_directive",
-  ]);
-  const sanitized = Object.fromEntries(
-    Object.entries(content).filter(([key]) => !blocked.has(key)),
-  );
-  if (Object.keys(content).some((key) => blocked.has(key))) {
-    const existing = Array.isArray(sanitized.limitations)
-      ? sanitized.limitations
+  let removedUnsupportedContent = false;
+  const sanitizeValue = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(sanitizeValue);
+    if (!value || typeof value !== "object") return value;
+    const sanitized: Record<string, unknown> = {};
+    for (const [key, nestedValue] of Object.entries(value)) {
+      if (BLOCKED_NOTE_FIELDS.has(key)) {
+        removedUnsupportedContent = true;
+        continue;
+      }
+      sanitized[key] = sanitizeValue(nestedValue);
+    }
+    return sanitized;
+  };
+  const sanitized = sanitizeValue(content);
+  if (!sanitized || typeof sanitized !== "object" || Array.isArray(sanitized)) {
+    return {};
+  }
+  const sanitizedRecord = sanitized as Record<string, unknown>;
+  if (removedUnsupportedContent) {
+    const existing = Array.isArray(sanitizedRecord.limitations)
+      ? sanitizedRecord.limitations
       : [];
-    sanitized.limitations = [
+    sanitizedRecord.limitations = [
       ...existing,
       "Unsupported clinical directives were omitted",
     ];
   }
-  return sanitized;
+  return sanitizedRecord;
 }

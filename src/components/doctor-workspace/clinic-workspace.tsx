@@ -107,6 +107,12 @@ async function sendAction(body: Record<string, unknown>): Promise<void> {
   }
 }
 
+function formatGrantExpiry(value: string | null): string {
+  if (!value) return "No expiry";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Unknown" : date.toLocaleString();
+}
+
 export function ClinicWorkspace() {
   const [workspace, setWorkspace] = useState<WorkspaceData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -394,14 +400,65 @@ export function ClinicWorkspace() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--eh-text-muted)]">
-              Access decisions
+              Clinician access
             </p>
             <h2 className="mt-2 text-xl font-semibold text-[var(--eh-text-primary)]">
-              Patient grants
+              Active patient grants
             </h2>
           </div>
-          <StatusChip variant="neutral">
-            {patientGrants.length ? `${patientGrants.length} records` : "Empty"}
+          <StatusChip
+            variant={clinicianGrants.length ? "success" : "neutral"}
+          >
+            {clinicianGrants.length
+              ? `${clinicianGrants.length} active`
+              : "Empty"}
+          </StatusChip>
+        </div>
+        {clinicianGrants.length ? (
+          <div className="mt-5 grid gap-3 lg:grid-cols-2">
+            {clinicianGrants.map((grant) => (
+              <article
+                key={grant.grant_id}
+                className="rounded-md border border-[var(--eh-border)] p-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="font-medium text-[var(--eh-text-primary)]">
+                    {grant.patient_name}
+                  </h3>
+                  <StatusChip variant="success">{grant.state}</StatusChip>
+                </div>
+                <p className="mt-2 text-xs text-[var(--eh-text-secondary)]">
+                  {grant.clinic_name} · {grant.scopes.join(", ")}
+                </p>
+                <p className="mt-1 break-all text-xs text-[var(--eh-text-muted)]">
+                  {grant.patient_profile_id}
+                </p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-5 rounded-md border border-dashed border-[var(--eh-border)] px-4 py-5 text-sm text-[var(--eh-text-secondary)]">
+            No active patient grants for this account.
+          </p>
+        )}
+      </SurfaceCard>
+
+      <SurfaceCard className="p-5 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--eh-text-muted)]">
+              Patient access decisions
+            </p>
+            <h2 className="mt-2 text-xl font-semibold text-[var(--eh-text-primary)]">
+              Your patient access
+            </h2>
+          </div>
+          <StatusChip
+            variant={patientGrants.length ? "success" : "neutral"}
+          >
+            {patientGrants.length
+              ? `${patientGrants.length} records`
+              : "Empty"}
           </StatusChip>
         </div>
         {patientGrants.length ? (
@@ -411,30 +468,51 @@ export function ClinicWorkspace() {
                 key={grant.grant_id}
                 className="rounded-md border border-[var(--eh-border)] p-4"
               >
-                <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center justify-between gap-2">
                   <h3 className="font-medium text-[var(--eh-text-primary)]">
-                    {grant.patient_name}
+                    {grant.clinic_name}
                   </h3>
                   <StatusChip
                     variant={
-                      grant.state === "active"
-                        ? "success"
-                        : grant.state === "pending"
-                          ? "warning"
+                      grant.state === "pending"
+                        ? "warning"
+                        : grant.state === "active"
+                          ? "success"
                           : "neutral"
                     }
                   >
                     {grant.state}
                   </StatusChip>
                 </div>
-                <p className="mt-2 text-xs text-[var(--eh-text-secondary)]">
-                  {grant.clinic_name} · {grant.scopes.join(", ")}
+                <p className="mt-2 text-sm text-[var(--eh-text-secondary)]">
+                  {grant.clinician_name}
                 </p>
-                <p className="mt-1 break-all text-xs text-[var(--eh-text-muted)]">
-                  {grant.patient_profile_id}
+                <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
+                  Requested scopes: {grant.requested_scopes.join(", ")}
                 </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {grant.state === "active" ? (
+                {grant.state === "active" ? (
+                  <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
+                    Approved scopes: {grant.scopes.join(", ")}
+                  </p>
+                ) : null}
+                <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
+                  Expires: {formatGrantExpiry(grant.expires_at)}
+                </p>
+                {grant.state === "pending" ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button
+                      variant="brand"
+                      size="sm"
+                      disabled={working}
+                      onClick={() =>
+                        void run({
+                          action: "approve_patient",
+                          grantId: grant.grant_id,
+                        })
+                      }
+                    >
+                      Approve requested scopes
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
@@ -446,115 +524,27 @@ export function ClinicWorkspace() {
                         })
                       }
                     >
-                      Revoke access
+                      Decline
                     </Button>
-                  ) : null}
-                </div>
+                  </div>
+                ) : grant.state === "active" ? (
+                  <Button
+                    className="mt-4"
+                    variant="outline"
+                    size="sm"
+                    disabled={working}
+                    onClick={() =>
+                      void run({
+                        action: "revoke_patient",
+                        grantId: grant.grant_id,
+                      })
+                    }
+                  >
+                    Revoke approval
+                  </Button>
+                ) : null}
               </article>
             ))}
-          </div>
-        ) : (
-          <p className="mt-5 rounded-md border border-dashed border-[var(--eh-border)] px-4 py-5 text-sm text-[var(--eh-text-secondary)]">
-            No patient access records for this account.
-          </p>
-        )}
-      </SurfaceCard>
-
-      <SurfaceCard className="p-5 sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--eh-text-muted)]">
-              Patient decisions
-            </p>
-            <h2 className="mt-2 text-xl font-semibold text-[var(--eh-text-primary)]">
-              Requests awaiting your approval
-            </h2>
-          </div>
-          <StatusChip variant="neutral">
-            {clinicianGrants.length
-              ? `${clinicianGrants.length} active`
-              : "Empty"}
-          </StatusChip>
-        </div>
-        {workspace.access.filter((grant) => grant.perspective === "patient")
-          .length ? (
-          <div className="mt-5 grid gap-3 lg:grid-cols-2">
-            {workspace.access
-              .filter((grant) => grant.perspective === "patient")
-              .map((grant) => (
-                <article
-                  key={grant.grant_id}
-                  className="rounded-md border border-[var(--eh-border)] p-4"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="font-medium text-[var(--eh-text-primary)]">
-                      {grant.clinic_name}
-                    </h3>
-                    <StatusChip
-                      variant={
-                        grant.state === "pending"
-                          ? "warning"
-                          : grant.state === "active"
-                            ? "success"
-                            : "neutral"
-                      }
-                    >
-                      {grant.state}
-                    </StatusChip>
-                  </div>
-                  <p className="mt-2 text-sm text-[var(--eh-text-secondary)]">
-                    {grant.clinician_name}
-                  </p>
-                  <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
-                    Requested: {grant.requested_scopes.join(", ")}
-                  </p>
-                  {grant.state === "pending" ? (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <Button
-                        variant="brand"
-                        size="sm"
-                        disabled={working}
-                        onClick={() =>
-                          void run({
-                            action: "approve_patient",
-                            grantId: grant.grant_id,
-                          })
-                        }
-                      >
-                        Approve requested scopes
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={working}
-                        onClick={() =>
-                          void run({
-                            action: "revoke_patient",
-                            grantId: grant.grant_id,
-                          })
-                        }
-                      >
-                        Decline
-                      </Button>
-                    </div>
-                  ) : grant.state === "active" ? (
-                    <Button
-                      className="mt-4"
-                      variant="outline"
-                      size="sm"
-                      disabled={working}
-                      onClick={() =>
-                        void run({
-                          action: "revoke_patient",
-                          grantId: grant.grant_id,
-                        })
-                      }
-                    >
-                      Revoke approval
-                    </Button>
-                  ) : null}
-                </article>
-              ))}
           </div>
         ) : (
           <p className="mt-5 rounded-md border border-dashed border-[var(--eh-border)] px-4 py-5 text-sm text-[var(--eh-text-secondary)]">

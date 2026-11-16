@@ -517,6 +517,57 @@ select throws_ok(
   null,
   'revoked recording consent prevents a new recording'
 );
+select lives_ok(
+  $$
+    select * from public.eh170_cancel_recording(
+      '00000000-0000-0000-0000-000000170002',
+      (
+        select id
+        from public.recording_sessions
+        where consultation_id = '00000000-0000-0000-0000-000000170030'
+          and status = 'recording'
+        order by created_at desc
+        limit 1
+      )
+    )
+  $$,
+  'clinician can cancel an upload after consent revocation'
+);
+update public.consultation_recording_consents
+set state = 'active',
+    revoked_at = null,
+    expires_at = clock_timestamp() + interval '1 millisecond'
+where id = '00000000-0000-0000-0000-000000170040';
+select pg_sleep(0.01);
+select lives_ok(
+  $$
+    select * from public.eh170_grant_recording_consent(
+      '00000000-0000-0000-0000-000000170001',
+      '00000000-0000-0000-0000-000000170030',
+      clock_timestamp() + interval '1 hour'
+    )
+  $$,
+  'patient can renew an expired active recording consent'
+);
+select is(
+  (
+    select count(*)::integer
+    from public.consultation_recording_consents
+    where consultation_id = '00000000-0000-0000-0000-000000170030'
+      and state = 'active'
+  ),
+  1,
+  'consent renewal leaves one active consent'
+);
+select is(
+  (
+    select state
+    from public.consultation_recording_consents
+    where id = '00000000-0000-0000-0000-000000170040'
+  ),
+  'expired',
+  'expired consent is closed before renewal'
+);
 
 insert into public.recording_sessions (
   id,
@@ -597,7 +648,10 @@ select lives_ok(
       '00000000-0000-0000-0000-000000170002',
       '00000000-0000-0000-0000-000000170050',
       jsonb_build_object(
-        'summary', 'Synthetic note',
+        'summary', jsonb_build_object(
+          'text', 'Synthetic note',
+          'diagnosis', 'must not be accepted'
+        ),
         'diagnosis', 'must not be accepted',
         'urgency_instruction', 'must not be accepted'
       ),
@@ -620,6 +674,17 @@ select is(
   ),
   false,
   'unsupported clinical directives are removed from note candidates'
+);
+select is(
+  (
+    select (content->'summary') ? 'diagnosis'
+    from public.consultation_note_revisions
+    where consultation_id = '00000000-0000-0000-0000-000000170030'
+    order by revision_number desc
+    limit 1
+  ),
+  false,
+  'nested unsupported clinical directives are removed from note candidates'
 );
 select is(
   (

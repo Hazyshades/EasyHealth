@@ -531,6 +531,14 @@ begin
     raise exception using message = 'eh170_consent_input_invalid';
   end if;
 
+  update public.consultation_recording_consents as consents
+  set state = 'expired'
+  where consents.consultation_id = v_consultation.id
+    and consents.patient_profile_id = p_patient_profile_id
+    and consents.clinician_profile_id = v_consultation.clinician_profile_id
+    and consents.state = 'active'
+    and consents.expires_at is not null
+    and consents.expires_at <= clock_timestamp();
   insert into public.consultation_recording_consents (
     consultation_id,
     patient_profile_id,
@@ -811,6 +819,7 @@ declare
   v_recording public.recording_sessions%rowtype;
   v_consultation public.consultations%rowtype;
   v_access record;
+  v_consent public.consultation_recording_consents%rowtype;
 begin
 select recordings.*
 into v_recording
@@ -832,13 +841,13 @@ where consultations.id = v_recording.consultation_id;
     'consultations',
     'update'
   );
-  if not exists (
-    select 1
-    from public.consultation_recording_consents
-    where id = v_recording.consent_id
-      and state = 'active'
-      and (expires_at is null or expires_at > clock_timestamp())
-  ) then
+  select * into v_consent
+  from public.consultation_recording_consents
+  where id = v_recording.consent_id
+    and state = 'active'
+    and (expires_at is null or expires_at > clock_timestamp())
+  for update;
+  if v_consent.id is null then
     raise exception using message = 'eh170_recording_consent_required';
   end if;
   if not coalesce(v_access.allowed, false)
@@ -878,7 +887,6 @@ as $$
 declare
   v_recording public.recording_sessions%rowtype;
   v_consultation public.consultations%rowtype;
-  v_access record;
 begin
 select recordings.*
 into v_recording
@@ -892,29 +900,20 @@ where consultations.id = v_recording.consultation_id;
   if v_recording.id is null then
     raise exception using message = 'eh170_access_denied';
   end if;
-  select * into v_access
-  from public.eh170_authorize_patient_access(
-    p_actor_profile_id,
-    v_consultation.clinic_id,
-    v_recording.patient_profile_id,
-    'consultations',
-    'update'
-  );
-  if not coalesce(v_access.allowed, false)
-    or p_actor_profile_id <> v_recording.clinician_profile_id then
+  if p_actor_profile_id <> v_recording.clinician_profile_id then
     raise exception using message = 'eh170_access_denied';
   end if;
   if v_recording.status in ('completed', 'clinician_reviewed', 'deleted') then
     raise exception using message = 'eh170_recording_state_invalid';
   end if;
 
-  update public.recording_sessions
+  update public.recording_sessions as recordings
   set status = 'cancelled',
       transcription_lease_token = null,
       transcription_lease_expires_at = null,
       updated_at = clock_timestamp()
-  where id = v_recording.id
-  returning id, status into v_recording.id, v_recording.status;
+  where recordings.id = v_recording.id
+  returning recordings.id, recordings.status into v_recording.id, v_recording.status;
 
   return query select v_recording.id, v_recording.status;
 end;
@@ -1255,7 +1254,8 @@ where consultations.id = v_recording.consultation_id;
   from public.consultation_recording_consents as consents
   where consents.id = v_recording.consent_id
     and consents.state = 'active'
-    and (consents.expires_at is null or consents.expires_at > clock_timestamp());
+    and (consents.expires_at is null or consents.expires_at > clock_timestamp())
+  for update;
   if v_consent.id is null then
     update public.recording_sessions
     set status = 'failed',
@@ -1441,6 +1441,46 @@ where consultations.id = v_recording.consultation_id;
 end;
 $$;
 
+create or replace function public.eh170_sanitize_note_jsonb(
+  p_value jsonb
+)
+returns jsonb
+language sql
+immutable
+set search_path = pg_catalog
+as $$
+  select case jsonb_typeof(p_value)
+    when 'object' then coalesce(
+      (
+        select jsonb_object_agg(
+          entries.key,
+          public.eh170_sanitize_note_jsonb(entries.value)
+        )
+        from jsonb_each(p_value) as entries(key, value)
+        where entries.key not in (
+          'diagnosis',
+          'treatment',
+          'urgency',
+          'urgency_instruction',
+          'medication_directive'
+        )
+      ),
+      '{}'::jsonb
+    )
+    when 'array' then coalesce(
+      (
+        select jsonb_agg(
+          public.eh170_sanitize_note_jsonb(entries.value)
+          order by entries.ordinality
+        )
+        from jsonb_array_elements(p_value) with ordinality as entries(value, ordinality)
+      ),
+      '[]'::jsonb
+    )
+    else p_value
+  end;
+$$;
+
 create or replace function public.eh170_sanitize_note_content(
   p_content jsonb
 )
@@ -1449,16 +1489,33 @@ language sql
 immutable
 set search_path = pg_catalog
 as $$
+with original as (
   select case
     when jsonb_typeof(coalesce(p_content, '{}'::jsonb)) = 'object'
       then coalesce(p_content, '{}'::jsonb)
-        - 'diagnosis'
-        - 'treatment'
-        - 'urgency'
-        - 'urgency_instruction'
-        - 'medication_directive'
     else '{}'::jsonb
-  end;
+  end as content
+),
+sanitized as (
+  select
+    original.content as original_content,
+    public.eh170_sanitize_note_jsonb(original.content) as content
+  from original
+)
+select case
+  when sanitized.content <> sanitized.original_content then jsonb_set(
+    sanitized.content,
+    '{limitations}',
+    case
+      when jsonb_typeof(sanitized.content->'limitations') = 'array'
+        then sanitized.content->'limitations'
+      else '[]'::jsonb
+    end || to_jsonb(array['Unsupported clinical directives were omitted']::text[]),
+    true
+  )
+  else sanitized.content
+end
+from sanitized;
 $$;
 
 create or replace function public.eh170_note_source_references_valid(
@@ -1585,14 +1642,6 @@ begin
   end if;
 
   v_content := public.eh170_sanitize_note_content(p_content);
-  if p_content ?| array['diagnosis', 'treatment', 'urgency', 'urgency_instruction', 'medication_directive'] then
-    v_content := jsonb_set(
-      v_content,
-      '{limitations}',
-      coalesce(v_content->'limitations', '[]'::jsonb) || to_jsonb(array['Unsupported clinical directives were omitted']::text[]),
-      true
-    );
-  end if;
   if not public.eh170_note_source_references_valid(
     v_content,
     p_source_references,
@@ -1725,14 +1774,6 @@ begin
   end if;
 
   v_content := public.eh170_sanitize_note_content(p_content);
-  if p_content ?| array['diagnosis', 'treatment', 'urgency', 'urgency_instruction', 'medication_directive'] then
-    v_content := jsonb_set(
-      v_content,
-      '{limitations}',
-      coalesce(v_content->'limitations', '[]'::jsonb) || to_jsonb(array['Unsupported clinical directives were omitted']::text[]),
-      true
-    );
-  end if;
   if not public.eh170_note_source_references_valid(
     v_content,
     p_source_references,
@@ -2023,6 +2064,10 @@ revoke all on function public.eh170_retry_recording_transcription(uuid, uuid)
   from public, anon, authenticated;
 grant execute on function public.eh170_retry_recording_transcription(uuid, uuid)
   to service_role;
+revoke all on function public.eh170_sanitize_note_jsonb(jsonb)
+  from public, anon, authenticated, service_role;
+grant execute on function public.eh170_sanitize_note_jsonb(jsonb)
+  to postgres;
 revoke all on function public.eh170_sanitize_note_content(jsonb)
   from public, anon, authenticated, service_role;
 grant execute on function public.eh170_sanitize_note_content(jsonb)
