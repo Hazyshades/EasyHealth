@@ -48,7 +48,8 @@ A transcript is a draft source, not a final note. Candidate note content is
 sanitized before persistence: diagnosis, treatment, urgency, and medication
 directives are removed and retained as a limitation. Review creates a new note
 revision with reviewer identity and timestamp; prior revisions are superseded,
-not overwritten.
+not overwritten. Revision numbers are allocated under a consultation row lock
+across all recordings in that consultation.
 
 ## Projection boundaries
 
@@ -90,18 +91,23 @@ preview and do not expose patient data or recording controls.
 
 ## Dictaphone worker
 
-The Dictaphone worker calls `eh170_claim_recording_transcription`, downloads from
-the private bucket, and sends the audio through the configured provider adapter.
-The current adapter is OpenAI's transcription endpoint. Provider failures are
-reduced to stable codes (`provider_unavailable`, `provider_timeout`,
-`provider_rejected`, `audio_unavailable`, or `access_revoked`). The worker never
-logs source audio or transcript text. Lease tokens make completion and failure
-updates idempotent; a revoked grant or consent cannot produce a ready transcript.
+The Dictaphone worker calls `eh170_claim_recording_transcription`, which reuses
+the shared grant decision and emits a minimized read event before returning a
+private storage path. It downloads from the private bucket and sends the audio
+through the configured provider adapter. The current adapter is OpenAI's
+transcription endpoint. Provider failures are reduced to stable codes
+(`provider_unavailable`, `provider_timeout`, `provider_rejected`,
+`audio_unavailable`, or `access_revoked`). The worker never logs source audio or
+transcript text. Lease tokens make completion and failure updates idempotent;
+expired leases are reclaimable, out-of-cohort leases are released back to the
+uploaded queue with a short retry delay, and a revoked grant, consent, or
+rollout cohort cannot produce a ready transcript.
 
-Retention is a separate worker pass. It removes expired audio objects first,
-then records audited audio retirement, transcript deletion, and note revision
-deletion through service-role-only RPCs. The configured deletion actor must be a
-profile UUID.
+Retention is a separate worker pass. It validates that the configured deletion
+actor exists, records a locked per-recording deletion intent, removes only the
+returned private storage path, then finalizes the audited audio retirement
+through an idempotent service-role RPC. Transcript and note revision deletion
+are separate audited RPCs; repeated audio retirement is harmless.
 
 ## Release gate and rollback
 
@@ -114,10 +120,12 @@ The production gate is closed unless all of these are true:
 - recording, transcript, and note retention days are positive;
 - `EH170_RETENTION_DELETE_ACTOR` is a valid profile UUID.
 
-Enable in order: migrations and RPC privileges, clinic cohort, approved patient
-grants, Dictaphone only after the processing policy gate, then the worker. To
-roll back, set the relevant feature flag to `false` or remove the profile from
-the cohort. Existing patient data and retained artifacts are not deleted; new
+Enable in order: migrations and RPC privileges, approved processing policy and
+retention actor evidence, the Clinic and Dictaphone flags for a controlled
+cohort, approved patient grants, then the worker. The production policy gate
+blocks clinician API access until those prerequisites are complete. To roll
+back, set the relevant feature flag to `false` or remove the profile from the
+cohort. Existing patient data and retained artifacts are not deleted; new
 clinician API reads fail closed and recording/transcription work stops. Re-enable
 only after the policy and access evidence is restored.
 

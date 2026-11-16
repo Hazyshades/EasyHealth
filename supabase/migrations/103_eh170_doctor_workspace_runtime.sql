@@ -10,7 +10,11 @@ alter table public.recording_sessions
   add column if not exists transcription_retry_at timestamptz,
   add column if not exists transcription_provider text,
   add column if not exists transcription_model text,
-  add column if not exists transcription_started_at timestamptz;
+  add column if not exists transcription_started_at timestamptz,
+  add column if not exists source_audio_delete_requested_at timestamptz,
+  add column if not exists source_audio_delete_actor_profile_id uuid references public.profiles(id) on delete set null,
+  add column if not exists source_audio_delete_grant_id uuid references public.patient_access_grants(id) on delete set null,
+  add column if not exists source_audio_delete_eligible_at timestamptz;
 
 alter table public.recording_sessions
   drop constraint if exists recording_sessions_transcription_attempts_check;
@@ -243,42 +247,78 @@ returns table (
   expires_at timestamptz,
   created_at timestamptz
 )
-language sql
+language plpgsql
 security definer
 set search_path = public, pg_temp
 as $$
-  select
-    case when grants.patient_profile_id = p_actor_profile_id
-      then 'patient' else 'clinician' end,
-    grants.id,
-    clinics.id,
-    clinics.name,
-    grants.patient_profile_id,
-    coalesce(nullif(btrim(patient.display_name), ''), nullif(btrim(patient.email), ''), 'Patient'),
-    grants.clinician_profile_id,
-    coalesce(nullif(btrim(clinician.display_name), ''), nullif(btrim(clinician.email), ''), 'Clinician'),
-    grants.state,
-    grants.scopes,
-    grants.requested_scopes,
-    grants.expires_at,
-    grants.created_at
-  from public.patient_access_grants as grants
-  join public.clinics as clinics on clinics.id = grants.clinic_id
-  join public.profiles as patient on patient.id = grants.patient_profile_id
-  join public.profiles as clinician on clinician.id = grants.clinician_profile_id
-  where grants.patient_profile_id = p_actor_profile_id
-     or (
-       grants.clinician_profile_id = p_actor_profile_id
-       and clinics.archived_at is null
-       and exists (
-         select 1
-         from public.clinic_memberships as memberships
-         where memberships.clinic_id = grants.clinic_id
-           and memberships.clinician_profile_id = p_actor_profile_id
-           and memberships.status = 'active'
+declare
+  v_row record;
+begin
+  for v_row in
+    select
+      case when grants.patient_profile_id = p_actor_profile_id
+        then 'patient' else 'clinician' end as perspective,
+      grants.id as grant_id,
+      clinics.id as clinic_id,
+      clinics.name as clinic_name,
+      grants.patient_profile_id,
+      coalesce(nullif(btrim(patient.display_name), ''), nullif(btrim(patient.email), ''), 'Patient') as patient_name,
+      grants.clinician_profile_id,
+      coalesce(nullif(btrim(clinician.display_name), ''), nullif(btrim(clinician.email), ''), 'Clinician') as clinician_name,
+      case
+        when grants.state = 'active'
+          and grants.expires_at is not null
+          and grants.expires_at <= clock_timestamp() then 'expired'
+        else grants.state
+      end as state,
+      grants.scopes,
+      grants.requested_scopes,
+      grants.expires_at,
+      grants.created_at
+    from public.patient_access_grants as grants
+    join public.clinics as clinics on clinics.id = grants.clinic_id
+    join public.profiles as patient on patient.id = grants.patient_profile_id
+    join public.profiles as clinician on clinician.id = grants.clinician_profile_id
+    where grants.patient_profile_id = p_actor_profile_id
+       or (
+         grants.clinician_profile_id = p_actor_profile_id
+         and clinics.archived_at is null
+         and exists (
+           select 1
+           from public.clinic_memberships as memberships
+           where memberships.clinic_id = grants.clinic_id
+             and memberships.clinician_profile_id = p_actor_profile_id
+             and memberships.status = 'active'
+         )
        )
-     )
-  order by grants.created_at desc;
+    order by grants.created_at desc
+  loop
+    perform public.eh170_write_access_event(
+      v_row.clinic_id,
+      v_row.patient_profile_id,
+      p_actor_profile_id,
+      v_row.grant_id,
+      'grant',
+      'read',
+      'allowed'
+    );
+    perspective := v_row.perspective;
+    grant_id := v_row.grant_id;
+    clinic_id := v_row.clinic_id;
+    clinic_name := v_row.clinic_name;
+    patient_profile_id := v_row.patient_profile_id;
+    patient_name := v_row.patient_name;
+    clinician_profile_id := v_row.clinician_profile_id;
+    clinician_name := v_row.clinician_name;
+    state := v_row.state;
+    scopes := v_row.scopes;
+    requested_scopes := v_row.requested_scopes;
+    expires_at := v_row.expires_at;
+    created_at := v_row.created_at;
+    return next;
+  end loop;
+  return;
+end;
 $$;
 
 create or replace function public.eh170_list_consultations(
@@ -365,6 +405,20 @@ as $$
         'status', revisions.status,
         'content', revisions.content,
         'source_references', revisions.source_references,
+        'source_audio_available', case
+          when revisions.recording_session_id is null then null
+          else not exists (
+            select 1
+            from public.recording_sessions as recordings
+            where recordings.id = revisions.recording_session_id
+              and recordings.source_audio_deleted_at is not null
+          )
+        end,
+        'source_audio_deleted_at', (
+          select recordings.source_audio_deleted_at
+          from public.recording_sessions as recordings
+          where recordings.id = revisions.recording_session_id
+        ),
         'authored_by_profile_id', revisions.authored_by_profile_id,
         'reviewed_by_profile_id', revisions.reviewed_by_profile_id,
         'reviewed_at', revisions.reviewed_at
@@ -681,7 +735,8 @@ begin
     and consents.state = 'active'
     and (consents.expires_at is null or consents.expires_at > clock_timestamp())
   order by consents.granted_at desc
-  limit 1;
+  limit 1
+  for update;
   if v_consent.id is null then
     raise exception using message = 'eh170_recording_consent_required';
   end if;
@@ -781,6 +836,11 @@ begin
   ) then
     raise exception using message = 'eh170_recording_consent_required';
   end if;
+  if v_recording.source_audio_deleted_at is not null
+    or v_recording.source_audio_delete_requested_at is not null
+    or v_recording.source_audio_delete_actor_profile_id is not null then
+    raise exception using message = 'eh170_recording_state_invalid';
+  end if;
   if v_recording.status not in ('recording', 'uploading') then
     raise exception using message = 'eh170_recording_state_invalid';
   end if;
@@ -853,7 +913,10 @@ where consultations.id = v_recording.consultation_id;
   if not coalesce(v_access.allowed, false)
     or p_actor_profile_id <> v_recording.clinician_profile_id
     or v_recording.status <> 'uploading'
-    or v_recording.storage_path is null then
+    or v_recording.storage_path is null
+    or v_recording.source_audio_deleted_at is not null
+    or v_recording.source_audio_delete_requested_at is not null
+    or v_recording.source_audio_delete_actor_profile_id is not null then
     raise exception using message = 'eh170_access_denied';
   end if;
 
@@ -887,6 +950,7 @@ as $$
 declare
   v_recording public.recording_sessions%rowtype;
   v_consultation public.consultations%rowtype;
+  v_access record;
 begin
 select recordings.*
 into v_recording
@@ -901,6 +965,17 @@ where consultations.id = v_recording.consultation_id;
     raise exception using message = 'eh170_access_denied';
   end if;
   if p_actor_profile_id <> v_recording.clinician_profile_id then
+    raise exception using message = 'eh170_access_denied';
+  end if;
+  select * into v_access
+  from public.eh170_authorize_patient_access(
+    p_actor_profile_id,
+    v_consultation.clinic_id,
+    v_recording.patient_profile_id,
+    'consultations',
+    'update'
+  );
+  if not coalesce(v_access.allowed, false) then
     raise exception using message = 'eh170_access_denied';
   end if;
   if v_recording.status in ('completed', 'clinician_reviewed', 'deleted') then
@@ -996,11 +1071,26 @@ where consultations.id = v_recording.consultation_id;
         'status', revisions.status,
         'content', revisions.content,
         'source_references', revisions.source_references,
+        'source_audio_available', case
+          when revisions.recording_session_id is null then null
+          else not exists (
+            select 1
+            from public.recording_sessions as recordings
+            where recordings.id = revisions.recording_session_id
+              and recordings.source_audio_deleted_at is not null
+          )
+        end,
+        'source_audio_deleted_at', (
+          select recordings.source_audio_deleted_at
+          from public.recording_sessions as recordings
+          where recordings.id = revisions.recording_session_id
+        ),
         'reviewed_by_profile_id', revisions.reviewed_by_profile_id,
         'reviewed_at', revisions.reviewed_at
       )
       from public.consultation_note_revisions as revisions
       where revisions.consultation_id = v_recording.consultation_id
+        and revisions.recording_session_id = v_recording.id
         and revisions.status <> 'deleted'
       order by revisions.revision_number desc
       limit 1
@@ -1061,6 +1151,7 @@ as $$
     select revisions.status
     from public.consultation_note_revisions as revisions
     where revisions.consultation_id = recordings.consultation_id
+      and revisions.recording_session_id = recordings.id
       and revisions.status <> 'deleted'
     order by revisions.revision_number desc
     limit 1
@@ -1111,15 +1202,21 @@ begin
 select recordings.*
 into v_recording
 from public.recording_sessions as recordings
+join public.consultations as consultations
+  on consultations.id = recordings.consultation_id
 where recordings.storage_path is not null
   and recordings.source_audio_deleted_at is null
   and (
-    recordings.status = 'uploaded'
+    (
+      recordings.status = 'uploaded'
+      and (recordings.transcription_retry_at is null or recordings.transcription_retry_at <= clock_timestamp())
+    )
     or (
       recordings.status = 'failed'
       and recordings.transcription_retryable
       and (recordings.transcription_retry_at is null or recordings.transcription_retry_at <= clock_timestamp())
     )
+    or recordings.status = 'transcribing'
   )
   and (recordings.transcription_lease_expires_at is null or recordings.transcription_lease_expires_at <= clock_timestamp())
   and exists (
@@ -1131,20 +1228,14 @@ where recordings.storage_path is not null
   )
   and exists (
     select 1
-    from public.clinic_memberships as memberships
-    join public.clinics on clinics.id = memberships.clinic_id
-    join public.patient_access_grants as grants
-      on grants.clinic_id = memberships.clinic_id
-     and grants.patient_profile_id = recordings.patient_profile_id
-     and grants.clinician_profile_id = recordings.clinician_profile_id
-    join public.consultations on consultations.id = recordings.consultation_id
-    where memberships.clinic_id = consultations.clinic_id
-      and memberships.clinician_profile_id = recordings.clinician_profile_id
-      and memberships.status = 'active'
-      and clinics.archived_at is null
-      and grants.state = 'active'
-      and 'consultations' = any(grants.scopes)
-      and (grants.expires_at is null or grants.expires_at > clock_timestamp())
+    from public.eh170_authorize_patient_access(
+      recordings.clinician_profile_id,
+      consultations.clinic_id,
+      recordings.patient_profile_id,
+      'consultations',
+      'read'
+    ) as access
+    where access.allowed
   )
   order by recordings.created_at asc
 for update skip locked
@@ -1317,6 +1408,49 @@ where consultations.id = v_recording.consultation_id;
   returning id, status into v_recording.id, v_recording.status;
 
   return query select v_recording.id, v_recording.status, v_transcript.id, v_transcript.status;
+end;
+$$;
+
+create or replace function public.eh170_release_recording_transcription(
+  p_recording_id uuid,
+  p_lease_token uuid
+)
+returns table (
+  recording_id uuid,
+  status text
+)
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_recording public.recording_sessions%rowtype;
+begin
+  select recordings.*
+  into v_recording
+  from public.recording_sessions as recordings
+  where recordings.id = p_recording_id
+    and recordings.status = 'transcribing'
+    and recordings.transcription_lease_token = p_lease_token
+  for update;
+  if v_recording.id is null then
+    raise exception using message = 'eh170_transcription_lease_invalid';
+  end if;
+  update public.recording_sessions as recordings
+  set status = 'uploaded',
+      failure_code = null,
+      transcription_retryable = true,
+      transcription_retry_at = clock_timestamp() + interval '1 minute',
+      transcription_attempts = greatest(recordings.transcription_attempts - 1, 0),
+      transcription_lease_token = null,
+      transcription_lease_expires_at = null,
+      transcription_worker_id = null,
+      transcription_started_at = null,
+      updated_at = clock_timestamp()
+  where recordings.id = v_recording.id
+  returning recordings.id, recordings.status
+    into v_recording.id, v_recording.status;
+  return query select v_recording.id, v_recording.status;
 end;
 $$;
 
@@ -1603,6 +1737,7 @@ set search_path = public, pg_temp
 as $$
 declare
   v_recording public.recording_sessions%rowtype;
+  v_consent public.consultation_recording_consents%rowtype;
   v_consultation public.consultations%rowtype;
   v_transcript public.transcript_drafts%rowtype;
   v_access record;
@@ -1613,7 +1748,8 @@ begin
   select recordings.*
   into v_recording
   from public.recording_sessions as recordings
-  where recordings.id = p_recording_id;
+  where recordings.id = p_recording_id
+  for update;
   select consultations.*
   into v_consultation
   from public.consultations
@@ -1633,10 +1769,20 @@ begin
     or p_actor_profile_id <> v_recording.clinician_profile_id then
     raise exception using message = 'eh170_access_denied';
   end if;
+  select * into v_consent
+  from public.consultation_recording_consents as consents
+  where consents.id = v_recording.consent_id
+    and consents.state = 'active'
+    and (consents.expires_at is null or consents.expires_at > clock_timestamp())
+  for update;
+  if v_consent.id is null then
+    raise exception using message = 'eh170_recording_consent_required';
+  end if;
   select * into v_transcript
   from public.transcript_drafts as transcripts
   where transcripts.recording_session_id = v_recording.id
-    and transcripts.status = 'ready';
+    and transcripts.status = 'ready'
+  for update;
   if v_transcript.id is null then
     raise exception using message = 'eh170_transcript_unavailable';
   end if;
@@ -1650,6 +1796,10 @@ begin
     raise exception using message = 'eh170_note_source_references_invalid';
   end if;
 
+  perform 1
+  from public.consultations
+  where id = v_consultation.id
+  for update;
   select coalesce(max(revisions.revision_number), 0) + 1
   into v_revision_number
   from public.consultation_note_revisions as revisions
@@ -1719,6 +1869,7 @@ as $$
 declare
   v_consultation public.consultations%rowtype;
   v_recording public.recording_sessions%rowtype;
+  v_consent public.consultation_recording_consents%rowtype;
   v_access record;
   v_revision public.consultation_note_revisions%rowtype;
   v_previous_id uuid;
@@ -1730,6 +1881,14 @@ begin
   from public.consultations
   where id = p_consultation_id;
   if v_consultation.id is null then
+    raise exception using message = 'eh170_access_denied';
+  end if;
+  select * into v_recording
+  from public.recording_sessions as recordings
+  where recordings.id = p_recording_id
+    and recordings.consultation_id = p_consultation_id
+  for update;
+  if v_recording.id is null then
     raise exception using message = 'eh170_access_denied';
   end if;
   select * into v_access
@@ -1744,12 +1903,14 @@ begin
     or p_actor_profile_id <> v_consultation.clinician_profile_id then
     raise exception using message = 'eh170_access_denied';
   end if;
-  select * into v_recording
-  from public.recording_sessions as recordings
-  where recordings.id = p_recording_id
-    and recordings.consultation_id = p_consultation_id;
-  if v_recording.id is null then
-    raise exception using message = 'eh170_access_denied';
+  select * into v_consent
+  from public.consultation_recording_consents as consents
+  where consents.id = v_recording.consent_id
+    and consents.state = 'active'
+    and (consents.expires_at is null or consents.expires_at > clock_timestamp())
+  for update;
+  if v_consent.id is null then
+    raise exception using message = 'eh170_recording_consent_required';
   end if;
   if p_transcript_draft_id is null then
     select transcripts.id
@@ -1762,14 +1923,14 @@ begin
   else
     v_transcript_draft_id := p_transcript_draft_id;
   end if;
-  if v_transcript_draft_id is null
-    or not exists (
-      select 1
-      from public.transcript_drafts as transcripts
-      where transcripts.id = v_transcript_draft_id
-        and transcripts.recording_session_id = p_recording_id
-        and transcripts.status = 'ready'
-    ) then
+  select transcripts.id
+  into v_transcript_draft_id
+  from public.transcript_drafts as transcripts
+  where transcripts.id = v_transcript_draft_id
+    and transcripts.recording_session_id = p_recording_id
+    and transcripts.status = 'ready'
+  for update;
+  if v_transcript_draft_id is null then
     raise exception using message = 'eh170_transcript_unavailable';
   end if;
 
@@ -1782,15 +1943,22 @@ begin
     raise exception using message = 'eh170_note_source_references_invalid';
   end if;
 
-  select revisions.id, revisions.revision_number
-  into v_previous_id, v_revision_number
+  perform 1
+  from public.consultations
+  where id = p_consultation_id
+  for update;
+  select revisions.id
+  into v_previous_id
   from public.consultation_note_revisions as revisions
   where revisions.consultation_id = p_consultation_id
-    and revisions.status <> 'deleted'
+    and revisions.recording_session_id = p_recording_id
   order by revisions.revision_number desc
   limit 1
   for update;
-  v_revision_number := coalesce(v_revision_number, 0) + 1;
+  select coalesce(max(revisions.revision_number), 0) + 1
+  into v_revision_number
+  from public.consultation_note_revisions as revisions
+  where revisions.consultation_id = p_consultation_id;
 
   if v_previous_id is not null then
     update public.consultation_note_revisions
@@ -1828,7 +1996,8 @@ begin
   returning * into v_revision;
 
   update public.recording_sessions
-  set status = case when p_reviewed then 'clinician_reviewed' else 'note_draft' end,
+  set status = case when p_reviewed then 'completed' else 'note_draft' end,
+      completed_at = case when p_reviewed then clock_timestamp() else completed_at end,
       updated_at = clock_timestamp()
   where id = p_recording_id;
 
@@ -1843,6 +2012,118 @@ begin
 end;
 $$;
 
+
+create or replace function public.eh170_prepare_recording_audio_delete(
+  p_actor_profile_id uuid,
+  p_recording_id uuid
+)
+returns table (
+  recording_id uuid,
+  storage_path text,
+  source_audio_deleted_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_recording public.recording_sessions%rowtype;
+  v_consultation public.consultations%rowtype;
+  v_grant public.patient_access_grants%rowtype;
+  v_access record;
+begin
+  select recordings.*
+  into v_recording
+  from public.recording_sessions as recordings
+  where recordings.id = p_recording_id
+  for update;
+  select consultations.*
+  into v_consultation
+  from public.consultations
+  where consultations.id = v_recording.consultation_id;
+  if v_recording.id is null
+    or p_actor_profile_id <> v_recording.clinician_profile_id then
+    raise exception using message = 'eh170_access_denied';
+  end if;
+  if v_recording.source_audio_deleted_at is not null then
+    return query select
+      v_recording.id,
+      null::text,
+      v_recording.source_audio_deleted_at;
+    return;
+  end if;
+  if v_recording.source_audio_delete_actor_profile_id is not null then
+    if v_recording.source_audio_delete_actor_profile_id <> p_actor_profile_id then
+      raise exception using message = 'eh170_access_denied';
+    end if;
+    return query select
+      v_recording.id,
+      v_recording.storage_path,
+      null::timestamptz;
+    return;
+  end if;
+
+  select * into v_access
+  from public.eh170_authorize_patient_access(
+    p_actor_profile_id,
+    v_consultation.clinic_id,
+    v_recording.patient_profile_id,
+    'consultations',
+    'delete'
+  );
+  if not coalesce(v_access.allowed, false)
+    or v_access.grant_id is null then
+    raise exception using message = 'eh170_access_denied';
+  end if;
+  select * into v_grant
+  from public.patient_access_grants as grants
+  where grants.id = v_access.grant_id
+  for update;
+  if v_grant.id is null
+    or v_grant.state <> 'active'
+    or (v_grant.expires_at is not null and v_grant.expires_at <= clock_timestamp())
+    or not ('consultations' = any(v_grant.scopes)) then
+    raise exception using message = 'eh170_access_denied';
+  end if;
+
+  if v_recording.storage_path is null then
+    update public.recording_sessions as recordings
+    set source_audio_deleted_at = clock_timestamp(),
+        source_audio_delete_eligible_at = null,
+        updated_at = clock_timestamp()
+    where recordings.id = v_recording.id
+    returning recordings.id, recordings.source_audio_deleted_at
+      into v_recording.id, v_recording.source_audio_deleted_at;
+    perform public.eh170_write_access_event(
+      v_consultation.clinic_id,
+      v_recording.patient_profile_id,
+      p_actor_profile_id,
+      v_access.grant_id,
+      'recording',
+      'delete',
+      'allowed',
+      'consultations'
+    );
+    return query select v_recording.id, null::text, v_recording.source_audio_deleted_at;
+    return;
+  end if;
+
+  update public.recording_sessions as recordings
+  set source_audio_delete_requested_at = clock_timestamp(),
+      source_audio_delete_actor_profile_id = p_actor_profile_id,
+      source_audio_delete_grant_id = v_access.grant_id,
+      source_audio_delete_eligible_at = coalesce(
+        v_recording.source_audio_delete_eligible_at,
+        v_recording.uploaded_at,
+        v_recording.updated_at
+      ),
+      updated_at = clock_timestamp()
+  where recordings.id = v_recording.id
+  returning recordings.id, recordings.storage_path
+    into v_recording.id, v_recording.storage_path;
+  return query select v_recording.id, v_recording.storage_path, null::timestamptz;
+end;
+$$;
 
 create or replace function public.eh170_mark_recording_audio_deleted(
   p_actor_profile_id uuid,
@@ -1859,37 +2140,47 @@ as $$
 declare
   v_recording public.recording_sessions%rowtype;
   v_consultation public.consultations%rowtype;
-  v_access record;
+  v_grant_id uuid;
 begin
-select recordings.*
-into v_recording
-from public.recording_sessions as recordings
-where recordings.id = p_recording_id
-for update;
-select consultations.*
-into v_consultation
-from public.consultations
-where consultations.id = v_recording.consultation_id;
-  if v_recording.id is null then
+  select recordings.*
+  into v_recording
+  from public.recording_sessions as recordings
+  where recordings.id = p_recording_id
+  for update;
+  select consultations.*
+  into v_consultation
+  from public.consultations
+  where consultations.id = v_recording.consultation_id;
+  if v_recording.id is null
+    or v_recording.source_audio_delete_actor_profile_id <> p_actor_profile_id
+    or v_recording.source_audio_delete_requested_at is null then
     raise exception using message = 'eh170_access_denied';
   end if;
-  select * into v_access
-  from public.eh170_authorize_patient_access(
-    p_actor_profile_id,
+  if v_recording.source_audio_deleted_at is not null then
+    return query select v_recording.id, v_recording.source_audio_deleted_at;
+    return;
+  end if;
+  v_grant_id := v_recording.source_audio_delete_grant_id;
+  update public.recording_sessions as recordings
+  set source_audio_deleted_at = clock_timestamp(),
+      source_audio_delete_requested_at = null,
+      source_audio_delete_actor_profile_id = null,
+      source_audio_delete_grant_id = null,
+      source_audio_delete_eligible_at = null,
+      updated_at = clock_timestamp()
+  where recordings.id = v_recording.id
+  returning recordings.id, recordings.source_audio_deleted_at
+    into v_recording.id, v_recording.source_audio_deleted_at;
+  perform public.eh170_write_access_event(
     v_consultation.clinic_id,
     v_recording.patient_profile_id,
-    'consultations',
-    'delete'
+    p_actor_profile_id,
+    v_grant_id,
+    'recording',
+    'delete',
+    'allowed',
+    'consultations'
   );
-  if not coalesce(v_access.allowed, false) then
-    raise exception using message = 'eh170_access_denied';
-  end if;
-
-  update public.recording_sessions
-  set source_audio_deleted_at = coalesce(source_audio_deleted_at, clock_timestamp()),
-      updated_at = clock_timestamp()
-  where id = v_recording.id
-  returning id, source_audio_deleted_at into v_recording.id, v_recording.source_audio_deleted_at;
   return query select v_recording.id, v_recording.source_audio_deleted_at;
 end;
 $$;
@@ -1932,7 +2223,8 @@ where consultations.id = v_recording.consultation_id;
     'consultations',
     'delete'
   );
-  if not coalesce(v_access.allowed, false) then
+  if not coalesce(v_access.allowed, false)
+    or p_actor_profile_id <> v_recording.clinician_profile_id then
     raise exception using message = 'eh170_access_denied';
   end if;
   update public.transcript_drafts
@@ -1984,7 +2276,8 @@ where consultations.id = v_revision.consultation_id;
     'consultations',
     'delete'
   );
-  if not coalesce(v_access.allowed, false) then
+  if not coalesce(v_access.allowed, false)
+    or p_actor_profile_id <> v_consultation.clinician_profile_id then
     raise exception using message = 'eh170_access_denied';
   end if;
   update public.consultation_note_revisions
@@ -2056,6 +2349,10 @@ revoke all on function public.eh170_complete_recording_transcription(uuid, uuid,
   from public, anon, authenticated;
 grant execute on function public.eh170_complete_recording_transcription(uuid, uuid, text, text, text, text)
   to service_role;
+revoke all on function public.eh170_release_recording_transcription(uuid, uuid)
+  from public, anon, authenticated;
+grant execute on function public.eh170_release_recording_transcription(uuid, uuid)
+  to service_role;
 revoke all on function public.eh170_fail_recording_transcription(uuid, uuid, text, boolean)
   from public, anon, authenticated;
 grant execute on function public.eh170_fail_recording_transcription(uuid, uuid, text, boolean)
@@ -2084,6 +2381,10 @@ grant execute on function public.eh170_create_note_draft(uuid, uuid, jsonb, json
 revoke all on function public.eh170_save_note_revision(uuid, uuid, uuid, uuid, jsonb, jsonb, boolean)
   from public, anon, authenticated;
 grant execute on function public.eh170_save_note_revision(uuid, uuid, uuid, uuid, jsonb, jsonb, boolean)
+  to service_role;
+revoke all on function public.eh170_prepare_recording_audio_delete(uuid, uuid)
+  from public, anon, authenticated;
+grant execute on function public.eh170_prepare_recording_audio_delete(uuid, uuid)
   to service_role;
 revoke all on function public.eh170_mark_recording_audio_deleted(uuid, uuid)
   from public, anon, authenticated;

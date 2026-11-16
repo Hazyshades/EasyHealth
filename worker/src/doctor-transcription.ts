@@ -69,6 +69,21 @@ async function failRecording(
   if (error)
     console.error("Dictaphone failure state update failed", error.message);
 }
+async function releaseRecording(recording: ClaimedRecording): Promise<void> {
+  const { error } = await supabase.rpc(
+    "eh170_release_recording_transcription",
+    {
+      p_recording_id: recording.recording_id,
+      p_lease_token: recording.lease_token,
+    },
+  );
+  if (error)
+    console.error(
+      "Dictaphone cohort release state update failed",
+      error.message,
+    );
+}
+
 
 async function transcribeWithOpenAi(
   recording: ClaimedRecording,
@@ -149,9 +164,26 @@ export async function processOneRecordingTranscription(): Promise<boolean> {
   if (!workerEnv.eh170TranscriptionLaunchAllowed()) return false;
   const recording = await claimRecording();
   if (!recording) return false;
-
+  if (
+    !workerEnv.eh170TranscriptionCohortAllowed(
+      recording.patient_profile_id,
+      recording.clinician_profile_id,
+    )
+  ) {
+    await releaseRecording(recording);
+    return true;
+  }
   try {
     const result = await transcribe(recording);
+    if (
+      !workerEnv.eh170TranscriptionCohortAllowed(
+        recording.patient_profile_id,
+        recording.clinician_profile_id,
+      )
+    ) {
+      await releaseRecording(recording);
+      return true;
+    }
     const { error } = await supabase.rpc(
       "eh170_complete_recording_transcription",
       {

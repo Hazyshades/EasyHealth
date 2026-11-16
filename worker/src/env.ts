@@ -90,6 +90,12 @@ const eh170ClinicWorkspaceEnabled = optionalBool(
   false,
 );
 const eh170DictaphoneEnabled = optionalBool("EH170_DICTAPHONE_ENABLED", false);
+const eh170RolloutProfileIds = new Set(
+  (optional("EH170_ROLLOUT_PROFILE_IDS") ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean),
+);
 const eh170TranscriptionDpaApproved = optionalBool(
   "EH170_TRANSCRIPTION_DPA_APPROVED",
   false,
@@ -137,8 +143,29 @@ function isUuid(value: string | undefined): value is string {
   );
 }
 
+function eh170CohortAllows(profileId: string): boolean {
+  if (eh170RolloutProfileIds.size > 0)
+    return eh170RolloutProfileIds.has(profileId);
+  return process.env.NODE_ENV !== "production";
+}
+
+function eh170TranscriptionCohortAllowed(
+  patientProfileId: string,
+  clinicianProfileId: string,
+): boolean {
+  return (
+    eh170CohortAllows(patientProfileId) &&
+    eh170CohortAllows(clinicianProfileId)
+  );
+}
+
 function eh170RetentionLaunchAllowed(): boolean {
-  return eh170TranscriptionPolicyApproved && isUuid(eh170RetentionDeleteActor);
+  return (
+    eh170ClinicWorkspaceEnabled &&
+    eh170DictaphoneEnabled &&
+    eh170TranscriptionPolicyApproved &&
+    isUuid(eh170RetentionDeleteActor)
+  );
 }
 
 export const workerEnv = {
@@ -155,6 +182,7 @@ export const workerEnv = {
   eh170TranscriptionProvider:
     optional("EH170_TRANSCRIPTION_PROVIDER") ?? "openai",
   eh170RetentionLaunchAllowed,
+  eh170TranscriptionCohortAllowed,
   eh170TranscriptionLaunchAllowed,
   eh170RecordingRetentionDays,
   eh170TranscriptRetentionDays,

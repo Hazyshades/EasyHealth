@@ -56,15 +56,11 @@ export async function createDoctorRecordingSignedUrl(
 }
 
 export async function deleteDoctorRecordingObject(
-  input: Readonly<{
-    actorProfileId: string;
-    recordingId: string;
-  }>,
+  storagePath: string,
 ): Promise<void> {
-  const recording = await readDoctorRecording(input);
-  if (!recording?.storage_path) return;
+  if (!storagePath) return;
   const { error } = await createAdminClient()
     .storage.from(DOCTOR_RECORDINGS_BUCKET)
-    .remove([recording.storage_path]);
+    .remove([storagePath]);
   if (error) throw new DoctorWorkspaceError("unavailable");
 }

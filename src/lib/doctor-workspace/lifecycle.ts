@@ -44,6 +44,21 @@ export function canTransitionRecording(
   return RECORDING_TRANSITIONS[from].includes(to);
 }
 
+export function resolveDoctorConsultationSelection(
+  consultations: readonly { consultation_id: string }[],
+  selectedConsultationId: string,
+): string {
+  if (
+    consultations.some(
+      (consultation) =>
+        consultation.consultation_id === selectedConsultationId,
+    )
+  ) {
+    return selectedConsultationId;
+  }
+  return consultations[0]?.consultation_id ?? "";
+}
+
 const BLOCKED_NOTE_FIELDS = new Set([
   "diagnosis",
   "treatment",

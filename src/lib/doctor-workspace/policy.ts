@@ -52,7 +52,12 @@ export function doctorWorkspacePolicyStatus(): DoctorWorkspacePolicyStatus {
 }
 
 export function isDoctorWorkspaceEnabled(profileId: string): boolean {
-  return env.EH170_CLINIC_WORKSPACE_ENABLED && cohortAllows(profileId);
+  const policy = doctorWorkspacePolicyStatus();
+  return (
+    env.EH170_CLINIC_WORKSPACE_ENABLED &&
+    cohortAllows(profileId) &&
+    (process.env.NODE_ENV !== "production" || policy.launchAllowed)
+  );
 }
 
 export function isDictaphoneEnabled(profileId: string): boolean {

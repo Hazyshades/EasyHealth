@@ -1,5 +1,20 @@
 -- EH-170: retention workers use audited, service-role-only deletion transitions.
 
+create or replace function public.eh170_retention_actor_is_valid(
+  p_actor_profile_id uuid
+)
+returns boolean
+language sql
+security definer
+set search_path = public, pg_temp
+as $$
+  select exists (
+    select 1
+    from public.profiles
+    where id = p_actor_profile_id
+  );
+$$;
+
 create or replace function public.eh170_retention_list_audio_candidates(
   p_before timestamptz
 )
@@ -15,9 +30,16 @@ as $$
   from public.recording_sessions as recordings
   where recordings.source_audio_deleted_at is null
     and recordings.storage_path is not null
-    and recordings.uploaded_at < p_before
-    and recordings.status not in ('cancelled', 'deleted')
-  order by recordings.uploaded_at
+    and coalesce(
+      recordings.source_audio_delete_eligible_at,
+      recordings.uploaded_at,
+      recordings.updated_at
+    ) < p_before
+  order by coalesce(
+    recordings.source_audio_delete_eligible_at,
+    recordings.uploaded_at,
+    recordings.updated_at
+  )
   limit 25;
 $$;
 
@@ -57,6 +79,84 @@ as $$
   limit 25;
 $$;
 
+create or replace function public.eh170_retention_prepare_audio_delete(
+  p_actor_profile_id uuid,
+  p_recording_id uuid,
+  p_before timestamptz
+)
+returns table (
+  recording_id uuid,
+  storage_path text,
+  source_audio_deleted_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_recording public.recording_sessions%rowtype;
+begin
+  if p_before is null then
+    raise exception using message = 'eh170_retention_cutoff_required';
+  end if;
+  if not exists (
+    select 1
+    from public.profiles
+    where id = p_actor_profile_id
+  ) then
+    raise exception using message = 'eh170_access_denied';
+  end if;
+  select * into v_recording
+  from public.recording_sessions
+  where id = p_recording_id
+  for update;
+  if v_recording.id is null then
+    raise exception using message = 'eh170_access_denied';
+  end if;
+  if v_recording.source_audio_deleted_at is not null then
+    return query select
+      v_recording.id,
+      null::text,
+      v_recording.source_audio_deleted_at;
+    return;
+  end if;
+  if coalesce(
+    v_recording.source_audio_delete_eligible_at,
+    v_recording.uploaded_at,
+    v_recording.updated_at
+  ) >= p_before then
+    return;
+  end if;
+  if v_recording.source_audio_delete_actor_profile_id is not null then
+    if v_recording.source_audio_delete_actor_profile_id = p_actor_profile_id then
+      return query select
+        v_recording.id,
+        v_recording.storage_path,
+        null::timestamptz;
+      return;
+    end if;
+    if v_recording.source_audio_delete_requested_at is null
+      or v_recording.source_audio_delete_requested_at >= p_before then
+      raise exception using message = 'eh170_access_denied';
+    end if;
+  end if;
+  update public.recording_sessions as recordings
+  set source_audio_delete_requested_at = clock_timestamp(),
+      source_audio_delete_actor_profile_id = p_actor_profile_id,
+      source_audio_delete_grant_id = null,
+      source_audio_delete_eligible_at = coalesce(
+        v_recording.source_audio_delete_eligible_at,
+        v_recording.uploaded_at,
+        v_recording.updated_at
+      ),
+      updated_at = clock_timestamp()
+  where recordings.id = v_recording.id
+  returning recordings.id, recordings.storage_path
+    into v_recording.id, v_recording.storage_path;
+  return query select v_recording.id, v_recording.storage_path, null::timestamptz;
+end;
+$$;
+
 create or replace function public.eh170_retention_mark_audio_deleted(
   p_actor_profile_id uuid,
   p_recording_id uuid
@@ -80,15 +180,27 @@ begin
   if v_recording.id is null then
     raise exception using message = 'eh170_access_denied';
   end if;
+  if v_recording.source_audio_deleted_at is not null then
+    return query select v_recording.id, v_recording.source_audio_deleted_at;
+    return;
+  end if;
+  if v_recording.source_audio_delete_actor_profile_id is distinct from p_actor_profile_id
+    or v_recording.source_audio_delete_requested_at is null then
+    raise exception using message = 'eh170_access_denied';
+  end if;
   select clinic_id into v_clinic_id
   from public.consultations
   where id = v_recording.consultation_id;
 
-  update public.recording_sessions
-  set source_audio_deleted_at = coalesce(source_audio_deleted_at, clock_timestamp()),
+  update public.recording_sessions as recordings
+  set source_audio_deleted_at = coalesce(recordings.source_audio_deleted_at, clock_timestamp()),
+      source_audio_delete_requested_at = null,
+      source_audio_delete_actor_profile_id = null,
+      source_audio_delete_grant_id = null,
+      source_audio_delete_eligible_at = null,
       updated_at = clock_timestamp()
-  where id = v_recording.id
-  returning id, source_audio_deleted_at
+  where recordings.id = v_recording.id
+  returning recordings.id, recordings.source_audio_deleted_at
   into v_recording.id, v_recording.source_audio_deleted_at;
 
   perform public.eh170_write_access_event(
@@ -201,6 +313,15 @@ begin
   return query select v_revision.id, v_revision.status;
 end;
 $$;
+
+revoke all on function public.eh170_retention_prepare_audio_delete(uuid, uuid, timestamptz)
+  from public, anon, authenticated;
+grant execute on function public.eh170_retention_prepare_audio_delete(uuid, uuid, timestamptz)
+  to service_role;
+revoke all on function public.eh170_retention_actor_is_valid(uuid)
+  from public, anon, authenticated;
+grant execute on function public.eh170_retention_actor_is_valid(uuid)
+  to service_role;
 
 revoke all on function public.eh170_retention_list_audio_candidates(timestamptz)
   from public, anon, authenticated;

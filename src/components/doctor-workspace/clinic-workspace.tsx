@@ -711,8 +711,8 @@ export function ClinicWorkspace() {
                     {consultation.latest_note.status ?? "available"}
                   </p>
                 ) : null}
-                {consultation.patient_profile_id ===
-                workspace.actorProfileId ? (
+                {consultation.patient_profile_id === workspace.actorProfileId &&
+                  consultation.recording_consent_state !== "active" ? (
                   <Button
                     className="mt-4"
                     variant="outline"

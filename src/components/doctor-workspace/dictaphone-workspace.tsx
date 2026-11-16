@@ -6,6 +6,7 @@ import { SurfaceCard } from "@/components/ui/surface-card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusChip } from "@/components/ui/status-chip";
+import { resolveDoctorConsultationSelection } from "@/lib/doctor-workspace/lifecycle";
 
 type Consultation = {
   consultation_id: string;
@@ -88,6 +89,7 @@ export function DictaphoneWorkspace() {
   const [workspace, setWorkspace] = useState<WorkspaceData | null>(null);
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [selectedConsultation, setSelectedConsultation] = useState("");
+  const selectedConsultationRef = useRef("");
   const [selectedRecording, setSelectedRecording] =
     useState<RecordingDetail | null>(null);
   const [noteText, setNoteText] = useState("");
@@ -105,13 +107,14 @@ export function DictaphoneWorkspace() {
     try {
       const data = await getWorkspace();
       setWorkspace(data);
-      setSelectedConsultation(
-        (current) => current || data.consultations[0]?.consultation_id || "",
+      const consultationId = resolveDoctorConsultationSelection(
+        data.consultations,
+        selectedConsultationRef.current,
       );
-      if (data.consultations[0]?.consultation_id) {
-        setRecordings(
-          await getRecordings(data.consultations[0].consultation_id),
-        );
+      selectedConsultationRef.current = consultationId;
+      setSelectedConsultation(consultationId);
+      if (consultationId) {
+        setRecordings(await getRecordings(consultationId));
       } else {
         setRecordings([]);
       }
@@ -129,12 +132,15 @@ export function DictaphoneWorkspace() {
     };
   }, [load]);
 
-  async function refreshRecordings(consultationId = selectedConsultation) {
+  async function refreshRecordings(
+    consultationId = selectedConsultationRef.current || selectedConsultation,
+  ) {
     if (!consultationId) return;
     setRecordings(await getRecordings(consultationId));
   }
 
   async function selectConsultation(value: string) {
+    selectedConsultationRef.current = value;
     setSelectedConsultation(value);
     setSelectedRecording(null);
     setError(null);

@@ -8,6 +8,7 @@ import {
   deleteDoctorTranscript,
   listDoctorRecordings,
   markDoctorRecordingAudioDeleted,
+  prepareDoctorRecordingAudioDeletion,
   retryDoctorRecordingTranscription,
   startDoctorRecording,
 } from "@/lib/doctor-workspace/runtime";
@@ -101,17 +102,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             recordingId: input.recordingId,
           }),
         );
-      case "delete_audio":
-        await deleteDoctorRecordingObject({
+      case "delete_audio": {
+        const deletion = await prepareDoctorRecordingAudioDeletion({
           actorProfileId: actor,
           recordingId: input.recordingId,
         });
+        if (deletion.source_audio_deleted_at || !deletion.storage_path) {
+          return response(deletion);
+        }
+        await deleteDoctorRecordingObject(deletion.storage_path);
         return response(
           await markDoctorRecordingAudioDeleted({
             actorProfileId: actor,
             recordingId: input.recordingId,
           }),
         );
+      }
       case "delete_transcript":
         return response(
           await deleteDoctorTranscript({

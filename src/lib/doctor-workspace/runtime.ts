@@ -556,6 +556,32 @@ export async function retryDoctorRecordingTranscription(
   );
 }
 
+export async function prepareDoctorRecordingAudioDeletion(
+  input: Readonly<{
+    actorProfileId: string;
+    recordingId: string;
+  }>,
+): Promise<{
+  recording_id: string;
+  storage_path: string | null;
+  source_audio_deleted_at: string | null;
+}> {
+  assertUuid(input.actorProfileId);
+  assertUuid(input.recordingId);
+  return callOne(
+    z.object({
+      recording_id: Uuid,
+      storage_path: z.string().nullable(),
+      source_audio_deleted_at: z.string().nullable(),
+    }),
+    "eh170_prepare_recording_audio_delete",
+    {
+      p_actor_profile_id: input.actorProfileId,
+      p_recording_id: input.recordingId,
+    },
+  );
+}
+
 export async function markDoctorRecordingAudioDeleted(
   input: Readonly<{
     actorProfileId: string;

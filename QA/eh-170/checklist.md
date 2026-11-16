@@ -72,7 +72,7 @@ active membership. No unrelated clinic membership appears.
 **Result:** `Blocked` — the live Clinic cohort remains disabled by policy; the
 database contract now passes locally, but an enabled clinician owner and
 invited-clinician account are not configured for this session.
-**Notes / evidence link:** `pnpm test:eh170-db` passed all 52 subtests; enabled
+**Notes / evidence link:** `pnpm test:eh170-db` passed all 100 subtests; enabled
 cohort browser evidence remains pending.
 
 ### EH170-UI-03: Patient approves only requested scopes
@@ -93,7 +93,7 @@ The patient can revoke the grant.
 **Result:** `Blocked` — the live Clinic cohort remains disabled by policy, so
 scope approval and revoke cannot be exercised through product controls.
 **Notes / evidence link:** `supabase/tests/eh170_doctor_workspace.sql`;
-`pnpm test:eh170-db` passed all 52 subtests.
+`pnpm test:eh170-db` passed all 100 subtests.
 
 ### EH170-UI-04: Consent gates Dictaphone recording
 
@@ -113,7 +113,7 @@ states and the storage path is never shown to the user.
 **Result:** `Blocked` — the live Dictaphone cohort and approved transcription
 provider are not enabled for this session.
 **Notes / evidence link:** `supabase/tests/eh170_doctor_workspace.sql`;
-`pnpm test:eh170-db` passed all 52 subtests; worker/provider evidence remains
+`pnpm test:eh170-db` passed all 100 subtests; worker/provider evidence remains
 required.
 
 ### EH170-UI-05: Review before final note and independent deletion
@@ -135,7 +135,7 @@ note deletion operate independently.
 **Result:** `Blocked` — the live Dictaphone interface and approved provider
 remain unavailable; the disabled preview was verified separately in EH170-UI-01.
 **Notes / evidence link:** `supabase/tests/eh170_doctor_workspace.sql`;
-`pnpm test:eh170-db` passed all 52 subtests.
+`pnpm test:eh170-db` passed all 100 subtests.
 
 ### EH170-UI-06: Revoke closes every clinician path
 
@@ -157,13 +157,13 @@ are available; enabled browser evidence remains pending.
 
 ## Developer evidence required
 
-- [x] `pnpm test:eh170` — navigation, pure recording/note lifecycle, and storage/privacy boundary checks pass.
+- [x] `pnpm test:eh170` — navigation and pure recording/note lifecycle
+  checks pass.
 - [x] `pnpm typecheck` — application TypeScript checks pass.
 - [x] `pnpm typecheck:worker` — worker TypeScript checks pass.
 - [x] `pnpm build` — Next.js production build compiled all EH-170 API and app routes; the configured local policy kept live cohort behavior disabled.
 - [x] `pnpm test:eh170-db` — local Supabase migration, RLS, RPC privilege,
-  lifecycle, consent, note-revision, deletion, and rollback checks pass:
-  `Files=1, Tests=52, Result: PASS`.
+  `Files=1, Tests=100, Result: PASS`.
   Local setup note: the disposable database had stale local history entries
   `091`–`094` without matching migration files; those entries were repaired as
   reverted locally before applying migrations `095`–`106`. No remote migration
