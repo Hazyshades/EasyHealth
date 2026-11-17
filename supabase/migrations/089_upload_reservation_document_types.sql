@@ -29,9 +29,19 @@ declare
   v_path text;
   v_intent_id uuid;
   v_deadline timestamptz := now() + interval '10 minutes';
+  v_account_type text;
+  v_guest_deletion_state text;
 begin
-  if not exists (select 1 from public.profiles where id = p_profile_id) then
+  select account_type, guest_deletion_state
+  into v_account_type, v_guest_deletion_state
+  from public.profiles
+  where id = p_profile_id
+  for update;
+  if not found then
     raise exception using message = 'profile_not_found';
+  end if;
+  if v_account_type = 'guest' and v_guest_deletion_state <> 'active' then
+    raise exception using message = 'guest_profile_deletion_requested';
   end if;
   if p_mime_type not in (
     'application/pdf', 'image/jpeg', 'image/png', 'image/jpg', 'image/webp',

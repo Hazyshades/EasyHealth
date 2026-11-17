@@ -118,7 +118,7 @@ function guestLinkErrorMessage(error: unknown, fallback: string): string {
     message.includes("exists") ||
     message.includes("identity")
   ) {
-    return "That identity is already linked to another account.";
+    return "That identity is already linked to another account. Sign in to that account, or choose a different email or Google identity.";
   }
   return fallback;
 }

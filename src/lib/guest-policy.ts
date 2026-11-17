@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { env } from "@/lib/env";
 import { isGuestCreationConfigured } from "./guest-policy-rules";
 export { isGuestCreationConfigured } from "./guest-policy-rules";
+export const GUEST_CREATION_TICKET_COOKIE = "eh_guest_creation_ticket";
+export const GUEST_CREATION_TICKET_TTL_SECONDS = 300;
 export class GuestModeDisabledError extends Error {
   constructor() {
     super("Guest mode is not available");

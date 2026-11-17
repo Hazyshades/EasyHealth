@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { getProfileById, type ProfileRow } from "@/lib/auth/profile";
 import {
+  isGuestProductAccessAllowed,
   isActiveGuestProfileSession,
   isGuestDeletionStateWritable,
 } from "@/lib/guest-mode";
@@ -35,7 +36,7 @@ export async function getGuestSessionIdentity(): Promise<SessionIdentity | null>
   return identity;
 }
 
-export function isWritableSessionIdentity(
+export function isOnboardingWritableSessionIdentity(
   identity: SessionIdentity,
 ): boolean {
   return (
@@ -45,6 +46,20 @@ export function isWritableSessionIdentity(
     ) &&
     (!identity.isGuest || isActiveGuestProfileSession(identity.profile))
   );
+}
+
+export function isWritableSessionIdentity(
+  identity: SessionIdentity,
+): boolean {
+  return (
+    isOnboardingWritableSessionIdentity(identity) &&
+    (!identity.isGuest || isGuestProductAccessAllowed(identity.profile))
+  );
+}
+
+export async function getOnboardingWritableSessionIdentity(): Promise<SessionIdentity | null> {
+  const identity = await getSessionIdentity();
+  return identity && isOnboardingWritableSessionIdentity(identity) ? identity : null;
 }
 
 export async function getWritableSessionIdentity(): Promise<SessionIdentity | null> {

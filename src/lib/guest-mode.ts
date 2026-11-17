@@ -23,6 +23,22 @@ export function isActiveGuestProfileSession(
   return Number.isFinite(expiresAt) && expiresAt > nowMs;
 }
 
+export function isGuestProductAccessAllowed(profile: {
+  account_type: string;
+  first_name: string | null;
+  guest_deletion_state: GuestDeletionState;
+  guest_converted_at: string | null;
+  guest_expires_at: string | null;
+  guest_consent_version: string | null;
+  guest_consent_accepted_at: string | null;
+}): boolean {
+  return (
+    isActiveGuestProfileSession(profile) &&
+    Boolean(profile.first_name?.trim()) &&
+    profile.guest_consent_version === GUEST_CONSENT_VERSION &&
+    profile.guest_consent_accepted_at !== null
+  );
+}
 
 export function isAnonymousAuthUser(user: {
   is_anonymous?: boolean;

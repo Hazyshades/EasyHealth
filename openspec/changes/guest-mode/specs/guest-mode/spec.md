@@ -121,7 +121,11 @@ The system SHALL prevent anonymous guest accounts from acting as clinicians, acc
 - **THEN** the system denies the request without exposing clinician or patient workspace data
 
 ### Requirement: Anonymous guest creation is abuse-controlled
-The system SHALL apply rate limits and an abuse-control challenge or equivalent protection to anonymous account creation and SHALL enforce guest resource limits independently of normal-account limits.
+The system SHALL apply rate limits and an abuse-control challenge or equivalent protection to anonymous account creation and SHALL enforce guest resource limits independently of normal-account limits. Public deployments MUST configure a provider challenge or equivalent provider control.
+
+#### Scenario: Private beta uses the approved throttle equivalent
+- **WHEN** the deployment is access-limited and the provider challenge is unavailable
+- **THEN** the system MAY use the server-side peppered creation throttle as the approved equivalent control, and the deployment MUST NOT be represented as public abuse protection.
 
 #### Scenario: Guest creation limit is exceeded
 - **WHEN** a visitor exceeds the configured anonymous-session creation limit

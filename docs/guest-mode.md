@@ -6,7 +6,7 @@ The guest retention default is 30 days after the latest meaningful activity. The
 
 ## Required migration and services
 
-1. Apply `supabase/migrations/107_guest_mode.sql` after the existing migrations.
+1. Apply `supabase/migrations/107_guest_mode.sql` and then `supabase/migrations/108_guest_creation_reservations.sql` after the existing migrations.
 2. Run the document worker with the same Supabase URL and service-role key as the application.
 3. Confirm the worker can list and delete objects in the private `lab-documents` bucket. It verifies the profile prefix is empty before finalizing a purge.
 4. Keep the application and worker deployment on compatible migration versions. Do not roll back the migration while guest profiles or deletion tombstones exist.
@@ -88,10 +88,10 @@ openspec validate guest-mode --strict
 - Application and worker TypeScript checks pass when invoked with `corepack pnpm`.
 - `corepack pnpm exec next build` passes.
 - Browser smoke confirmed the disabled state hides guest entry and the server-disabled state shows a retryable guest error without console errors.
-- The target Supabase project `nuqvypxavtorupntmrau` has the guest migration objects, guest profile columns, eight service-role guest routines, RLS on the guest tables, and empty guest operational tables.
+- The target Supabase project `nuqvypxavtorupntmrau` has the guest migration objects, guest profile columns, ten service-role guest routines including the one-time creation-ticket RPCs, RLS on the guest tables, and empty guest operational tables.
 - Hosted Auth has anonymous sign-ins and manual identity linking enabled. A disposable anonymous sign-in returned HTTP 200; the created Auth user was deleted successfully with HTTP 200.
 - The hosted Site URL and six-entry redirect allowlist include the Railway origin and `/auth/callback`; the private `lab-documents` bucket and service-role-only Storage policy are present.
-- The target migration history still ends at version `100`; versions `101`–`107` are not recorded because the guest SQL was applied manually while unrelated migrations were pending. Do not claim migration-history reconciliation or run an uncontrolled push until that state is repaired deliberately.
+- The target migration history still ends at version `100`; versions `101`–`108` are not recorded because the guest SQL was applied manually while unrelated migrations were pending. Do not claim migration-history reconciliation or run an uncontrolled push until that state is repaired deliberately.
 - The local database verifier is blocked because the Supabase CLI is unavailable and Docker/local Postgres is not reachable.
 - The full Auth, onboarding, Storage, conversion, and deletion flow was not run: the private-beta Railway variables are staged but not deployed, Google OAuth is disabled, and CAPTCHA is disabled with no hosted secret.
 - Railway `document-worker` now has `WORKER_POLL_INTERVAL_MS=30000`; the redeployment completed successfully and the worker reported `EasyHealth document worker started`. This lowers polling volume at the cost of up to roughly 25 seconds of additional job pickup latency.

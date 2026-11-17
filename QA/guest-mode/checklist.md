@@ -2,7 +2,7 @@
 
 ## Preconditions
 
-- Use a disposable application and Supabase project with `107_guest_mode.sql` applied and the worker running against the same project.
+- Use a disposable application and Supabase project with `107_guest_mode.sql` and `108_guest_creation_reservations.sql` applied and the worker running against the same project.
 - Enable hosted anonymous Auth, manual identity linking, the required Google/email providers, callback URLs, and the configured abuse-control challenge before testing creation or conversion.
 - For an invite-only private beta, Google and CAPTCHA may remain disabled only when `GUEST_ABUSE_CHALLENGE_REQUIRED=false`, `GUEST_ABUSE_CHALLENGE_ENABLED=false`, the pepper is configured, and the deployed origin is access-limited. Record that this is not public abuse protection.
 - Set both guest flags to `true`, configure a stable `GUEST_RATE_LIMIT_PEPPER`, and record the quota values used for the run.
@@ -74,6 +74,7 @@
 - [x] `openspec validate guest-mode --strict`.
 - [x] Hosted target migration objects, guest profile columns, service-role grants, guest-table RLS, private `lab-documents` Storage, Auth anonymous sign-ins, manual linking, Site URL, and `/auth/callback` redirect allowlist were inspected.
 - [x] Disposable hosted anonymous sign-in returned HTTP 200 and its test Auth user was removed with HTTP 200.
+- [x] Hosted `guest_creation_reservations`, `reserve_guest_creation_ticket`, and `consume_guest_creation_ticket` objects were applied and a disposable transactional reservation/consumption smoke passed with cleanup.
 - [x] Railway `document-worker` redeployed with `WORKER_POLL_INTERVAL_MS=30000`; the deployment is active and its startup log reports `EasyHealth document worker started`.
 - [ ] Review direct product API responses for guest ownership, clinician denial, activity, quota, conversion, and deletion; do not count UI-only hiding as authorization evidence.
 - [ ] Verify `guest_profile_deletion_operations` contains only profile ID, reason, status, lease/retry timestamps, safe error code, and receipt metadata. It must contain no filename, raw Storage path, document content, extracted health data, prompt, or report text.

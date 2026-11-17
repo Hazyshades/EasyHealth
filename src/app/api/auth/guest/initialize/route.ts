@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   isActiveGuestProfileSession,
   isAnonymousAuthUser,
@@ -6,9 +6,7 @@ import {
 } from "@/lib/guest-mode";
 import {
   assertGuestModeEnabled,
-  getGuestPolicy,
-  guestCreationKey,
-  isGuestCreationConfigured,
+  GUEST_CREATION_TICKET_COOKIE,
 } from "@/lib/guest-policy";
 import {
   ensureProfile,
@@ -17,7 +15,7 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     assertGuestModeEnabled();
   } catch (error) {
@@ -83,50 +81,25 @@ export async function POST(request: Request) {
       );
     }
 
-    const policy = getGuestPolicy();
-    const key = guestCreationKey(request);
-    if (!key || !isGuestCreationConfigured(policy)) {
+    const ticketId = request.cookies.get(GUEST_CREATION_TICKET_COOKIE)?.value;
+    if (!ticketId) {
       return NextResponse.json(
-        { error: "Guest sign-in is not configured" },
+        { error: "Guest sign-in preflight is required" },
         { status: 503, headers: { "Cache-Control": "no-store" } },
       );
     }
-    const { data: reservation, error: throttleError } = await admin.rpc(
-      "reserve_guest_creation",
-      {
-        p_key_hash: key,
-        p_limit: policy.creationLimit,
-        p_window_seconds: policy.creationWindowSeconds,
-      },
+
+    const { data: consumed, error: consumeError } = await admin.rpc(
+      "consume_guest_creation_ticket",
+      { p_ticket_id: ticketId },
     );
-    if (throttleError) {
+    if (consumeError || consumed !== true) {
       console.error(
-        "[guest] creation throttle failed error=guest_creation_throttle_failed",
+        "[guest] creation ticket failed error=guest_creation_ticket_invalid",
       );
       return NextResponse.json(
-        { error: "Guest sign-in is temporarily unavailable" },
+        { error: "Guest sign-in preflight expired. Try again." },
         { status: 503, headers: { "Cache-Control": "no-store" } },
-      );
-    }
-    const row = Array.isArray(reservation) ? reservation[0] : reservation;
-    if (!row?.allowed) {
-      const retryRaw = Number(row?.retry_after_seconds ?? 60);
-      const retryAfter = Number.isFinite(retryRaw)
-        ? Math.max(1, Math.floor(retryRaw))
-        : 60;
-      console.info(`[guest] creation status=blocked retry_after=${retryAfter}`);
-      return NextResponse.json(
-        {
-          error: "Too many guest sessions were requested. Try again later.",
-          retry_after_seconds: retryAfter,
-        },
-        {
-          status: 429,
-          headers: {
-            "Cache-Control": "no-store",
-            "Retry-After": String(retryAfter),
-          },
-        },
       );
     }
 
@@ -139,10 +112,20 @@ export async function POST(request: Request) {
       );
     }
     console.info("[guest] creation status=allowed");
-    return NextResponse.json(
+    const response = NextResponse.json(
       { profile_id: profile.id, is_guest: true },
       { headers: { "Cache-Control": "no-store" } },
     );
+    response.cookies.set({
+      name: GUEST_CREATION_TICKET_COOKIE,
+      value: "",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 0,
+      path: "/",
+    });
+    return response;
   } catch {
     console.error(
       "[guest] profile initialization failed error=guest_profile_initialization_failed",

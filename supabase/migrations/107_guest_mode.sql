@@ -393,6 +393,7 @@ begin
     raise exception using message = 'invalid_guest_creation_limit';
   end if;
 
+  perform pg_advisory_xact_lock(hashtextextended(p_key_hash, 0));
   select * into v_row
   from public.guest_creation_rate_limits
   where key_hash = p_key_hash

@@ -204,6 +204,7 @@ export async function updateProfileDisplayName(profileId: string, displayName: s
     .from("profiles")
     .update({ display_name: firstName, first_name: firstName })
     .eq("id", profileId)
+    .eq("guest_deletion_state", "active")
     .select(PROFILE_SELECT)
     .single();
   if (error) throw error;
@@ -231,6 +232,7 @@ export async function updateProfileName(
       display_name: displayName,
     })
     .eq("id", profileId)
+    .eq("guest_deletion_state", "active")
     .select(PROFILE_SELECT)
     .single();
   if (error) throw error;
@@ -253,6 +255,7 @@ export async function recordProfileConsents(profileId: string, consents: Consent
       terms_version: CURRENT_TERMS_VERSION,
       consent_preferences: extractConsentPreferences(consents),
     })
+    .eq("guest_deletion_state", "active")
     .eq("id", profileId)
     .select(PROFILE_SELECT)
     .single();
@@ -343,6 +346,7 @@ export async function updateOnboardingTourState(
       .from("profiles")
       .update(terminalUpdate)
       .eq("id", profileId)
+      .eq("guest_deletion_state", "active")
       .select(PROFILE_SELECT)
       .single();
     if (error) throw error;
@@ -358,6 +362,7 @@ export async function updateOnboardingTourState(
     .from("profiles")
     .update({ dashboard_preferences: preferences })
     .eq("id", profileId)
+    .eq("guest_deletion_state", "active")
     .select(PROFILE_SELECT)
     .single();
   if (error) throw error;
@@ -373,6 +378,7 @@ export async function updateProfileLabUnitSystem(
     .from("profiles")
     .update({ lab_unit_system: labUnitSystem })
     .eq("id", profileId)
+    .eq("guest_deletion_state", "active")
     .select(PROFILE_SELECT)
     .single();
   if (error) throw error;
@@ -388,6 +394,7 @@ export async function updateProfileReviewModeDefault(
     .from("profiles")
     .update({ review_mode_default: reviewModeDefault })
     .eq("id", profileId)
+    .eq("guest_deletion_state", "active")
     .select(PROFILE_SELECT)
     .single();
   if (error) throw error;
@@ -400,6 +407,7 @@ export async function updateProfileAiProvider(profileId: string, aiProvider: AiP
     .from("profiles")
     .update({ ai_provider: aiProvider })
     .eq("id", profileId)
+    .eq("guest_deletion_state", "active")
     .select(PROFILE_SELECT)
     .single();
   if (error) throw error;

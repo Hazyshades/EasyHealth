@@ -1,8 +1,11 @@
 import { GUEST_CONSENT_VERSION } from "@/lib/guest-mode";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSessionProfileId } from "@/lib/auth/session";
-import { getWritableSessionProfileId } from "@/lib/auth/identity";
+import { getSessionProfileIdForOnboarding } from "@/lib/auth/session";
+import {
+  getOnboardingWritableSessionIdentity,
+  isWritableSessionIdentity,
+} from "@/lib/auth/identity";
 import {
   getProfileById,
   recordGuestConsent,
@@ -113,7 +116,7 @@ function providerUnavailableMessage(provider: AiProviderId): string {
 }
 
 export async function GET() {
-  const profileId = await getSessionProfileId();
+  const profileId = await getSessionProfileIdForOnboarding();
   if (!profileId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -128,10 +131,11 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const profileId = await getWritableSessionProfileId();
-  if (!profileId) {
+  const identity = await getOnboardingWritableSessionIdentity();
+  if (!identity) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const profileId = identity.profileId;
 
   let body: unknown;
   try {
@@ -146,6 +150,19 @@ export async function PATCH(request: Request) {
       { error: "Invalid request body", details: parsed.error.flatten() },
       { status: 400 },
     );
+  }
+  const hasNonOnboardingUpdate =
+    parsed.data.ai_provider !== undefined ||
+    parsed.data.display_name !== undefined ||
+    parsed.data.onboarding_action !== undefined ||
+    parsed.data.lab_unit_system !== undefined ||
+    parsed.data.review_mode_default !== undefined;
+  if (
+    identity.isGuest &&
+    !isWritableSessionIdentity(identity) &&
+    hasNonOnboardingUpdate
+  ) {
+    return NextResponse.json({ error: "Guest onboarding is incomplete" }, { status: 409 });
   }
 
   if (parsed.data.api_key !== undefined || parsed.data.base_url !== undefined) {

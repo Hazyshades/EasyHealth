@@ -103,14 +103,14 @@ Clearing browser data is not treated as a deletion signal. The UI describes imme
 
 ### 8. Keep deployment additive and reversible
 
-Deploy the schema, server authorization, conversion, deletion, and worker support before enabling guest entry. Gate the login action and anonymous Auth usage with a feature flag. Rollback disables new guest creation but leaves the cleanup worker and existing guest deletion/conversion paths available; it does not remove guest columns or abort in-flight purges. Enabling the feature requires anonymous Auth configuration, abuse-control configuration, worker readiness, legal copy approval, and evidence for the guest browser flow.
+Deploy the schema, server authorization, conversion, deletion, and worker support before enabling guest entry. Gate the login action and anonymous Auth usage with a feature flag. Rollback disables new guest creation but leaves the cleanup worker and existing guest deletion/conversion paths available; it does not remove guest columns or abort in-flight purges. A public rollout requires anonymous Auth configuration, provider abuse control, worker readiness, legal copy approval, and evidence for the guest browser flow. An access-limited private beta MAY use the peppered creation throttle as the approved equivalent abuse control while the provider challenge is unavailable.
 
 ## Risks / Trade-offs
 
-- **[Risk] Anonymous users are authenticated and may pass generic session checks.** -> Centralize guest classification and deny clinician-only/grant paths at the server boundary; add direct API authorization tests.
+- **[Risk] Anonymous users are authenticated and may pass generic session checks.** -> Centralize guest classification, require completed guest onboarding before product APIs, and deny clinician-only/grant paths at the server boundary; add direct API authorization tests.
 - **[Risk] Clearing browser data leaves sensitive server data until TTL.** -> State this prominently, offer account conversion and explicit deletion, enforce the 30-day purge, and do not claim browser-only storage.
-- **[Risk] Profile purge races with document processing or Storage writes.** -> Freeze guest writes, reuse document tombstones/leases, wait for worker quiescence, verify Storage emptiness, and retry with safe error codes.
-- **[Risk] Anonymous sign-in can be abused to consume AI, Storage, or worker capacity.** -> Enable CAPTCHA/Turnstile or equivalent provider protection, rate-limit creation, enforce per-guest quotas, and monitor rejected/expired operations.
+- **[Risk] Profile purge races with document processing or Storage writes.** -> Freeze guest writes with profile-row locking and one-time creation tickets, reuse document tombstones/leases, wait for worker quiescence, verify Storage emptiness, and retry with safe error codes.
+- **[Risk] Anonymous sign-in can be abused to consume AI, Storage, or worker capacity.** -> Require provider protection for public deployments; private beta uses a pre-Auth peppered creation throttle, enforce per-guest quotas, and monitor rejected/expired operations.
 - **[Risk] Identity linking can accidentally create duplicate accounts or merge data.** -> Use current-session linking APIs only, preflight conflicts, keep profile ownership unchanged, and test both successful and conflict paths.
 - **[Risk] A guest consent checkbox may be legally insufficient in some jurisdictions.** -> Keep the required underlying audit fields, version the guest text, link the policies, block release pending legal approval, and document the approved copy.
 - **[Risk] Existing routes may not update guest activity consistently.** -> Define activity sources centrally, add a throttled heartbeat for meaningful app use, and test expiry boundaries with a controlled clock or database fixture.
@@ -118,10 +118,10 @@ Deploy the schema, server authorization, conversion, deletion, and worker suppor
 
 ## Migration Plan
 
-1. Add additive profile and deletion-operation schema, indexes, constraints, and service-role RPCs. Do not change normal-account rows or delete existing data.
+1. Add additive profile, deletion-operation, and one-time guest-creation-reservation schema, indexes, constraints, and service-role RPCs. Do not change normal-account rows or delete existing data.
 2. Add guest-aware session/profile resolution, onboarding consent persistence, shared authorization guards, and conversion endpoints while guest entry remains disabled.
 3. Add worker claim/lease/retry handling for profile-level guest purge and connect it to the existing document deletion lifecycle.
 4. Deploy account UI, guest disclosure/copy, explicit deletion, conversion actions, observability, and tests.
-5. Enable Supabase anonymous sign-ins and abuse controls in the target environment; verify worker readiness and legal-approved copy.
+5. Enable Supabase anonymous sign-ins; configure provider abuse controls for public rollout, or use the explicit access-limited private-beta throttle override; verify worker readiness and legal-approved copy.
 6. Enable the application guest flag for a controlled cohort, monitor creation, conversion, upload, purge, and error metrics, then expand rollout.
 7. If rollback is required, disable new guest entry and retain cleanup/conversion support until all existing guest profiles have converted or expired. Roll back only additive code/config after active deletion operations are terminal.

@@ -6,6 +6,7 @@ import {
   isActiveGuestProfileSession,
   isAnonymousAuthUser,
   isGuestDeletionStateWritable,
+  isGuestProductAccessAllowed,
   isPublicGuestModeEnabled,
 } from "../src/lib/guest-mode";
 import { isGuestCreationConfigured } from "../src/lib/guest-policy-rules";
@@ -87,13 +88,27 @@ assert.equal(pendingGuest.needsProfileGate, false);
 assert.equal(pendingGuest.hasCurrentGuestConsent, false);
 assert.equal(pendingGuest.needsConsentGate, true);
 
-const acceptedGuest = profileOnboardingStateFromRow({
+const acceptedGuestProfile = {
   ...baseProfile,
+  guest_expires_at: "2099-07-01T00:00:00.000Z",
   guest_consent_version: GUEST_CONSENT_VERSION,
   guest_consent_accepted_at: "2026-06-01T00:00:00.000Z",
-});
+};
+const acceptedGuest = profileOnboardingStateFromRow(acceptedGuestProfile);
 assert.equal(acceptedGuest.hasCurrentGuestConsent, true);
 assert.equal(acceptedGuest.needsConsentGate, false);
+assert.equal(isGuestProductAccessAllowed(acceptedGuestProfile), true);
+assert.equal(
+  isGuestProductAccessAllowed({ ...acceptedGuestProfile, first_name: null }),
+  false,
+);
+assert.equal(
+  isGuestProductAccessAllowed({
+    ...acceptedGuestProfile,
+    guest_consent_accepted_at: null,
+  }),
+  false,
+);
 
 const staleGuest = profileOnboardingStateFromRow({
   ...baseProfile,
