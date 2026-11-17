@@ -4,6 +4,7 @@ import { getWritableSessionIdentity } from "@/lib/auth/identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   GuestQuotaError,
+  finalizeGuestUpload,
   releaseGuestUpload,
   reserveGuestUpload,
 } from "@/lib/guest-quotas";
@@ -28,6 +29,11 @@ const ALLOWED_TYPES = new Set([
   "image/png",
   "image/jpg",
 ]);
+async function waitForQuotaRetry(delayMs: number): Promise<void> {
+  const { promise, resolve } = Promise.withResolvers<void>();
+  setTimeout(resolve, delayMs);
+  await promise;
+}
 
 export async function POST(req: NextRequest) {
   const identity = await getWritableSessionIdentity();
@@ -86,21 +92,25 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let guestUploadQuotaReserved = false;
+  let guestUploadReservationId: string | null = null;
   const releaseGuestUploadQuota = async () => {
-    if (!identity.isGuest || !guestUploadQuotaReserved) return;
-    guestUploadQuotaReserved = false;
-    try {
-      await releaseGuestUpload(profileId, file.size);
-    } catch {
-      console.error("[guest] upload quota release failed");
+    const reservationId = guestUploadReservationId;
+    if (!identity.isGuest || !reservationId) return;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        await releaseGuestUpload(reservationId);
+        guestUploadReservationId = null;
+        return;
+      } catch {
+        if (attempt < 2) await waitForQuotaRetry(25 * 2 ** attempt);
+      }
     }
+    console.error("[guest] upload quota release remains pending");
   };
 
   if (identity.isGuest) {
     try {
-      await reserveGuestUpload(profileId, file.size);
-      guestUploadQuotaReserved = true;
+      guestUploadReservationId = await reserveGuestUpload(profileId, file.size);
     } catch (error) {
       if (error instanceof GuestQuotaError) {
         const isProcessing = error.resource === "processing_count";
@@ -136,7 +146,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
+  let buffer: Buffer;
+  try {
+    buffer = Buffer.from(await file.arrayBuffer());
+  } catch {
+    await releaseGuestUploadQuota();
+    return NextResponse.json(
+      { error: "Unable to read upload" },
+      { status: 400 },
+    );
+  }
   const contentSha256 = createHash("sha256").update(buffer).digest("hex");
   const extension =
     file.name
@@ -203,7 +222,14 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
-  guestUploadQuotaReserved = false;
+  if (identity.isGuest && guestUploadReservationId) {
+    try {
+      await finalizeGuestUpload(guestUploadReservationId);
+    } catch {
+      console.error("[guest] upload quota finalization remains pending");
+    }
+    guestUploadReservationId = null;
+  }
 
   return NextResponse.json({
     documentId,

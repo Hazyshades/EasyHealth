@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
 import { getWritableSessionIdentity } from "@/lib/auth/identity";
+import { getProfileById } from "@/lib/auth/profile";
 import { GuestQuotaError, reserveGuestResource } from "@/lib/guest-quotas";
+import { isGuestProductAccessAllowed } from "@/lib/guest-mode";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   createReportBodySchema,
@@ -139,6 +141,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  if (identity.isGuest) {
+    const currentProfile = await getProfileById(profileId);
+    if (!isGuestProductAccessAllowed(currentProfile)) {
+      return NextResponse.json(
+        { error: "Guest session is no longer active" },
+        { status: 409 },
+      );
+    }
+  }
 
   try {
     const report = await createValidatedReport(profileId, parsed.data);

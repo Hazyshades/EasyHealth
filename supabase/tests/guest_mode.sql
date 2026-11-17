@@ -1,5 +1,5 @@
 begin;
-select plan(31);
+select plan(37);
 
 select ok(
   (
@@ -46,6 +46,10 @@ select ok(
   'guest resource usage table exists'
 );
 select ok(
+  to_regclass('public.guest_upload_quota_reservations') is not null,
+  'guest upload quota reservation table exists'
+);
+select ok(
   to_regclass('public.guest_creation_reservations') is not null,
   'guest creation reservation table exists'
 );
@@ -76,10 +80,18 @@ select ok(
 select ok(
   has_function_privilege(
     'service_role',
-    'public.release_guest_upload(uuid,bigint,date)'::regprocedure,
+    'public.release_guest_upload(uuid)'::regprocedure,
     'EXECUTE'
   ),
   'service role can release a failed upload quota reservation'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.finalize_guest_upload(uuid)'::regprocedure,
+    'EXECUTE'
+  ),
+  'service role can finalize a successful upload quota reservation'
 );
 select ok(
   not has_function_privilege(
@@ -220,6 +232,20 @@ select ok(
 update public.profiles
 set guest_consent_version = 'guest-2026-06-29'
 where id = '00000000-0000-0000-0000-000000000111';
+update public.profiles
+set first_name = null
+where id = '00000000-0000-0000-0000-000000000111';
+select ok(
+  not public.complete_guest_conversion(
+    '00000000-0000-0000-0000-000000000111',
+    'controlled@example.invalid',
+    'guest-2026-06-29'
+  ),
+  'guest conversion rejects a profile without a name'
+);
+update public.profiles
+set first_name = 'Convertible'
+where id = '00000000-0000-0000-0000-000000000111';
 select ok(
   public.complete_guest_conversion(
     '00000000-0000-0000-0000-000000000111',
@@ -340,6 +366,43 @@ select is(
   ),
   0::bigint,
   'failed atomic upload reservation rolls back every resource increment'
+);
+
+select ok(
+  (
+    select reservation_id is not null
+    from public.reserve_guest_upload(
+      '00000000-0000-4000-8000-000000000106',
+      10,
+      10,
+      100,
+      10,
+      current_date
+    )
+  ),
+  'successful atomic upload reservation returns a durable reservation id'
+);
+select ok(
+  public.release_guest_upload((
+    select id
+    from public.guest_upload_quota_reservations
+    where profile_id = '00000000-0000-4000-8000-000000000106'
+      and status = 'reserved'
+    order by created_at desc
+    limit 1
+  )),
+  'failed upload quota release is accepted'
+);
+select ok(
+  public.release_guest_upload((
+    select id
+    from public.guest_upload_quota_reservations
+    where profile_id = '00000000-0000-4000-8000-000000000106'
+      and status = 'released'
+    order by released_at desc
+    limit 1
+  )),
+  'failed upload quota release is idempotent'
 );
 
 select ok(

@@ -5,12 +5,27 @@ alter table public.profiles
   add column if not exists privacy_consent_at timestamptz,
   add column if not exists privacy_version text;
 
-update public.profiles
-set privacy_consent_at = coalesce(privacy_consent_at, terms_accepted_at),
-    privacy_version = coalesce(privacy_version, terms_version)
-where (privacy_consent_at is null or privacy_version is null)
-  and terms_accepted_at is not null
-  and terms_version is not null;
+-- Privacy consent is intentionally not inferred from the existing Terms fields.
+-- Missing privacy evidence remains null and forces an explicit re-consent.
+create table if not exists public.guest_upload_quota_reservations (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid not null references public.profiles(id) on delete cascade,
+  usage_day date not null,
+  file_size_bytes bigint not null check (file_size_bytes > 0),
+  status text not null default 'reserved' check (
+    status in ('reserved', 'consumed', 'released')
+  ),
+  created_at timestamptz not null default now(),
+  consumed_at timestamptz,
+  released_at timestamptz
+);
+
+create index if not exists guest_upload_quota_reservations_profile_idx
+  on public.guest_upload_quota_reservations (profile_id, usage_day, status);
+
+alter table public.guest_upload_quota_reservations enable row level security;
+revoke all on public.guest_upload_quota_reservations from public, anon, authenticated;
+grant select, insert, update, delete on public.guest_upload_quota_reservations to service_role;
 
 create or replace function public.reject_guest_profile_writes_after_deletion()
 returns trigger
@@ -86,6 +101,7 @@ declare
     'document_storage_write_intents',
     'guest_profile_deletion_operations',
     'guest_resource_usage',
+    'guest_upload_quota_reservations',
     'registry_reprocess_batch_rows'
   ];
 begin
@@ -172,6 +188,7 @@ revoke all on function public.reserve_guest_resource(uuid, text, bigint, bigint,
   from public, anon, authenticated;
 grant execute on function public.reserve_guest_resource(uuid, text, bigint, bigint, date)
   to service_role;
+drop function if exists public.reserve_guest_upload(uuid, bigint, bigint, bigint, bigint, date);
 create or replace function public.reserve_guest_upload(
   p_profile_id uuid,
   p_file_size_bytes bigint,
@@ -184,7 +201,8 @@ returns table (
   allowed boolean,
   resource text,
   used_amount bigint,
-  limit_amount bigint
+  limit_amount bigint,
+  reservation_id uuid
 )
 language plpgsql
 security definer
@@ -194,6 +212,7 @@ declare
   v_upload_count bigint;
   v_upload_bytes bigint;
   v_processing_count bigint;
+  v_reservation_id uuid;
   v_guest boolean;
 begin
   if p_file_size_bytes < 1
@@ -255,7 +274,8 @@ begin
       false,
       'upload_count'::text,
       v_upload_count - 1,
-      p_upload_count_limit;
+      p_upload_count_limit,
+      null::uuid;
     return;
   end if;
 
@@ -279,7 +299,8 @@ begin
       false,
       'upload_bytes'::text,
       v_upload_bytes - p_file_size_bytes,
-      p_upload_bytes_limit;
+      p_upload_bytes_limit,
+      null::uuid;
     return;
   end if;
 
@@ -303,16 +324,26 @@ begin
       false,
       'processing_count'::text,
       v_processing_count - 1,
-      p_processing_count_limit;
+      p_processing_count_limit,
+      null::uuid;
     return;
   end if;
+
+  insert into public.guest_upload_quota_reservations (
+    profile_id,
+    usage_day,
+    file_size_bytes
+  )
+  values (p_profile_id, p_usage_day, p_file_size_bytes)
+  returning id into v_reservation_id;
 
   perform public.touch_guest_profile_activity(p_profile_id, clock_timestamp());
   return query select
     true,
     null::text,
     greatest(v_upload_count, v_upload_bytes, v_processing_count),
-    greatest(p_upload_count_limit, p_upload_bytes_limit, p_processing_count_limit);
+    greatest(p_upload_count_limit, p_upload_bytes_limit, p_processing_count_limit),
+    v_reservation_id;
 end;
 $$;
 
@@ -321,48 +352,96 @@ revoke all on function public.reserve_guest_upload(uuid, bigint, bigint, bigint,
 grant execute on function public.reserve_guest_upload(uuid, bigint, bigint, bigint, bigint, date)
   to service_role;
 
-create or replace function public.release_guest_upload(
-  p_profile_id uuid,
-  p_file_size_bytes bigint,
-  p_usage_day date default current_date
+drop function if exists public.release_guest_upload(uuid, bigint, date);
+
+create function public.release_guest_upload(
+  p_reservation_id uuid
 )
 returns boolean
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_reservation public.guest_upload_quota_reservations%rowtype;
 begin
-  if p_file_size_bytes < 1 then
-    raise exception using message = 'invalid_guest_upload_size';
-  end if;
-
-  perform 1
-  from public.profiles
-  where id = p_profile_id
+  select *
+  into v_reservation
+  from public.guest_upload_quota_reservations
+  where id = p_reservation_id
   for update;
+
   if not found then
     return false;
+  end if;
+  if v_reservation.status <> 'reserved' then
+    return true;
   end if;
 
   update public.guest_resource_usage
   set amount = greatest(amount - 1, 0), updated_at = now()
-  where profile_id = p_profile_id
-    and usage_day = p_usage_day
+  where profile_id = v_reservation.profile_id
+    and usage_day = v_reservation.usage_day
     and resource in ('upload_count', 'processing_count');
 
   update public.guest_resource_usage
-  set amount = greatest(amount - p_file_size_bytes, 0), updated_at = now()
-  where profile_id = p_profile_id
-    and usage_day = p_usage_day
+  set amount = greatest(amount - v_reservation.file_size_bytes, 0),
+      updated_at = now()
+  where profile_id = v_reservation.profile_id
+    and usage_day = v_reservation.usage_day
     and resource = 'upload_bytes';
+
+  update public.guest_upload_quota_reservations
+  set status = 'released',
+      released_at = now()
+  where id = p_reservation_id
+    and status = 'reserved';
 
   return true;
 end;
 $$;
 
-revoke all on function public.release_guest_upload(uuid, bigint, date)
+revoke all on function public.release_guest_upload(uuid)
   from public, anon, authenticated;
-grant execute on function public.release_guest_upload(uuid, bigint, date)
+grant execute on function public.release_guest_upload(uuid)
+  to service_role;
+
+create or replace function public.finalize_guest_upload(
+  p_reservation_id uuid
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_status text;
+begin
+  select status
+  into v_status
+  from public.guest_upload_quota_reservations
+  where id = p_reservation_id
+  for update;
+
+  if not found then
+    return false;
+  end if;
+  if v_status = 'released' then
+    return false;
+  end if;
+  if v_status = 'reserved' then
+    update public.guest_upload_quota_reservations
+    set status = 'consumed',
+        consumed_at = now()
+    where id = p_reservation_id;
+  end if;
+  return true;
+end;
+$$;
+
+revoke all on function public.finalize_guest_upload(uuid)
+  from public, anon, authenticated;
+grant execute on function public.finalize_guest_upload(uuid)
   to service_role;
 
 drop function if exists public.complete_guest_conversion(uuid, text);
@@ -395,7 +474,7 @@ begin
     or v_profile.guest_converted_at is not null
     or v_profile.guest_expires_at is null
     or v_profile.guest_expires_at <= v_now
-    or v_profile.guest_consent_version is distinct from v_current_guest_consent_version
+    or nullif(btrim(v_profile.first_name), '') is null
     or btrim(coalesce(p_consent_version, '')) <> v_current_guest_consent_version
     or v_profile.privacy_version is distinct from v_current_terms_version
     or v_profile.privacy_consent_at is null

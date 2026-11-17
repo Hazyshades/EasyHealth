@@ -55,7 +55,7 @@ export async function reserveGuestResource(
 export async function reserveGuestUpload(
   profileId: string,
   fileSizeBytes: number,
-): Promise<void> {
+): Promise<string> {
   if (!Number.isSafeInteger(fileSizeBytes) || fileSizeBytes < 1) {
     throw new GuestQuotaError("unavailable", "upload_bytes");
   }
@@ -74,23 +74,35 @@ export async function reserveGuestUpload(
   const row = (Array.isArray(data) ? data[0] : data) as {
     allowed?: boolean;
     resource?: GuestResource | null;
+    reservation_id?: string | null;
   } | null;
   if (!row?.allowed) {
     throw new GuestQuotaError("limit", row?.resource ?? "upload_count");
   }
+  if (!row.reservation_id) {
+    throw new GuestQuotaError("unavailable");
+  }
+  return row.reservation_id;
 }
 
-export async function releaseGuestUpload(
-  profileId: string,
-  fileSizeBytes: number,
-): Promise<void> {
-  if (!Number.isSafeInteger(fileSizeBytes) || fileSizeBytes < 1) {
+export async function releaseGuestUpload(reservationId: string): Promise<void> {
+  if (!reservationId.trim()) {
     throw new GuestQuotaError("unavailable");
   }
 
   const { error } = await createAdminClient().rpc("release_guest_upload", {
-    p_profile_id: profileId,
-    p_file_size_bytes: fileSizeBytes,
+    p_reservation_id: reservationId,
+  });
+  if (error) throw new GuestQuotaError("unavailable");
+}
+
+export async function finalizeGuestUpload(reservationId: string): Promise<void> {
+  if (!reservationId.trim()) {
+    throw new GuestQuotaError("unavailable");
+  }
+
+  const { error } = await createAdminClient().rpc("finalize_guest_upload", {
+    p_reservation_id: reservationId,
   });
   if (error) throw new GuestQuotaError("unavailable");
 }

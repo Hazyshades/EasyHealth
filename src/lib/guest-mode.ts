@@ -27,21 +27,29 @@ export function isActiveGuestProfileSession(
 export function isGuestProductAccessAllowed(profile: {
   account_type: string;
   first_name: string | null;
+  terms_accepted_at: string | null;
+  terms_version: string | null;
+  privacy_consent_at: string | null;
+  privacy_version: string | null;
+  health_data_consent_at: string | null;
+  ai_consent_at: string | null;
   guest_deletion_state: GuestDeletionState;
   guest_converted_at: string | null;
   guest_expires_at: string | null;
   guest_consent_version: string | null;
   guest_consent_accepted_at: string | null;
-  privacy_version: string | null;
-  privacy_consent_at: string | null;
 }): boolean {
   return (
     isActiveGuestProfileSession(profile) &&
     Boolean(profile.first_name?.trim()) &&
-    profile.guest_consent_version === GUEST_CONSENT_VERSION &&
-    profile.guest_consent_accepted_at !== null &&
+    profile.terms_accepted_at !== null &&
+    profile.terms_version === CURRENT_TERMS_VERSION &&
+    profile.privacy_consent_at !== null &&
     profile.privacy_version === CURRENT_TERMS_VERSION &&
-    profile.privacy_consent_at !== null
+    profile.health_data_consent_at !== null &&
+    profile.ai_consent_at !== null &&
+    profile.guest_consent_version === GUEST_CONSENT_VERSION &&
+    profile.guest_consent_accepted_at !== null
   );
 }
 

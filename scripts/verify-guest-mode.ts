@@ -121,6 +121,27 @@ assert.equal(
   }),
   false,
 );
+assert.equal(
+  isGuestProductAccessAllowed({
+    ...acceptedGuestProfile,
+    terms_accepted_at: null,
+  }),
+  false,
+);
+assert.equal(
+  isGuestProductAccessAllowed({
+    ...acceptedGuestProfile,
+    health_data_consent_at: null,
+  }),
+  false,
+);
+assert.equal(
+  isGuestProductAccessAllowed({
+    ...acceptedGuestProfile,
+    ai_consent_at: null,
+  }),
+  false,
+);
 
 const staleGuest = profileOnboardingStateFromRow({
   ...baseProfile,

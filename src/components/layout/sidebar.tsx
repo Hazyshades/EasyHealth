@@ -10,23 +10,13 @@ import { NavItem } from "@/components/ui/nav-item";
 
 const DESKTOP_NAV_GROUPS = [
   {
-    id: "health",
-    label: "Your Health",
-    items: APP_NAV_ITEMS.filter((item) => item.section === "health"),
-  },
-  {
-    id: "records",
-    label: "Your Records",
-    items: APP_NAV_ITEMS.filter((item) => item.section === "records"),
-  },
-  {
-    id: "learn",
-    label: "Learn",
-    items: APP_NAV_ITEMS.filter((item) => item.section === "learn"),
+    id: "personal",
+    label: null,
+    items: APP_NAV_ITEMS.filter((item) => item.section !== "clinicians"),
   },
   {
     id: "clinicians",
-    label: "For Clinicians",
+    label: "For clinicians",
     items: APP_NAV_ITEMS.filter((item) => item.section === "clinicians"),
   },
 ] as const;
@@ -72,7 +62,7 @@ export function Sidebar() {
         {DESKTOP_NAV_GROUPS.map((group) => (
           <div key={group.id} className="flex flex-col gap-1">
             {group.label ? (
-              <p className="px-2 pb-1 text-[11px] font-semibold text-[#475569] max-[1099px]:sr-only">
+              <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#94A3B8] max-[1099px]:sr-only">
                 {group.label}
               </p>
             ) : null}

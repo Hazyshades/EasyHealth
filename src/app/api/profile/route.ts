@@ -20,7 +20,11 @@ import {
   type ProfileRow,
 } from "@/lib/auth/profile";
 import { profileOnboardingStateFromRow } from "@/lib/auth/onboarding";
-import { getGuestPolicy } from "@/lib/guest-policy";
+import {
+  getGuestPolicy,
+  guestCreationKey,
+  isGuestCreationConfigured,
+} from "@/lib/guest-policy";
 import {
   isProviderConfigured,
   providerAvailability,
@@ -77,6 +81,7 @@ function profileResponse(profile: ProfileRow) {
     first_name: profile.first_name,
     last_name: profile.last_name,
     email: profile.email,
+    created_at: profile.created_at,
     ai_provider: profile.ai_provider,
     terms_accepted_at: profile.terms_accepted_at,
     terms_version: profile.terms_version,
@@ -215,11 +220,21 @@ export async function PATCH(request: Request) {
         { status: 400 },
       );
     }
-    if (isGuestConsent === true && !getGuestPolicy().legalApproved) {
-      return NextResponse.json(
-        { error: "Guest consent is unavailable until legal documents are approved" },
-        { status: 503 },
-      );
+    if (isGuestConsent === true) {
+      const guestPolicy = getGuestPolicy();
+      const guestControlsReady =
+        guestPolicy.legalApproved &&
+        isGuestCreationConfigured(guestPolicy) &&
+        guestCreationKey(request) !== null;
+      if (!guestControlsReady) {
+        return NextResponse.json(
+          {
+            error:
+              "Guest consent is unavailable until legal and abuse controls are configured",
+          },
+          { status: 503 },
+        );
+      }
     }
 
     if (parsed.data.first_name || parsed.data.last_name !== undefined) {

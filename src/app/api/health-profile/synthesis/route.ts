@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getWritableSessionIdentity } from "@/lib/auth/identity";
+import { getProfileById } from "@/lib/auth/profile";
+import { isGuestProductAccessAllowed } from "@/lib/guest-mode";
 import { GuestQuotaError, reserveGuestResource } from "@/lib/guest-quotas";
 import { forceRegenerateHolisticSynthesis } from "@/lib/holistic-synthesis";
 export async function POST() {
@@ -27,6 +29,15 @@ export async function POST() {
       return NextResponse.json(
         { error: "Guest processing quota unavailable" },
         { status: 503 },
+      );
+    }
+  }
+  if (identity.isGuest) {
+    const currentProfile = await getProfileById(profileId);
+    if (!isGuestProductAccessAllowed(currentProfile)) {
+      return NextResponse.json(
+        { error: "Guest session is no longer active" },
+        { status: 409 },
       );
     }
   }
