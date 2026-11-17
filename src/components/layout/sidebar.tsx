@@ -8,7 +8,21 @@ import { APP_NAV_ITEMS } from "@/lib/nav-items";
 import { isNavItemActive } from "@/lib/navigation";
 import { NavItem } from "@/components/ui/nav-item";
 
-const MOBILE_NAV_ITEMS = APP_NAV_ITEMS.filter((item) => item.href !== "/knowledge");
+const DESKTOP_NAV_GROUPS = [
+  {
+    id: "personal",
+    label: null,
+    items: APP_NAV_ITEMS.filter((item) => item.section !== "clinicians"),
+  },
+  {
+    id: "clinicians",
+    label: "For clinicians",
+    items: APP_NAV_ITEMS.filter((item) => item.section === "clinicians"),
+  },
+] as const;
+const MOBILE_NAV_ITEMS = APP_NAV_ITEMS.filter(
+  (item) => item.mobile !== false && item.href !== "/knowledge",
+);
 
 function EasyHealthLogo() {
   const { iconRef, hoverProps } = useAnimatedIconHover();
@@ -21,7 +35,12 @@ function EasyHealthLogo() {
       aria-label="EasyHealth home"
     >
       <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[var(--eh-brand-soft)] text-[var(--eh-brand)]">
-        <ScanHeartIcon ref={iconRef} size={20} className="text-[var(--eh-brand)]" aria-hidden />
+        <ScanHeartIcon
+          ref={iconRef}
+          size={20}
+          className="text-[var(--eh-brand)]"
+          aria-hidden
+        />
       </span>
       <span className="text-base font-semibold text-[#0F172A] min-[1100px]:inline max-[1099px]:hidden">
         EasyHealth
@@ -39,14 +58,27 @@ export function Sidebar() {
       className="sidebar hidden h-full flex-col border-r border-[#E8EEF5] bg-white px-3.5 pt-4 pb-5 md:flex"
     >
       <EasyHealthLogo />
-      <nav aria-label="Main navigation" className="flex flex-1 flex-col gap-1">
-        {APP_NAV_ITEMS.map((item) => (
-          <NavItem
-            key={item.href}
-            item={item}
-            active={isNavItemActive(pathname, item)}
-            dataTour={item.href === "/app/biomarkers" ? "desktop-biomarkers" : undefined}
-          />
+      <nav aria-label="Main navigation" className="flex flex-1 flex-col gap-4">
+        {DESKTOP_NAV_GROUPS.map((group) => (
+          <div key={group.id} className="flex flex-col gap-1">
+            {group.label ? (
+              <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#94A3B8] max-[1099px]:sr-only">
+                {group.label}
+              </p>
+            ) : null}
+            {group.items.map((item) => (
+              <NavItem
+                key={item.href}
+                item={item}
+                active={isNavItemActive(pathname, item)}
+                dataTour={
+                  item.href === "/app/biomarkers"
+                    ? "desktop-biomarkers"
+                    : undefined
+                }
+              />
+            ))}
+          </div>
         ))}
       </nav>
     </aside>
@@ -68,7 +100,9 @@ export function MobileBottomNav() {
           item={item}
           active={isNavItemActive(pathname, item)}
           compact
-          dataTour={item.href === "/app/biomarkers" ? "mobile-biomarkers" : undefined}
+          dataTour={
+            item.href === "/app/biomarkers" ? "mobile-biomarkers" : undefined
+          }
         />
       ))}
     </nav>

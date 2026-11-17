@@ -11,7 +11,8 @@ import {
 import { cleanupShareLinkState } from "./share-link-cleanup.js";
 import { sweepExpiredStorageIntents } from "./storage-orphan-sweeper.js";
 import { processOneAssistantReindexJob } from "./assistant-reindex.js";
-
+import { processOneRecordingTranscription } from "./doctor-transcription.js";
+import { processDoctorRetention } from "./doctor-retention.js";
 type JobRow = {
   id: string;
   document_id: string;
@@ -342,6 +343,24 @@ async function tick() {
     );
   }
 
+  try {
+    const processed = await processOneRecordingTranscription();
+    if (processed) console.log("Processed one Dictaphone transcription");
+  } catch (error) {
+    console.error(
+      "Dictaphone transcription error:",
+      error instanceof Error ? error.message : error,
+    );
+  }
+  try {
+    const deleted = await processDoctorRetention();
+    if (deleted > 0) console.log(`Retired ${deleted} Dictaphone artifacts`);
+  } catch (error) {
+    console.error(
+      "Dictaphone retention error:",
+      error instanceof Error ? error.message : error,
+    );
+  }
   const job = await claimJob();
   if (job) await processJob(job);
 }

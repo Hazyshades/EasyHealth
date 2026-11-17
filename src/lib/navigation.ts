@@ -1,9 +1,13 @@
 import type { AppIcon } from "@/lib/icon-types";
 
+export type AppNavSection = "personal" | "clinicians";
+
 export type AppNavItem = {
   href: string;
   label: string;
   icon: AppIcon;
+  section?: AppNavSection;
+  mobile?: boolean;
   /** Match only exact path (e.g. Dashboard at /app) */
   exact?: boolean;
 };
@@ -18,6 +22,14 @@ export const PAGE_TITLES: Record<string, { title: string; subtitle?: string }> =
       title: "Health Profile",
       subtitle:
         "Current state assessments and factual insights from your records",
+    },
+    "/app/clinic": {
+      title: "Clinic",
+      subtitle: "Patients, consultations, and medical notes in one workspace",
+    },
+    "/app/dictaphone": {
+      title: "Dictaphone",
+      subtitle: "Record a consultation, then turn it into a structured note",
     },
     "/app/timeline": {
       title: "Health Timeline",

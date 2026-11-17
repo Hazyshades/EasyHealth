@@ -8,6 +8,10 @@ OpenSpec specifications define requirements; operations and data documentation e
 
 ## Available documentation
 
+### Architecture
+
+- [EH-170 clinician workspace](./02-architecture/doctor-workspace.md)
+
 ### Operations
 
 - [Local pgTAP against Docker](./07-ops/local-pgtap.md)
@@ -28,6 +32,7 @@ OpenSpec specifications define requirements; operations and data documentation e
 - [Issue tracker workflow](./agents/issue-tracker.md)
 
 <!-- generated-biomarker-docs:start -->
+
 ## Generated biomarker reference data
 
 Registry 2.0 biomarker references are generated from the typed catalog and approval-independent technical corpus (113 definitions; 637 EN/RU/ES aliases). Do not edit generated files manually.
@@ -37,4 +42,5 @@ pnpm generate:biomarker-docs
 pnpm check:biomarker-docs
 pnpm test:biomarker-docs
 ```
+
 <!-- generated-biomarker-docs:end -->

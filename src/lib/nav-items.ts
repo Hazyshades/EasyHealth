@@ -3,10 +3,12 @@
 import {
   BookIcon,
   ChartLineIcon,
+  ClinicIcon,
   FileDescriptionIcon,
   HandHeartIcon,
   LayoutDashboardIcon,
   LibraryIcon,
+  MicrophoneIcon,
   ScanHeartIcon,
   SparklesIcon,
 } from "@/components/icons";
@@ -22,4 +24,18 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
   { href: "/app/documents", label: "Documents", icon: FileDescriptionIcon },
   { href: "/app/reports", label: "Reports", icon: BookIcon },
   { href: "/knowledge", label: "Knowledge Base", icon: LibraryIcon },
+  {
+    href: "/app/clinic",
+    label: "Clinic",
+    icon: ClinicIcon,
+    section: "clinicians",
+    mobile: false,
+  },
+  {
+    href: "/app/dictaphone",
+    label: "Dictaphone",
+    icon: MicrophoneIcon,
+    section: "clinicians",
+    mobile: false,
+  },
 ];
