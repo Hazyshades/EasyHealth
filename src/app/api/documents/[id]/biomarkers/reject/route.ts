@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSessionProfileId } from "@/lib/auth/session";
+import { getWritableSessionProfileId } from "@/lib/auth/identity";
 import { assertDocumentOwner } from "@/lib/documents/access";
 import {
   buildLifecycleRequestHash,
@@ -39,7 +39,7 @@ function confirmationPayload(source: {
 }
 
 export async function POST(req: Request, context: RouteContext) {
-  const profileId = await getSessionProfileId();
+  const profileId = await getWritableSessionProfileId();
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: documentId } = await context.params;

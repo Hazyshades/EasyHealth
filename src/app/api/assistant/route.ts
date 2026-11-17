@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
+import { getWritableSessionProfileId } from "@/lib/auth/identity";
 import { getProfileById } from "@/lib/auth/profile";
 import { assistantAccessFromProfile } from "@/lib/assistant/access";
 import {
@@ -55,7 +56,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const profileId = await getSessionProfileId();
+  const profileId = await getWritableSessionProfileId();
   if (!profileId) {
     return NextResponse.json(
       { error: "Unauthorized" },

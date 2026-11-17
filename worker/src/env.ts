@@ -168,6 +168,22 @@ function eh170RetentionLaunchAllowed(): boolean {
   );
 }
 
+const guestPurgeBacklogAlertThreshold = optionalPositiveInt(
+  "GUEST_PURGE_BACKLOG_ALERT_THRESHOLD",
+  10,
+);
+const guestPurgeRetryAlertThreshold = optionalPositiveInt(
+  "GUEST_PURGE_RETRY_ALERT_THRESHOLD",
+  3,
+);
+const guestPurgeAlertCooldownMs =
+  optionalRangedInt(
+    "GUEST_PURGE_ALERT_COOLDOWN_SECONDS",
+    300,
+    30,
+    86_400,
+  ) * 1000;
+
 export const workerEnv = {
   supabaseUrl: required("NEXT_PUBLIC_SUPABASE_URL"),
   supabaseServiceKey: required("SUPABASE_SERVICE_ROLE_KEY"),
@@ -215,6 +231,9 @@ export const workerEnv = {
     false,
   ),
   instanceId: optional("WORKER_INSTANCE_ID") ?? "document-worker",
+  guestPurgeBacklogAlertThreshold,
+  guestPurgeRetryAlertThreshold,
+  guestPurgeAlertCooldownMs,
   documentUploadBrokerUrl:
     optional("DOCUMENT_UPLOAD_BROKER_URL") ??
     optional("APP_URL") ??

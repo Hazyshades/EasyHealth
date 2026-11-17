@@ -26,13 +26,16 @@ OpenSpec specifications define requirements; operations and data documentation e
 - [Registry 2.0 biomarker aliases](./05-data/biomarker-aliases.md)
 - [Registry 2.0 corpus evidence](./05-data/biomarker-corpus-evidence.md)
 
+### Product operations
+
+- [Guest mode release guide](./guest-mode.md)
+
 ### Agent guidance
 
 - [Domain documentation workflow](./agents/domain.md)
 - [Issue tracker workflow](./agents/issue-tracker.md)
 
 <!-- generated-biomarker-docs:start -->
-
 ## Generated biomarker reference data
 
 Registry 2.0 biomarker references are generated from the typed catalog and approval-independent technical corpus (113 definitions; 637 EN/RU/ES aliases). Do not edit generated files manually.
@@ -42,5 +45,4 @@ pnpm generate:biomarker-docs
 pnpm check:biomarker-docs
 pnpm test:biomarker-docs
 ```
-
 <!-- generated-biomarker-docs:end -->

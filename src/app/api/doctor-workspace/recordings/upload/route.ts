@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getSessionProfileId } from "@/lib/auth/session";
+import { getSessionIdentity } from "@/lib/auth/identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DoctorWorkspaceError } from "@/lib/doctor-workspace/access";
 import { isDictaphoneEnabled } from "@/lib/doctor-workspace/policy";
@@ -37,9 +37,12 @@ function errorResponse(error: unknown): NextResponse {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const actor = await getSessionProfileId();
-  if (!actor)
+  const identity = await getSessionIdentity();
+  if (!identity)
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+  if (identity.isGuest)
+    return NextResponse.json({ error: "access_denied" }, { status: 403 });
+  const actor = identity.profileId;
   if (!isDictaphoneEnabled(actor))
     return NextResponse.json({ error: "unavailable" }, { status: 503 });
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
+import { getWritableSessionProfileId } from "@/lib/auth/identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   createReportBodySchema,
@@ -95,7 +96,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const profileId = await getSessionProfileId();
+  const profileId = await getWritableSessionProfileId();
   if (!profileId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

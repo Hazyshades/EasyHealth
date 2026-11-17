@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { getSessionProfileId } from "@/lib/auth/session";
+import { getWritableSessionProfileId } from "@/lib/auth/identity";
 import { env } from "@/lib/env";
 import { noStoreJson } from "@/lib/documents/access";
 import {
@@ -45,7 +45,7 @@ function replacementError(error: unknown) {
 }
 
 export async function POST(request: Request, context: RouteContext) {
-  const profileId = await getSessionProfileId();
+  const profileId = await getWritableSessionProfileId();
   if (!profileId)
     return noStoreJson({ error: "Unauthorized" }, { status: 401 });
 

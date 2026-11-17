@@ -1,6 +1,6 @@
 import type { AppIcon } from "@/lib/icon-types";
 
-export type AppNavSection = "personal" | "clinicians";
+export type AppNavSection = "health" | "records" | "learn" | "clinicians";
 
 export type AppNavItem = {
   href: string;

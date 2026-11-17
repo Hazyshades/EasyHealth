@@ -12,8 +12,9 @@ import {
 import { usePathname } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { z } from "zod";
-import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { isAnonymousAuthUser, isPublicGuestModeEnabled } from "@/lib/guest-mode";
 import { resolveProfileIdentity } from "@/lib/display-name";
+import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
 const OAUTH_PREFILL_KEY = "eh_oauth_prefill_name";
 
@@ -27,9 +28,14 @@ type AuthState = {
   displayName: string | null;
   lastName: string | null;
   accountEmail: string | null;
+  isGuest: boolean;
+  guestDeletionState: "active" | "deleting" | "completed" | null;
   authError: string | null;
   signInWithGoogle: () => Promise<void>;
   signInWithMagicLink: (email: string) => Promise<void>;
+  signInAsGuest: () => Promise<void>;
+  linkGuestEmail: (email: string) => Promise<void>;
+  linkGuestWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshAccountIdentity: () => Promise<void>;
 };
@@ -39,6 +45,8 @@ type ProfileIdentity = {
   lastName: string | null;
   email: string | null;
   profileId: string | null;
+  isGuest: boolean;
+  guestDeletionState: "active" | "deleting" | "completed" | null;
   profileStatus: "ready" | "unavailable";
 };
 
@@ -48,6 +56,11 @@ const profileResponseSchema = z.object({
   last_name: z.string().nullable().optional(),
   display_name: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
+  is_guest: z.boolean().optional(),
+  guest_deletion_state: z
+    .enum(["active", "deleting", "completed"])
+    .nullable()
+    .optional(),
 });
 
 const unavailableProfileIdentity: ProfileIdentity = {
@@ -55,6 +68,8 @@ const unavailableProfileIdentity: ProfileIdentity = {
   lastName: null,
   email: null,
   profileId: null,
+  isGuest: false,
+  guestDeletionState: null,
   profileStatus: "unavailable",
 };
 
@@ -77,6 +92,8 @@ async function loadProfileIdentity(): Promise<ProfileIdentity> {
       firstName: data.first_name?.trim() || data.display_name?.trim() || null,
       lastName: data.last_name?.trim() || null,
       email: data.email?.trim() || null,
+      isGuest: data.is_guest === true,
+      guestDeletionState: data.guest_deletion_state ?? null,
       profileStatus: "ready",
     };
   } catch {
@@ -90,6 +107,30 @@ function getOAuthPrefillName(user: User | null): string | null {
   if (typeof fullName === "string" && fullName) return fullName;
   const name = user.user_metadata?.name;
   return typeof name === "string" && name ? name : null;
+}
+function guestLinkErrorMessage(error: unknown, fallback: string): string {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  if (message.includes("manual linking") || message.includes("not enabled")) {
+    return "Account linking is not enabled for this sign-in provider.";
+  }
+  if (
+    message.includes("already") ||
+    message.includes("exists") ||
+    message.includes("identity")
+  ) {
+    return "That identity is already linked to another account.";
+  }
+  return fallback;
+}
+async function assertGuestLinkAllowed(): Promise<void> {
+  const response = await fetch("/api/guest/convert", {
+    method: "POST",
+    headers: { "Cache-Control": "no-store" },
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error ?? "Guest data cannot be saved right now");
+  }
 }
 
 function storeOAuthPrefill(user: User | null) {
@@ -118,8 +159,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [lastName, setLastName] = useState<string | null>(null);
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
+  const [isGuest, setIsGuest] = useState(false);
+  const [guestDeletionState, setGuestDeletionState] = useState<
+    "active" | "deleting" | "completed" | null
+  >(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const appliedUserIdRef = useRef<string | null>(null);
+  const guestInitializationRef = useRef<Promise<void> | null>(null);
 
   const applyIdentity = useCallback(
     async (user: User | null) => {
@@ -131,6 +177,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setDisplayName(null);
         setLastName(null);
         setAccountEmail(null);
+        setIsGuest(false);
+        setGuestDeletionState(null);
         return;
       }
 
@@ -141,6 +189,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         getOAuthPrefillName(user),
         user.email,
       );
+      if (isAnonymousAuthUser(user)) {
+        await guestInitializationRef.current?.catch(() => undefined);
+      }
 
       if (knowledgeBaseRoute) {
         setProfileId(null);
@@ -148,6 +199,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setDisplayName(fallbackIdentity.firstName);
         setLastName(fallbackIdentity.lastName);
         setAccountEmail(fallbackIdentity.email ?? user.email ?? null);
+        setIsGuest(false);
+        setGuestDeletionState(null);
       } else {
         const identity = await loadProfileIdentity();
         setProfileStatus(identity.profileStatus);
@@ -155,6 +208,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setDisplayName(identity.firstName ?? fallbackIdentity.firstName);
         setLastName(identity.lastName ?? fallbackIdentity.lastName);
         setAccountEmail(identity.email ?? fallbackIdentity.email ?? user.email ?? null);
+        setIsGuest(identity.isGuest);
+        setGuestDeletionState(identity.guestDeletionState);
       }
       appliedUserIdRef.current = user.id;
     },
@@ -169,6 +224,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (identity.firstName !== null) setDisplayName(identity.firstName);
     if (identity.lastName !== null) setLastName(identity.lastName);
     if (identity.email !== null) setAccountEmail(identity.email);
+    setIsGuest(identity.isGuest);
+    setGuestDeletionState(identity.guestDeletionState);
   }, [knowledgeBaseRoute]);
 
   useEffect(() => {
@@ -203,6 +260,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription.unsubscribe();
     };
   }, [supabase, applyIdentity]);
+
+  useEffect(() => {
+    if (!isGuest || guestDeletionState !== "active" || !pathname?.startsWith("/app")) {
+      return;
+    }
+
+    const sendActivity = () => {
+      void fetch("/api/guest/activity", {
+        method: "POST",
+        headers: { "Cache-Control": "no-store" },
+      }).catch(() => undefined);
+    };
+    sendActivity();
+    const interval = window.setInterval(sendActivity, 5 * 60 * 1000);
+    return () => window.clearInterval(interval);
+  }, [guestDeletionState, isGuest, pathname]);
 
   const signInWithGoogle = useCallback(async () => {
     setAuthError(null);
@@ -239,6 +312,136 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [supabase],
   );
 
+  const signInAsGuest = useCallback(async () => {
+    setAuthError(null);
+    if (!isPublicGuestModeEnabled()) {
+      const error = new Error("Guest mode is not available");
+      setAuthError(error.message);
+      throw error;
+    }
+
+    const prepareResponse = await fetch("/api/auth/guest/prepare", {
+      method: "POST",
+      headers: { "Cache-Control": "no-store" },
+    });
+    const prepareBody = await prepareResponse.json().catch(() => ({}));
+    if (!prepareResponse.ok) {
+      const error = new Error(prepareBody.error ?? "Guest sign-in is unavailable");
+      setAuthError(error.message);
+      throw error;
+    }
+
+    const initializationPromise = Promise.resolve().then(async () => {
+      const { error } = await supabase.auth.signInAnonymously();
+      if (error) throw error;
+
+      const initializeResponse = await fetch("/api/auth/guest/initialize", {
+        method: "POST",
+        headers: { "Cache-Control": "no-store" },
+      });
+      const initializeBody = await initializeResponse.json().catch(() => ({}));
+      if (!initializeResponse.ok) {
+        throw new Error(initializeBody.error ?? "Guest profile is unavailable");
+      }
+    });
+    guestInitializationRef.current = initializationPromise;
+    try {
+      await initializationPromise;
+    } catch (error) {
+      await supabase.auth.signOut();
+      const message =
+        error instanceof Error ? error.message : "Guest sign-in is unavailable";
+      setAuthError(message);
+      throw error;
+    } finally {
+      if (guestInitializationRef.current === initializationPromise) {
+        guestInitializationRef.current = null;
+      }
+    }
+    await refreshAccountIdentity();
+  }, [refreshAccountIdentity, supabase]);
+
+  const linkGuestEmail = useCallback(
+    async (email: string) => {
+      setAuthError(null);
+      const trimmed = email.trim();
+      if (!trimmed) {
+        const error = new Error("Enter an email address");
+        setAuthError(error.message);
+        throw error;
+      }
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!isAnonymousAuthUser(user)) {
+        const error = new Error("Only an active guest can save data this way");
+        setAuthError(error.message);
+        throw error;
+      }
+      try {
+        await assertGuestLinkAllowed();
+      } catch (error) {
+        const safeError = new Error(
+          guestLinkErrorMessage(error, "Guest data cannot be saved right now"),
+        );
+        setAuthError(safeError.message);
+        throw safeError;
+      }
+      const { error } = await supabase.auth.updateUser(
+        { email: trimmed },
+        {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      );
+      if (error) {
+        const safeError = new Error(
+          guestLinkErrorMessage(error, "Email linking failed"),
+        );
+        setAuthError(safeError.message);
+        throw safeError;
+      }
+    },
+    [supabase],
+  );
+
+  const linkGuestWithGoogle = useCallback(async () => {
+    setAuthError(null);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!isAnonymousAuthUser(user)) {
+      const error = new Error("Only an active guest can save data this way");
+      setAuthError(error.message);
+      throw error;
+    }
+    try {
+      await assertGuestLinkAllowed();
+    } catch (error) {
+      const safeError = new Error(
+        guestLinkErrorMessage(error, "Guest data cannot be saved right now"),
+      );
+      setAuthError(safeError.message);
+      throw safeError;
+    }
+    const { data, error } = await supabase.auth.linkIdentity({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+    if (error) {
+      const safeError = new Error(
+        guestLinkErrorMessage(error, "Google linking failed"),
+      );
+      setAuthError(safeError.message);
+      throw safeError;
+    }
+    if (!data?.url) {
+      const error = new Error("Google account linking did not start");
+      setAuthError(error.message);
+      throw error;
+    }
+    window.location.assign(data.url);
+  }, [supabase]);
+
   const signOut = useCallback(async () => {
     setAuthError(null);
     await supabase.auth.signOut();
@@ -253,6 +456,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setDisplayName(null);
     setLastName(null);
     setAccountEmail(null);
+    setIsGuest(false);
+    setGuestDeletionState(null);
     window.location.href = "/";
   }, [supabase]);
 
@@ -264,9 +469,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     displayName,
     lastName,
     accountEmail,
+    isGuest,
+    guestDeletionState,
     authError,
     signInWithGoogle,
     signInWithMagicLink,
+    signInAsGuest,
+    linkGuestEmail,
+    linkGuestWithGoogle,
     signOut,
     refreshAccountIdentity,
   };

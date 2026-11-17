@@ -1,4 +1,4 @@
-import { getSessionProfileId } from "@/lib/auth/session";
+import { getWritableSessionProfileId } from "@/lib/auth/identity";
 import { noStoreJson } from "@/lib/documents/access";
 import {
   revokeOwnedShare,
@@ -23,7 +23,7 @@ function revokeError(error: unknown) {
 }
 
 export async function POST(_request: Request, context: RouteContext) {
-  const profileId = await getSessionProfileId();
+  const profileId = await getWritableSessionProfileId();
   if (!profileId)
     return noStoreJson({ error: "Unauthorized" }, { status: 401 });
 

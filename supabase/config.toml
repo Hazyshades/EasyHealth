@@ -14,6 +14,7 @@ additional_redirect_urls = [
   "https://easyhealth-production.up.railway.app/auth/callback",
 ]
 enable_signup = true
+enable_anonymous_sign_ins = true
 
 [auth.email]
 enable_signup = true

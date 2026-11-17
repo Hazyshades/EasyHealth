@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
+import { getWritableSessionProfileId } from "@/lib/auth/identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveReportRead } from "@/lib/report-read";
 
@@ -46,7 +47,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
   }
 }
 export async function DELETE(_req: NextRequest, { params }: RouteParams) {
-  const profileId = await getSessionProfileId();
+  const profileId = await getWritableSessionProfileId();
   if (!profileId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { resolveMeasurementDefinition } from "@/lib/biomarkers";
 import { getSessionProfileId } from "@/lib/auth/session";
+import { getWritableSessionProfileId } from "@/lib/auth/identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   baseMeasurementFromExtractedRow,
@@ -116,7 +117,7 @@ export async function GET(_req: Request, context: RouteContext) {
 }
 
 export async function PATCH(req: Request, context: RouteContext) {
-  const profileId = await getSessionProfileId();
+  const profileId = await getWritableSessionProfileId();
   if (!profileId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

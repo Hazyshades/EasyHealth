@@ -57,7 +57,7 @@ function safeErrorCode(error: unknown): string {
   return "deletion_cleanup_failed";
 }
 
-async function listStorageObjects(prefix: string): Promise<string[]> {
+export async function listStorageObjects(prefix: string): Promise<string[]> {
   const objects: string[] = [];
   let offset = 0;
   while (true) {
@@ -136,7 +136,7 @@ async function listManifest(
   return [...new Set([...listed, ...known])].sort();
 }
 
-async function removeStorageObjects(paths: string[]): Promise<void> {
+export async function removeStorageObjects(paths: string[]): Promise<void> {
   for (let offset = 0; offset < paths.length; offset += STORAGE_PAGE_SIZE) {
     const batch = paths.slice(offset, offset + STORAGE_PAGE_SIZE);
     if (batch.length === 0) continue;

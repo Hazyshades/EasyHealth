@@ -27,7 +27,14 @@ const baseProfile: ProfileRow = {
   onboarding_tour_version: CURRENT_TOUR_VERSION,
   dashboard_preferences: {},
   lab_unit_system: "si",
+  account_type: "standard",
   review_mode_default: "pro",
+  guest_last_activity_at: null,
+  guest_expires_at: null,
+  guest_consent_version: null,
+  guest_consent_accepted_at: null,
+  guest_converted_at: null,
+  guest_deletion_state: "active",
 };
 
 function profile(overrides: Partial<ProfileRow> = {}): ProfileRow {

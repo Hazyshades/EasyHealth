@@ -1,8 +1,11 @@
+import { GUEST_CONSENT_VERSION } from "@/lib/guest-mode";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionProfileId } from "@/lib/auth/session";
+import { getWritableSessionProfileId } from "@/lib/auth/identity";
 import {
   getProfileById,
+  recordGuestConsent,
   recordProfileConsents,
   updateOnboardingTourState,
   updateProfileAiProvider,
@@ -20,7 +23,7 @@ import {
   type AiProviderId,
 } from "@/lib/ai-provider";
 
-const consentsSchema = z.object({
+const standardConsentsSchema = z.object({
   terms: z.literal(true),
   privacy: z.literal(true),
   health_data: z.literal(true),
@@ -30,6 +33,13 @@ const consentsSchema = z.object({
   marketing_email: z.boolean().optional(),
   marketing_cookies: z.boolean().optional(),
 });
+
+const guestConsentsSchema = z.object({
+  guest_consent: z.literal(true),
+  guest_consent_version: z.literal(GUEST_CONSENT_VERSION),
+});
+
+const consentsSchema = z.union([standardConsentsSchema, guestConsentsSchema]);
 
 const patchSchema = z
   .object({
@@ -73,6 +83,14 @@ function profileResponse(profile: ProfileRow) {
     onboarding_dismissed_at: profile.onboarding_dismissed_at,
     onboarding_completed_at: profile.onboarding_completed_at,
     onboarding_tour_version: profile.onboarding_tour_version,
+    account_type: profile.account_type,
+    is_guest: profile.account_type === "guest",
+    guest_last_activity_at: profile.guest_last_activity_at,
+    guest_expires_at: profile.guest_expires_at,
+    guest_consent_version: profile.guest_consent_version,
+    guest_consent_accepted_at: profile.guest_consent_accepted_at,
+    guest_converted_at: profile.guest_converted_at,
+    guest_deletion_state: profile.guest_deletion_state,
     dashboard_preferences: profile.dashboard_preferences,
     onboarding: profileOnboardingStateFromRow(profile),
     lab_unit_system: profile.lab_unit_system ?? "si",
@@ -110,7 +128,7 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const profileId = await getSessionProfileId();
+  const profileId = await getWritableSessionProfileId();
   if (!profileId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -165,6 +183,19 @@ export async function PATCH(request: Request) {
 
   try {
     let profile = await getProfileById(profileId);
+    const isGuestConsent =
+      parsed.data.consents !== undefined
+        ? "guest_consent" in parsed.data.consents
+        : null;
+    if (
+      isGuestConsent !== null &&
+      isGuestConsent !== (profile.account_type === "guest")
+    ) {
+      return NextResponse.json(
+        { error: "Consent payload does not match account type" },
+        { status: 400 },
+      );
+    }
 
     if (parsed.data.first_name || parsed.data.last_name !== undefined) {
       profile = await updateProfileName(
@@ -180,7 +211,11 @@ export async function PATCH(request: Request) {
     }
 
     if (parsed.data.consents) {
-      profile = await recordProfileConsents(profileId, parsed.data.consents);
+      if ("guest_consent" in parsed.data.consents) {
+        profile = await recordGuestConsent(profileId);
+      } else {
+        profile = await recordProfileConsents(profileId, parsed.data.consents);
+      }
     }
 
     if (parsed.data.onboarding_action) {

@@ -26,6 +26,13 @@ const baseProfile: ProfileRow = {
   closed_beta_enabled_at: "2026-01-01T00:00:00.000Z",
   closed_beta_revoked_at: null,
   beta_sample_data_seeded_at: null,
+  account_type: "standard",
+  guest_last_activity_at: null,
+  guest_expires_at: null,
+  guest_consent_version: null,
+  guest_consent_accepted_at: null,
+  guest_converted_at: null,
+  guest_deletion_state: "active",
 };
 
 assert.equal(assistantAccessFromProfile({ ...baseProfile, closed_beta_enabled: false }).allowed, false);

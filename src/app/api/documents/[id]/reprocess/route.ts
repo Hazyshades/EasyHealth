@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionProfileId } from "@/lib/auth/session";
+import { getWritableSessionIdentity } from "@/lib/auth/identity";
 import { assertDocumentOwner } from "@/lib/documents/access";
 import { enqueueFullPipelineJob } from "@/lib/documents/jobs";
+import { GuestQuotaError, reserveGuestResource } from "@/lib/guest-quotas";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getDocumentReprocessTypeOverride } from "@/lib/documents/reprocess-policy";
 import {
@@ -12,10 +13,11 @@ import {
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function POST(req: Request, context: RouteContext) {
-  const profileId = await getSessionProfileId();
-  if (!profileId) {
+  const identity = await getWritableSessionIdentity();
+  if (!identity) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const profileId = identity.profileId;
 
   const { id } = await context.params;
   const { doc, error } = await assertDocumentOwner(profileId, id);
@@ -41,6 +43,27 @@ export async function POST(req: Request, context: RouteContext) {
     // empty body is fine
   }
   const documentTypeOverride = getDocumentReprocessTypeOverride(requestBody);
+  if (identity.isGuest) {
+    try {
+      await reserveGuestResource(profileId, "processing_count", 1);
+    } catch (error) {
+      if (error instanceof GuestQuotaError) {
+        return NextResponse.json(
+          {
+            error:
+              error.kind === "limit"
+                ? "Guest processing quota exceeded"
+                : "Guest processing quota unavailable",
+          },
+          { status: error.kind === "limit" ? 429 : 503 },
+        );
+      }
+      return NextResponse.json(
+        { error: "Guest processing quota unavailable" },
+        { status: 503 },
+      );
+    }
+  }
 
   const supabase = createAdminClient();
 
@@ -69,6 +92,7 @@ export async function POST(req: Request, context: RouteContext) {
       .eq("lifecycle_state", "active")
       .eq("upload_state", "complete");
   }
+
 
   await enqueueFullPipelineJob(profileId, id);
 

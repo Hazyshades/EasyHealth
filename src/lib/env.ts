@@ -4,6 +4,25 @@ import { z } from "zod";
 export const env = createEnv({
   server: {
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+    GUEST_MODE_ENABLED: z
+      .enum(["true", "false", "1", "0"])
+      .default("false")
+      .transform((value) => value === "true" || value === "1"),
+    GUEST_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
+    GUEST_CREATION_LIMIT: z.coerce.number().int().positive().default(5),
+    GUEST_CREATION_WINDOW_SECONDS: z.coerce.number().int().positive().default(3600),
+    GUEST_UPLOAD_COUNT_PER_DAY: z.coerce.number().int().positive().default(10),
+    GUEST_UPLOAD_BYTES_PER_DAY: z.coerce.number().int().positive().default(100 * 1024 * 1024),
+    GUEST_PROCESSING_COUNT_PER_DAY: z.coerce.number().int().positive().default(10),
+    GUEST_RATE_LIMIT_PEPPER: z.string().min(16).optional(),
+    GUEST_ABUSE_CHALLENGE_ENABLED: z
+      .enum(["true", "false", "1", "0"])
+      .default("false")
+      .transform((value) => value === "true" || value === "1"),
+    GUEST_ABUSE_CHALLENGE_REQUIRED: z
+      .enum(["true", "false", "1", "0"])
+      .default("true")
+      .transform((value) => value === "true" || value === "1"),
     EH120_AUTOMATIC_VERIFICATION_RELEASE_DIGEST: z.string().min(1).optional(),
     EH170_CLINIC_WORKSPACE_ENABLED: z
       .enum(["true", "false", "1", "0"])
@@ -111,9 +130,23 @@ export const env = createEnv({
     NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
     NEXT_PUBLIC_GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+    NEXT_PUBLIC_GUEST_MODE_ENABLED: z
+      .enum(["true", "false", "1", "0"])
+      .default("false")
+      .transform((value) => value === "true" || value === "1"),
   },
   runtimeEnv: {
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    GUEST_MODE_ENABLED: process.env.GUEST_MODE_ENABLED,
+    GUEST_RETENTION_DAYS: process.env.GUEST_RETENTION_DAYS,
+    GUEST_CREATION_LIMIT: process.env.GUEST_CREATION_LIMIT,
+    GUEST_CREATION_WINDOW_SECONDS: process.env.GUEST_CREATION_WINDOW_SECONDS,
+    GUEST_UPLOAD_COUNT_PER_DAY: process.env.GUEST_UPLOAD_COUNT_PER_DAY,
+    GUEST_UPLOAD_BYTES_PER_DAY: process.env.GUEST_UPLOAD_BYTES_PER_DAY,
+    GUEST_PROCESSING_COUNT_PER_DAY: process.env.GUEST_PROCESSING_COUNT_PER_DAY,
+    GUEST_RATE_LIMIT_PEPPER: process.env.GUEST_RATE_LIMIT_PEPPER,
+    GUEST_ABUSE_CHALLENGE_ENABLED: process.env.GUEST_ABUSE_CHALLENGE_ENABLED,
+    GUEST_ABUSE_CHALLENGE_REQUIRED: process.env.GUEST_ABUSE_CHALLENGE_REQUIRED,
     EH120_AUTOMATIC_VERIFICATION_RELEASE_DIGEST:
       process.env.EH120_AUTOMATIC_VERIFICATION_RELEASE_DIGEST,
     EH170_CLINIC_WORKSPACE_ENABLED: process.env.EH170_CLINIC_WORKSPACE_ENABLED,
@@ -167,6 +200,7 @@ export const env = createEnv({
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+    NEXT_PUBLIC_GUEST_MODE_ENABLED: process.env.NEXT_PUBLIC_GUEST_MODE_ENABLED,
   },
   emptyStringAsUndefined: true,
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,

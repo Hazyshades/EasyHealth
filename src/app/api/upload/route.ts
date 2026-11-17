@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "node:crypto";
-import { getSessionProfileId } from "@/lib/auth/session";
+import { getWritableSessionIdentity } from "@/lib/auth/identity";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { GuestQuotaError, reserveGuestResource } from "@/lib/guest-quotas";
 import { ensureLabDocumentsBucket } from "@/lib/supabase/storage";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 import {
@@ -25,10 +26,11 @@ const ALLOWED_TYPES = new Set([
 ]);
 
 export async function POST(req: NextRequest) {
-  const profileId = await getSessionProfileId();
-  if (!profileId) {
+  const identity = await getWritableSessionIdentity();
+  if (!identity) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const profileId = identity.profileId;
 
   const formData = await req.formData();
   const file = formData.get("file");
@@ -80,6 +82,45 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (identity.isGuest) {
+    try {
+      await reserveGuestResource(profileId, "upload_count", 1);
+      await reserveGuestResource(profileId, "upload_bytes", file.size);
+    } catch (error) {
+      if (error instanceof GuestQuotaError) {
+        return NextResponse.json(
+          { error: error.kind === "limit" ? "Guest upload quota exceeded" : "Guest upload quota unavailable" },
+          { status: error.kind === "limit" ? 429 : 503 },
+        );
+      }
+      return NextResponse.json(
+        { error: "Guest upload quota unavailable" },
+        { status: 503 },
+      );
+    }
+  }
+  if (identity.isGuest) {
+    try {
+      await reserveGuestResource(profileId, "processing_count", 1);
+    } catch (error) {
+      if (error instanceof GuestQuotaError) {
+        return NextResponse.json(
+          {
+            error:
+              error.kind === "limit"
+                ? "Guest processing quota exceeded"
+                : "Guest processing quota unavailable",
+          },
+          { status: error.kind === "limit" ? 429 : 503 },
+        );
+      }
+      return NextResponse.json(
+        { error: "Guest processing quota unavailable" },
+        { status: 503 },
+      );
+    }
+  }
+
   const supabase = createAdminClient();
   try {
     await ensureLabDocumentsBucket(supabase);
@@ -126,6 +167,7 @@ export async function POST(req: NextRequest) {
 
   const documentId = String(reservation.document_id);
   const intentId = String(reservation.intent_id);
+
   try {
     const issued = await issueStorageUploadTicket(supabase, {
       intentId,

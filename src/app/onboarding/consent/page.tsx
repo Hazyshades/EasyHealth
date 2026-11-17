@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { GUEST_CONSENT_VERSION } from "@/lib/guest-mode";
 import { LEGAL_LINKS } from "@/lib/legal-links";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,14 +27,23 @@ export default function OnboardingConsentPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [required, setRequired] = useState<RequiredConsents>({ terms: false, privacy: false, health_data: false, ai_processing: false });
-  const [optional, setOptional] = useState<OptionalConsents>({ analytics: false, personalization: false, marketing_email: false, marketing_cookies: false });
+  const [isGuest, setIsGuest] = useState(false);
+  const [guestConsent, setGuestConsent] = useState(false);
+  const [required, setRequired] = useState<RequiredConsents>({
+    terms: false,
+    privacy: false,
+    health_data: false,
+    ai_processing: false,
+  });
+  const [optional, setOptional] = useState<OptionalConsents>({
+    analytics: false,
+    personalization: false,
+    marketing_email: false,
+    marketing_cookies: false,
+  });
 
-  const allRequiredChecked =
-    required.terms &&
-    required.privacy &&
-    required.health_data &&
-    required.ai_processing;
+  const allRequiredChecked = required.terms && required.privacy && required.health_data && required.ai_processing;
+  const canSubmit = isGuest ? guestConsent : allRequiredChecked;
 
   useEffect(() => {
     fetch("/api/profile")
@@ -42,8 +52,14 @@ export default function OnboardingConsentPage() {
         return res.json();
       })
       .then((data) => {
-        if (data.onboarding?.needsProfileGate) { router.replace("/onboarding/profile"); return; }
-        if (!data.onboarding?.needsConsentGate) { router.replace("/app"); }
+        setIsGuest(data.is_guest === true);
+        if (data.onboarding?.needsProfileGate) {
+          router.replace("/onboarding/profile");
+          return;
+        }
+        if (!data.onboarding?.needsConsentGate) {
+          router.replace("/app");
+        }
       })
       .catch((e) =>
         setError(e instanceof Error ? e.message : "Failed to load profile"),
@@ -53,7 +69,7 @@ export default function OnboardingConsentPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!allRequiredChecked) return;
+    if (!canSubmit) return;
 
     setSaving(true);
     setError(null);
@@ -63,13 +79,18 @@ export default function OnboardingConsentPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          consents: {
-            terms: true,
-            privacy: true,
-            health_data: true,
-            ai_processing: true,
-            ...optional,
-          },
+          consents: isGuest
+            ? {
+                guest_consent: true,
+                guest_consent_version: GUEST_CONSENT_VERSION,
+              }
+            : {
+                terms: true,
+                privacy: true,
+                health_data: true,
+                ai_processing: true,
+                ...optional,
+              },
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -101,12 +122,12 @@ export default function OnboardingConsentPage() {
   return (
     <div className="max-h-[85vh] overflow-y-auto pr-1">
       <h1 className="text-2xl font-bold text-[var(--eh-text-primary)]">
-        Your privacy and health data choices
+        {isGuest ? "Try EasyHealth as a guest" : "Your privacy and health data choices"}
       </h1>
       <p className="mt-3 text-sm text-[var(--eh-text-secondary)]">
-        EasyHealth helps you organize, understand, and track the health
-        information you choose to provide. Health information is sensitive, and
-        we treat it with additional care.
+        {isGuest
+          ? "Your guest profile lets you try the patient experience without providing an email."
+          : "EasyHealth helps you organize, understand, and track the health information you choose to provide. Health information is sensitive, and we treat it with additional care."}
       </p>
       <p className="mt-3 text-sm text-[var(--eh-text-secondary)]">
         EasyHealth is not a medical provider. Information in the app is for
@@ -115,110 +136,155 @@ export default function OnboardingConsentPage() {
       </p>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-6">
-        <div className="space-y-4">
-          <p className="text-sm font-semibold text-[var(--eh-text-primary)]">
-            Required to create and use your account
-          </p>
-
-          {(
-            [
-              {
-                key: "terms" as const,
-                title: "I agree to the Terms of Service.",
-                body: "I agree to use EasyHealth under the Terms of Service.",
-              },
-              {
-                key: "privacy" as const,
-                title: "I have read and understood the Privacy Policy.",
-                body: "I understand how EasyHealth collects, uses, stores, shares, and protects my personal data, and how I can exercise my privacy rights.",
-              },
-              {
-                key: "health_data" as const,
-                title:
-                  "I explicitly consent to the processing of my health data.",
-                body: "I consent to EasyHealth processing health-related information I provide, upload, or connect to the app for summaries, insights, tracking, and personalized health features.",
-              },
-              {
-                key: "ai_processing" as const,
-                title:
-                  "I explicitly consent to AI-assisted processing of my health data.",
-                body: "I understand that EasyHealth may use AI models and trusted service providers to analyze my health information. AI-generated content may be incomplete or inaccurate and should not be used as the sole basis for medical decisions.",
-              },
-            ] as const
-          ).map((item) => (
-            <div
-              key={item.key}
-              className="flex gap-3 rounded-xl border border-[var(--eh-border)] p-4"
-            >
+        {isGuest ? (
+          <div className="space-y-4">
+            <p className="text-sm font-semibold text-[var(--eh-text-primary)]">
+              One guest consent is required before you upload health data
+            </p>
+            <div className="flex gap-3 rounded-xl border border-[var(--eh-border)] p-4">
               <input
-                id={item.key}
+                id="guest-consent"
                 type="checkbox"
-                checked={required[item.key]}
-                onChange={(e) =>
-                  setRequired((prev) => ({
-                    ...prev,
-                    [item.key]: e.target.checked,
-                  }))
-                }
+                checked={guestConsent}
+                onChange={(e) => setGuestConsent(e.target.checked)}
                 className="mt-1 size-4 shrink-0 accent-[var(--eh-brand)]"
               />
-              <div className="space-y-1">
-                <label htmlFor={item.key} className="font-medium leading-snug">
-                  {item.title}
+              <div className="space-y-2">
+                <label
+                  htmlFor="guest-consent"
+                  className="font-medium leading-snug"
+                >
+                  I agree to the{" "}
+                  <Link href={LEGAL_LINKS.terms} className="text-[var(--eh-brand)] underline">
+                    Terms of Service
+                  </Link>{" "}
+                  and{" "}
+                  <Link href={LEGAL_LINKS.privacy} className="text-[var(--eh-brand)] underline">
+                    Privacy Policy
+                  </Link>
+                  .
                 </label>
                 <p className="text-sm text-[var(--eh-text-secondary)]">
-                  {item.body}
+                  I consent to EasyHealth processing the health information I
+                  provide, including AI-assisted processing by trusted service
+                  providers, for the patient features I choose to use.
                 </p>
               </div>
             </div>
-          ))}
-        </div>
+            <p className="text-sm text-[var(--eh-text-secondary)]">
+              Guest documents and derived health data are stored on the
+              service. Clearing this browser&apos;s data loses this unlinked
+              session and cannot restore it. Unconverted guest data is retained
+              for up to 30 days after inactivity. Use Save my data in Account
+              to link an email or Google identity before that window ends.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-4">
+              <p className="text-sm font-semibold text-[var(--eh-text-primary)]">
+                Required to create and use your account
+              </p>
 
-        <div className="space-y-4">
-          <p className="text-sm font-semibold text-[var(--eh-text-primary)]">
-            Optional -you can change these later
-          </p>
-
-          {(
-            [
-              { key: "analytics" as const, title: "Product analytics" },
-              {
-                key: "personalization" as const,
-                title: "Personalized experience",
-              },
-              {
-                key: "marketing_email" as const,
-                title: "Marketing communications",
-              },
-              {
-                key: "marketing_cookies" as const,
-                title: "Marketing and advertising cookies",
-              },
-            ] as const
-          ).map((item) => (
-            <div key={item.key} className="flex items-center gap-3">
-              <input
-                id={item.key}
-                type="checkbox"
-                checked={optional[item.key]}
-                onChange={(e) =>
-                  setOptional((prev) => ({
-                    ...prev,
-                    [item.key]: e.target.checked,
-                  }))
-                }
-                className="size-4 accent-[var(--eh-brand)]"
-              />
-              <label htmlFor={item.key}>{item.title}</label>
+              {(
+                [
+                  {
+                    key: "terms" as const,
+                    title: "I agree to the Terms of Service.",
+                    body: "I agree to use EasyHealth under the Terms of Service.",
+                  },
+                  {
+                    key: "privacy" as const,
+                    title: "I have read and understood the Privacy Policy.",
+                    body: "I understand how EasyHealth collects, uses, stores, shares, and protects my personal data, and how I can exercise my privacy rights.",
+                  },
+                  {
+                    key: "health_data" as const,
+                    title: "I explicitly consent to the processing of my health data.",
+                    body: "I consent to EasyHealth processing health-related information I provide, upload, or connect to the app for summaries, insights, tracking, and personalized health features.",
+                  },
+                  {
+                    key: "ai_processing" as const,
+                    title: "I explicitly consent to AI-assisted processing of my health data.",
+                    body: "I understand that EasyHealth may use AI models and trusted service providers to analyze my health information. AI-generated content may be incomplete or inaccurate and should not be used as the sole basis for medical decisions.",
+                  },
+                ] as const
+              ).map((item) => (
+                <div
+                  key={item.key}
+                  className="flex gap-3 rounded-xl border border-[var(--eh-border)] p-4"
+                >
+                  <input
+                    id={item.key}
+                    type="checkbox"
+                    checked={required[item.key]}
+                    onChange={(e) =>
+                      setRequired((prev) => ({
+                        ...prev,
+                        [item.key]: e.target.checked,
+                      }))
+                    }
+                    className="mt-1 size-4 shrink-0 accent-[var(--eh-brand)]"
+                  />
+                  <div className="space-y-1">
+                    <label htmlFor={item.key} className="font-medium leading-snug">
+                      {item.title}
+                    </label>
+                    <p className="text-sm text-[var(--eh-text-secondary)]">
+                      {item.body}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        <p className="text-xs text-[var(--eh-text-secondary)]">
-          You can withdraw consent or change optional preferences at any time in
-          Settings. If you withdraw consent for health data or AI-assisted
-          processing, some features may no longer work.
-        </p>
+            <div className="space-y-4">
+              <p className="text-sm font-semibold text-[var(--eh-text-primary)]">
+                Optional - you can change these later
+              </p>
+
+              {(
+                [
+                  { key: "analytics" as const, title: "Product analytics" },
+                  {
+                    key: "personalization" as const,
+                    title: "Personalized experience",
+                  },
+                  {
+                    key: "marketing_email" as const,
+                    title: "Marketing communications",
+                  },
+                  {
+                    key: "marketing_cookies" as const,
+                    title: "Marketing and advertising cookies",
+                  },
+                ] as const
+              ).map((item) => (
+                <div key={item.key} className="flex items-center gap-3">
+                  <input
+                    id={item.key}
+                    type="checkbox"
+                    checked={optional[item.key]}
+                    onChange={(e) =>
+                      setOptional((prev) => ({
+                        ...prev,
+                        [item.key]: e.target.checked,
+                      }))
+                    }
+                    className="size-4 accent-[var(--eh-brand)]"
+                  />
+                  <label htmlFor={item.key}>{item.title}</label>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-xs text-[var(--eh-text-secondary)]">
+              You can withdraw consent or change optional preferences at any
+              time in Settings. If you withdraw consent for health data or
+              AI-assisted processing, some features may no longer work.
+            </p>
+          </>
+        )}
 
         <div className="flex flex-wrap gap-3 text-xs">
           <Link
@@ -245,7 +311,7 @@ export default function OnboardingConsentPage() {
 
         <Button
           type="submit"
-          disabled={saving || !allRequiredChecked}
+          disabled={saving || !canSubmit}
           variant="brand"
           size="lg"
           className="h-11 w-full rounded-xl"

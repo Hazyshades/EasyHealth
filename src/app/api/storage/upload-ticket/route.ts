@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionProfileId } from "@/lib/auth/session";
+import { getWritableSessionProfileId } from "@/lib/auth/identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { issueStorageUploadTicket } from "@/lib/documents/upload-broker";
 
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   }
 
   const workerRequest = isWorkerAuthorization(req);
-  const sessionProfileId = workerRequest ? null : await getSessionProfileId();
+  const sessionProfileId = workerRequest ? null : await getWritableSessionProfileId();
   const profileId = workerRequest ? body.profile_id : sessionProfileId;
   if (typeof profileId !== "string") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

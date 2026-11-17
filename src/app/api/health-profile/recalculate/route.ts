@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { getSessionProfileId } from "@/lib/auth/session";
+import { getWritableSessionProfileId } from "@/lib/auth/identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST() {
-  const profileId = await getSessionProfileId();
+  const profileId = await getWritableSessionProfileId();
   if (!profileId) {
     return NextResponse.json(
       { error: "Unauthorized" },

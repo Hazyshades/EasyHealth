@@ -12,6 +12,13 @@ import { cleanupShareLinkState } from "./share-link-cleanup.js";
 import { sweepExpiredStorageIntents } from "./storage-orphan-sweeper.js";
 import { processOneAssistantReindexJob } from "./assistant-reindex.js";
 import { processOneRecordingTranscription } from "./doctor-transcription.js";
+import {
+  emitGuestPurgeMetrics,
+  guestErrorCode,
+  processOneGuestProfileDeletion,
+  queueExpiredGuestProfiles,
+  readGuestPurgeMetrics,
+} from "./guest-retention.js";
 import { processDoctorRetention } from "./doctor-retention.js";
 type JobRow = {
   id: string;
@@ -330,6 +337,34 @@ async function tick() {
     console.error(
       "Document deletion cleanup error:",
       error instanceof Error ? error.message : error,
+    );
+  }
+
+  try {
+    const queuedGuests = await queueExpiredGuestProfiles();
+    if (queuedGuests > 0) {
+      console.info(`[guest] purge status=queued count=${queuedGuests}`);
+    }
+  } catch (error) {
+    console.error(
+      `[guest] retention selector failed error=${guestErrorCode(error)}`,
+    );
+  }
+
+  try {
+    await processOneGuestProfileDeletion();
+  } catch (error) {
+    console.error(
+      `[guest] purge worker failed error=${guestErrorCode(error)}`,
+    );
+  }
+
+  try {
+    const metrics = await readGuestPurgeMetrics();
+    emitGuestPurgeMetrics(metrics);
+  } catch (error) {
+    console.warn(
+      `[guest] metrics status=unavailable error=${guestErrorCode(error)}`,
     );
   }
 

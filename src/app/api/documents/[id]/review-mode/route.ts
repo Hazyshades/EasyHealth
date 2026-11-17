@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSessionProfileId } from "@/lib/auth/session";
+import { getWritableSessionProfileId } from "@/lib/auth/identity";
 import { assertDocumentOwner } from "@/lib/documents/access";
 import {
   assertReviewModeEscalationAllowed,
@@ -26,7 +26,7 @@ function parseReviewModeRequest(body: ReviewModeRequest): {
 }
 
 export async function PATCH(req: Request, context: RouteContext) {
-  const profileId = await getSessionProfileId();
+  const profileId = await getWritableSessionProfileId();
   if (!profileId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

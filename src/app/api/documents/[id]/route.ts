@@ -5,6 +5,7 @@ import {
   summarizeBatchVerificationEligibility,
 } from "@/lib/documents/batch-verification-eligibility";
 import { getSessionProfileId } from "@/lib/auth/session";
+import { getWritableSessionProfileId } from "@/lib/auth/identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   assertDocumentOwner,
@@ -356,7 +357,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
 }
 
 export async function PATCH(req: Request, context: RouteContext) {
-  const profileId = await getSessionProfileId();
+  const profileId = await getWritableSessionProfileId();
   if (!profileId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -382,7 +383,7 @@ export async function PATCH(req: Request, context: RouteContext) {
 }
 
 export async function DELETE(_req: Request, context: RouteContext) {
-  const profileId = await getSessionProfileId();
+  const profileId = await getWritableSessionProfileId();
   if (!profileId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

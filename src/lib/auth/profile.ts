@@ -1,4 +1,6 @@
 import type { User } from "@supabase/supabase-js";
+import { GUEST_CONSENT_VERSION, isAnonymousAuthUser } from "@/lib/guest-mode";
+import { env } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AiProviderId } from "@/lib/ai-provider";
 import {
@@ -43,10 +45,17 @@ export type ProfileRow = {
   closed_beta_enabled_at?: string | null;
   closed_beta_revoked_at?: string | null;
   beta_sample_data_seeded_at?: string | null;
+  account_type: "standard" | "guest";
+  guest_last_activity_at: string | null;
+  guest_expires_at: string | null;
+  guest_consent_version: string | null;
+  guest_consent_accepted_at: string | null;
+  guest_converted_at: string | null;
+  guest_deletion_state: "active" | "deleting" | "completed";
 };
 
 const PROFILE_SELECT =
-  "id, display_name, first_name, last_name, email, ai_provider, created_at, terms_accepted_at, terms_version, health_data_consent_at, ai_consent_at, consent_preferences, onboarding_dismissed_at, onboarding_completed_at, onboarding_tour_version, dashboard_preferences, lab_unit_system, review_mode_default, closed_beta_enabled, closed_beta_enabled_at, closed_beta_revoked_at, beta_sample_data_seeded_at";
+  "id, display_name, first_name, last_name, email, ai_provider, created_at, terms_accepted_at, terms_version, health_data_consent_at, ai_consent_at, consent_preferences, onboarding_dismissed_at, onboarding_completed_at, onboarding_tour_version, dashboard_preferences, lab_unit_system, review_mode_default, closed_beta_enabled, closed_beta_enabled_at, closed_beta_revoked_at, beta_sample_data_seeded_at, account_type, guest_last_activity_at, guest_expires_at, guest_consent_version, guest_consent_accepted_at, guest_converted_at, guest_deletion_state";
 
 function mapProfileRow(data: Record<string, unknown>): ProfileRow {
   const unit = data.lab_unit_system;
@@ -74,6 +83,16 @@ function mapProfileRow(data: Record<string, unknown>): ProfileRow {
     closed_beta_enabled_at: (data.closed_beta_enabled_at as string | null) ?? null,
     closed_beta_revoked_at: (data.closed_beta_revoked_at as string | null) ?? null,
     beta_sample_data_seeded_at: (data.beta_sample_data_seeded_at as string | null) ?? null,
+    account_type: data.account_type === "guest" ? "guest" : "standard",
+    guest_last_activity_at: (data.guest_last_activity_at as string | null) ?? null,
+    guest_expires_at: (data.guest_expires_at as string | null) ?? null,
+    guest_consent_version: (data.guest_consent_version as string | null) ?? null,
+    guest_consent_accepted_at: (data.guest_consent_accepted_at as string | null) ?? null,
+    guest_converted_at: (data.guest_converted_at as string | null) ?? null,
+    guest_deletion_state:
+      data.guest_deletion_state === "deleting" || data.guest_deletion_state === "completed"
+        ? data.guest_deletion_state
+        : "active",
   };
 }
 
@@ -90,35 +109,56 @@ export function buildDisplayName(firstName: string, lastName?: string | null): s
 export async function ensureProfile(user: User): Promise<string> {
   const supabase = createAdminClient();
   const email = user.email?.trim() || null;
+  const isGuest = isAnonymousAuthUser(user);
+  const existingResult = await supabase
+    .from("profiles")
+    .select("id, account_type")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (existingResult.error) throw existingResult.error;
+  if (existingResult.data?.id) return existingResult.data.id as string;
+
   const metaName =
     (typeof user.user_metadata?.full_name === "string" && user.user_metadata.full_name) ||
     (typeof user.user_metadata?.name === "string" && user.user_metadata.name) ||
     null;
   const identity = resolveProfileIdentity(metaName, email);
+  const now = new Date();
+  const guestExpiry = isGuest
+    ? new Date(
+        now.getTime() + env.GUEST_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+      ).toISOString()
+    : null;
+  const profile = {
+    id: user.id,
+    email,
+    display_name: identity.firstName,
+    ...(isGuest
+      ? {
+          account_type: "guest" as const,
+          guest_last_activity_at: now.toISOString(),
+          guest_expires_at: guestExpiry,
+        }
+      : {}),
+    // first_name left null so onboarding profile gate still runs unless set later
+  };
   const { data, error } = await supabase
     .from("profiles")
-    .upsert(
-      {
-        id: user.id,
-        email,
-        display_name: identity.firstName,
-        // first_name left null so onboarding profile gate still runs unless set later
-      },
-      { onConflict: "id" },
-    )
+    .insert(profile)
     .select("id")
     .single();
 
   if (error) {
-    const { data: existing } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (existing?.id) return existing.id as string;
-
+    if (error.code === "23505") {
+      const { data: existing } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (existing?.id) return existing.id as string;
+    }
     throw new Error(
-      `ensureProfile upsert failed: ${JSON.stringify(
+      `ensureProfile insert failed: ${JSON.stringify(
         {
           message: (error as { message?: string }).message,
           code: (error as { code?: string }).code,
@@ -218,6 +258,63 @@ export async function recordProfileConsents(profileId: string, consents: Consent
     .single();
   if (error) throw error;
   return mapProfileRow(data as Record<string, unknown>);
+}
+
+export async function recordGuestConsent(profileId: string) {
+  const now = new Date().toISOString();
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({
+      terms_accepted_at: now,
+      health_data_consent_at: now,
+      ai_consent_at: now,
+      terms_version: CURRENT_TERMS_VERSION,
+      consent_preferences: extractConsentPreferences({
+        terms: true,
+        privacy: true,
+        health_data: true,
+        ai_processing: true,
+      }),
+      guest_consent_version: GUEST_CONSENT_VERSION,
+      guest_consent_accepted_at: now,
+    })
+    .eq("id", profileId)
+    .eq("account_type", "guest")
+    .eq("guest_deletion_state", "active")
+    .gt("guest_expires_at", now)
+    .select(PROFILE_SELECT)
+    .single();
+  if (error) throw error;
+  return mapProfileRow(data as Record<string, unknown>);
+}
+
+export async function completeGuestConversion(user: User): Promise<ProfileRow | null> {
+  if (isAnonymousAuthUser(user)) return null;
+  const hasGoogleIdentity = user.identities?.some(
+    (identity) => identity.provider === "google",
+  );
+  if (!user.email?.trim() && !hasGoogleIdentity) return null;
+
+  const now = new Date().toISOString();
+  const { data, error } = await createAdminClient()
+    .from("profiles")
+    .update({
+      account_type: "standard",
+      guest_converted_at: now,
+      guest_expires_at: null,
+      guest_deletion_state: "active",
+      email: user.email?.trim() || null,
+    })
+    .eq("id", user.id)
+    .eq("account_type", "guest")
+    .eq("guest_deletion_state", "active")
+    .is("guest_converted_at", null)
+    .gt("guest_expires_at", now)
+    .select(PROFILE_SELECT)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? mapProfileRow(data as Record<string, unknown>) : null;
 }
 
 export type OnboardingAction = "dismiss_tour" | "complete_tour" | "dismiss_banner";

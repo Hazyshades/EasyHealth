@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
+import { isPublicGuestModeEnabled } from "@/lib/guest-mode";
 import { getAuthCallbackErrorMessage } from "@/lib/auth/callback-redirect";
 import { Input } from "@/components/ui/input";
 import styles from "./auth-entry-page.module.css";
@@ -18,6 +19,7 @@ function AuthEntryContent() {
   const {
     signInWithGoogle,
     signInWithMagicLink,
+    signInAsGuest,
     refreshAccountIdentity,
     loading,
     authUserId,
@@ -26,8 +28,10 @@ function AuthEntryContent() {
   } = useAuth();
   const [email, setEmail] = useState("");
   const [emailSending, setEmailSending] = useState(false);
+  const [guestLoading, setGuestLoading] = useState(false);
   const [profileRetrying, setProfileRetrying] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [guestError, setGuestError] = useState<string | null>(null);
   const profileReady = profileStatus === "ready";
   const profileError =
     profileStatus === "unavailable"
@@ -50,6 +54,21 @@ function AuthEntryContent() {
       );
     } finally {
       setEmailSending(false);
+    }
+  }
+
+  async function handleGuestSignIn() {
+    setGuestError(null);
+    setGuestLoading(true);
+    try {
+      await signInAsGuest();
+      router.push("/onboarding/profile");
+    } catch (err) {
+      setGuestError(
+        err instanceof Error ? err.message : "Guest sign-in is unavailable",
+      );
+    } finally {
+      setGuestLoading(false);
     }
   }
 
@@ -105,7 +124,8 @@ function AuthEntryContent() {
               Sign in
             </h2>
             <p className={styles.cardCopy}>
-              Use Google or an email magic link to open your record.
+              Use Google or an email magic link to open your record, or try the
+              patient experience as a guest.
             </p>
 
             {!authUserId ? (
@@ -125,6 +145,24 @@ function AuthEntryContent() {
                 >
                   {loading ? "Loading…" : "Sign in with Google"}
                 </button>
+
+                {isPublicGuestModeEnabled() ? (
+                  <>
+                    <button
+                      type="button"
+                      className={styles.guestButton}
+                      onClick={() => void handleGuestSignIn()}
+                      disabled={loading || guestLoading}
+                    >
+                      {guestLoading ? "Starting guest session…" : "Login as Guest"}
+                    </button>
+                    {guestError ? (
+                      <p className={styles.emailError} role="alert">
+                        {guestError}
+                      </p>
+                    ) : null}
+                  </>
+                ) : null}
 
                 <div className={styles.divider} aria-hidden="true">
                   <span>or</span>

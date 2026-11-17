@@ -21,7 +21,7 @@ import {
   revokeDoctorRecordingConsent,
   revokeDoctorWorkspaceClinicianMembership,
 } from "@/lib/doctor-workspace/runtime";
-import { getSessionProfileId } from "@/lib/auth/session";
+import { getSessionIdentity } from "@/lib/auth/identity";
 import {
   isDoctorWorkspaceEnabled,
   doctorWorkspacePolicyStatus,
@@ -110,8 +110,10 @@ function errorResponse(error: unknown): NextResponse {
 }
 
 async function actorOrUnauthorized(): Promise<string | NextResponse> {
-  const actorProfileId = await getSessionProfileId();
-  return actorProfileId ?? response({ error: "unauthenticated" }, 401);
+  const identity = await getSessionIdentity();
+  if (!identity) return response({ error: "unauthenticated" }, 401);
+  if (identity.isGuest) return response({ error: "access_denied" }, 403);
+  return identity.profileId;
 }
 
 export async function GET(): Promise<NextResponse> {

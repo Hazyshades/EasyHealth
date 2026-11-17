@@ -48,7 +48,7 @@ function testCallbackEnsureFailureDoesNotEnterApp(): void {
     needsProfileGate: false,
     needsConsentGate: false,
   });
-  assert.equal(pathName, "/?signin=error&reason=profile-setup");
+  assert.equal(pathName, "/login?signin=error&reason=profile-setup");
   assert.equal(
     resolveAuthCallbackPath({
       hasCode: true,
@@ -66,7 +66,7 @@ function testCallbackEnsureFailureDoesNotEnterApp(): void {
 function testMissingProfileRedirectsToOnboarding(): void {
   assert.equal(
     resolveAppShellRedirect({ profileId: null, onboarding: null }),
-    "/?signin=required",
+    "/login?signin=required",
   );
   assert.equal(
     resolveAppShellRedirect({ profileId: "profile-1", onboarding: null }),
@@ -89,6 +89,9 @@ function testMissingProfileRedirectsToOnboarding(): void {
         needsProfileGate: false,
         needsConsentGate: false,
         showPlatformTour: false,
+        isGuest: false,
+        guestConsentVersion: null,
+        hasCurrentGuestConsent: false,
         showSuccessBanner: true,
       },
     }),

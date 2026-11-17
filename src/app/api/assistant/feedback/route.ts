@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { getSessionProfileId } from "@/lib/auth/session";
+import { getWritableSessionProfileId } from "@/lib/auth/identity";
 import { assistantFeedbackRequestSchema } from "@/lib/assistant/contract";
 import { recordAssistantFeedback } from "@/lib/assistant/operations";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const profileId = await getSessionProfileId();
+  const profileId = await getWritableSessionProfileId();
   if (!profileId) {
     return NextResponse.json(
       { error: "Unauthorized" },

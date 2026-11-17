@@ -13,6 +13,9 @@ type ProfileResponse = {
   display_name: string | null;
   email: string | null;
   created_at: string;
+  is_guest?: boolean;
+  guest_expires_at?: string | null;
+  guest_deletion_state?: "active" | "deleting" | "completed";
 };
 
 function formatDate(value: string) {
@@ -24,13 +27,23 @@ function formatDate(value: string) {
 }
 
 export default function AccountPage() {
-  const { refreshAccountIdentity } = useAuth();
+  const {
+    refreshAccountIdentity,
+    linkGuestEmail,
+    linkGuestWithGoogle,
+    signOut,
+  } = useAuth();
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [firstNameInput, setFirstNameInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestBusy, setGuestBusy] = useState(false);
+  const [guestMessage, setGuestMessage] = useState<string | null>(null);
+  const [guestError, setGuestError] = useState<string | null>(null);
+  const [deleteArmed, setDeleteArmed] = useState(false);
 
   useEffect(() => {
     fetch("/api/profile")
@@ -81,6 +94,67 @@ export default function AccountPage() {
     }
   }
 
+  async function handleGuestEmailLink() {
+    const email = guestEmail.trim();
+    if (!email) {
+      setGuestError("Enter an email address.");
+      return;
+    }
+    setGuestBusy(true);
+    setGuestError(null);
+    setGuestMessage(null);
+    try {
+      await linkGuestEmail(email);
+      setGuestMessage("Check your email to finish saving your data.");
+    } catch (caught) {
+      setGuestError(
+        caught instanceof Error ? caught.message : "Email linking failed",
+      );
+    } finally {
+      setGuestBusy(false);
+    }
+  }
+
+  async function handleGuestGoogleLink() {
+    setGuestBusy(true);
+    setGuestError(null);
+    setGuestMessage(null);
+    try {
+      await linkGuestWithGoogle();
+    } catch (caught) {
+      setGuestError(
+        caught instanceof Error ? caught.message : "Google linking failed",
+      );
+      setGuestBusy(false);
+    }
+  }
+
+  async function handleGuestDelete() {
+    if (!deleteArmed) {
+      setDeleteArmed(true);
+      return;
+    }
+    setGuestBusy(true);
+    setGuestError(null);
+    try {
+      const response = await fetch("/api/guest/delete", { method: "POST" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setGuestError(data.error ?? "Guest deletion is temporarily unavailable");
+        return;
+      }
+      await signOut();
+    } catch (caught) {
+      setGuestError(
+        caught instanceof Error
+          ? caught.message
+          : "Guest deletion is temporarily unavailable",
+      );
+    } finally {
+      setGuestBusy(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-6 pb-8">
@@ -122,6 +196,8 @@ export default function AccountPage() {
   }
 
   const hasFirstName = Boolean(profile.display_name?.trim());
+  const guestIsActive =
+    profile.is_guest && (profile.guest_deletion_state ?? "active") === "active";
 
   return (
     <div className="space-y-6 pb-8">
@@ -162,17 +238,28 @@ export default function AccountPage() {
             <p className="mt-2 text-sm text-red-600">{error}</p>
           ) : null}
         </div>
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-[var(--eh-text-muted)]">
-            Email
-          </p>
-          <p className="mt-1 text-sm text-[var(--eh-text-primary)]">
-            {profile.email?.trim() || "Not set"}
-          </p>
-          <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
-            Email comes from your sign-in provider and is not editable here.
-          </p>
-        </div>
+        {profile.is_guest ? (
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-[var(--eh-text-muted)]">
+              Email
+            </p>
+            <p className="mt-1 text-sm text-[var(--eh-text-primary)]">
+              No email identity is linked to this guest profile.
+            </p>
+          </div>
+        ) : (
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-[var(--eh-text-muted)]">
+              Email
+            </p>
+            <p className="mt-1 text-sm text-[var(--eh-text-primary)]">
+              {profile.email?.trim() || "Not set"}
+            </p>
+            <p className="mt-1 text-xs text-[var(--eh-text-muted)]">
+              Email comes from your sign-in provider and is not editable here.
+            </p>
+          </div>
+        )}
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-[var(--eh-text-muted)]">
             Member since
@@ -182,6 +269,86 @@ export default function AccountPage() {
           </p>
         </div>
       </SurfaceCard>
+
+      {profile.is_guest ? (
+        <>
+          <SurfaceCard className="space-y-4 p-5">
+            <div>
+              <h2 className="text-base font-semibold text-[var(--eh-text-primary)]">
+                Save my data
+              </h2>
+              <p className="mt-2 text-sm text-[var(--eh-text-secondary)]">
+                Guest data is stored on the server for this profile and is
+                removed after 30 days without activity. Clearing browser data
+                can end access unless you save the profile first.
+              </p>
+              {profile.guest_expires_at ? (
+                <p className="mt-2 text-xs text-[var(--eh-text-muted)]">
+                  Current retention deadline: {formatDate(profile.guest_expires_at)}
+                </p>
+              ) : null}
+            </div>
+            <div className="space-y-3">
+              <Input
+                type="email"
+                value={guestEmail}
+                onChange={(event) => setGuestEmail(event.target.value)}
+                placeholder="you@example.com"
+                autoComplete="email"
+                disabled={!guestIsActive || guestBusy}
+                className="max-w-sm rounded-xl"
+              />
+              <Button
+                onClick={() => void handleGuestEmailLink()}
+                disabled={!guestIsActive || guestBusy || !guestEmail.trim()}
+                className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90"
+              >
+                {guestBusy ? "Working…" : "Save with email"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => void handleGuestGoogleLink()}
+                disabled={!guestIsActive || guestBusy}
+                className="rounded-xl"
+              >
+                Continue with Google
+              </Button>
+            </div>
+            {guestMessage ? (
+              <p className="text-sm text-[var(--eh-brand)]">{guestMessage}</p>
+            ) : null}
+            {guestError ? (
+              <p className="text-sm text-red-600">{guestError}</p>
+            ) : null}
+          </SurfaceCard>
+
+          <SurfaceCard className="space-y-3 border-red-200 p-5">
+            <div>
+              <h2 className="text-base font-semibold text-red-700">
+                Delete guest data
+              </h2>
+              <p className="mt-1 text-sm text-[var(--eh-text-secondary)]">
+                This permanently removes the guest profile, documents,
+                derived data, and stored files. It cannot be undone.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => void handleGuestDelete()}
+              disabled={!guestIsActive || guestBusy}
+              className="w-fit rounded-xl border-red-300 text-red-700 hover:bg-red-50"
+            >
+              {deleteArmed ? "Confirm permanent deletion" : "Delete guest data"}
+            </Button>
+            {deleteArmed ? (
+              <p className="text-xs text-red-700">
+                Select the confirmation action again to queue deletion and sign
+                out.
+              </p>
+            ) : null}
+          </SurfaceCard>
+        </>
+      ) : null}
     </div>
   );
 }

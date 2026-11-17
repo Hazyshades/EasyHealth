@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { ensureProfile } from "@/lib/auth/profile";
+import { ensureProfile, getProfileById } from "@/lib/auth/profile";
+import { isActiveGuestProfileSession, isAnonymousAuthUser } from "@/lib/guest-mode";
 
 export class ProfileSetupError extends Error {
   constructor() {
@@ -21,14 +22,24 @@ const getSessionUser = cache(async () => {
  * Resolve the signed-in profile id from the Supabase Auth session.
  * Profile id equals auth.users.id.
  *
- * Hot path: does not touch the profiles table. Profile row creation is
+ * Standard sessions do not touch the profiles table on this hot path.
+ * Anonymous sessions perform a read-only guest lifecycle check so expired or
+ * deleting profiles cannot access patient data. Profile row creation is
  * confined to `/auth/callback` and the onboarding layout via
  * {@link getSessionProfileIdEnsured}. Memoized per App Router request so
  * layout and server page data share one `auth.getUser`.
  */
 export const getSessionProfileId = cache(async (): Promise<string | null> => {
   const user = await getSessionUser();
-  return user?.id ?? null;
+  if (!user) return null;
+  if (!isAnonymousAuthUser(user)) return user.id;
+
+  try {
+    const profile = await getProfileById(user.id);
+    return isActiveGuestProfileSession(profile) ? user.id : null;
+  } catch {
+    return null;
+  }
 });
 
 /**
@@ -40,7 +51,8 @@ export async function getSessionProfileIdEnsured(): Promise<string | null> {
   if (!user) return null;
 
   try {
-    return await ensureProfile(user);
+    await ensureProfile(user);
+    return await getSessionProfileId();
   } catch (error) {
     const details =
       error instanceof Error

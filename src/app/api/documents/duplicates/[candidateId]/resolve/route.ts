@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getSessionProfileId } from "@/lib/auth/session";
+import { getWritableSessionProfileId } from "@/lib/auth/identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { noStoreJson } from "@/lib/documents/access";
 import { isDuplicateDecision } from "@/lib/documents/duplicate-detection";
@@ -32,7 +32,7 @@ function resolutionErrorResponse(message: string) {
 }
 
 export async function POST(req: NextRequest, context: RouteContext) {
-  const profileId = await getSessionProfileId();
+  const profileId = await getWritableSessionProfileId();
   if (!profileId) return noStoreJson({ error: "Unauthorized" }, { status: 401 });
 
   const { candidateId } = await context.params;

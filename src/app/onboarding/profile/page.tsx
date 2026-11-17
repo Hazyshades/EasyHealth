@@ -15,8 +15,8 @@ export default function OnboardingProfilePage() {
   const [lastName, setLastName] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   useEffect(() => {
     const prefill = window.sessionStorage.getItem(OAUTH_PREFILL_KEY);
     if (prefill) {
@@ -33,7 +33,7 @@ export default function OnboardingProfilePage() {
       .then((data) => {
         if (!data.onboarding?.needsProfileGate) { router.replace(data.onboarding?.needsConsentGate ? "/onboarding/consent" : "/app"); return; }
         if (data.first_name) setFirstName(data.first_name);
-        if (data.last_name) setLastName(data.last_name);
+        setIsGuest(data.is_guest === true);
       })
       .catch((e) =>
         setError(e instanceof Error ? e.message : "Failed to load profile"),
@@ -90,10 +90,12 @@ export default function OnboardingProfilePage() {
   return (
     <div>
       <h1 className="text-center text-2xl font-bold text-[var(--eh-text-primary)]">
-        Complete your profile
+        {isGuest ? "Choose a name for your guest profile" : "Complete your profile"}
       </h1>
       <p className="mt-2 text-center text-sm text-[var(--eh-text-secondary)]">
-        Enter your name to finish registration
+        {isGuest
+          ? "Use a name to identify your health profile on this device."
+          : "Enter your name to finish registration"}
       </p>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-5">

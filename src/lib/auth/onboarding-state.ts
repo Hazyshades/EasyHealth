@@ -1,3 +1,4 @@
+import { GUEST_CONSENT_VERSION } from "@/lib/guest-mode";
 import { CURRENT_TERMS_VERSION } from "@/lib/consent";
 import type { ProfileRow } from "@/lib/auth/profile";
 import { CURRENT_PLATFORM_TOUR_VERSION } from "@/lib/onboarding/platform-tour";
@@ -6,6 +7,9 @@ export type ProfileOnboardingState = {
   profileId: string;
   firstName: string | null;
   lastName: string | null;
+  isGuest: boolean;
+  guestConsentVersion: string | null;
+  hasCurrentGuestConsent: boolean;
   hasAcceptedTerms: boolean;
   hasCurrentTerms: boolean;
   hasRequiredConsents: boolean;
@@ -27,7 +31,12 @@ export function profileOnboardingStateFromRow(profile: ProfileRow): ProfileOnboa
       profile.ai_consent_at,
   );
   const hasCurrentTerms = profile.terms_version === CURRENT_TERMS_VERSION;
-  const needsConsentGate = !needsProfileGate && (!hasRequiredConsents || !hasCurrentTerms);
+  const hasCurrentGuestConsent =
+    profile.account_type !== "guest" ||
+    profile.guest_consent_version === GUEST_CONSENT_VERSION;
+  const needsConsentGate =
+    !needsProfileGate &&
+    (!hasRequiredConsents || !hasCurrentTerms || !hasCurrentGuestConsent);
   const onboardingTourVersion = profile.onboarding_tour_version || CURRENT_PLATFORM_TOUR_VERSION;
   const hasCurrentTourDecision =
     onboardingTourVersion === CURRENT_PLATFORM_TOUR_VERSION &&
@@ -45,6 +54,9 @@ export function profileOnboardingStateFromRow(profile: ProfileRow): ProfileOnboa
     profileId: profile.id,
     firstName: profile.first_name,
     lastName: profile.last_name,
+    isGuest: profile.account_type === "guest",
+    guestConsentVersion: profile.guest_consent_version,
+    hasCurrentGuestConsent,
     hasAcceptedTerms: Boolean(profile.terms_accepted_at),
     hasCurrentTerms,
     hasRequiredConsents,
