@@ -54,8 +54,11 @@ export function isGuestDeletionStateWritable(
 }
 
 export function isPublicGuestModeEnabled(): boolean {
-  return (
+  const guestModeEnabled =
     process.env.NEXT_PUBLIC_GUEST_MODE_ENABLED === "true" ||
-    process.env.NEXT_PUBLIC_GUEST_MODE_ENABLED === "1"
-  );
+    process.env.NEXT_PUBLIC_GUEST_MODE_ENABLED === "1";
+  const legalApproved =
+    process.env.NEXT_PUBLIC_GUEST_LEGAL_APPROVED === "true" ||
+    process.env.NEXT_PUBLIC_GUEST_LEGAL_APPROVED === "1";
+  return guestModeEnabled && legalApproved;
 }

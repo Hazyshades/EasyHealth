@@ -20,6 +20,7 @@ import {
   type ProfileRow,
 } from "@/lib/auth/profile";
 import { profileOnboardingStateFromRow } from "@/lib/auth/onboarding";
+import { getGuestPolicy } from "@/lib/guest-policy";
 import {
   isProviderConfigured,
   providerAvailability,
@@ -211,6 +212,12 @@ export async function PATCH(request: Request) {
       return NextResponse.json(
         { error: "Consent payload does not match account type" },
         { status: 400 },
+      );
+    }
+    if (isGuestConsent === true && !getGuestPolicy().legalApproved) {
+      return NextResponse.json(
+        { error: "Guest consent is unavailable until legal documents are approved" },
+        { status: 503 },
       );
     }
 

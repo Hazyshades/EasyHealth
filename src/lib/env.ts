@@ -8,6 +8,10 @@ export const env = createEnv({
       .enum(["true", "false", "1", "0"])
       .default("false")
       .transform((value) => value === "true" || value === "1"),
+    GUEST_LEGAL_APPROVED: z
+      .enum(["true", "false", "1", "0"])
+      .default("false")
+      .transform((value) => value === "true" || value === "1"),
     GUEST_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
     GUEST_CREATION_LIMIT: z.coerce.number().int().positive().default(5),
     GUEST_CREATION_WINDOW_SECONDS: z.coerce.number().int().positive().default(3600),
@@ -134,10 +138,15 @@ export const env = createEnv({
       .enum(["true", "false", "1", "0"])
       .default("false")
       .transform((value) => value === "true" || value === "1"),
+    NEXT_PUBLIC_GUEST_LEGAL_APPROVED: z
+      .enum(["true", "false", "1", "0"])
+      .default("false")
+      .transform((value) => value === "true" || value === "1"),
   },
   runtimeEnv: {
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
     GUEST_MODE_ENABLED: process.env.GUEST_MODE_ENABLED,
+    GUEST_LEGAL_APPROVED: process.env.GUEST_LEGAL_APPROVED,
     GUEST_RETENTION_DAYS: process.env.GUEST_RETENTION_DAYS,
     GUEST_CREATION_LIMIT: process.env.GUEST_CREATION_LIMIT,
     GUEST_CREATION_WINDOW_SECONDS: process.env.GUEST_CREATION_WINDOW_SECONDS,
@@ -201,6 +210,8 @@ export const env = createEnv({
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
     NEXT_PUBLIC_GUEST_MODE_ENABLED: process.env.NEXT_PUBLIC_GUEST_MODE_ENABLED,
+    NEXT_PUBLIC_GUEST_LEGAL_APPROVED:
+      process.env.NEXT_PUBLIC_GUEST_LEGAL_APPROVED,
   },
   emptyStringAsUndefined: true,
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,

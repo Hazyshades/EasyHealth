@@ -15,6 +15,23 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
+function guestInitializationResponse(profileId: string): NextResponse {
+  const response = NextResponse.json(
+    { profile_id: profileId, is_guest: true },
+    { headers: { "Cache-Control": "no-store" } },
+  );
+  response.cookies.set({
+    name: GUEST_CREATION_TICKET_COOKIE,
+    value: "",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 0,
+    path: "/",
+  });
+  return response;
+}
+
 export async function POST(request: NextRequest) {
   try {
     assertGuestModeEnabled();
@@ -70,10 +87,7 @@ export async function POST(request: NextRequest) {
         guest_expires_at: string | null;
       };
       if (isActiveGuestProfileSession(existing)) {
-        return NextResponse.json(
-          { profile_id: existing.id, is_guest: true },
-          { headers: { "Cache-Control": "no-store" } },
-        );
+        return guestInitializationResponse(existing.id);
       }
       return NextResponse.json(
         { error: "Guest profile is unavailable" },
@@ -94,6 +108,35 @@ export async function POST(request: NextRequest) {
       { p_ticket_id: ticketId },
     );
     if (consumeError || consumed !== true) {
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const retryResult = await admin
+          .from("profiles")
+          .select(
+            "id, account_type, guest_deletion_state, guest_converted_at, guest_expires_at",
+          )
+          .eq("id", user.id)
+          .maybeSingle();
+        if (retryResult.error) throw retryResult.error;
+        if (
+          retryResult.data?.id &&
+          isActiveGuestProfileSession(
+            retryResult.data as {
+              id: string;
+              account_type: string;
+              guest_deletion_state: GuestDeletionState;
+              guest_converted_at: string | null;
+              guest_expires_at: string | null;
+            },
+          )
+        ) {
+          return guestInitializationResponse(retryResult.data.id as string);
+        }
+        if (attempt < 2) {
+          const { promise, resolve } = Promise.withResolvers<void>();
+          setTimeout(resolve, 25 * (attempt + 1));
+          await promise;
+        }
+      }
       console.error(
         "[guest] creation ticket failed error=guest_creation_ticket_invalid",
       );
@@ -114,20 +157,7 @@ export async function POST(request: NextRequest) {
       );
     }
     console.info("[guest] creation status=allowed");
-    const response = NextResponse.json(
-      { profile_id: profile.id, is_guest: true },
-      { headers: { "Cache-Control": "no-store" } },
-    );
-    response.cookies.set({
-      name: GUEST_CREATION_TICKET_COOKIE,
-      value: "",
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 0,
-      path: "/",
-    });
-    return response;
+    return guestInitializationResponse(profile.id);
   } catch {
     console.error(
       "[guest] profile initialization failed error=guest_profile_initialization_failed",

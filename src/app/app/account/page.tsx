@@ -30,7 +30,6 @@ export default function AccountPage() {
   const {
     refreshAccountIdentity,
     linkGuestEmail,
-    linkGuestWithGoogle,
     signOut,
   } = useAuth();
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
@@ -111,20 +110,6 @@ export default function AccountPage() {
         caught instanceof Error ? caught.message : "Email linking failed",
       );
     } finally {
-      setGuestBusy(false);
-    }
-  }
-
-  async function handleGuestGoogleLink() {
-    setGuestBusy(true);
-    setGuestError(null);
-    setGuestMessage(null);
-    try {
-      await linkGuestWithGoogle();
-    } catch (caught) {
-      setGuestError(
-        caught instanceof Error ? caught.message : "Google linking failed",
-      );
       setGuestBusy(false);
     }
   }
@@ -279,11 +264,13 @@ export default function AccountPage() {
               </h2>
               <p className="mt-2 text-sm text-[var(--eh-text-secondary)]">
                 Guest data is stored on the server for this profile until the
-                current retention deadline shown below. Clearing browser data
-                can end access unless you save the profile first.
+                current retention deadline shown below. The deadline moves
+                after meaningful activity; unconverted data is deleted when it
+                expires. Clearing browser data can end access unless you save
+                the profile first.
               </p>
               {profile.guest_expires_at ? (
-                <p className="mt-2 text-xs text-[var(--eh-text-muted)]">
+                <p className="mt-2 text-xs text-[var(--eh-text-secondary)]">
                   Current retention deadline: {formatDate(profile.guest_expires_at)}
                 </p>
               ) : null}
@@ -304,14 +291,6 @@ export default function AccountPage() {
                 className="rounded-xl bg-[var(--eh-brand)] hover:bg-[var(--eh-brand)]/90"
               >
                 {guestBusy ? "Working…" : "Save with email"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => void handleGuestGoogleLink()}
-                disabled={!guestIsActive || guestBusy}
-                className="rounded-xl"
-              >
-                Continue with Google
               </Button>
             </div>
             {guestMessage ? (

@@ -312,6 +312,7 @@ export async function completeGuestConversion(user: User): Promise<ProfileRow | 
     {
       p_profile_id: user.id,
       p_email: user.email?.trim() || null,
+      p_consent_version: GUEST_CONSENT_VERSION,
     },
   );
   if (error) throw error;

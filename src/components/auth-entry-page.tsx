@@ -21,6 +21,7 @@ function AuthEntryContent() {
     signInWithMagicLink,
     signInAsGuest,
     refreshAccountIdentity,
+    signOut,
     loading,
     authUserId,
     profileStatus,
@@ -79,6 +80,10 @@ function AuthEntryContent() {
     } finally {
       setProfileRetrying(false);
     }
+  }
+
+  async function handleProfileSignOut() {
+    await signOut();
   }
 
   return (
@@ -211,6 +216,13 @@ function AuthEntryContent() {
                   disabled={profileRetrying}
                 >
                   {profileRetrying ? "Checking profile…" : "Retry profile"}
+                </button>
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  onClick={() => void handleProfileSignOut()}
+                >
+                  Sign out and try again
                 </button>
               </div>
             )}

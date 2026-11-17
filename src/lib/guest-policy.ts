@@ -20,13 +20,19 @@ export type GuestPolicy = {
   uploadBytesPerDay: number;
   processingCountPerDay: number;
   rateLimitConfigured: boolean;
+  legalApproved: boolean;
   abuseChallengeEnabled: boolean;
   abuseChallengeRequired: boolean;
 };
 
 export function getGuestPolicy(): GuestPolicy {
+  const legalApproved =
+    env.GUEST_LEGAL_APPROVED && env.NEXT_PUBLIC_GUEST_LEGAL_APPROVED;
   return {
-    enabled: env.GUEST_MODE_ENABLED && env.NEXT_PUBLIC_GUEST_MODE_ENABLED,
+    enabled:
+      env.GUEST_MODE_ENABLED &&
+      env.NEXT_PUBLIC_GUEST_MODE_ENABLED &&
+      legalApproved,
     retentionDays: env.GUEST_RETENTION_DAYS,
     creationLimit: env.GUEST_CREATION_LIMIT,
     creationWindowSeconds: env.GUEST_CREATION_WINDOW_SECONDS,
@@ -34,6 +40,7 @@ export function getGuestPolicy(): GuestPolicy {
     uploadBytesPerDay: env.GUEST_UPLOAD_BYTES_PER_DAY,
     processingCountPerDay: env.GUEST_PROCESSING_COUNT_PER_DAY,
     rateLimitConfigured: Boolean(env.GUEST_RATE_LIMIT_PEPPER),
+    legalApproved,
     abuseChallengeEnabled: env.GUEST_ABUSE_CHALLENGE_ENABLED,
     abuseChallengeRequired: env.GUEST_ABUSE_CHALLENGE_REQUIRED,
   };

@@ -70,8 +70,11 @@ assert.equal(
 );
 
 process.env.NEXT_PUBLIC_GUEST_MODE_ENABLED = "false";
+process.env.NEXT_PUBLIC_GUEST_LEGAL_APPROVED = "false";
 assert.equal(isPublicGuestModeEnabled(), false);
 process.env.NEXT_PUBLIC_GUEST_MODE_ENABLED = "1";
+assert.equal(isPublicGuestModeEnabled(), false);
+process.env.NEXT_PUBLIC_GUEST_LEGAL_APPROVED = "1";
 assert.equal(isPublicGuestModeEnabled(), true);
 
 assert.equal(GUEST_RETENTION_DAYS, 30);
@@ -133,6 +136,7 @@ const guestPolicy: GuestPolicy = {
   uploadBytesPerDay: 100 * 1024 * 1024,
   processingCountPerDay: 10,
   rateLimitConfigured: true,
+  legalApproved: true,
   abuseChallengeEnabled: false,
   abuseChallengeRequired: false,
 };

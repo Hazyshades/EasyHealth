@@ -1,5 +1,5 @@
 begin;
-select plan(24);
+select plan(26);
 
 select ok(
   (
@@ -157,18 +157,30 @@ insert into public.profiles (
   guest_consent_accepted_at
 )
 values (
-  '00000000-0000-4000-8000-000000000111',
+  '00000000-0000-0000-0000-000000000111',
   'Convertible',
   'guest',
   '2098-06-01T00:00:00Z',
   '2099-06-01T00:00:00Z',
-  'guest-2026-06-29',
+  'guest-previous',
   '2098-06-01T00:00:00Z'
 );
 select ok(
+  not public.complete_guest_conversion(
+    '00000000-0000-0000-0000-000000000111',
+    'controlled@example.invalid',
+    'guest-2026-06-29'
+  ),
+  'guest conversion rejects stale consent versions'
+);
+update public.profiles
+set guest_consent_version = 'guest-2026-06-29'
+where id = '00000000-0000-0000-0000-000000000111';
+select ok(
   public.complete_guest_conversion(
-    '00000000-0000-4000-8000-000000000111',
-    'controlled@example.invalid'
+    '00000000-0000-0000-0000-000000000111',
+    'controlled@example.invalid',
+    'guest-2026-06-29'
   ),
   'guest conversion updates an eligible profile atomically'
 );
@@ -176,7 +188,7 @@ select is(
   (
     select account_type
     from public.profiles
-    where id = '00000000-0000-4000-8000-000000000111'
+    where id = '00000000-0000-0000-0000-000000000111'
   ),
   'standard',
   'eligible guest conversion changes account type'
@@ -231,6 +243,35 @@ select throws_ok(
 update public.profiles
 set guest_deletion_state = 'active'
 where id = '00000000-0000-4000-8000-000000000106';
+
+update public.profiles
+set guest_last_activity_at = clock_timestamp() - interval '10 minutes',
+    guest_expires_at = clock_timestamp() + interval '1 day',
+    guest_deletion_state = 'active'
+where id = '00000000-0000-4000-8000-000000000106';
+insert into public.reports (
+  profile_id,
+  title,
+  report_type,
+  detail_level,
+  content,
+  summary_preview
+) values (
+  '00000000-0000-4000-8000-000000000106',
+  'activity guest report',
+  'general_practice',
+  'standard',
+  '{}'::jsonb,
+  'activity'
+);
+select ok(
+  (
+    select guest_last_activity_at > clock_timestamp() - interval '1 minute'
+    from public.profiles
+    where id = '00000000-0000-4000-8000-000000000106'
+  ),
+  'guest product writes refresh activity through the write fence'
+);
 
 select ok(
   (

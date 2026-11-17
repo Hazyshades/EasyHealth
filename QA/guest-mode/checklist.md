@@ -2,8 +2,8 @@
 
 ## Preconditions
 
-- Use a disposable application and Supabase project with `107_guest_mode.sql`, `108_guest_creation_reservations.sql`, `109_guest_write_fence.sql`, and `110_guest_conversion.sql` applied and the worker running against the same project.
-- Enable hosted anonymous Auth, manual identity linking, the required Google/email providers, callback URLs, and the configured provider-token abuse-control challenge before testing creation or conversion.
+- Use a disposable application and Supabase project with `107_guest_mode.sql`, `108_guest_creation_reservations.sql`, `109_guest_write_fence.sql`, `110_guest_conversion.sql`, and `111_guest_activity_and_consent.sql` applied and the worker running against the same project.
+- Enable hosted anonymous Auth, manual email identity linking, callback URLs, and the configured provider-token abuse-control challenge before testing creation or email conversion.
 - For an invite-only private beta, Google and CAPTCHA may remain disabled only when `GUEST_ABUSE_CHALLENGE_REQUIRED=false`, `GUEST_ABUSE_CHALLENGE_ENABLED=false`, the pepper is configured, and the deployed origin is access-limited. Record that this is not public abuse protection; hosted Auth platform limits still apply to direct anonymous sign-in.
 - Set both guest flags to `true`, configure a stable `GUEST_RATE_LIMIT_PEPPER`, and record the quota values used for the run.
 - Prepare two independent browser profiles or private windows. Use one guest account in each to check ownership isolation.
@@ -45,9 +45,8 @@
 1. From the guest Account page, open `Save my data` and confirm the email form has a clear pending-verification state and no password or email placeholder is shown before an identity exists.
 2. Submit a synthetic email address. Confirm the UI reports that verification is pending and offers retry guidance without creating a second profile.
 3. Verify the email through the configured provider callback. Confirm the same profile ID, document, biomarker, report, and account data remain present after the session refresh.
-4. In a separate fresh guest session, choose Google Save my data. Confirm the flow uses identity linking on the current guest session, returns to `/auth/callback`, and preserves the same profile ID.
-5. Repeat with an email/Google identity already owned by another disposable account. Confirm the conflict is reported, neither account loses data, and no second owner is created for the guest data.
-6. After successful conversion, confirm the account is presented as standard, the guest expiry is cleared, and the worker does not select the profile for guest TTL cleanup.
+4. Repeat with an email identity already owned by another disposable account. Confirm the conflict is reported, neither account loses data, and no second owner is created for the guest data.
+5. After successful conversion, confirm the account is presented as standard, the guest expiry is cleared, and the worker does not select the profile for guest TTL cleanup.
 
 ### 5. Explicit deletion
 
@@ -77,6 +76,7 @@
 - [x] Hosted `guest_creation_reservations`, `reserve_guest_creation_ticket`, and `consume_guest_creation_ticket` objects were applied and a disposable transactional reservation/consumption smoke passed with cleanup.
 - [x] Hosted guest write-fence triggers and the idempotent/TTL-checked deletion routine from `109_guest_write_fence.sql` were applied and metadata-validated.
 - [x] Hosted `110_guest_conversion.sql` was applied; expired activity and eligible conversion transactional smokes passed with rollback cleanup.
+- [ ] Apply and smoke-test `111_guest_activity_and_consent.sql`; the current Supabase dashboard session expired before this forward migration could be applied, so hosted activity-fence and three-argument conversion evidence is pending.
 - [ ] Review direct product API responses for guest ownership, clinician denial, activity, quota, conversion, and deletion; do not count UI-only hiding as authorization evidence.
 - [ ] Verify `guest_profile_deletion_operations` contains only profile ID, reason, status, lease/retry timestamps, safe error code, and receipt metadata. It must contain no filename, raw Storage path, document content, extracted health data, prompt, or report text.
 - [ ] Record the SQL evidence for the purge: no guest-owned `profiles`, `documents`, document deletion work, derived reports/observations/health-profile rows, or Storage objects remain; the approved operational tombstone remains with `status = 'completed'`.
@@ -86,7 +86,7 @@
 ## Known limitations
 
 - Do not mark the browser flow tested without a reachable running app, hosted or disposable Supabase Auth, Storage, and worker.
-- Do not mark email or Google conversion tested without the provider, manual linking, redirect URL, and verification flow configured. Google OAuth is currently disabled in the target project; an invalid/fake email cannot complete a magic-link conversion.
+- Do not mark email conversion tested without the provider, manual linking, redirect URL, and verification flow configured. Google OAuth is currently disabled in the target project and the private-beta UI does not offer Google conversion; an invalid/fake email cannot complete a magic-link conversion. Google conversion requires separate provider enablement and UI/API evidence before it can be claimed.
 - The private-beta override may omit CAPTCHA only for an access-limited deployment with the peppered creation throttle. The current app does not pass a provider token to anonymous Auth, so public guest creation remains blocked; do not describe private mode as public abuse protection. Direct hosted Auth attempts remain governed by provider/platform limits.
 - Do not mark TTL, purge, concurrency, or Storage claims from TypeScript or pure verifier output. They require the database, worker, Auth admin, and private Storage evidence above.
 - Guest consent/legal copy is not approved merely because the UI renders it. Attach legal/product approval and the matching version identifier before release.

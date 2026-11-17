@@ -147,6 +147,7 @@
 .googleButton,
 .emailButton,
 .guestButton,
+.secondaryButton,
 .primaryLink {
   display: inline-flex;
   width: 100%;
@@ -182,6 +183,7 @@
 .googleButton:hover:not(:disabled),
 .emailButton:hover:not(:disabled),
 .guestButton:hover:not(:disabled),
+.secondaryButton:hover:not(:disabled),
 .primaryLink:hover {
   transform: translateY(-2px);
 }
@@ -196,7 +198,8 @@
 
 .googleButton:disabled,
 .emailButton:disabled,
-.guestButton:disabled {
+.guestButton:disabled,
+.secondaryButton:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
@@ -263,6 +266,16 @@
   background: var(--clay);
   color: #fff;
   cursor: pointer;
+}
+.secondaryButton {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background: var(--paper-deep);
 }
 
 .emailButton:hover:not(:disabled),
@@ -365,6 +378,7 @@
   .googleButton,
   .emailButton,
   .guestButton,
+  .secondaryButton,
   .primaryLink {
     transition: none;
   }
@@ -372,6 +386,7 @@
   .googleButton:hover:not(:disabled),
   .emailButton:hover:not(:disabled),
   .guestButton:hover:not(:disabled),
+  .secondaryButton:hover:not(:disabled),
   .primaryLink:hover {
     transform: none;
   }
