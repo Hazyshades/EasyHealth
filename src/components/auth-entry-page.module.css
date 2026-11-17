@@ -361,3 +361,18 @@
     padding: 27px 21px;
   }
 }
+@media (prefers-reduced-motion: reduce) {
+  .googleButton,
+  .emailButton,
+  .guestButton,
+  .primaryLink {
+    transition: none;
+  }
+
+  .googleButton:hover:not(:disabled),
+  .emailButton:hover:not(:disabled),
+  .guestButton:hover:not(:disabled),
+  .primaryLink:hover {
+    transform: none;
+  }
+}

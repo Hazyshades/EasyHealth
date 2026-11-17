@@ -1,5 +1,5 @@
 begin;
-select plan(21);
+select plan(24);
 
 select ok(
   (
@@ -121,6 +121,65 @@ select ok(
     where id = '00000000-0000-4000-8000-000000000106'
   ),
   'activity is monotonic and extends the expiry window'
+);
+insert into public.profiles (
+  id,
+  first_name,
+  account_type,
+  guest_last_activity_at,
+  guest_expires_at,
+  guest_consent_version,
+  guest_consent_accepted_at
+)
+values (
+  '00000000-0000-4000-8000-000000000110',
+  'Expired',
+  'guest',
+  '2026-06-01T00:00:00Z',
+  '2026-06-01T00:01:00Z',
+  'guest-2026-06-29',
+  '2026-06-01T00:00:00Z'
+);
+select ok(
+  not public.touch_guest_profile_activity(
+    '00000000-0000-4000-8000-000000000110',
+    '2026-06-01T00:02:00Z'
+  ),
+  'expired guest activity cannot extend retention'
+);
+insert into public.profiles (
+  id,
+  first_name,
+  account_type,
+  guest_last_activity_at,
+  guest_expires_at,
+  guest_consent_version,
+  guest_consent_accepted_at
+)
+values (
+  '00000000-0000-4000-8000-000000000111',
+  'Convertible',
+  'guest',
+  '2098-06-01T00:00:00Z',
+  '2099-06-01T00:00:00Z',
+  'guest-2026-06-29',
+  '2098-06-01T00:00:00Z'
+);
+select ok(
+  public.complete_guest_conversion(
+    '00000000-0000-4000-8000-000000000111',
+    'controlled@example.invalid'
+  ),
+  'guest conversion updates an eligible profile atomically'
+);
+select is(
+  (
+    select account_type
+    from public.profiles
+    where id = '00000000-0000-4000-8000-000000000111'
+  ),
+  'standard',
+  'eligible guest conversion changes account type'
 );
 
 update public.profiles

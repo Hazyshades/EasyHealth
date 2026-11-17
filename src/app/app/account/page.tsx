@@ -278,8 +278,8 @@ export default function AccountPage() {
                 Save my data
               </h2>
               <p className="mt-2 text-sm text-[var(--eh-text-secondary)]">
-                Guest data is stored on the server for this profile and is
-                removed after 30 days without activity. Clearing browser data
+                Guest data is stored on the server for this profile until the
+                current retention deadline shown below. Clearing browser data
                 can end access unless you save the profile first.
               </p>
               {profile.guest_expires_at ? (

@@ -2,7 +2,7 @@
 
 ## Preconditions
 
-- Use a disposable application and Supabase project with `107_guest_mode.sql`, `108_guest_creation_reservations.sql`, and `109_guest_write_fence.sql` applied and the worker running against the same project.
+- Use a disposable application and Supabase project with `107_guest_mode.sql`, `108_guest_creation_reservations.sql`, `109_guest_write_fence.sql`, and `110_guest_conversion.sql` applied and the worker running against the same project.
 - Enable hosted anonymous Auth, manual identity linking, the required Google/email providers, callback URLs, and the configured provider-token abuse-control challenge before testing creation or conversion.
 - For an invite-only private beta, Google and CAPTCHA may remain disabled only when `GUEST_ABUSE_CHALLENGE_REQUIRED=false`, `GUEST_ABUSE_CHALLENGE_ENABLED=false`, the pepper is configured, and the deployed origin is access-limited. Record that this is not public abuse protection; hosted Auth platform limits still apply to direct anonymous sign-in.
 - Set both guest flags to `true`, configure a stable `GUEST_RATE_LIMIT_PEPPER`, and record the quota values used for the run.
@@ -76,6 +76,7 @@
 - [x] Disposable hosted anonymous sign-in returned HTTP 200 and its test Auth user was removed with HTTP 200.
 - [x] Hosted `guest_creation_reservations`, `reserve_guest_creation_ticket`, and `consume_guest_creation_ticket` objects were applied and a disposable transactional reservation/consumption smoke passed with cleanup.
 - [x] Hosted guest write-fence triggers and the idempotent/TTL-checked deletion routine from `109_guest_write_fence.sql` were applied and metadata-validated.
+- [x] Hosted `110_guest_conversion.sql` was applied; expired activity and eligible conversion transactional smokes passed with rollback cleanup.
 - [ ] Review direct product API responses for guest ownership, clinician denial, activity, quota, conversion, and deletion; do not count UI-only hiding as authorization evidence.
 - [ ] Verify `guest_profile_deletion_operations` contains only profile ID, reason, status, lease/retry timestamps, safe error code, and receipt metadata. It must contain no filename, raw Storage path, document content, extracted health data, prompt, or report text.
 - [ ] Record the SQL evidence for the purge: no guest-owned `profiles`, `documents`, document deletion work, derived reports/observations/health-profile rows, or Storage objects remain; the approved operational tombstone remains with `status = 'completed'`.

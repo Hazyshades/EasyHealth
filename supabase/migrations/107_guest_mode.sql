@@ -123,6 +123,8 @@ begin
     and account_type = 'guest'
     and guest_deletion_state = 'active'
     and guest_converted_at is null
+    and guest_expires_at is not null
+    and guest_expires_at > p_now
     and (
       guest_last_activity_at is null
       or guest_last_activity_at <= p_now - interval '5 minutes'

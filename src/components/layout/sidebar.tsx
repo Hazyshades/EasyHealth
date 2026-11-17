@@ -72,7 +72,7 @@ export function Sidebar() {
         {DESKTOP_NAV_GROUPS.map((group) => (
           <div key={group.id} className="flex flex-col gap-1">
             {group.label ? (
-              <p className="px-2 pb-1 text-[11px] font-semibold text-[#94A3B8] max-[1099px]:sr-only">
+              <p className="px-2 pb-1 text-[11px] font-semibold text-[#475569] max-[1099px]:sr-only">
                 {group.label}
               </p>
             ) : null}

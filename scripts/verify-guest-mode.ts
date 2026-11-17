@@ -152,6 +152,14 @@ assert.equal(
   }),
   false,
 );
+assert.equal(
+  isGuestCreationConfigured({
+    ...guestPolicy,
+    abuseChallengeEnabled: true,
+    abuseChallengeRequired: false,
+  }),
+  false,
+);
 
 console.log("verify-guest-mode: identity, lifecycle, consent, and flag checks passed");
 

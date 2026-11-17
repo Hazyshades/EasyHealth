@@ -2,7 +2,6 @@ import type { User } from "@supabase/supabase-js";
 import {
   GUEST_CONSENT_VERSION,
   isAnonymousAuthUser,
-  isGuestProductAccessAllowed,
 } from "@/lib/guest-mode";
 import { env } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -308,28 +307,16 @@ export async function completeGuestConversion(user: User): Promise<ProfileRow | 
     (identity) => identity.provider === "google",
   );
   if (!user.email?.trim() && !hasGoogleIdentity) return null;
-  const currentProfile = await getProfileById(user.id);
-  if (!isGuestProductAccessAllowed(currentProfile)) return null;
-
-  const now = new Date().toISOString();
-  const { data, error } = await createAdminClient()
-    .from("profiles")
-    .update({
-      account_type: "standard",
-      guest_converted_at: now,
-      guest_expires_at: null,
-      guest_deletion_state: "active",
-      email: user.email?.trim() || null,
-    })
-    .eq("id", user.id)
-    .eq("account_type", "guest")
-    .eq("guest_deletion_state", "active")
-    .is("guest_converted_at", null)
-    .gt("guest_expires_at", now)
-    .select(PROFILE_SELECT)
-    .maybeSingle();
+  const { data, error } = await createAdminClient().rpc(
+    "complete_guest_conversion",
+    {
+      p_profile_id: user.id,
+      p_email: user.email?.trim() || null,
+    },
+  );
   if (error) throw error;
-  return data ? mapProfileRow(data as Record<string, unknown>) : null;
+  if (data !== true) return null;
+  return getProfileById(user.id);
 }
 
 export type OnboardingAction = "dismiss_tour" | "complete_tour" | "dismiss_banner";
