@@ -1,5 +1,9 @@
 import type { User } from "@supabase/supabase-js";
-import { GUEST_CONSENT_VERSION, isAnonymousAuthUser } from "@/lib/guest-mode";
+import {
+  GUEST_CONSENT_VERSION,
+  isAnonymousAuthUser,
+  isGuestProductAccessAllowed,
+} from "@/lib/guest-mode";
 import { env } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AiProviderId } from "@/lib/ai-provider";
@@ -106,7 +110,10 @@ export function buildDisplayName(firstName: string, lastName?: string | null): s
  * Ensure a public.profiles row exists for the Supabase Auth user.
  * profiles.id = auth.users.id. Idempotent.
  */
-export async function ensureProfile(user: User): Promise<string> {
+export async function ensureProfile(
+  user: User,
+  options: { allowAnonymousGuestCreation?: boolean } = {},
+): Promise<string> {
   const supabase = createAdminClient();
   const email = user.email?.trim() || null;
   const isGuest = isAnonymousAuthUser(user);
@@ -117,6 +124,9 @@ export async function ensureProfile(user: User): Promise<string> {
     .maybeSingle();
   if (existingResult.error) throw existingResult.error;
   if (existingResult.data?.id) return existingResult.data.id as string;
+  if (isGuest && !options.allowAnonymousGuestCreation) {
+    throw new Error("guest_profile_initialization_requires_preflight");
+  }
 
   const metaName =
     (typeof user.user_metadata?.full_name === "string" && user.user_metadata.full_name) ||
@@ -298,6 +308,8 @@ export async function completeGuestConversion(user: User): Promise<ProfileRow | 
     (identity) => identity.provider === "google",
   );
   if (!user.email?.trim() && !hasGoogleIdentity) return null;
+  const currentProfile = await getProfileById(user.id);
+  if (!isGuestProductAccessAllowed(currentProfile)) return null;
 
   const now = new Date().toISOString();
   const { data, error } = await createAdminClient()

@@ -33,6 +33,7 @@ export default function OnboardingProfilePage() {
       .then((data) => {
         if (!data.onboarding?.needsProfileGate) { router.replace(data.onboarding?.needsConsentGate ? "/onboarding/consent" : "/app"); return; }
         if (data.first_name) setFirstName(data.first_name);
+        if (data.last_name) setLastName(data.last_name);
         setIsGuest(data.is_guest === true);
       })
       .catch((e) =>

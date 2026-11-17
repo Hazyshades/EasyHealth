@@ -5,7 +5,6 @@ import {
   isActiveGuestProfileSession,
   isGuestDeletionStateWritable,
 } from "@/lib/guest-mode";
-import { recordGuestActivity } from "@/lib/guest-activity";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export type SessionIdentity = {
@@ -65,11 +64,7 @@ export async function getOnboardingWritableSessionIdentity(): Promise<SessionIde
 
 export async function getWritableSessionIdentity(): Promise<SessionIdentity | null> {
   const identity = await getSessionIdentity();
-  if (!identity || !isWritableSessionIdentity(identity)) return null;
-  if (identity.isGuest) {
-    await recordGuestActivity(identity.profileId).catch(() => undefined);
-  }
-  return identity;
+  return identity && isWritableSessionIdentity(identity) ? identity : null;
 }
 
 export async function getWritableSessionProfileId(): Promise<string | null> {

@@ -3,7 +3,10 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { profileOnboardingStateFromRow } from "../src/lib/auth/onboarding-state";
-import { resolveAuthCallbackPath } from "../src/lib/auth/callback-redirect";
+import {
+  getAuthCallbackErrorMessage,
+  resolveAuthCallbackPath,
+} from "../src/lib/auth/callback-redirect";
 import type { ProfileRow } from "../src/lib/auth/profile";
 
 const CURRENT_TERMS_VERSION = "2026-06-29";
@@ -94,7 +97,7 @@ function testSafeCallbackReasons(): void {
       needsProfileGate: false,
       needsConsentGate: false,
     }),
-    "/?signin=error&reason=auth-exchange",
+    "/login?signin=error&reason=auth-exchange",
   );
   assert.equal(
     resolveAuthCallbackPath({
@@ -106,7 +109,11 @@ function testSafeCallbackReasons(): void {
       needsProfileGate: false,
       needsConsentGate: false,
     }),
-    "/?signin=error&reason=profile-setup",
+    "/login?signin=error&reason=profile-setup",
+  );
+  assert.match(
+    getAuthCallbackErrorMessage("identity-conflict"),
+    /already linked to another account/,
   );
 }
 

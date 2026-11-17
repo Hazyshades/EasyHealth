@@ -103,7 +103,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const profileId = await ensureProfile(user);
+    const profileId = await ensureProfile(user, {
+      allowAnonymousGuestCreation: true,
+    });
     const profile = await getProfileById(profileId);
     if (!isActiveGuestProfileSession(profile)) {
       return NextResponse.json(
@@ -155,7 +157,49 @@ export async function DELETE() {
     );
   }
 
-  const { error } = await createAdminClient().auth.admin.deleteUser(user.id);
+  const admin = createAdminClient();
+  const { data: profile, error: profileError } = await admin
+    .from("profiles")
+    .select("id, account_type")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profileError) {
+    console.error(
+      "[guest] initialization cleanup failed error=guest_profile_lookup_failed",
+    );
+    return NextResponse.json(
+      { error: "Guest cleanup is temporarily unavailable" },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  if (profile?.account_type === "guest") {
+    const { error } = await admin.rpc("request_guest_profile_deletion", {
+      p_profile_id: user.id,
+      p_reason: "explicit",
+    });
+    if (error) {
+      console.error(
+        "[guest] initialization cleanup failed error=guest_deletion_request_failed",
+      );
+      return NextResponse.json(
+        { error: "Guest cleanup is temporarily unavailable" },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    await supabase.auth.signOut();
+    return NextResponse.json(
+      { ok: true, profile_deletion_requested: true },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  if (profile) {
+    return NextResponse.json(
+      { error: "Guest profile cleanup is unavailable" },
+      { status: 409, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  const { error } = await admin.auth.admin.deleteUser(user.id);
   if (error) {
     console.error(
       "[guest] initialization cleanup failed error=guest_auth_cleanup_failed",

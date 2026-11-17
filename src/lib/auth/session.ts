@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { ensureProfile, getProfileById } from "@/lib/auth/profile";
 import {
   isActiveGuestProfileSession,
+  isAnonymousAuthUser,
   isGuestProductAccessAllowed,
 } from "@/lib/guest-mode";
 
@@ -66,12 +67,14 @@ export const getSessionProfileIdForOnboarding = cache(
 
 /**
  * Like {@link getSessionProfileIdForOnboarding}, but ensures a
- * public.profiles row exists. Use only on auth entry / onboarding layout —
+ * public.profiles row exists. Use only on auth entry or onboarding layout,
  * never on `/app/*` or API reads.
  */
 export async function getSessionProfileIdEnsured(): Promise<string | null> {
   const user = await getSessionUser();
   if (!user) return null;
+  const existingProfileId = await getSessionProfileIdForOnboarding();
+  if (existingProfileId || isAnonymousAuthUser(user)) return existingProfileId;
 
   try {
     await ensureProfile(user);

@@ -87,7 +87,7 @@ The UI must not call the normal sign-in OAuth path for conversion, because that 
 
 Explicit deletion and TTL cleanup create or reuse one idempotent profile-level deletion operation. The operation freezes new guest writes, marks the profile as deleting, cancels eligible queued work, and coordinates each document through the existing durable document-deletion lifecycle. It then removes non-document profile-owned rows and all known/profile-prefixed Storage objects, verifies that no guest product data remains, deletes the temporary Auth user, and records terminal success without retaining health content.
 
-The operation record must survive the final profile deletion and must contain only operational metadata, safe error codes, timestamps, and a profile identifier/tombstone—not document content, filenames, raw Storage paths, or extracted health data. Retries are lease-based and must never report completion before Storage and database verification succeed.
+The operation record must survive the final profile deletion and must contain only operational metadata, safe error codes, timestamps, and a profile identifier or tombstone, not document content, filenames, raw Storage paths, or extracted health data. Retries are lease-based and must never report completion before Storage and database verification succeed.
 
 Alternatives considered:
 
