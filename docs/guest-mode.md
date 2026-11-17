@@ -17,8 +17,8 @@ These settings are hosted-project or deployment evidence, not inferred from loca
 - Anonymous sign-ins: enabled in the target Supabase project.
 - Manual identity linking: enabled for email conversion when that provider is enabled.
 - Google provider: currently disabled in the target project; enabling it is required before claiming Google conversion support.
-- Public anonymous-sign-in abuse protection: not configured in the target project. The current app does not yet pass a provider token to Supabase anonymous sign-in, so public guest creation remains blocked until that integration is implemented and verified.
-- Invite-only private beta: may use `GUEST_ABUSE_CHALLENGE_REQUIRED=false` with `GUEST_ABUSE_CHALLENGE_ENABLED=false`, the peppered creation-window throttle, and an access-limited deployed origin. This is not public abuse protection.
+- Anonymous creation keying: guest creation fails closed unless the deployment supplies the existing trusted-ingress adapter and signed client-address attestation. Raw `x-forwarded-for` and `x-real-ip` headers are not accepted as throttle identity.
+- Invite-only private beta: may use `GUEST_ABUSE_CHALLENGE_REQUIRED=false` with `GUEST_ABUSE_CHALLENGE_ENABLED=false`, the peppered creation-window throttle, and an access-limited deployed origin. This still requires the trusted-ingress address attestation and is not public abuse protection.
 - Guest legal gate: `GUEST_LEGAL_APPROVED` and `NEXT_PUBLIC_GUEST_LEGAL_APPROVED` remain false until approved, non-placeholder Terms and Privacy documents are published at the linked URLs. The guest consent flow is blocked until both flags are true.
 - Redirect URLs include `/auth/callback` for the deployed origin.
 - RLS policies are reviewed with Supabase's `auth.jwt()->>'is_anonymous'` claim in mind. Anonymous users use the `authenticated` Postgres role.
@@ -27,7 +27,7 @@ The local repository contains `enable_anonymous_sign_ins = true` in `supabase/co
 
 ## Environment contract
 
-Set both feature flags only after the hosted Auth settings and smoke flow are ready. The private-beta path below deliberately omits a CAPTCHA provider but keeps the peppered creation throttle.
+Set both feature flags only after the hosted Auth settings, trusted-ingress adapter, and smoke flow are ready. The private-beta path below deliberately omits a CAPTCHA provider but keeps the peppered creation throttle.
 
 | Variable | Default | Purpose |
 | --- | ---: | --- |
@@ -38,7 +38,7 @@ Set both feature flags only after the hosted Auth settings and smoke flow are re
 | `GUEST_RETENTION_DAYS` | `30` | Retention window used when a guest profile is initialized. Keep aligned with approved copy and worker policy. |
 | `GUEST_CREATION_LIMIT` | `5` | Creation attempts per rate-limit window. |
 | `GUEST_CREATION_WINDOW_SECONDS` | `3600` | Creation throttle window. |
-| `GUEST_RATE_LIMIT_PEPPER` | unset | Required server secret for the hashed trusted-ingress address key; use a secret of at least 16 characters. |
+| `GUEST_RATE_LIMIT_PEPPER` | unset | Required server secret for the hashed attested trusted-ingress address key; use a secret of at least 16 characters. Missing or unsigned ingress identity fails closed. |
 | `GUEST_ABUSE_CHALLENGE_ENABLED` | `false` | Deployment marker for an actually configured provider challenge. Setting it to `true` does not provide a token integration and does not enable public guest creation. |
 | `GUEST_ABUSE_CHALLENGE_REQUIRED` | `true` | Hard gate for guest creation. Set to `false` only for a deliberately invite-only/private beta that accepts the absence of a CAPTCHA provider. |
 | `GUEST_PURGE_BACKLOG_ALERT_THRESHOLD` | `10` | Worker warning threshold for queued plus retryable purge operations. |
@@ -48,12 +48,12 @@ Set both feature flags only after the hosted Auth settings and smoke flow are re
 | `GUEST_UPLOAD_BYTES_PER_DAY` | `104857600` | Guest upload byte quota. |
 | `GUEST_PROCESSING_COUNT_PER_DAY` | `10` | Guest processing/reprocess quota. |
 
-The server requires the pepper, the explicit private-beta override, and both legal approval flags before allowing guest creation or guest consent. Public creation remains blocked until a provider token is integrated. Quota reservations are atomic database operations and return deterministic `429` responses on limits and `503` responses when the quota service is unavailable.
+The server requires the pepper, a valid trusted-ingress attestation, the explicit private-beta override, and both legal approval flags before allowing guest creation or guest consent. Public creation remains blocked until a provider token is integrated. Upload quotas reserve count, bytes, and processing capacity atomically and compensate failed uploads; report and synthesis generation reserve processing capacity before calling the model. Quota limits return deterministic `429` responses and quota service failures return `503`.
 
 ## Rollout
 
 1. Deploy the migration and worker code with both guest flags and both legal approval flags false.
-2. Set the pepper and quota values in the application environment. Keep the pepper stable across application instances.
+2. Set the pepper and quota values in the application environment. Keep the pepper stable across application instances, and configure the trusted-ingress sidecar/adapter with its attestation settings.
 3. Configure and verify hosted anonymous Auth, manual linking, Google, callback URLs, and a provider-token abuse control before a public rollout. The current build intentionally blocks this path until the token integration exists.
 4. For an invite-only private beta, leave Google and CAPTCHA disabled, set `GUEST_ABUSE_CHALLENGE_REQUIRED=false`, keep `GUEST_ABUSE_CHALLENGE_ENABLED=false`, keep the deployed origin access-limited, and set both legal approval flags only after approved documents are published. This is not public abuse protection.
 5. Run the manual checklist in `QA/guest-mode/checklist.md` with synthetic data.
@@ -93,9 +93,9 @@ openspec validate guest-mode --strict
 - The target Supabase project `nuqvypxavtorupntmrau` has the guest migration objects from `107_guest_mode.sql` through `110_guest_conversion.sql`, guest profile columns, eleven service-role guest routines including the one-time creation-ticket and conversion RPCs, RLS on the guest tables, and empty guest operational tables.
 - Hosted Auth has anonymous sign-ins and manual identity linking enabled. A disposable anonymous sign-in returned HTTP 200; the created Auth user was deleted successfully with HTTP 200.
 - The hosted Site URL and six-entry redirect allowlist include the Railway origin and `/auth/callback`; the private `lab-documents` bucket and service-role-only Storage policy are present.
-- The target migration history still ends at version `100`; versions `101`–`110` are not recorded because the guest SQL was applied manually while unrelated migrations were pending. `111_guest_activity_and_consent.sql` is required by this branch but is not yet hosted-applied because the Supabase dashboard session expired.
-- The hosted guest write-fence metadata and transactional smoke passed for profile writes, idempotent deletion requests, TTL rejection, expired activity rejection, and eligible conversion.
+- The target migration history still ends at version `100`; versions `101`–`110` are not recorded because the guest SQL was applied manually while unrelated migrations were pending. `111_guest_activity_and_consent.sql` is required by this branch but is not yet hosted-applied because the Supabase dashboard session expired. The source migration adds privacy-consent audit fields, expiry-aware write/quota fences, atomic upload quota reservation/release, and the three-argument conversion RPC.
+- The hosted `109`/`110` guest write-fence metadata and transactional smoke passed for profile writes, idempotent deletion requests, TTL rejection, expired activity rejection, and eligible conversion; the new `111` expiry-aware fence and privacy/conversion checks remain pending hosted application.
 - The local database verifier is blocked because the Supabase CLI is unavailable and Docker/local Postgres is not reachable.
 - The full Auth, onboarding, Storage, conversion, and deletion flow was not run: the private-beta Railway variables are staged but not deployed, Google OAuth is disabled, public provider-token abuse protection is not configured, and the legal approval flags remain false.
-- Railway `document-worker` now has `WORKER_POLL_INTERVAL_MS=30000`; the redeployment completed successfully and the worker reported `EasyHealth document worker started`. This lowers polling volume at the cost of up to roughly 25 seconds of additional job pickup latency.
+- Independent Railway worker evidence (not an EH-171 web deployment): `document-worker` has `WORKER_POLL_INTERVAL_MS=30000`; its redeployment completed and reported `EasyHealth document worker started`. This lowers polling volume at the cost of up to roughly 25 seconds of additional job pickup latency.
 - Guest consent/legal copy approval is a release/legal gate. This implementation must not be represented as approved legal text until that approval is attached to the release record.

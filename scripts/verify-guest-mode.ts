@@ -24,6 +24,8 @@ const baseProfile: ProfileRow = {
   created_at: "2026-06-01T00:00:00.000Z",
   terms_accepted_at: "2026-06-01T00:00:00.000Z",
   terms_version: "2026-06-29",
+  privacy_consent_at: "2026-06-01T00:00:00.000Z",
+  privacy_version: "2026-06-29",
   health_data_consent_at: "2026-06-01T00:00:00.000Z",
   ai_consent_at: "2026-06-01T00:00:00.000Z",
   consent_preferences: {},
@@ -109,6 +111,13 @@ assert.equal(
   isGuestProductAccessAllowed({
     ...acceptedGuestProfile,
     guest_consent_accepted_at: null,
+  }),
+  false,
+);
+assert.equal(
+  isGuestProductAccessAllowed({
+    ...acceptedGuestProfile,
+    privacy_version: "2026-01-01",
   }),
   false,
 );

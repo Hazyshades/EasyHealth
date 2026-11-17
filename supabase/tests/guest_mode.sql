@@ -1,9 +1,9 @@
 begin;
-select plan(26);
+select plan(31);
 
 select ok(
   (
-    select count(*) = 7
+    select count(*) = 9
     from information_schema.columns
     where table_schema = 'public'
       and table_name = 'profiles'
@@ -14,7 +14,9 @@ select ok(
         'guest_consent_version',
         'guest_consent_accepted_at',
         'guest_converted_at',
-        'guest_deletion_state'
+        'guest_deletion_state',
+        'privacy_consent_at',
+        'privacy_version'
       )
   ),
   'guest lifecycle columns exist on profiles'
@@ -62,6 +64,22 @@ select ok(
     'EXECUTE'
   ),
   'service role can update guest activity'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.reserve_guest_upload(uuid,bigint,bigint,bigint,bigint,date)'::regprocedure,
+    'EXECUTE'
+  ),
+  'service role can reserve upload quotas atomically'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.release_guest_upload(uuid,bigint,date)'::regprocedure,
+    'EXECUTE'
+  ),
+  'service role can release a failed upload quota reservation'
 );
 select ok(
   not has_function_privilege(
@@ -147,6 +165,28 @@ select ok(
   ),
   'expired guest activity cannot extend retention'
 );
+select throws_ok(
+  $$
+    insert into public.reports (
+      profile_id,
+      title,
+      report_type,
+      detail_level,
+      content,
+      summary_preview
+    ) values (
+      '00000000-0000-4000-8000-000000000110',
+      'expired guest report',
+      'general_practice',
+      'standard',
+      '{}'::jsonb,
+      'expired'
+    )
+  $$,
+  'P0001',
+  'guest_profile_expired',
+  'expired guest writes are rejected by the database fence'
+);
 insert into public.profiles (
   id,
   first_name,
@@ -154,7 +194,9 @@ insert into public.profiles (
   guest_last_activity_at,
   guest_expires_at,
   guest_consent_version,
-  guest_consent_accepted_at
+  guest_consent_accepted_at,
+  privacy_version,
+  privacy_consent_at
 )
 values (
   '00000000-0000-0000-0000-000000000111',
@@ -163,6 +205,8 @@ values (
   '2098-06-01T00:00:00Z',
   '2099-06-01T00:00:00Z',
   'guest-previous',
+  '2098-06-01T00:00:00Z',
+  '2026-06-29',
   '2098-06-01T00:00:00Z'
 );
 select ok(
@@ -271,6 +315,31 @@ select ok(
     where id = '00000000-0000-4000-8000-000000000106'
   ),
   'guest product writes refresh activity through the write fence'
+);
+
+select ok(
+  not (
+    select allowed
+    from public.reserve_guest_upload(
+      '00000000-0000-4000-8000-000000000106',
+      10,
+      10,
+      5,
+      10
+    )
+  ),
+  'atomic upload reservation rejects the first exceeded resource'
+);
+select is(
+  (
+    select coalesce(sum(amount), 0)::bigint
+    from public.guest_resource_usage
+    where profile_id = '00000000-0000-4000-8000-000000000106'
+      and usage_day = current_date
+      and resource in ('upload_count', 'upload_bytes', 'processing_count')
+  ),
+  0::bigint,
+  'failed atomic upload reservation rolls back every resource increment'
 );
 
 select ok(

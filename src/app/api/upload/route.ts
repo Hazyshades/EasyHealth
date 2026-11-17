@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import { getWritableSessionIdentity } from "@/lib/auth/identity";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { GuestQuotaError, reserveGuestResource } from "@/lib/guest-quotas";
+import {
+  GuestQuotaError,
+  releaseGuestUpload,
+  reserveGuestUpload,
+} from "@/lib/guest-quotas";
 import { ensureLabDocumentsBucket } from "@/lib/supabase/storage";
 import { MEDICAL_DISCLAIMER } from "@/lib/schemas/biomarkers";
 import {
@@ -82,14 +86,35 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  let guestUploadQuotaReserved = false;
+  const releaseGuestUploadQuota = async () => {
+    if (!identity.isGuest || !guestUploadQuotaReserved) return;
+    guestUploadQuotaReserved = false;
+    try {
+      await releaseGuestUpload(profileId, file.size);
+    } catch {
+      console.error("[guest] upload quota release failed");
+    }
+  };
+
   if (identity.isGuest) {
     try {
-      await reserveGuestResource(profileId, "upload_count", 1);
-      await reserveGuestResource(profileId, "upload_bytes", file.size);
+      await reserveGuestUpload(profileId, file.size);
+      guestUploadQuotaReserved = true;
     } catch (error) {
       if (error instanceof GuestQuotaError) {
+        const isProcessing = error.resource === "processing_count";
         return NextResponse.json(
-          { error: error.kind === "limit" ? "Guest upload quota exceeded" : "Guest upload quota unavailable" },
+          {
+            error:
+              error.kind === "limit"
+                ? isProcessing
+                  ? "Guest processing quota exceeded"
+                  : "Guest upload quota exceeded"
+                : isProcessing
+                  ? "Guest processing quota unavailable"
+                  : "Guest upload quota unavailable",
+          },
           { status: error.kind === "limit" ? 429 : 503 },
         );
       }
@@ -99,32 +124,12 @@ export async function POST(req: NextRequest) {
       );
     }
   }
-  if (identity.isGuest) {
-    try {
-      await reserveGuestResource(profileId, "processing_count", 1);
-    } catch (error) {
-      if (error instanceof GuestQuotaError) {
-        return NextResponse.json(
-          {
-            error:
-              error.kind === "limit"
-                ? "Guest processing quota exceeded"
-                : "Guest processing quota unavailable",
-          },
-          { status: error.kind === "limit" ? 429 : 503 },
-        );
-      }
-      return NextResponse.json(
-        { error: "Guest processing quota unavailable" },
-        { status: 503 },
-      );
-    }
-  }
 
   const supabase = createAdminClient();
   try {
     await ensureLabDocumentsBucket(supabase);
   } catch {
+    await releaseGuestUploadQuota();
     return NextResponse.json(
       { error: "Storage setup failed" },
       { status: 500 },
@@ -159,6 +164,7 @@ export async function POST(req: NextRequest) {
     ? reservationRows[0]
     : null;
   if (reservationError || !reservation) {
+    await releaseGuestUploadQuota();
     return NextResponse.json(
       { error: "Upload reservation failed" },
       { status: 500 },
@@ -183,15 +189,21 @@ export async function POST(req: NextRequest) {
     await verifyAndCompleteStorageIntent(supabase, intentId, issued.ticket);
     await enqueueFullPipelineJob(profileId, documentId);
   } catch {
-    await supabase.rpc("fail_storage_write_intent", {
-      p_intent_id: intentId,
-      p_reason_code: "owner_upload_failed",
-    });
+    try {
+      await supabase.rpc("fail_storage_write_intent", {
+        p_intent_id: intentId,
+        p_reason_code: "owner_upload_failed",
+      });
+    } catch {
+      // Keep the client response deterministic even if failure bookkeeping is unavailable.
+    }
+    await releaseGuestUploadQuota();
     return NextResponse.json(
       { error: "Upload processing failed" },
       { status: 500 },
     );
   }
+  guestUploadQuotaReserved = false;
 
   return NextResponse.json({
     documentId,

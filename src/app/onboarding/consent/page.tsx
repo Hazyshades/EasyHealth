@@ -173,11 +173,11 @@ export default function OnboardingConsentPage() {
             </div>
             <p className="text-sm text-[var(--eh-text-secondary)]">
               Guest documents and derived health data are stored on the
-              service. Clearing this browser&apos;s data loses this unlinked
-              session and cannot restore it. Unconverted guest data is deleted
-              when the retention deadline shown in Account expires; meaningful
-              activity moves that deadline. Use Save my data in Account to link
-              an email identity before then.
+              service. Clearing this browser&apos;s data immediately loses this
+              unlinked session and cannot restore it. The configured inactivity
+              window is 30 days by default; meaningful activity moves the
+              deadline, and unconverted data is deleted when it expires. Use
+              Save my data in Account to link an email identity before then.
             </p>
           </div>
         ) : (

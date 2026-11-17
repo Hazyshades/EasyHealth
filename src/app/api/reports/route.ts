@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionProfileId } from "@/lib/auth/session";
-import { getWritableSessionProfileId } from "@/lib/auth/identity";
+import { getWritableSessionIdentity } from "@/lib/auth/identity";
+import { GuestQuotaError, reserveGuestResource } from "@/lib/guest-quotas";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   createReportBodySchema,
@@ -96,8 +97,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const profileId = await getWritableSessionProfileId();
-  if (!profileId) {
+  const identity = await getWritableSessionIdentity();
+  const profileId = identity?.profileId ?? null;
+  if (!identity || !profileId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -115,6 +117,28 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
+  if (identity.isGuest) {
+    try {
+      await reserveGuestResource(profileId, "processing_count", 1);
+    } catch (error) {
+      if (error instanceof GuestQuotaError) {
+        return NextResponse.json(
+          {
+            error:
+              error.kind === "limit"
+                ? "Guest processing quota exceeded"
+                : "Guest processing quota unavailable",
+          },
+          { status: error.kind === "limit" ? 429 : 503 },
+        );
+      }
+      return NextResponse.json(
+        { error: "Guest processing quota unavailable" },
+        { status: 503 },
+      );
+    }
+  }
+
 
   try {
     const report = await createValidatedReport(profileId, parsed.data);

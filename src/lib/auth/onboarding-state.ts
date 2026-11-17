@@ -27,13 +27,18 @@ export function profileOnboardingStateFromRow(profile: ProfileRow): ProfileOnboa
   const needsProfileGate = !profile.first_name?.trim();
   const hasRequiredConsents = Boolean(
     profile.terms_accepted_at &&
+      profile.privacy_consent_at &&
       profile.health_data_consent_at &&
       profile.ai_consent_at,
   );
-  const hasCurrentTerms = profile.terms_version === CURRENT_TERMS_VERSION;
+  const hasCurrentTerms =
+    profile.terms_version === CURRENT_TERMS_VERSION &&
+    profile.privacy_version === CURRENT_TERMS_VERSION;
   const hasCurrentGuestConsent =
     profile.account_type !== "guest" ||
-    profile.guest_consent_version === GUEST_CONSENT_VERSION;
+    (profile.guest_consent_version === GUEST_CONSENT_VERSION &&
+      profile.privacy_version === CURRENT_TERMS_VERSION &&
+      profile.privacy_consent_at !== null);
   const needsConsentGate =
     !needsProfileGate &&
     (!hasRequiredConsents || !hasCurrentTerms || !hasCurrentGuestConsent);

@@ -22,6 +22,8 @@ const baseProfile: ProfileRow = {
   created_at: "2026-01-01T00:00:00.000Z",
   terms_accepted_at: "2026-01-01T00:00:00.000Z",
   terms_version: CURRENT_TERMS_VERSION,
+  privacy_consent_at: "2026-01-01T00:00:00.000Z",
+  privacy_version: CURRENT_TERMS_VERSION,
   health_data_consent_at: "2026-01-01T00:00:00.000Z",
   ai_consent_at: "2026-01-01T00:00:00.000Z",
   consent_preferences: {},

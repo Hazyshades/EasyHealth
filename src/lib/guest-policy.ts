@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 import { env } from "@/lib/env";
+import { getTrustedIngressRuntime } from "@/lib/share-links/trusted-ingress";
+import { getTrustedIngressContext } from "@/lib/share-links/trusted-ingress-transport";
 import { isGuestCreationConfigured } from "./guest-policy-rules";
 export { isGuestCreationConfigured } from "./guest-policy-rules";
 export const GUEST_CREATION_TICKET_COOKIE = "eh_guest_creation_ticket";
@@ -53,13 +55,14 @@ export function assertGuestModeEnabled(): void {
 export function guestCreationKey(request: Request): string | null {
   const pepper = env.GUEST_RATE_LIMIT_PEPPER;
   if (!pepper) return null;
-  const forwardedFor = request.headers
-    .get("x-forwarded-for")
-    ?.split(",")
-    .map((value) => value.trim())
-    .filter(Boolean)
-    .at(-1);
-  const address =
-    forwardedFor || request.headers.get("x-real-ip")?.trim() || "unknown";
-  return createHash("sha256").update(`${pepper}|${address}`).digest("hex");
+
+  const ingress = getTrustedIngressContext(
+    request,
+    getTrustedIngressRuntime(),
+  );
+  if (!("edgeVerifiedClientAddress" in ingress)) return null;
+
+  return createHash("sha256")
+    .update(`${pepper}|${ingress.edgeVerifiedClientAddress}`)
+    .digest("hex");
 }

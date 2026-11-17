@@ -263,11 +263,11 @@ export default function AccountPage() {
                 Save my data
               </h2>
               <p className="mt-2 text-sm text-[var(--eh-text-secondary)]">
-                Guest data is stored on the server for this profile until the
-                current retention deadline shown below. The deadline moves
-                after meaningful activity; unconverted data is deleted when it
-                expires. Clearing browser data can end access unless you save
-                the profile first.
+                Guest data is stored on the server for this profile. The
+                configured inactivity window is 30 days by default; the
+                deadline moves after meaningful activity, and unconverted data
+                is deleted when it expires. Clearing browser data can end
+                access unless you save the profile first.
               </p>
               {profile.guest_expires_at ? (
                 <p className="mt-2 text-xs text-[var(--eh-text-secondary)]">

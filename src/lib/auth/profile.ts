@@ -35,6 +35,8 @@ export type ProfileRow = {
   created_at: string;
   terms_accepted_at: string | null;
   terms_version: string | null;
+  privacy_consent_at: string | null;
+  privacy_version: string | null;
   health_data_consent_at: string | null;
   ai_consent_at: string | null;
   consent_preferences: Record<string, boolean>;
@@ -58,7 +60,7 @@ export type ProfileRow = {
 };
 
 const PROFILE_SELECT =
-  "id, display_name, first_name, last_name, email, ai_provider, created_at, terms_accepted_at, terms_version, health_data_consent_at, ai_consent_at, consent_preferences, onboarding_dismissed_at, onboarding_completed_at, onboarding_tour_version, dashboard_preferences, lab_unit_system, review_mode_default, closed_beta_enabled, closed_beta_enabled_at, closed_beta_revoked_at, beta_sample_data_seeded_at, account_type, guest_last_activity_at, guest_expires_at, guest_consent_version, guest_consent_accepted_at, guest_converted_at, guest_deletion_state";
+  "id, display_name, first_name, last_name, email, ai_provider, created_at, terms_accepted_at, terms_version, privacy_consent_at, privacy_version, health_data_consent_at, ai_consent_at, consent_preferences, onboarding_dismissed_at, onboarding_completed_at, onboarding_tour_version, dashboard_preferences, lab_unit_system, review_mode_default, closed_beta_enabled, closed_beta_enabled_at, closed_beta_revoked_at, beta_sample_data_seeded_at, account_type, guest_last_activity_at, guest_expires_at, guest_consent_version, guest_consent_accepted_at, guest_converted_at, guest_deletion_state";
 
 function mapProfileRow(data: Record<string, unknown>): ProfileRow {
   const unit = data.lab_unit_system;
@@ -72,6 +74,8 @@ function mapProfileRow(data: Record<string, unknown>): ProfileRow {
     created_at: data.created_at as string,
     terms_accepted_at: (data.terms_accepted_at as string | null) ?? null,
     terms_version: (data.terms_version as string | null) ?? null,
+    privacy_consent_at: (data.privacy_consent_at as string | null) ?? null,
+    privacy_version: (data.privacy_version as string | null) ?? null,
     health_data_consent_at: (data.health_data_consent_at as string | null) ?? null,
     ai_consent_at: (data.ai_consent_at as string | null) ?? null,
     consent_preferences: (data.consent_preferences as Record<string, boolean>) ?? {},
@@ -116,22 +120,31 @@ export async function ensureProfile(
   const supabase = createAdminClient();
   const email = user.email?.trim() || null;
   const isGuest = isAnonymousAuthUser(user);
+  const metaName =
+    (typeof user.user_metadata?.full_name === "string" && user.user_metadata.full_name) ||
+    (typeof user.user_metadata?.name === "string" && user.user_metadata.name) ||
+    null;
+  const identity = resolveProfileIdentity(metaName, email);
   const existingResult = await supabase
     .from("profiles")
     .select("id, account_type")
     .eq("id", user.id)
     .maybeSingle();
   if (existingResult.error) throw existingResult.error;
-  if (existingResult.data?.id) return existingResult.data.id as string;
+  if (existingResult.data?.id) {
+    if (existingResult.data.account_type === "standard") {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ email, display_name: identity.firstName })
+        .eq("id", user.id)
+        .eq("account_type", "standard");
+      if (error) throw error;
+    }
+    return existingResult.data.id as string;
+  }
   if (isGuest && !options.allowAnonymousGuestCreation) {
     throw new Error("guest_profile_initialization_requires_preflight");
   }
-
-  const metaName =
-    (typeof user.user_metadata?.full_name === "string" && user.user_metadata.full_name) ||
-    (typeof user.user_metadata?.name === "string" && user.user_metadata.name) ||
-    null;
-  const identity = resolveProfileIdentity(metaName, email);
   const now = new Date();
   const guestExpiry = isGuest
     ? new Date(
@@ -262,6 +275,8 @@ export async function recordProfileConsents(profileId: string, consents: Consent
       health_data_consent_at: now,
       ai_consent_at: now,
       terms_version: CURRENT_TERMS_VERSION,
+      privacy_consent_at: now,
+      privacy_version: CURRENT_TERMS_VERSION,
       consent_preferences: extractConsentPreferences(consents),
     })
     .eq("guest_deletion_state", "active")
@@ -282,6 +297,8 @@ export async function recordGuestConsent(profileId: string) {
       health_data_consent_at: now,
       ai_consent_at: now,
       terms_version: CURRENT_TERMS_VERSION,
+      privacy_consent_at: now,
+      privacy_version: CURRENT_TERMS_VERSION,
       consent_preferences: extractConsentPreferences({
         terms: true,
         privacy: true,
@@ -307,6 +324,8 @@ export async function completeGuestConversion(user: User): Promise<ProfileRow | 
     (identity) => identity.provider === "google",
   );
   if (!user.email?.trim() && !hasGoogleIdentity) return null;
+  const profile = await findProfileById(user.id);
+  if (!profile || profile.account_type !== "guest") return null;
   const { data, error } = await createAdminClient().rpc(
     "complete_guest_conversion",
     {

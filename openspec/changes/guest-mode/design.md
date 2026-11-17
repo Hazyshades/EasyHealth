@@ -69,7 +69,7 @@ Alternatives considered:
 
 Guest requests use the same profile-scoped document, biomarker, health-profile, and report APIs as normal patient accounts. No endpoint may accept a client-supplied profile id as authority. Guest-aware checks are added to shared authorization helpers and clinician workspace boundaries so an authenticated anonymous user cannot be treated as a clinician.
 
-Guest resource limits are applied before expensive upload/processing work. Anonymous account creation uses the provider's abuse controls plus application-level throttling; exact thresholds remain configuration, not hard-coded behavior in the contract.
+Guest resource limits are applied before expensive upload/processing work. Anonymous account creation uses the provider's abuse controls plus application-level throttling; the pre-Auth throttle key is derived only from the signed trusted-ingress client address, and creation fails closed when that attestation is unavailable. Raw forwarding headers are not accepted as identity. Exact thresholds remain configuration, not hard-coded behavior in the contract.
 
 Alternatives considered:
 
@@ -103,7 +103,7 @@ Clearing browser data is not treated as a deletion signal. The UI describes imme
 
 ### 8. Keep deployment additive and reversible
 
-Deploy the schema, server authorization, conversion, deletion, and worker support before enabling guest entry. Gate the login action and anonymous Auth usage with a feature flag. Rollback disables new guest creation but leaves the cleanup worker and existing guest deletion/conversion paths available; it does not remove guest columns or abort in-flight purges. A public rollout requires anonymous Auth configuration, provider abuse control, worker readiness, legal copy approval, and evidence for the guest browser flow. An access-limited private beta MAY use the peppered creation throttle as the approved equivalent abuse control while the provider challenge is unavailable.
+Deploy the schema, server authorization, conversion, deletion, and worker support before enabling guest entry. Gate the login action and anonymous Auth usage with a feature flag. Rollback disables new guest creation but leaves the cleanup worker and existing guest deletion/conversion paths available; it does not remove guest columns or abort in-flight purges. A public rollout requires anonymous Auth configuration, provider abuse control, worker readiness, legal copy approval, trusted-ingress attestation, and evidence for the guest browser flow. An access-limited private beta MAY use the peppered creation throttle plus signed trusted-ingress attestation as the approved equivalent abuse control while the provider challenge is unavailable.
 
 ## Risks / Trade-offs
 

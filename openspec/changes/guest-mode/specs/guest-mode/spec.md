@@ -125,7 +125,7 @@ The system SHALL apply rate limits and an abuse-control challenge or equivalent 
 
 #### Scenario: Private beta uses the approved throttle equivalent
 - **WHEN** a visitor selects the EasyHealth guest entry in an access-limited deployment while the provider challenge is unavailable
-- **THEN** the system MUST reserve a peppered pre-auth creation ticket and consume it once before creating the guest profile; direct provider-level anonymous sign-ups remain subject to hosted Auth limits and do not grant an EasyHealth profile.
+- **THEN** the system MUST reserve a peppered pre-auth creation ticket keyed by a signed trusted-ingress client address and consume it once before creating the guest profile; creation fails closed when that attestation is unavailable. Direct provider-level anonymous sign-ups remain subject to hosted Auth limits and do not grant an EasyHealth profile.
 
 #### Scenario: Guest creation limit is exceeded
 - **WHEN** a visitor exceeds the configured anonymous-session creation limit
