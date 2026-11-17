@@ -1,5 +1,5 @@
 begin;
-select plan(18);
+select plan(21);
 
 select ok(
   (
@@ -42,6 +42,18 @@ select ok(
 select ok(
   to_regclass('public.guest_resource_usage') is not null,
   'guest resource usage table exists'
+);
+select ok(
+  to_regclass('public.guest_creation_reservations') is not null,
+  'guest creation reservation table exists'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.reserve_guest_creation_ticket(text,integer,integer,integer)'::regprocedure,
+    'EXECUTE'
+  ),
+  'service role can reserve a guest creation ticket'
 );
 select ok(
   has_function_privilege(
@@ -134,6 +146,28 @@ select ok(
     '2026-06-03T00:00:00Z'
   ),
   'deleting profiles cannot be extended'
+);
+select throws_ok(
+  $$
+    insert into public.reports (
+      profile_id,
+      title,
+      report_type,
+      detail_level,
+      content,
+      summary_preview
+    ) values (
+      '00000000-0000-4000-8000-000000000106',
+      'blocked guest report',
+      'general_practice',
+      'standard',
+      '{}'::jsonb,
+      'blocked'
+    )
+  $$,
+  'P0001',
+  'guest_profile_deletion_requested',
+  'product writes are frozen after guest deletion starts'
 );
 update public.profiles
 set guest_deletion_state = 'active'

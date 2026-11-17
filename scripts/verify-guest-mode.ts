@@ -150,7 +150,7 @@ assert.equal(
     abuseChallengeEnabled: true,
     abuseChallengeRequired: true,
   }),
-  true,
+  false,
 );
 
 console.log("verify-guest-mode: identity, lifecycle, consent, and flag checks passed");

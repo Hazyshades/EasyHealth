@@ -176,6 +176,15 @@ begin
   where id = p_profile_id
   for update;
 
+  if v_operation.id is not null then
+    return query select
+      v_operation.id,
+      v_operation.status,
+      v_operation.requested_at,
+      v_operation.completed_at;
+    return;
+  end if;
+
   if v_profile.id is null or v_profile.account_type <> 'guest' then
     raise exception using message = 'guest_profile_not_found';
   end if;
@@ -184,6 +193,13 @@ begin
   end if;
   if v_profile.guest_converted_at is not null or v_profile.account_type <> 'guest' then
     raise exception using message = 'guest_profile_converted';
+  end if;
+  if v_reason = 'ttl'
+    and (
+      v_profile.guest_expires_at is null
+      or v_profile.guest_expires_at > now()
+    ) then
+    raise exception using message = 'guest_profile_not_expired';
   end if;
 
   insert into public.guest_profile_deletion_operations (profile_id, reason)
@@ -465,7 +481,8 @@ begin
   select account_type = 'guest' and guest_deletion_state = 'active'
   into v_guest
   from public.profiles
-  where id = p_profile_id;
+  where id = p_profile_id
+  for update;
   if coalesce(v_guest, false) is false then
     raise exception using message = 'guest_resource_profile_unavailable';
   end if;

@@ -2,6 +2,7 @@ export type AuthCallbackFailureReason =
   | "missing-code"
   | "auth-exchange"
   | "profile-setup"
+  | "identity-conflict"
   | "auth-user-missing";
 
 export function resolveAuthCallbackPath(input: {
@@ -29,6 +30,8 @@ export function getAuthCallbackErrorMessage(reason: string | null): string {
   switch (reason) {
     case "auth-exchange":
       return "That sign-in link is invalid or expired. Request a new link to continue.";
+    case "identity-conflict":
+      return "That identity is already linked to another account. Sign in to that account, or choose a different email or Google identity.";
     case "profile-setup":
       return "We signed you in, but could not prepare your health profile. Try again or contact support.";
     case "missing-code":

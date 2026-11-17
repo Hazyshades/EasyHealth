@@ -1,7 +1,10 @@
 import { cache } from "react";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { ensureProfile, getProfileById } from "@/lib/auth/profile";
-import { isGuestProductAccessAllowed } from "@/lib/guest-mode";
+import {
+  isActiveGuestProfileSession,
+  isGuestProductAccessAllowed,
+} from "@/lib/guest-mode";
 
 export class ProfileSetupError extends Error {
   constructor() {
@@ -45,7 +48,19 @@ export const getSessionProfileId = cache(async (): Promise<string | null> => {
 export const getSessionProfileIdForOnboarding = cache(
   async (): Promise<string | null> => {
     const user = await getSessionUser();
-    return user?.id ?? null;
+    if (!user) return null;
+    try {
+      const profile = await getProfileById(user.id);
+      if (
+        profile.account_type === "guest" &&
+        !isActiveGuestProfileSession(profile)
+      ) {
+        return null;
+      }
+      return user.id;
+    } catch {
+      return null;
+    }
   },
 );
 

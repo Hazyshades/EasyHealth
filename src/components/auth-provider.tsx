@@ -348,6 +348,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await initializationPromise;
     } catch (error) {
+      await fetch("/api/auth/guest/initialize", {
+        method: "DELETE",
+        headers: { "Cache-Control": "no-store" },
+      }).catch(() => undefined);
       await supabase.auth.signOut();
       const message =
         error instanceof Error ? error.message : "Guest sign-in is unavailable";

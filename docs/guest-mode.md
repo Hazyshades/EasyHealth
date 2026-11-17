@@ -6,7 +6,7 @@ The guest retention default is 30 days after the latest meaningful activity. The
 
 ## Required migration and services
 
-1. Apply `supabase/migrations/107_guest_mode.sql` and then `supabase/migrations/108_guest_creation_reservations.sql` after the existing migrations.
+1. Apply `supabase/migrations/107_guest_mode.sql`, `supabase/migrations/108_guest_creation_reservations.sql`, and `supabase/migrations/109_guest_write_fence.sql` after the existing migrations.
 2. Run the document worker with the same Supabase URL and service-role key as the application.
 3. Confirm the worker can list and delete objects in the private `lab-documents` bucket. It verifies the profile prefix is empty before finalizing a purge.
 4. Keep the application and worker deployment on compatible migration versions. Do not roll back the migration while guest profiles or deletion tombstones exist.
@@ -18,7 +18,7 @@ These settings are hosted-project or deployment evidence, not inferred from loca
 - Anonymous sign-ins: enabled in the target Supabase project.
 - Manual identity linking: enabled for email and Google conversion when those providers are enabled.
 - Google provider: currently disabled in the target project; enabling it is required before claiming Google conversion support.
-- Public anonymous-sign-in abuse protection: not configured in the target project. A public rollout requires CAPTCHA or an equivalent provider control.
+- Public anonymous-sign-in abuse protection: not configured in the target project. The current app does not yet pass a provider token to Supabase anonymous sign-in, so public guest creation remains blocked until that integration is implemented and verified.
 - Invite-only private beta: may use `GUEST_ABUSE_CHALLENGE_REQUIRED=false` with `GUEST_ABUSE_CHALLENGE_ENABLED=false`, the peppered creation-window throttle, and an access-limited deployed origin. This is not public abuse protection.
 - Redirect URLs include `/auth/callback` for the deployed origin.
 - RLS policies are reviewed with Supabase's `auth.jwt()->>'is_anonymous'` claim in mind. Anonymous users use the `authenticated` Postgres role.
@@ -36,8 +36,8 @@ Set both feature flags only after the hosted Auth settings and smoke flow are re
 | `GUEST_RETENTION_DAYS` | `30` | Retention window used when a guest profile is initialized. Keep aligned with approved copy and worker policy. |
 | `GUEST_CREATION_LIMIT` | `5` | Creation attempts per rate-limit window. |
 | `GUEST_CREATION_WINDOW_SECONDS` | `3600` | Creation throttle window. |
-| `GUEST_RATE_LIMIT_PEPPER` | unset | Required server secret for the hashed request key; use a secret of at least 16 characters. |
-| `GUEST_ABUSE_CHALLENGE_ENABLED` | `false` | Deployment marker for an actually configured provider challenge. Do not set it to `true` as a substitute for configuring the provider. |
+| `GUEST_RATE_LIMIT_PEPPER` | unset | Required server secret for the hashed trusted-ingress address key; use a secret of at least 16 characters. |
+| `GUEST_ABUSE_CHALLENGE_ENABLED` | `false` | Deployment marker for an actually configured provider challenge. Setting it to `true` does not provide a token integration and does not enable public guest creation. |
 | `GUEST_ABUSE_CHALLENGE_REQUIRED` | `true` | Hard gate for guest creation. Set to `false` only for a deliberately invite-only/private beta that accepts the absence of a CAPTCHA provider. |
 | `GUEST_PURGE_BACKLOG_ALERT_THRESHOLD` | `10` | Worker warning threshold for queued plus retryable purge operations. |
 | `GUEST_PURGE_RETRY_ALERT_THRESHOLD` | `3` | Worker warning threshold for retryable purge operations. |
@@ -46,13 +46,13 @@ Set both feature flags only after the hosted Auth settings and smoke flow are re
 | `GUEST_UPLOAD_BYTES_PER_DAY` | `104857600` | Guest upload byte quota. |
 | `GUEST_PROCESSING_COUNT_PER_DAY` | `10` | Guest processing/reprocess quota. |
 
-The server requires the pepper before allowing guest creation. A challenge is also required by default; only an explicit private-beta override may omit it. Quota reservations are atomic database operations and return deterministic `429` responses on limits and `503` responses when the quota service is unavailable.
+The server requires the pepper and the explicit private-beta override before allowing guest creation. Public creation remains blocked until a provider token is integrated. Quota reservations are atomic database operations and return deterministic `429` responses on limits and `503` responses when the quota service is unavailable.
 
 ## Rollout
 
 1. Deploy the migration and worker code with both guest flags false.
 2. Set the pepper and quota values in the application environment. Keep the pepper stable across application instances.
-3. Configure and verify hosted anonymous Auth, manual linking, Google, callback URLs, and abuse protection for a public rollout.
+3. Configure and verify hosted anonymous Auth, manual linking, Google, callback URLs, and a provider-token abuse control before a public rollout. The current build intentionally blocks this path until the token integration exists.
 4. For an invite-only private beta, leave Google and CAPTCHA disabled, set `GUEST_ABUSE_CHALLENGE_REQUIRED=false`, keep `GUEST_ABUSE_CHALLENGE_ENABLED=false`, and keep the deployed origin access-limited. This is not public abuse protection.
 5. Run the manual checklist in `QA/guest-mode/checklist.md` with synthetic data.
 6. Enable `GUEST_MODE_ENABLED` and `NEXT_PUBLIC_GUEST_MODE_ENABLED` together for a small cohort or disposable environment.
@@ -91,8 +91,8 @@ openspec validate guest-mode --strict
 - The target Supabase project `nuqvypxavtorupntmrau` has the guest migration objects, guest profile columns, ten service-role guest routines including the one-time creation-ticket RPCs, RLS on the guest tables, and empty guest operational tables.
 - Hosted Auth has anonymous sign-ins and manual identity linking enabled. A disposable anonymous sign-in returned HTTP 200; the created Auth user was deleted successfully with HTTP 200.
 - The hosted Site URL and six-entry redirect allowlist include the Railway origin and `/auth/callback`; the private `lab-documents` bucket and service-role-only Storage policy are present.
-- The target migration history still ends at version `100`; versions `101`–`108` are not recorded because the guest SQL was applied manually while unrelated migrations were pending. Do not claim migration-history reconciliation or run an uncontrolled push until that state is repaired deliberately.
+- The target migration history still ends at version `100`; versions `101`–`109` are not recorded because the guest SQL was applied manually while unrelated migrations were pending. Do not claim migration-history reconciliation or run an uncontrolled push until that state is repaired deliberately.
 - The local database verifier is blocked because the Supabase CLI is unavailable and Docker/local Postgres is not reachable.
-- The full Auth, onboarding, Storage, conversion, and deletion flow was not run: the private-beta Railway variables are staged but not deployed, Google OAuth is disabled, and CAPTCHA is disabled with no hosted secret.
+- The full Auth, onboarding, Storage, conversion, and deletion flow was not run: the private-beta Railway variables are staged but not deployed, Google OAuth is disabled, and public provider-token abuse protection is not configured.
 - Railway `document-worker` now has `WORKER_POLL_INTERVAL_MS=30000`; the redeployment completed successfully and the worker reported `EasyHealth document worker started`. This lowers polling volume at the cost of up to roughly 25 seconds of additional job pickup latency.
 - Guest consent/legal copy approval is a release/legal gate. This implementation must not be represented as approved legal text until that approval is attached to the release record.

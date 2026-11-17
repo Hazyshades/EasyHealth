@@ -136,3 +136,38 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE() {
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json(
+      { ok: true },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  if (!isAnonymousAuthUser(user)) {
+    return NextResponse.json(
+      { error: "Anonymous guest session required" },
+      { status: 409, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  const { error } = await createAdminClient().auth.admin.deleteUser(user.id);
+  if (error) {
+    console.error(
+      "[guest] initialization cleanup failed error=guest_auth_cleanup_failed",
+    );
+    return NextResponse.json(
+      { error: "Guest cleanup is temporarily unavailable" },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  await supabase.auth.signOut();
+  return NextResponse.json(
+    { ok: true },
+    { headers: { "Cache-Control": "no-store" } },
+  );
+}

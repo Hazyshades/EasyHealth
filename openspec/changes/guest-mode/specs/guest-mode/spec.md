@@ -124,8 +124,8 @@ The system SHALL prevent anonymous guest accounts from acting as clinicians, acc
 The system SHALL apply rate limits and an abuse-control challenge or equivalent protection to anonymous account creation and SHALL enforce guest resource limits independently of normal-account limits. Public deployments MUST configure a provider challenge or equivalent provider control.
 
 #### Scenario: Private beta uses the approved throttle equivalent
-- **WHEN** the deployment is access-limited and the provider challenge is unavailable
-- **THEN** the system MAY use the server-side peppered creation throttle as the approved equivalent control, and the deployment MUST NOT be represented as public abuse protection.
+- **WHEN** a visitor selects the EasyHealth guest entry in an access-limited deployment while the provider challenge is unavailable
+- **THEN** the system MUST reserve a peppered pre-auth creation ticket and consume it once before creating the guest profile; direct provider-level anonymous sign-ups remain subject to hosted Auth limits and do not grant an EasyHealth profile.
 
 #### Scenario: Guest creation limit is exceeded
 - **WHEN** a visitor exceeds the configured anonymous-session creation limit

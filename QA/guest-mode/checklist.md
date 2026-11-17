@@ -2,9 +2,9 @@
 
 ## Preconditions
 
-- Use a disposable application and Supabase project with `107_guest_mode.sql` and `108_guest_creation_reservations.sql` applied and the worker running against the same project.
-- Enable hosted anonymous Auth, manual identity linking, the required Google/email providers, callback URLs, and the configured abuse-control challenge before testing creation or conversion.
-- For an invite-only private beta, Google and CAPTCHA may remain disabled only when `GUEST_ABUSE_CHALLENGE_REQUIRED=false`, `GUEST_ABUSE_CHALLENGE_ENABLED=false`, the pepper is configured, and the deployed origin is access-limited. Record that this is not public abuse protection.
+- Use a disposable application and Supabase project with `107_guest_mode.sql`, `108_guest_creation_reservations.sql`, and `109_guest_write_fence.sql` applied and the worker running against the same project.
+- Enable hosted anonymous Auth, manual identity linking, the required Google/email providers, callback URLs, and the configured provider-token abuse-control challenge before testing creation or conversion.
+- For an invite-only private beta, Google and CAPTCHA may remain disabled only when `GUEST_ABUSE_CHALLENGE_REQUIRED=false`, `GUEST_ABUSE_CHALLENGE_ENABLED=false`, the pepper is configured, and the deployed origin is access-limited. Record that this is not public abuse protection; hosted Auth platform limits still apply to direct anonymous sign-in.
 - Set both guest flags to `true`, configure a stable `GUEST_RATE_LIMIT_PEPPER`, and record the quota values used for the run.
 - Prepare two independent browser profiles or private windows. Use one guest account in each to check ownership isolation.
 - Prepare one normal non-guest test account to confirm the existing sign-in and account presentation are unchanged.
@@ -75,7 +75,7 @@
 - [x] Hosted target migration objects, guest profile columns, service-role grants, guest-table RLS, private `lab-documents` Storage, Auth anonymous sign-ins, manual linking, Site URL, and `/auth/callback` redirect allowlist were inspected.
 - [x] Disposable hosted anonymous sign-in returned HTTP 200 and its test Auth user was removed with HTTP 200.
 - [x] Hosted `guest_creation_reservations`, `reserve_guest_creation_ticket`, and `consume_guest_creation_ticket` objects were applied and a disposable transactional reservation/consumption smoke passed with cleanup.
-- [x] Railway `document-worker` redeployed with `WORKER_POLL_INTERVAL_MS=30000`; the deployment is active and its startup log reports `EasyHealth document worker started`.
+- [x] Hosted guest write-fence triggers and the idempotent/TTL-checked deletion routine from `109_guest_write_fence.sql` were applied and metadata-validated.
 - [ ] Review direct product API responses for guest ownership, clinician denial, activity, quota, conversion, and deletion; do not count UI-only hiding as authorization evidence.
 - [ ] Verify `guest_profile_deletion_operations` contains only profile ID, reason, status, lease/retry timestamps, safe error code, and receipt metadata. It must contain no filename, raw Storage path, document content, extracted health data, prompt, or report text.
 - [ ] Record the SQL evidence for the purge: no guest-owned `profiles`, `documents`, document deletion work, derived reports/observations/health-profile rows, or Storage objects remain; the approved operational tombstone remains with `status = 'completed'`.
@@ -86,7 +86,7 @@
 
 - Do not mark the browser flow tested without a reachable running app, hosted or disposable Supabase Auth, Storage, and worker.
 - Do not mark email or Google conversion tested without the provider, manual linking, redirect URL, and verification flow configured. Google OAuth is currently disabled in the target project; an invalid/fake email cannot complete a magic-link conversion.
-- The private-beta override may omit CAPTCHA only for an access-limited deployment with the peppered creation throttle. Do not describe that mode as public abuse protection.
+- The private-beta override may omit CAPTCHA only for an access-limited deployment with the peppered creation throttle. The current app does not pass a provider token to anonymous Auth, so public guest creation remains blocked; do not describe private mode as public abuse protection. Direct hosted Auth attempts remain governed by provider/platform limits.
 - Do not mark TTL, purge, concurrency, or Storage claims from TypeScript or pure verifier output. They require the database, worker, Auth admin, and private Storage evidence above.
 - Guest consent/legal copy is not approved merely because the UI renders it. Attach legal/product approval and the matching version identifier before release.
 - The target migration history still ends at version `100`; the manually applied guest SQL is not migration-history reconciliation.

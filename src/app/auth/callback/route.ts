@@ -10,6 +10,19 @@ export async function GET(request: Request) {
   const code = url.searchParams.get("code");
   const next = url.searchParams.get("next");
   const origin = new URL(env.URL).origin;
+  const callbackError = url.searchParams.get("error");
+  const callbackErrorCode = url.searchParams.get("error_code");
+  const callbackErrorDescription =
+    url.searchParams.get("error_description")?.toLowerCase() ?? "";
+  if (
+    callbackError === "identity_already_exists" ||
+    callbackErrorCode === "identity_already_exists" ||
+    callbackErrorDescription.includes("identity already exists")
+  ) {
+    return NextResponse.redirect(
+      `${origin}/login?signin=error&reason=identity-conflict`,
+    );
+  }
 
   if (code) {
     const supabase = await createServerSupabaseClient();

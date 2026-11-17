@@ -46,10 +46,13 @@ export function assertGuestModeEnabled(): void {
 export function guestCreationKey(request: Request): string | null {
   const pepper = env.GUEST_RATE_LIMIT_PEPPER;
   if (!pepper) return null;
-  const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const address = forwardedFor || request.headers.get("x-real-ip")?.trim() || "unknown";
-  const userAgent = request.headers.get("user-agent")?.slice(0, 300) || "unknown";
-  return createHash("sha256")
-    .update(`${pepper}|${address}|${userAgent}`)
-    .digest("hex");
+  const forwardedFor = request.headers
+    .get("x-forwarded-for")
+    ?.split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .at(-1);
+  const address =
+    forwardedFor || request.headers.get("x-real-ip")?.trim() || "unknown";
+  return createHash("sha256").update(`${pepper}|${address}`).digest("hex");
 }

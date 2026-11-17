@@ -7,8 +7,5 @@ export type GuestCreationConfiguration = {
 export function isGuestCreationConfigured(
   configuration: GuestCreationConfiguration,
 ): boolean {
-  return (
-    configuration.rateLimitConfigured &&
-    (!configuration.abuseChallengeRequired || configuration.abuseChallengeEnabled)
-  );
+  return configuration.rateLimitConfigured && !configuration.abuseChallengeRequired;
 }
