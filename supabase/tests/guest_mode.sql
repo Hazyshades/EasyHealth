@@ -1,5 +1,5 @@
 begin;
-select plan(40);
+select plan(43);
 
 select ok(
   (
@@ -50,6 +50,16 @@ select ok(
   'guest upload quota reservation table exists'
 );
 select ok(
+  (
+    select count(*) = 2
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'guest_upload_quota_reservations'
+      and column_name in ('document_id', 'intent_id')
+  ),
+  'guest upload quota reservations retain completion references'
+);
+select ok(
   to_regclass('public.guest_creation_reservations') is not null,
   'guest creation reservation table exists'
 );
@@ -76,6 +86,14 @@ select ok(
     'EXECUTE'
   ),
   'service role can reserve upload quotas atomically'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.attach_guest_upload_quota_reservation(uuid,uuid,uuid)'::regprocedure,
+    'EXECUTE'
+  ),
+  'service role can attach a document and intent to an upload quota reservation'
 );
 select ok(
   has_function_privilege(
@@ -469,6 +487,19 @@ select ok(
   'guest resource reservation is rejected over the limit'
 );
 
+insert into public.assessment_recalculation_jobs (
+  profile_id,
+  output_kind,
+  status
+)
+values (
+  '00000000-0000-4000-8000-000000000106',
+  'health_profile',
+  'queued'
+)
+on conflict (profile_id, output_kind) do update
+set status = 'queued';
+
 select ok(
   (
     select operation_id is not null
@@ -478,6 +509,16 @@ select ok(
     )
   ),
   'guest deletion request creates an operation'
+);
+select is(
+  (
+    select status::text
+    from public.assessment_recalculation_jobs
+    where profile_id = '00000000-0000-4000-8000-000000000106'
+      and output_kind = 'health_profile'
+  ),
+  'failed',
+  'guest deletion cancels assessment recalculation'
 );
 select is(
   (

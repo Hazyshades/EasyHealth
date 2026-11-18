@@ -85,6 +85,26 @@ export async function reserveGuestUpload(
   return row.reservation_id;
 }
 
+export async function attachGuestUploadReservation(
+  reservationId: string,
+  documentId: string,
+  intentId: string,
+): Promise<void> {
+  if (!reservationId.trim() || !documentId.trim() || !intentId.trim()) {
+    throw new GuestQuotaError("unavailable");
+  }
+
+  const { data, error } = await createAdminClient().rpc(
+    "attach_guest_upload_quota_reservation",
+    {
+      p_reservation_id: reservationId,
+      p_document_id: documentId,
+      p_intent_id: intentId,
+    },
+  );
+  if (error || data !== true) throw new GuestQuotaError("unavailable");
+}
+
 export async function releaseGuestUpload(reservationId: string): Promise<void> {
   if (!reservationId.trim()) {
     throw new GuestQuotaError("unavailable");

@@ -17,7 +17,9 @@ create table if not exists public.guest_upload_quota_reservations (
   ),
   created_at timestamptz not null default now(),
   consumed_at timestamptz,
-  released_at timestamptz
+  released_at timestamptz,
+  document_id uuid,
+  intent_id uuid
 );
 
 create index if not exists guest_upload_quota_reservations_profile_idx
@@ -134,6 +136,43 @@ begin
   end loop;
 end;
 $$;
+
+create or replace function public.cancel_guest_assessment_jobs_after_deletion()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.account_type = 'guest'
+    and old.guest_deletion_state is distinct from 'deleting'
+    and new.guest_deletion_state = 'deleting' then
+    update public.assessment_recalculation_jobs
+    set status = 'failed'::public.assessment_recalculation_status,
+        lease_expires_at = null,
+        completed_at = null,
+        last_error_code = 'guest_profile_deletion_requested',
+        last_error_message = 'Guest profile deletion requested',
+        updated_at = now()
+    where profile_id = new.id
+      and status in (
+        'queued'::public.assessment_recalculation_status,
+        'processing'::public.assessment_recalculation_status,
+        'retryable_failed'::public.assessment_recalculation_status
+      );
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.cancel_guest_assessment_jobs_after_deletion()
+  from public, anon, authenticated;
+drop trigger if exists guest_assessment_recalculation_cancel
+  on public.profiles;
+create trigger guest_assessment_recalculation_cancel
+after update of guest_deletion_state on public.profiles
+for each row
+execute function public.cancel_guest_assessment_jobs_after_deletion();
 
 create or replace function public.reserve_guest_resource(
   p_profile_id uuid,
@@ -356,6 +395,55 @@ revoke all on function public.reserve_guest_upload(uuid, bigint, bigint, bigint,
 grant execute on function public.reserve_guest_upload(uuid, bigint, bigint, bigint, bigint, date)
   to service_role;
 
+create or replace function public.attach_guest_upload_quota_reservation(
+  p_reservation_id uuid,
+  p_document_id uuid,
+  p_intent_id uuid
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_status text;
+  v_document_id uuid;
+  v_intent_id uuid;
+begin
+  if p_document_id is null or p_intent_id is null then
+    raise exception using message = 'invalid_guest_upload_reservation_attachment';
+  end if;
+
+  select status, document_id, intent_id
+  into v_status, v_document_id, v_intent_id
+  from public.guest_upload_quota_reservations
+  where id = p_reservation_id
+  for update;
+
+  if not found or v_status <> 'reserved' then
+    return false;
+  end if;
+  if v_document_id is not null or v_intent_id is not null then
+    return coalesce(
+      v_document_id = p_document_id and v_intent_id = p_intent_id,
+      false
+    );
+  end if;
+
+  update public.guest_upload_quota_reservations
+  set document_id = p_document_id,
+      intent_id = p_intent_id
+  where id = p_reservation_id
+    and status = 'reserved';
+  return true;
+end;
+$$;
+
+revoke all on function public.attach_guest_upload_quota_reservation(uuid, uuid, uuid)
+  from public, anon, authenticated;
+grant execute on function public.attach_guest_upload_quota_reservation(uuid, uuid, uuid)
+  to service_role;
+
 drop function if exists public.release_guest_upload(uuid, bigint, date);
 
 create or replace function public.release_guest_upload(
@@ -458,15 +546,15 @@ security definer
 set search_path = public
 as $$
 declare
-  v_reservation_id uuid;
-  v_released integer := 0;
+  v_reservation public.guest_upload_quota_reservations%rowtype;
+  v_reconciled integer := 0;
 begin
   if coalesce(p_limit, 0) < 1 then
     raise exception using message = 'invalid_guest_upload_reconciliation_limit';
   end if;
 
-  for v_reservation_id in
-    select id
+  for v_reservation in
+    select *
     from public.guest_upload_quota_reservations
     where status = 'reserved'
       and created_at < p_before
@@ -474,14 +562,32 @@ begin
     limit p_limit
     for update skip locked
   loop
-    if public.release_guest_upload(v_reservation_id) then
-      v_released := v_released + 1;
+    if v_reservation.document_id is not null
+      and (
+        exists (
+          select 1
+          from public.documents
+          where id = v_reservation.document_id
+            and upload_state = 'complete'
+        )
+        or exists (
+          select 1
+          from public.document_storage_write_intents
+          where id = v_reservation.intent_id
+            and state = 'completed'
+        )
+      ) then
+      perform public.finalize_guest_upload(v_reservation.id);
+    else
+      perform public.release_guest_upload(v_reservation.id);
     end if;
+    v_reconciled := v_reconciled + 1;
   end loop;
 
-  return v_released;
+  return v_reconciled;
 end;
 $$;
+
 
 revoke all on function public.reconcile_guest_upload_quota_reservations(timestamptz, integer)
   from public, anon, authenticated;

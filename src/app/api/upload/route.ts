@@ -4,6 +4,7 @@ import { getWritableSessionIdentity } from "@/lib/auth/identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   GuestQuotaError,
+  attachGuestUploadReservation,
   finalizeGuestUpload,
   releaseGuestUpload,
   reserveGuestUpload,
@@ -194,6 +195,13 @@ export async function POST(req: NextRequest) {
   const intentId = String(reservation.intent_id);
 
   try {
+    if (identity.isGuest && guestUploadReservationId) {
+      await attachGuestUploadReservation(
+        guestUploadReservationId,
+        documentId,
+        intentId,
+      );
+    }
     const issued = await issueStorageUploadTicket(supabase, {
       intentId,
       profileId,
@@ -225,10 +233,10 @@ export async function POST(req: NextRequest) {
   if (identity.isGuest && guestUploadReservationId) {
     try {
       await finalizeGuestUpload(guestUploadReservationId);
+      guestUploadReservationId = null;
     } catch {
       console.error("[guest] upload quota finalization remains pending");
     }
-    guestUploadReservationId = null;
   }
 
   return NextResponse.json({
