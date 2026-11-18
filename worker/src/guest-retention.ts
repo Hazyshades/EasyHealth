@@ -103,6 +103,20 @@ export function emitGuestPurgeMetrics(
   }
 }
 
+export async function reconcileGuestUploadQuotaReservations(): Promise<number> {
+  const { data, error } = await supabase.rpc(
+    "reconcile_guest_upload_quota_reservations",
+  );
+  if (error) {
+    throw new Error(`guest_upload_quota_reconciliation:${error.message}`);
+  }
+  const count = Number(data ?? 0);
+  if (!Number.isSafeInteger(count) || count < 0) {
+    throw new Error("guest_upload_quota_reconciliation:invalid_count");
+  }
+  return count;
+}
+
 function isMissingAuthUser(error: { message?: string } | null): boolean {
   const message = error?.message?.toLowerCase() ?? "";
   return message.includes("not found") || message.includes("user not found");

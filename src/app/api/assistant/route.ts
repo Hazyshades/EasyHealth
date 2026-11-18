@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { getWritableSessionIdentity } from "@/lib/auth/identity";
 import { getSessionProfileId } from "@/lib/auth/session";
-import { getWritableSessionProfileId } from "@/lib/auth/identity";
 import { getProfileById } from "@/lib/auth/profile";
 import { assistantAccessFromProfile } from "@/lib/assistant/access";
+import { GuestQuotaError, reserveGuestResource } from "@/lib/guest-quotas";
 import {
   answerAssistantRequest,
   AssistantServiceError,
@@ -56,8 +57,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const profileId = await getWritableSessionProfileId();
-  if (!profileId) {
+  const identity = await getWritableSessionIdentity();
+  const profileId = identity?.profileId ?? null;
+  if (!identity || !profileId) {
     return NextResponse.json(
       { error: "Unauthorized" },
       { status: 401, headers: noStore },
@@ -86,6 +88,30 @@ export async function POST(request: Request) {
         },
         { status: 403, headers: noStore },
       );
+    }
+    if (identity.isGuest) {
+      try {
+        await reserveGuestResource(profileId, "processing_count", 1);
+      } catch (error) {
+        if (error instanceof GuestQuotaError) {
+          return NextResponse.json(
+            {
+              error:
+                error.kind === "limit"
+                  ? "Guest processing quota exceeded"
+                  : "Guest processing quota unavailable",
+            },
+            {
+              status: error.kind === "limit" ? 429 : 503,
+              headers: noStore,
+            },
+          );
+        }
+        return NextResponse.json(
+          { error: "Guest processing quota unavailable" },
+          { status: 503, headers: noStore },
+        );
+      }
     }
 
     const classification = classifyAssistantRequest(requestData);

@@ -80,7 +80,7 @@
 - [ ] Verify `guest_profile_deletion_operations` contains only profile ID, reason, status, lease/retry timestamps, safe error code, and receipt metadata. It must contain no filename, raw Storage path, document content, extracted health data, prompt, or report text.
 - [ ] Record the SQL evidence for the purge: no guest-owned `profiles`, `documents`, document deletion work, derived reports/observations/health-profile rows, or Storage objects remain; the approved operational tombstone remains with `status = 'completed'`.
 - [ ] Exercise a worker restart between claim and completion. Confirm the expired lease is reclaimable and completion is not reported before Storage verification.
-- [ ] Record quota values, attested creation-throttle results, worker status logs, retryable error codes, and alert/dashboard evidence without health content. Verify durable upload reservations release all three quota units on failed uploads, successful uploads finalize their reservation, repeated release/finalization calls are idempotent, and report/synthesis calls reserve processing capacity before model invocation.
+- [ ] Record quota values, attested creation-throttle results, worker status logs, retryable error codes, and alert/dashboard evidence without health content. Verify durable upload reservations release all three quota units on failed uploads, successful uploads finalize their reservation, repeated release/finalization calls are idempotent, the worker reconciles stale reserved rows, and report/synthesis/assistant/recalculation calls reserve processing capacity before model or worker execution.
 
 ## Known limitations
 

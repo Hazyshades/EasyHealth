@@ -18,6 +18,7 @@ import {
   processOneGuestProfileDeletion,
   queueExpiredGuestProfiles,
   readGuestPurgeMetrics,
+  reconcileGuestUploadQuotaReservations,
 } from "./guest-retention.js";
 import { processDoctorRetention } from "./doctor-retention.js";
 type JobRow = {
@@ -317,6 +318,18 @@ async function tick() {
   } catch (error) {
     console.error(
       "Expired storage intent sweep error:",
+      error instanceof Error ? error.message : error,
+    );
+  }
+
+  try {
+    const released = await reconcileGuestUploadQuotaReservations();
+    if (released > 0) {
+      console.info(`[guest] upload quota reservations reconciled count=${released}`);
+    }
+  } catch (error) {
+    console.error(
+      "Guest upload quota reconciliation error:",
       error instanceof Error ? error.message : error,
     );
   }

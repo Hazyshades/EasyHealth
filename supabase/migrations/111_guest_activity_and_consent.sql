@@ -23,6 +23,10 @@ create table if not exists public.guest_upload_quota_reservations (
 create index if not exists guest_upload_quota_reservations_profile_idx
   on public.guest_upload_quota_reservations (profile_id, usage_day, status);
 
+create index if not exists guest_upload_quota_reservations_pending_idx
+  on public.guest_upload_quota_reservations (created_at)
+  where status = 'reserved';
+
 alter table public.guest_upload_quota_reservations enable row level security;
 revoke all on public.guest_upload_quota_reservations from public, anon, authenticated;
 grant select, insert, update, delete on public.guest_upload_quota_reservations to service_role;
@@ -354,7 +358,7 @@ grant execute on function public.reserve_guest_upload(uuid, bigint, bigint, bigi
 
 drop function if exists public.release_guest_upload(uuid, bigint, date);
 
-create function public.release_guest_upload(
+create or replace function public.release_guest_upload(
   p_reservation_id uuid
 )
 returns boolean
@@ -444,6 +448,46 @@ revoke all on function public.finalize_guest_upload(uuid)
 grant execute on function public.finalize_guest_upload(uuid)
   to service_role;
 
+create or replace function public.reconcile_guest_upload_quota_reservations(
+  p_before timestamptz default now() - interval '10 minutes',
+  p_limit integer default 100
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_reservation_id uuid;
+  v_released integer := 0;
+begin
+  if coalesce(p_limit, 0) < 1 then
+    raise exception using message = 'invalid_guest_upload_reconciliation_limit';
+  end if;
+
+  for v_reservation_id in
+    select id
+    from public.guest_upload_quota_reservations
+    where status = 'reserved'
+      and created_at < p_before
+    order by created_at
+    limit p_limit
+    for update skip locked
+  loop
+    if public.release_guest_upload(v_reservation_id) then
+      v_released := v_released + 1;
+    end if;
+  end loop;
+
+  return v_released;
+end;
+$$;
+
+revoke all on function public.reconcile_guest_upload_quota_reservations(timestamptz, integer)
+  from public, anon, authenticated;
+grant execute on function public.reconcile_guest_upload_quota_reservations(timestamptz, integer)
+  to service_role;
+
 drop function if exists public.complete_guest_conversion(uuid, text);
 
 create function public.complete_guest_conversion(
@@ -498,3 +542,5 @@ revoke all on function public.complete_guest_conversion(uuid, text, text)
   from public, anon, authenticated;
 grant execute on function public.complete_guest_conversion(uuid, text, text)
   to service_role;
+
+notify pgrst, 'reload schema';

@@ -1,5 +1,5 @@
 begin;
-select plan(37);
+select plan(40);
 
 select ok(
   (
@@ -92,6 +92,14 @@ select ok(
     'EXECUTE'
   ),
   'service role can finalize a successful upload quota reservation'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.reconcile_guest_upload_quota_reservations(timestamptz,integer)'::regprocedure,
+    'EXECUTE'
+  ),
+  'service role can reconcile abandoned upload quota reservations'
 );
 select ok(
   not has_function_privilege(
@@ -403,6 +411,37 @@ select ok(
     limit 1
   )),
   'failed upload quota release is idempotent'
+);
+update public.guest_upload_quota_reservations
+set created_at = now() - interval '20 minutes'
+where id = (
+  select reservation_id
+  from public.reserve_guest_upload(
+    '00000000-0000-4000-8000-000000000106',
+    10,
+    10,
+    100,
+    10,
+    current_date
+  )
+);
+select is(
+  public.reconcile_guest_upload_quota_reservations(
+    now() - interval '10 minutes',
+    10
+  ),
+  1,
+  'stale upload quota reservations are reconciled'
+);
+select ok(
+  exists (
+    select 1
+    from public.guest_upload_quota_reservations
+    where profile_id = '00000000-0000-4000-8000-000000000106'
+      and status = 'released'
+      and created_at < now() - interval '10 minutes'
+  ),
+  'reconciliation marks the abandoned reservation released'
 );
 
 select ok(
