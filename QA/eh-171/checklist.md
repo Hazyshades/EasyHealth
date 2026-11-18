@@ -65,7 +65,7 @@
 ## Developer evidence
 
 - [x] `corepack pnpm test:guest-mode`.
-- [ ] `corepack pnpm test:guest-mode-db` against a reachable local Supabase/Postgres database with pgTAP. Current workspace is blocked by missing Supabase CLI and Docker/local Postgres.
+- [ ] `corepack pnpm test:guest-mode-db` against a reachable local Supabase/Postgres database with pgTAP. Current workspace is blocked by Docker/local Postgres; hosted verification used the authenticated Supabase CLI separately.
 - [x] `corepack pnpm exec tsc --noEmit` and `corepack pnpm --dir worker exec tsc --noEmit`.
 - [x] `corepack pnpm exec tsx scripts/verify-app-navigation-hot-path.ts`.
 - [x] `corepack pnpm exec next build`.
@@ -75,7 +75,7 @@
 - [x] Hosted `guest_creation_reservations`, `reserve_guest_creation_ticket`, and `consume_guest_creation_ticket` objects were applied and a disposable transactional reservation/consumption smoke passed with cleanup.
 - [x] Hosted guest write-fence triggers and the idempotent/TTL-checked deletion routine from `109_guest_write_fence.sql` were applied and metadata-validated.
 - [x] Hosted `110_guest_conversion.sql` was applied; expired activity and eligible conversion transactional smokes passed with rollback cleanup.
-- [ ] Apply and smoke-test `111_guest_activity_and_consent.sql`; the current Supabase dashboard session expired before this forward migration could be applied, so hosted activity-fence and three-argument conversion evidence is pending.
+- [x] Applied `111_guest_activity_and_consent.sql` with `supabase db query --linked --file` and metadata-smoke-tested the privacy columns, quota reservation table, assistant lease RPCs, completion error-code clearing, reconciliation RPC, and three-argument conversion RPC. The disposable activity/quota/conversion transaction smoke remains pending.
 - [ ] Review direct product API responses for guest ownership, clinician denial, activity, quota, conversion, and deletion; do not count UI-only hiding as authorization evidence.
 - [ ] Verify `guest_profile_deletion_operations` contains only profile ID, reason, status, lease/retry timestamps, safe error code, and receipt metadata. It must contain no filename, raw Storage path, document content, extracted health data, prompt, or report text.
 - [ ] Record the SQL evidence for the purge: no guest-owned `profiles`, `documents`, document deletion work, derived reports/observations/health-profile rows, or Storage objects remain; the approved operational tombstone remains with `status = 'completed'`.

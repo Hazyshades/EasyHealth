@@ -534,6 +534,7 @@ begin
   set status = 'completed',
       finished_at = now(),
       execution_started_at = null,
+      error_code = null,
       updated_at = now()
   where id = p_job_id
     and status = 'processing';
