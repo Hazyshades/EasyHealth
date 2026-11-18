@@ -194,6 +194,7 @@ export async function POST(req: NextRequest) {
   const documentId = String(reservation.document_id);
   const intentId = String(reservation.intent_id);
 
+  let storageUploadStarted = false;
   try {
     if (identity.isGuest && guestUploadReservationId) {
       await attachGuestUploadReservation(
@@ -212,6 +213,7 @@ export async function POST(req: NextRequest) {
       intentId,
       issued.ticket,
     );
+    storageUploadStarted = true;
     await uploadToSignedStorageUrl(exchanged.signed_url, buffer, mimeType);
     await verifyAndCompleteStorageIntent(supabase, intentId, issued.ticket);
     await enqueueFullPipelineJob(profileId, documentId);
@@ -224,7 +226,11 @@ export async function POST(req: NextRequest) {
     } catch {
       // Keep the client response deterministic even if failure bookkeeping is unavailable.
     }
-    await releaseGuestUploadQuota();
+    if (!storageUploadStarted) {
+      await releaseGuestUploadQuota();
+    } else {
+      console.error("[guest] upload quota remains pending reconciliation");
+    }
     return NextResponse.json(
       { error: "Upload processing failed" },
       { status: 500 },
