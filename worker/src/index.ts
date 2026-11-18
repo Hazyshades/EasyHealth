@@ -10,7 +10,10 @@ import {
 } from "./deletion-cleanup.js";
 import { cleanupShareLinkState } from "./share-link-cleanup.js";
 import { sweepExpiredStorageIntents } from "./storage-orphan-sweeper.js";
-import { processOneAssistantReindexJob } from "./assistant-reindex.js";
+import {
+  processOneAssistantReindexJob,
+  reconcileAssistantReindexJobs,
+} from "./assistant-reindex.js";
 import { processOneRecordingTranscription } from "./doctor-transcription.js";
 import {
   emitGuestPurgeMetrics,
@@ -162,12 +165,42 @@ async function processAssessmentJob() {
   if (!job) return;
 
   try {
+    const { data: currentJob, error: currentJobError } = await supabase
+      .from("assessment_recalculation_jobs")
+      .select("status")
+      .eq("id", job.job_id)
+      .maybeSingle();
+    if (currentJobError) throw new Error(currentJobError.message);
+    if (currentJob?.status !== "processing") return;
+
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("lab_unit_system")
+      .select("account_type, guest_deletion_state, guest_expires_at, lab_unit_system")
       .eq("id", job.profile_id)
       .single();
     if (profileError) throw new Error(profileError.message);
+    if (
+      profile.account_type === "guest" &&
+      (profile.guest_deletion_state !== "active" ||
+        profile.guest_expires_at === null ||
+        new Date(profile.guest_expires_at).getTime() <= Date.now())
+    ) {
+      const { error: cancelError } = await supabase.rpc(
+        "fail_assessment_recalculation_job",
+        {
+          p_job_id: job.job_id,
+          p_error_code: "guest_profile_deletion_requested",
+          p_error_message: "Guest processing canceled before snapshot",
+        },
+      );
+      if (cancelError) {
+        console.error(
+          "Assessment cancellation failed:",
+          cancelError.message,
+        );
+      }
+      return;
+    }
     const snapshot = await buildHealthProfileSnapshot({
       profileId: job.profile_id,
       labUnitSystem: profile.lab_unit_system === "us" ? "us" : "si",
@@ -382,6 +415,18 @@ async function tick() {
   }
 
   await cleanupShareLinkState();
+  try {
+    const reconciled = await reconcileAssistantReindexJobs();
+    if (reconciled > 0) {
+      console.warn(`Reconciled ${reconciled} stale assistant reindex jobs`);
+    }
+  } catch (error) {
+    console.error(
+      "Assistant reindex reconciliation error:",
+      error instanceof Error ? error.message : error,
+    );
+  }
+
   try {
     await processOneAssistantReindexJob();
   } catch (error) {

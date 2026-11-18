@@ -136,6 +136,15 @@ async function heartbeat(operation: GuestDeletionOperation): Promise<void> {
   );
   if (error) throw new Error(`guest_deletion_heartbeat:${error.message}`);
 }
+async function cancelGuestAssessmentJobs(profileId: string): Promise<void> {
+  const { error } = await supabase.rpc(
+    "cancel_guest_assessment_jobs_for_deletion",
+    { p_profile_id: profileId },
+  );
+  if (error)
+    throw new Error(`guest_assessment_cancellation:${error.message}`);
+}
+
 
 async function transition(
   operation: GuestDeletionOperation,
@@ -221,6 +230,7 @@ async function processOperation(operation: GuestDeletionOperation): Promise<void
   );
   try {
     await heartbeat(operation);
+    await cancelGuestAssessmentJobs(operation.profile_id);
     const requested = await requestDocumentDeletions(operation);
     if (requested > 0 || (await hasRemainingDocumentOperations(operation.profile_id))) {
       await transition(operation, "processing");

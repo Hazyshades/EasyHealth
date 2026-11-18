@@ -51,6 +51,30 @@ async function claimJob(): Promise<ReindexJob | null> {
     throw new Error(`assistant reindex claim failed: ${error.message}`);
   return claimRows(data);
 }
+async function isJobStillProcessing(job: ReindexJob): Promise<boolean> {
+  const { data: jobRow, error: jobError } = await supabase
+    .from("assistant_reindex_jobs")
+    .select("status")
+    .eq("id", job.id)
+    .maybeSingle();
+  if (jobError)
+    throw new Error(`assistant reindex status read failed: ${jobError.message}`);
+  if (jobRow?.status !== "processing") return false;
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("account_type, guest_deletion_state, guest_expires_at")
+    .eq("id", job.profile_id)
+    .maybeSingle();
+  if (profileError)
+    throw new Error(`assistant reindex profile read failed: ${profileError.message}`);
+  if (!profile || profile.account_type !== "guest") return profile !== null;
+  return (
+    profile.guest_deletion_state === "active" &&
+    typeof profile.guest_expires_at === "string" &&
+    new Date(profile.guest_expires_at).getTime() > Date.now()
+  );
+}
 
 async function markStale(job: ReindexJob): Promise<void> {
   const { error } = await supabase.rpc("mark_assistant_reindex_job_stale", {
@@ -59,6 +83,25 @@ async function markStale(job: ReindexJob): Promise<void> {
   if (error)
     throw new Error(`assistant reindex stale update failed: ${error.message}`);
 }
+async function beginExecution(job: ReindexJob): Promise<void> {
+  const { data, error } = await supabase.rpc(
+    "begin_assistant_reindex_execution",
+    { p_job_id: job.id },
+  );
+  if (error)
+    throw new Error(`assistant reindex execution start failed: ${error.message}`);
+  if (data !== true) throw new Error("assistant_reindex_source_stale");
+}
+
+async function finishExecution(job: ReindexJob): Promise<void> {
+  const { error } = await supabase.rpc(
+    "finish_assistant_reindex_execution",
+    { p_job_id: job.id },
+  );
+  if (error)
+    throw new Error(`assistant reindex execution finish failed: ${error.message}`);
+}
+
 
 async function complete(job: ReindexJob): Promise<void> {
   const { error } = await supabase.rpc("complete_assistant_reindex_job", {
@@ -76,6 +119,19 @@ async function fail(job: ReindexJob, code: string): Promise<void> {
   if (error)
     console.error("Assistant reindex failure update failed:", error.message);
 }
+export async function reconcileAssistantReindexJobs(): Promise<number> {
+  const { data, error } = await supabase.rpc(
+    "reconcile_assistant_reindex_jobs",
+  );
+  if (error)
+    throw new Error(`assistant reindex reconciliation failed: ${error.message}`);
+  const count = Number(data ?? 0);
+  if (!Number.isSafeInteger(count) || count < 0) {
+    throw new Error("assistant reindex reconciliation returned invalid count");
+  }
+  return count;
+}
+
 
 async function readDocument(
   job: ReindexJob,
@@ -132,60 +188,70 @@ async function writeChunks(
 }> {
   const started = Date.now();
   const chunks = chunkAssistantDocumentPages(pages);
-  const embeddingModel = createOpenAI({
-    apiKey: workerEnv.openaiApiKey,
-  }).embedding(workerEnv.openaiEmbeddingModel);
-  const embeddings =
-    chunks.length === 0
-      ? { embeddings: [], usage: { tokens: 0 } }
-      : await embedMany({
-          model: embeddingModel,
-          values: chunks.map((chunk) => chunk.content),
-          maxParallelCalls: 4,
-          maxRetries: 1,
-        });
-  if (embeddings.embeddings.length !== chunks.length) {
-    throw new Error("assistant_embedding_count_mismatch");
+  let executionStarted = false;
+  if (chunks.length > 0) {
+    await beginExecution(job);
+    executionStarted = true;
   }
-  const rows = chunks.map((chunk, index) => ({
-    document_page_id: chunk.document_page_id,
-    page_number: chunk.page_number,
-    chunk_index: chunk.chunk_index,
-    section_context: chunk.section_context,
-    content: chunk.content,
-    content_sha256: chunk.content_sha256,
-    embedding: vectorLiteral(embeddings.embeddings[index] ?? []),
-  }));
-  const { data: publication, error: publicationError } = await supabase.rpc(
-    "publish_assistant_reindex_chunks",
-    {
-      p_job_id: job.id,
-      p_profile_id: job.profile_id,
-      p_document_id: job.document_id,
-      p_requested_content_sha256: job.requested_content_sha256,
-      p_requested_write_generation: job.requested_write_generation,
-      p_chunks: rows,
-      p_embedding_provider: "openai",
-      p_embedding_model: workerEnv.openaiEmbeddingModel,
-    },
-  );
-  if (publicationError) {
-    throw new Error(
-      `assistant_reindex_publish_failed: ${publicationError.message}`,
+
+  try {
+    const embeddingModel = createOpenAI({
+      apiKey: workerEnv.openaiApiKey,
+    }).embedding(workerEnv.openaiEmbeddingModel);
+    const embeddings =
+      chunks.length === 0
+        ? { embeddings: [], usage: { tokens: 0 } }
+        : await embedMany({
+            model: embeddingModel,
+            values: chunks.map((chunk) => chunk.content),
+            maxParallelCalls: 4,
+            maxRetries: 1,
+          });
+    if (embeddings.embeddings.length !== chunks.length) {
+      throw new Error("assistant_embedding_count_mismatch");
+    }
+    const rows = chunks.map((chunk, index) => ({
+      document_page_id: chunk.document_page_id,
+      page_number: chunk.page_number,
+      chunk_index: chunk.chunk_index,
+      section_context: chunk.section_context,
+      content: chunk.content,
+      content_sha256: chunk.content_sha256,
+      embedding: vectorLiteral(embeddings.embeddings[index] ?? []),
+    }));
+    const { data: publication, error: publicationError } = await supabase.rpc(
+      "publish_assistant_reindex_chunks",
+      {
+        p_job_id: job.id,
+        p_profile_id: job.profile_id,
+        p_document_id: job.document_id,
+        p_requested_content_sha256: job.requested_content_sha256,
+        p_requested_write_generation: job.requested_write_generation,
+        p_chunks: rows,
+        p_embedding_provider: "openai",
+        p_embedding_model: workerEnv.openaiEmbeddingModel,
+      },
     );
+    if (publicationError) {
+      throw new Error(
+        `assistant_reindex_publish_failed: ${publicationError.message}`,
+      );
+    }
+    const publicationRow = (
+      Array.isArray(publication) ? publication[0] : publication
+    ) as { status?: string; chunk_count?: number } | null;
+    if (publicationRow?.status !== "published") {
+      throw new Error("assistant_reindex_source_stale");
+    }
+    return {
+      chunks: Number(publicationRow.chunk_count ?? 0),
+      inputTokens: embeddings.usage.tokens,
+      modelId: workerEnv.openaiEmbeddingModel,
+      latencyMs: Date.now() - started,
+    };
+  } finally {
+    if (executionStarted) await finishExecution(job);
   }
-  const publicationRow = (
-    Array.isArray(publication) ? publication[0] : publication
-  ) as { status?: string; chunk_count?: number } | null;
-  if (publicationRow?.status !== "published") {
-    throw new Error("assistant_reindex_source_stale");
-  }
-  return {
-    chunks: Number(publicationRow.chunk_count ?? 0),
-    inputTokens: embeddings.usage.tokens,
-    modelId: workerEnv.openaiEmbeddingModel,
-    latencyMs: Date.now() - started,
-  };
 }
 
 async function logEmbedding(
@@ -294,6 +360,10 @@ export async function processOneAssistantReindexJob(): Promise<boolean> {
   const job = await claimJob();
   if (!job) return false;
   try {
+    if (!(await isJobStillProcessing(job))) {
+      await markStale(job);
+      return false;
+    }
     const source = await readDocument(job);
     if (!source) {
       await markStale(job);

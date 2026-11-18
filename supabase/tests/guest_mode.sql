@@ -1,5 +1,5 @@
 begin;
-select plan(43);
+select plan(55);
 
 select ok(
   (
@@ -58,6 +58,68 @@ select ok(
       and column_name in ('document_id', 'intent_id')
   ),
   'guest upload quota reservations retain completion references'
+);
+select ok(
+  exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'assistant_reindex_jobs'
+      and column_name = 'execution_started_at'
+  ),
+  'assistant reindex jobs retain an execution lease timestamp'
+);
+select ok(
+  exists (
+    select 1
+    from pg_trigger
+    where tgrelid = 'public.assistant_document_chunks'::regclass
+      and tgname = 'guest_profile_write_fence'
+      and not tgisinternal
+  ),
+  'guest deletion fence covers assistant document chunks'
+);
+select ok(
+  exists (
+    select 1
+    from pg_trigger
+    where tgrelid = 'public.assessment_recalculation_jobs'::regclass
+      and tgname = 'guest_assessment_job_fence'
+      and not tgisinternal
+  ),
+  'guest deletion fence covers assessment jobs'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.begin_assistant_reindex_execution(uuid)'::regprocedure,
+    'EXECUTE'
+  ),
+  'service role can start an assistant reindex execution lease'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.finish_assistant_reindex_execution(uuid)'::regprocedure,
+    'EXECUTE'
+  ),
+  'service role can finish an assistant reindex execution lease'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.reconcile_assistant_reindex_jobs(timestamptz,integer)'::regprocedure,
+    'EXECUTE'
+  ),
+  'service role can reconcile stale assistant reindex jobs'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.cancel_guest_assessment_jobs_for_deletion(uuid)'::regprocedure,
+    'EXECUTE'
+  ),
+  'service role can cancel guest assessment jobs'
 );
 select ok(
   to_regclass('public.guest_creation_reservations') is not null,
@@ -234,6 +296,7 @@ insert into public.profiles (
   guest_consent_version,
   guest_consent_accepted_at,
   privacy_version,
+  terms_version,
   privacy_consent_at
 )
 values (
@@ -244,6 +307,7 @@ values (
   '2099-06-01T00:00:00Z',
   'guest-previous',
   '2098-06-01T00:00:00Z',
+  '2026-06-29',
   '2026-06-29',
   '2098-06-01T00:00:00Z'
 );
@@ -486,6 +550,33 @@ select ok(
   ),
   'guest resource reservation is rejected over the limit'
 );
+insert into public.documents (
+  id,
+  profile_id,
+  storage_path,
+  original_filename,
+  status
+)
+values (
+  '00000000-0000-4000-8000-000000000206',
+  '00000000-0000-4000-8000-000000000106',
+  'guest/test-reindex.pdf',
+  'test-reindex.pdf',
+  'completed'
+);
+insert into public.assistant_reindex_jobs (
+  profile_id,
+  document_id,
+  requested_content_sha256,
+  status
+)
+values (
+  '00000000-0000-4000-8000-000000000106',
+  '00000000-0000-4000-8000-000000000206',
+  repeat('0', 64),
+  'queued'
+);
+
 
 insert into public.assessment_recalculation_jobs (
   profile_id,
@@ -500,6 +591,28 @@ values (
 on conflict (profile_id, output_kind) do update
 set status = 'queued';
 
+update public.assistant_reindex_jobs
+set status = 'processing',
+    execution_started_at = clock_timestamp()
+where profile_id = '00000000-0000-4000-8000-000000000106'
+  and document_id = '00000000-0000-4000-8000-000000000206';
+select throws_ok(
+  $$
+    select *
+    from public.request_guest_profile_deletion(
+      '00000000-0000-4000-8000-000000000106',
+      'explicit'
+    )
+  $$,
+  'P0001',
+  'guest_reindex_in_flight',
+  'guest deletion waits for an active assistant execution lease'
+);
+update public.assistant_reindex_jobs
+set status = 'queued',
+    execution_started_at = null
+where profile_id = '00000000-0000-4000-8000-000000000106'
+  and document_id = '00000000-0000-4000-8000-000000000206';
 select ok(
   (
     select operation_id is not null
@@ -510,6 +623,64 @@ select ok(
   ),
   'guest deletion request creates an operation'
 );
+select is(
+  public.cancel_guest_assessment_jobs_for_deletion(
+    '00000000-0000-4000-8000-000000000106'
+  ),
+  1,
+  'guest deletion cancels queued assessment recalculation'
+);
+select is(
+  (
+    select status
+    from public.assistant_reindex_jobs
+    where profile_id = '00000000-0000-4000-8000-000000000106'
+      and document_id = '00000000-0000-4000-8000-000000000206'
+  ),
+  'stale',
+  'guest deletion cancels assistant reindex'
+);
+select is(
+  (
+    select error_code
+    from public.assistant_reindex_jobs
+    where profile_id = '00000000-0000-4000-8000-000000000106'
+      and document_id = '00000000-0000-4000-8000-000000000206'
+  ),
+  'guest_profile_deletion_requested',
+  'assistant reindex records the deletion reason'
+);
+select throws_ok(
+  $$
+    insert into public.assistant_reindex_jobs (
+      profile_id,
+      document_id,
+      requested_content_sha256,
+      status
+    )
+    values (
+      '00000000-0000-4000-8000-000000000106',
+      '00000000-0000-4000-8000-000000000206',
+      repeat('1', 64),
+      'queued'
+    )
+  $$,
+  'P0001',
+  'guest_profile_deletion_requested',
+  'guest deletion rejects late assistant reindex jobs'
+);
+insert into public.assessment_recalculation_jobs (
+  profile_id,
+  output_kind,
+  status
+)
+values (
+  '00000000-0000-4000-8000-000000000106',
+  'health_profile',
+  'queued'
+)
+on conflict (profile_id, output_kind) do update
+set status = 'queued';
 select is(
   (
     select status::text
