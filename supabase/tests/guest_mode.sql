@@ -1,5 +1,5 @@
 begin;
-select plan(55);
+select plan(56);
 
 select ok(
   (
@@ -104,6 +104,14 @@ select ok(
     'EXECUTE'
   ),
   'service role can finish an assistant reindex execution lease'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.renew_assistant_reindex_execution(uuid)'::regprocedure,
+    'EXECUTE'
+  ),
+  'service role can renew an assistant reindex execution lease'
 );
 select ok(
   has_function_privilege(
@@ -627,8 +635,8 @@ select is(
   public.cancel_guest_assessment_jobs_for_deletion(
     '00000000-0000-4000-8000-000000000106'
   ),
-  1,
-  'guest deletion cancels queued assessment recalculation'
+  0,
+  'worker-side assessment cancellation is idempotent after atomic deletion fencing'
 );
 select is(
   (

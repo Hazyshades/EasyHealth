@@ -357,6 +357,64 @@ begin
 end;
 $$;
 
+create or replace function public.renew_assistant_reindex_execution(p_job_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_profile_id uuid;
+  v_account_type text;
+  v_guest_deletion_state text;
+  v_guest_expires_at timestamptz;
+  v_status text;
+  v_execution_started_at timestamptz;
+begin
+  select profile_id
+  into v_profile_id
+  from public.assistant_reindex_jobs
+  where id = p_job_id;
+  if not found then
+    return false;
+  end if;
+
+  select account_type, guest_deletion_state, guest_expires_at
+  into v_account_type, v_guest_deletion_state, v_guest_expires_at
+  from public.profiles
+  where id = v_profile_id
+  for update;
+  if not found
+    or (
+      v_account_type = 'guest'
+      and (
+        v_guest_deletion_state is distinct from 'active'
+        or v_guest_expires_at is null
+        or v_guest_expires_at <= clock_timestamp()
+      )
+    ) then
+    return false;
+  end if;
+
+  select status, execution_started_at
+  into v_status, v_execution_started_at
+  from public.assistant_reindex_jobs
+  where id = p_job_id
+  for update;
+  if not found
+    or v_status <> 'processing'
+    or v_execution_started_at is null then
+    return false;
+  end if;
+
+  update public.assistant_reindex_jobs
+  set execution_started_at = clock_timestamp(),
+      updated_at = now()
+  where id = p_job_id;
+  return true;
+end;
+$$;
+
 create or replace function public.finish_assistant_reindex_execution(p_job_id uuid)
 returns void
 language sql
@@ -371,9 +429,13 @@ $$;
 
 revoke all on function public.begin_assistant_reindex_execution(uuid)
   from public, anon, authenticated;
+revoke all on function public.renew_assistant_reindex_execution(uuid)
+  from public, anon, authenticated;
 revoke all on function public.finish_assistant_reindex_execution(uuid)
   from public, anon, authenticated;
 grant execute on function public.begin_assistant_reindex_execution(uuid)
+  to service_role;
+grant execute on function public.renew_assistant_reindex_execution(uuid)
   to service_role;
 grant execute on function public.finish_assistant_reindex_execution(uuid)
   to service_role;
@@ -432,6 +494,57 @@ grant execute on function public.mark_assistant_reindex_job_stale(uuid)
   to service_role;
 grant execute on function public.fail_assistant_reindex_job(uuid, text)
   to service_role;
+
+create or replace function public.complete_assistant_reindex_job(p_job_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_profile_id uuid;
+  v_profile public.profiles%rowtype;
+begin
+  select profile_id
+  into v_profile_id
+  from public.assistant_reindex_jobs
+  where id = p_job_id;
+  if not found then
+    return;
+  end if;
+
+  select *
+  into v_profile
+  from public.profiles
+  where id = v_profile_id
+  for update;
+  if not found then
+    return;
+  end if;
+  if v_profile.account_type = 'guest'
+    and (
+      v_profile.guest_deletion_state is distinct from 'active'
+      or v_profile.guest_expires_at is null
+      or v_profile.guest_expires_at <= clock_timestamp()
+    ) then
+    return;
+  end if;
+
+  update public.assistant_reindex_jobs
+  set status = 'completed',
+      finished_at = now(),
+      execution_started_at = null,
+      updated_at = now()
+  where id = p_job_id
+    and status = 'processing';
+end;
+$$;
+
+revoke all on function public.complete_assistant_reindex_job(uuid)
+  from public, anon, authenticated;
+grant execute on function public.complete_assistant_reindex_job(uuid)
+  to service_role;
+
 create or replace function public.reconcile_assistant_reindex_jobs(
   p_before timestamptz default now() - interval '10 minutes',
   p_limit integer default 100
@@ -442,38 +555,98 @@ security definer
 set search_path = public
 as $$
 declare
-  v_reconciled integer;
+  v_reconciled integer := 0;
+  v_cutoff timestamptz := coalesce(p_before, now() - interval '10 minutes');
+  v_candidate record;
+  v_job public.assistant_reindex_jobs%rowtype;
+  v_profile public.profiles%rowtype;
 begin
   if coalesce(p_limit, 0) < 1 then
     raise exception using message = 'invalid_assistant_reindex_reconciliation_limit';
   end if;
 
-  with candidates as (
-    select id
+  for v_candidate in
+    select id, profile_id
     from public.assistant_reindex_jobs
     where status = 'processing'
       and claimed_at is not null
-      and claimed_at < coalesce(p_before, now() - interval '10 minutes')
+      and claimed_at < v_cutoff
       and (
         execution_started_at is null
-        or execution_started_at < coalesce(p_before, now() - interval '10 minutes')
+        or execution_started_at < v_cutoff
       )
     order by claimed_at, id
-    for update skip locked
     limit p_limit
-  ),
-  stale as (
-    update public.assistant_reindex_jobs as job
-    set status = 'stale',
+  loop
+    select *
+    into v_profile
+    from public.profiles
+    where id = v_candidate.profile_id
+    for update;
+    if not found then
+      continue;
+    end if;
+
+    select *
+    into v_job
+    from public.assistant_reindex_jobs
+    where id = v_candidate.id
+      and status = 'processing'
+      and claimed_at is not null
+      and claimed_at < v_cutoff
+      and (
+        execution_started_at is null
+        or execution_started_at < v_cutoff
+      )
+    for update;
+    if not found then
+      continue;
+    end if;
+
+    update public.assistant_reindex_jobs
+    set status = case
+          when v_job.attempts >= v_job.max_attempts then 'failed'
+          else 'stale'
+        end,
         finished_at = now(),
         execution_started_at = null,
         updated_at = now(),
         error_code = 'assistant_reindex_lease_expired'
-    from candidates
-    where job.id = candidates.id
-    returning 1
-  )
-  select count(*) into v_reconciled from stale;
+    where id = v_job.id;
+
+    if v_job.attempts < v_job.max_attempts
+      and (
+        v_profile.account_type <> 'guest'
+        or (
+          v_profile.guest_deletion_state = 'active'
+          and v_profile.guest_expires_at is not null
+          and v_profile.guest_expires_at > clock_timestamp()
+        )
+      ) then
+      insert into public.assistant_reindex_jobs (
+        profile_id,
+        document_id,
+        requested_content_sha256,
+        requested_write_generation,
+        status,
+        attempts,
+        max_attempts,
+        error_code
+      )
+      values (
+        v_job.profile_id,
+        v_job.document_id,
+        v_job.requested_content_sha256,
+        v_job.requested_write_generation,
+        'queued',
+        v_job.attempts,
+        v_job.max_attempts,
+        'assistant_reindex_lease_expired'
+      );
+    end if;
+
+    v_reconciled := v_reconciled + 1;
+  end loop;
 
   return v_reconciled;
 end;
@@ -579,6 +752,157 @@ revoke all on function public.cancel_guest_assessment_jobs_for_deletion(uuid)
   from public, anon, authenticated;
 grant execute on function public.cancel_guest_assessment_jobs_for_deletion(uuid)
   to service_role;
+
+create or replace function public.cancel_guest_assessment_jobs_after_deletion()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if old.guest_deletion_state is distinct from 'deleting'
+    and new.guest_deletion_state = 'deleting' then
+    perform public.cancel_guest_assessment_jobs_for_deletion(new.id);
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.cancel_guest_assessment_jobs_after_deletion()
+  from public, anon, authenticated;
+drop trigger if exists guest_assessment_recalculation_cancel
+  on public.profiles;
+create trigger guest_assessment_recalculation_cancel
+before update of guest_deletion_state on public.profiles
+for each row
+execute function public.cancel_guest_assessment_jobs_after_deletion();
+
+create or replace function public.complete_assessment_recalculation_job(
+  p_job_id uuid,
+  p_input_hash text,
+  p_payload jsonb,
+  p_source_document_ids uuid[],
+  p_freshness_policy_version text default 'eh-144.v1'
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_profile_id uuid;
+  v_profile public.profiles%rowtype;
+  job public.assessment_recalculation_jobs%rowtype;
+  version_id uuid;
+begin
+  select profile_id
+  into v_profile_id
+  from public.assessment_recalculation_jobs
+  where id = p_job_id;
+
+  if not found then
+    raise exception using message = 'assessment_job_not_claimed';
+  end if;
+
+  select *
+  into v_profile
+  from public.profiles
+  where id = v_profile_id
+  for update;
+
+  if not found then
+    raise exception using message = 'assessment_job_not_claimed';
+  end if;
+
+  select *
+  into job
+  from public.assessment_recalculation_jobs
+  where id = p_job_id
+  for update;
+
+  if not found or job.status <> 'processing' or job.lease_expires_at < now() then
+    raise exception using message = 'assessment_job_not_claimed';
+  end if;
+
+  if v_profile.account_type = 'guest'
+    and (
+      v_profile.guest_deletion_state is distinct from 'active'
+      or v_profile.guest_expires_at is null
+      or v_profile.guest_expires_at <= clock_timestamp()
+    ) then
+    if v_profile.guest_deletion_state is distinct from 'active' then
+      raise exception using message = 'guest_profile_deletion_requested';
+    end if;
+    raise exception using message = 'guest_profile_expired';
+  end if;
+
+  if p_input_hash !~ '^[0-9a-f]{64}$'
+     or jsonb_typeof(p_payload) <> 'object'
+     or p_freshness_policy_version !~ '^eh-144[.]v[0-9]+$'
+     or (
+       p_payload ? 'freshness_policy_version'
+       and p_payload ->> 'freshness_policy_version' <> p_freshness_policy_version
+     ) then
+    raise exception using message = 'invalid_assessment_snapshot';
+  end if;
+
+  insert into public.health_profile_assessment_versions (
+    profile_id,
+    input_hash,
+    payload,
+    source_document_ids,
+    freshness_policy_version
+  )
+  values (
+    job.profile_id,
+    p_input_hash,
+    p_payload,
+    coalesce(p_source_document_ids, '{}'),
+    p_freshness_policy_version
+  )
+  on conflict (profile_id, input_hash) do nothing
+  returning id into version_id;
+
+  if version_id is null then
+    select id into version_id
+    from public.health_profile_assessment_versions
+    where profile_id = job.profile_id and input_hash = p_input_hash;
+  end if;
+
+  insert into public.health_profile_assessment_event_receipts (dependency_event_id, assessment_version_id)
+  select event.id, version_id
+  from public.assessment_dependency_events event
+  left join public.health_profile_assessment_event_receipts receipt
+    on receipt.dependency_event_id = event.id
+  where event.profile_id = job.profile_id
+    and receipt.dependency_event_id is null
+    and event.created_at <= job.started_at
+  on conflict do nothing;
+
+  update public.assessment_recalculation_jobs
+  set status = case
+        when exists (
+          select 1
+          from public.assessment_dependency_events event
+          left join public.health_profile_assessment_event_receipts receipt
+            on receipt.dependency_event_id = event.id
+          where event.profile_id = job.profile_id
+            and receipt.dependency_event_id is null
+        ) then 'queued'::public.assessment_recalculation_status
+        else 'succeeded'::public.assessment_recalculation_status
+      end,
+      completed_at = now(),
+      lease_expires_at = null,
+      updated_at = now()
+  where id = job.id;
+
+  return version_id;
+end;
+$$;
+
+grant execute on function public.complete_assessment_recalculation_job(uuid, text, jsonb, uuid[], text)
+  to service_role;
+
 
 create or replace function public.claim_assessment_recalculation_job()
 returns table (job_id uuid, profile_id uuid, attempts integer, max_attempts integer, started_at timestamptz)

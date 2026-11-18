@@ -26,6 +26,10 @@ type DocumentRow = {
   write_generation: number | null;
 };
 
+const ASSISTANT_EXECUTION_RENEWAL_MS = 60_000;
+const ASSISTANT_EMBEDDING_TIMEOUT_MS = 5 * 60_000;
+const ASSISTANT_RENEWAL_CLEANUP_TIMEOUT_MS = 5_000;
+
 function safeErrorCode(error: unknown): string {
   const message = error instanceof Error ? error.message.toLowerCase() : "";
   if (message.includes("timeout"))
@@ -93,6 +97,18 @@ async function beginExecution(job: ReindexJob): Promise<void> {
   if (data !== true) throw new Error("assistant_reindex_source_stale");
 }
 
+async function renewExecution(job: ReindexJob): Promise<boolean> {
+  const { data, error } = await supabase.rpc(
+    "renew_assistant_reindex_execution",
+    { p_job_id: job.id },
+  );
+  if (error)
+    throw new Error(
+      `assistant reindex execution renewal failed: ${error.message}`,
+    );
+  return data === true;
+}
+
 async function finishExecution(job: ReindexJob): Promise<void> {
   const { error } = await supabase.rpc(
     "finish_assistant_reindex_execution",
@@ -109,6 +125,16 @@ async function complete(job: ReindexJob): Promise<void> {
   });
   if (error)
     throw new Error(`assistant reindex completion failed: ${error.message}`);
+
+  const { data: jobRow, error: jobError } = await supabase
+    .from("assistant_reindex_jobs")
+    .select("status")
+    .eq("id", job.id)
+    .maybeSingle();
+  if (jobError)
+    throw new Error(`assistant reindex completion read failed: ${jobError.message}`);
+  if (jobRow?.status !== "completed")
+    throw new Error("assistant_reindex_source_stale");
 }
 
 async function fail(job: ReindexJob, code: string): Promise<void> {
@@ -189,9 +215,36 @@ async function writeChunks(
   const started = Date.now();
   const chunks = chunkAssistantDocumentPages(pages);
   let executionStarted = false;
+  let renewalTimer: NodeJS.Timeout | undefined;
+  let renewalInFlight: Promise<void> | null = null;
+  let renewalError: unknown = null;
+  let embeddingTimeout: NodeJS.Timeout | undefined;
+  const executionAbortController = new AbortController();
+
   if (chunks.length > 0) {
     await beginExecution(job);
     executionStarted = true;
+    embeddingTimeout = setTimeout(() => {
+      executionAbortController.abort(new Error("assistant_embedding_timeout"));
+    }, ASSISTANT_EMBEDDING_TIMEOUT_MS);
+    renewalTimer = setInterval(() => {
+      if (renewalInFlight || renewalError) return;
+      renewalInFlight = renewExecution(job)
+        .then((active) => {
+          if (!active) {
+            const error = new Error("assistant_reindex_source_stale");
+            renewalError = error;
+            executionAbortController.abort(error);
+          }
+        })
+        .catch((error: unknown) => {
+          renewalError = error;
+          executionAbortController.abort(error);
+        })
+        .finally(() => {
+          renewalInFlight = null;
+        });
+    }, ASSISTANT_EXECUTION_RENEWAL_MS);
   }
 
   try {
@@ -206,7 +259,9 @@ async function writeChunks(
             values: chunks.map((chunk) => chunk.content),
             maxParallelCalls: 4,
             maxRetries: 1,
+            abortSignal: executionAbortController.signal,
           });
+    if (renewalError) throw renewalError;
     if (embeddings.embeddings.length !== chunks.length) {
       throw new Error("assistant_embedding_count_mismatch");
     }
@@ -243,6 +298,8 @@ async function writeChunks(
     if (publicationRow?.status !== "published") {
       throw new Error("assistant_reindex_source_stale");
     }
+    if (renewalError) throw renewalError;
+    await complete(job);
     return {
       chunks: Number(publicationRow.chunk_count ?? 0),
       inputTokens: embeddings.usage.tokens,
@@ -250,7 +307,19 @@ async function writeChunks(
       latencyMs: Date.now() - started,
     };
   } finally {
-    if (executionStarted) await finishExecution(job);
+    clearInterval(renewalTimer);
+    let renewalCleanupTimedOut = false;
+    if (renewalInFlight) {
+      await Promise.race([
+        renewalInFlight,
+        new Promise<void>((resolve) => {
+          setTimeout(resolve, ASSISTANT_RENEWAL_CLEANUP_TIMEOUT_MS);
+        }),
+      ]);
+      renewalCleanupTimedOut = renewalInFlight !== null;
+    }
+    clearTimeout(embeddingTimeout);
+    if (executionStarted && !renewalCleanupTimedOut) await finishExecution(job);
   }
 }
 
@@ -379,7 +448,6 @@ export async function processOneAssistantReindexJob(): Promise<boolean> {
       return true;
     }
     const result = await writeChunks(job, source.pages);
-    await complete(job);
     await logEmbedding(
       job,
       result.inputTokens,

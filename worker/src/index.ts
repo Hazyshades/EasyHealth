@@ -418,7 +418,7 @@ async function tick() {
   try {
     const reconciled = await reconcileAssistantReindexJobs();
     if (reconciled > 0) {
-      console.warn(`Reconciled ${reconciled} stale assistant reindex jobs`);
+      console.warn(`Requeued ${reconciled} abandoned assistant reindex jobs`);
     }
   } catch (error) {
     console.error(
