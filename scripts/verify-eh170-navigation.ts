@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { APP_NAV_ITEMS } from "@/lib/nav-items";
-import { isNavItemActive, resolvePageMeta } from "@/lib/navigation";
+import {
+  isNavItemActive,
+  resolvePageMeta,
+  type AppNavSection,
+} from "@/lib/navigation";
 
 const clinicianItems = APP_NAV_ITEMS.filter(
   (item) => item.section === "clinicians",
@@ -10,10 +14,30 @@ const mobileItems = APP_NAV_ITEMS.filter(
 );
 const hrefs = APP_NAV_ITEMS.map((item) => item.href);
 
+const sectionHrefs = (section: AppNavSection) =>
+  APP_NAV_ITEMS.filter((item) => item.section === section).map(
+    (item) => item.href,
+  );
+
 assert.deepEqual(
   clinicianItems.map((item) => item.href),
   ["/app/clinic", "/app/dictaphone"],
   "clinician navigation order stays explicit",
+);
+assert.deepEqual(
+  sectionHrefs("health"),
+  ["/app", "/app/profile", "/app/timeline", "/app/biomarkers"],
+  "Your Health navigation order stays explicit",
+);
+assert.deepEqual(
+  sectionHrefs("records"),
+  ["/app/assistant", "/app/documents", "/app/reports"],
+  "Your Records navigation order stays explicit",
+);
+assert.deepEqual(
+  sectionHrefs("learn"),
+  ["/app/knowledge", "/knowledge"],
+  "Learn navigation order stays explicit",
 );
 assert.ok(
   clinicianItems.every((item) => item.mobile === false),

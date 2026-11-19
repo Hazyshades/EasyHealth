@@ -15,15 +15,61 @@ import {
 import type { AppNavItem } from "@/lib/navigation";
 
 export const APP_NAV_ITEMS: AppNavItem[] = [
-  { href: "/app", label: "Dashboard", icon: LayoutDashboardIcon, exact: true },
-  { href: "/app/profile", label: "Health Profile", icon: HandHeartIcon },
-  { href: "/app/assistant", label: "Ask about records", icon: ScanHeartIcon },
-  { href: "/app/timeline", label: "Health Timeline", icon: ChartLineIcon },
-  { href: "/app/biomarkers", label: "Biomarkers", icon: SparklesIcon },
-  { href: "/app/knowledge", label: "Knowledge", icon: LibraryIcon },
-  { href: "/app/documents", label: "Documents", icon: FileDescriptionIcon },
-  { href: "/app/reports", label: "Reports", icon: BookIcon },
-  { href: "/knowledge", label: "Knowledge Base", icon: LibraryIcon },
+  {
+    href: "/app",
+    label: "Dashboard",
+    icon: LayoutDashboardIcon,
+    section: "health",
+    exact: true,
+  },
+  {
+    href: "/app/profile",
+    label: "Health Profile",
+    icon: HandHeartIcon,
+    section: "health",
+  },
+  {
+    href: "/app/assistant",
+    label: "Ask about records",
+    icon: ScanHeartIcon,
+    section: "records",
+  },
+  {
+    href: "/app/timeline",
+    label: "Health Timeline",
+    icon: ChartLineIcon,
+    section: "health",
+  },
+  {
+    href: "/app/biomarkers",
+    label: "Biomarkers",
+    icon: SparklesIcon,
+    section: "health",
+  },
+  {
+    href: "/app/knowledge",
+    label: "Knowledge",
+    icon: LibraryIcon,
+    section: "learn",
+  },
+  {
+    href: "/app/documents",
+    label: "Documents",
+    icon: FileDescriptionIcon,
+    section: "records",
+  },
+  {
+    href: "/app/reports",
+    label: "Reports",
+    icon: BookIcon,
+    section: "records",
+  },
+  {
+    href: "/knowledge",
+    label: "Knowledge Base",
+    icon: LibraryIcon,
+    section: "learn",
+  },
   {
     href: "/app/clinic",
     label: "Clinic",

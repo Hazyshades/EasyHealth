@@ -10,13 +10,23 @@ import { NavItem } from "@/components/ui/nav-item";
 
 const DESKTOP_NAV_GROUPS = [
   {
-    id: "personal",
-    label: null,
-    items: APP_NAV_ITEMS.filter((item) => item.section !== "clinicians"),
+    id: "your-health",
+    label: "Your Health",
+    items: APP_NAV_ITEMS.filter((item) => item.section === "health"),
   },
   {
-    id: "clinicians",
-    label: "For clinicians",
+    id: "your-records",
+    label: "Your Records",
+    items: APP_NAV_ITEMS.filter((item) => item.section === "records"),
+  },
+  {
+    id: "learn",
+    label: "Learn",
+    items: APP_NAV_ITEMS.filter((item) => item.section === "learn"),
+  },
+  {
+    id: "for-clinicians",
+    label: "For Clinicians",
     items: APP_NAV_ITEMS.filter((item) => item.section === "clinicians"),
   },
 ] as const;
