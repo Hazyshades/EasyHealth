@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CircleAlert, ChevronLeft, Download, RotateCcw } from "lucide-react";
+import { ChevronLeft, Download, LoaderCircle, RotateCcw } from "lucide-react";
 import { ContextBreadcrumbs } from "@/components/layout/context-breadcrumbs";
 import { PageHeader } from "@/components/layout/page-header";
 import { SurfaceCard } from "@/components/ui/surface-card";
@@ -82,7 +82,6 @@ import {
   type RejectionReasonCode,
 } from "@/lib/documents/observation-verification-workflow";
 import { summarizeBatchVerificationSelection } from "@/lib/documents/batch-verification-workspace";
-import { processingPollRemainingMs } from "@/lib/documents/processing-recovery";
 
 type DocumentMeta = {
   id: string;
@@ -244,7 +243,6 @@ type BootstrapPayload = {
   referral?: Record<string, unknown> | null;
   extracted_biomarkers?: ExtractedBiomarker[];
   review_data_error?: string | null;
-  workerOffline?: boolean;
   batch_verification?: BatchVerificationProjection;
   duplicate_candidates?: DuplicateCandidate[];
   file?: {
@@ -407,9 +405,6 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const [reprocessing, setReprocessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [workerOffline, setWorkerOffline] = useState(false);
-  const [processingStuck, setProcessingStuck] = useState(false);
-  const [retryingProcessing, setRetryingProcessing] = useState(false);
   const [retryingLoad, setRetryingLoad] = useState(false);
   const [changeHistory, setChangeHistory] = useState<
     readonly ObservationChangeEntry[]
@@ -418,7 +413,6 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
 
   /** Skip page-only fetch once after bootstrap seeds pageUrl for the same page. */
   const skipNextPageFetch = useRef(true);
-  const processingStartedAt = useRef<number | null>(null);
 
   const loadAuthoritativeObservations = useCallback(async () => {
     const res = await fetch(`/api/documents/${documentId}/observations`);
@@ -434,11 +428,6 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
       setReviewMode(meta.review_mode);
       setReviewModeLockedAt(meta.review_mode_locked_at);
       setReviewModeError(null);
-      setWorkerOffline(Boolean(data.workerOffline));
-      if (meta.processing_status !== "processing") {
-        processingStartedAt.current = null;
-        setProcessingStuck(false);
-      }
       setPages(data.pages ?? []);
       setInstrumentalFindings(data.instrumental_findings ?? []);
       setClinicalNote(data.clinical_note ?? null);
@@ -600,9 +589,6 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     setReviewMode(null);
     setReviewModeLockedAt(null);
     setReviewModeError(null);
-    processingStartedAt.current = null;
-    setWorkerOffline(false);
-    setProcessingStuck(false);
 
     (async () => {
       try {
@@ -620,45 +606,18 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     };
   }, [documentId, startPage, loadBootstrap]);
 
-  // Soft processing poll — do not blank the viewer
+  // Soft processing poll: do not blank the viewer
   useEffect(() => {
-    if (!doc || doc.processing_status !== "processing" || processingStuck) {
-      return;
-    }
-    if (workerOffline) {
-      setProcessingStuck(true);
-      return;
-    }
-
-    const startedAt = processingStartedAt.current ?? Date.now();
-    processingStartedAt.current = startedAt;
-    const remainingMs = processingPollRemainingMs(startedAt, Date.now());
-
-    if (remainingMs <= 0) {
-      setProcessingStuck(true);
+    if (!doc || doc.processing_status !== "processing") {
       return;
     }
 
     const timer = setInterval(() => {
       void loadBootstrap(currentPage, { soft: true }).catch(() => undefined);
     }, PROCESSING_POLL_INTERVAL_MS);
-    const timeout = setTimeout(
-      () => setProcessingStuck(true),
-      remainingMs,
-    );
 
-    return () => {
-      clearInterval(timer);
-      clearTimeout(timeout);
-    };
-  }, [
-    doc?.processing_status,
-    doc?.id,
-    loadBootstrap,
-    currentPage,
-    processingStuck,
-    workerOffline,
-  ]);
+    return () => clearInterval(timer);
+  }, [doc?.processing_status, doc?.id, loadBootstrap, currentPage]);
 
   // Page navigation only — not full document reload
   useEffect(() => {
@@ -1196,9 +1155,6 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   }
 
   async function handleReprocess(documentTypeOverride?: DocumentType) {
-    processingStartedAt.current = Date.now();
-    setWorkerOffline(false);
-    setProcessingStuck(false);
     setReprocessing(true);
     try {
       const res = await fetch(`/api/documents/${documentId}/reprocess`, {
@@ -1219,21 +1175,6 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     }
   }
 
-  async function handleRetryProcessing() {
-    processingStartedAt.current = Date.now();
-    setWorkerOffline(false);
-    setProcessingStuck(false);
-    setRetryingProcessing(true);
-    setError(null);
-    try {
-      await loadBootstrap(currentPage, { soft: true });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Status check failed");
-      setProcessingStuck(true);
-    } finally {
-      setRetryingProcessing(false);
-    }
-  }
 
   async function handleRetryLoad() {
     setRetryingLoad(true);
@@ -1361,9 +1302,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     doc.type_mismatch_warning &&
     suggestedType &&
     suggestedType !== documentType;
-  const showProcessingRecovery =
-    doc.processing_status === "processing" &&
-    (processingStuck || workerOffline);
+  const isDocumentProcessing = doc.processing_status === "processing";
 
   const reprocessButton = (
     <Button
@@ -1539,50 +1478,26 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
         />
       ) : null}
 
-      {showProcessingRecovery && (
+      {isDocumentProcessing ? (
         <div
           role="status"
           aria-live="polite"
-          className="flex flex-col gap-3 rounded-[14px] border border-amber-200 bg-amber-50 p-4 text-amber-950 sm:flex-row sm:items-center sm:justify-between"
+          aria-busy="true"
+          className="flex items-start gap-3 rounded-[14px] border border-teal-200 bg-teal-50 p-4 text-teal-950"
         >
-          <div className="flex min-w-0 items-start gap-3">
-            <CircleAlert
-              className="mt-0.5 size-5 shrink-0"
-              aria-hidden
-            />
-            <div className="min-w-0">
-              <p className="font-medium">
-                {workerOffline
-                  ? "Document processing is temporarily unavailable"
-                  : "Extraction is taking longer than expected"}
-              </p>
-              <p className="mt-1 max-w-[65ch] text-sm text-amber-900">
-                {workerOffline
-                  ? "The processing service has not checked in recently. Retry after the service is restored, or start a fresh processing attempt."
-                  : "You can check the status again or start a fresh processing attempt."}
-              </p>
-            </div>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            <Button
-              size="sm"
-              disabled={retryingProcessing || reprocessing}
-              onClick={handleRetryProcessing}
-            >
-              {retryingProcessing ? "Checking…" : "Retry status"}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={retryingProcessing || reprocessing}
-              onClick={() => handleReprocess()}
-            >
-              <RotateCcw className="size-4" aria-hidden />
-              {reprocessing ? "Reprocessing…" : "Reprocess document"}
-            </Button>
+          <LoaderCircle
+            className="mt-0.5 size-5 shrink-0 text-teal-700 motion-safe:animate-spin"
+            aria-hidden
+          />
+          <div className="min-w-0">
+            <p className="font-medium">Your document is being processed</p>
+            <p className="mt-1 max-w-[65ch] text-sm text-teal-900">
+              We are extracting the document contents. Larger files can take a
+              few minutes.
+            </p>
           </div>
         </div>
-      )}
+      ) : null}
 
       {showMismatchBanner && suggestedType ? (
         <TypeMismatchBanner
