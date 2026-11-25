@@ -30,3 +30,43 @@
     display: none;
   }
 }
+
+.product-section,.history-section{--product-body-font:Arial,Helvetica,sans-serif;background:var(--canvas)}
+.product-heading{max-width:760px;margin:0 auto 56px;text-align:center}
+.product-heading h2 em,.history-copy h2 em,.cta-box h2 em{color:var(--brand);font-weight:400}
+.product-heading>p,.history-section .history-copy>p:not(.kicker){max-width:58ch;margin:0 auto;color:#475569;font-family:var(--product-body-font);font-size:1.1rem}
+.product-showcase{display:grid;grid-template-columns:220px minmax(0,1fr);gap:24px}
+.product-tabs{display:none}
+.product-showcase.is-ready .product-tabs{display:flex;flex-direction:column;gap:10px;align-self:start}
+.product-tabs button{min-height:64px;padding:18px 22px;border:0;border-radius:8px;background:transparent;color:var(--ink);text-align:left;cursor:pointer;transition:background .18s,color .18s}
+.product-tabs button:hover{background:var(--brand-soft)}
+.product-tabs button[aria-selected="true"]{background:var(--brand);color:#fff;font-weight:700}
+.product-panels{min-width:0}
+.product-panel{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:18px}
+.product-panel[hidden]{display:none}
+.product-showcase:not(.is-ready){display:block}
+.product-showcase:not(.is-ready) .product-panel+.product-panel{margin-top:32px}
+.feature-art{min-width:0;margin:0;align-self:start}
+.feature-art img{display:block;width:100%;height:auto;border-radius:14px}
+.feature-art figcaption{margin-top:10px;color:#475569;font-size:.72rem;line-height:1.5}
+.feature-description{display:flex;flex-direction:column;min-width:0;padding:36px 30px;background:#fff;border-radius:14px}
+.feature-description h3{margin:0 0 18px;font-family:Georgia,serif;font-size:2.6rem;line-height:1.05;font-weight:400;letter-spacing:-.035em}
+.feature-description>p{margin:0 0 30px;font-size:1.05rem;color:#475569}
+.feature-description dl{margin:auto 0 0;font-family:var(--product-body-font)}
+.feature-description dl>div{display:grid;grid-template-columns:minmax(0,.75fr) minmax(0,1.25fr);gap:20px;padding:22px 0;border-top:1px solid var(--line);font-size:.85rem;line-height:1.55}
+.feature-description dl>div:last-child{padding-bottom:0}
+.feature-description dt{font-weight:700}
+.feature-description dd{margin:0;color:#475569}
+.product-controls{display:none}
+.product-showcase.is-ready .product-controls{grid-column:2;display:flex;gap:14px;align-items:center;padding-top:4px}
+.product-count{min-width:64px;font-size:.8rem;color:#475569;font-variant-numeric:tabular-nums}
+.product-progress{height:3px;flex:1;margin-right:32px;background:#e2e8f0;border-radius:3px;overflow:hidden}
+.product-progress>span{display:block;width:33.333333%;height:100%;background:var(--brand);transition:width .2s}
+.product-controls button{display:grid;place-items:center;width:44px;height:44px;flex-shrink:0;border:1px solid #cbd5e1;border-radius:50%;background:transparent;color:var(--brand);font-size:1.25rem;cursor:pointer}
+.product-controls button:hover{background:var(--brand-soft);border-color:var(--brand)}
+@media(max-width:1100px){.product-showcase{grid-template-columns:180px minmax(0,1fr);gap:18px}.product-panel{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr)}.feature-description{padding:28px 22px}.feature-description dl>div{grid-template-columns:1fr;gap:6px;padding:16px 0}}
+@media(max-width:760px){.product-heading{margin-bottom:32px;text-align:left}.product-heading>p{font-size:1rem}.product-showcase{grid-template-columns:1fr;gap:20px}.product-showcase.is-ready .product-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px}.product-tabs button{min-height:52px;padding:12px;font-size:.88rem}.product-panel{grid-template-columns:1fr;gap:12px}.feature-description{padding:28px 24px}.feature-description h3{font-size:2.2rem}.feature-description>p{font-size:1rem}.product-showcase.is-ready .product-controls{grid-column:1}.product-progress{margin-right:8px}}
+@media(prefers-reduced-motion:reduce){.product-tabs button,.product-progress>span{transition:none}}
+.history-copy .text-link{display:inline-block;margin-top:24px;font-family:var(--product-body-font);color:var(--brand)}
+.history-copy .text-link:hover{text-decoration:underline}
+@media(max-width:760px){.history-section .history-copy>p:not(.kicker){font-size:1rem}}

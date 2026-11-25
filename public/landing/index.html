@@ -26,7 +26,7 @@
         <a href="how-it-works/">How it works</a>
         <a href="#records">What we keep</a>
         <a href="#evidence">Source evidence</a>
-        <a href="#faq">FAQ</a>
+        <!-- <a href="#faq">FAQ</a> -->
         <a class="sign-in" data-app-link="signIn" href="/login">Log in</a>
         <a class="button nav-cta" data-app-link="start" href="/login">Start your record</a>
       </nav>
@@ -140,56 +140,91 @@
       </div>
     </section>
 
-    <section id="records" class="section warm">
+    <section id="records" class="section product-section" aria-labelledby="product-heading">
       <div class="shell">
-        <div class="section-head">
-          <p class="kicker brand-accent">What we keep</p>
-          <h2>Common documents, kept together.</h2>
-          <p>The landing page stays focused on the record types the product actually supports.</p>
+        <div class="product-heading">
+          <h2 id="product-heading">Your health record.<br><em>A clearer picture.</em></h2>
+          <p>Keep your documents and laboratory history together, and bring the context to your next consultation.</p>
         </div>
-        <div class="document-grid">
-          <div>Lab results</div>
-          <div>Imaging or instrumental reports</div>
-          <div>Consultation notes</div>
-          <div>Discharge summaries</div>
-          <div>Prescriptions</div>
-          <div>Referrals</div>
+        <div class="product-showcase" data-product-showcase>
+          <div class="product-tabs" aria-label="EasyHealth features">
+            <button id="feature-documents" type="button" data-feature="documents">Documents</button>
+            <button id="feature-clinicians" type="button" data-feature="clinicians">For Clinicians</button>
+            <button id="feature-biomarkers" type="button" data-feature="biomarkers">Biomarkers</button>
+          </div>
+          <div class="product-panels">
+            <article id="panel-documents" class="product-panel" data-feature-panel="documents">
+              <figure class="feature-art">
+                <img src="assets/feature-documents.webp" width="1122" height="1402" loading="lazy" decoding="async" alt="Documents illustration showing medical document categories and reviewing extracted details alongside the original.">
+                <figcaption>Illustrative interface. Supported document types are listed alongside.</figcaption>
+              </figure>
+              <div class="feature-description">
+                <h3>Documents</h3>
+                <p>Medical paperwork belongs in one place, with the original always close by.</p>
+                <dl>
+                  <div><dt>Six document types</dt><dd>Lab results, imaging and instrumental reports, consultation notes, discharge summaries, prescriptions, and referrals.</dd></div>
+                  <div><dt>Review the details</dt><dd>Check extracted information against the source document before accepting laboratory results.</dd></div>
+                  <div><dt>Return to the source</dt><dd>Keep document history alongside the information extracted from it.</dd></div>
+                </dl>
+              </div>
+            </article>
+            <article id="panel-clinicians" class="product-panel" data-feature-panel="clinicians">
+              <figure class="feature-art">
+                <img src="assets/feature-clinicians.webp" width="1122" height="1402" loading="lazy" decoding="async" alt="Clinician and patient consultation illustration with patient-approved access and clinician-reviewed notes.">
+                <figcaption>Illustrative interface, not a patient record.</figcaption>
+              </figure>
+              <div class="feature-description">
+                <h3>For Clinicians</h3>
+                <p>A clinic workspace for reviewing shared patient information and keeping consultations connected to their sources.</p>
+                <dl>
+                  <div><dt>Patient-controlled access</dt><dd>Patients grant access to a named clinician for specific resources. Access can expire or be revoked.</dd></div>
+                  <div><dt>Connected consultations</dt><dd>Keep consultation records and permitted source documents together without changing who owns the patient record.</dd></div>
+                  <div><dt>Clinician-reviewed notes</dt><dd>Recording requires consent. Transcript-based note drafts remain drafts until a clinician reviews and saves them.</dd></div>
+                </dl>
+              </div>
+            </article>
+            <article id="panel-biomarkers" class="product-panel" data-feature-panel="biomarkers">
+              <figure class="feature-art">
+                <img src="assets/feature-biomarkers.webp" width="1122" height="1402" loading="lazy" decoding="async" alt="Biomarkers illustration showing blood count, metabolic and lipid categories, with example LDL cholesterol results and original units over time.">
+                <figcaption>Illustrative data, not a patient record.</figcaption>
+              </figure>
+              <div class="feature-description">
+                <h3>Biomarkers</h3>
+                <p>Keep laboratory results organized by body system, with units, source context, and history.</p>
+                <dl>
+                  <div><dt>Across body systems</dt><dd>Blood counts, lipids, glucose metabolism, thyroid, liver, kidney, nutrient, and inflammation markers.</dd></div>
+                  <div><dt>Context before comparison</dt><dd>Review the measurement, units, and available reference information alongside its source.</dd></div>
+                  <div><dt>History you can revisit</dt><dd>Follow accepted results over time. Recognition depends on the measurement details in your document; not every result contributes to a Health Profile assessment.</dd></div>
+                </dl>
+              </div>
+            </article>
+          </div>
+          <div class="product-controls" aria-label="Feature navigation">
+            <span class="product-count" aria-live="polite">01 / 03</span>
+            <div class="product-progress" aria-hidden="true"><span></span></div>
+            <button type="button" data-feature-step="-1" aria-label="Previous feature">←</button>
+            <button type="button" data-feature-step="1" aria-label="Next feature">→</button>
+          </div>
         </div>
       </div>
     </section>
 
-    <section class="section soft">
+    <section id="biomarker-history" class="section soft history-section" aria-labelledby="history-heading">
       <div class="shell two-col reverse">
-        <div>
+        <div class="history-copy">
           <p class="kicker">Biomarker history</p>
-          <h2>Return to the record when you want the context again.</h2>
+          <h2 id="history-heading">Return to the record when you want the <em>context again.</em></h2>
           <p>EasyHealth keeps measurement history and document history together, so you can revisit the same material without rebuilding the timeline yourself.</p>
           <a class="text-link" data-app-link="start" href="/login">Begin with a document</a>
         </div>
-        <div class="timeline-card">
-          <div class="timeline-head">
-            <span>Biomarker history</span>
-            <small>Example only</small>
-          </div>
-          <div class="timeline-row">
-            <time>May</time>
-            <div><strong>Vitamin D</strong><small>Lab results · source linked</small></div>
-            <b>25 ng/mL</b>
-          </div>
-          <div class="timeline-row">
-            <time>Jan</time>
-            <div><strong>Vitamin D</strong><small>Lab results · source linked</small></div>
-            <b>22 ng/mL</b>
-          </div>
-          <div class="timeline-row">
-            <time>Oct</time>
-            <div><strong>Lab results</strong><small>Added to your record</small></div>
-            <b>View source</b>
-          </div>
-        </div>
+        <figure class="feature-art">
+          <img src="assets/biomarker-history.webp" width="1122" height="1402" loading="lazy" decoding="async" alt="Illustrative Vitamin D history showing May and January results linked to lab documents, with an October document entry.">
+          <figcaption>Illustrative data, not a patient record.</figcaption>
+        </figure>
       </div>
     </section>
 
+    <!--
     <section class="section parchment">
       <div class="shell">
         <div class="section-head center narrow">
@@ -205,7 +240,9 @@
         </div>
       </div>
     </section>
+    -->
 
+    <!--
     <section class="section soft">
       <div class="shell two-col metrics">
         <div>
@@ -219,7 +256,9 @@
         </div>
       </div>
     </section>
+    -->
 
+    <!--
     <section id="faq" class="section parchment">
       <div class="shell two-col">
         <div>
@@ -235,11 +274,12 @@
         </div>
       </div>
     </section>
+    -->
 
     <section class="section cta-section">
       <div class="shell cta-box">
         <p class="kicker brand-accent">Life is short?</p>
-        <h2>Give your health documents a calmer place to live.</h2>
+        <h2>Give your health documents <em>a calmer place to live.</em></h2>
         <div class="action-row center-actions">
           <a class="button primary" data-app-link="start" href="/login">Start your record</a>
           <a class="button secondary" href="#top">Back to top</a>

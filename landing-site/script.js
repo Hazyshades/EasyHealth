@@ -6,6 +6,48 @@
     if (typeof destination === "string" && destination.trim()) link.href = destination;
   });
 
+  document.querySelectorAll("[data-product-showcase]").forEach((showcase) => {
+    const tabList = showcase.querySelector(".product-tabs");
+    const tabs = [...showcase.querySelectorAll("[data-feature]")];
+    const panels = [...showcase.querySelectorAll("[data-feature-panel]")];
+    let activeIndex = 0;
+    tabList.setAttribute("role", "tablist");
+    const selectFeature = (index, focus = false) => {
+      activeIndex = (index + tabs.length) % tabs.length;
+      tabs.forEach((tab, position) => {
+        const selected = position === activeIndex;
+        tab.setAttribute("aria-selected", String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+        panels[position].hidden = !selected;
+      });
+      showcase.querySelector(".product-count").textContent =
+        `${String(activeIndex + 1).padStart(2, "0")} / ${String(tabs.length).padStart(2, "0")}`;
+      showcase.querySelector(".product-progress > span").style.width =
+        `${((activeIndex + 1) / tabs.length) * 100}%`;
+      if (focus) tabs[activeIndex].focus();
+    };
+    tabs.forEach((tab, index) => {
+      tab.setAttribute("role", "tab");
+      tab.setAttribute("aria-controls", panels[index].id);
+      panels[index].setAttribute("role", "tabpanel");
+      panels[index].setAttribute("aria-labelledby", tab.id);
+      panels[index].tabIndex = 0;
+      tab.addEventListener("click", () => selectFeature(index));
+      tab.addEventListener("keydown", (event) => {
+        const direction = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+        if (direction || event.key === "Home" || event.key === "End") {
+          event.preventDefault();
+          selectFeature(event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : activeIndex + direction, true);
+        }
+      });
+    });
+    showcase.querySelectorAll("[data-feature-step]").forEach((button) => {
+      button.addEventListener("click", () => selectFeature(activeIndex + Number(button.dataset.featureStep)));
+    });
+    selectFeature(0);
+    showcase.classList.add("is-ready");
+  });
+
   const menuButton = document.querySelector(".menu-button");
   const menuLabel = menuButton?.querySelector(".sr-only");
   const navigation = document.querySelector("#site-nav");

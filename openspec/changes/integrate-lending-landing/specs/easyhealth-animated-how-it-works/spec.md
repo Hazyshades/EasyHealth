@@ -99,6 +99,40 @@ The landing SHALL preserve keyboard-operable navigation, visible focus indicator
 - **WHEN** JavaScript is disabled
 - **THEN** headings, explanatory copy, navigation links, CTAs, and the workflow page remain readable and usable even though optional animation is unavailable
 
+### Requirement: Product feature showcase
+
+The home landing's `#records` section SHALL present Documents, For Clinicians, and Biomarkers in a manually switched showcase. Desktop SHALL pair feature navigation with an illustrative content panel and a description; mobile SHALL stack the visual and description beneath the feature choices. Illustrative content SHALL not impersonate a live patient record.
+
+The home landing's Supported content, Built around review, and FAQ sections are retained as HTML comments and SHALL NOT render. The home navigation SHALL NOT expose a link to its commented-out FAQ; the How it works page retains its own FAQ and links to that local section.
+
+#### Scenario: Visitor switches features
+
+- **WHEN** a visitor selects a feature, uses the previous/next buttons, or navigates tabs with arrow keys, Home, or End
+- **THEN** exactly one panel is visible, the selected tab and position indicator agree, and keyboard tab navigation moves focus to the selected feature
+
+#### Scenario: Product limits remain explicit
+
+- **WHEN** a visitor reads the clinician or biomarker panel
+- **THEN** the copy states patient-approved named-clinician access and the distinction between recorded laboratory results and assessment eligibility
+
+#### Scenario: Supplied feature artwork
+
+- **WHEN** a visitor selects Documents, For Clinicians, or Biomarkers
+- **THEN** the corresponding user-supplied artwork is served as a local WebP with its full aspect ratio preserved, descriptive alternative text, and an illustrative-content caption; accompanying HTML retains the product's supported capabilities
+
+#### Scenario: Feature showcase without JavaScript
+
+- **WHEN** JavaScript is unavailable
+- **THEN** all three descriptions remain readable in document order and inactive switching controls are not displayed
+
+#### Scenario: Biomarker history presentation
+
+- **WHEN** a visitor reaches the Biomarker history section
+- **THEN** its heading and explanatory text use the same typography as the product showcase introduction, with an indigo italic heading accent
+- **AND** the supplied Vitamin D history artwork replaces the illustrative HTML timeline, preserves its full aspect ratio, and is labelled as illustrative data
+- **AND** the Begin with a document link retains its application entry destination
+
+
 ### Requirement: Source and runtime landing mirrors remain complete
 
 The repository SHALL keep the authored `landing-site/` mirror and served `public/landing/` mirror synchronized for every retained page and asset. Every local HTML reference SHALL resolve to a tracked repository file, and the root entry SHALL not depend on the external source workspace at runtime.
