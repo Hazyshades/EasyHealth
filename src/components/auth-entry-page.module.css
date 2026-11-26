@@ -146,6 +146,7 @@
 
 .googleButton,
 .emailButton,
+.guestButton,
 .primaryLink {
   display: inline-flex;
   width: 100%;
@@ -172,6 +173,7 @@
 
 .googleButton:hover:not(:disabled),
 .emailButton:hover:not(:disabled),
+.guestButton:hover:not(:disabled),
 .primaryLink:hover {
   transform: translateY(-2px);
 }
@@ -180,8 +182,20 @@
   background: #3b3834;
 }
 
+.guestButton {
+  border: 1px solid var(--clay);
+  background: transparent;
+  color: var(--clay-dark);
+  cursor: pointer;
+}
+
+.guestButton:hover:not(:disabled) {
+  background: var(--paper-deep);
+}
+
 .googleButton:disabled,
-.emailButton:disabled {
+.emailButton:disabled,
+.guestButton:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
@@ -203,6 +217,19 @@
   flex: 1;
   background: var(--line);
   content: "";
+}
+
+.guestForm {
+  display: grid;
+  gap: 8px;
+}
+
+.guestNote {
+  margin: 0;
+  color: #625d55;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  text-align: center;
 }
 
 .form {

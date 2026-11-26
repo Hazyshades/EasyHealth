@@ -26,6 +26,7 @@ function AuthEntryContent() {
   } = useAuth();
   const [email, setEmail] = useState("");
   const [emailSending, setEmailSending] = useState(false);
+  const [guestLoginStarting, setGuestLoginStarting] = useState(false);
   const [profileRetrying, setProfileRetrying] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const profileReady = profileStatus === "ready";
@@ -110,6 +111,31 @@ function AuthEntryContent() {
 
             {!authUserId ? (
               <>
+                <form
+                  action="/api/auth/guest-login"
+                  method="post"
+                  onSubmit={() => setGuestLoginStarting(true)}
+                  className={styles.guestForm}
+                >
+                  <button
+                    type="submit"
+                    className={styles.guestButton}
+                    disabled={loading || guestLoginStarting}
+                  >
+                    {guestLoginStarting
+                      ? "Opening shared demo…"
+                      : "Continue as guest"}
+                  </button>
+                  <p className={styles.guestNote}>
+                    This uses a shared demo profile. Changes are visible to
+                    other visitors.
+                  </p>
+                </form>
+
+                <div className={styles.divider} aria-hidden="true">
+                  <span>or</span>
+                </div>
+
                 <button
                   type="button"
                   className={styles.googleButton}

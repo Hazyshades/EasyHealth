@@ -27,6 +27,8 @@ export function resolveAuthCallbackPath(input: {
 
 export function getAuthCallbackErrorMessage(reason: string | null): string {
   switch (reason) {
+    case "guest-login":
+      return "Guest sign-in is temporarily unavailable. Try again.";
     case "auth-exchange":
       return "That sign-in link is invalid or expired. Request a new link to continue.";
     case "profile-setup":
