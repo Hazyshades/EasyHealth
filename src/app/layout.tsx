@@ -7,7 +7,7 @@ import { AuthProvider } from "@/components/auth-provider";
 const figtree = localFont({
   src: "./fonts/Figtree-Variable.woff2",
   variable: "--font-figtree",
-  weight: "400 600",
+  weight: "300 900",
   display: "swap",
 });
 
