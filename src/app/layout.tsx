@@ -1,19 +1,20 @@
 import type { Metadata } from "next";
-import { Figtree, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import "driver.js/dist/driver.css";
 import { AuthProvider } from "@/components/auth-provider";
 
-const figtree = Figtree({
+const figtree = localFont({
+  src: "./fonts/Figtree-Variable.woff2",
   variable: "--font-figtree",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: "400 600",
   display: "swap",
 });
 
-const geistMono = Geist_Mono({
+const geistMono = localFont({
+  src: "./fonts/GeistMono-Variable.woff2",
   variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: "100 900",
   display: "swap",
 });
 
