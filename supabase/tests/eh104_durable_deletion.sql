@@ -1,6 +1,6 @@
 -- EH-104: durable document deletion schema, tombstone, retention, and writer fences.
 begin;
-select plan(60);
+select plan(62);
 
 select has_table(
   'public',
@@ -197,6 +197,21 @@ values (
   'complete'
 )
 on conflict do nothing;
+insert into public.document_duplicate_audit_events (
+  profile_id,
+  left_document_id,
+  action
+) values (
+  '00000000-0000-0000-0000-000000104001',
+  '00000000-0000-0000-0000-000000104002',
+  'detected'
+);
+select throws_ok(
+  $$delete from public.document_duplicate_audit_events
+    where left_document_id = '00000000-0000-0000-0000-000000104002'::uuid$$,
+  'duplicate_audit_events_are_append_only',
+  'duplicate audit event rejects direct deletion outside document purge'
+);
 
 insert into public.reports (
   id,
@@ -706,6 +721,15 @@ select is(
    where id = '00000000-0000-0000-0000-000000104002'),
   0,
   'finalizer removes the tombstoned document'
+);
+select is(
+  (select count(*)::int
+   from public.document_duplicate_audit_events
+   where left_document_id = '00000000-0000-0000-0000-000000104002'
+      or right_document_id = '00000000-0000-0000-0000-000000104002'
+      or archived_document_id = '00000000-0000-0000-0000-000000104002'),
+  0,
+  'authorized document purge removes its duplicate-audit events'
 );
 select is(
   (select status
