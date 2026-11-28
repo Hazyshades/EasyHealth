@@ -162,11 +162,15 @@ the empty-list stability interval.
       document-active guard on document child/job/attempt/storage-intent/AI and
       publication writes; pgTAP covers rejected child and AI writes after tombstone
       when the database target is available.
-- [ ] **Duplicate-audit purge regression:** `pnpm test:eh104-durable-deletion-db`
-      must prove direct deletion remains rejected and the finalizer can purge
-      document-linked duplicate audit rows only inside `eh104.deletion_purge`.
-      Local execution is blocked: Supabase CLI/DB and Docker are unavailable;
-      require a clean CI database pass before production migration rollout.
+- [x] **Duplicate-audit purge regression:** CI run
+      [#46133584216](https://github.com/Hazyshades/EasyHealth/actions/runs/46133584216),
+      database job step `Run EH-104 durable deletion database contract`, passed.
+      It proves direct deletion is rejected outside the purge context and the
+      finalizer purges document-linked audit rows only inside
+      `eh104.deletion_purge`. Local execution remains unavailable (no Supabase CLI,
+      local database, or Docker). The overall CI run failed separately at
+      `Verify every test suite is workflow-reachable` due unrelated EH-170
+      coverage omissions. Migration `107` is not applied to production.
 - [ ] **Document delete:** owner DELETE returns `202` and the operation status
       route is owner-scoped; repeated DELETE returns the same operation id on a
       target with migrations `079`–`082`.
